@@ -1,0 +1,39 @@
+# /etc/logrotate.d/proftpd
+
+/var/log/proftpd/{{ proftpd_log_file }}
+/var/log/proftpd/{{ proftpd_controls_log_file }}
+{
+	weekly
+	missingok
+	rotate {{ proftpd_log_rotate_count }}
+	compress
+	delaycompress
+	notifempty
+	create {{ proftpd_log_create_mode }} {{ proftpd_log_create_owner }} {{ proftpd_log_create_group }}
+	sharedscripts
+	postrotate
+		# reload could be not sufficient for all logs, a restart is safer
+		invoke-rc.d proftpd restart 2>/dev/null >/dev/null || true
+	endscript
+}
+
+/var/log/proftpd/{{ proftpd_xferlog_file }}
+/var/log/proftpd/{{ proftpd_xferreport_file }}
+{
+	monthly
+	missingok
+	rotate {{ proftpd_xferlog_rotate_count }}
+	compress
+	delaycompress
+	notifempty
+	create {{ proftpd_xferlog_create_mode }} {{ proftpd_xferlog_create_owner }} {{ proftpd_xferlog_create_group }}
+	sharedscripts
+	prerotate
+	endscript
+	postrotate
+		# reload could be not sufficient for all logs, a restart is safer
+		invoke-rc.d proftpd restart 2>/dev/null >/dev/null || true
+		# run ftpstats on past transfer log
+		ftpstats -a -r -l {{ proftpd_xferstats_interval }} -d -h -f {{ proftpd_xferlog_file }}.1 2>/dev/null >/{{ proftpd_xferreport_file }} || true
+	endscript
+}

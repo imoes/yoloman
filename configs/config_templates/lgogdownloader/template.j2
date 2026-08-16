@@ -1,0 +1,214 @@
+# ============================================================================
+# lgogdownloader Configuration Template
+# ============================================================================
+# This template generates command-line arguments for lgogdownloader based on
+# the provided Ansible variables. It is self-documenting: every setting is
+# preceded by a comment describing its purpose, sourced from the schema.
+#
+# Usage: Ensure all variables below are defined in your Ansible inventory or
+# group_vars, or rely on the defaults embedded in each variable reference.
+# ============================================================================
+
+# -- Base Download Directory
+# Description: Base directory for downloading games and files.
+--directory {{ (directory | default('/var/lib/lgogdownloader/games')) }}
+
+# -- Network and Performance Settings
+# Description: Number of parallel download threads.
+--threads {{ (threads | default(4)) }}
+
+# Description: Connection timeout in seconds.
+--timeout {{ (timeout | default(10)) }}
+
+# Description: Maximum number of retries on failed downloads.
+--retries {{ (retries | default(3)) }}
+
+# Description: Limit download rate to value in kB. 0 = unlimited.
+--limit-rate {{ (limit_rate | default(0)) }}
+
+# -- Download Preferences
+# Description: Select which installers are downloaded. Examples: windows, linux, all, w+l.
+--platform {{ (platform | default('w+l')) }}
+
+# Description: Select which language installers are downloaded. Examples: en, de, fr, all, en+fr.
+--language {{ (language | default('en')) }}
+
+# Description: Select what to download/list/repair. Examples: basegame_installers, dlc, all, bi+be.
+--include {{ (include | default('all')) }}
+
+# -- Subdirectory Structure
+# Description: Subdirectory template for installers.
+--subdir-installers {{ (subdir_installers | default('%gamename%')) }}
+
+# Description: Subdirectory for extras.
+--subdir-extras {{ (subdir_extras | default('extras')) }}
+
+# Description: Subdirectory for patches.
+--subdir-patches {{ (subdir_patches | default('patches')) }}
+
+# Description: Subdirectory for language packs.
+--subdir-language-packs {{ (subdir_language_packs | default('languagepacks')) }}
+
+# Description: Subdirectory for DLCs.
+--subdir-dlc {{ (subdir_dlc | default('dlc/%dlcname%')) }}
+
+# Description: Subdirectory for the main game directory.
+--subdir-game {{ (subdir_game | default('%gamename%')) }}
+
+# -- Cache and XML Settings
+# Description: Enable caching of game details.
+--use-cache
+
+# Description: How long cached game details are valid (in minutes).
+--cache-valid {{ (cache_valid | default(2880)) }}
+
+# Description: Automatically create/update XML database.
+--automatic-xml-creation
+
+# Description: Directory for GOG XML files. Empty string uses default cache location.
+--xml-directory {{ (xml_directory | default('')) }}
+
+# -- File Handling Defaults
+# Description: Respect umask when creating files/directories.
+--respect-umask
+
+# Description: Save serials if found in installers.
+--save-serials
+
+# Description: Save game details as JSON.
+--save-game-details-json
+
+# Description: Save product information as JSON.
+--save-product-json
+
+# Description: Save game logos.
+--save-logo
+
+# Description: Save game icons.
+--save-icon
+
+# Description: Save changelogs.
+--save-changelogs
+
+# -- Cloud Save Settings
+# Description: List of cloud save paths to include. Empty list includes all.
+# Note: If the list is empty or undefined, this flag is omitted to default to "include all".
+{% if cloud_whitelist | default([]) | length > 0 %}
+--cloud-whitelist {{ cloud_whitelist | default([]) | join(' ') }}
+{% endif %}
+
+# Description: List of cloud save paths to exclude.
+# Note: If the list is empty or undefined, this flag is omitted.
+{% if cloud_blacklist | default([]) | length > 0 %}
+--cloud-blacklist {{ cloud_blacklist | default([]) | join(' ') }}
+{% endif %}
+
+# Description: Download or Upload cloud saves even if they're up-to-date.
+{% if cloud_force | default(False) %}
+--cloud-force
+{% endif %}
+
+# -- Blacklist and Ignorelist Files
+# Description: Path to blacklist file. Empty string uses XDG_CONFIG_HOME default.
+{% if blacklist_path | default('') | length > 0 %}
+--blacklist {{ blacklist_path | default('') }}
+{% endif %}
+
+# Description: Path to ignorelist file. Empty string uses XDG_CONFIG_HOME default.
+{% if ignorelist_path | default('') | length > 0 %}
+--ignorelist {{ ignorelist_path | default('') }}
+{% endif %}
+
+# -- Verification and Security
+# Description: Don't use remote XML for repair.
+{% if no_remote_xml | default(False) %}
+--no-remote-xml
+{% endif %}
+
+# Description: Don't verify authenticity of SSL certificates.
+{% if insecure | default(False) %}
+--insecure
+{% endif %}
+
+# Description: Path to CA certificate bundle in PEM format. Empty string uses system default.
+{% if cacert | default('') | length > 0 %}
+--cacert {{ cacert | default('') }}
+{% endif %}
+
+# -- Logging and Output
+# Description: Save report of downloaded/repaired files to specified file. Empty string uses default log.
+{% if report_path | default('') | length > 0 %}
+--report {{ report_path | default('') }}
+{% endif %}
+
+# Description: Message verbosity level. -1=Less, 0=Default, 1=Verbose, 2=Debug.
+--verbosity {{ (verbosity | default(0)) }}
+
+# -- Output Formatting
+# Description: Disable unicode output.
+--no-unicode
+
+# Description: Disable colored output.
+--no-color
+
+# -- Other Options
+# Description: Don't create subdirectories for extras, patches and language packs.
+{% if no_subdirectories | default(False) %}
+--no-subdirectories
+{% endif %}
+
+# Description: Don't use duplicate handler for installers.
+{% if no_duplicate_handling | default(False) %}
+--no-duplicate-handling
+{% endif %}
+
+# Description: Include games that have been set hidden in account page.
+{% if include_hidden_products | default(False) %}
+--include-hidden-products
+{% endif %}
+
+# Description: Check for available free space before starting download.
+{% if check_free_space | default(True) %}
+--check-free-space
+{% endif %}
+
+# Description: Don't check the hashes of the files whose size matches that on the server.
+{% if size_only | default(False) %}
+--size-only
+{% endif %}
+
+# Description: Don't use fast status check. Slower but catches corrupted files.
+{% if no_fast_status_check | default(False) %}
+--no-fast-status-check
+{% endif %}
+
+# Description: Trust API responses for extras to be correct.
+{% if trust_api_for_extras | default(False) %}
+--trust-api-for-extras
+{% endif %}
+
+# Description: Don't try to detect supported platforms from game shelf.
+{% if no_platform_detection | default(False) %}
+--no-platform-detection
+{% endif %}
+
+# -- Galaxies/Experimental (Optional, only if galaxy_mode is enabled)
+# Description: Enable Galaxy experimental mode options.
+{% if galaxy_mode | default(False) %}
+# Galaxy Mode is ENABLED. The following settings apply only when galaxy_mode is true.
+
+# Description: Game regex or product_id/build for galaxy install.
+--galaxy-install {{ (galaxy_game_regex | default('')) }}
+
+# Description: Select which platform for Galaxy (w, m, l).
+--galaxy-platform {{ (galaxy_platform | default('w')) }}
+
+# Description: Select which language for Galaxy.
+--galaxy-language {{ (galaxy_language | default('en')) }}
+
+# Description: Select architecture for Galaxy (32, 64).
+--galaxy-arch {{ (galaxy_arch | default('x64')) }}
+
+# Description: Subdirectory for galaxy install.
+--subdir-galaxy-install {{ (galaxy_subdir | default('%install_dir%')) }}
+{% endif %}

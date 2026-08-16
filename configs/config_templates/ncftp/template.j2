@@ -1,0 +1,79 @@
+# NcFTP User Preferences Configuration
+# Global defaults for NcFTP client operations.
+# This template is self-documenting: every directive is preceded by
+# its schema description to make the configuration explainable by inspection.
+
+# Default connection mode: 'anonymous' for anonymous login or 'usr' for username/password prompt.
+# Value must be one of: anonymous, usr
+Default open mode: {{ default_open_mode | default('anonymous') }}
+
+# The password sent during anonymous FTP login, typically an email address.
+# Used only when `default_open_mode` is 'anonymous'.
+Anonymous password: {{ anonymous_password | default('user@example.com') }}
+
+# Whether to insert blank lines between command prompts in the visual interface.
+# Enhances readability in terminal-based interfaces.
+Blank lines between cmds: {{ blank_lines_between_cmds | default(true) }}
+
+# Max size in bytes for the transfer log file at ~/.ncftp/log.
+# Set to 0 to disable logging entirely.
+User log size: {{ user_log_size | default(1048576) }}
+
+# Maximum number of site entries to retain in the bookmarks file.
+# Older or excess bookmarks may be dropped to stay within this limit.
+Max bookmarks to save: {{ max_bookmarks_to_save | default(100) }}
+
+# The command-line pager program used for displaying long lists or files.
+# Common values: less, more, cat
+pager: {{ pager | default('less') }}
+
+# Identifier for the type of progress meter to display during downloads/uploads.
+# Controls the visual feedback during transfers.
+Progress meter: {{ progress_meter | default('1') }}
+
+# Level of remote server messages: 'startup' shows server banner, 'none' hides extra chatter.
+# Other levels may include 'chdir' or 'all' depending on version.
+Remote messages: {{ remote_messages | default('startup') }}
+
+# Local directory path to cd to upon NcFTP startup.
+# Empty string means current directory.
+Startup in Local Dir: {{ startup_in_local_dir | default('') }}
+
+# Whether to display the startup splash screen and tips.
+# Set to false to suppress initial informational messages.
+Startup messages: {{ startup_messages | default(true) }}
+
+# Whether to preserve remote file modification times on downloaded local files.
+# Ensures local file timestamps match the source server.
+File timestamps: {{ file_timestamps | default(true) }}
+
+# Enable visual/curses mode. Set to false to force line mode.
+# Useful for environments without full terminal support.
+Screen graphics: {{ screen_graphics | default(true) }}
+
+# A list of predefined site bookmarks for quick access.
+# Each item is a map containing: name, host, remote_dir, user, password, transfer_type, passive_ftp.
+# These bookmarks are injected directly into the configuration.
+{% for bookmark in bookmarks | default([]) | list %}
+# --- Bookmark: {{ bookmark.name | default('unnamed') }} ---
+# Bookmark name: The friendly label for this site entry.
+Bookmark name: {{ bookmark.name | default('unnamed') }}
+
+# Host: The FTP server hostname or IP address.
+Host: {{ bookmark.host | default('localhost') }}
+
+# Remote directory: The initial remote path to navigate to upon connection.
+Remote directory: {{ bookmark.remote_dir | default('/') }}
+
+# User: The username to authenticate with. Defaults to 'anonymous' if empty.
+User: {{ bookmark.user | default('anonymous') }}
+
+# Password: The password for the specified user. Empty if anonymous.
+Password: {{ bookmark.password | default('') }}
+
+# Transfer type: 'binary' or 'ascii' transfer mode for files in this bookmark.
+Transfer type: {{ bookmark.transfer_type | default('binary') }}
+
+# Passive FTP: Enable passive mode for this bookmark. Recommended for NAT/firewall environments.
+Passive FTP: {{ bookmark.passive_ftp | default(true) }}
+{% endfor %}

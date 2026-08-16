@@ -1,0 +1,54 @@
+# nilfs_cleanerd.conf - configuration file of NILFS cleaner daemon.
+#
+# This file contains GC parameters that are loaded when cleaner gets
+# started. You can force them to be reloaded by sending a HUP signal
+# to the cleaner process.
+#
+# Each parameter is declared with a keyword-value pair or a directive
+# with no argument. Lines beginning with "#" are ignored. For
+# details, see the man page of nilfs_cleanerd.conf(5).
+
+# Protection period in seconds.
+protection_period {{ protection_period | default(3600) }}
+
+# Minimum number of clean segments (0 = continuous cleaning, > 0 = pause cleaning until less segments are available). Can be a percentage or absolute value with suffix.
+min_clean_segments {{ min_clean_segments | default('10%') }}
+
+# Maximum number of clean segments. Can be a percentage or absolute value with suffix.
+max_clean_segments {{ max_clean_segments | default('20%') }}
+
+# Clean segment check interval in seconds.
+clean_check_interval {{ clean_check_interval | default(10) }}
+
+# Segment selection policy.
+selection_policy {{ selection_policy | default('timestamp') }}
+
+# The maximum number of segments to be cleaned at a time.
+nsegments_per_clean {{ nsegments_per_clean | default(2) }}
+
+# The maximum number of segments to be cleaned at a time if clean segments < min_clean_segments.
+mc_nsegments_per_clean {{ mc_nsegments_per_clean | default(4) }}
+
+# Cleaning interval in seconds.
+cleaning_interval {{ cleaning_interval | default(5) }}
+
+# Cleaning interval in seconds if clean segments < min_clean_segments.
+mc_cleaning_interval {{ mc_cleaning_interval | default(1) }}
+
+# Retry interval in seconds.
+retry_interval {{ retry_interval | default(60) }}
+
+# Specify the minimum number of reclaimable blocks in a segment before it can be cleaned. Can be a percentage or absolute value with suffix.
+min_reclaimable_blocks {{ min_reclaimable_blocks | default('10%') }}
+
+# Specify the minimum number of reclaimable blocks in a segment before it can be cleaned if clean segments < min_clean_segments. Can be a percentage or absolute value with suffix.
+mc_min_reclaimable_blocks {{ mc_min_reclaimable_blocks | default('1%') }}
+
+# Enable set_suinfo ioctl if supported (needed for min_reclaimable_blocks).
+use_set_suinfo {{ use_set_suinfo | default(True) }}
+
+# Use mmap when reading segments if supported.
+use_mmap {{ use_mmap | default(True) }}
+
+# Log priority. Supported priorities are emerg, alert, crit, err, warning, notice, info, and debug.
+log_priority {{ log_priority | default('info') }}

@@ -1,0 +1,70 @@
+# Scaphandre Configuration File
+# This configuration controls the behavior of Scaphandre, an OpenTelemetry-based energy metering agent.
+# It supports multiple subcommands for different output formats and metrics sources.
+
+# ---------------------------------------------------------------------------
+# Global Options
+# ---------------------------------------------------------------------------
+
+# The subcommand to execute: stdout, json, prometheus, qemu, prometheus-push
+command: {{ command | default('stdout') }}
+
+# Verbosity level. 0 for normal, increase with -v flags
+verbosity: {{ verbosity | default(0) }}
+
+# Do not print the header to standard output
+no_header: {{ no_header | default(false) | lower }}
+
+# The sensor module to use to gather energy consumption metrics
+sensor: {{ sensor | default('rapl') }}
+
+# Maximum memory size in KB for storing energy consumption of each domain (RAPL only)
+sensor_buffer_per_domain_max_kb: {{ sensor_buffer_per_domain_max_kb | default(1) }}
+
+# Maximum memory size in KB for storing energy consumption of each socket (RAPL only)
+sensor_buffer_per_socket_max_kb: {{ sensor_buffer_per_socket_max_kb | default(1) }}
+
+# Tell Scaphandre it is running in a virtual machine
+vm: {{ vm | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# Prometheus HTTP Exporter (active when command='prometheus')
+# ---------------------------------------------------------------------------
+
+{% if (command | default('stdout')) == 'prometheus' %}
+# Address to bind the Prometheus HTTP endpoint
+prometheus_bind_address: {{ prometheus_bind_address | default('0.0.0.0') }}
+
+# Port to expose the Prometheus HTTP endpoint
+prometheus_port: {{ prometheus_port | default(9200) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Prometheus Push Gateway (active when command='prometheus-push')
+# ---------------------------------------------------------------------------
+
+{% if (command | default('stdout')) == 'prometheus-push' %}
+# URL of the Prometheus Push Gateway
+pushgateway_url: {{ pushgateway_url | default('http://localhost:9091') }}
+
+# Job name for pushing metrics to the Push Gateway
+pushgateway_job: {{ pushgateway_job | default('scaphandre') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# JSON Output (active when command='json')
+# ---------------------------------------------------------------------------
+
+{% if (command | default('stdout')) == 'json' %}
+# Path to write JSON metrics. Empty or omit for stdout
+json_output_path: {{ json_output_path | default('') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# QEMU/KVM Virtual Machine Metrics (active when command='qemu')
+# ---------------------------------------------------------------------------
+
+{% if (command | default('stdout')) == 'qemu' %}
+# Folder to expose QEMU-KVM VM metrics
+qemu_metrics_path: {{ qemu_metrics_path | default('/var/run/scaphandre/qemu-metrics') }}
+{% endif %}

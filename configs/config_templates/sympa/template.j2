@@ -1,0 +1,32 @@
+#
+# Apache >> 2.4 configuration for Sympa
+#
+# Self-documenting template: every directive is preceded by its schema description.
+# Variable defaults are inline to guarantee safe rendering even if the variable is unset.
+#
+
+<IfModule mod_proxy_fcgi.c>
+    # Document root path for static content
+    Alias /static-sympa {{ static_content_path | default('/usr/share/sympa/static_content') }}
+    <Directory {{ static_content_path | default('/usr/share/sympa/static_content') }}>
+        Require all granted
+    </Directory>
+
+    # Path to CSS assets
+    Alias /css-sympa {{ css_path | default('/var/lib/sympa/css') }}
+    <Directory {{ css_path | default('/var/lib/sympa/css') }}>
+        Require all granted
+    </Directory>
+
+    # Path to picture assets
+    Alias /pictures-sympa {{ pictures_path | default('/var/lib/sympa/pictures') }}
+    <Directory {{ pictures_path | default('/var/lib/sympa/pictures') }}>
+        Require all granted
+    </Directory>
+
+    # Hostname for the wwsympa FCGI socket
+    <Location /wws>
+       SetHandler "proxy:unix:/run/sympa/wwsympa.socket|fcgi://{{ wwsympa_hostname | default('localhost') }}"
+       Require all granted
+    </Location>
+</IfModule>

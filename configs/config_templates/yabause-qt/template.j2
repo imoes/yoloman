@@ -1,0 +1,104 @@
+# ============================================================================
+# Yabause-Qt Configuration Template
+# ============================================================================
+# This template generates command-line arguments for the Yabause-Qt emulator.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and mapping to the Ansible variable name.
+#
+# Variable Resolution:
+#   All variables use Jinja2's `default()` filter to ensure safe rendering
+#   even if the variable is undefined or null in the Ansible inventory.
+#   See schema description for expected types and default values.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# BIOS Configuration
+# ---------------------------------------------------------------------------
+# bios_path: Path to the Sega Saturn BIOS file (ROM image).
+#            If null/undefined, the emulator may use internal BIOS or require a game.
+#            Default: None
+{% if (bios_path | default(None)) is not none %}
+--bios={{ bios_path | default(None) }}
+{% endif %}
+
+# no_bios_enabled: If true, uses the emulated BIOS instead of loading a BIOS file.
+#                  Mutually exclusive with bios_path in typical usage.
+#                  Default: False
+{% if no_bios_enabled | default(False) %}
+--no-bios
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Game / Disc Image Configuration
+# ---------------------------------------------------------------------------
+# iso_path: Path to the game disc image file (ISO or BIN/CUE format).
+#           If null/undefined, no disc is loaded automatically.
+#           Default: None
+{% if (iso_path | default(None)) is not none %}
+--iso={{ iso_path | default(None) }}
+{% endif %}
+
+# cdrom_device: Path to the physical CD-ROM device node (e.g., /dev/cdrom).
+#               If null/undefined, the physical drive is not used.
+#               Default: None
+{% if (cdrom_device | default(None)) is not none %}
+--cdrom={{ cdrom_device | default(None) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Homebrew Binary Configuration
+# ---------------------------------------------------------------------------
+# binary_path: Path to a homebrew binary file to load into memory.
+#              If null/undefined, no binary is loaded.
+#              Default: None
+{% if (binary_path | default(None)) is not none %}
+--binary={{ binary_path | default(None) }}{% if (binary_address | default(None)) is not none %}:{{ binary_address | default(None) }}{% endif %}
+{% endif %}
+
+# binary_address: Alternative load/run address for the binary file (e.g., '0x06004000').
+#                 Used only if binary_path is set.
+#                 Default: None
+# Note: Handled inline above within the --binary directive.
+
+# ---------------------------------------------------------------------------
+# Display and Input Preferences
+# ---------------------------------------------------------------------------
+# fullscreen_enabled: If true, starts the emulator in fullscreen mode.
+#                     Default: False
+{% if fullscreen_enabled | default(False) %}
+--fullscreen
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Audio Configuration
+# ---------------------------------------------------------------------------
+# no_sound_enabled: If true, disables sound output by setting the sound core to dummy.
+#                   Default: False
+{% if no_sound_enabled | default(False) %}
+--no-sound
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Performance Settings
+# ---------------------------------------------------------------------------
+# autoframeskip_enabled: If true, enables automatic frame skipping or limiting.
+#                        Default: False
+{% if autoframeskip_enabled | default(False) %}
+--autoframeskip=1
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Autostart and Savestate Configuration
+# ---------------------------------------------------------------------------
+# autostart_enabled: If true, automatically starts emulation when the program launches.
+#                    Default: False
+{% if autostart_enabled | default(False) %}
+--autostart
+{% endif %}
+
+# autoload_slot: The savestate slot number to automatically load when starting.
+#                Used in conjunction with autostart.
+#                Default: None
+{% if (autoload_slot | default(None)) is not none %}
+--autoload={{ autoload_slot | default(None) }}
+{% endif %}

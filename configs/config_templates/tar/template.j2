@@ -1,0 +1,78 @@
+# ==============================================================================
+# GNU Tar Configuration Template
+# ==============================================================================
+# This template generates a structured configuration (or wrapper script preamble)
+# for GNU Tar operations. Since 'tar' is a stateless command-line utility,
+# this configuration defines default behaviors and common invocation parameters.
+#
+# Self-documenting: Every variable used here has a default value to prevent
+# rendering failures when not provided by the caller.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Operation mode: create (-c), extract (-x), list (-t), append (-r), diff (-d), update (-u).
+# Maps to tar's --create, --extract, --list, etc.
+# Default: 'create'
+# ------------------------------------------------------------------------------
+{% if (mode | default('create')) == 'create' %}OPERATION_MODE: create
+{% elif (mode | default('create')) == 'extract' %}OPERATION_MODE: extract
+{% elif (mode | default('create')) == 'list' %}OPERATION_MODE: list
+{% elif (mode | default('create')) == 'append' %}OPERATION_MODE: append
+{% elif (mode | default('create')) == 'diff' %}OPERATION_MODE: diff
+{% elif (mode | default('create')) == 'update' %}OPERATION_MODE: update
+{% else %}OPERATION_MODE: create
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Archive file path. Maps to tar's --file or -f option.
+# Default: '/tmp/archive.tar'
+# ------------------------------------------------------------------------------
+ARCHIVE_PATH: {{ (archive_path | default('/tmp/archive.tar')) | string }}
+
+# ------------------------------------------------------------------------------
+# Source files or directories to operate on. Maps to the positional arguments of tar.
+# Default: ['/etc']
+# ------------------------------------------------------------------------------
+{% for source in (sources | default(['/etc'])) %}SOURCE: {{ source | string }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Compression method. Maps to -z (gzip), -j (bzip2), -J (xz), etc.
+# Valid values: gzip, bzip2, xz, none.
+# Default: 'none'
+# ------------------------------------------------------------------------------
+{% if (compression | default('none')) == 'gzip' %}COMPRESSION: gzip
+{% elif (compression | default('none')) == 'bzip2' %}COMPRESSION: bzip2
+{% elif (compression | default('none')) == 'xz' %}COMPRESSION: xz
+{% else %}COMPRESSION: none
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Verbose output. Maps to tar's --verbose or -v.
+# Default: False
+# ------------------------------------------------------------------------------
+VERBOSE: {{ (verbose | default(False)) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Archive format. Maps to tar's --format option.
+# Valid values: gnu, posix, ustar, v7.
+# Default: 'posix'
+# ------------------------------------------------------------------------------
+FORMAT: {{ (format | default('posix')) | string }}
+
+# ------------------------------------------------------------------------------
+# Preserve permissions during extraction. Maps to --preserve-permissions or -p.
+# Only applicable if operation_mode is 'extract'.
+# Default: False
+# ------------------------------------------------------------------------------
+{% if (preserve_permissions | default(False)) %}PRESERVE_PERMISSIONS: true
+{% else %}PRESERVE_PERMISSIONS: false
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Exclude patterns. Maps to tar's --exclude option.
+# Each item in the list is a glob pattern.
+# Default: []
+# ------------------------------------------------------------------------------
+{% for pattern in (exclude_patterns | default([])) %}EXCLUDE: {{ pattern | string }}
+{% endfor %}

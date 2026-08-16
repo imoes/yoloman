@@ -1,0 +1,233 @@
+# ============================================================
+# ikvswitch Configuration Template
+# ============================================================
+# This template generates a shell variable script for the
+# ikvswitch virtual network switch simulator. All variables
+# are self-documented with their schema description and safe
+# defaults provided inline.
+# ============================================================
+
+##################################
+### Definition of IP addresses ###
+##################################
+
+# IP address of the host. This is mandatory for the NAT of
+# all of the virtual network servers through the host.
+# Default: 10.2.34.71
+MY_IP={{ MY_IP | default('10.2.34.71') }}
+
+# This will be used as /19
+# Default: 192.168
+HOST_VIRTUAL_SUBNET_START_PREFIX={{ HOST_VIRTUAL_SUBNET_START_PREFIX | default('192.168') }}
+
+# Default: 96
+HOST_VIRTUAL_SUBNET_END_PREFIX={{ HOST_VIRTUAL_SUBNET_END_PREFIX | default(96) }}
+
+# Constructed variable: The /19 subnet base IP.
+# Uses shell expansion to combine the start and end prefixes.
+HOST_VIRTUAL_SUBNET_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.${HOST_VIRTUAL_SUBNET_END_PREFIX}
+
+# HOST_VIRTUAL_SUBNET_NET1 is used between the host-server
+# and the internet switch. HOST_VIRTUAL_SUBNET_NET3 is used
+# for BGP-2-the-host IP on the local loopback of each switch.
+# HOST_VIRTUAL_SUBNET_NET2 is currently unused.
+# Constructed via shell expansion.
+HOST_VIRTUAL_SUBNET_NET1=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ HOST_VIRTUAL_SUBNET_END_PREFIX | default(96) }}
+HOST_VIRTUAL_SUBNET_NET2=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ HOST_VIRTUAL_SUBNET_NET2_SUFFIX | default(97) }}
+HOST_VIRTUAL_SUBNET_NET3=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ HOST_VIRTUAL_SUBNET_NET3_SUFFIX | default(98) }}
+
+#############################
+### General configuration ###
+#############################
+
+# MAC address prefix of the NICs.
+# ikswitch will iterate from 0x10 to 0xFF for
+# the end of the MAC.
+# Default: 00:22:22:dd:ee
+MAC_PREFIX={{ MAC_PREFIX | default('00:22:22:dd:ee') }}
+
+# How many servers per rack should ikvswitch handle, plus 2
+# as the first 2U are for the leaf switches. So if one needs
+# enough room for 13 servers, write 15 here.
+# Default: 23
+NUM_U={{ NUM_U | default(23) }}
+
+# Start of the AS numbering for all switches. ikvswitch will
+# start iterating from that value, and assign one AS to each
+# of the virtual switches, using 8 consecutive values.
+# Default: 65500
+AS_START={{ AS_START | default(65500) }}
+
+# VLAN number to add to ensX interfaces in leaf switches.
+# This is necessary, otherwise, we have dhcp0 in conflict
+# with BGP-to-host, ie eth0 is down on all VMs connected
+# to odd leaf switches because of the dhcp0 bridge.
+# Default: 10
+LEAF_TO_VM_VLAN_NUM={{ LEAF_TO_VM_VLAN_NUM | default(10) }}
+
+##################
+### DHCP setup ###
+##################
+
+# To where should the DHCP relay forward its requests?
+# This is typically a PXE server, ie: DHCP + tftp, to
+# boot-up your VMs. This is in fact the next-server
+# option in isc-dhcpd, as we're using that instead of
+# a DHCP relay.
+# Default: 192.168.100.2
+DHCP_RELAY_DESTINATION={{ DHCP_RELAY_DESTINATION | default('192.168.100.2') }}
+
+# Constructed DHCP subnet IPs.
+# Default suffixes: 110, 111, 112
+DHCPD_SUBNET_1=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ DHCPD_SUBNET_1_SUFFIX | default(110) }}
+DHCPD_SUBNET_2=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ DHCPD_SUBNET_2_SUFFIX | default(111) }}
+DHCPD_SUBNET_3=${HOST_VIRTUAL_SUBNET_START_PREFIX}.{{ DHCPD_SUBNET_3_SUFFIX | default(112) }}
+
+#########################
+### VLANs definitions ###
+#########################
+
+# These are for L2 connectivity over VLANs, for example
+# for OpenStack network nodes.
+# These VLANs setup will be done only in the rack1,
+# in the leaf1 switch. VMs willing to connect to it,
+# will have to use a single interface, as there's no
+# free software MLAG implementation available in Linux.
+# In the real world, we use bonding.
+
+# Number of VLAN subnets.
+# Default: 5
+VLAN_SUBNETS_NUM={{ VLAN_SUBNETS_NUM | default(5) }}
+
+# Start IP suffix for VLAN subnets.
+# Default: 113
+VLAN_SBUNETS_START_IP={{ VLAN_SBUNETS_START_IP | default(113) }}
+
+# Constructed VLAN subnet IPs using shell arithmetic.
+VLAN_SBUNET1_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.${VLAN_SBUNETS_START_IP}
+VLAN_SBUNET2_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.$(( ${VLAN_SBUNETS_START_IP} + 1 ))
+VLAN_SBUNET3_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.$(( ${VLAN_SBUNETS_START_IP} + 2 ))
+VLAN_SBUNET4_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.$(( ${VLAN_SBUNETS_START_IP} + 3 ))
+VLAN_SBUNET5_PREFIX=${HOST_VIRTUAL_SUBNET_START_PREFIX}.$(( ${VLAN_SBUNETS_START_IP} + 4 ))
+
+# Start VLAN number. If we set 11, like default, and
+# VLAN_SUBNETS_NUM is 5, then ikvswitch will create
+# VLAN interfaces from VLAN 11 to VLAN 15.
+# Default: 11
+VLAN_START={{ VLAN_START | default(11) }}
+
+#####################################
+### Internet to host nic prefixes ###
+#####################################
+
+# Host dummynet NIC interface name: ik host nic
+# ik host nic
+# Default: ikhn
+HOST_DUMMYNET_IFNAME_PREFIX={{ HOST_DUMMYNET_IFNAME_PREFIX | default('ikhn') }}
+
+# Name of the bridge that the "internet" VM connects to: ik host bridge
+# ik host bridge
+# Default: ikhb
+HOST_BRIDGE_NAME_PREFIX={{ HOST_BRIDGE_NAME_PREFIX | default('ikhb') }}
+
+# TAP interfaces of "internet" VM name: ik host tap
+# ik host tap
+# Default: ikht
+HOST_VM_TAP_IFNAME_PREFIX={{ HOST_VM_TAP_IFNAME_PREFIX | default('ikht') }}
+
+######################################################################
+### "Internet" to spine, both sides, networking prefix definitions ###
+######################################################################
+
+# Host TAP NIC interface name: ik internet nic
+# ik host nic
+# Default: ikin
+INTERNET_TO_SPINE_TAP_IFNAME_PREFIX={{ INTERNET_TO_SPINE_TAP_IFNAME_PREFIX | default('ikin') }}
+
+# Name of the bridge that the "internet" VM connects to: ik internet bridge
+# Default: ikib
+INTERNET_TO_SPINE_BRIDGE_PREFIX={{ INTERNET_TO_SPINE_BRIDGE_PREFIX | default('ikib') }}
+
+# TAP interfaces of spine VMs connecting to "internet" name: ik internet tap
+# ik host tap
+# Default: ikit
+SPINE_TO_INTERNET_TAP_PREFIX={{ SPINE_TO_INTERNET_TAP_PREFIX | default('ikit') }}
+
+####################################################
+### Spine to leaf, spine side, networking prefix ###
+####################################################
+
+# Name of the spine interface connected to leafs
+# ik spine tap
+# Default: ikst
+SPINE_VM_TAP_IFNAME_PREFIX={{ SPINE_VM_TAP_IFNAME_PREFIX | default('ikst') }}
+
+# Name of the bridge connecting the spine to the leafs switches
+# ik spine bridge
+# Default: iksb
+SPINE_BRIDGE_PREFIX={{ SPINE_BRIDGE_PREFIX | default('iksb') }}
+
+##########################################################
+### Leaf switch to spine, leaf side, networking prefix ###
+##########################################################
+
+# Name of the TAP interface of the leaf connected to the spines
+# ik leaf tap
+# Default: iklt
+LEAF_TO_SPINE_TAP_PREFIX={{ LEAF_TO_SPINE_TAP_PREFIX | default('iklt') }}
+
+# Name of the TAP interface prefix to connect to servers
+# Default: ikls
+LEAF_TO_SERVERS_TAP_PREFIX={{ LEAF_TO_SERVERS_TAP_PREFIX | default('ikls') }}
+
+# Name of the bridge connecting leaf to servers
+# Default: ikeb
+LEAF_TO_SERVER_BRIDGE_PREFIX={{ LEAF_TO_SERVER_BRIDGE_PREFIX | default('ikeb') }}
+
+###############
+### VM TAPs ###
+###############
+
+# Name of the bridge that VMs connects to
+# Default: ikvm
+HOST_TAP_NAME_PREFIX={{ HOST_TAP_NAME_PREFIX | default('ikvm') }}
+
+###################
+### IPMI bridge ###
+###################
+
+# Name of the IPMI bridge.
+# Default: bripmi
+HOST_IPMI_BRIDGE_NAME={{ HOST_IPMI_BRIDGE_NAME | default('bripmi') }}
+
+# IP address of the IPMI bridge.
+# Default: 192.168.200.1
+HOST_IPMI_IP={{ HOST_IPMI_IP | default('192.168.200.1') }}
+
+# Name of the VM TAP NIC for IPMI.
+# Default: ikipmi
+VM_TAP_NIC={{ VM_TAP_NIC | default('ikipmi') }}
+
+####################
+### Other params ###
+####################
+
+# Name of the Debian release to use
+# Default: trixie
+DEBIAN_RELEASE={{ DEBIAN_RELEASE | default('trixie') }}
+
+# Debian mirror to use for debootstrap
+# Default: http://deb.debian.org/debian
+DEBIAN_MIRROR={{ DEBIAN_MIRROR | default('http://deb.debian.org/debian') }}
+
+# Debian security mirror to use for debootstrap
+# Default: http://security.debian.org/debian-security
+DEBIAN_SECURITY_MIRROR={{ DEBIAN_SECURITY_MIRROR | default('http://security.debian.org/debian-security') }}
+
+# Root password to set inside VMs
+# Default: changeme
+VM_ROOT_PASS={{ VM_ROOT_PASS | default('changeme') }}
+
+# Prefix of MAC addresses inside switch VMs
+# Default: 08:00:27:06:AC:
+GUEST_MAC_ADDRESS_PREFIX={{ GUEST_MAC_ADDRESS_PREFIX | default('08:00:27:06:AC:') }}

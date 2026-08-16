@@ -1,0 +1,61 @@
+# nmon configuration wrapper
+# This script generates and executes the nmon command based on provided parameters.
+
+# Path to the nmon binary
+NMON_BIN="/usr/bin/nmon"
+
+# Output directory for nmon capture files
+OUTPUT_DIR="{{ values.output_dir }}"
+
+# Prefix for the generated output filename
+OUTPUT_PREFIX="{{ values.output_prefix }}"
+
+# Capture mode: true enables file output (-f), false runs interactive only
+CAPTURE_MODE={{ values.capture_mode }}
+
+# Refresh interval in seconds (-s)
+REFRESH_INTERVAL={{ values.refresh_interval }}
+
+# Number of refreshes (-c). 0 means infinite/until killed
+MAX_COUNT={{ values.max_count }}
+
+# Enable top processes display in CSV (-t)
+INCLUDE_TOP_PROCS={{ values.include_top_procs }}
+
+# Enable capacity planning mode (-x) which implies -fdt -s900 -c96 unless overridden
+CAPACITY_PLANNING={{ values.capacity_planning }}
+
+# Max disks to monitor (-d)
+MAX_DISKS={{ values.max_disks }}
+
+# Execute nmon
+{% if CAPTURE_MODE %}
+{% if CAPACITY_PLANNING %}
+# Capacity planning mode overrides standard intervals for 15-min chunks
+{% set cmd_opts = "-fdt -s 900 -c 96" %}
+{% else %}
+# Standard capture mode
+{% set cmd_opts = "-f" %}
+{% if INCLUDE_TOP_PROCS %}
+{% set cmd_opts = cmd_opts ~ " -t" %}
+{% endif %}
+{% if REFRESH_INTERVAL != 2 %}
+{% set cmd_opts = cmd_opts ~ " -s " ~ REFRESH_INTERVAL %}
+{% endif %}
+{% if MAX_COUNT != 0 %}
+{% set cmd_opts = cmd_opts ~ " -c " ~ MAX_COUNT %}
+{% endif %}
+{% if MAX_DISKS != 256 %}
+{% set cmd_opts = cmd_opts ~ " -d " ~ MAX_DISKS %}
+{% endif %}
+{% endif %}
+{% if not OUTPUT_DIR %}
+OUTPUT_DIR="/tmp"
+{% endif %}
+{% set full_cmd = NMON_BIN ~ " " ~ cmd_opts ~ " -r " ~ OUTPUT_PREFIX ~ " -f"
+# Run the command
+exec ${NMON_BIN} ${cmd_opts} -r ${OUTPUT_PREFIX} -f
+{% else %}
+# Interactive mode
+${NMON_BIN}
+{% endif %}

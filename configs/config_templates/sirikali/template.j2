@@ -1,0 +1,59 @@
+# ==============================================================================
+# SiriKali Configuration Wrapper
+# ==============================================================================
+# This configuration file serves as a static manifest for SiriKali CLI/Backend
+# options. SiriKali is primarily a GUI application; however, these parameters
+# can be passed via command line arguments or consumed by a wrapper script
+# or systemd service environment file.
+#
+# This template ensures that all options have explicit defaults matching the
+# application's behavior, preventing undefined variable errors during
+# Ansible rendering.
+# ==============================================================================
+
+# Path to a volume to be auto-unlocked/mounted.
+# Corresponds to CLI flag: -d <dir>
+# If empty, no specific volume directory is auto-mounted.
+auto_mount_dir: "{{ auto_mount_dir | default('') }}"
+
+# Tool to use to open the default file manager when interacting with mounted volumes.
+# Corresponds to CLI flag: -m <tool>
+file_manager_tool: "{{ file_manager_tool | default('xdg-open') }}"
+
+# Backend to retrieve the decryption password from.
+# Supported backends: internal, stdin, keyfile, kwallet, libsecret.
+# Corresponds to CLI flag: -b <backend>
+pw_backend: "{{ pw_backend | default('internal') }}"
+
+# Default mode for opening volumes.
+# 'rw' for read/write access, 'ro' for read-only access.
+# Corresponds to CLI flag: -k <val>
+default_mode: "{{ default_mode | default('rw') }}"
+
+# Full path of the mount point to be used when the volume is opened from CLI.
+# If empty, the default mount point mechanism is used.
+# Corresponds to CLI flag: -z <path>
+mount_point: "{{ mount_point | default('') }}"
+
+# Volume Configuration File Path.
+# Specifies a custom configuration file to use when opening a volume from CLI.
+# Corresponds to CLI flag: -c <path>
+volume_config_path: "{{ volume_config_path | default('') }}"
+
+# Inactivity timeout (in minutes) to dismount the volume when mounted from CLI.
+# If 0, the timeout is disabled.
+# Corresponds to CLI flag: -i <min>
+inactive_timeout: "{{ inactive_timeout | default(30) }}"
+
+# Mount options to pass to the mount command when mounting a volume from CLI.
+# Corresponds to CLI flag: -o <val>
+mount_options: "{{ mount_options | default('') }}"
+
+# Path to a keyfile used for unlocking volumes.
+# Corresponds to CLI flag: -f <path>
+keyfile_path: "{{ keyfile_path | default('') }}"
+
+# Start the application in headless mode without showing the GUI.
+# Useful for automation or background tasks.
+# Corresponds to CLI flag: -e
+headless_mode: "{{ headless_mode | default(false) }}"

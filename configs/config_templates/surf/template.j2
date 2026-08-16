@@ -1,0 +1,233 @@
+# Profiles: /etc/snapd/surf.conf
+# This file configures the Snap Daemon to apply the following security profile to
+# the Surf web browser snap package.
+# It uses the Snap Security Framework (similar to AppArmor) to confine the application.
+
+# =============================================================================
+# Profile Definition
+# =============================================================================
+# Defines the path to the application binary and the base profile to inherit.
+# The `@{HOME}` and `@{pid}` variables are expanded at runtime by the snapd engine.
+
+# {name} = "surf"
+# {version} = "latest"
+
+# =============================================================================
+# Tunables and Abstractions
+# =============================================================================
+# Include global tunables (variables like @{HOME}, @{pid}, @{multiarch}).
+#include <tunables/global>
+
+/usr/bin/surf {
+
+  # ---------------------------------------------------------------------------
+  # Abstractions: Reusable blocks of common permissions.
+  # These allow the app to access standard system resources without explicit
+  # path-by-path rules for every file.
+  # ---------------------------------------------------------------------------
+
+  # Access to X11 server for GUI rendering.
+  #include <abstractions/X>
+
+  # Access to PulseAudio/PipeWire for audio output.
+  #include <abstractions/audio>
+
+  # Basic file access (e.g., /etc/passwd, /etc/group, locale data).
+  #include <abstractions/base>
+
+  # Access to Enchant spell-checking library configuration and dictionaries.
+  #include <abstractions/enchant>
+
+  # Access to D-Bus session bus for desktop integration.
+  #include <abstractions/dconf>
+
+  # Access to system fonts.
+  #include <abstractions/fonts>
+
+  # Access to freedesktop.org standard directories and MIME types.
+  #include <abstractions/freedesktop.org>
+
+  # Access to GNOME-specific settings and icons.
+  #include <abstractions/gnome>
+
+  # Access to Mesa 3D graphics libraries.
+  #include <abstractions/mesa>
+
+  # Name Service Switch (NSS) access (DNS, hosts, etc.).
+  #include <abstractions/nameservice>
+
+  # Access to system SSL/TLS certificates.
+  #include <abstractions/ssl_certs>
+
+  # Surf-specific GStreamer plugins and profiles.
+  #include <abstractions/surf-gstreamer>
+
+  # Access to video decoding libraries (VA-API, VDPAU, etc.).
+  #include <abstractions/video>
+
+  # Access to Vulkan graphics drivers.
+  #include <abstractions/vulkan>
+
+
+  # =============================================================================
+  # Explicit Rules: User-Specific Home Directory Access
+  # =============================================================================
+
+  # Allow the Surf process to read its own configuration directory.
+  # @{HOME} expands to the user's home directory.
+  owner @{HOME}/.surf/ w,
+
+  # Allow full read/write/lock access to files within the .surf directory.
+  # The /** allows recursive access to subdirectories and files.
+  owner @{HOME}/.surf/** rwkl,
+
+  # Allow read/write access to the global XDG cache directory.
+  # Required for temporary files and caching mechanisms.
+  owner @{HOME}/.cache/ rw,
+
+
+  # =============================================================================
+  # Explicit Rules: Process and System Information
+  # =============================================================================
+
+  # Allow the process to read its own cgroup information for resource accounting.
+  owner @{PROC}/@{pid}/cgroup r,
+
+  # Allow the process to read its own command line arguments.
+  # Useful for debugging or self-identification.
+  owner @{PROC}/@{pid}/cmdline r,
+
+  # Allow the process to list file descriptors (rmdir permission on the fd directory).
+  owner @{PROC}/@{pid}/fd/ r,
+
+  # Allow the process to read its own memory maps and status.
+  # {smaps,statm} uses brace expansion to match both smaps and statm files.
+  owner @{PROC}/@{pid}/{smaps,statm} r,
+
+  # Allow read access to system-wide zone information (used by some libraries).
+  @{PROC}/zoneinfo r,
+
+
+  # =============================================================================
+  # Explicit Rules: Hardware and Device Access
+  # =============================================================================
+
+  # Allow read access to the root of the /dev filesystem.
+  /dev/ r,
+
+  # Allow read access to PCI device information for GPU detection.
+  # The [0-9] matches the bus ID digit.
+  /sys/devices/pci[0-9]*/** r,
+
+  # Allow read access to specific platform SOC GPU devices (common on embedded/RPi).
+  /sys/devices/platform/soc/soc:gpu/* r,
+
+  # Allow read access to compiled GLib schemas for desktop environment integration.
+  /usr/share/glib-2.0/schemas/gschemas.compiled r,
+
+
+  # =============================================================================
+  # Explicit Rules: Documentation and Metadata
+  # =============================================================================
+
+  # Allow read access to documentation files for the application and dependencies.
+  /usr/share/doc/** r,
+
+
+  # =============================================================================
+  # Explicit Rules: WebKitGTK Specifics
+  # =============================================================================
+
+  # Allow execution of the WebKit2GTK-4.1 process sandbox binaries.
+  # @{multiarch} expands to the architecture triplet (e.g., x86_64-linux-gnu).
+  /usr/lib/@{multiarch}/webkit2gtk-4.1/WebKit*Process ix,
+
+  # Allow read/write access to WebKit's shared memory files in /dev/shm.
+  /{dev,run}/shm/WK2SharedMemory.* rw,
+
+  # Allow read/write access to WebKit media cache files in /var/tmp.
+  /var/tmp/WebKit-Media-* rw,
+
+  # Allow read access to the public suffix list used for cookie/domain security.
+  # Supports both .dat and .dafsa (binary) formats.
+  /usr/share/publicsuffix/public_suffix_list.{dat,dafsa} r,
+
+  # Allow write access to WebKitGTK user data directory (cookies, storage, etc.).
+  owner @{HOME}/.local/share/webkitgtk/ w,
+
+  # Allow read/write/lock access to files within the WebKitGTK user data directory.
+  owner @{HOME}/.local/share/webkitgtk/** rwk,
+
+  # Allow write access to WebKitGTK cache directory.
+  owner @{HOME}/.cache/webkitgtk/ w,
+
+  # Allow read/write/lock access to files within the WebKitGTK cache directory.
+  owner @{HOME}/.cache/webkitgtk/** rwk,
+
+
+  # =============================================================================
+  # Explicit Rules: Dconf (Desktop Configuration)
+  # =============================================================================
+
+  # Allow read/write access to the user's D-Bus configuration cache.
+  owner @{HOME}/.cache/dconf/user rw,
+
+  # Allow read/write access to the D-Bus configuration file in the runtime directory.
+  # The * wildcard matches the specific user session UID in /run/user/<UID>/.
+  owner /run/user/*/dconf/user rw,
+
+
+  # =============================================================================
+  # Explicit Rules: Application Execution
+  # =============================================================================
+
+  # Allow the Surf binary itself to be executed with inherited profile context.
+  /usr/bin/surf ix,
+
+  # Allow execution of basic utilities used by Surf's UI or plugins (dash, sed).
+  # Ux or Ix allows execution in an unconfined or inherited context.
+  /{usr/,}bin/dash ix,
+  /{usr/,}bin/sed ix,
+
+  # Allow execution of DMenu (used for URL entry or navigation).
+  /usr/bin/dmenu ix,
+
+  # Allow execution of Printf (used for formatting).
+  /usr/bin/printf ix,
+
+  # Allow execution of Xargs (used for processing input streams).
+  /usr/bin/xargs ix,
+
+  # Allow execution of XProp (used for X11 window properties).
+  /usr/bin/xprop ix,
+
+
+  # =============================================================================
+  # Explicit Rules: File Download Support
+  # =============================================================================
+
+  # Allow read/write access to pseudo-terminal master/slave for terminal emulation.
+  /dev/ptmx rw,
+  /dev/pts/* rw,
+
+  # Allow execution of the st terminal emulator (used for downloads).
+  /usr/bin/st ix,
+
+  # Allow execution of Curl for downloading files.
+  # 'Ux' means Execute with Unconfined profile context.
+  # This is necessary because curl downloads to the user's current working directory,
+  # which might not be covered by the confined profile's write rules.
+  # Note: This creates a security boundary breach for the duration of the curl process.
+  /usr/bin/curl Ux,
+
+
+  # =============================================================================
+  # Explicit Rules: Local Overrides
+  # =============================================================================
+
+  # Include local customizations.
+  # See /etc/snapd/local/usr.bin.surf or the snap's local directory for details.
+  # This allows administrators to add custom permissions without modifying the base profile.
+  #include <local/usr.bin.surf>
+
+}

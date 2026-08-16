@@ -1,0 +1,61 @@
+{# -------------------------------------------------------------------------- #}
+{# httpry daemon configuration template                                      #}
+{# Self-documenting: every directive is preceded by its schema description.   #}
+{# All variables use explicit defaults to prevent undefined variable errors.  #}
+{# -------------------------------------------------------------------------- #}
+
+# Run httpry as a daemon process. Requires an output file.
+# Value: boolean (True/False)
+-daemon: {{ (daemon | default(False)) | lower }}
+
+# Ethernet interface to listen on. Defaults to system first found if empty.
+# Value: string
+-interface: {{ interface | default('eth0') }}
+
+# Path to the output file for parsed HTTP data.
+# Value: string (file path)
+-output-file: {{ output_file | default('/var/log/httpry.log') }}
+
+# Path and filename for the PID file in daemon mode.
+# Value: string (file path)
+-pid-file: {{ pid_file | default('/var/run/httpry.pid') }}
+
+# Alternate user to take ownership of the process. Must be non-root if specified.
+# Value: string (username, empty means run as current user/root)
+-user: {{ user | default('') }}
+
+# BPF-style capture filter expression.
+# Value: string (tcpdump/BPF filter syntax)
+-capture-filter: "{{ capture_filter | default('tcp port 80 or 8080') }}"
+
+# Comma-delimited string specifying parsed HTTP data fields to output.
+# Value: string (comma-separated field names)
+-output-format: "{{ output_format | default('ip,method,url,host,status_code') }}"
+
+# Comma-delimited list of request methods to parse. Empty means all standard RFC2616 methods.
+# Value: list of strings (HTTP methods)
+-http-methods: "{{ http_methods | default(['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH', 'CONNECT', 'TRACE']) | join(', ') }}"
+
+# Suppress non-critical output like startup banner and statistics.
+# Value: boolean (True/False)
+-quiet: {{ (quiet | default(False)) | lower }}
+
+# Disable all output buffering.
+# Value: boolean (True/False)
+-no-buffering: {{ (no_buffering | default(False)) | lower }}
+
+# Number of HTTP packets to parse before exiting. 0 means loop forever.
+# Value: integer
+-packet-count: {{ packet_count | default(0) }}
+
+# Number of bytes to skip in the ethernet header.
+# Value: integer
+-ethernet-offset: {{ ethernet_offset | default(0) }}
+
+# Path to write processed HTTP packets to a binary pcap dump file.
+# Value: string (file path, empty means no pcap output)
+-pcap-output: {{ pcap_output | default('') }}
+
+# Path to an input capture file to read from instead of live capture.
+# Value: string (file path, empty means live capture)
+-capture-file: {{ capture_file | default('') }}

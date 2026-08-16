@@ -1,0 +1,54 @@
+# ==============================================================================
+# p7zip Wrapper Configuration Template
+# ==============================================================================
+#
+# This Jinja2 template generates the configuration variables for the p7zip wrapper.
+# p7zip is a CLI wrapper script; this file defines the default switches and behaviors
+# used when invoking the underlying 7za or 7zr binaries.
+#
+# Variables defined here:
+# - COMPRESSION_FLAGS: Sets the compression level (passed as --m=<level>).
+# - GLOBAL_FLAGS: Sets default command-line switches (e.g., -f, -k, -c).
+# - ARCHIVE_EXTENSION: The default file extension for created archives.
+# - ASSUME_DECOMPRESSION: Boolean flag to auto-detect decompression mode by extension.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Compression Level
+# --------------------------------------------------------------------------
+# Description: Compression level for 7z format (0=fastest, 9=best). Passed as --m=<level>.
+# Range: 0 to 9.
+# Default: 9
+# --------------------------------------------------------------------------
+{% set level = compression_level | default(9) %}
+COMPRESSION_FLAGS="--m={{ level }}"
+
+# --------------------------------------------------------------------------
+# Global Flags
+# --------------------------------------------------------------------------
+# Description: List of p7zip switches to apply by default. Supported: -f (force),
+#              -k (keep input file), -c (stdout). See p7zip(1) SWITCHES.
+# Format: Space-separated list of flags.
+# Default: ['-f']
+# --------------------------------------------------------------------------
+{% set flags = global_flags | default(['-f']) %}
+GLOBAL_FLAGS="{{ flags | join(' ') }}"
+
+# --------------------------------------------------------------------------
+# Archive Extension
+# --------------------------------------------------------------------------
+# Description: The file extension used for archives created by the p7zip wrapper.
+# Default: '7z'
+# --------------------------------------------------------------------------
+ARCHIVE_EXTENSION="{{ archive_extension | default('7z') }}"
+
+# --------------------------------------------------------------------------
+# Assume Decompression
+# --------------------------------------------------------------------------
+# Description: Whether to assume decompression mode if the file extension matches
+#              the archive extension and no explicit action is defined by the invoking
+#              script.
+# Default: false
+# --------------------------------------------------------------------------
+{% set assume_decomp = assume_decompression | default(false) | lower %}
+ASSUME_DECOMPRESSION="{{ assume_decomp }}"

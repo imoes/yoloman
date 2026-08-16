@@ -1,0 +1,42 @@
+# Nulib2 archive processing configuration
+# This template generates a configuration block for the nulib2 utility,
+# a tool for manipulating NuFX archive files (.SHK, .BXY, .SEA, etc.).
+# It defines the operation to perform, modifiers, the target archive,
+# and optionally specific files to process.
+
+# Command to execute: nulib2 {{ command | default('x') }} {{ modifiers | default('-l') }} {{ archive | default('/tmp/archive.shk') }}
+# The main command specifies the action:
+#   a: add files to archive
+#   d: delete files from archive
+#   i: integrity test
+#   p: pipe extraction
+#   t: table of contents
+#   v: verbose table of contents
+#   x: extract files
+# Note: Defaults to 'x' (extract) if not specified.
+command: "{{ command | default('x') }}"
+
+# Modifiers (combined into a single string, e.g. "ar", "x", "-c -e")
+# Available flags include:
+#   a (add), d (delete), i (integrity), p (pipe), t (table), v (verbose), x (extract)
+#   -c (comments), -e (ProDOS types), -ee (extended names), -f (freshen),
+#   -j (junk dirs), -k (disk images), -l (auto-text), -ll (all-text),
+#   -r (recurse), -u (update), -b (binary II), -0 (no comp),
+#   -z (deflate), -zz (bzip2)
+# Note: Defaults to '-l' if not specified.
+modifiers: "{{ modifiers | default('-l') }}"
+
+# Target archive file path
+# The path to the NuFX archive file (.SHK, .BXY, .SEA, etc.) to operate on.
+# Note: Defaults to '/tmp/archive.shk' if not specified.
+archive: "{{ archive | default('/tmp/archive.shk') }}"
+
+# List of files to process
+# If this list is empty, the command applies to all files in the archive
+# (or current directory where applicable). If specific files are provided,
+# only those entries are targeted for the defined command.
+# Note: Defaults to an empty list if not specified.
+files:
+{% for file in files | default([]) %}
+- "{{ file }}"
+{% endfor %}

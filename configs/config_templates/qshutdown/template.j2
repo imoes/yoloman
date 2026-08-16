@@ -1,0 +1,36 @@
+# qshutdown configuration file
+# Located at ~/.qshutdown/qshutdown.conf
+# This file is managed by Ansible. Do not edit manually.
+
+# method: The backend method used to request shutdown/reboot/suspend/hibernate.
+# Options: auto, gnome_session, kde_session, hal, consolekit, devicekit, upower, shutdown.
+# Default: auto
+method = {{ method | default('auto') }}
+
+# countdown_minutes: The duration in minutes for the shutdown countdown.
+# Maximum allowed value is 1440 (24 hours).
+# Default: 10
+countdown_minutes = {{ countdown_minutes | default(10) }}
+
+# action: The action to perform after the countdown expires.
+# Options: shutdown, reboot, suspend, hibernate.
+# Default: shutdown
+action = {{ action | default('shutdown') }}
+
+# lock_all: If true, enables 'parental lock' for every user.
+# Requires qshutdown to be started once by root and sudoers entry for /usr/bin/qshutdown.
+# Default: false
+lock_all = {{ lock_all | default(False) | lower }}
+
+# password: Password required to edit the config file or restrict access.
+# Leave empty for no password.
+# Default: ''
+password = "{{ password | default('') }}"
+
+# warnings_on: If true, qshutdown shows itself 3 times as a warning if there are less than 70 seconds left.
+# Default: true
+warnings_on = {{ warnings_on | default(True) | lower }}
+
+# autostart_script: Path to the X session autostart script used when lock_all is enabled.
+# Default: /etc/X11/Xsession.d/99qshutdown
+autostart_script = {{ autostart_script | default('/etc/X11/Xsession.d/99qshutdown') }}

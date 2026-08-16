@@ -1,0 +1,52 @@
+#! /bin/sh
+#
+# This is a System V init script template for the squidtaild daemon.
+# It is generated from a Jinja2 template that uses Ansible variables.
+# Every variable is provided with a default value to ensure the script
+# renders correctly even if the variable is undefined in the play.
+#
+### BEGIN INIT INFO
+# Provides:          {{ (provides | default('squidtaild')) }}
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+#
+# Written by: {{ (written_by | default('Behan Webster <behanw@pobox.com>')) }}
+#
+
+NAME={{ (name | default('squidtaild')) }}
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON={{ (daemon_path | default('/usr/sbin/squidtaild')) }}
+PID={{ (pid_file | default('/var/run/squidtaild.pid')) }}
+
+trap "" 1
+
+test -f "$DAEMON" || exit 0
+
+# See how we were called.
+case "$1" in
+  start)
+	printf "Starting $NAME: $NAME"
+	start-stop-daemon --start --background --quiet --exec "$DAEMON"
+	echo "."
+	;;
+  stop)
+	printf "Stopping $NAME: $NAME"
+	start-stop-daemon --stop --oknodo --quiet --pidfile "$PID"
+	rm -f "$PID"
+	echo "."
+	;;
+  restart | force-reload)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+  *)
+	echo "Usage: $NAME {start|stop|restart}"
+	exit 1
+	;;
+esac
+
+exit 0

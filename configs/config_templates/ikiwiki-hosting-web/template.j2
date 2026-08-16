@@ -1,0 +1,35 @@
+# ikiwiki-hosting-web Cron Job Configuration
+#
+# This template generates a crontab fragment (or file) for running ikiwiki
+# aggregation jobs periodically. It controls parallelism and process priority
+# to ensure system stability during wiki updates.
+
+# Maximum load average for parallel aggregation jobs.
+# If the system load average exceeds this value, parallel jobs will be throttled.
+# This prevents the aggregation process from starving other critical services.
+MAXLOAD={{ maxload | default(5) }}
+
+# Maximum number of parallel aggregation jobs.
+# Controls how many ikiwiki aggregation processes can run simultaneously.
+# Combined with MAXLOAD, this manages resource consumption.
+MAXJOBS={{ maxjobs | default(5) }}
+
+# Nice and ionice command string to lower process priority.
+# Sets the scheduling priority of aggregation jobs to 'low' to avoid
+# impacting interactive users or other services.
+# 'nice -n 19' sets CPU priority to lowest. 'ionice -c 3' sets IO priority to idle.
+NICE="{{ nice_command | default('nice -n 19 ionice -c 3') }}"
+
+# The actual aggregation command template.
+# It uses the NICE prefix, calls ikisite to get sites due for aggregation,
+# and runs them via GNU parallel.
+# -l $MAXLOAD: limits jobs based on load average.
+# -j $MAXJOBS: limits number of parallel jobs.
+# -i: replaces {} with the site name.
+AGGREGATE="$NICE ikisite sudo {} -- ikiwiki --setup ikiwiki.setup --aggregate --refresh -v --syslog"
+
+# Crontab entry: Run every 5 minutes.
+# Checks which sites are due for aggregation and runs them.
+# Output is suppressed to /dev/null to prevent log spam, as ikiwiki
+# handles logging via syslog.
+*/5 * * * * root	ikisite list --aggregatedue | xargs parallel -l $MAXLOAD -j $MAXJOBS -i sh -c "$AGGREGATE" -- >/dev/null 2>&1

@@ -1,0 +1,350 @@
+#!/bin/sh
+# SquidClient Command Generation Script
+#
+# This template constructs the command line for `squidclient`, a utility to
+# issue HTTP requests to a Squid proxy/cache. It handles URL, host, port,
+# HTTP method, headers, TLS/SSL options, authentication, and operational
+# modes (verbose, silent, ping, trace).
+#
+# The script outputs the command to stdout for execution.
+
+# =========================================================================
+# Target URL to retrieve
+# Default: http://localhost/
+URL="{{ (values | default({})).url | default('http://localhost/') }}"
+
+# =========================================================================
+# Remote host to retrieve URL from
+# Description: Overrides the host part of the URL. Defaults to localhost if empty.
+# Default: '' (empty)
+{% set host_val = (values | default({})).host | default('') %}
+{% if host_val %}
+HOST_ARG="-h {{ host_val }}"
+{% else %}
+HOST_ARG="-h localhost"
+{% endif %}
+
+# =========================================================================
+# Port number of the cache/proxy
+# Description: The port to connect to on the target host.
+# Default: 3128
+PORT_ARG="-p {{ (values | default({})).port | default(3128) }}"
+
+# =========================================================================
+# HTTP request method
+# Description: The HTTP verb to use (e.g., GET, POST, PURGE).
+# Default: 'GET'
+METHOD_ARG="-m {{ (values | default({})).method | default('GET') }}"
+
+# =========================================================================
+# HTTP version to use
+# Description: Specify the HTTP protocol version. Use '-' for HTTP/0.9.
+# Default: '1.1'
+VERSION_ARG="-V {{ (values | default({})).http_version | default('1.1') }}"
+
+# =========================================================================
+# Force cache to reload URL
+# Description: Instructs the proxy to bypass cache and fetch fresh content.
+# Default: False
+{% set force_reload = (values | default({})).force_reload | default(False) | bool %}
+{% if force_reload %}
+RELOAD_ARG="-r"
+{% else %}
+RELOAD_ARG=""
+{% endif %}
+
+# =========================================================================
+# Do NOT include Accept: header
+# Description: Suppresses the standard Accept header in the request.
+# Default: False
+{% set no_accept = (values | default({})).no_accept | default(False) | bool %}
+{% if no_accept %}
+NO_ACCEPT_ARG="-a"
+{% else %}
+NO_ACCEPT_ARG=""
+{% endif %}
+
+# =========================================================================
+# User-Agent string to send
+# Description: The User-Agent header value to identify the client.
+# Default: 'SquidClient/6.0'
+UA_ARG="-A '{{ (values | default({})).user_agent | default('SquidClient/6.0') }}'"
+
+# =========================================================================
+# Extra headers to send
+# Description: List of additional HTTP headers. Each item is a header line.
+#               Newlines in the joined string act as header separators.
+# Default: []
+{% set extra_headers = (values | default({})).extra_headers | default([]) %}
+{% if extra_headers is iterable and (extra_headers | length) > 0 %}
+HEADERS_ARG="-H '{{ extra_headers | join("\n") }}'"
+{% else %}
+HEADERS_ARG=""
+{% endif %}
+
+# =========================================================================
+# Content for the Host header
+# Description: Overrides the Host header value. Useful for virtual hosting.
+# Default: '' (empty)
+{% set host_header = (values | default({})).host_header | default('') %}
+{% if host_header %}
+HOST_HDR_ARG="-j '{{ host_header }}'"
+{% else %}
+HOST_HDR_ARG=""
+{% endif %}
+
+# =========================================================================
+# If-Modified-Since time (Epoch seconds)
+# Description: Adds the If-Modified-Since header. 0 disables this header.
+# Default: 0
+{% set ims = (values | default({})).if_modified_since | default(0) %}
+{% if ims is number and ims > 0 %}
+IMS_ARG="-i {{ ims }}"
+{% else %}
+IMS_ARG=""
+{% endif %}
+
+# =========================================================================
+# Use Transport Layer Security
+# Description: Enables HTTPS/TLS for the connection.
+# Default: False
+{% set use_tls = (values | default({})).use_tls | default(False) | bool %}
+{% if use_tls %}
+TLS_FLAG="--https"
+{% else %}
+TLS_FLAG=""
+{% endif %}
+
+# =========================================================================
+# File containing client X.509 certificate (PEM)
+# Description: Path to the client certificate file for mutual TLS.
+# Default: '' (empty)
+{% set tls_cert_file = (values | default({})).tls_cert_file | default('') %}
+{% if tls_cert_file %}
+CERT_ARG="--cert {{ tls_cert_file }}"
+{% else %}
+CERT_ARG=""
+{% endif %}
+
+# =========================================================================
+# File containing trusted Certificate Authority (CA) certificates (PEM)
+# Description: Path to the CA bundle file to verify the server.
+# Default: '' (empty)
+{% set tls_ca_file = (values | default({})).tls_ca_file | default('') %}
+{% if tls_ca_file %}
+CA_ARG="--trusted-ca {{ tls_ca_file }}"
+{% else %}
+CA_ARG=""
+{% endif %}
+
+# =========================================================================
+# Use TLS with unauthenticated (anonymous) certificate
+# Description: Allows anonymous TLS negotiation.
+# Default: False
+{% set tls_anonymous = (values | default({})).tls_anonymous | default(False) | bool %}
+{% if tls_anonymous %}
+ANON_TLS="--anonymous-tls"
+{% else %}
+ANON_TLS=""
+{% endif %}
+
+# =========================================================================
+# Ping mode configuration
+# Description: Controls the ping/heartbeat behavior against the proxy.
+
+# Enable ping mode
+{% set ping_mode = (values | default({})).ping_mode | default(False) | bool %}
+{% if ping_mode %}
+PING_FLAG="--ping"
+{% else %}
+PING_FLAG=""
+{% endif %}
+
+# Ping mode iteration count
+# Description: Number of ping iterations. 0 loops until interrupted.
+{% set ping_count = (values | default({})).ping_count | default(0) %}
+{% if ping_count is number and ping_count > 0 %}
+PING_COUNT="-g {{ ping_count }}"
+{% else %}
+PING_COUNT=""
+{% endif %}
+
+# Ping mode interval
+# Description: Interval between pings in seconds. 0 uses default (1s).
+{% set ping_interval = (values | default({})).ping_interval | default(0) %}
+{% if ping_interval is number and ping_interval > 0 %}
+PING_INTERVAL="-I {{ ping_interval }}"
+{% else %}
+PING_INTERVAL=""
+{% endif %}
+
+# =========================================================================
+# Proxy authentication username
+# Description: Username for proxy authentication (Proxy-Authorization header).
+# Default: '' (empty)
+{% set proxy_user = (values | default({})).proxy_user | default('') %}
+{% if proxy_user %}
+PROXY_USER="-u {{ proxy_user }}"
+{% else %}
+PROXY_USER=""
+{% endif %}
+
+# =========================================================================
+# Proxy authentication password
+# Description: Password for proxy authentication.
+# Default: '' (empty)
+{% set proxy_password = (values | default({})).proxy_password | default('') %}
+{% if proxy_password %}
+PROXY_PASS="-w '{{ proxy_password }}'"
+{% else %}
+PROXY_PASS=""
+{% endif %}
+
+# =========================================================================
+# WWW authentication username
+# Description: Username for HTTP basic/digest authentication (WWW-Authenticate).
+# Default: '' (empty)
+{% set www_user = (values | default({})).www_user | default('') %}
+{% if www_user %}
+WWW_USER="-U {{ www_user }}"
+{% else %}
+WWW_USER=""
+{% endif %}
+
+# =========================================================================
+# WWW authentication password
+# Description: Password for HTTP basic/digest authentication.
+# Default: '' (empty)
+{% set www_password = (values | default({})).www_password | default('') %}
+{% if www_password %}
+WWW_PASS="-W '{{ www_password }}'"
+{% else %}
+WWW_PASS=""
+{% endif %}
+
+# =========================================================================
+# Use Kerberos Negotiate authentication
+# Description: Enables Kerberos SPNEGO authentication.
+# Default: False
+{% set kerberos_nego = (values | default({})).kerberos_nego | default(False) | bool %}
+{% if kerberos_nego %}
+KERB_FLAG="-n"
+{% else %}
+KERB_FLAG=""
+{% endif %}
+
+# =========================================================================
+# Local IP address to bind to
+# Description: Specifies the local source address for the outgoing connection.
+# Default: '' (empty)
+{% set local_bind = (values | default({})).local_bind | default('') %}
+{% if local_bind %}
+LOCAL_ARG="-l {{ local_bind }}"
+{% else %}
+LOCAL_ARG=""
+{% endif %}
+
+# =========================================================================
+# Timeout value for read/write operations (seconds)
+# Description: Maximum time to wait for I/O. 0 uses the application default.
+# Default: 0
+{% set timeout = (values | default({})).timeout | default(0) %}
+{% if timeout is number and timeout > 0 %}
+TIMEOUT_ARG="-T {{ timeout }}"
+{% else %}
+TIMEOUT_ARG=""
+{% endif %}
+
+# =========================================================================
+# Verbose mode
+# Description: Print outgoing request messages to stderr for debugging.
+# Default: False
+{% set verbose = (values | default({})).verbose | default(False) | bool %}
+{% if verbose %}
+VERBOSE_ARG="-v"
+{% else %}
+VERBOSE_ARG=""
+{% endif %}
+
+# =========================================================================
+# Silent mode
+# Description: Do not print the response body to stdout.
+# Default: False
+{% set silent = (values | default({})).silent | default(False) | bool %}
+{% if silent %}
+SILENT_ARG="-s"
+{% else %}
+SILENT_ARG=""
+{% endif %}
+
+# =========================================================================
+# Request body from file
+# Description: Path to a file whose contents will be sent as the request body.
+# Default: '' (empty)
+{% set request_body_file = (values | default({})).request_body_file | default('') %}
+{% if request_body_file %}
+BODY_ARG="-P {{ request_body_file }}"
+{% else %}
+BODY_ARG=""
+{% endif %}
+
+# =========================================================================
+# Keep the connection active
+# Description: Request the proxy to keep the TCP connection alive (Keep-Alive).
+# Default: False
+{% set keep_alive = (values | default({})).keep_alive | default(False) | bool %}
+{% if keep_alive %}
+KEEP_ARG="-k"
+{% else %}
+KEEP_ARG=""
+{% endif %}
+
+# =========================================================================
+# Trace count HTTP relay or proxy hops
+# Description: Adds Trace header with hop count. 0 disables tracing.
+# Default: 0
+{% set trace_count = (values | default({})).trace_count | default(0) %}
+{% if trace_count is number and trace_count > 0 %}
+TRACE_ARG="-t {{ trace_count }}"
+{% else %}
+TRACE_ARG=""
+{% endif %}
+
+# =========================================================================
+# Construct and execute the command
+# This block assembles the final command string and executes squidclient.
+# Arguments are expanded via shell variables to handle empty values safely.
+
+echo "Executing: squidclient $URL_ARG $HOST_ARG $PORT_ARG $METHOD_ARG $VERSION_ARG $RELOAD_ARG $NO_ACCEPT_ARG $UA_ARG $HEADERS_ARG $HOST_HDR_ARG $IMS_ARG $TLS_FLAG $CERT_ARG $CA_ARG $ANON_TLS $PING_FLAG $PING_COUNT $PING_INTERVAL $PROXY_USER $PROXY_PASS $WWW_USER $WWW_PASS $KERB_FLAG $LOCAL_ARG $TIMEOUT_ARG $VERBOSE_ARG $SILENT_ARG $BODY_ARG $KEEP_ARG $TRACE_ARG"
+
+squidclient \
+  {{ (values | default({})).url | default('http://localhost/') }} \
+  $HOST_ARG \
+  $PORT_ARG \
+  $METHOD_ARG \
+  $VERSION_ARG \
+  $RELOAD_ARG \
+  $NO_ACCEPT_ARG \
+  $UA_ARG \
+  $HEADERS_ARG \
+  $HOST_HDR_ARG \
+  $IMS_ARG \
+  $TLS_FLAG \
+  $CERT_ARG \
+  $CA_ARG \
+  $ANON_TLS \
+  $PING_FLAG \
+  $PING_COUNT \
+  $PING_INTERVAL \
+  $PROXY_USER \
+  $PROXY_PASS \
+  $WWW_USER \
+  $WWW_PASS \
+  $KERB_FLAG \
+  $LOCAL_ARG \
+  $TIMEOUT_ARG \
+  $VERBOSE_ARG \
+  $SILENT_ARG \
+  $BODY_ARG \
+  $KEEP_ARG \
+  $TRACE_ARG

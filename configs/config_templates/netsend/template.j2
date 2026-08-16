@@ -1,0 +1,77 @@
+# netsend configuration template
+# This file configures the netsend utility for network latency testing and data transmission.
+# The format is a simple key-value list, similar to INI but without sections.
+
+# Network protocol to use: tcp, udp, udplite, dccp, sctp, or tipc.
+# Default: tcp
+protocol: {{ protocol | default('tcp') }}
+
+# Operation mode: receive or transmit.
+# 'receive' listens for incoming data; 'transmit' sends data to a target.
+# Default: receive
+mode: {{ mode | default('receive') }}
+
+# Target host IP or hostname.
+# Required for transmit mode. Ignored in receive mode (listens on bind_address or default).
+# Default: 127.0.0.1
+host: {{ host | default('127.0.0.1') }}
+
+# TCP/UDP/DCCP/SCTP port to use for the connection.
+# Default: 6666
+port: {{ port | default(6666) }}
+
+# Round trip probe options in format Nn,Nd,Nm,Nf.
+# Nn = iterations
+# Nd = payload size in bytes
+# Nm = deviation filter
+# Nf = force average ms (empty means perform probes normally)
+# Default: '10,500,4,'
+rtt_options: {{ rtt_options | default('10,500,4,') }}
+
+# Read/write buffer size in bytes.
+# Default: 8192
+buffer_size: {{ buffer_size | default(8192) }}
+
+# Memory advice for mmap operations: normal, sequential, random, willneed, dontneed, noreuse.
+# Default: normal
+memadvise: {{ memadvise | default('normal') }}
+
+# Transmit function to use: sendfile, mmap, splice, or rw (read/write).
+# Not all protocols support all methods (e.g. TIPC UDP does not support sendfile).
+# Default: rw
+transmit_method: {{ transmit_method | default('rw') }}
+
+# Output format: human (readable text) or machine (structured data for parsing).
+# Default: human
+output_format: {{ output_format | default('human') }}
+
+# Scheduling policy for the process: sched_rr, sched_fifo, sched_batch, or sched_other.
+# Empty string uses the default OS scheduling policy.
+# Default: '' (empty)
+sched_policy: {{ sched_policy | default('') }}
+
+# List of setsockopt options to apply to the socket.
+# Each item is an object with 'level' (integer), 'optname' (string), and 'optval' (int/string).
+# netsend maps levels and optlen internally. Use 'netsend list' to see recognized optnames.
+# Default: [] (empty list)
+setsockopt_options:
+{% for option in (setsockopt_options | default([])) %}
+- level: {{ option.level | default(0) }}
+  optname: {{ option.optname | default('') }}
+  optval: {{ option.optval | default(0) }}
+{% endfor %}
+
+# Command or file path to transmit.
+# In transmit mode, this is often the file path or 'help' to show help topics.
+# Default: '' (empty)
+command: {{ command | default('') }}
+
+# Tipc socket type (only required if protocol is tipc).
+# e.g., SOCK_STREAM, SOCK_DGRAM, SOCK_RDM.
+# Default: SOCK_STREAM
+tipc_socket_type: {{ tipc_socket_type | default('SOCK_STREAM') }}
+
+# MD5 signature key for peer authentication.
+# Used with the -C flag. Pass as a string.
+# Default: '' (empty)
+cipher_key: {{ cipher_key | default('') }}

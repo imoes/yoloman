@@ -1,0 +1,73 @@
+# Stow resource file configuration (.stowrc)
+# This file controls the global behavior of the GNU Stow symlink manager.
+# See stow(8) for full details on resource file syntax and precedence.
+
+# Set the stow directory: root directory containing separate packages in private subtrees.
+# Default: /usr/local/stow
+{% if stow_dir is defined %}
+--dir={{ stow_dir }}
+{% else %}
+--dir=/usr/local/stow
+{% endif %}
+
+# Set the target directory: root of the tree in which packages appear to be installed.
+# Default: /usr/local
+{% if target_dir is defined %}
+--target={{ target_dir }}
+{% else %}
+--target=/usr/local
+{% endif %}
+
+# Set verbosity level: 0 (quiet) to 5 (very verbose).
+# Default: 0
+{% if verbose_level is defined %}
+--verbose={{ verbose_level }}
+{% else %}
+--verbose=0
+{% endif %}
+
+# Enable special handling for dotfiles.
+# When enabled, packages with 'dot-' prefix are treated as dotfiles (prefix replaced with '.').
+# stow does not have a --no-dotfiles flag; omitting --dotfiles is the default behavior.
+# Default: False (disabled)
+{% if dotfiles is defined %}
+{% if dotfiles %}
+--dotfiles
+{% endif %}
+{% endif %}
+
+# List of Perl regular expressions for files to ignore during stow operations.
+# Command line and resource file options are appended together.
+# Default: [] (empty list)
+{% if ignore_patterns is defined %}
+{% for pattern in ignore_patterns %}
+--ignore={{ pattern }}
+{% endfor %}
+{% endif %}
+
+# List of Perl regular expressions for files that should not be stowed if already stowed to another package.
+# Default: [] (empty list)
+{% if defer_patterns is defined %}
+{% for pattern in defer_patterns %}
+--defer={{ pattern }}
+{% endfor %}
+{% endif %}
+
+# List of Perl regular expressions for files that should be forcibly stowed even if already stowed to another package.
+# Default: [] (empty list)
+{% if override_patterns is defined %}
+{% for pattern in override_patterns %}
+--override={{ pattern }}
+{% endfor %}
+{% endif %}
+
+# List of package names to stow.
+# NOTE: Per stow(8), packages listed in the resource file are generally ignored for the "stow" action
+# unless using specific subcommands or scripts. This field is included for schema completeness
+# and potential use by wrapper scripts or role logic.
+# Default: [] (empty list)
+{% if packages is defined %}
+{% for pkg in packages %}
+{{ pkg }}
+{% endfor %}
+{% endif %}

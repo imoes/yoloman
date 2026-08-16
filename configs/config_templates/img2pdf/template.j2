@@ -1,0 +1,166 @@
+# =============================================================================
+# img2pdf Configuration Template
+# =============================================================================
+# This template generates a structured configuration file and a ready-to-use
+# shell command for the `img2pdf` utility. It handles image-to-PDF conversion
+# with options for PDF/A compliance, page sizing, metadata, and viewer preferences.
+#
+# Variables are drawn from the Ansible inventory/vars. All references use
+# `| default(...)` to prevent rendering errors if a variable is undefined.
+# =============================================================================
+
+# --- Output Configuration ---------------------------------------------------
+# Output file path. Leave empty to use stdout.
+# img2pdf_output: {{ output_file | default('') }}
+
+# Input images to convert.
+# List of input image file paths to convert.
+img2pdf_inputs: |
+{% for input in input_files | default([]) %}
+- {{ input }}
+{% endfor %}
+
+# --- PDF Compliance ---------------------------------------------------------
+# Output a PDF/A-1b compliant document.
+img2pdf_pdfa: {{ pdfa_enabled | default(false) | lower }}
+
+# --- Page Layout & Sizing ---------------------------------------------------
+# Page size in format LxL (e.g., 210mmx297mm) or shorthand (e.g., A4, Letter^T).
+img2pdf_pagesize: {{ page_size | default('A4') }}
+
+# Fit strategy: into, fill, exact, shrink, enlarge.
+img2pdf_fit: {{ fit_mode | default('into') }}
+
+# Minimal border between image and page border (e.g., 2cm or 2cm:2.5cm).
+img2pdf_border: {{ border | default('0pt') }}
+
+# --- Image Processing -------------------------------------------------------
+# Image rotation: auto, none, 0, 90, 180, 270, ifvalid.
+img2pdf_rotation: {{ rotation | default('auto') }}
+
+# Force PIL colorspace (e.g., RGB, L, CMYK). Leave empty for auto-detection.
+img2pdf_colorspace: {{ colorspace | default('') }}
+
+# Include thumbnails as separate pages for multi-frame images.
+img2pdf_include_thumbnails: {{ include_thumbnails | default(false) | lower }}
+
+# Suppress timestamps in output for determinism.
+img2pdf_nodate: {{ nodate | default(false) | lower }}
+
+# Disable Pillow's max pixel limit safety check.
+img2pdf_pillow_limit_break: {{ pillow_limit_break | default(false) | lower }}
+
+# Swap page dimensions to match image orientation if both are fixed.
+img2pdf_auto_orient: {{ auto_orient | default(false) | lower }}
+
+# Only convert the first frame of multi-frame images.
+img2pdf_first_frame_only: {{ first_frame_only | default(false) | lower }}
+
+# --- Box Definitions --------------------------------------------------------
+# CropBox border from MediaBox.
+img2pdf_crop_border: {{ crop_border | default('') }}
+
+# BleedBox border from MediaBox.
+img2pdf_bleed_border: {{ bleed_border | default('') }}
+
+# TrimBox border from MediaBox.
+img2pdf_trim_border: {{ trim_border | default('') }}
+
+# ArtBox border from MediaBox.
+img2pdf_art_border: {{ art_border | default('') }}
+
+# --- Metadata ---------------------------------------------------------------
+# PDF metadata title.
+img2pdf_title: {{ title | default('') }}
+
+# PDF metadata author.
+img2pdf_author: {{ author | default('') }}
+
+# PDF metadata subject.
+img2pdf_subject: {{ subject | default('') }}
+
+# List of keywords for PDF metadata.
+img2pdf_keywords: {{ keywords | default([]) | join(' ') }}
+
+# PDF metadata creation date.
+img2pdf_creationdate: {{ creationdate | default('') }}
+
+# PDF metadata modification date.
+img2pdf_moddate: {{ moddate | default('') }}
+
+# PDF metadata producer. Empty uses default.
+img2pdf_producer: {{ producer | default('') }}
+
+# PDF metadata creator.
+img2pdf_creator: {{ creator | default('') }}
+
+# --- Viewer Preferences -----------------------------------------------------
+# Page number to initially display (1-based).
+img2pdf_viewer_initial_page: {{ viewer_initial_page | default(1) }}
+
+# Zoom level: fit, fith, fitbh, or float value.
+img2pdf_viewer_magnification: {{ viewer_magnification | default('') }}
+
+# Page layout: single, onecolumn, twocolumnright, twocolumnleft, twopageright, twopageleft.
+img2pdf_viewer_page_layout: {{ viewer_page_layout | default('') }}
+
+# Side panes to show: outlines or thumbs.
+img2pdf_viewer_panes: {{ viewer_panes | default('') }}
+
+# Center the PDF viewer window.
+img2pdf_viewer_center_window: {{ viewer_center_window | default(false) | lower }}
+
+# Open PDF in fullscreen mode.
+img2pdf_viewer_fullscreen: {{ viewer_fullscreen | default(false) | lower }}
+
+# Resize viewer window to fit page size.
+img2pdf_viewer_fit_window: {{ viewer_fit_window | default(false) | lower }}
+
+# --- Engine Selection -------------------------------------------------------
+# PDF engine to use: internal, pikepdf, pdfrw.
+img2pdf_engine: {{ engine | default('internal') }}
+
+# =============================================================================
+# Command Construction
+# =============================================================================
+# This block generates the actual `img2pdf` command line based on the settings.
+# It only includes flags if they are non-default or explicitly set to true.
+# =============================================================================
+command: |
+  img2pdf \
+  {% if output_file | default('') %}-o {{ output_file | default('') }} {% endif %}
+  {% if pdfa_enabled | default(false) %}--pdfa {% endif %}
+  {% if page_size | default('A4') %}-S {{ page_size | default('A4') }} {% endif %}
+  {% if fit_mode | default('into') %}-f {{ fit_mode | default('into') }} {% endif %}
+  {% if border | default('0pt') and border | default('0pt') != '0pt' %}-b {{ border | default('0pt') }} {% endif %}
+  {% if rotation | default('auto') and rotation | default('auto') != 'auto' %}-r {{ rotation | default('auto') }} {% endif %}
+  {% if colorspace | default('') %}-C {{ colorspace | default('') }} {% endif %}
+  {% if title | default('') %}--title "{{ title | default('') }}" {% endif %}
+  {% if author | default('') %}--author "{{ author | default('') }}" {% endif %}
+  {% if subject | default('') %}--subject "{{ subject | default('') }}" {% endif %}
+  {% if keywords | default([]) %}--keywords {{ keywords | default([]) | join(' ') }} {% endif %}
+  {% if creationdate | default('') %}--creationdate "{{ creationdate | default('') }}" {% endif %}
+  {% if moddate | default('') %}--moddate "{{ moddate | default('') }}" {% endif %}
+  {% if viewer_initial_page | default(1) and viewer_initial_page | default(1) != 1 %}--viewer-initial-page {{ viewer_initial_page | default(1) }} {% endif %}
+  {% if viewer_magnification | default('') %}--viewer-magnification {{ viewer_magnification | default('') }} {% endif %}
+  {% if viewer_page_layout | default('') %}--viewer-page-layout {{ viewer_page_layout | default('') }} {% endif %}
+  {% if include_thumbnails | default(false) %}--include-thumbnails {% endif %}
+  {% if nodate | default(false) %}--nodate {% endif %}
+  {% if engine | default('internal') and engine | default('internal') != 'internal' %}--engine {{ engine | default('internal') }} {% endif %}
+  {% if pillow_limit_break | default(false) %}--pillow-limit-break {% endif %}
+  {% if auto_orient | default(false) %}-a {% endif %}
+  {% if crop_border | default('') %}--crop-border {{ crop_border | default('') }} {% endif %}
+  {% if bleed_border | default('') %}--bleed-border {{ bleed_border | default('') }} {% endif %}
+  {% if trim_border | default('') %}--trim-border {{ trim_border | default('') }} {% endif %}
+  {% if art_border | default('') %}--art-border {{ art_border | default('') }} {% endif %}
+  {% if viewer_panes | default('') %}--viewer-panes {{ viewer_panes | default('') }} {% endif %}
+  {% if viewer_center_window | default(false) %}--viewer-center-window {% endif %}
+  {% if viewer_fullscreen | default(false) %}--viewer-fullscreen {% endif %}
+  {% if viewer_fit_window | default(false) %}--viewer-fit-window {% endif %}
+  {% if first_frame_only | default(false) %}--first-frame-only {% endif %}
+  {% if producer | default('') and producer | default('') != 'img2pdf' %}--producer "{{ producer | default('') }}" {% endif %}
+  {% if creator | default('') %}--creator "{{ creator | default('') }}" {% endif %}
+  {% for input in input_files | default([]) %}
+  {{ input }} \
+{% endfor %}
+  # End of img2pdf command

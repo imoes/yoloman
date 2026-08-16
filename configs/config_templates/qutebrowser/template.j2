@@ -1,0 +1,132 @@
+{# -------------------------------------------------------------------------- #}
+{# qutebrowser configuration / CLI invocation template                         #}
+{# -------------------------------------------------------------------------- #}
+{# This template generates a shell wrapper script or command-line arguments   #}
+{# for qutebrowser. Since qutebrowser relies on a Python config file, this    #}
+{# output mirrors the CLI flags that would otherwise be set in that file.     #}
+{# Every variable is provided with a safe default to prevent undefined errors #}
+{# during Ansible rendering.                                                  #}
+
+{# -------------------------------------------------------------------------- #}
+{# Basic Configuration Options                                                  #}
+{# -------------------------------------------------------------------------- #}
+
+# Path to the primary Python configuration file for qutebrowser.
+# If specified, qutebrowser loads this file instead of the default ~/.config/qutebrowser/config.py.
+# config_py: {{ (values | default({})).config_py | default('~/.config/qutebrowser/config.py') }}
+
+# Base directory for all storage (config, data, cache).
+# Defaults to home directory, but qutebrowser uses ~/.config/qutebrowser internally unless --basedir is overridden.
+# basedir: {{ (values | default({})).basedir | default('~') }}
+
+# The Qt wrapper to use. Either 'PyQt5' or 'PyQt6'.
+# qt_wrapper: {{ (values | default({})).qt_wrapper | default('PyQt6') }}
+
+# The browser backend to use. Either 'webkit' or 'webengine'.
+# backend: {{ (values | default({})).backend | default('webengine') }}
+
+# The base name of the desktop entry, used for app_id under Wayland.
+# desktop_file_name: {{ (values | default({})).desktop_file_name | default('qutebrowser') }}
+
+# -------------------------------------------------------------------------- #}
+# Logging Options                                                              #}
+# -------------------------------------------------------------------------- #}
+
+# Console log level. One of: critical, error, warning, info, debug, vdebug.
+# loglevel: {{ (values | default({})).loglevel | default('info') }}
+
+# Comma-separated list of log categories to filter for stdout debugging.
+# logfilter: {{ (values | default({})).logfilter | default('misc.*') }}
+
+# Number of debug log lines to keep in RAM. -1 for unlimited.
+# loglines: {{ (values | default({})).loglines | default(100) }}
+
+# Output log lines in JSON format.
+# json_logging:
+{% if (values | default({})).json_logging | default(false) %}
+# --json-logging
+{% endif %}
+
+# Turn off colored logging.
+# nocolor:
+{% if (values | default({})).nocolor | default(false) %}
+# --nocolor
+{% endif %}
+
+# Force colored logging.
+# force_color:
+{% if (values | default({})).force_color | default(false) %}
+# --force-color
+{% endif %}
+
+# -------------------------------------------------------------------------- #}
+# Window & Behavior Options                                                    #}
+# -------------------------------------------------------------------------- #}
+
+# Don't show the main window (headless mode).
+# nowindow:
+{% if (values | default({})).nowindow | default(false) %}
+# --nowindow
+{% endif %}
+
+# Don't show any error windows.
+# no_err_windows:
+{% if (values | default({})).no_err_windows | default(false) %}
+# --no-err-windows
+{% endif %}
+
+# -------------------------------------------------------------------------- #}
+# Qt Integration Options                                                       #}
+# -------------------------------------------------------------------------- #}
+
+# List of arguments to pass to Qt via --qt-arg NAME VALUE.
+# qt_args:
+{% for arg in (values | default({})).qt_args | default([]) %}
+#   --qt-arg {{ arg | default('') }}
+{% endfor %}
+
+# List of Qt flags to pass via --qt-flag.
+# qt_flags:
+{% for flag in (values | default({})).qt_flags | default([]) %}
+#   --qt-flag {{ flag | default('') }}
+{% endfor %}
+
+# List of debugging feature names to enable via --debug-flag.
+# debug_flags:
+{% for flag in (values | default({})).debug_flags | default([]) %}
+#   --debug-flag {{ flag | default('') }}
+{% endfor %}
+
+# -------------------------------------------------------------------------- #}
+# Startup & Session Options                                                    #}
+# -------------------------------------------------------------------------- #}
+
+# List of URLs to open on startup.
+# startup_urls:
+{% for url in (values | default({})).startup_urls | default([]) %}
+#   {{ url | default('') }}
+{% endfor %}
+
+# List of qutebrowser commands to execute on startup.
+# startup_commands:
+{% for cmd in (values | default({})).startup_commands | default([]) %}
+#   {{ cmd | default('') }}
+{% endfor %}
+
+# Name of the session to restore.
+# restore_session: {{ (values | default({})).restore_session | default('default') }}
+
+# Override session restoration.
+# override_restore:
+{% if (values | default({})).override_restore | default(false) %}
+# --override-restore
+{% endif %}
+
+# How URLs should be opened if instance exists. auto, tab, tab-bg, tab-silent, tab-bg-silent, window, private-window.
+# open_target: {{ (values | default({})).open_target | default('auto') }}
+
+# Mark following arguments as untrusted.
+# untrusted_args:
+{% if (values | default({})).untrusted_args | default(false) %}
+# --untrusted-args
+{% endif %}

@@ -1,0 +1,21 @@
+# ==============================================================================
+# ldap-git-backup cron configuration template
+#
+# This template generates a crontab entry for running ldap-git-backup.
+# It ensures the backup utility and its dependency (slapcat) are executable
+# before attempting the backup and git commit.
+#
+# Self-documenting: All variable defaults are inline with the schema defaults.
+# ==============================================================================
+
+# {{ cron_comment_msg | default('daily backup via cron') }}
+#
+# Schedule: {{ cron_schedule | default('0 4 * * *') }}
+# Runs as user: {{ cron_user | default('root') }}
+# Utility: {{ binary_path | default('/usr/sbin/ldap-git-backup') }}
+# Pre-check utility: {{ slapcat_path | default('/usr/sbin/slapcat') }}
+#
+# Logic: Only execute if both the backup binary and slapcat are present
+# and executable on the system.
+#
+{{ cron_schedule | default('0 4 * * *') }}	{{ cron_user | default('root') }}	if [ -x {{ binary_path | default('/usr/sbin/ldap-git-backup') }} -a -x {{ slapcat_path | default('/usr/sbin/slapcat') }} ]; then {{ binary_path | default('/usr/sbin/ldap-git-backup') }} --commit-msg '{{ cron_comment_msg | default('daily backup via cron') }}'; fi

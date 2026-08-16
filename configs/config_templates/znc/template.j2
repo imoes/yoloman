@@ -1,0 +1,137 @@
+# ==============================================================================
+# ZNC (ZNC bNC) Configuration File
+# ==============================================================================
+# This is the main configuration file for ZNC, an IRC bouncer.
+# ZNC keeps users connected to IRC networks when they disconnect from ZNC itself.
+#
+# Sections:
+#   [General]     - Global ZNC settings
+#   [Listeners]   - Network interfaces and ports ZNC listens on
+#   [User <name>] - Individual user accounts
+#   [Network <name>] - IRC network definitions (linked from users)
+# ==============================================================================
+
+[General]
+# The directory where ZNC stores user data (users, networks, configs).
+# Default: ~/.znc/users
+UserDirectory = {{ user_directory | default('~/.znc/users') }}
+
+# List of global modules to load for all users.
+# These modules provide functionality like channel persistence or basic core features.
+# Default: chansaver, basiccore
+{%- for mod in (modules | default(['chansaver', 'basiccore'])) %}
+LoadModule = {{ mod }}
+{%- endfor %}
+
+# ==============================================================================
+# Listener Configurations
+# ==============================================================================
+# Defines the ports and addresses ZNC binds to for incoming client connections.
+# Multiple [Listener N] blocks can exist.
+# ==============================================================================
+{%- for listener in (listeners | default([])) %}
+[Listener {{ loop.index }}]
+# IP address to bind the listener to.
+# Default: 0.0.0.0 (listen on all interfaces)
+BindAddress = {{ listener.bind_address | default('0.0.0.0') }}
+
+# Port number for the listener.
+# Default: 6667 (standard IRC port)
+Port = {{ listener.port | default(6667) }}
+
+# Whether SSL/TLS is enabled for this listener.
+# 1 = Enabled, 0 = Disabled.
+# Default: false (0)
+SSL = {{ listener.ssl | default(false) | ternary('1', '0') }}
+
+# Path to the SSL certificate file if SSL is enabled.
+# Common path: ~/.znc/znc.pem
+# Default: '' (empty)
+SSLCertFile = {{ listener.ssl_cert | default('') }}
+
+# Note: Other listener options like RemotePort, Protocol, etc. are omitted
+# to keep the template focused on the provided schema fields.
+{%- endfor %}
+
+# ==============================================================================
+# User Configurations
+# ==============================================================================
+# Defines ZNC user accounts. Each user can connect to one or more IRC networks.
+# ==============================================================================
+{%- for user in (users | default([])) %}
+[User {{ user.name }}]
+
+# The username for this ZNC account.
+# Default: admin
+# (Used in the section header above)
+
+# The password for the user.
+# Note: ZNC expects a hash (md5, sha256, etc.) or a clear-text password
+# if configured to auto-hash. This template passes the raw value from schema.
+# Default: znc
+Pass = {{ user.password | default('znc') }}
+
+# The nick the user uses when connecting to IRC networks.
+# Default: '' (empty, uses username)
+{%- if user.display_name | default('') %}
+Nick = {{ user.display_name | default('') }}
+{%- endif %}
+
+# Alternate nick if the primary is taken.
+# Default: '' (empty)
+{%- if user.alt_nick | default('') %}
+AltNick = {{ user.alt_nick | default('') }}
+{%- endif %}
+
+# Ident line sent to IRC servers (USER command ident).
+# Default: '' (empty)
+{%- if user.ident | default('') %}
+Ident = {{ user.ident | default('') }}
+{%- endif %}
+
+# Real name (gline/display name) shown in /whois.
+# Default: '' (empty)
+RealName = {{ user.real_name | default('') }}
+
+# SASL authentication credentials for IRC networks.
+{%- if user.sasl_username | default('') %}
+SASLUsername = {{ user.sasl_username | default('') }}
+{%- endif %}
+{%- if user.sasl_password | default('') %}
+SASLPassword = {{ user.sasl_password | default('') }}
+{%- endif %}
+
+# Load modules specific to this user.
+{%- for mod in (user.modules | default([])) %}
+LoadModule = {{ mod }}
+{%- endfor %}
+
+# ==============================================================================
+# Network Connections
+# ==============================================================================
+# Each user connects to specific networks defined in [Network <name>] sections.
+# Here we list the networks associated with this user.
+# ==============================================================================
+{%- for net_ref in (user.networks | default([])) %}
+# Connect to network: {{ net_ref }}
+{% endfor %}
+
+{%- endfor %}
+
+# ==============================================================================
+# IRC Network Definitions
+# ==============================================================================
+# These sections define the IRC networks themselves (server, ports, channels).
+# Users link to these networks by name in their [User <name>] section.
+# ==============================================================================
+{%- for network in (networks | default([])) %}
+[Network {{ network.name }}]
+# The name of the IRC network.
+# Default: irc.freenode.net
+# (Used in the section header above)
+
+# Note: Specific network settings like Server, Port, Password, Channels, etc.
+# are not present in the provided schema, so they are omitted.
+# If required, they should be added to the schema and here.
+
+{%- endfor %}

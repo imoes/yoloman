@@ -1,0 +1,22 @@
+# Configuration file for Synaptic package manager
+# This file configures the default behavior of the Synaptic GTK-based package manager.
+# It is structured as a simple key-value store.
+
+# Path to an alternative filter settings file.
+# If left empty (default), Synaptic uses its built-in default filters.
+# This allows users to define custom filter categories for package lists.
+filter_file: "{{ filter_file | default('') }}"
+
+# Index of the filter to apply at startup.
+# The value is 0-based, meaning 0 corresponds to the very first filter
+# defined in the filter_file (or the default list if filter_file is empty).
+# Use this to set the default view when Synaptic launches.
+initial_filter: {{ initial_filter | default(0) }}
+
+# List of internal options to set.
+# Each item must be a string in 'key=value' format.
+# These are advanced/expert options that control internal Synaptic behavior.
+# If empty, no extra options are applied.
+options:
+{% for opt in (options | default([])) %}  - "{{ opt }}"
+{% endfor %}

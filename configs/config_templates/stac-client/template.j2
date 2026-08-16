@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+# stac-client configuration wrapper
+#
+# This script is auto-generated from an Ansible Jinja2 template.
+# It provides a default argument parser for the `stac-client` CLI tool,
+# pre-configured with values from the Ansible playbook variables.
+#
+# To override defaults at runtime, pass command-line arguments explicitly.
+
+import argparse
+import sys
+
+# =============================================================================
+# Global Defaults
+# =============================================================================
+
+# Logging level: DEBUG, INFO, WARN, ERROR, CRITICAL
+# Defaults to 'INFO' if not specified in the Ansible variables.
+LOGGING_LEVEL = "{{ logging_level | default('INFO') | upper }}"
+
+# Root Catalog URL to connect to.
+# This is the primary endpoint for STAC API interactions.
+CATALOG_URL = "{{ catalog_url | default('https://earth-search.aws.element84.com/v1') }}"
+
+# Output save path (optional).
+# If provided, search results will be saved to this file instead of stdout.
+# Empty string or unset means no file saving.
+SAVE_PATH = "{{ save_path | default('') }}"
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Configure Python's logging module to match the specified level.
+# Only active if logging_level is defined and non-empty.
+{% if logging_level is defined and logging_level | trim != '' %}
+import logging
+logging.basicConfig(level=logging.{{ logging_level | upper }})
+{% endif %}
+
+# =============================================================================
+# Request Headers
+# =============================================================================
+
+# Additional request headers (KEY=VALUE pairs) to include in API calls.
+# Defaults to an empty list if no headers are provided.
+HEADERS = [
+{% for header in (headers | default([])) %}
+    "{{ header }}",
+{% endfor %}
+]
+
+# =============================================================================
+# Conformance Classes Management
+# =============================================================================
+
+# Conformance classes to add to the request.
+# Useful for enforcing specific STAC API capabilities.
+ADD_CONFORMS = [
+{% for c in (add_conforms_to | default([])) %}
+    "{{ c }}",
+{% endfor %}
+]
+
+# Conformance classes to remove from the request.
+REMOVE_CONFORMS = [
+{% for c in (remove_conforms_to | default([])) %}
+    "{{ c }}",
+{% endfor %}
+]
+
+# Clear all conformance classes before adding new ones.
+# If True, ADD_CONFORMS replaces the entire conformance list.
+CLEAR_CONFORMS = {{ clear_conforms_to | default(false) | lower }}
+
+# =============================================================================
+# Warning Handling
+# =============================================================================
+
+# Warnings to treat as errors.
+# If any of these warnings occur, the command will exit with an error status.
+ERROR_WARNINGS = [
+{% for w in (error_warnings | default([])) %}
+    "{{ w }}",
+{% endfor %}
+]
+
+# Warnings to ignore.
+# Suppress specific warnings even if they would normally be displayed.
+IGNORE_WARNINGS = [
+{% for w in (ignore_warnings | default([])) %}
+    "{{ w }}",
+{% endfor %}
+]
+
+# =============================================================================
+# Search Command Parameters
+# =============================================================================
+
+# Collection IDs to search within.
+# Limits the search scope to specific STAC collections.
+COLLECTIONS = [
+{% for coll in (collections | default([])) %}
+    "{{ coll }}",
+{% endfor %}
+]
+
+# Item IDs to retrieve.
+# If provided, other search parameters are ignored; only these IDs are fetched.
+IDS = [
+{% for item_id in (ids | default([])) %}
+    "{{ item_id }}",
+{% endfor %}
+]
+
+# Bounding box for spatial filtering: [min_lon, min_lat, max_lon, max_lat].
+# Defaults to an empty list if no bbox is specified.
+BBOX = [
+{% for coord in (bbox | default([])) %}
+    "{{ coord }}",
+{% endfor %}
+]
+
+# GeoJSON Feature or geometry string/file path for spatial filtering.
+# Alternative to the simple bbox parameter for complex geometries.
+INTERSECTS = "{{ intersects | default('') }}"
+
+# Single datetime or range (e.g. 2017-01-01/2017-02-15) for temporal filtering.
+# Defaults to empty string if no datetime is specified.
+DATETIME = "{{ datetime | default('') }}"
+
+# Query properties KEY=VALUE pairs for filtering item metadata.
+QUERY_PARAMS = [
+{% for q in (query | default([])) %}
+    "{{ q }}",
+{% endfor %}
+]
+
+# Filter expression using filter-lang syntax.
+FILTER_EXPR = "{{ filter | default('') }}"
+
+# Filter language (default cql2-json).
+# Supports 'cql2-json' or 'cql2-text' depending on server capabilities.
+FILTER_LANG = "{{ filter_lang | default('cql2-json') }}"
+
+# Fields to sort by.
+# List of property names to order the results.
+SORTBY = [
+{% for f in (sortby | default([])) %}
+    "{{ f }}",
+{% endfor %}
+]
+
+# Fields to return.
+# Limits the returned item properties to the specified list.
+FIELDS = [
+{% for f in (fields | default([])) %}
+    "{{ f }}",
+{% endfor %}
+]
+
+# =============================================================================
+# Limits and Method
+# =============================================================================
+
+# Page size limit (number of items per request).
+# Defaults to 10 if not specified.
+LIMIT = {{ limit | default(10) }}
+
+# Max items to retrieve total.
+# If set, the client will stop after retrieving this many items.
+MAX_ITEMS = {{ max_items | default(100) }}
+
+# HTTP method: GET or POST.
+# POST is generally preferred for complex queries with large bodies.
+METHOD = "{{ method | default('POST') | upper }}"
+
+# Print number matched.
+# If True, the API response's matched count is printed to stderr/log.
+MATCHED = {{ matched | default(false) | lower }}
+
+def build_args():
+    """
+    Build and configure the argparse parser with all default values.
+    
+    Returns:
+        argparse.ArgumentParser: Configured parser instance.
+    """
+    parser = argparse.ArgumentParser(description='stac-client wrapper')
+    subparsers = parser.add_subparsers(dest='command')
+    
+    # Search command
+    search_parser = subparsers.add_parser('search', help='Perform new search')
+    search_parser.add_argument('url', help='Root Catalog URL', default=CATALOG_URL)
+    search_parser.add_argument('--logging', default=LOGGING_LEVEL, help='Logging level')
+    
+    if HEADERS:
+        search_parser.add_argument('--headers', nargs='+', default=HEADERS, help='Additional headers')
+    
+    if ADD_CONFORMS:
+        search_parser.add_argument('--add-conforms-to', nargs='+', default=ADD_CONFORMS, help='Conforms to add')
+    if REMOVE_CONFORMS:
+        search_parser.add_argument('--remove-conforms-to', nargs='+', default=REMOVE_CONFORMS, help='Conforms to remove')
+    if CLEAR_CONFORMS:
+        search_parser.add_argument('--clear-conforms-to', action='store_true', help='Clear all conforms')
+        
+    if ERROR_WARNINGS:
+        search_parser.add_argument('--error', nargs='+', default=ERROR_WARNINGS, help='Warnings to treat as errors')
+    if IGNORE_WARNINGS:
+        search_parser.add_argument('--ignore', nargs='+', default=IGNORE_WARNINGS, help='Warnings to ignore')
+        
+    # Search specific parameters
+    if COLLECTIONS:
+        search_parser.add_argument('--collections', nargs='+', default=COLLECTIONS, help='Collection IDs')
+    if IDS:
+        search_parser.add_argument('--ids', nargs='+', default=IDS, help='Item IDs to retrieve')
+    if BBOX:
+        search_parser.add_argument('--bbox', nargs=4, default=BBOX, help='Bounding box [min_lon, min_lat, max_lon, max_lat]')
+    if INTERSECTS:
+        search_parser.add_argument('--intersects', default=INTERSECTS, help='GeoJSON Feature or geometry')
+    if DATETIME:
+        search_parser.add_argument('--datetime', default=DATETIME, help='Datetime or range')
+    if QUERY_PARAMS:
+        search_parser.add_argument('--query', nargs='+', default=QUERY_PARAMS, help='Query properties')
+    if FILTER_EXPR:
+        search_parser.add_argument('--filter', default=FILTER_EXPR, help='Filter expression')
+    if FILTER_LANG != 'cql2-json':
+        search_parser.add_argument('--filter-lang', default=FILTER_LANG, help='Filter language')
+    if SORTBY:
+        search_parser.add_argument('--sortby', nargs='+', default=SORTBY, help='Sort fields')
+    if FIELDS:
+        search_parser.add_argument('--fields', nargs='+', default=FIELDS, help='Return fields')
+    if LIMIT is not None:
+        search_parser.add_argument('--limit', type=int, default=LIMIT, help='Page size limit')
+    if MAX_ITEMS is not None:
+        search_parser.add_argument('--max-items', type=int, default=MAX_ITEMS, help='Max items to retrieve')
+    if METHOD != 'POST':
+        search_parser.add_argument('--method', default=METHOD, help='HTTP method (GET/POST)')
+    if MATCHED:
+        search_parser.add_argument('--matched', action='store_true', help='Print number matched')
+    if SAVE_PATH:
+        search_parser.add_argument('--save', default=SAVE_PATH, help='Filename to save Item collection to')
+        
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    args = build_args()
+    
+    # In a real scenario, this would call the stac-client binary
+    # For template purposes, we output the command line
+    cmd = ['stac-client', 'search', args.url]
+    
+    if args.logging and args.logging != LOGGING_LEVEL:
+        cmd.extend(['--logging', args.logging])
+    if args.headers:
+        cmd.extend(['--headers'] + args.headers)
+    if args.add_conforms_to:
+        cmd.extend(['--add-conforms-to'] + args.add_conforms_to)
+    if args.remove_conforms_to:
+        cmd.extend(['--remove-conforms-to'] + args.remove_conforms_to)
+    if args.clear_conforms_to:
+        cmd.append('--clear-conforms-to')
+    if args.error:
+        cmd.extend(['--error'] + args.error)
+    if args.ignore:
+        cmd.extend(['--ignore'] + args.ignore)
+    if args.collections:
+        cmd.extend(['--collections'] + args.collections)
+    if args.ids:
+        cmd.extend(['--ids'] + args.ids)
+    if args.bbox:
+        cmd.extend(['--bbox'] + [str(b) for b in args.bbox])
+    if args.intersects:
+        cmd.extend(['--intersects', args.intersects])
+    if args.datetime:
+        cmd.extend(['--datetime', args.datetime])
+    if args.query:
+        cmd.extend(['--query'] + args.query)
+    if args.filter:
+        cmd.extend(['--filter', args.filter])
+    if args.filter_lang:
+        cmd.extend(['--filter-lang', args.filter_lang])
+    if args.sortby:
+        cmd.extend(['--sortby'] + args.sortby)
+    if args.fields:
+        cmd.extend(['--fields'] + args.fields)
+    if args.limit:
+        cmd.extend(['--limit', str(args.limit)])
+    if args.max_items:
+        cmd.extend(['--max-items', str(args.max_items)])
+    if args.method and args.method != 'POST':
+        cmd.extend(['--method', args.method])
+    if args.matched:
+        cmd.append('--matched')
+    if args.save:
+        cmd.extend(['--save', args.save])
+        
+    print(" ".join(cmd))

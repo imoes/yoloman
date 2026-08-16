@@ -1,0 +1,357 @@
+#!/bin/bash
+# RTMP Dump Configuration
+# This script configures and executes rtmpdump based on the provided parameters.
+# It is self-documenting: every variable corresponds to an rtmpdump CLI flag,
+# described below. Variables use Ansible/Jinja2 defaults to ensure safe rendering.
+
+# The URL of the RTMP server and media content.
+# Corresponds to: --rtmp (-r)
+URL="{{ (rtmp_url | default('rtmp://example.com/app/stream')) }}"
+
+# Overrides the hostname in the RTMP URL.
+# Corresponds to: --host (-n)
+{% if (hostname | default('')) != '' %}
+HOST="{{ (hostname | default('')) }}"
+{% endif %}
+
+# Overrides the port number in the RTMP URL.
+# 0 means use the protocol's default port.
+# Corresponds to: --port (-c)
+{% if (port | default(0)) != 0 %}
+PORT="{{ (port | default(0)) }}"
+{% endif %}
+
+# Overrides the protocol in the RTMP URL.
+# 0=rtmp, 1=rtmpt, 2=rtmpe, 3=rtmpte, 4=rtmps, 5=rtmpts.
+# 0 means auto-detect/standard.
+# Corresponds to: --protocol (-l)
+{% if (protocol | default(0)) != 0 %}
+PROTOCOL="{{ (protocol | default(0)) }}"
+{% endif %}
+
+# Use the specified SOCKS4 proxy in host:port format.
+# Corresponds to: --socks (-S)
+{% if (socks_proxy | default('')) != '' %}
+SOCKS_PROXY="{{ (socks_proxy | default('')) }}"
+{% endif %}
+
+# Name of application to connect to on the RTMP server.
+# Corresponds to: --app (-a)
+{% if (app | default('')) != '' %}
+APP="{{ (app | default('')) }}"
+{% endif %}
+
+# URL of the target stream.
+# Corresponds to: --tcUrl (-t)
+{% if (tc_url | default('')) != '' %}
+TC_URL="{{ (tc_url | default('')) }}"
+{% endif %}
+
+# URL of the web page in which the media was embedded.
+# Corresponds to: --pageUrl (-p)
+{% if (page_url | default('')) != '' %}
+PAGE_URL="{{ (page_url | default('')) }}"
+{% endif %}
+
+# URL of the SWF player for the media.
+# Corresponds to: --swfUrl (-s)
+{% if (swf_url | default('')) != '' %}
+SWF_URL="{{ (swf_url | default('')) }}"
+{% endif %}
+
+# Version of the Flash plugin used to run the SWF player.
+# Corresponds to: --flashVer (-f)
+{% if (flash_ver | default('LNX 10,0,32,18')) != 'LNX 10,0,32,18' %}
+FLASH_VER="{{ (flash_ver | default('LNX 10,0,32,18')) }}"
+{% endif %}
+
+# Authentication string appended to the Connect message (deprecated).
+# Corresponds to: --auth (-u)
+{% if (auth | default('')) != '' %}
+AUTH="{{ (auth | default('')) }}"
+{% endif %}
+
+# Arbitrary AMF data to append to the Connect message.
+# Corresponds to: --conn (-C)
+# Each item in conn_packets is a map with 'type' (B/N/S/O/Z) and 'data'.
+CONN_ARGS=""
+{% for packet in (conn_packets | default([])) %}
+{% if packet is mapping %}
+{% set p_type = (packet.get('type') | default('S')) %}
+{% set p_data = (packet.get('data') | default('')) %}
+CONN_ARGS="${CONN_ARGS} -C '{{ p_type }}:{{ p_data }}'"
+{% endif %}
+{% endfor %}
+
+# Overrides the playpath parsed from the RTMP URL.
+# Corresponds to: --playpath (-y)
+{% if (playpath | default('')) != '' %}
+PLAYPATH="{{ (playpath | default('')) }}"
+{% endif %}
+
+# Issue a set_playlist command before sending the play command.
+# Corresponds to: --playlist (-Y)
+{% if (playlist | default(False)) %}
+PLAYLIST_FLAG="-Y"
+{% else %}
+PLAYLIST_FLAG=""
+{% endif %}
+
+# Specify that the media is a live stream.
+# Corresponds to: --live (-v)
+{% if (live | default(False)) %}
+LIVE_FLAG="-v"
+{% else %}
+LIVE_FLAG=""
+{% endif %}
+
+# Name of live stream to subscribe to.
+# Defaults to playpath if not specified.
+# Corresponds to: --subscribe (-d)
+{% if (subscribe | default('')) != '' %}
+SUBSCRIBE="{{ (subscribe | default('')) }}"
+{% endif %}
+
+# Download approximately in realtime.
+# Corresponds to: --realtime (-R)
+{% if (realtime | default(False)) %}
+REALTIME_FLAG="-R"
+{% else %}
+REALTIME_FLAG=""
+{% endif %}
+
+# Resume an incomplete RTMP download.
+# Corresponds to: --resume (-e)
+{% if (resume | default(False)) %}
+RESUME_FLAG="-e"
+{% else %}
+RESUME_FLAG=""
+{% endif %}
+
+# Skip num keyframes when looking for the last keyframe from which to resume.
+# Corresponds to: --skip (-k)
+{% if (skip_keyframes | default(0)) != 0 %}
+SKIP="{{ (skip_keyframes | default(0)) }}"
+{% else %}
+SKIP="0"
+{% endif %}
+
+# Start at num seconds into the stream.
+# Corresponds to: --start (-A)
+{% if (start_time | default(0)) != 0 %}
+START_TIME="{{ (start_time | default(0)) }}"
+{% else %}
+START_TIME="0"
+{% endif %}
+
+# Stop at num seconds into the stream.
+# Corresponds to: --stop (-B)
+{% if (stop_time | default(0)) != 0 %}
+STOP_TIME="{{ (stop_time | default(0)) }}"
+{% else %}
+STOP_TIME="0"
+{% endif %}
+
+# Set buffer time to num milliseconds.
+# Corresponds to: --buffer (-b)
+{% if (buffer_time | default(36000000)) != 36000000 %}
+BUFFER="{{ (buffer_time | default(36000000)) }}"
+{% else %}
+BUFFER="36000000"
+{% endif %}
+
+# Timeout the session after num seconds without receiving any data.
+# Corresponds to: --timeout (-m)
+{% if (timeout | default(120)) != 120 %}
+TIMEOUT="{{ (timeout | default(120)) }}"
+{% else %}
+TIMEOUT="120"
+{% endif %}
+
+# Key for SecureToken response.
+# Corresponds to: --token (-T)
+{% if (token | default('')) != '' %}
+TOKEN="{{ (token | default('')) }}"
+{% endif %}
+
+# JSON token used by legacy Justin.tv servers.
+# Corresponds to: --jtv (-j)
+{% if (jtv_token | default('')) != '' %}
+JTV_TOKEN="{{ (jtv_token | default('')) }}"
+{% endif %}
+
+# SHA256 hash of the decompressed SWF file (for SWF Verification).
+# Corresponds to: --swfhash (-w)
+{% if (swf_hash | default('')) != '' %}
+SWF_HASH="{{ (swf_hash | default('')) }}"
+{% endif %}
+
+# Size of the decompressed SWF file (for SWF Verification).
+# Corresponds to: --swfsize (-x)
+{% if (swf_size | default(0)) != 0 %}
+SWF_SIZE="{{ (swf_size | default(0)) }}"
+{% endif %}
+
+# URL of the SWF player for SWF Verification (replaces swfhash/swfsize).
+# Corresponds to: --swfVfy (-W)
+{% if (swf_vfy_url | default('')) != '' %}
+SWF_VFY="{{ (swf_vfy_url | default('')) }}"
+{% endif %}
+
+# Days to use cached SWF info before re-checking.
+# Corresponds to: --swfAge (-X)
+{% if (swf_age | default(30)) != 30 %}
+SWF_AGE="{{ (swf_age | default(30)) }}"
+{% else %}
+SWF_AGE="30"
+{% endif %}
+
+# Specify the output file name.
+# Use '-' for stdout.
+# Corresponds to: --flv (-o)
+{% if (output_file | default('-')) != '-' %}
+OUTPUT_FILE="{{ (output_file | default('-')) }}"
+{% else %}
+OUTPUT_FILE="-"
+{% endif %}
+
+# Display streaming progress with hash marks for each 1% of progress.
+# Corresponds to: --hashes (-#)
+{% if (hashes | default(False)) %}
+HASHES_FLAG="-#"
+{% else %}
+HASHES_FLAG=""
+{% endif %}
+
+# Suppress all command output.
+# Corresponds to: --quiet (-q)
+{% if (quiet | default(False)) %}
+QUIET_FLAG="-q"
+{% else %}
+QUIET_FLAG=""
+{% endif %}
+
+# Verbose command output.
+# Corresponds to: --verbose (-V)
+{% if (verbose | default(False)) %}
+VERBOSE_FLAG="-V"
+{% else %}
+VERBOSE_FLAG=""
+{% endif %}
+
+# Debug level output.
+# Corresponds to: --debug (-z)
+{% if (debug | default(False)) %}
+DEBUG_FLAG="-z"
+{% else %}
+DEBUG_FLAG=""
+{% endif %}
+
+# Construct the command line.
+CMD="rtmpdump"
+
+{% if (rtmp_url | default('rtmp://example.com/app/stream')) %}
+CMD="${CMD} -r '{{ (rtmp_url | default('rtmp://example.com/app/stream')) }}'"
+{% endif %}
+{% if (hostname | default('')) != '' %}
+CMD="${CMD} -n '{{ (hostname | default('')) }}'"
+{% endif %}
+{% if (port | default(0)) != 0 %}
+CMD="${CMD} -c '{{ (port | default(0)) }}'"
+{% endif %}
+{% if (protocol | default(0)) != 0 %}
+CMD="${CMD} -l '{{ (protocol | default(0)) }}'"
+{% endif %}
+{% if (socks_proxy | default('')) != '' %}
+CMD="${CMD} -S '{{ (socks_proxy | default('')) }}'"
+{% endif %}
+{% if (app | default('')) != '' %}
+CMD="${CMD} -a '{{ (app | default('')) }}'"
+{% endif %}
+{% if (tc_url | default('')) != '' %}
+CMD="${CMD} -t '{{ (tc_url | default('')) }}'"
+{% endif %}
+{% if (page_url | default('')) != '' %}
+CMD="${CMD} -p '{{ (page_url | default('')) }}'"
+{% endif %}
+{% if (swf_url | default('')) != '' %}
+CMD="${CMD} -s '{{ (swf_url | default('')) }}'"
+{% endif %}
+{% if (flash_ver | default('LNX 10,0,32,18')) != 'LNX 10,0,32,18' %}
+CMD="${CMD} -f '{{ (flash_ver | default('LNX 10,0,32,18')) }}'"
+{% endif %}
+{% if (auth | default('')) != '' %}
+CMD="${CMD} -u '{{ (auth | default('')) }}'"
+{% endif %}
+{% if CONN_ARGS is defined and CONN_ARGS %}
+CMD="${CMD} ${CONN_ARGS}"
+{% endif %}
+{% if (playpath | default('')) != '' %}
+CMD="${CMD} -y '{{ (playpath | default('')) }}'"
+{% endif %}
+{% if (playlist | default(False)) %}
+CMD="${CMD} ${PLAYLIST_FLAG}"
+{% endif %}
+{% if (live | default(False)) %}
+CMD="${CMD} ${LIVE_FLAG}"
+{% endif %}
+{% if (subscribe | default('')) != '' %}
+CMD="${CMD} -d '{{ (subscribe | default('')) }}'"
+{% endif %}
+{% if (realtime | default(False)) %}
+CMD="${CMD} ${REALTIME_FLAG}"
+{% endif %}
+{% if (resume | default(False)) %}
+CMD="${CMD} ${RESUME_FLAG}"
+{% endif %}
+{% if (skip_keyframes | default(0)) != 0 %}
+CMD="${CMD} -k '{{ (skip_keyframes | default(0)) }}'"
+{% endif %}
+{% if (start_time | default(0)) != 0 %}
+CMD="${CMD} -A '{{ (start_time | default(0)) }}'"
+{% endif %}
+{% if (stop_time | default(0)) != 0 %}
+CMD="${CMD} -B '{{ (stop_time | default(0)) }}'"
+{% endif %}
+{% if (buffer_time | default(36000000)) != 36000000 %}
+CMD="${CMD} -b '{{ (buffer_time | default(36000000)) }}'"
+{% endif %}
+{% if (timeout | default(120)) != 120 %}
+CMD="${CMD} -m '{{ (timeout | default(120)) }}'"
+{% endif %}
+{% if (token | default('')) != '' %}
+CMD="${CMD} -T '{{ (token | default('')) }}'"
+{% endif %}
+{% if (jtv_token | default('')) != '' %}
+CMD="${CMD} -j '{{ (jtv_token | default('')) }}'"
+{% endif %}
+{% if (swf_hash | default('')) != '' %}
+CMD="${CMD} -w '{{ (swf_hash | default('')) }}'"
+{% endif %}
+{% if (swf_size | default(0)) != 0 %}
+CMD="${CMD} -x '{{ (swf_size | default(0)) }}'"
+{% endif %}
+{% if (swf_vfy_url | default('')) != '' %}
+CMD="${CMD} -W '{{ (swf_vfy_url | default('')) }}'"
+{% endif %}
+{% if (swf_age | default(30)) != 30 %}
+CMD="${CMD} -X '{{ (swf_age | default(30)) }}'"
+{% endif %}
+{% if (output_file | default('-')) != '-' %}
+CMD="${CMD} -o '{{ (output_file | default('-')) }}'"
+{% endif %}
+{% if (hashes | default(False)) %}
+CMD="${CMD} ${HASHES_FLAG}"
+{% endif %}
+{% if (quiet | default(False)) %}
+CMD="${CMD} ${QUIET_FLAG}"
+{% endif %}
+{% if (verbose | default(False)) %}
+CMD="${CMD} ${VERBOSE_FLAG}"
+{% endif %}
+{% if (debug | default(False)) %}
+CMD="${CMD} ${DEBUG_FLAG}"
+{% endif %}
+
+# Execute the rtmpdump command.
+eval ${CMD}

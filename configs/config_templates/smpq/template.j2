@@ -1,0 +1,261 @@
+# =============================================================================
+# SMPQ Configuration Template
+# =============================================================================
+# This template generates command-line arguments for the SMPQ utility to manage
+# MPQ archives (commonly used in Blizzard games).
+#
+# Each section corresponds to a configuration variable defined in the Ansible
+# inventory or role defaults. All variables have safe defaults applied inline.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Path to the MPQ archive file (target archive)
+# Variable: archive_path
+# Default: /var/lib/smpq/archive.mpq
+# -----------------------------------------------------------------------------
+# Target archive filename
+{{ archive_path | default('/var/lib/smpq/archive.mpq') }}
+
+# -----------------------------------------------------------------------------
+# Action to perform on the archive
+# Variable: action
+# Choices: create, append, delete, extract, list, info
+# Default: info
+# -----------------------------------------------------------------------------
+# Action to perform
+{% set act = action | default('info') %}
+{% if act == 'create' %}
+-c
+{% elif act == 'append' %}
+-a
+{% elif act == 'delete' %}
+-d
+{% elif act == 'extract' %}
+-x
+{% elif act == 'list' %}
+-l
+{% elif act == 'info' %}
+-i
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# MPQ Archive Version
+# Variable: mpq_version
+# Choices: 1, 2, 3, 4
+# Default: 4
+# -----------------------------------------------------------------------------
+# MPQ Archive Version (1, 2, 3, or 4)
+{% set ver = mpq_version | default(4) %}
+{% if ver is defined %}
+--mpq-version {{ ver }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Compression method for archive contents
+# Variable: compression_method
+# Choices: none, implode, pkware, huffman, adpcm_mono, adpcm_stereo, zlib, bz2, sparse, lzma, huffman+adpcm_mono, huffman+adpcm_stereo
+# Default: zlib
+# -----------------------------------------------------------------------------
+# Compression method (none, implode, pkware, huffman, zlib, bz2, sparse, lzma, etc.)
+{% set comp = compression_method | default('zlib') %}
+{% if comp is defined %}
+--compression {{ comp }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Locale ID for localized strings
+# Variable: locale_id
+# Default: 0 (neutral)
+# -----------------------------------------------------------------------------
+# Locale ID (default: 0)
+{% set loc = locale_id | default(0) %}
+{% if loc is defined %}
+--locale {{ loc }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Enable overwrite of existing files within the archive
+# Variable: force_overwrite
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Enable overwrite
+{% if force_overwrite | default(false) %}
+--force
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Quiet mode: suppress non-error output
+# Variable: quiet
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Enable quiet mode
+{% if quiet | default(false) %}
+--quiet
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Verbose mode: enable detailed output
+# Variable: verbose
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Enable verbose mode
+{% if verbose | default(false) %}
+--verbose
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Sector CRC: Store or check CRC for each data sector
+# Variable: sector_crc
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Store/Check CRC for each sector
+{% if sector_crc | default(false) %}
+--sector-crc
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# System Listfiles: Do not load system-wide listfile(s)
+# Variable: no_system_listfiles
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Do not load system listfiles
+{% if no_system_listfiles | default(false) %}
+--no-system-listfiles
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Archive Listfile: Do not use/create archive listfile
+# Variable: no_archive_listfile
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Do not use/create archive listfile
+{% if no_archive_listfile | default(false) %}
+--no-archive-listfile
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# File Attributes: Do not allow using file attributes
+# Variable: no_attributes
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Do not allow using file attributes
+{% if no_attributes | default(false) %}
+--no-attributes
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Maximum File Count: Limit number of files (power of 2, 0 for autodetect)
+# Variable: max_file_count
+# Default: 0
+# -----------------------------------------------------------------------------
+# Maximum file count (power of 2, 0 for autodetect)
+{% set mfc = max_file_count | default(0) %}
+{% if mfc is defined %}
+--max-file-count {{ mfc }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Encryption: Store archive contents as encrypted
+# Variable: encrypt
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Store as encrypted
+{% if encrypt | default(false) %}
+--encrypt
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Fix Key: Adjust encryption key based on file size
+# Variable: fix_key
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Fix encryption key according to file size
+{% if fix_key | default(false) %}
+--fix-key
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Deletion Marker: Set marker for deleted files
+# Variable: deletion_marker
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Set deletion marker
+{% if deletion_marker | default(false) %}
+--deletion-marker
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Single Unit: Add files as a single unit (encryption disabled)
+# Variable: single_unit
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Add file as single unit (cannot be encrypted)
+{% if single_unit | default(false) %}
+--single-unit
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Partial Archive: Mark archive as partial (e.g., for trial versions)
+# Variable: partial
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Archive is partial (used by trial versions)
+{% if partial | default(false) %}
+--partial
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Not Encrypted: Explicitly state archive is NOT encrypted (overrides autodetect)
+# Variable: not_encrypted
+# Type: boolean
+# Default: false
+# -----------------------------------------------------------------------------
+# Archive is not encrypted (default autodetect)
+{% if not_encrypted | default(false) %}
+--not-encrypted
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Prefix Archives: List of prefix:archive pairs for patch/merge support
+# Variable: prefix_archives
+# Type: list of strings (format: 'prefix:archive')
+# Default: [] (empty)
+# -----------------------------------------------------------------------------
+# Open more (patched) archives with directory prefix
+{% for prefix_archive in prefix_archives | default([]) %}
+-p {{ prefix_archive }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# External Listfile: Path to an additional external listfile
+# Variable: listfile
+# Default: '' (empty)
+# -----------------------------------------------------------------------------
+# Additional external listfile
+{% set lf = listfile | default('') %}
+{% if lf and lf != '' %}
+--listfile {{ lf }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Files to Process: List of files to create, append, delete, or extract
+# Variable: files
+# Type: list of strings
+# Default: [] (empty)
+# -----------------------------------------------------------------------------
+# Files to process
+{% for file in files | default([]) %}
+{{ file }}
+{% endfor %}

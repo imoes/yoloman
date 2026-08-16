@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Shell script for openstack-debian-images-updater.
+# This script ensures the log directory exists and runs the updater,
+# appending both stdout and stderr to a daily log file.
+
+# Set -e: exit immediately if any command exits with a non-zero status.
+set -e
+
+# Check if the updater binary is available on the system.
+# If not present, exit gracefully (script is a no-op).
+if ! [ -x /usr/bin/openstack-debian-images-updater ] ; then
+	exit 0
+fi
+
+# Create the log directory if it does not exist.
+# Path is defined by the 'log_dir' schema field.
+mkdir -p {{ log_dir | default('/var/log/openstack-debian-images-updater') }}
+
+# Run the updater binary.
+# Redirect all output (stdout and stderr) to the daily-check.log file inside the log directory.
+# This ensures all diagnostic information is captured in one place.
+/usr/bin/openstack-debian-images-updater > {{ log_dir | default('/var/log/openstack-debian-images-updater') }}/daily-check.log 2>&1

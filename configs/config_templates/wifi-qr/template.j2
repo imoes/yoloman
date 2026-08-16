@@ -1,0 +1,48 @@
+# wifi-qr terminal mode configuration
+# This file controls default parameters for `wifi-qr` when run in terminal mode (-t) or fuzzy finder mode (-z).
+# It does not apply to GUI modes (-g, -c, -q, -p) or direct command-line overrides.
+
+# The Service Set Identifier (SSID) of the Wi-Fi network.
+# Default: 'MyWiFiNetwork'
+SSID={{ ssid | default('MyWiFiNetwork') }}
+
+# The pre-shared key (password) for the network.
+# Empty string indicates an open network.
+# Default: '' (empty)
+PASSWORD={{ password | default('') }}
+
+# The security encryption type.
+# Common values: WPA, WPA2, WPA3, WEP, nopass.
+# Default: 'WPA2'
+ENC_TYPE={{ enc_type | default('WPA2') }}
+
+# The GUI dialog tool to use for generating QR codes or scanning.
+# Supported: zenity, kdialog.
+# Default: 'zenity'
+GUI_TOOL={{ gui_tool | default('zenity') }}
+
+# The device file path for the webcam used in QR scanning modes (-w).
+# Default: '/dev/video0'
+WEBCAM_DEVICE={{ webcam_device | default('/dev/video0') }}
+
+# Path to an image file containing a QR code to be scanned and auto-connected (-f, -p).
+# Default: '' (empty)
+SCAN_FILE={{ scan_file | default('') }}
+
+# Enable legacy encoding mode (-L) for compatibility with older devices.
+# Boolean value (true/false).
+# Default: false
+LEGACY_MODE={{ legacy_mode | default(false) }}
+
+# List of network configurations to manage. Used for batch operations or multi-network configs.
+# Format: Each entry adds a block with SSID, PASSWORD, and ENC_TYPE.
+NETWORKS=
+{% for net in networks | default([]) %}
+# Network {{ loop.index }} configuration
+# SSID for this specific network entry
+SSID={{ net.ssid | default('') }}
+# Password for this specific network entry
+PASSWORD={{ net.password | default('') }}
+# Encryption type for this specific network entry
+ENC_TYPE={{ net.enc_type | default('WPA2') }}
+{% endfor %}

@@ -1,0 +1,103 @@
+# /etc/squid/squid.conf
+# Squid (OpenSSL variant) configuration template.
+# This template is self-documenting: every directive is preceded by a comment
+# derived from the schema description to ensure clarity without external docs.
+
+# ==============================================================================
+# Basic Network Settings
+# ==============================================================================
+
+# The TCP port number where Squid listens for HTTP requests.
+http_port {{ http_port | default(3128) }}
+
+# The TCP port number where Squid listens for ICP (Internet Cache Protocol) requests.
+icp_port {{ icp_port | default(3130) }}
+
+# ==============================================================================
+# Cache Storage Configuration
+# ==============================================================================
+
+# The type of cache storage to use (e.g., ufs, rock, directory).
+# The directory path where cache data is stored.
+# The maximum disk space to use for the cache, in megabytes.
+# The number of first-level subdirectories for the cache.
+# The number of second-level subdirectories for the cache.
+# Syntax: cache_dir <type> <path> <size> <level1> <level2>
+cache_dir {{ cache_type | default('ufs') }} {{ cache_dir_path | default('/var/spool/squid') }} {{ cache_size | default(1000) }} {{ level1 | default(16) }} {{ level2 | default(256) }}
+
+# Maximum object size allowed in the cache, in kilobytes.
+maximum_object_size_kb {{ maximum_object_size_kb | default(4096) }} KB
+
+# ==============================================================================
+# System & Logging
+# ==============================================================================
+
+# Path to the file where Squid stores its PID.
+pid_filename {{ pid_filename | default('/var/run/squid.pid') }}
+
+# Path to the access log file.
+access_log {{ access_log_path | default('/var/log/squid/access.log') }} squid
+
+# ==============================================================================
+# Appearance & Management
+# ==============================================================================
+
+# Directory containing Squid error page templates.
+error_directory {{ error_directory | default('/usr/share/squid/errors/en') }}
+
+# Email address of the cache manager, used in error pages.
+cache_mgr {{ cache_mgr_email | default('admin@example.com') }}
+
+# Hostname displayed in error pages and cache manager responses.
+visible_hostname {{ visible_hostname | default('proxy.example.com') }}
+
+# ==============================================================================
+# Access Control Lists (ACLs)
+# ==============================================================================
+
+# List of CIDR networks considered local and allowed access.
+acl localnet src {{ localnet_cidrs | default(['10.0.0.0/8', '192.168.0.0/16', '172.16.0.0/12']) | join(' ') }}
+
+# Define safe HTTP methods.
+acl SafeMethods method GET HEAD POST
+
+# Deny requests using unsafe methods.
+http_access deny !SafeMethods
+
+# Allow local network to use the proxy.
+http_access allow localnet
+
+# Deny all other access by default.
+http_access deny all
+
+# ==============================================================================
+# SSL/TLS Configuration (Squid-OpenSSL Specific)
+# ==============================================================================
+
+# Path to the SSL certificate generation helper program.
+sslcrtd_program {{ sslcrtd_program | default('/usr/lib/squid/ssl_crtd') }}
+
+# Number of parallel instances of the SSL certificate generation helper.
+sslcrtd_children {{ sslcrtd_children | default(8) }}
+
+# Timeout for SSL certificate generation operations, in seconds.
+sslcrtd_timeout {{ sslcrtd_timeout | default(4) }} seconds
+
+# Options for outgoing TLS connections (e.g., SNI support).
+tls_outgoing_options {{ tls_outgoing_options | default('SNI=on') }}
+
+# ==============================================================================
+# Authentication Helpers (Optional)
+# ==============================================================================
+
+# Path to the PAM authentication helper program.
+auth_param basic program {{ auth_basic_program | default('/usr/lib/squid/basic_pam_auth') }}
+
+# Number of parallel instances of the basic authentication helper.
+auth_param basic children {{ auth_basic_children | default(5) }}
+
+# Realm string for the authentication popup.
+auth_param basic realm {{ auth_basic_realm | default('Proxy Authentication Required') }}
+
+# Time-to-live for authenticated credentials, in hours.
+auth_param basic credentialsttl {{ auth_basic_credentialsttl | default(1) }} hours

@@ -1,0 +1,39 @@
+# Configuration file for unixODBC
+
+[ODBC]
+# ODBCINI: Sets the full path to the system-wide unixODBC configuration file containing Data Source Names (DSNs)
+ODBCINI = {{ odbc_ini_path }}
+
+# ODBCINSTINI: Sets the name of the unixODBC driver configuration file relative to ODBCSYSINI
+ODBCINSTINI = {{ odbc_inst_ini_path }}
+
+[ODBC Data Sources]
+{% for dsn_name, dsn_config in datasources.items() %}
+# {{ dsn_name }}: Description of the data source registered in the ODBC Data Sources section
+{{ dsn_name }} = {{ dsn_config.driver }}
+{% endfor %}
+
+{% for dsn_name, dsn_config in datasources.items() %}
+[{{ dsn_name }}]
+# DRIVER: Path to the ODBC driver shared library for this Data Source Name
+DRIVER = {{ dsn_config.driver_path }}
+
+# SERVER: Hostname or IP address of the database server
+SERVER = {{ dsn_config.server }}
+
+# DATABASE: Name of the database to connect to on the server
+DATABASE = {{ dsn_config.database }}
+
+# UID: Default username for the connection
+UID = {{ dsn_config.username }}
+
+# PWD: Default password for the connection
+PWD = {{ dsn_config.password }}
+
+# PORT: Port number of the database server
+PORT = {{ dsn_config.port }}
+
+# DESCRIPTION: Human-readable description of this Data Source Name
+DESCRIPTION = {{ dsn_config.description }}
+
+{% endfor %}

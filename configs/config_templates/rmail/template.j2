@@ -1,0 +1,35 @@
+# Courier Rmail/Sendmail Wrapper Configuration
+# This file configures the rmail command, which acts as a wrapper
+# for the underlying Courier MTA delivery mechanisms.
+# Changes here affect envelope senders, security levels, and
+# how local domains are resolved.
+
+# The hostname to use for the envelope sender and From: header
+# if MAILHOST is not set. Corresponds to the system machine name or MAILHOST env.
+# If empty, the system machine name is used.
+hostname = {{ hostname | default('localhost') }}
+
+# The name to use in the From: header if -F, MAILNAME, and NAME env vars are not set.
+# Corresponds to: -F / MAILNAME / NAME.
+sender_name = {{ sender_name | default('Mail Delivery System') }}
+
+# The user ID to use for the envelope sender if -f and MAILSUSER/MAILUSER/LOGNAME/LOGUSER are not set.
+# Corresponds to the fallback user ID logic in Courier.
+sender_user = {{ sender_user | default('postmaster') }}
+
+# Default Delivery Status Notification (DSN) options.
+# Comma-separated list of: never, success, fail, delay.
+# Corresponds to the default behavior for -N.
+service_dsn_options = {{ service_dsn_options | default('fail,delay') }}
+
+# Minimum security level for remote delivery.
+# Must be 'NONE' or 'STARTTLS'. Corresponds to -S option.
+service_security_level = {{ service_security_level | default('NONE') }}
+
+# List of local domains.
+# While rmail(1) is a command-line wrapper, this configuration is typically required
+# by the underlying Courier sendmail wrapper to determine valid local recipients.
+# Corresponds to local domain resolution settings.
+{% for domain in local_domains | default(['localhost', 'localhost.localdomain']) %}
+local_domain = {{ domain }}
+{% endfor %}

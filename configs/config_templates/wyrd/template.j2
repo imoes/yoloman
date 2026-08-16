@@ -1,0 +1,68 @@
+# Wyrd Configuration File
+# Generated from wyrd(7) and wyrd(1) documentation.
+# This file typically resides in ~/.wyrd or /etc/wyrd/wyrdrc.
+#
+# Self-documenting: every setting is prefixed with its schema description
+# and defaults to the values defined in the role schema to ensure
+# idempotent, predictable rendering even if a variable is missing.
+
+# ---------------------------------------------------------------------------
+# Environment Variables
+# ---------------------------------------------------------------------------
+
+# EDITOR: The text editor command used for editing the reminders file.
+# Corresponds to the EDITOR environment variable.
+# Default: 'vi'
+set EDITOR = {{ editor | default('vi') }}
+
+# PAGER: The pager program used to view keybindings, calendars, and reminders.
+# Corresponds to the PAGER environment variable.
+# Default: 'less'
+set PAGER = {{ pager | default('less') }}
+
+# ---------------------------------------------------------------------------
+# Display Options
+# ---------------------------------------------------------------------------
+
+# show_calendar: Whether to display the calendar grid by default.
+# Default: True
+set show_calendar = {{ show_calendar | default(True) }}
+
+# show_reminders: Whether to display the list of reminders by default.
+# Default: True
+set show_reminders = {{ show_reminders | default(True) }}
+
+# ---------------------------------------------------------------------------
+# Date & Time Formatting
+# ---------------------------------------------------------------------------
+
+# date_format: The format string for dates in the display. Uses strftime syntax.
+# Default: '%Y-%m-%d'
+date_format = {{ date_format | default('%Y-%m-%d') }}
+
+# time_format: The format string for times in the display. Uses strftime syntax.
+# Default: '%H:%M'
+time_format = {{ time_format | default('%H:%M') }}
+
+# ---------------------------------------------------------------------------
+# Reminder Sources
+# ---------------------------------------------------------------------------
+
+# reminder_paths: A list of file paths or directories containing .rem
+# reminder files to include. Supports environment variable expansion if the
+# tool handles it.
+# Default: ['$HOME/.reminders']
+#
+# Note: Paths are rendered as-is. If environment variable expansion is
+# required at runtime, ensure the shell or wyrd processes them correctly.
+{% for path in reminder_paths | default(['$HOME/.reminders']) %}
+include {{ path }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Keybindings
+# ---------------------------------------------------------------------------
+
+# Example keybinding for quitting. See wyrd(7) for full list.
+bind q = quit
+bind ^c = quit

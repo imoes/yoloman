@@ -1,0 +1,104 @@
+#
+# ifupdown2 configuration file
+#
+# This file contains default settings for ifupdown2.
+#
+# To enable self-documentation, every directive is preceded by
+# its schema description and has an inline default for missing
+# Ansible variables.
+#
+
+# Enable ifupdown2d daemon mode. Valid values: yes, no.
+use_daemon={{ use_daemon | default('no') }}
+
+# Enable template processing. Valid values: 0, 1.
+template_enable={{ template_enable | default(1) }}
+
+# Default template engine to use. Currently only mako is supported.
+template_engine={{ template_engine | default('mako') }}
+
+# Directory path where templates are looked up during rendering.
+template_lookuppath={{ template_lookuppath | default('/etc/network/ifupdown2/templates') }}
+
+# Path to the default network interfaces configuration file.
+default_interfaces_configfile={{ default_interfaces_configfile | default('/etc/network/interfaces') }}
+
+# Disable the -i interfacefile CLI option to reduce security issues. Valid values: 0, 1.
+disable_cli_interfacesfile={{ disable_cli_interfacesfile | default(0) }}
+
+
+# Enable Python addon module syntax checking. Valid values: 0, 1.
+# Python addon modules register dictionary of supported attributes.
+# The syntax checker in ifupdown2 uses this dictionary for syntax
+# checks in the interfaces file. This works well, when only python modules
+# are used. But when a mix of scripts and modules are used (which is the
+# default case), you may get false warnings for attributes supported
+# by scripts
+addon_syntax_check={{ addon_syntax_check | default(0) }}
+
+# Support executing of ifupdown style scripts. Valid values: 0, 1.
+# Note that by default python addon modules override scripts with the same
+# name
+addon_scripts_support={{ addon_scripts_support | default(1) }}
+
+# Enable python addons support. Valid values: 0, 1.
+addon_python_modules_support={{ addon_python_modules_support | default(1) }}
+
+# Support multiple vlan filtering bridges. Valid values: 0, 1.
+# By default ifupdown2 only supports a single vlan filtering bridge
+# on the system. Set this flag to 1 to support multiple vlan
+# filtering bridges
+multiple_vlan_aware_bridge_support={{ multiple_vlan_aware_bridge_support | default(0) }}
+
+# ifquery check status strings.
+# By default `ifquery --check` prints the check and
+# cross marks against interface attributes.
+# Use the below strings to modify the default behaviour.
+
+# String displayed for successful ifquery checks.
+ifquery_check_success_str={{ ifquery_check_success_str | default('pass') }}
+
+# String displayed for failed ifquery checks.
+ifquery_check_error_str={{ ifquery_check_error_str | default('fail') }}
+
+# String displayed for unknown ifquery check status.
+ifquery_check_unknown_str={{ ifquery_check_unknown_str | default('') }}
+#
+
+# Control iface/vlan range expansions in ifquery default output. Valid values: 0, 1.
+# This attribute controls iface/vlan range expansions
+# in ifquery default output.
+ifquery_ifacename_expand_range={{ ifquery_ifacename_expand_range | default(0) }}
+
+# Let link master (bridges, bonds) own the link state of slaves. Valid values: 0, 1.
+link_master_slave={{ link_master_slave | default(1) }}
+
+# Delay admin state change till the end. Valid values: 0, 1.
+delay_admin_state_change={{ delay_admin_state_change | default(0) }}
+
+# Down interfaces that were deleted only if 0, otherwise down changed interfaces too. Valid values: 0, 1.
+# ifreload by default downs: 'all interfaces for which config changed' +
+# 'interfaces that were deleted'. With the below variable set to '0'
+# ifreload will only down 'interfaces that were deleted'
+ifreload_down_changed={{ ifreload_down_changed | default(0) }}
+
+# Squash all addr config when processing the first interface. Valid values: 0, 1.
+# squash all addr config when you process the first interface
+addr_config_squash={{ addr_config_squash | default(0) }}
+
+# Squash iface config into one when having multiple iface stanzas. Valid values: 0, 1.
+# squash iface config into one when you have multiple
+# ifaces stanzas for an interface
+ifaceobj_squash={{ ifaceobj_squash | default(0) }}
+
+# Adjust logical devices MTU based on physical interface. Valid values: 0, 1.
+# By default ifupdown2 will adjust logical devices MTU
+# based on the physical interface they are running on top of.
+# set this flag to 0 to disable this behaviour
+adjust_logical_dev_mtu={{ adjust_logical_dev_mtu | default(1) }}
+
+# Directory where the state file is stored.
+# if this directory doesn't exists ifupdown2 will create it
+# if directory creation fails or state_dir variable is empty
+# state_dir will default to /var/tmp/network/
+state_dir={{ state_dir | default('/var/tmp/network/') }}

@@ -1,0 +1,49 @@
+# /etc/px.conf
+# px - List running processes and show process metadata
+#
+# Self-documenting Jinja2 template for px.
+# NOTE: px does not read this configuration file at runtime.
+# The variables below are intended to be consumed by an Ansible task
+# (e.g., command: shell) to construct the correct CLI invocation.
+# Do not rely on this file being parsed by the px binary itself.
+
+# debug_enabled: Enable debug mode for verbose output
+# Default: false
+# CLI Flag: --debug
+{% set debug = debug_enabled | default(False) | bool %}
+
+# filter: Filter string to match against process names or user names
+# Default: (empty)
+# CLI Arg: <filter_string>
+{% set filt = filter | default('') | string | trim %}
+
+# target_pid: Specific Process ID to inspect
+# Default: 0
+# CLI Arg: <pid>
+{% set pid = target_pid | default(0) | int %}
+
+# ---------------------------------------------------------
+# Constructed CLI Command
+# ---------------------------------------------------------
+# The following variable contains the fully resolved command line.
+# It should be used in an Ansible 'command' or 'shell' module.
+
+{% set cmd_parts = ['px'] %}
+
+{% if debug %}
+{% set _ = cmd_parts.append('--debug') %}
+{% endif %}
+
+{% if pid > 0 %}
+# Targeting specific PID
+{% set _ = cmd_parts.append(pid) %}
+{% elif filt %}
+# Applying process filter
+{% set _ = cmd_parts.append(filt) %}
+{% endif %}
+
+# The final command to execute
+# {{ cmd_parts | join(' ') }}
+
+# Example usage if debug is enabled:
+# {% if debug %}px --debug{% if filt %} {{ filt }}{% endif %}{% if pid > 0 %} {{ pid }}{% endif %}{% elif filt %}px {{ filt }}{% elif pid > 0 %}px {{ pid }}{% else %}px{% endif %}

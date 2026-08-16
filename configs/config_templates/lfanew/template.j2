@@ -1,0 +1,45 @@
+#!/bin/bash
+# Wrapper script for lfanew operations
+# Executes the lfanew tool to combine an MZ stub executable with a PE/NE payload.
+
+# Path to the old-style MZ executable to be used as the loader stub.
+# Default: '/opt/bin/stub.exe'
+INPUT_STUB="{{ input_stub_file | default('/opt/bin/stub.exe') }}"
+
+# Path to the NE/PE executable payload to be combined with the stub.
+# Default: '/opt/bin/payload.exe'
+INPUT_PAYLOAD="{{ input_payload_file | default('/opt/bin/payload.exe') }}"
+
+# Path for the output fat binary file combining the stub and payload.
+# Default: '/opt/bin/fat.exe'
+OUTPUT_FAT_FILE="{{ output_fat_file | default('/opt/bin/fat.exe') }}"
+
+# Kepp the output if an error is encountered, instead of deleting it.
+# Corresponds to the -k option.
+# Default: False
+KEEP_ON_ERROR="{{ keep_on_error | default(False) }}"
+
+# Derive the stub size from .e_cp and .e_cblp, rather than from .e_lfanew.
+# Corresponds to the -p option.
+# Default: False
+USE_E_CP_CPBL="{{ use_ep_cp_cblp | default(False) }}"
+
+# Build arguments array
+ARGS=()
+
+# Apply the -p flag if use_ep_cp_cblp is enabled
+{% if use_ep_cp_cblp | default(False) %}
+ARGS+=("-p")
+{% endif %}
+
+# Apply the -k flag if keep_on_error is enabled
+{% if keep_on_error | default(False) %}
+ARGS+=("-k")
+{% endif %}
+
+# Execute lfanew with the constructed arguments
+# -S: stubify mode
+# -o: output file
+# positional args: stub, payload
+# ${ARGS[@]}: any additional flags
+lfanew -S "{{ output_fat_file | default('/opt/bin/fat.exe') }}" "{{ input_stub_file | default('/opt/bin/stub.exe') }}" "{{ input_payload_file | default('/opt/bin/payload.exe') }}" ${ARGS[@]}

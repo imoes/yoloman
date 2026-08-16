@@ -1,0 +1,107 @@
+# ============================================================================
+# xorriso-dd-target configuration template
+# ============================================================================
+# This configuration drives the xorriso-dd-target utility, which is used to
+# detect block devices suitable for writing disk images (typically ISO or
+# raw disk images) and optionally write to them.
+#
+# This package does NOT provide or require any network services (databases,
+# caches, queues, etc.). It is a local system administration utility.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Target Device Selection
+# --------------------------------------------------------------------------
+
+# target_devices: List of target device names (e.g., sdb, sdc) to evaluate or write to.
+# If empty, the tool operates on all detected devices based on other flags.
+# Corresponds to positional arguments in the tool's man page.
+# Defaults to an empty list.
+target_devices: {{ target_devices | default([]) | join(', ') }}
+
+# image_file_path: Path to the disk image file to be written.
+# Used for -image_file and size comparison against target devices.
+# Corresponds to -image_file option.
+# Defaults to an empty string.
+image_file_path: {{ image_file_path | default('') }}
+
+# --------------------------------------------------------------------------
+# Size Constraints
+# --------------------------------------------------------------------------
+
+# max_size_limit: Upper size limit for acceptable devices.
+# Accepts numeric byte values or suffixed values (e.g., '4G', '8000000000').
+# Corresponds to -max_size option.
+# Defaults to an empty string (no upper limit).
+max_size_limit: {{ max_size_limit | default('') }}
+
+# min_size_limit: Lower size limit for acceptable devices.
+# Accepts numeric byte values or suffixed values (e.g., '1G', '1000000').
+# Corresponds to -min_size option.
+# Defaults to an empty string (no lower limit).
+min_size_limit: {{ min_size_limit | default('') }}
+
+# --------------------------------------------------------------------------
+# Filesystem Detection & Verification
+# --------------------------------------------------------------------------
+
+# look_for_iso: If true, requires an ISO 9660 filesystem and overrides
+# other filesystem prohibitions.
+# Corresponds to -look_for_iso option.
+# Defaults to false.
+look_for_iso: {{ look_for_iso | default(false) }}
+
+# use_sudo: If true, uses sudo for filesystem detection (lsblk) and
+# write operations.
+# Corresponds to -with_sudo option.
+# Defaults to false.
+use_sudo: {{ use_sudo | default(false) }}
+
+# trust_lsblk_udev: If true, suppresses errors if lsblk fails to detect
+# filesystems without privileges but has udev available.
+# Corresponds to -trust_lsblk_udev option.
+# Defaults to false.
+trust_lsblk_udev: {{ trust_lsblk_udev | default(false) }}
+
+# --------------------------------------------------------------------------
+# Device Interaction Modes
+# --------------------------------------------------------------------------
+
+# plug_test: If true, initiates an interactive plug test to dynamically
+# find a target device (e.g., via USB insertion).
+# Corresponds to -plug_test option.
+# Note: This is an interactive option; setting this to true in a
+# non-interactive Ansible run may cause hangs or require careful handling.
+# Defaults to false.
+plug_test: {{ plug_test | default(false) }}
+
+# do_write: If true, actually writes the image file to the selected device.
+# Corresponds to -DO_WRITE option.
+# Defaults to false.
+do_write: {{ do_write | default(false) }}
+
+# dummy_mode: If true, simulates writing without performing it.
+# Corresponds to -dummy option.
+# Defaults to false.
+dummy_mode: {{ dummy_mode | default(false) }}
+
+# dummy_force: If true, forces dummy mode even if the device is not
+# advisable for writing.
+# Corresponds to -dummy_force option.
+# Defaults to false.
+dummy_force: {{ dummy_force | default(false) }}
+
+# --------------------------------------------------------------------------
+# Output & Progress Control
+# --------------------------------------------------------------------------
+
+# list_long: If true, prints detailed lsblk information for each device
+# evaluated.
+# Corresponds to -list_long option.
+# Defaults to false.
+list_long: {{ list_long | default(false) }}
+
+# no_pacifier: If true, suppresses dd progress messages (dots).
+# Corresponds to -no_pacifier option.
+# Defaults to false.
+no_pacifier: {{ no_pacifier | default(false) }}

@@ -1,0 +1,39 @@
+# vim:syntax=apparmor
+#include <tunables/global>
+
+# AppArmor profile for lomiri-url-dispatcher.
+# This profile controls the security context for the Lomiri URL dispatcher service,
+# allowing it to handle URL schemes and launch associated applications.
+# It is configured to be mostly unconfined while explicitly denying
+# capabilities and mount operations to minimize the attack surface.
+
+# Profile name: {{ profile_name | default('lomiri-url-dispatcher-bad-url-helper') }}
+# Description: The name of the AppArmor profile.
+profile {{ profile_name | default('lomiri-url-dispatcher-bad-url-helper') }} (attach_disconnected) {
+
+  # Allow network access for the service.
+  network,
+
+  # Allow read/write access to the root filesystem.
+  # Note: This is permissive; in a production setting, specific paths should be restricted.
+  / rwkl,
+
+  # Allow read/write access to all files and subdirectories.
+  # This is highly permissive; ensure this is intentional for this specific service.
+  /** rwlkm,
+
+  # Allow pix (profile execution, inherit, and execute) for all files.
+  /** pix,
+
+  # Allow D-Bus communication.
+  dbus,
+
+  # Allow sending and receiving signals.
+  signal,
+
+  # Allow ptrace for debugging and monitoring.
+  ptrace,
+
+  # Allow Unix domain socket communication.
+  unix,
+}

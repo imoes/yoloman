@@ -1,0 +1,94 @@
+# Command to synchronize system time from a remote host.
+# Host: The time server to query.
+host: {{ rdate.host }}
+
+# Protocol: Use SNTP (UDP, port 123) instead of default RFC 868 (TCP, port 37).
+# True if rdate should use -n flag.
+use_sntp: {{ rdate.use_sntp }}
+
+# Transport: Use UDP instead of TCP for RFC 868 protocol.
+# Note: Ignored if use_sntp is true. True if rdate should use -u flag.
+use_udp: {{ rdate.use_udp }}
+
+# Custom Port: Use a specific port instead of the default (37 for RFC 868, 123 for SNTP).
+# Leave empty to use default port.
+custom_port: {{ rdate.custom_port | default(value='', true) }}
+
+# Adjust Time: Gradually skew the local time to the remote time rather than just stepping it.
+# True if rdate should use -a flag.
+adj_time: {{ rdate.adj_time }}
+
+# AdjThreshold: If using adj_time, use adjtime if clock difference is at most this many seconds, otherwise hop.
+# Only relevant if adj_time is true.
+adj_threshold: {{ rdate.adj_threshold }}
+
+# CorrectLeapSeconds: Correct for leap seconds.
+# True if rdate should use -c flag.
+correct_leap_seconds: {{ rdate.correct_leap_seconds }}
+
+# PrintTime: Do not set the time, just print the remote time.
+# True if rdate should use -p flag.
+print_time: {{ rdate.print_time }}
+
+# Silent: Do not print the time (suppress output).
+# True if rdate should use -s flag.
+silent: {{ rdate.silent }}
+
+# Verbose: Enable verbose output, always showing the adjustment.
+# True if rdate should use -v flag.
+verbose: {{ rdate.verbose }}
+
+# ForceIPv4: Force rdate to use IPv4 addresses only.
+# True if rdate should use -4 flag.
+force_ipv4: {{ rdate.force_ipv4 }}
+
+# ForceIPv6: Force rdate to use IPv6 addresses only.
+# True if rdate should use -6 flag.
+force_ipv6: {{ rdate.force_ipv6 }}
+
+# Timeout: Do not set time if it took more than this many milliseconds to fetch time from network.
+# Leave empty to use default timeout.
+timeout_msec: {{ rdate.timeout_msec | default(value='', true) }}
+
+# Final Command Line:
+{% if rdate.custom_port is not none and rdate.custom_port != '' %}
+RDATE_CMD="rdate -o {{ rdate.custom_port }}"
+{% else %}
+RDATE_CMD="rdate"
+{% endif %}
+{% if rdate.use_sntp %}
+RDATE_CMD="{{ RDATE_CMD }} -n"
+{% endif %}
+{% if rdate.use_udp and not rdate.use_sntp %}
+RDATE_CMD="{{ RDATE_CMD }} -u"
+{% endif %}
+{% if rdate.adj_time %}
+RDATE_CMD="{{ RDATE_CMD }} -a"
+{% endif %}
+{% if rdate.adj_threshold is defined and rdate.adj_threshold %}
+RDATE_CMD="{{ RDATE_CMD }} -b {{ rdate.adj_threshold }}"
+{% endif %}
+{% if rdate.correct_leap_seconds %}
+RDATE_CMD="{{ RDATE_CMD }} -c"
+{% endif %}
+{% if rdate.force_ipv4 %}
+RDATE_CMD="{{ RDATE_CMD }} -4"
+{% endif %}
+{% if rdate.force_ipv6 %}
+RDATE_CMD="{{ RDATE_CMD }} -6"
+{% endif %}
+{% if rdate.print_time %}
+RDATE_CMD="{{ RDATE_CMD }} -p"
+{% endif %}
+{% if rdate.silent %}
+RDATE_CMD="{{ RDATE_CMD }} -s"
+{% endif %}
+{% if rdate.verbose %}
+RDATE_CMD="{{ RDATE_CMD }} -v"
+{% endif %}
+{% if rdate.timeout_msec is defined and rdate.timeout_msec %}
+RDATE_CMD="{{ RDATE_CMD }} -t {{ rdate.timeout_msec }}"
+{% endif %}
+
+# Execute the command with the host.
+echo "{{ RDATE_CMD }} {{ rdate.host }}"

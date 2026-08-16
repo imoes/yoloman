@@ -1,0 +1,50 @@
+{
+  "base_dir": "/var/lib/stealth/client1",
+  "email_address": "admin@example.com",
+  "mailer_path": "/usr/bin/mail",
+  "mail_args": "-s \"Stealth Report for client1\"",
+  "report_file": "scan_report",
+  "ssh_command": "root@client1.example.com -T -q",
+  "diff_path": "/usr/bin/diff",
+  "dd_path": "/bin/dd",
+  "check_suid_executable": true,
+  "checks": [
+    {
+      "type": "remote",
+      "label": "Checking SUID executables",
+      "command": "/usr/bin/find / -xdev -perm /6111 -type f -exec /usr/bin/ls -l {} \\;"
+    },
+    {
+      "type": "remote_check",
+      "log": "suid_checksums",
+      "command": "/usr/bin/find / -xdev -perm /6111 -type f -exec /usr/bin/sha256sum {} \\;",
+      "path_offset": 0
+    },
+    {
+      "type": "local",
+      "command": "/usr/bin/touch /var/lib/stealth/client1/monitor_alive"
+    },
+    {
+      "type": "get",
+      "client_path": "/etc/passwd",
+      "local_path": "/var/lib/stealth/client1/etc_passwd.tmp"
+    }
+  ],
+  "daemon_mode": true,
+  "uds_path": "/var/run/stealth/client1.uds",
+  "repeat_interval": "300",
+  "random_interval": "60",
+  "log_file": "/var/log/stealth/client1.log",
+  "syslog": true,
+  "syslog_facility": "LOCAL0",
+  "syslog_priority": "NOTICE",
+  "syslog_tag": "STEALTH",
+  "verbosity": "2",
+  "max_size": "5M",
+  "skip_files_list": [
+    "/var/lib/stealth/client1/tmp/*",
+    "/home/admin/.cache/*"
+  ],
+  "skip_files_path": "/var/lib/stealth/client1/skip_files.txt",
+  "time_stamp": "UTC"
+}

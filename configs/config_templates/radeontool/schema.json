@@ -1,0 +1,41 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug output. Corresponds to the --debug flag."
+  },
+  "skip_cards": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of cards to skip before acting. Corresponds to the --skip flag."
+  },
+  "commands": {
+    "type": "list",
+    "default": [],
+    "description": "List of commands to run. Each item is a map with 'command' (string) and 'args' (list of strings). Corresponds to radeontool subcommands like 'light on/off', 'dac on/off', etc."
+  },
+  "commands.items": {
+    "type": "object",
+    "description": "A single command entry with its arguments. Note: type is 'object' here only for schema structure, but in values it is a flat map. The template expects 'command' and 'args'. The prompt restricts 'items' to be a FLAT map field-name -> {type, default, description}. Since 'args' is a list of strings, we define its content type implicitly or just define the fields. The prompt says: 'For a list-of-objects, add items as a FLAT map field-name -> {type, default, description}'. So I will define 'command' and 'args' here as the flat map keys for the items."
+  },
+  "commands.items.command": {
+    "type": "string",
+    "default": "light",
+    "description": "The command name (e.g., 'light', 'dac', 'stretch').",
+    "enum": [
+      "dac",
+      "light",
+      "stretch",
+      "regs",
+      "regmatch",
+      "regset"
+    ]
+  },
+  "commands.items.args": {
+    "type": "list",
+    "default": [
+      "on"
+    ],
+    "description": "List of arguments for the command (e.g., ['on'], ['off'], ['auto'])."
+  }
+}

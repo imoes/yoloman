@@ -1,0 +1,85 @@
+# /etc/default/redir
+# Configuration for redir TCP redirector.
+# This file sets environment variables that are sourced by the redir systemd service
+# or init script to pass command-line arguments to the redir binary.
+
+# Bind address for listening sockets. Defaults to 0.0.0.0 (all interfaces).
+# Corresponds to: -b <IP>
+# Schema: bind_address (string, default '0.0.0.0')
+BIND_ADDRESS={{ bind_address | default('0.0.0.0') }}
+
+# Local source address:port to listen on. If SRC is omitted, defaults to BIND_ADDRESS.
+# Corresponds to: [SRC]:PORT
+# Schema: listen_socket (string, default '127.0.0.1:8080')
+LISTEN_SOCKET="{{ listen_socket | default('127.0.0.1:8080') }}"
+
+# Destination address:port to redirect traffic to.
+# Corresponds to: [DST]:PORT
+# Schema: remote_socket (string, default '127.0.0.1:80')
+REMOTE_SOCKET="{{ remote_socket | default('127.0.0.1:80') }}"
+
+# Run in foreground mode (useful for debugging or init systems that manage daemonization).
+# Corresponds to: -n
+# Note: systemd usually handles daemonization, so this is often false.
+# Schema: foreground (boolean, default False)
+FOREGROUND={{ foreground | default(false) }}
+
+# Log messages to syslog instead of stderr.
+# Corresponds to: -s (default true when not in foreground)
+# Schema: use_syslog (boolean, default True)
+USE_SYSLOG={{ use_syslog | default(true) }}
+
+# Log level: none, err, notice, info, debug.
+# Corresponds to: -l <LEVEL>
+# Schema: log_level (string, default 'notice')
+LOG_LEVEL="{{ log_level | default('notice') }}"
+
+# Program identity name used for TCP wrapper checks and syslog messages.
+# Corresponds to: -I <NAME>
+# Schema: ident_name (string, default 'redir')
+IDENT_NAME="{{ ident_name | default('redir') }}"
+
+# TCP idle timeout in seconds. Close connection after SEC seconds of inactivity.
+# Corresponds to: -t <SEC>
+# Schema: timeout (integer, default 0)
+TIMEOUT={{ timeout | default(0) }}
+
+# Maximum bandwidth in bits/sec. 0 means unlimited.
+# Corresponds to: -m <BPS>
+# Schema: max_bandwidth (integer, default 0)
+MAX_BANDWIDTH={{ max_bandwidth | default(0) }}
+
+# Traffic shaping direction: 1 (input), 2 (output), 3 (both).
+# Corresponds to: -o <1,2,3>
+# Schema: wait_in_out (integer, default 0)
+WAIT_IN_OUT={{ wait_in_out | default(0) }}
+
+# Random wait time in milliseconds for traffic shaping simulation.
+# Corresponds to: -w <MSEC>
+# Schema: random_wait (integer, default 0)
+RANDOM_WAIT={{ random_wait | default(0) }}
+
+# Buffer size in bytes for redirection.
+# Corresponds to: -z <BYTES>
+# Schema: buf_size (integer, default 4096)
+BUF_SIZE={{ buf_size | default(4096) }}
+
+# FTP handling type: port, pasv, or both. Only applies if redirecting FTP.
+# Corresponds to: -f <TYPE>
+# Schema: ftp_mode (string, default '')
+FTP_MODE="{{ ftp_mode | default('') }}"
+
+# Enable transparent proxy mode (requires Linux tproxy support).
+# Corresponds to: -p
+# Schema: transproxy (boolean, default False)
+TRANSPROXY={{ transproxy | default(false) }}
+
+# Run in inetd mode (connection passed via stdin/stdout).
+# Corresponds to: -i
+# Schema: inetd (boolean, default False)
+INETD={{ inetd | default(false) }}
+
+# HTTP CONNECT proxy address:port to tunnel connections through.
+# Corresponds to: -x <HOST:PORT>
+# Schema: http_proxy (string, default '')
+HTTP_PROXY="{{ http_proxy | default('') }}"

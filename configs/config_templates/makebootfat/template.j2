@@ -1,0 +1,124 @@
+# ============================================================================
+# makebootfat Configuration Template
+# ============================================================================
+# This template generates a configuration file (typically YAML or a custom
+# structured format) for the `makebootfat` utility, which creates bootable
+# FAT12/16/32 floppy or USB disks.
+#
+# Self-documenting: Each field is preceded by a comment describing its purpose
+# and mapping it to the underlying command-line flag.
+# ============================================================================
+
+# --- Target Device Configuration ---
+
+# Target block device path (e.g., /dev/sdb) or the keyword 'usb' for
+# automatic USB detection.
+# Corresponds to: -o, --output DEVICE
+output: "{{ output_device | default('/dev/sdb') }}"
+
+# --- Boot Sector Configuration ---
+
+# Mapping of filesystem types to their respective boot sector binary files.
+# Keys are 'fat12', 'fat16', 'fat32'. Values are paths to .bin files.
+# If a specific type is missing from this mapping, `boot_default` is used.
+# Corresponds to: -b/--boot FILE, -1/--boot-fat12 FILE, etc.
+boot_sectors:
+{# Ensure boot_sectors is a valid dict before iterating #}
+{% if boot_sectors is defined and boot_sectors is mapping %}
+  {% for fs_type in ['fat12', 'fat16', 'fat32'] %}
+  {{ fs_type }}: "{{ (boot_sectors | default({})).get(fs_type, boot_default) | default('', true) }}"
+  {% endfor %}
+{# Fallback if boot_sectors is not a map or is empty #}
+{% else %}
+  fat12: "{{ boot_default | default('', true) }}"
+  fat16: "{{ boot_default | default('', true) }}"
+  fat32: "{{ boot_default | default('', true) }}"
+{% endif %}
+
+# Default boot sector file path to use when a specific FAT type is not
+# explicitly defined in `boot_sectors`.
+# Corresponds to: implicit fallback for -b
+boot_default: "{{ boot_default | default('') }}"
+
+# --- MBR (Master Boot Record) Configuration ---
+
+# Path to the Master Boot Record binary file.
+# If empty, no MBR is written (floppy style).
+# Corresponds to: -m, --mbr FILE
+mbr_file: "{{ mbr_file | default('') }}"
+
+# Enable MBR FAT compatibility mode.
+# When true, the tool ensures MBR-compatible FAT structures are used.
+# Corresponds to: -F, --mbrfat
+mbr_fat: {{ mbr_fat | default(false) }}
+
+# --- File Copy Configuration ---
+
+# List of files to copy to the disk root with custom destination names.
+# Each item is a mapping with 'source' (host path) and 'dest' (disk name).
+# Corresponds to: -c, --copy FILE
+files_to_copy:
+{% if files is defined and files is iterable and files | length > 0 %}
+  {% for f in files %}
+  - source: "{{ f.source | default('', true) }}"
+    dest: "{{ f.dest | default('', true) }}"
+  {% endfor %}
+{% else %}
+  # No files to copy defined.
+{% endif %}
+
+# List of paths relative to the image directory to exclude during the copy
+# process. Supports glob patterns.
+# Corresponds to: -x, --exclude FILE
+exclude_patterns:
+{% if excludes is defined and excludes is iterable and excludes | length > 0 %}
+  {% for p in excludes %}
+  - "{{ p | default('', true) }}"
+  {% endfor %}
+{% else %}
+  # No exclusion patterns defined.
+{% endif %}
+
+# --- Compatibility Modes ---
+
+# Syslinux compatibility mode.
+# '2': Forces compatibility with syslinux 2.xx (-X).
+# '3': Forces compatibility with syslinux 3.xx (-Y).
+# Empty string: No specific syslinux version flag.
+# Corresponds to: -X/--syslinux2, -Y/--syslinux3
+syslinux_version: "{{ syslinux_version | default('') }}"
+
+# Enable ZIP-Disk compatibility mode.
+# Corresponds to: -Z, --zip
+zip_compat: {{ zip_compat | default(false) }}
+
+# Partition mode.
+# Set to true to force operation on a partition (-P) rather than the whole disk.
+# Corresponds to: -P, --partition
+partition_mode: {{ partition_mode | default(false) }}
+
+# --- Disk Metadata ---
+
+# Volume label string (max 11 characters).
+# Corresponds to: -L, --label LABEL
+label: "{{ label | default('BOOT') }}"
+
+# OEM name string (max 11 characters), embedded in the FAT BPB.
+# Corresponds to: -O, --oem OEM
+oem_name: "{{ oem_name | default('MSDOS5') }}"
+
+# Disk serial number (32-bit unsigned integer).
+# Corresponds to: -S, --serial SERIAL
+serial: {{ serial | default(0) }}
+
+# BIOS drive number to embed in the boot sector.
+# Typically 0x00 for floppy, 0x80 for HDD. Use 255 for auto-detection.
+# Corresponds to: -E, --drive DRIVE
+bios_drive: {{ bios_drive | default(0) }}
+
+# --- Image Source ---
+
+# Path to the directory containing the files to be copied to the bootable disk.
+# This corresponds to the positional argument IMAGE in makebootfat.
+# Corresponds to: IMAGE argument
+image_directory: "{{ image_directory | default('/usr/share/makebootfat/image') }}"

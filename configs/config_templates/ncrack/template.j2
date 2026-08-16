@@ -1,0 +1,98 @@
+# Ncrack Configuration Template
+# This template generates a command-line invocation for ncrack based on the provided values.
+# It is self-documenting: every option is commented with its schema description and default value.
+
+ncrack \
+# Timing template (paranoid, sneaky, polite, normal, aggressive, insane) — default: 'normal'
+{% if timing_template | default('normal') != 'normal' %}
+  -T {{ timing_template | default('normal') }} \
+{% endif %}
+# Threshold for total concurrent connections — default: 0 (unlimited)
+{% if connection_limit | default(0) > 0 %}
+  --connection-limit {{ connection_limit | default(0) }} \
+{% endif %}
+# Filename for normal output (-oN) — default: 'ncrack_output.log'
+{% if output_file | default('ncrack_output.log') %}
+  -oN {{ output_file | default('ncrack_output.log') }} \
+{% endif %}
+# Path to username list file (-U) — default: '' (none)
+{% if usernames | default('') %}
+  -U {{ usernames | default('') }} \
+{% endif %}
+# Path to password list file (-P) — default: '' (none)
+{% if passwords | default('') %}
+  -P {{ passwords | default('') }} \
+{% endif %}
+# Enable SSL globally (-g ssl=yes) — default: false
+{% if ssl_enabled | default(false) %}
+  -g ssl=yes \
+{% endif %}
+# List of target specifications (e.g., 'host:port', 'ssh://host:22') — default: ['192.168.1.10:22']
+{% for target in targets | default(['192.168.1.10:22']) %}
+  {{ target }} \
+{% endfor %}
+# Quit cracking a service after one found credential (-f) — default: false
+{% if stop_after_one | default(false) %}
+  -f \
+{% endif %}
+# Enable IPv6 scanning (-6) — default: false
+{% if ipv6_enabled | default(false) %}
+  -6 \
+{% endif %}
+# Proxy type and address (--proxy) — default: '' (none)
+{% if proxy | default('') %}
+  --proxy {{ proxy | default('') }} \
+{% endif %}
+# Custom Ncrack data directory (--datadir) — default: '' (none)
+{% if datadir | default('') %}
+  --datadir {{ datadir | default('') }} \
+{% endif %}
+# Comma-separated list of hosts to exclude (--exclude) — default: '' (none)
+{% if exclude_hosts | default('') %}
+  --exclude {{ exclude_hosts | default('') }} \
+{% endif %}
+# File to resume a previously saved session (--resume) — default: '' (none)
+{% if resume_file | default('') %}
+  --resume {{ resume_file | default('') }} \
+{% endif %}
+# Append to output files (--append-output) — default: false
+{% if append_output | default(false) %}
+  --append-output \
+{% endif %}
+# Log errors to normal output file (--log-errors) — default: false
+{% if log_errors | default(false) %}
+  --log-errors \
+{% endif %}
+# Verbosity level (-v repeated) — default: 0 (none)
+{% if verbose | default(0) > 0 %}
+  {{ '-v' * (verbose | default(0)) }} \
+{% endif %}
+# Debug level (-d) — default: 0 (none)
+{% if debug_level | default(0) > 0 %}
+  -d {{ debug_level | default(0) }} \
+{% endif %}
+# Choose usernames and passwords in pairs (--pairwise) — default: false
+{% if pairwise | default(false) %}
+  --pairwise \
+{% endif %}
+# Iterate password list for each username (--passwords-first) — default: false
+{% if passwords_first | default(false) %}
+  --passwords-first \
+{% endif %}
+# List of modules to use (informational, as modules are auto-detected or implied by service) — default: []
+{% if modules | default([]) %}
+  # Modules to use: {{ modules | default([]) | join(', ') }}
+{% endif %}
+# List of global service options (e.g., ['CL=10', 'at=5']) — default: []
+{% if global_options | default([]) %}
+  # Global service options: {{ global_options | default([]) | join(', ') }}
+{% endif %}
+# List of per-module service options (e.g., ['ssh:CL=5', 'ftp:at=1']) — default: []
+{% if service_options | default([]) %}
+  # Per-module service options: {{ service_options | default([]) | join(', ') }}
+{% endif %}
+# List of per-host options applied directly to targets in the targets list — default: []
+{% if per_host_options | default([]) %}
+  # Per-host options: {{ per_host_options | default([]) | join(', ') }}
+{% endif %}
+# End of Ncrack Command

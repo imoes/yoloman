@@ -1,0 +1,18 @@
+# Environment configuration for xdelta3
+# This file sets the XDELTA environment variable which applies extra arguments to xdelta3 invocations.
+# The list of arguments is provided via the 'args' schema field.
+# Each item in the list becomes a separate export statement for the XDELTA variable.
+
+# Initialize XDELTA with a default empty string if no args are provided.
+# This prevents exporting an empty variable or undefined behavior.
+{% set xdelta_args = args | default([]) %}
+
+{% if xdelta_args | length > 0 %}
+# Arguments to pass to xdelta3, defined by the 'args' schema field.
+# Each line exports the accumulated arguments into the XDELTA environment variable.
+{% set xdelta_val = xdelta_args | join(' ') %}
+export XDELTA="{{ xdelta_val }}"
+{% else %}
+# No arguments configured. XDELTA is left unset (or empty) so xdelta3 runs with defaults.
+export XDELTA=""
+{% endif %}

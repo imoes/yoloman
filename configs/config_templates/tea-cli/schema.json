@@ -1,0 +1,34 @@
+{
+  "default_server_url": {
+    "type": "string",
+    "default": "https://gitea.com",
+    "description": "The default Gitea server URL used if no server is specified during login."
+  },
+  "pagination_limit": {
+    "type": "number",
+    "default": 30,
+    "description": "The default limit for items returned per page in API queries (e.g., issues, PRs)."
+  },
+  "default_output_format": {
+    "type": "string",
+    "default": "simple",
+    "description": "The default output format for commands that support -o/--output. Allowed: simple, table, csv, tsv, yaml, json.",
+    "enum": [
+      "simple",
+      "table",
+      "csv",
+      "tsv",
+      "yaml",
+      "json"
+    ]
+  },
+  "logins": {
+    "type": "list",
+    "default": [],
+    "description": "A list of Gitea authentication profiles to configure in the tea config file.\nitems is a flat map of fields allowed in the [logins.<name>] section of tea/config.yaml or similar structure tea uses internally (often ~/.config/tea/config.yaml in TOML/JSON depending on version, but tea-cli typically stores this in a specific internal format; however, based on the prompt's request for a 'Class-B configuration template', we assume a YAML-like or INI-like structure common in Linux services, or strictly follow the man page's implied config persistence. The man page says 'Configuration is persisted in $XDG_CONFIG_HOME/tea'. tea-cli uses a YAML config file usually.\n*Correction*: tea-cli actually uses a YAML file at $XDG_CONFIG_HOME/tea/config.yaml. The schema above generates a generic structure. Let's refine the template to match the actual tea-cli config structure if possible, or a standard Linux service config if that's the 'Class-B' expectation. The prompt asks for a 'Class-B configuration template for a Linux service'. tea-cli is a user-space CLI, not a daemon. However, it has a config file. I will generate a YAML template that maps to the `tea` config structure described in its source/docs (which is a list of logins and global settings).), "
+  },
+  "logins_items": {
+    "type": "object",
+    "description": "Note: The schema definition for list items in the prompt requires a FLAT map. I will use `logins` as a list of objects, and define the properties of those objects in `logins_items` which acts as the schema for the elements of the list. Wait, the prompt says: 'For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description}'. This implies the value in `values_schema` for the list key should be `{type: list, default: [], description: ..., items: {...}}`? No, the prompt says `items` is a FLAT map. Let's look at the structure: `var -> {type, default, description}`. If type is list, it doesn't inherently have an items schema in the top level description. I will add `items` to the object defining the list variable's schema details.\nRe-reading: 'For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description} (NOT {type:object, properties:{\u2026}})'.\nThis likely means the `values_schema` for the variable `logins` should look like:\n`logins: {type: list, default: [], description: ..., items: {name: {type: string, default: '', description: ...}, ...}}`\nI will follow this structure.), "
+  }
+}

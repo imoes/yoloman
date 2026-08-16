@@ -1,0 +1,58 @@
+# Configuration for sent presentation tool
+# This template generates a C-style configuration header (config.h) for the 'sent' presentation tool.
+# All values are drawn from Ansible variables with safe defaults to ensure valid C syntax.
+
+/* Theme: Hex color code for the presentation background. */
+static const char *bg = "{{ theme_bg | default('#000000') }}";
+
+/* Theme: Hex color code for the presentation foreground text. */
+static const char *fg = "{{ theme_fg | default('#FFFFFF') }}";
+
+/* Theme: Name of the system font family to use for slides. */
+static const char *font = "{{ theme_font | default('monospace') }}";
+
+/* Theme: Font size in points for the slide text. */
+static const int font_size = {{ theme_font_size | default(24) }};
+
+/* Transition: Enable visual transitions between slides. */
+static const int transitions = {{ enable_transitions | default(false) }};
+
+/* Transition: Duration of each transition in seconds. */
+static const float transition_duration = {{ transition_duration | default(1.0) }};
+
+/* Input: Default plain text file containing slide content. */
+static const char *input_file = "{{ input_file | default('presentation.txt') }}";
+
+/* Output: Enable verbose output to stdout. */
+static const int verbose = {{ verbose_mode | default(false) }};
+
+/* Display: Display slide numbers on the presentation. */
+static const int show_slide_numbers = {{ show_slide_numbers | default(true) }};
+
+/* Display: Display aspect ratio code (4 for 4:3, 16 for 16:9). */
+static const int aspect_ratio = {{ aspect_ratio | default(16) }};
+
+/* Image: Directory to search for images referenced in the presentation. */
+static const char *image_dir = "{{ image_dir | default('.') }}";
+
+/* Network: TCP port for remote control functionality. */
+static const int remote_port = {{ remote_port | default(4567) }};
+
+/* Network: Enable remote control via TCP connection. */
+static const int enable_remote = {{ enable_remote | default(false) }};
+
+/* List: List of custom font file paths to load. */
+static const char *custom_fonts[] = {
+{% for f in custom_fonts_list | default([]) %}
+    "{{ f }}",
+{% endfor %}
+    NULL
+};
+
+/* List: List of image file extensions supported by the @ directive. */
+static const char *supported_images[] = {
+{% for ext in supported_image_extensions | default(['.png', '.jpg']) %}
+    "{{ ext }}",
+{% endfor %}
+    NULL
+};

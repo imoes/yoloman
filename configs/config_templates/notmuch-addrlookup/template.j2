@@ -1,0 +1,14 @@
+# Configuration for notmuch-addrlookup
+# Defines the format output modes supported by the tool.
+# See notmuch-addrlookup(1) for details on 'mutt' and 'aerc' formats.
+
+# output_aliases: A list of output alias configurations for different MUAs (Mail User Agents).
+# Each item defines the command string used by the MUA to invoke notmuch-addrlookup.
+# Default: []
+{% for alias in (output_aliases | default([])) %}
+# {{ alias.name | default('default') }} format configuration
+# The command line string passed to notmuch-addrlookup.
+# It must include the '--format=<name>' flag and the query placeholder (usually '%s').
+{{ alias.command | default("notmuch-addrlookup '%s'") }}
+
+{% endfor %}

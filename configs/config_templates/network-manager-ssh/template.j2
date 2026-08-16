@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    NetworkManager SSH D-Bus Policy Configuration
+
+    This XML file configures D-Bus access controls for the NetworkManager SSH
+    helper service. It grants specific privileges to the system user allowed
+    to manage SSH connections via D-Bus, while denying these privileges to
+    all other users by default.
+
+    Variables:
+      - root_user: The OS user permitted to own and interact with the service.
+      - nm_ssh_service_prefix: The unique D-Bus service identifier.
+      - default_policy_context: The D-Bus policy context for fallback rules.
+-->
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    Policy for the privileged user allowed to manage NetworkManager SSH.
+    This user can claim the SSH service bus name and send messages to it.
+  -->
+  <policy user="{{ root_user | default('root') }}">
+    <!-- Allow owning the service prefix -->
+    <allow own_prefix="{{ nm_ssh_service_prefix | default('org.freedesktop.NetworkManager.ssh') }}"/>
+    <!-- Allow sending messages to the service prefix -->
+    <allow send_destination="{{ nm_ssh_service_prefix | default('org.freedesktop.NetworkManager.ssh') }}"/>
+  </policy>
+
+  <!--
+    Default Policy Context.
+    Explicitly denies the SSH service privileges to everyone else
+    within this specific context (usually "default").
+  -->
+  <policy context="{{ default_policy_context | default('default') }}">
+    <!-- Deny owning the service prefix for non-privileged users -->
+    <deny own_prefix="{{ nm_ssh_service_prefix | default('org.freedesktop.NetworkManager.ssh') }}"/>
+    <!-- Deny sending messages to the service prefix for non-privileged users -->
+    <deny send_destination="{{ nm_ssh_service_prefix | default('org.freedesktop.NetworkManager.ssh') }}"/>
+  </policy>
+</busconfig>

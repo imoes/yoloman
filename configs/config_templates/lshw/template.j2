@@ -1,0 +1,66 @@
+# =============================================================================
+# lshw Hardware Inventory Configuration
+# =============================================================================
+# This template generates command-line arguments for the `lshw` utility.
+# lshw is a tool to dump detailed information on the hardware configuration
+# of the machine.
+# =============================================================================
+
+# --- Output Format ---
+# Sets the desired output format: json, xml, html, short, businfo, or empty for default text.
+# If empty, lshw uses its default text format.
+# Schema: output_format (string)
+{% set fmt = output_format | default('') %}
+{% if fmt %}--{{ fmt }}{% endif %}
+
+# --- Dump File ---
+# Path to a file to dump the collected hardware information into.
+# If empty, output goes to stdout.
+# Schema: dump_file (string)
+{% set dump = dump_file | default('') %}
+{% if dump %}--dump {{ dump }}{% endif %}
+
+# --- Hardware Classes ---
+# Restricts the report to specific hardware classes (e.g., cpu, memory, disk, network).
+# If empty, all classes are reported unless restricted by other means.
+# Schema: classes (list)
+{% set classes = classes | default([]) %}
+{% if classes %}
+{% for cls in classes %}--class {{ cls }}{% endfor %}
+{% endif %}
+
+# --- Disabled Tests ---
+# List of detection tests to disable (e.g., dmi, pci, usb, ide).
+# Schema: disabled_tests (list)
+{% set disabled_tests = disabled_tests | default([]) %}
+{% if disabled_tests %}
+{% for test in disabled_tests %}--disable {{ test }}{% endfor %}
+{% endif %}
+
+# --- Enabled Tests ---
+# List of detection tests to explicitly enable.
+# Schema: enabled_tests (list)
+{% set enabled_tests = enabled_tests | default([]) %}
+{% if enabled_tests %}
+{% for test in enabled_tests %}--enable {{ test }}{% endfor %}
+{% endif %}
+
+# --- Numeric IDs ---
+# Whether to display numeric IDs for PCI and USB devices instead of names.
+# Schema: numeric (boolean)
+{% if numeric | default(False) %}--numeric{% endif %}
+
+# --- Sanitize ---
+# Whether to remove potentially sensitive information from output (e.g., serial numbers).
+# Schema: sanitize (boolean)
+{% if sanitize | default(False) %}--sanitize{% endif %}
+
+# --- Quiet Mode ---
+# Whether to suppress status output (progress messages).
+# Schema: quiet (boolean)
+{% if quiet | default(False) %}--quiet{% endif %}
+
+# --- No Time ---
+# Whether to exclude volatile attributes like timestamps from the output.
+# Schema: notime (boolean)
+{% if notime | default(False) %}--notime{% endif %}

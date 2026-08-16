@@ -1,0 +1,12 @@
+# Configuration for ifmetric wrapper script.
+# This script determines the metric value for network interfaces
+# by reading an environment variable and passing it to the ifmetric utility.
+
+#!/bin/sh
+# Check if ifmetric is executable and the metric environment variable name is set.
+# IF_METRIC_ENV_VAR: Environment variable name holding the metric value. Default: '${IF_METRIC}'
+# IF_METRIC_VALUE: The actual metric value passed to ifmetric. Default: '${IF_METRIC}'
+if [ -x /usr/sbin/ifmetric -a "{{ IF_METRIC_ENV_VAR | default('${IF_METRIC}') }}" ]; then
+    # Execute ifmetric with the interface name ($IFACE) and the metric value.
+    /usr/sbin/ifmetric "${IFACE}" "{{ IF_METRIC_VALUE | default('${IF_METRIC}') }}"
+fi

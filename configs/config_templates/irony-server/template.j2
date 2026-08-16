@@ -1,0 +1,29 @@
+#!/bin/sh
+# Automatically generated configuration for irony-server
+# This script launches the irony-server with specified runtime options.
+
+# Path to the log file for debug output. Empty string disables file logging.
+log_file="{{ log_file | default('/var/log/irony-server.log') }}"
+
+# Enable interactive command loop mode.
+interactive="{{ interactive | default(false) }}"
+
+# Enable debug logging. If true, ensures verbose output.
+debug="{{ debug | default(false) }}"
+
+# Construct the command line arguments.
+ARGS=""
+{% if log_file %}
+ARGS="--log-file {{ log_file }} {{ ARGS }}"
+{% endif %}
+
+{% if interactive %}
+ARGS="-i {{ ARGS }}"
+{% endif %}
+
+{% if debug %}
+ARGS="-d {{ ARGS }}"
+{% endif %}
+
+# Execute the irony-server binary with the constructed arguments.
+exec irony-server {{ ARGS }}

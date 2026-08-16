@@ -1,0 +1,61 @@
+# ==============================================================================
+# lisgd (libinput synthetic gesture daemon) configuration
+# ==============================================================================
+# This template configures lisgd, a daemon that translates libinput touchpad
+# gestures into desktop actions.
+#
+# Schema Reference:
+# - device_path: Path of the dev filesystem device to monitor
+# - timeout_ms: Number of milliseconds gestures must be performed within to be registered
+# - screen_width: Width of the screen area for edge-based gestures ('auto' for dynamic)
+# - screen_height: Height of the screen area for edge-based gestures ('auto' for dynamic)
+# - orientation: Number of 90-degree rotations to translate gestures by (0-3)
+# - degrees_of_leniency: Degrees offset each 45-degree interval may still be recognized (max 45)
+# - distance_threshold: Threshold in libinput units for release mode registration
+# - distance_threshold_pressed: Threshold in libinput units for pressed mode registration
+# - verbose: Enable verbose debugging output
+# - gestures: List of gesture bindings (map: nfingers, gesture, edge, distance, actmode, command)
+# ==============================================================================
+
+# Device path to monitor (e.g., /dev/input/event1)
+# Default: '/dev/input/event1'
+DEVICE={{ (device_path | default('/dev/input/event1')) }}
+
+# Timeout in milliseconds for gesture recognition
+# Default: 3000
+TIMEOUT_MS={{ (timeout_ms | default(3000)) }}
+
+# Screen width for edge-based gestures. Use 'auto' for dynamic detection.
+# Default: 'auto'
+SCREEN_WIDTH={{ (screen_width | default('auto')) }}
+
+# Screen height for edge-based gestures. Use 'auto' for dynamic detection.
+# Default: 'auto'
+SCREEN_HEIGHT={{ (screen_height | default('auto')) }}
+
+# Number of 90-degree rotations to translate gestures (0-3)
+# Default: 0
+ORIENTATION={{ (orientation | default(0)) }}
+
+# Degrees of leniency for gesture angle recognition (max 45)
+# Default: 15
+DEGREES_OF_LENIENCY={{ (degrees_of_leniency | default(15)) }}
+
+# Distance threshold in libinput units for release mode
+# Default: 125
+DISTANCE_THRESHOLD={{ (distance_threshold | default(125)) }}
+
+# Distance threshold in libinput units for pressed mode
+# Default: 60
+DISTANCE_THRESHOLD_PRESSED={{ (distance_threshold_pressed | default(60)) }}
+
+# Enable verbose debugging output
+# Default: False
+VERBOSE={{ (verbose | default(False)) }}
+
+# Gesture bindings list
+# Each item format: nfingers,gesture,edge,distance,actmode,command
+# Default: [{'nfingers': 1, 'gesture': 'LR', 'edge': 'L', 'distance': 'M', 'actmode': 'R', 'command': "echo 'Swipe Left'"}]
+{% for gesture in (gestures | default([{'nfingers': 1, 'gesture': 'LR', 'edge': 'L', 'distance': 'M', 'actmode': 'R', 'command': "echo 'Swipe Left'"}])) %}
+GESTURE_{{ loop.index }}="{{ (gesture.nfingers | default(1)) }},{{ (gesture.gesture | default('LR')) }},{{ (gesture.edge | default('L')) }},{{ (gesture.distance | default('M')) }},{{ (gesture.actmode | default('R')) }},{{ (gesture.command | default("echo 'Swipe Left'")) }}"
+{% endfor %}

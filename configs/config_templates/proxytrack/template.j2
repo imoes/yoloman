@@ -1,0 +1,31 @@
+# ProxyTrack Configuration Template
+# This file defines the arguments for the proxytrack service.
+# Format: proxy_address:proxy_port icp_address:icp_port [cache_files...]
+
+# =============================================================================
+# Section 1: Main Proxy Listener
+# =============================================================================
+# The IP address or hostname for the proxytrack proxy to bind to.
+# Defaults to 127.0.0.1 (localhost) if not specified.
+{{ proxy_address | default('127.0.0.1') }}
+
+# The TCP port for the proxytrack proxy to bind to.
+# Defaults to 8080 if not specified.
+{{ proxy_port | default(8080) }}
+
+# =============================================================================
+# Section 2: ICP (Internet Cache Protocol) Daemon
+# =============================================================================
+# The address and port for the ICP daemon, used by proxies like Squid to check
+# if content is cached locally. Leave empty to disable ICP.
+# If icp_address is empty or not defined, this line is omitted.
+{% if (icp_address | default('', true)) and (icp_port is defined or icp_port is not none) %}{{ icp_address | default('', true) }}:{{ icp_port | default(3130) }}{% endif %}
+
+# =============================================================================
+# Section 3: Cache Files
+# =============================================================================
+# List of paths to httrack cache zip files (e.g., /path/to/hts-cache/new.zip).
+# proxytrack will deliver content archived in these files.
+{% for cache in caches | default([], true) %}
+{{ cache }}
+{% endfor %}

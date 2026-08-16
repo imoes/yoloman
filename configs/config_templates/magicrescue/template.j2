@@ -1,0 +1,62 @@
+# ==============================================================================
+# magicrescue configuration template
+# ==============================================================================
+# This template generates a command-line argument list or configuration snippet
+# for the `magicrescue` utility, which recovers files based on their signatures
+# (magic bytes) from block devices or files.
+#
+# Fields mapped:
+#   output_directory      : Where to save recovered files.
+#   blocksize             : Scanning block size (typically 512).
+#   recipes               : List of file type recipes to use.
+#   input_file_list       : Path to a file containing extra device names.
+#   machine_readable_mode : 'i', 'o', or 'io' for structured stdout.
+#   resume_offset         : Offset to start scanning from.
+#   devices               : List of block devices/files to scan.
+# ==============================================================================
+
+# -d directory: Output directory for found files.
+# Must have sufficient free space and not be on the source device.
+# Default: /tmp/magicrescue_output
+output_directory: {{ output_directory | default('/tmp/magicrescue_output') }}
+
+# -b blocksize: Block size for scanning (must be a multiple of this).
+# Usually set to the hardware sector size (e.g. 512) for best performance.
+# Default: 512
+blocksize: {{ blocksize | default(512) }}
+
+# -r recipe: List of recipes to use for file signature matching.
+# Examples: jpeg-jfif, png, gif.
+# Default: ['jpeg-jfif']
+{% for recipe in (recipes | default(['jpeg-jfif'])) %}
+- -r {{ recipe }}
+{% endfor %}
+
+# -I file: Read additional input device names from a file.
+# If empty, no file is specified (devices listed on command line).
+# Default: '' (empty/disabled)
+{% if input_file_list | default('') %}
+- -I {{ input_file_list | default('') }}
+{% endif %}
+
+# -M output_mode: Machine-readable output mode.
+# Options: i (input), o (output), io (both), or empty for none.
+# Default: '' (no machine-readable output)
+{% if machine_readable_mode | default('') %}
+- -M {{ machine_readable_mode | default('') }}
+{% endif %}
+
+# -O offset: Resume scanning from a specific offset.
+# Format: [=|+|-][0x]number (e.g., =0x1000, +1024, -512).
+# If empty, scan from the beginning of the device.
+# Default: '='
+{% if resume_offset | default('=') %}
+- -O {{ resume_offset | default('=') }}
+{% endif %}
+
+# Devices to scan.
+# Specified at the end of the command line arguments.
+# Default: ['/dev/sda1']
+{% for device in (devices | default(['/dev/sda1'])) %}
+{{ device }}
+{% endfor %}

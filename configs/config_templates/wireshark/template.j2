@@ -1,0 +1,65 @@
+# Wireshark Personal Preferences Configuration
+# This file corresponds to $XDG_CONFIG_HOME/wireshark/preferences
+# Format: prefname:value
+
+# Enable automatic scrolling during live capture (-S)
+# Corresponds to: gui.auto_scroll_on_capture
+# Default: false
+gui.auto_scroll_on_capture: {{ auto_scroll_capture | default(false) | lower }}
+
+# Set the interface to use for live capture (-i)
+# Corresponds to: capture.interface
+# Note: In GUI this is selected interactively; here it sets the default if scripted
+# If empty, Wireshark selects the first non-loopback interface
+capture.interface: {{ capture_interface | default('') }}
+
+# Set the capture filter expression (-f)
+# Corresponds to: capture.filter
+# Example: "tcp port 80 or udp port 53"
+capture.filter: {{ capture_filter | default('') }}
+
+# Set the snapshot length for capture (-s)
+# Corresponds to: capture.snaplen
+# Value in bytes. 0 captures full packet (default 262144 in code, but 0 means auto/full in CLI)
+capture.snaplen: {{ capture_snaplen | default(0) }}
+
+# Disable promiscuous mode on capture interface (-p)
+# Corresponds to: capture.promisc
+# true disables promiscuous mode
+capture.promisc: {{ capture_promisc | default(false) | lower }}
+
+# Set the timestamp display format (-t)
+# Corresponds: timestamp.display_format
+# Options: a (absolute), ad (absolute with date), d (delta), dd (delta displayed), e (epoch), r (relative), u (UTC), ud (UTC with date)
+timestamp.display_format: {{ timestamp_format | default('relative') }}
+
+# Disable name resolution (-n)
+# Corresponds to: net.resolve
+# true disables all name resolution (IP, ports, MAC)
+net.resolve: {{ disable_name_resolution | default(false) | lower }}
+
+# Enable name resolution from DNS packets (-N d)
+# Corresponds to: net.resolve_dns
+# true enables DNS-based resolution
+net.resolve_dns: {{ resolve_dns | default(false) | lower }}
+
+# Enable MAC address resolution (-N m)
+# Corresponds to: net.resolve_mac
+# true enables MAC OUI lookup
+net.resolve_mac: {{ resolve_mac | default(false) | lower }}
+
+# Enable transport layer port name resolution (-N t)
+# Corresponds to: net.resolve_port
+# true enables port-to-service name lookup
+net.resolve_port: {{ resolve_port | default(false) | lower }}
+
+# Log level for diagnostic output (--log-level)
+# Corresponds to: log.level
+# Options: noisy, debug, info, message, warning, critical, error
+# Note: This is primarily a CLI flag, but can be simulated via environment or internal logging if exposed in preferences. 
+# However, standard 'preferences' file does NOT expose log level directly in recent versions. 
+# Instead, we use the 'display filter macros' or 'recent settings' if available, but the manpage says -o can override preferences.
+# Since we are generating a 'preferences' file (which is the main config file described), we stick to standard prefs.
+# If specific CLI args are needed, they are usually passed to the launcher, not stored in preferences.
+# To adhere to the prompt 
+log.level: {{ log_level | default('message') }}

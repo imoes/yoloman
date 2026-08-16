@@ -1,0 +1,81 @@
+# ==============================================================================
+# myrescue Configuration Template
+# ==============================================================================
+# This file configures myrescue, a tool for recovering data from damaged disks
+# or disk images. It supports various strategies for handling bad sectors,
+# retry logic, and I/O direction control.
+#
+# All variables below map directly to myrescue command-line flags (e.g., -b, -r).
+# If a variable is not provided by the role, the schema default is used.
+# ==============================================================================
+
+# Block size in bytes for I/O operations.
+# Usually matches the hard disk's native block size or error detection unit.
+# Flag: -b
+BLOCK_SIZE = {{ block_size | default(4096) }}
+
+# Number of times to retry reading a block before marking it as bad for this run.
+# Flag: -r
+RETRY_COUNT = {{ retry_count | default(1) }}
+
+# Activate skip mode: exponentially increases the step size when read errors occur.
+# This helps skip over contiguous bad areas faster.
+# Flag: -S
+SKIP_MODE = {{ skip_mode | default(false) }}
+
+# Abort the rescue process immediately upon encountering any read error.
+# Use with caution; might leave parts of the disk unread if errors are frequent.
+# Flag: -A
+ABORT_ON_ERROR = {{ abort_on_error | default(false) }}
+
+# Skip blocks that have already failed this many times in previous runs.
+# Set to 0 to disable skipping of previously failed blocks.
+# Flag: -f
+SKIP_FAILED_BLOCKS = {{ skip_failed_blocks | default(0) }}
+
+# The block index to start reading from.
+# Flag: -s
+START_BLOCK = {{ start_block | default(0) }}
+
+# The block index where reading stops (exclusive).
+# A value of 0 indicates reading until the end of the input file/disk.
+# Flag: -e
+END_BLOCK = {{ end_block | default(0) }}
+
+# Reverse the reading direction, starting from END_BLOCK down to START_BLOCK.
+# Useful for targeting data located near the end of a damaged disk.
+# Flag: -R
+REVERSE_DIRECTION = {{ reverse_direction | default(false) }}
+
+# Only attempt to read blocks within this number of blocks distance from a
+# previously successfully read block. Limits recovery to "known good" zones.
+# Flag: -G
+GOOD_RANGE = {{ good_range | default(0) }}
+
+# Extend the skip-failed logic to also skip blocks within this range of a
+# block that was skipped due to failure.
+# Flag: -F
+FAILED_RANGE = {{ failed_range | default(0) }}
+
+# Treat blocks that take an unusually long time to read as defective.
+# Helps avoid spending too much time on slow, potentially failing sectors.
+# Flag: -T
+TREAT_SLOW_AS_DEFECTIVE = {{ treat_slow_as_defective | default(false) }}
+
+# After reading this many blocks, randomly jump to another location on the disk.
+# Helps in recovering data scattered across bad sectors by avoiding clustering.
+# Flag: -J
+JUMP_AFTER_BLOCKS = {{ jump_after_blocks | default(0) }}
+
+# Linux-specific: Path to the USB device file for issuing a bus reset on read error.
+# Only used if the source is a USB drive. Leave empty if not applicable.
+# Flag: -U
+USB_DEVICE_FILE = {{ usb_device_file | default('') }}
+
+# Source disk image or physical device file to rescue data from.
+# Flag: input-file
+INPUT_FILE = {{ input_file | default('') }}
+
+# Destination file where the recovered data will be written.
+# Flag: output-file
+OUTPUT_FILE = {{ output_file | default('') }}

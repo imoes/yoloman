@@ -1,0 +1,17 @@
+# /etc/default/sslh — Default options for sslh initscript
+# Sourced by /etc/init.d/sslh. This file configures the sslh daemon.
+#
+# sslh is a multiplexer that dispatches incoming connections to the
+# appropriate backend service (SSH, HTTPS, etc.) based on the protocol.
+
+# The full path to the sslh binary to execute.
+DAEMON=/usr/sbin/sslh
+
+# Command-line options passed to the sslh daemon.
+# These options define the runtime user, the listener address/port,
+# and the backend services (SSH, SSL) to proxy traffic to.
+DAEMON_OPTS=" \
+  --user {{ sslh_user | default('sslh') }} \
+  --listen {{ sslh_listen_address | default('<change-me>') }}:{{ sslh_listen_port | default(443) }} \
+  --ssh {{ ssh_host | default('127.0.0.1') }}:{{ ssh_port | default(22) }} \
+  --ssl {{ ssl_host | default('127.0.0.1') }}:{{ ssl_port | default(443) }}"

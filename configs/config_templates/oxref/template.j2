@@ -1,0 +1,164 @@
+#!/bin/bash
+# ==============================================================================
+# oxref Configuration Wrapper
+# ==============================================================================
+#
+# This script generates the command-line invocation for `oxref` (a cross-reference
+# analysis tool for object files and libraries).
+#
+# The configuration is driven entirely by the variables defined below. Each variable
+# corresponds to an oxref command-line flag. If a variable is undefined in Ansible,
+# the template defaults to the schema's default value.
+#
+# Usage:
+#   This script is typically executed by Ansible to generate a wrapper or to run
+#   oxref directly. Ensure that `oxref` is installed in the system PATH.
+#
+# Variables:
+#   object_files          : List of object files/libraries to process.
+#   include_object_files  : Boolean. Include object file names in listing (-o).
+#   include_source_files  : Boolean. Include source file names in listing (-s).
+#   include_xref_source_files : Boolean. Include source of definition in listing (-x).
+#   show_full_symbols     : Boolean. Show full symbol names (-f).
+#   call_tree_function    : String. Function name for call tree (-t).
+#   called_by_function    : String. Function name for called-by overview (-c).
+#   no_cross_reference    : Boolean. Suppress cross-ref info (-X).
+#   output_abbreviation   : String. Output mode: 'count', 'first', or 'len' (-a).
+#   replacements          : List of replacement strings in '#find#replace#' format (-R).
+#   replace_file          : String. Path to replacement specs file (-r).
+#   select_pattern        : String. Regex to select symbols (--select-pattern).
+#   select_name           : String. Substring to select symbols (--select).
+# ==============================================================================
+
+# The base command for oxref
+OXREF_CMD="oxref"
+
+# -----------------------------------------------------------------------------
+# Object files or libraries to process.
+# Schema default: ['/usr/lib/libexample.a']
+# -----------------------------------------------------------------------------
+# Note: object_files is expected to be a list. We join it with spaces.
+# If undefined, defaults to the schema default list.
+OXREF_OBJS={{ (object_files | default(['/usr/lib/libexample.a'])) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# Include in the cross reference listing the name of object files.
+# Schema default: False
+# Flag: -o
+# -----------------------------------------------------------------------------
+{% if (include_object_files | default(false) | bool) %}
+OXREF_CMD="${OXREF_CMD} -o"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Include in the cross reference listing the names of the source files.
+# Schema default: False
+# Flag: -s
+# -----------------------------------------------------------------------------
+{% if (include_source_files | default(false) | bool) %}
+OXREF_CMD="${OXREF_CMD} -s"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Include in the cross reference listing the name of source files in which
+# used symbols are defined.
+# Schema default: False
+# Flag: -x
+# -----------------------------------------------------------------------------
+{% if (include_xref_source_files | default(false) | bool) %}
+OXREF_CMD="${OXREF_CMD} -x"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Show the full names of the symbols (e.g. with class/namespace qualifiers).
+# Schema default: False
+# Flag: -f
+# -----------------------------------------------------------------------------
+{% if (show_full_symbols | default(false) | bool) %}
+OXREF_CMD="${OXREF_CMD} -f"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Generate a call tree starting from the specified function.
+# Schema default: '' (empty string, means disabled)
+# Flag: -t <function>
+# -----------------------------------------------------------------------------
+{% if (call_tree_function | default('')) != '' %}
+OXREF_CMD="${OXREF_CMD} -t {{ call_tree_function | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Generate a "called-by" overview starting from the specified function.
+# Schema default: '' (empty string, means disabled)
+# Flag: -c <function>
+# -----------------------------------------------------------------------------
+{% if (called_by_function | default('')) != '' %}
+OXREF_CMD="${OXREF_CMD} -c {{ called_by_function | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Prevent cross-reference information from being written to stdout.
+# Typically used in conjunction with -t or -c to suppress verbose output.
+# Schema default: False
+# Flag: -X
+# -----------------------------------------------------------------------------
+{% if (no_cross_reference | default(false) | bool) %}
+OXREF_CMD="${OXREF_CMD} -X"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Output abbreviation mode. Specifies the way the output is abbreviated.
+# Allowed values: 'count', 'first', 'len'.
+# Schema default: 'count'
+# Flag: -a <mode>
+# -----------------------------------------------------------------------------
+{% if (output_abbreviation | default('count')) != 'count' %}
+OXREF_CMD="${OXREF_CMD} -a {{ output_abbreviation | default('count') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Text replacements of the form #find#replace#.
+# These allow post-processing of the output symbols.
+# Schema default: [] (empty list)
+# Flag: -R <replacement>
+# -----------------------------------------------------------------------------
+{% for replacement in (replacements | default([])) %}
+OXREF_CMD="${OXREF_CMD} -R {{ replacement }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Replacement specifications file.
+# If provided, oxref reads replacement rules from this file instead of
+# command-line -R arguments.
+# Schema default: '' (empty string, means disabled)
+# Flag: -r <file>
+# -----------------------------------------------------------------------------
+{% if (replace_file | default('')) != '' %}
+OXREF_CMD="${OXREF_CMD} -r {{ replace_file | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Regular expression to select symbols for the cross-reference report.
+# Only symbols matching this regex will be included in the output.
+# Schema default: '' (empty string, means no filtering)
+# Flag: --select-pattern=<regex>
+# -----------------------------------------------------------------------------
+{% if (select_pattern | default('')) != '' %}
+OXREF_CMD="${OXREF_CMD} --select-pattern={{ select_pattern | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Initial substring of a symbol to select.
+# Only symbols starting with this string will be included in the output.
+# Schema default: '' (empty string, means no filtering)
+# Flag: --select=<substring>
+# -----------------------------------------------------------------------------
+{% if (select_name | default('')) != '' %}
+OXREF_CMD="${OXREF_CMD} --select={{ select_name | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Execute the generated command.
+# -----------------------------------------------------------------------------
+echo "Running: ${OXREF_CMD} ${OXREF_OBJS}"
+${OXREF_CMD} ${OXREF_OBJS}

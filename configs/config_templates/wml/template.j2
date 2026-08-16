@@ -1,0 +1,105 @@
+# WML (Website META Language) Configuration Template
+# =============================================================================
+# This file configures the global runtime environment and default options for
+# the `wml` command. It corresponds to the behavior of `~/.wmlrc` or
+# environment variable settings.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# The base directory for the website source files. Used to define ROOTREL/ROOTABS.
+# Default: '.' (current directory)
+# -----------------------------------------------------------------------------
+wml_root_path: "{{ (values | default({})).wml_root_path | default('.') }}"
+
+# -----------------------------------------------------------------------------
+# The base URL for the generated website. Used to define ROOTABS.
+# Default: '' (empty string, relative links)
+# -----------------------------------------------------------------------------
+wml_base_url: "{{ (values | default({})).wml_base_url | default('') }}"
+
+# -----------------------------------------------------------------------------
+# List of directories added to the include path (-I/--include).
+# Default: [] (empty list)
+# -----------------------------------------------------------------------------
+wml_include_paths:
+{% for path in (values | default({})).wml_include_paths | default([]) %}
+- "{{ path }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# List of global variable definitions in 'NAME=VALUE' format (-D/--define).
+# Each item is a string in the format "NAME=VALUE".
+# Default: [] (empty list)
+# -----------------------------------------------------------------------------
+wml_definitions:
+{% for definition in (values | default({})).wml_definitions | default([]) %}
+- "{{ definition }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Optimization level for HTML output (-O/--optimize). Range 0-9.
+# 0: no optimization, 9: max optimization/stripping.
+# Default: 0
+# -----------------------------------------------------------------------------
+wml_optimization_level: {{ (values | default({})).wml_optimization_level | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Verbose output level (-v/--verbose). Range 0-9.
+# 0: quiet (default for batch), >0: verbose debugging.
+# Default: 0
+# -----------------------------------------------------------------------------
+wml_verbose_level: {{ (values | default({})).wml_verbose_level | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Comma-separated list of pass numbers to execute (-p/--pass).
+# Valid pass numbers: 1-9. Can be comma-separated or ranges (e.g., "1-5").
+# Default: "1-9" (all passes)
+# -----------------------------------------------------------------------------
+wml_passes: "{{ (values | default({})).wml_passes | default('1-9') }}"
+
+# -----------------------------------------------------------------------------
+# Directory for temporary files (TMPDIR).
+# Default: '/tmp'
+# -----------------------------------------------------------------------------
+wml_tmp_dir: "{{ (values | default({})).wml_tmp_dir | default('/tmp') }}"
+
+# -----------------------------------------------------------------------------
+# Enable safe mode to disable Perl fork speedups (-s/--safe).
+# When true, WML uses system() calls instead of in-process compilation.
+# Default: false
+# -----------------------------------------------------------------------------
+wml_safe_mode: {{ (values | default({})).wml_safe_mode | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Path to a file to pre-load as an include (-i/--includefile).
+# Can use angle brackets for system includes (e.g., "<sys/header.wml>").
+# Default: '' (empty)
+# -----------------------------------------------------------------------------
+wml_includefile: "{{ (values | default({})).wml_includefile | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Path to a program to run as a prolog filter on input (-P/--prolog).
+# Executed on input before pass 1.
+# Default: '' (empty)
+# -----------------------------------------------------------------------------
+wml_prolog_filter: "{{ (values | default({})).wml_prolog_filter | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Path to a program to run as an epilog filter on output (-E/--epilog).
+# Executed on final output files. Known values: htmlinfo, linklint, tidy, weblint.
+# Default: '' (empty)
+# -----------------------------------------------------------------------------
+wml_epilog_filter: "{{ (values | default({})).wml_epilog_filter | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Set output file modification times to input + 1 second (-t/--settime).
+# Useful for dependency tracking in make systems.
+# Default: false
+# -----------------------------------------------------------------------------
+wml_set_time: {{ (values | default({})).wml_set_time | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Output dependency rules for make (-M/--depend).
+# Default: false
+# -----------------------------------------------------------------------------
+wml_output_dependencies: {{ (values | default({})).wml_output_dependencies | default(false) }}

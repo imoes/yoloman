@@ -1,0 +1,38 @@
+# ============================================================================
+# power-calibrate configuration template
+# Self-documented: every directive is preceded by its schema description.
+# All variables use .| default(...) to prevent undefined-variable errors.
+# ============================================================================
+
+# Delay in seconds from starting a new test configuration before starting the sampling.
+# Corresponds to -d option
+delay: {{ (delay | default(20)) }}
+
+# Number of samples (test rounds) for the CPU test.
+# Corresponds to -s option
+samples: {{ (samples | default(4)) }}
+
+# List of CPU numbers to run tests on. Empty means auto-detect all CPUs.
+# Corresponds to -n option
+# Renders as a comma-separated list when cpus is populated; empty string otherwise.
+cpus: {% if (cpus | default([])) | length > 0 %}{{ cpus | default([]) | join(',') }}{% else %}{% endif %}
+
+# Duration of each test run in seconds.
+# Corresponds to -r option
+run_duration: {{ (run_duration | default(120)) }}
+
+# Display progress percentage during testing.
+# Corresponds to -p option
+progress: {{ (progress | default(False) | lower) }}
+
+# Calibrate for each CPU run individually instead of averaging all CPUs.
+# Corresponds to -e option
+calibrate_per_cpu: {{ (calibrate_per_cpu | default(False) | lower) }}
+
+# Read power statistics from RAPL domains.
+# Corresponds to -R option
+rapl_read: {{ (rapl_read | default(False) | lower) }}
+
+# Path to the YAML file for output results.
+# Corresponds to -o option
+output_file: {{ (output_file | default('')) }}

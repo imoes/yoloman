@@ -1,0 +1,118 @@
+# vim:syntax=apparmor
+#
+# AppArmor profile for tcpdump.
+# This template generates a secure, self-documenting AppArmor profile
+# allowing tcpdump to perform network packet capture while restricting
+# access to the rest of the system.
+#
+# Variables used:
+#   profile_name    - Name of the AppArmor profile (default: 'tcpdump')
+#   binary_path     - Full path to the tcpdump binary (default: '/usr/bin/tcpdump')
+#   binary_path_file - Filename portion of the binary path for local includes (default: 'usr.bin.tcpdump')
+
+#include <tunables/global>
+
+# Define the AppArmor profile name and the binary it applies to.
+# The profile_name defaults to 'tcpdump' and binary_path to '/usr/bin/tcpdump'.
+profile {{ profile_name | default('tcpdump') }} {{ binary_path | default('/usr/bin/tcpdump') }} {
+
+  # Include standard AppArmor abstractions for basic system functionality,
+  # name resolution, and user temporary files.
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/user-tmp>
+
+  # --- Required Capabilities ---
+  # Allow raw socket creation for packet capture.
+  capability net_raw,
+  # Allow setting user ID (needed if run as non-root with specific user).
+  capability setuid,
+  # Allow setting group ID.
+  capability setgid,
+  # Allow overriding file permission checks for reading packet captures.
+  capability dac_override,
+  # Allow changing file ownership for captured files.
+  capability chown,
+
+  # --- Network Permissions ---
+  # Allow raw network sockets for sniffing.
+  network raw,
+  # Allow packet sockets for advanced capture features.
+  network packet,
+
+  # --- USB Bus Access (for -D interface listing on some systems) ---
+  # Read access to the proc filesystem for USB bus information.
+  @{PROC}/bus/usb/ r,
+  @{PROC}/bus/usb/** r,
+
+  # --- Network Interface Discovery ---
+  # Allow reading the root /dev directory to list available devices.
+  /dev/ r,
+  # Read access to per-process network device statistics.
+  @{PROC}/[0-9]*/net/dev r,
+  # Read access to USB device topology.
+  /sys/bus/usb/devices/ r,
+  # Read access to network class devices.
+  /sys/class/net/ r,
+  # Recursive read access to device tree network interfaces.
+  /sys/devices/**/net/** r,
+
+  # --- Packet Buffer Injection (for -j option) ---
+  # Allow network administration capability for buffer injection.
+  capability net_admin,
+
+  # --- USB Bus Tracing (libpcap USB support) ---
+  # Read access to USB monitor devices.
+  /dev/usbmon* r,
+  # Read access to USB bus directory.
+  /dev/bus/usb/ r,
+  /dev/bus/usb/** r,
+
+  # --- Ethernet Address Resolution (for -e option) ---
+  # Read access to local ethernet MAC address mappings.
+  /etc/ethers r,
+
+  # --- USB Probing (libpcap-1.1.x+ usb probing) ---
+  # Write access to specific USB device files for probing.
+  /dev/bus/usb/**/[0-9]* w,
+
+  # --- Compression Support (for -z option: gzip, bzip2) ---
+  # Execute permission for compression binaries.
+  /{usr/,}bin/gzip ixr,
+  /{usr/,}bin/bzip2 ixr,
+
+  # --- Home Directory Restrictions (for -F and -w options) ---
+  # Deny access to hidden files/dirs in home to prevent accidental capture of config/passwords.
+  audit deny @{HOME}/.* mrwkl,
+  audit deny @{HOME}/.*/ rw,
+  audit deny @{HOME}/.*/** mrwkl,
+  # Deny access to bin directory in home.
+  audit deny @{HOME}/bin/ rw,
+  audit deny @{HOME}/bin/** mrwkl,
+  # Allow owner access to home directory itself and its non-hidden contents.
+  owner @{HOME}/ r,
+  owner @{HOME}/** rw,
+
+  # --- Packet Capture File Access (for -r, -F, -w options) ---
+  # Read/write access to standard pcap file extensions.
+  /**.[pP][cC][aA][pP] rw,
+  /**.[pP][cC][aA][pP][nN][gG] rw,
+  /**.[cC][aA][pP] rw,
+  # Read/write access to numbered pcap files (added by -W option).
+  /**.[pP][cC][aA][pP][0-9]* rw,
+  /**.[pP][cC][aA][pP][nN][gG][0-9]* rw,
+  /**.[cC][aA][pP][0-9]* rw,
+
+  # --- Snort Log Compatibility (for convenience with -r) ---
+  # Read access to common Snort log locations.
+  /var/log/snort/*log* r,
+
+  # --- Binary Execution ---
+  # Allow mapping and reading the tcpdump binary itself.
+  {{ binary_path | default('/usr/bin/tcpdump') }} mr,
+
+  # --- Local Overrides ---
+  # Include site-specific additions and overrides.
+  # See local/README for details on how to extend this profile.
+  #include <local/{{ binary_path_file | default('usr.bin.tcpdump') }}>
+}

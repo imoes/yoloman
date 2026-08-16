@@ -1,0 +1,40 @@
+;;; 52select-xface.el --- Debian {{(flavor_name | default('emacs')) | lower | replace(' ', '-')}} select-xface startup file  -*-mode: emacs-lisp;-*-
+
+;;; Code:
+
+;; The Emacs flavor (e.g., 'emacs', 'emacs25', 'emacs26') determines the base path
+;; for site-lisp directories where select-xface is installed.
+(let* ((flavor-name (if (boundp 'debian-emacs-flavor)
+			(symbol-name debian-emacs-flavor)
+		      "{{(flavor_name | default('emacs')) | lower | replace(' ', '-')}}"))
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/select-xface")))
+  (if (not (file-directory-p elc-dir))
+      ()
+    (if (fboundp 'debian-pkg-add-load-path-item)
+	(debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+    (autoload 'select-xface "select-xface" "Select X-Face" t)
+    ;; For Mew:
+    (add-hook 'mew-draft-mode-hook
+	      (lambda ()
+		(define-key (current-local-map) "\C-c\C-x"
+		  'select-xface)))
+    ;; For Gnus:
+    (add-hook 'gnus-message-setup-hook
+	      (lambda ()
+		(define-key (current-local-map) "\C-x4x"
+		  'select-xface)))
+    ;; For mh-e:
+    (add-hook 'mh-letter-mode-hook
+	      (lambda ()
+		(define-key (current-local-map) "\C-x4x"
+		  'select-xface)))
+    ;; For MAIL, RMAIL, VM, cmail, Wanderlust:
+    (add-hook 'mail-mode-hook
+	      (lambda ()
+		(define-key (current-local-map) "\C-x4x"
+		  'select-xface)))
+    ;;
+    ))
+
+;; 52select-xface.el ends here

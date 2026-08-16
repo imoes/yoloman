@@ -1,0 +1,185 @@
+# ==============================================================================
+# Keychain Initialization Script Configuration
+# ==============================================================================
+# This template generates a shell script that configures the 'keychain' utility.
+# Keychain manages SSH and GPG agents across multiple shell sessions,
+# persisting environment variables (SSH_AUTH_SOCK, SSH_AGENT_PID) so you
+# only need to enter your passphrase once per login session.
+#
+# Self-Documenting: Every variable is sourced from the Ansible variables
+# defined in the schema. Defaults are applied inline to ensure safe rendering.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Host Configuration
+# ------------------------------------------------------------------------------
+# Alternate hostname for creation of pidfiles. Overrides default hostname
+# detection. Useful in environments with dynamic or incorrect hostname resolution.
+# See: --host <name>
+KEYCHAIN_HOST="{{ (host | default('localhost')) }}"
+
+# ------------------------------------------------------------------------------
+# Agent Configuration
+# ------------------------------------------------------------------------------
+# Comma-separated list of agents to start. Common values are 'ssh', 'gpg',
+# 'gpg2', or combinations like 'ssh,gpg'.
+# See: --agents <list>
+KEYCHAIN_AGENTS="{{ (agents | default('ssh')) }}"
+
+# ------------------------------------------------------------------------------
+# Directory Configuration
+# ------------------------------------------------------------------------------
+# Directory to use for keychain environment files (pidfiles and env scripts)
+# instead of the default $HOME/.keychain. Ensure this directory exists.
+# See: --dir <dirname>
+KEYCHAIN_DIR="{{ (dir | default('/etc/keychain')) }}"
+
+# ------------------------------------------------------------------------------
+# Retry Configuration
+# ------------------------------------------------------------------------------
+# Number of times to try adding keys before giving up.
+# See: --attempts <num>
+KEYCHAIN_ATTEMPTS="{{ (attempts | default(1)) }}"
+
+# ------------------------------------------------------------------------------
+# Timeout Configuration
+# ------------------------------------------------------------------------------
+# Timeout in minutes for identities added to the agent.
+# 0 means no timeout (keys persist until agent restart/logout).
+# See: --timeout <minutes>
+KEYCHAIN_TIMEOUT="{{ (timeout | default(0)) }}"
+
+# ------------------------------------------------------------------------------
+# Lock Wait Configuration
+# ------------------------------------------------------------------------------
+# Seconds to wait for the lockfile to become available when manipulating
+# agent files. Prevents race conditions if keychain is invoked concurrently.
+# See: --lockwait <seconds>
+KEYCHAIN_LOCKWAIT="{{ (lockwait | default(5)) }}"
+
+# ------------------------------------------------------------------------------
+# GPG Configuration
+# ------------------------------------------------------------------------------
+# Use gpg2 instead of gpg for gpg-agent support.
+# See: --gpg2
+{% if (use_gpg2 | default(false) | bool) %}
+KEYCHAIN_USE_GPG2="yes"
+{% else %}
+KEYCHAIN_USE_GPG2="no"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Inheritance Configuration
+# ------------------------------------------------------------------------------
+# Don't inherit any agent processes from the environment.
+# Forces keychain to start fresh agents rather than connecting to existing ones.
+# See: --noinherit
+{% if (no_inherit | default(false) | bool) %}
+KEYCHAIN_NO_INHERIT="yes"
+{% else %}
+KEYCHAIN_NO_INHERIT="no"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Lock Configuration
+# ------------------------------------------------------------------------------
+# Don't attempt to use a lockfile while manipulating files.
+# Disables locking mechanisms entirely. Use with caution.
+# See: --nolock
+{% if (no_lock | default(false) | bool) %}
+KEYCHAIN_NO_LOCK="yes"
+{% else %}
+KEYCHAIN_NO_LOCK="no"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Quick Mode Configuration
+# ------------------------------------------------------------------------------
+# If an ssh-agent is running, use it. Don't verify keys.
+# Avoids locking and key verification overhead. Faster but less secure.
+# See: --quick
+{% if (quick | default(false) | bool) %}
+KEYCHAIN_QUICK="yes"
+{% else %}
+KEYCHAIN_QUICK="no"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Keys Configuration
+# ------------------------------------------------------------------------------
+# List of private key filenames to load.
+# These keys are looked for in ~/.ssh or paths specified in ssh config.
+# The variable `keychain_keys_list` is the space-separated string intended
+# for direct command-line insertion.
+# See: keys...
+
+# Construct the space-separated list of keys for command-line usage.
+# This variable aggregates `keys` items into a single string.
+KEYCHAIN_KEYS_LIST="{{ (keys | default([]) | join(' ')) }}"
+
+# Detailed comment block for debugging/verification
+{% for key in (keys | default([])) %}
+# Configured Key Item {{ loop.index }}: {{ key }}
+{% endfor %}
+{% if not (keys | default([])) %}
+# No keys configured. Keychain will run without loading specific identities.
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Shell Execution Logic
+# ------------------------------------------------------------------------------
+# This block constructs the final command to evaluate keychain.
+# It mimics the standard usage: eval $(keychain --quiet ...)
+
+# Determine the hostname to use for the environment file.
+# If KEYCHAIN_HOST is not set or empty, fall back to system hostname.
+if [ -n "$KEYCHAIN_HOST" ]; then
+    HOST="$KEYCHAIN_HOST"
+else
+    HOST=$(uname -n)
+fi
+
+# Construct keychain arguments string
+KEYCHAIN_ARGS="--quiet"
+
+{% if (use_gpg2 | default(false) | bool) %}
+KEYCHAIN_ARGS="${KEYCHAIN_ARGS} --gpg2"
+{% endif %}
+
+{% if (no_inherit | default(false) | bool) %}
+KEYCHAIN_ARGS="${KEYCHAIN_ARGS} --noinherit"
+{% endif %}
+
+{% if (no_lock | default(false) | bool) %}
+KEYCHAIN_ARGS="${KEYCHAIN_ARGS} --nolock"
+{% endif %}
+
+{% if (quick | default(false) | bool) %}
+KEYCHAIN_ARGS="${KEYCHAIN_ARGS} --quick"
+{% endif %}
+
+# Determine keys to load for the command line invocation.
+# Keys are joined by spaces for the command line.
+KEYCHAIN_KEY_ARGS=""
+{% for key in (keys | default([])) %}
+KEYCHAIN_KEY_ARGS="${KEYCHAIN_KEY_ARGS} {{ key }}"
+{% endfor %}
+
+# Example execution block (uncomment to use):
+# eval $(keychain ${KEYCHAIN_ARGS} --dir "${KEYCHAIN_DIR}" --attempts ${KEYCHAIN_ATTEMPTS} --timeout ${KEYCHAIN_TIMEOUT} --lockwait ${KEYCHAIN_LOCKWAIT} --host "${HOST}" ${KEYCHAIN_KEY_ARGS} 2>/dev/null)
+
+# ------------------------------------------------------------------------------
+# Environment Source Files
+# ------------------------------------------------------------------------------
+# Source the environment file created by keychain.
+# This file contains the SSH_AGENT_PID and SSH_AUTH_SOCK exports.
+KEYCHAIN_ENV_FILE="${KEYCHAIN_DIR}/${HOST}-sh"
+if [ -f "${KEYCHAIN_ENV_FILE}" ]; then
+    . "${KEYCHAIN_ENV_FILE}"
+fi
+
+# If gpg agent was requested, source the gpg environment file.
+KEYCHAIN_GPG_ENV_FILE="${KEYCHAIN_DIR}/${HOST}-sh-gpg"
+if [ -f "${KEYCHAIN_GPG_ENV_FILE}" ]; then
+    . "${KEYCHAIN_GPG_ENV_FILE}"
+fi

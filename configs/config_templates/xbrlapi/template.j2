@@ -1,0 +1,47 @@
+# =============================================================================
+# xbrlapi Startup Script Configuration
+# =============================================================================
+# This template generates a shell script for /etc/X11/Xsession.d that attempts
+# to start the BrlAPI (Braille API) server.
+#
+# Schema Fields:
+#   prefix: The installation prefix path for brltty components. (default: '')
+# =============================================================================
+
+# The installation prefix path for brltty components.
+prefix="{{ prefix | default('') }}"
+
+# Derive exec_prefix from prefix. Uses literal shell syntax for variable expansion
+# which is part of the target shell script, NOT Jinja.
+exec_prefix="${prefix}"
+
+# Directory where Braille driver shared libraries are located.
+drivers_directory="${exec_prefix}/lib/brltty"
+
+# Directory where BrlTTY/Braille utilities binaries are located.
+program_directory="${exec_prefix}/bin"
+
+# Path to the xbrlapi executable.
+xbrlapi="$program_directory/xbrlapi"
+
+# Path to the brltty executable.
+brltty="$program_directory/brltty"
+
+# Attempt to start xbrlapi if the binary exists and is executable.
+if [ -x "${xbrlapi}" ]; then
+  # Try to run xbrlapi; ignore stderr (2>/dev/null) as connection failures are non-fatal.
+  if "${xbrlapi}" 2>/dev/null ; then
+    # xbrlapi could connect to BrlAPI, try to start brltty with AtSpi2 driver.
+    # Check for necessary driver libraries before starting brltty.
+    if [ -x "${brltty}" -a \
+         -e "${drivers_directory}/libbrlttybba.so" -a \
+         -e "${drivers_directory}/libbrlttyxa2.so" ]; then
+      # Start brltty with:
+      #   -b ba: Use the BBA (Braille Bus Adapter) backend.
+      #   -s no: Disable serial port scanning.
+      #   -x a2: Use the AtSpi2 driver.
+      #   -N: Do not daemonize (run in foreground of this session).
+      "${brltty}" -b ba -s no -x a2 -N 2>/dev/null
+    fi
+  fi
+fi

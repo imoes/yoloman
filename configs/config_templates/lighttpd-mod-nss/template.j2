@@ -1,0 +1,25 @@
+# Lighttpd NSS Module Configuration
+# Provides basic SSL/TLS support via mod_nss.
+# Self-documenting template: every setting is described and safely defaulted.
+
+# Load the NSS module for SSL/TLS handling.
+# This enables Lighttpd to use the Network Security Services library.
+server.modules += ( "mod_nss" )
+
+# Path to the SSL PEM certificate file.
+# This file typically contains the server certificate and its private key.
+# Default: /etc/lighttpd/server.pem
+ssl.pemfile = "{{ (ssl | default({})).pemfile | default('/etc/lighttpd/server.pem') }}"
+
+# Configure SSL listening on a specific address and port.
+# The listen_address is the IP to bind to (0.0.0.0 for all interfaces).
+# The listen_port is the port number (443 is standard HTTPS).
+# Note: Lighttpd's mod_nss uses these specific variables for socket configuration.
+$SERVER["socket"] == "{{ listen_address | default('0.0.0.0') }}:{{ listen_port | default('443') }}" {
+    # Enable SSL/TLS engine for this socket.
+    ssl.engine  = "enable"
+}
+
+# Automatically include IPv6 configuration if available.
+# This shell script checks for IPv6 support and includes the necessary config.
+include_shell "/usr/share/lighttpd/use-ipv6.pl {{ listen_port | default('443') }}"

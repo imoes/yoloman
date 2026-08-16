@@ -1,0 +1,202 @@
+{
+  "SAEximDebug": {
+    "type": "number",
+    "default": 1,
+    "description": "Enable basic verbose output by default."
+  },
+  "SAspamcpath": {
+    "type": "string",
+    "default": "/usr/bin/spamc",
+    "description": "Path to spamc binary."
+  },
+  "SAEximRunCond": {
+    "type": "string",
+    "default": "${if and {{def:sender_host_address} {!eq {$sender_host_address}{127.0.0.1}} {!eq {$sender_host_address}{::1}}}}",
+    "description": "Exim configuration string to run before running SA against the message. This decides whether SA gets run against the message or not."
+  },
+  "SAEximRunCondOverride": {
+    "type": "number",
+    "default": 0,
+    "description": "Override value for SAEximRunCond to enable/disable sa-exim. Remove or comment out the previous line to enable."
+  },
+  "SAmaxbody": {
+    "type": "number",
+    "default": 256000,
+    "description": "How much of the body we feed to spamassassin (in bytes). Default is 250KB."
+  },
+  "SATruncBodyCond": {
+    "type": "number",
+    "default": 0,
+    "description": "Do you want to feed SAmaxbody's worth of the message body if it is too big? 0: do not scan messages that are too big."
+  },
+  "SARewriteBody": {
+    "type": "number",
+    "default": 0,
+    "description": "If you want SA to report_safe you need sa-exim to rewrite the body of the message since SA encapsulates the spam as a mime attachment."
+  },
+  "SAPrependArchiveWithFrom": {
+    "type": "number",
+    "default": 1,
+    "description": "Prepend saved messages with an fake From-header to make the file look like a valid mbox file."
+  },
+  "SAmaxarchivebody": {
+    "type": "number",
+    "default": 20971520,
+    "description": "If you are archiving messages that are rejected, how much do you want to archive? Default is 20MB."
+  },
+  "SAerrmaxarchivebody": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "On errors, if you are saving messages, you probably want the entire message. Default size saved (if you are saving errors) is 1GB."
+  },
+  "SAmaxrcptlistlength": {
+    "type": "number",
+    "default": 0,
+    "description": "Limit for X-SA-Exim-Rcpt-To header length. Default 0 disables it for privacy reasons."
+  },
+  "SAaddSAEheaderBeforeSA": {
+    "type": "number",
+    "default": 1,
+    "description": "Add X-SA-Exim-Rcpt-To and X-SA-Exim-Mail-From headers before SA scans the message."
+  },
+  "SAtimeoutsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAtimeoutsave",
+    "description": "Directory to save mails that were accepted because spamc timed out."
+  },
+  "SAtimeoutSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the timeout rule."
+  },
+  "SAerrorsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAerrorsave",
+    "description": "Directory for local_scan to save messages that created an error."
+  },
+  "SAerrorSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the error rule."
+  },
+  "SAtemprejectonerror": {
+    "type": "number",
+    "default": 0,
+    "description": "If set to 1, SA will temporarily reject messages that generated an error while they were processed. Otherwise, messages are just accepted."
+  },
+  "SAteergrubetime": {
+    "type": "number",
+    "default": 900,
+    "description": "How long do you want to stall the sender (in seconds)."
+  },
+  "SAteergrubeSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the teergrube rule."
+  },
+  "SAteergrubesave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAteergrube",
+    "description": "Directory to save mails that you stalled for later analysis."
+  },
+  "SAteergrubeoverwrite": {
+    "type": "number",
+    "default": 1,
+    "description": "When you stall the sender, by default we'll only save messages by message ID so that we don't save multiple copies every time the sender tries again."
+  },
+  "SAdevnullSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the devnull rule."
+  },
+  "SAdevnullsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAdevnull",
+    "description": "Directory to save mails that are tossed (devnull)."
+  },
+  "SApermreject": {
+    "type": "string",
+    "default": "12.0",
+    "description": "SA score when you start rejecting Emails. This is better than the above as it can notify the sender in case you reject non-spam by mistake."
+  },
+  "SApermrejectSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the permreject rule."
+  },
+  "SApermrejectsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SApermreject",
+    "description": "Directory to save mails that are rejected."
+  },
+  "SAtemprejectSavCond": {
+    "type": "number",
+    "default": 1,
+    "description": "Condition to optionally save or not save messages that matched the tempreject rule."
+  },
+  "SAtemprejectsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAtempreject",
+    "description": "Directory to save mails that are temporarily rejected."
+  },
+  "SAtemprejectoverwrite": {
+    "type": "number",
+    "default": 1,
+    "description": "When you send back a temp reject code, by default we'll only save messages by message ID so that we don't save multiple copies every time the sender tries again."
+  },
+  "SAgreylistiswhitestr": {
+    "type": "string",
+    "default": "GREYLIST_ISWHITE",
+    "description": "The string that SpamAssassin adds if the message is whitelisted."
+  },
+  "SAgreylistraisetempreject": {
+    "type": "string",
+    "default": "3.0",
+    "description": "By how much do we temporarly raise tempreject to allow a mail in when it would otherwise have been temp rejected."
+  },
+  "SAspamacceptsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAspamaccept",
+    "description": "Directory to save mails that are flagged as spam by SA, but not rejected by any of the above thresholds."
+  },
+  "SAspamacceptSavCond": {
+    "type": "number",
+    "default": 0,
+    "description": "Condition to control which messages you want saved if you only want a subset of spam accepted."
+  },
+  "SAnotspamsave": {
+    "type": "string",
+    "default": "/var/spool/sa-exim/SAnotspam",
+    "description": "Directory to save mails that are not flagged as spam by SA."
+  },
+  "SAnotspamSavCond": {
+    "type": "number",
+    "default": 0,
+    "description": "Condition to control which messages you want saved if you only want a subset of non-spam."
+  },
+  "SAmsgteergrubewait": {
+    "type": "string",
+    "default": "Wait for more output",
+    "description": "Message string for teergrube wait."
+  },
+  "SAmsgteergruberej": {
+    "type": "string",
+    "default": "Please try again later",
+    "description": "Message string for teergrube rejection."
+  },
+  "SAmsgpermrej": {
+    "type": "string",
+    "default": "Rejected",
+    "description": "Message string for permanent rejection."
+  },
+  "SAmsgtemprej": {
+    "type": "string",
+    "default": "Please try again later",
+    "description": "Message string for temporary rejection."
+  },
+  "SAmsgerror": {
+    "type": "string",
+    "default": "Temporary local error while processing message, please contact postmaster.",
+    "description": "Static string for error message."
+  }
+}

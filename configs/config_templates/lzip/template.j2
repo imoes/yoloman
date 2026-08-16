@@ -1,0 +1,84 @@
+# ==============================================================================
+# lunzip Configuration Template
+# ==============================================================================
+#
+# NOTE: lunzip (the lzip decompressor) does not read a persistent configuration
+# file from disk. Instead, this template generates a shell script wrapper or
+# a configuration reference file that documents the default runtime parameters
+# used by automated environments calling `lunzip`.
+#
+# To use these settings in an actual `lunzip` command invocation, translate
+# the key-value pairs below into command-line flags:
+#   --buffer-size=<value>
+#   --keep
+#   --force
+#   --quiet
+#   --verbose
+#   --test
+#   --trailing-error
+#   --list
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# buffer_size: Output buffer size in bytes for low-memory mode.
+# ------------------------------------------------------------------------------
+# Use powers of 2 between 12-29 or explicit byte counts.
+# Supports multipliers: k/kB (10^3), Ki/KiB (2^10), M (10^6), Mi (2^20), G (10^9), Gi (2^30).
+# Buffer sizes 12 to 29 are interpreted as powers of two (2^12 to 2^29).
+# Higher values use more RAM but decompress faster.
+# Default: 1048576 (1 MiB)
+buffer_size = {{ buffer_size | default(1048576) }}
+
+# ------------------------------------------------------------------------------
+# keep_input: Keep input files after decompression (--keep).
+# ------------------------------------------------------------------------------
+# If true, the original .lz file is preserved after successful decompression.
+# If false (default), the input file is removed.
+keep_input = {{ keep_input | default(false) }}
+
+# ------------------------------------------------------------------------------
+# force: Force overwrite of existing output files (--force).
+# ------------------------------------------------------------------------------
+# If true, existing output files are overwritten without a prompt.
+# If false (default), lunzip exits with an error if the output file already exists.
+force = {{ force | default(false) }}
+
+# ------------------------------------------------------------------------------
+# quiet: Suppress all messages except errors (--quiet).
+# ------------------------------------------------------------------------------
+# If true, only errors are reported to stderr.
+# If false (default), status messages are printed to stderr.
+quiet = {{ quiet | default(false) }}
+
+# ------------------------------------------------------------------------------
+# verbose: Be verbose, providing detailed output (--verbose).
+# ------------------------------------------------------------------------------
+# If true, progress and detailed information about the decompression process
+# are displayed.
+# If false (default), normal status messages are shown (if quiet is false).
+verbose = {{ verbose | default(false) }}
+
+# ------------------------------------------------------------------------------
+# test_mode: Test integrity of compressed file without extracting (--test).
+# ------------------------------------------------------------------------------
+# If true, the compressed file is decompressed into a dummy buffer and checked
+# for integrity. No output file is created.
+# If false (default), the file is decompressed normally.
+test_mode = {{ test_mode | default(false) }}
+
+# ------------------------------------------------------------------------------
+# trailing_error: Exit with error if trailing data is found (--trailing-error).
+# ------------------------------------------------------------------------------
+# If true, lunzip exits with an error if there is data after the compressed
+# stream.
+# If false (default), trailing data is ignored and decompression succeeds.
+trailing_error = {{ trailing_error | default(false) }}
+
+# ------------------------------------------------------------------------------
+# list_mode: List file sizes instead of decompressing (--list).
+# ------------------------------------------------------------------------------
+# If true, lunzip outputs statistics about the compressed and uncompressed
+# files (size, ratio, etc.) instead of performing decompression.
+# If false (default), standard decompression behavior applies.
+list_mode = {{ list_mode | default(false) }}

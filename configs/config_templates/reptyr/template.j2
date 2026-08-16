@@ -1,0 +1,60 @@
+# reptyr Configuration Template
+#
+# NOTE: reptyr is a stateless command-line utility, not a persistent daemon.
+# This template generates a shell script/environment that configures how reptyr
+# is invoked. It does not create a persistent configuration file on disk for a
+# background process, as reptyr does not run in the background.
+#
+# To use this, generate a wrapper script or set environment variables as shown.
+
+# === Basic Invocation Settings ===
+
+# target_pid: The Process ID (PID) of the running program to attach to.
+# Set to 0 if you are launching a new command via launch_command instead of attaching to an existing process.
+TARGET_PID={{ target_pid | default(0) }}
+
+# launch_command: Optional command and args to run with -l or -L, creating a new pty pair.
+# If empty, reptyr attempts to attach to the PID specified by target_pid.
+# Defaults to empty string.
+LAUNCH_COMMAND={{ launch_command | default('') }}
+
+# === Flag Configuration ===
+
+# use_tty_stealing: Use the -T flag for TTY-stealing mode.
+# This is more reliable in some circumstances (e.g., SSH sessions), but may require root privileges
+# if the target process is a child of sshd.
+# Default: False
+{% if use_tty_stealing | default(False) | bool %}
+TTY_STEALING_ENABLED=true
+{% else %}
+TTY_STEALING_ENABLED=false
+{% endif %}
+
+# verbose_output: Use the -V flag to print verbose debug output to stderr.
+# Useful for troubleshooting attachment failures.
+# Default: False
+{% if verbose_output | default(False) | bool %}
+VERBOSE_ENABLED=true
+{% else %}
+VERBOSE_ENABLED=false
+{% endif %}
+
+# force_fd_attach: Use the -s flag to unconditionally attach stdin/stdout/stderr.
+# Use this if the target process has no controlling terminal but you still wish to attach to its file descriptors.
+# Default: False
+{% if force_fd_attach | default(False) | bool %}
+FORCE_FD_ATTACH_ENABLED=true
+{% else %}
+FORCE_FD_ATTACH_ENABLED=false
+{% endif %}
+
+# === Dynamic Options ===
+
+# options: A list of additional raw CLI arguments to pass to reptyr.
+# These are appended to the command line after the standard flags.
+# Example: ['--debug', '--dry-run']
+OPTIONS={{ options | default([]) | join(' ') }}
+
+# === Generated Invocation Command ===
+# The following line demonstrates how these variables translate to the actual reptyr command.
+# REPTYR_CMD="reptyr -T -V -s {{ options | default([]) | join(' ') }} {{ launch_command | default('') | string }} || reptyr -T -V -s {{ options | default([]) | join(' ') }} {{ target_pid | default(0) }}"

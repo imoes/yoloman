@@ -1,0 +1,57 @@
+#! Osmo-MGW (Media Gateway) configuration file
+#! This section configures global logging behavior for the Media Gateway.
+#! Logging is directed to stderr with specific formatting options.
+log stderr
+logging color 1
+logging print category-hex 0
+logging print category 1
+logging timestamp 0
+logging print file basename last
+logging print level 1
+
+#! MGCP (Media Gateway Control Protocol) configuration block.
+#! Controls the MGCP protocol instance, endpoint limits, and RTP media handling.
+mgcp
+  #! IP address to bind the MGCP control plane to.
+  #! Default: 127.0.0.1
+  bind ip {{ mgcp_bind_ip | default('127.0.0.1') }}
+
+  #! Start of the UDP port range used for RTP media streams.
+  #! Default: 4002
+  rtp port-range {{ rtp_port_start | default(4002) }} {{ rtp_port_end | default(16001) }}
+
+  #! IP address to bind the RTP media streams to.
+  #! Default: 127.0.0.1
+  rtp bind-ip {{ rtp_bind_ip | default('127.0.0.1') }}
+
+  #! Enable IP probing for RTP sessions.
+  #! This allows the gateway to detect media stream endpoints.
+  rtp ip-probing
+
+  #! DSCP value set on RTP packets for Quality of Service (QoS) marking.
+  #! Default: 46 (Expedited Forwarding)
+  rtp ip-dscp {{ rtp_dscp | default(46) }}
+
+  #! Port number for the MGCP control plane (TCP/UDP).
+  #! Default: 2427
+  bind port {{ mgcp_bind_port | default(2427) }}
+
+  #! Maximum number of MGCP endpoints supported by this instance.
+  #! Default: 512
+  number endpoints {{ mgcp_endpoints | default(512) }}
+
+  #! Force reallocation of internal resources upon configuration reload.
+  #! Default: True
+  force-realloc {{ force_realloc | default(True) | lower }}
+
+  #! Omit RTCP (RTP Control Protocol) packets.
+  #! Disables RTCP reception and transmission to reduce overhead.
+  rtcp-omit
+
+  #! Patch SSRC (Synchronization Source) identifiers in RTP headers.
+  #! Useful when bridging or transcoding media streams.
+  rtp-patch ssrc
+
+  #! Patch RTP timestamps in media packets.
+  #! Helps maintain synchronization across different media processing stages.
+  rtp-patch timestamp

@@ -1,0 +1,118 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# LSB Header: Provides line identifying this service.
+# Schema Field: provides
+# Default:      'mysqmail-courier-logger'
+Provides:          {{ provides | default('mysqmail-courier-logger') }}
+# LSB Header: Required-Start line specifying services required for start.
+# Schema Field: required_start
+# Default:      '$remote_fs $syslog'
+Required-Start:    {{ required_start | default('$remote_fs $syslog') }}
+# LSB Header: Required-Stop line specifying services required for stop.
+# Schema Field: required_stop
+# Default:      '$remote_fs $syslog'
+Required-Stop:     {{ required_stop | default('$remote_fs $syslog') }}
+# LSB Header: Should-Start line specifying optional dependencies for start.
+# Schema Field: should_start
+# Default:      'mysql'
+Should-Start:      {{ should_start | default('mysql') }}
+# LSB Header: Should-Stop line specifying optional dependencies for stop.
+# Schema Field: should_stop
+# Default:      'mysql'
+Should-Stop:       {{ should_stop | default('mysql') }}
+# LSB Header: Default-Start line specifying runlevels to start in.
+# Schema Field: default_start
+# Default:      '2 3 4 5'
+Default-Start:     {{ default_start | default('2 3 4 5') }}
+# LSB Header: Default-Stop line specifying runlevels to stop in.
+# Schema Field: default_stop
+# Default:      '0 1 6'
+Default-Stop:      {{ default_stop | default('0 1 6') }}
+# LSB Header: Short-Description line with a brief service summary.
+# Schema Field: short_description
+# Default:      'MySQL accouting for courier-imap and courier-pop'
+Short-Description: {{ short_description | default('MySQL accouting for courier-imap and courier-pop') }}
+# LSB Header: Description line with detailed service explanation.
+# Schema Field: description
+# Default:      "This is a (ver small) traffic logger for the C courier-imap,\n                    courier-imaps, courier-pop and courier-pops daemons to SQL,\n                    splitting the information by domains and users, so it's then very\n                    easy to count all the pop and imap traffic for a given\n                    domain name."
+Description:       {{ description | default("This is a (ver small) traffic logger for the C courier-imap,\n                    courier-imaps, courier-pop and courier-pops daemons to SQL,\n                    splitting the information by domains and users, so it's then very\n                    easy to count all the pop and imap traffic for a given\n                    domain name.") }}
+### END INIT INFO
+
+# PATH: Standard system path expansion for daemon execution.
+PATH=$PATH:/bin:/usr/bin:/usr/sbin
+
+# DESC: Descriptive name for the daemon, used in log messages.
+# Schema Field: desc
+# Default:      'MySQMail courier logger'
+DESC="{{ desc | default('MySQMail courier logger') }}"
+
+# NAME: Service name, used for PID file and daemon path construction.
+# Schema Field: name
+# Default:      'mysqmail-courier-logger'
+NAME={{ name | default('mysqmail-courier-logger') }}
+
+# DAEMON: Full path to the daemon binary, derived from NAME.
+DAEMON=/usr/sbin/${NAME}
+
+# PID_FILE: Standard location for the daemon's PID file.
+PID_FILE=/var/run/${NAME}.pid
+
+# PATH_CONF_FILE: Path to the service configuration file.
+# Schema Field: path_conf_file
+# Default:      '/etc/mysqmail.conf'
+PATH_CONF_FILE={{ path_conf_file | default('/etc/mysqmail.conf') }}
+
+# Pre-flight check: Ensure configuration file exists.
+if ! [ -f "${PATH_CONF_FILE}" ] ; then
+	echo "${PATH_CONF_FILE} not present: exiting silently"
+	exit 0
+fi
+
+# Pre-flight check: Ensure daemon binary is executable.
+if [ ! -x ${DAEMON} ] ; then
+	echo "${DAEMON} not executable or not present!"
+	exit 1
+fi
+
+# Source LSB init functions for standardized logging.
+. /lib/lsb/init-functions
+
+RET=0
+case "$1" in
+start)
+	# Start logic: Check for stale PID file and start daemon.
+	if [ ! -f ${PID_FILE} ] ; then
+		log_daemon_msg "Starting ${DESC}" "${NAME}"
+		start-stop-daemon -S --quiet -p ${PID_FILE} --exec ${DAEMON}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} already exists: not starting ${DAEMON}"
+	fi
+	exit ${RET}
+;;
+stop)
+	# Stop logic: Check for PID file and stop daemon.
+	if [ -f ${PID_FILE} ] ; then
+		log_daemon_msg "Stopping ${DESC}" "${NAME}"
+		start-stop-daemon -K --quiet -p ${PID_FILE}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} doesn't exist: not stoping ${DAEMON}"
+	fi
+;;
+restart|reload|force-reload)
+	# Restart/Reload logic: Stop then start.
+	$0 stop
+	$0 start
+;;
+*)
+	# Usage error.
+	echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

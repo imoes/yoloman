@@ -1,0 +1,35 @@
+# Killer: Lightweight Kill/SIGTERM daemon configuration
+#
+# This package provides a simple systemd-like supervisor that watches a
+# command and sends signals (SIGTERM, SIGKILL) on stop/restart.
+#
+# Configuration keys:
+#   command     - Command to execute (string)
+#   pid_file    - Path to PID file (string, default /var/run/killer.pid)
+#   timeout     - Seconds to wait before SIGKILL (int, default 10)
+#   restart_on_failure - Bool: restart if exit code != 0 (bool, default false)
+#   log_file    - Path to stdout/stderr log (string, default /var/log/killer.log)
+#   environment - Dict of env vars to set for the command (dict)
+
+[global]
+# Command to execute
+command = {{ command | default('') }}
+
+# PID file path
+pid_file = {{ pid_file | default('/var/run/killer.pid') }}
+
+# Graceful shutdown timeout in seconds
+timeout = {{ timeout | default(10) }}
+
+# Whether to restart the process automatically on non-zero exit
+restart_on_failure = {{ restart_on_failure | default(false) | lower }}
+
+# Log output to this file
+log_file = {{ log_file | default('/var/log/killer.log') }}
+
+{% if environment | default({}) %}
+[environment]
+{% for key, value in (environment | default({})) | dict2items %}
+{{ key }}={{ value | default('') | string }}
+{% endfor %}
+{% endif %}

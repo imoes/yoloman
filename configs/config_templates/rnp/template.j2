@@ -1,0 +1,60 @@
+# RNP (RPGP) Configuration
+# This file configures the RNP OpenPGP utility defaults.
+# Note: RNP primarily uses command-line arguments; this template generates
+# a wrapper script or environment configuration to standardize common operations.
+
+# Directory where RNP looks for keyrings. Source: --homedir
+home_dir: {{ home_dir | default('~/.rnp') }}
+
+# Symmetric algorithm used during encryption. Source: --cipher
+default_cipher: {{ default_cipher | default('AES256') }}
+
+# Hash algorithm used for signing and key derivation. Source: --hash
+default_hash: {{ default_hash | default('SHA256') }}
+
+# Apply ASCII armoring to output. Source: --armor
+armor_output: {{ armor_output | default(false) | lower }}
+
+# Compression algorithm: zlib, zip, or bzip2. Source: --zip/--bzip2
+compression_algo: {{ compression_algo | default('zlib') }}
+
+# Compression level 0-9. Source: -z
+compression_level: {{ compression_level | default(6) }}
+
+# Enable AEAD encryption. Source: --aead
+aead_enabled: {{ aead_enabled | default(false) | lower }}
+
+# AEAD algorithm selection: EAX or OCB. Source: --aead
+aead_algo: {{ aead_algo | default('EAX') }}
+
+# List of public key identifiers to encrypt to. Source: --recipient
+recipients:
+{% if recipients is defined and recipients is iterable and recipients | length > 0 %}
+{% for recipient in recipients %}
+- {{ recipient }}
+{% endfor %}
+{% else %}
+# (empty)
+{% endif %}
+
+# List of secret key identifiers to sign with. Source: --userid
+signers:
+{% if signers is defined and signers is iterable and signers | length > 0 %}
+{% for signer in signers %}
+- {{ signer }}
+{% endfor %}
+{% else %}
+# (empty)
+{% endif %}
+
+# File descriptor to read passwords from. 0 disables. Source: --pass-fd
+pass_fd: {{ pass_fd | default(0) }}
+
+# Password string. Discouraged for production; use pass_fd. Source: --password
+password: {{ password | default('') }}
+
+# Overwrite existing output files without prompt. Source: --overwrite
+overwrite: {{ overwrite | default(false) | lower }}
+
+# Default output directory for processed files.
+output_dir: {{ output_dir | default('.') }}

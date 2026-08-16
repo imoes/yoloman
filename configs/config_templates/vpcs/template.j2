@@ -1,0 +1,42 @@
+# Virtual PC Simulator (VPCS) Configuration
+# Controls the command-line invocation parameters for the vpcs service.
+
+# Number of vpc instances to start (default 9). Corresponds to: -i num
+num_instances: {{ vpcs.num_instances | default(9) }}
+
+# Base port number vpcs uses to listen for messages (default 20000). Corresponds to: -s port
+listen_port: {{ vpcs.listen_port | default(20000) }}
+
+# Base port number vpcs streams packets to (default 30000). Corresponds to: -c port
+send_port: {{ vpcs.send_port | default(30000) }}
+
+# IP address to stream packets to (default 127.0.0.1). Corresponds to: -t ip
+send_host: {{ vpcs.send_host | default('127.0.0.1') }}
+
+# Offset added to the last byte of the base MAC address (default 0). Corresponds to: -m num
+mac_offset: {{ vpcs.mac_offset | default(0) }}
+
+# Path to startup script file executed on start. Corresponds to: scriptfile
+script_file: {{ vpcs.script_file | default('') }}
+
+# TCP port for daemon mode (empty string to disable). Corresponds to: -p port
+daemon_port: {{ vpcs.daemon_port | default('') }}
+
+# Enable TAP mode (-e) instead of UDP mode. Corresponds to: -e
+tap_mode: {{ vpcs.tap_mode | default(false) }}
+
+# Device name for TAP mode (only used when num_instances is 1). Corresponds to: -d device
+tap_device: {{ vpcs.tap_device | default('tap0') }}
+
+# TCP port for Hypervisor mode (empty string to disable). Corresponds to: -H port
+hypervisor_port: {{ vpcs.hypervisor_port | default('') }}
+
+# Constructed command line
+COMMAND=vpcs{% if num_instances != 9 %} -i {{ num_instances }}{% endif %}{% if listen_port != 20000 %} -s {{ listen_port }}{% endif %}{% if send_port != 30000 %} -c {{ send_port }}{% endif %}{% if send_host != '127.0.0.1' %} -t {{ send_host }}{% endif %}{% if mac_offset != 0 %} -m {{ mac_offset }}{% endif %}{% if daemon_port != '' %} -p {{ daemon_port }}{% endif %}{% if tap_mode == true %} -e{% endif %}{% if tap_mode == true and num_instances == 1 %} -d {{ tap_device }}{% endif %}{% if hypervisor_port != '' %} -H {{ hypervisor_port }}{% endif %}{% if script_file != '' %} -r {{ script_file }}{% endif %}
+
+# Example service wrapper script
+cat > /usr/local/bin/start-vpcs.sh << 'EOF'
+#!/bin/bash
+exec {{ COMMAND }}
+EOF
+chmod +x /usr/local/bin/start-vpcs.sh

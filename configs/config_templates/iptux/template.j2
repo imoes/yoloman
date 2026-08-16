@@ -1,0 +1,32 @@
+# iptux configuration file
+# See iptux(1) man page for details.
+
+# User's display name shown to other IP Messenger clients.
+name = {{ name | default('Anonymous') }}
+
+# Filename of the user's icon. Can be a relative path to the icons directory or an absolute path.
+icon = {{ icon | default('default') }}
+
+# UDP port number used for IP Messenger communication.
+port = {{ port | default(13782) }}
+
+# Enable automatic detection of other IP Messenger clients on the local network via broadcast.
+auto_detect = {{ auto_detect | default(true) }}
+
+# List of IP addresses allowed to connect or be contacted.
+# If empty, allows all or relies on auto_detect.
+{% if allowed_ips | default([]) | length > 0 %}
+allowed_ips = {{ allowed_ips | default([]) | join(',') }}
+{% endif %}
+
+# Enable the ability to send and receive files through the client.
+file_transfer = {{ file_transfer | default(true) }}
+
+# Directory where received files are automatically saved.
+recv_dir = {{ recv_dir | default('/tmp/iptux_recv') }}
+
+# List of keywords to filter incoming messages.
+# Messages containing these words are suppressed.
+{% if keywords | default([]) | length > 0 %}
+keywords = {{ keywords | default([]) | join(',') }}
+{% endif %}

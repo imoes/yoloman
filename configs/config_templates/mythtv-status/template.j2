@@ -1,0 +1,18 @@
+#
+# Regular cron jobs for the mythtv-status package
+#
+# This template generates a crontab entry that runs the mythtv-update-motd utility
+# to update the MOTD (Message of the Day) with MythTV status information.
+# The job runs periodically based on the schedule defined below.
+#
+# Variables used:
+#   cron_schedule  : The minute/interval part of the cron expression (e.g., '*/10 *')
+#   cron_user      : The system user under which the cron job executes (usually 'root')
+#   cron_command_path: Absolute path to the mythtv-update-motd executable
+#
+
+# Schedule definition:
+# The first field is the minute/interval. The subsequent fields (minute, hour, day of month,
+# month, day of week) are hardcoded to '*' meaning "every".
+# Example: */10 * * * * means "every 10 minutes".
+{{ (cron_schedule | default('*/10 *')) | string }}	* 	* * * 	{{ cron_user | default('root') | string }}	[ -x {{ cron_command_path | default('/usr/sbin/mythtv-update-motd') | string }} ] && [ ! -d /run/systemd/system ] && {{ cron_command_path | default('/usr/sbin/mythtv-update-motd') | string }} > /dev/null

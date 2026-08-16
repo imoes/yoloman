@@ -1,0 +1,38 @@
+# Prometheus HomePlug Exporter Service Configuration Template
+# This file defines the command-line arguments passed to the prometheus-homeplug-exporter process.
+# It is intended to be rendered by Ansible using Jinja2 variables defined in the role's defaults or vars.
+
+# --- Telemetry / Metrics Configuration ---
+
+# Address on which to expose metrics.
+# Defaults to port 9702 on all interfaces (:9702).
+ARGS='--telemetry.address={{ telemetry_address | default(":9702") }}' \\
+
+# Path under which to expose metrics.
+# Defaults to /metrics, which is the standard Prometheus scraping endpoint.
+'--telemetry.endpoint={{ telemetry_endpoint | default("/metrics") }}' \\
+
+# --- HomePlug Device Discovery Configuration ---
+
+# Interface to search for Homeplug devices.
+# If empty (''), the exporter searches all available interfaces.
+'--interface={{ interface | default("") }}' \\
+
+# Destination MAC address for Homeplug devices.
+# Defaults to 00B052000001 (a special multicast address for local PLC devices).
+# Use ffffffffffff to reach all devices in the same LAN segment.
+'--destaddr={{ destaddr | default("00B052000001") }}' \\
+
+# --- Logging Configuration ---
+
+# Only log messages with the given severity or above.
+# Valid levels: debug, info, warn, error, fatal.
+# Defaults to info.
+'--log.level={{ log_level | default("info") }}' \\
+
+# Set the log target and format.
+# Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true"
+# Defaults to logger:stderr (logs to standard error with default formatting).
+'--log.format={{ log_format | default("logger:stderr") }}'
+
+# End of prometheus-homeplug-exporter configuration.

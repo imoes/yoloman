@@ -1,0 +1,62 @@
+# ==============================================================================
+# tlslookup client configuration template
+# ==============================================================================
+# This template generates a configuration file for the `tlslookup` utility.
+# tlslookup is a tool for querying DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT)
+# endpoints to retrieve TLS certificate information and perform DNS lookups.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# default_host: The default hostname to resolve if no host is specified
+# in the command line arguments.
+# Setting this allows tlslookup to be used as a simple health-check tool
+# without needing to pass arguments every time.
+# --------------------------------------------------------------------------
+default_host = {{ default_host | default('example.com') }}
+
+# --------------------------------------------------------------------------
+# doh_endpoint: The URI of the DNS-over-HTTPS server endpoint to send queries to.
+# This must be a valid URL pointing to a compliant recursive resolver.
+# Examples: 'https://dns.google/dns-query' or 'https://cloudflare-dns.com/dns-query'
+# --------------------------------------------------------------------------
+doh_endpoint = {{ doh_endpoint | default('https://dns.google/dns-query') }}
+
+# --------------------------------------------------------------------------
+# fallback_resolvers: A list of IP addresses to use as fallback resolvers
+# if the primary endpoint is unreachable or fails validation.
+# These resolvers are used for DNS resolution of the doh_endpoint hostname
+# if necessary, or as alternative endpoints depending on tool implementation.
+# --------------------------------------------------------------------------
+fallback_resolvers = [
+{%- for resolver in fallback_resolvers | default(['1.1.1.1', '8.8.8.8']) %}
+    {{ resolver | quote }},
+{%- endfor %}
+]
+
+# --------------------------------------------------------------------------
+# verbose: Enable verbose mode to output detailed debugging information
+# about the DNS queries and responses.
+# When true, prints detailed debugging information including query IDs
+# and response codes to stderr.
+# --------------------------------------------------------------------------
+verbose = {{ verbose | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# timeout: The maximum time in seconds to wait for a DNS response
+# before aborting the query.
+# Queries taking longer than this value will be terminated.
+# --------------------------------------------------------------------------
+timeout = {{ timeout | default(10) | int }}
+
+# --------------------------------------------------------------------------
+# ca_bundle: Path to a custom Certificate Authority (CA) bundle file
+# for TLS validation.
+# Empty string uses system defaults. Useful for internal PKI environments.
+# --------------------------------------------------------------------------
+ca_bundle = {{ ca_bundle | default('') }}
+
+# --------------------------------------------------------------------------
+# tls_version: Specific TLS version to enforce (e.g., TLSv1.2, TLSv1.3).
+# Empty string allows automatic negotiation of the best available version.
+# --------------------------------------------------------------------------
+tls_version = {{ tls_version | default('') }}

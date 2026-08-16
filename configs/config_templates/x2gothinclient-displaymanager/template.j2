@@ -1,0 +1,105 @@
+#!/bin/sh
+
+# Copyright (C) 2010-2019 by X2Go project, https://wiki.x2go.org
+#       Oleksandr Shneyder <o.shneyder@phoca-gmbh.de>
+#       Moritz 'Morty' Struebe <Moritz.Struebe@informatik.uni-erlangen.de>
+#       Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+
+# X2Go is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# X2Go is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+### BEGIN INIT INFO
+# Provides:          x2gothinclient-displaymanager
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start and stop the x2go thinclient daemon
+### END INIT INFO
+
+set -e
+
+# use system's locale settings for the X2Go Client in TCE mode
+if [ -r /etc/default/locale ]; then
+	. /etc/default/locale
+	export LANG LANGUAGE
+fi
+
+. /lib/lsb/init-functions
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+export HOSTNAME
+DAEMON=/usr/sbin/x2gothinclientd
+NAME=x2gothinclient
+DESC="X2Go Thinclient Display Manager"
+
+test -x $DAEMON || exit 0
+if [ ! -x /etc/x2go/x2gothinclient_init ] || [ ! -x /etc/x2go/x2gothinclient-displaymanager_start ]; then
+	echo "X2Go Thin Client system will not start as it is not configured, yet."
+	echo "See https://wiki.x2go.org/doku.php/wiki:advanced:tce:install"
+	exit 0
+fi
+
+# Heed the default display manager setting.
+# Set to 'false' to start x2gothinclient even if it is not the default display manager.
+HEED_DEFAULT_DISPLAY_MANAGER=${HEED_DEFAULT_DISPLAY_MANAGER:-{{ heed_default_display_manager | default('true') }}}
+DEFAULT_DISPLAY_MANAGER_FILE=/etc/X11/default-display-manager
+
+case "$1" in
+	start)
+		CONFIGURED_DAEMON="$(basename $(cat $DEFAULT_DISPLAY_MANAGER_FILE 2> /dev/null))"
+		if grep -wqs text /proc/cmdline; then
+			log_warning_msg "Not starting X2Go Client in TCE mode; found 'text' in kernel commandline."
+		elif [ -e "$DEFAULT_DISPLAY_MANAGER_FILE" ] && \
+		    [ "$HEED_DEFAULT_DISPLAY_MANAGER" = "true" ] && \
+		    [ "$CONFIGURED_DAEMON" != "x2gothinclientd" ] ; then
+			log_action_msg "Not starting X2Go Client in TCE mode; it is not configured as default display manager"
+		else
+			log_daemon_msg "Starting $DESC" "x2gothinclientd"
+			start-stop-daemon --start --quiet --pidfile /run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS
+			log_end_msg $?
+		fi
+	;;
+	status)
+		if [ -e /run/$NAME.pid ]; then
+			log_daemon_msg "Status of $DESC" "x2gothinclientd"
+			start-stop-daemon --oknodo --status --quiet --pidfile /run/$NAME.pid
+			log_end_msg $?
+		fi
+	;;
+	stop)
+		if [ -e /run/$NAME.pid ]; then
+			log_daemon_msg "Stopping $DESC" "x2gothinclientd"
+			start-stop-daemon --oknodo --stop --quiet --retry 10 --pidfile /run/$NAME.pid
+			log_end_msg $?
+		fi
+	;;
+	force-reload)
+		# check wether $DAEMON is running. If so, restart
+		start-stop-daemon --stop --test --quiet --pidfile /run/$NAME.pid && $0 restart || exit 0
+	;;
+	restart)
+		$0 stop
+		sleep 1
+		$0 start
+	;;
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop|restart|force-reload}" >&2
+		exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,52 @@
+# ==============================================================================
+# ifupdown-extra defaults configuration
+# ==============================================================================
+# This file provides default settings for the ifupdown-extra network testing scripts.
+# It is sourced by scripts located in /etc/network/if-{pre,}-up.d.
+# The file is installed at /etc/default/network-test.
+#
+# Syntax: Variable=${Variable:-default_value}
+# This shell syntax means: if the environment variable 'Variable' is set, use it;
+# otherwise, use 'default_value' provided by this file.
+# ==============================================================================
+
+# DO_SYSLOG: Force logging of tests to syslog.
+# Description: Set to 'yes' to force logging tests to syslog.
+# Since standard output of the scripts is sent to the logging system,
+# the default is 'no' to avoid duplicate logs. Setting to 'yes' forces
+# direct logging.
+DO_SYSLOG=${DO_SYSLOG:-{{ DO_SYSLOG | default('no') }}}
+
+# ABORT_NO_LINK: Abort if network link is down.
+# Description: Set to 'yes' to abort scripts if the network link is not up.
+# This prevents configuration attempts on interfaces that are physically disconnected.
+ABORT_NO_LINK=${ABORT_NO_LINK:-{{ ABORT_NO_LINK | default('no') }}}
+
+# DO_CABLETEST: Run network cable/link negotiation tests.
+# Description: Set to 'yes' to run network cable tests.
+# Note: Depending on hardware and link negotiation speed, this test might
+# falsely report "no cable connected" while the link is still negotiating.
+# If this occurs on your system, set this to 'no'.
+DO_CABLETEST=${DO_CABLETEST:-{{ DO_CABLETEST | default('yes') }}}
+
+# DO_ARPING: Test for address conflicts via ARP.
+# Description: Set to 'yes' to test if an IPv4 or IPv6 address is already assigned.
+# The scripts use 'arping' for IPv4 and 'ndisc6' for IPv6 (if available).
+# This helps detect network configuration errors (e.g., IP conflicts) before
+# the interface is fully configured.
+# Note: This introduces a delay during interface configuration as the scripts
+# must wait for the probes to complete. Set to 'no' to skip this delay.
+DO_ARPING=${DO_ARPING:-{{ DO_ARPING | default('yes') }}}
+
+# ARP_COUNT: Number of ARP pings sent.
+# Description: Number of ARP pings sent during ARP tests.
+# Higher counts may help detect issues in overloaded networks but increase delay.
+ARP_COUNT=${ARP_COUNT:-{{ ARP_COUNT | default(2) }}}
+
+# ARP_TIMEOUT: Timeout for ARP tests.
+# Description: Timeout for ARP tests in seconds.
+# This value defines how long the script waits for an ARP reply.
+# Note: This setting assumes the use of iputils-arping (/usr/bin/arping).
+# If using the older 'arping' package, values are often expected in milliseconds
+# (minimum 1500ms).
+ARP_TIMEOUT=${ARP_TIMEOUT:-{{ ARP_TIMEOUT | default(3) }}}

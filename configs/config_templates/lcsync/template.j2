@@ -1,0 +1,126 @@
+# ==============================================================================
+# Lcsync Configuration Template
+# ==============================================================================
+# This template generates the configuration file for Lcsync (Lightweight Csync2).
+# It supports two operation modes:
+#   - 'server' (lcshare): Acts as a file sharing server.
+#   - 'client' (lcsync): Acts as a client syncing files to/from a server or local path.
+#
+# Self-documenting: Every variable reference includes its default value and
+# schema description in comments above the directive.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# mode: default='client'
+# Operation mode: 'server' for lcshare (file sharing server), 'client' for lcsync (client sync).
+# --------------------------------------------------------------------------
+mode: {{ mode | default('client') }}
+
+# --------------------------------------------------------------------------
+# interface: default=''
+# Network interface to bind to or use for communication.
+# Leave empty to use all available interfaces (0.0.0.0).
+# --------------------------------------------------------------------------
+interface: "{{ interface | default('') }}"
+
+# --------------------------------------------------------------------------
+# log_level: default=1
+# Log verbosity level. Range: 0 (quiet/error) to 4 (debug).
+# Higher numbers provide more detailed output.
+# --------------------------------------------------------------------------
+log_level: {{ log_level | default(1) }}
+
+# --------------------------------------------------------------------------
+# password: default=''
+# Encryption password used to derive the symmetric key for data transfer.
+# If empty, encryption is disabled unless 'keyfile' is set.
+# --------------------------------------------------------------------------
+password: "{{ password | default('') }}"
+
+# --------------------------------------------------------------------------
+# keyfile: default=''
+# Path to a file containing a 128-byte random symmetric key.
+# If set, this overrides 'password' for encryption.
+# Required for encryption if 'password' is empty.
+# --------------------------------------------------------------------------
+keyfile: "{{ keyfile | default('') }}"
+
+# --------------------------------------------------------------------------
+# bw_limit: default=''
+# Bandwidth limit for file transfers using SI prefixes (e.g., '10M', '1G', '500k').
+# Leave empty for unlimited bandwidth.
+# --------------------------------------------------------------------------
+bw_limit: "{{ bw_limit | default('') }}"
+
+# --------------------------------------------------------------------------
+# hex_hashes: default=False
+# Print/verify file hashes in hexadecimal format instead of base64 or other formats.
+# --------------------------------------------------------------------------
+hex_hashes: {{ hex_hashes | default(false) }}
+
+# --------------------------------------------------------------------------
+# recursive: default=True
+# Recurse into directories during synchronization.
+# Set to False to sync only top-level files.
+# --------------------------------------------------------------------------
+recursive: {{ recursive | default(true) }}
+
+# --------------------------------------------------------------------------
+# archive: default=True
+# Archive mode: preserve owner, group, permissions, and modification times on the destination.
+# Similar to rsync's -a flag.
+# --------------------------------------------------------------------------
+archive: {{ archive | default(true) }}
+
+# --------------------------------------------------------------------------
+# dry_run: default=False
+# Perform a trial run without transferring or modifying any files.
+# Shows what would be done based on current settings.
+# --------------------------------------------------------------------------
+dry_run: {{ dry_run | default(false) }}
+
+# --------------------------------------------------------------------------
+# batch: default=False
+# Run in batch mode: do not prompt for user input.
+# Useful for automated scripts or cron jobs.
+# --------------------------------------------------------------------------
+batch: {{ batch | default(false) }}
+
+# --------------------------------------------------------------------------
+# local_path: default='/tmp/lcsync'
+# Local file or directory path involved in the sync.
+# - In 'client' mode: The local source or destination directory.
+# - In 'server' mode: The directory being served/shared.
+# --------------------------------------------------------------------------
+local_path: "{{ local_path | default('/tmp/lcsync') }}"
+
+# --------------------------------------------------------------------------
+# remote_path: default=''
+# Remote file or directory path to sync with.
+# - In 'client' mode: The remote target to sync to/from.
+# - In 'server' mode: Not directly used by the server config itself,
+#   but clients will sync against the local_path served by this server.
+# Leave empty for local-to-local synchronization.
+# --------------------------------------------------------------------------
+remote_path: "{{ remote_path | default('') }}"
+
+# --------------------------------------------------------------------------
+# loopback: default=False
+# Enable multicast loopback.
+# In server mode, allows the server to receive its own multicast data (useful for testing).
+# --------------------------------------------------------------------------
+loopback: {{ loopback | default(false) }}
+
+# --------------------------------------------------------------------------
+# quiet: default=False
+# Suppress normal output messages.
+# Only errors or critical failures are logged.
+# --------------------------------------------------------------------------
+quiet: {{ quiet | default(false) }}
+
+# --------------------------------------------------------------------------
+# verbose: default=False
+# Increase verbosity of output.
+# Provides more detailed status information during sync operations.
+# --------------------------------------------------------------------------
+verbose: {{ verbose | default(false) }}

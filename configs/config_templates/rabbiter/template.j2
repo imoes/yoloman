@@ -1,0 +1,74 @@
+#!/bin/bash
+# Generated rabbiter configuration script
+# This script configures and launches 'rabbiter', a Twitter client that uses RabbitMQ/dRuby for messaging.
+
+# ==============================================================================
+# Section: Locale Settings
+# ==============================================================================
+
+# Specify locale directory.
+# Schema: locale_dir (string) | Default: '/usr/share/locale'
+LOCALE_DIR="{{ (locale_dir | default('/usr/share/locale')) }}"
+
+# ==============================================================================
+# Section: Logging Configuration
+# ==============================================================================
+
+# Logger type. Select from stderr, gui.
+# Schema: logger_type (string) | Default: 'stderr'
+LOGGER_TYPE="{{ (logger_type | default('stderr')) }}"
+
+# Log level. Select from debug, info, warning, error, fatal, unknown.
+# Schema: log_level (string) | Default: 'info'
+LOG_LEVEL="{{ (log_level | default('info')) }}"
+
+# If true, log target statuses using the --log-status flag.
+# Schema: log_status (boolean) | Default: False
+# This variable holds the flag string if logging is enabled, empty otherwise.
+LOG_STATUS_FLAG=""
+{% if (log_status | default(False) | bool) %}
+LOG_STATUS_FLAG="--log-status"
+{% endif %}
+
+# ==============================================================================
+# Section: RabbitMQ / dRuby Connectivity
+# ==============================================================================
+
+# Rabbit's dRuby URI.
+# Schema: rabbit_uri (string) | Default: 'druby://127.0.0.1:10101'
+# This URI defines how rabbiter connects to the backend message queue (RabbitMQ via dRuby).
+RABBIT_URI="{{ (rabbit_uri | default('druby://127.0.0.1:10101')) }}"
+
+# ==============================================================================
+# Section: Filtering Configuration
+# ==============================================================================
+
+# List of words to filter tweets by. Multiple filters are applied as multiple --filter flags.
+# Schema: filters (list of strings) | Default: []
+# Builds a space-separated string of arguments for command-line execution.
+FILTER_ARGS=""
+{% for filter in (filters | default([])) %}
+FILTER_ARGS="${FILTER_ARGS} --filter={{ filter }}"
+{% endfor %}
+
+# List of user languages to filter by (e.g., en, ja). Multiple languages are applied as multiple --user-language flags.
+# Schema: user_languages (list of strings) | Default: []
+LANG_ARGS=""
+{% for lang in (user_languages | default([])) %}
+LANG_ARGS="${LANG_ARGS} --user-language={{ lang }}"
+{% endfor %}
+
+# ==============================================================================
+# Section: Execution
+# ==============================================================================
+
+# Execute rabbiter with all configured options.
+# The variables constructed above are interpolated into this command.
+rabbiter \
+  --rabbit-uri="${RABBIT_URI}" \
+  ${FILTER_ARGS} \
+  ${LANG_ARGS} \
+  ${LOG_STATUS_FLAG} \
+  --logger-type="${LOGGER_TYPE}" \
+  --log-level="${LOG_LEVEL}" \
+  --locale-dir="${LOCALE_DIR}"

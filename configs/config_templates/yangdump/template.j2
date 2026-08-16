@@ -1,0 +1,258 @@
+# =============================================================================
+# YANGDUMP CONFIGURATION TEMPLATE
+# =============================================================================
+# This template generates the configuration file for yangdump (a YANG module
+# translator and validator). It supports logging, module paths, output formats,
+# feature control, and detailed reporting options.
+#
+# All variables use their schema defaults if not provided by the caller.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# LOGGING CONFIGURATION
+# -----------------------------------------------------------------------------
+
+# Logging level: off, error, warn, info, debug, debug2, debug3, debug4
+# Controls the verbosity of log output.
+# Default: info
+log-level = {{ log_level | default('info') }}
+
+# Path to log file. Empty string means STDOUT.
+# Supports '~' for user home or '$VAR' for environment variables.
+# Default: ''
+log = {{ log_file | default('') }}
+
+# Append to log file instead of overwriting.
+# If false, the log file is truncated on each run.
+# Default: False
+log-append = {{ log_append | default('false') }}
+
+# -----------------------------------------------------------------------------
+# MODULE PATHS
+# -----------------------------------------------------------------------------
+
+# List of directories to search for YANG/YIN modules.
+# In the config file, this is a colon-separated string.
+# Overrides the YUMA_MODPATH environment variable if set.
+# Default: []
+modpath = {{ modpath | default([]) | join(':') }}
+
+# Search subdirectories in modpath.
+# If true, yangdump recursively searches the directories listed in modpath.
+# Default: True
+subdirs = {{ subdirs | default('true') }}
+
+# -----------------------------------------------------------------------------
+# OUTPUT CONFIGURATION
+# -----------------------------------------------------------------------------
+
+# Output file path for translations.
+# Empty string means STDOUT or a default filename based on the module name.
+# Default: ''
+output = {{ output_file | default('') }}
+
+# Translation format: xsd, html, yang, copy, yin, c, h, uc, uh, yc, yh.
+# If empty, no translation is performed; only validation and reporting occur.
+# Default: ''
+format = {{ format | default('') }}
+
+# Use default filenames for output.
+# Based on module name and version if enabled.
+# Default: False
+defnames = {{ defnames | default('false') }}
+
+# Include version string in default filenames.
+# Only effective if defnames is true.
+# Default: True
+versionnames = {{ versionnames | default('true') }}
+
+# Indentation spaces for formatted output (0-9).
+# Default: 2
+indent = {{ indent | default(2) }}
+
+# -----------------------------------------------------------------------------
+# PROCESSING INPUTS
+# -----------------------------------------------------------------------------
+
+# List of YANG module names or file paths to process.
+# Each item generates a `module = <value>` line.
+# Default: []
+{% for module in modules | default([]) %}
+module = {{ module }}
+{% endfor %}
+
+# List of directory paths to process recursively.
+# Each item generates a `subtree = <value>` line.
+# Default: []
+{% for subtree in subtrees | default([]) %}
+subtree = {{ subtree }}
+{% endfor %}
+
+# Process submodules unified with the main module.
+# Default: False
+unified = {{ unified | default('false') }}
+
+# -----------------------------------------------------------------------------
+# STATISTICS AND REPORTING
+# -----------------------------------------------------------------------------
+
+# Statistics reporting level: none, brief, basic, advanced, all.
+# Default: none
+stats = {{ stats | default('none') }}
+
+# Summary statistics mode: none, summary, summary-only.
+# Default: none
+totals = {{ totals | default('none') }}
+
+# Report object identifiers.
+# If true, includes object identifiers in the output/report.
+# Default: False
+{% if show_identifiers | default(false) %}
+identifiers
+{% endif %}
+
+# Report tree identifiers.
+# If true, includes tree identifiers in the output/report.
+# Default: False
+{% if show_tree_identifiers | default(false) %}
+tree-identifiers
+{% endif %}
+
+# Report dependencies.
+# If true, includes dependency information in the output/report.
+# Default: False
+{% if show_dependencies | default(false) %}
+dependencies
+{% endif %}
+
+# Report exports.
+# If true, includes export information in the output/report.
+# Default: False
+{% if show_exports | default(false) %}
+exports
+{% endif %}
+
+# Report module version info.
+# If true, includes version information in the output/report.
+# Default: False
+{% if show_modversion | default(false) %}
+modversion
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# DEVIATIONS
+# -----------------------------------------------------------------------------
+
+# List of deviation module names to apply as patches to the schema.
+# Each item generates a `deviation = <value>` line.
+# Default: []
+{% for deviation in deviations | default([]) %}
+deviation = {{ deviation }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# FEATURE CONTROL
+# -----------------------------------------------------------------------------
+
+# List of features to enable for SIL code generation.
+# Format: module:feature_name.
+# Each item generates a `feature-enable = <value>` line.
+# Default: []
+{% for feature in features_enable | default([]) %}
+feature-enable = {{ feature }}
+{% endfor %}
+
+# List of features to disable for SIL code generation.
+# Format: module:feature_name.
+# Each item generates a `feature-disable = <value>` line.
+# Default: []
+{% for feature in features_disable | default([]) %}
+feature-disable = {{ feature }}
+{% endfor %}
+
+# List of static features for SIL code generation.
+# Format: module:feature_name.
+# Each item generates a `feature-static = <value>` line.
+# Default: []
+{% for feature in features_static | default([]) %}
+feature-static = {{ feature }}
+{% endfor %}
+
+# List of dynamic features for SIL code generation.
+# Format: module:feature_name.
+# Each item generates a `feature-dynamic = <value>` line.
+# Default: []
+{% for feature in features_dynamic | default([]) %}
+feature-dynamic = {{ feature }}
+{% endfor %}
+
+# Default feature code generation mode: dynamic, static, false.
+# Determines how features are compiled into generated code by default.
+# Default: dynamic
+feature-code-default = {{ feature_code_default | default('dynamic') }}
+
+# Enable features by default.
+# If true, enabled features are included in generated code unless explicitly disabled.
+# Default: True
+feature-enable-default = {{ feature_enable_default | default('true') }}
+
+# -----------------------------------------------------------------------------
+# HTML SPECIFIC OPTIONS
+# -----------------------------------------------------------------------------
+
+# Object view mode for HTML/YANG: raw, cooked.
+# 'cooked' applies transformations and includes derived data.
+# Default: raw
+objview = {{ objview | default('raw') }}
+
+# HTML Table of Contents (ToC) mode: none, plain, menu.
+# Default: menu
+html-toc = {{ html_toc | default('menu') }}
+
+# Output single <div> for HTML.
+# If true, wraps the HTML output in a single <div> element instead of a full document.
+# Default: False
+html-div = {{ html_div | default('false') }}
+
+# Use simplified URL format for HTML.
+# If true, simplifies HREF link generation in HTML output.
+# Default: False
+simurls = {{ simurls | default('false') }}
+
+# Base URL for HREF links in HTML/XSD translation.
+# Default: ''
+urlstart = {{ urlstart | default('') }}
+
+# Base URL for XSD schemaLocation clauses.
+# Default: ''
+xsd-schemaloc = {{ xsd_schemaloc | default('') }}
+
+# -----------------------------------------------------------------------------
+# ENVIRONMENT AND PATHS
+# -----------------------------------------------------------------------------
+
+# Yuma project root directory.
+# Overrides the YUMA_HOME environment variable.
+# Default: ''
+yuma-home = {{ yuma_home | default('') }}
+
+# -----------------------------------------------------------------------------
+# WARNING THRESHOLDS
+# -----------------------------------------------------------------------------
+
+# Identifier length warning threshold.
+# Warns if an identifier exceeds this length. 0 disables the warning.
+# Default: 64
+warn-idlen = {{ warn_idlen | default(64) }}
+
+# Line length warning threshold.
+# Warns if a line exceeds this length. 0 disables the warning.
+# Default: 72
+warn-linelen = {{ warn_linelen | default(72) }}
+
+# List of warning numbers (400-899) to suppress.
+# Each item generates a `warn-off = <value>` line.
+# Default: []
+{% for warning in warn_off | default([]) %}
+warn-off = {{ warning }}
+{% endfor %}

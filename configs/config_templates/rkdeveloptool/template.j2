@@ -1,0 +1,78 @@
+# ==============================================================================
+# rkdeveloptool Configuration Template
+# ==============================================================================
+# This template generates a configuration file for rkdeveloptool, a Linux USB
+# programming tool for Rockchip devices. It manages device connection filtering,
+# image locations, and automated bulk operations.
+#
+# VARIABLES EXPECTED:
+#   - debug_mode          (bool): Enable debug logging (true/false)
+#   - vid_pid_filter      (str): Filter connected devices by VendorID:ProductID
+#   - image_dir           (str): Default directory for firmware images
+#   - operations          (list): List of operations to execute automatically
+#   - operation_delay_seconds (int): Delay between operations in seconds
+#   - verbose             (bool): Enable verbose output (true/false)
+# ==============================================================================
+
+# Debug mode flag
+# Enables detailed debug logging for rkdeveloptool operations.
+# Default: false
+debug_mode: {{ debug_mode|default(false)|lower }}
+
+# VID:PID Filter
+# Filter string to select specific Rockchip devices (e.g., '2207:350a').
+# Leave empty to allow all connected devices.
+# Default: ''
+vid_pid_filter: {{ vid_pid_filter|default('') }}
+
+# Image Directory
+# Default directory where rkdeveloptool looks for firmware/image files
+# if a specific path is not provided in individual operations.
+# Default: /tmp/rkdeveloptool_images
+image_dir: {{ image_dir|default('/tmp/rkdeveloptool_images') }}
+
+# Default Operations List
+# A list of automated tasks to perform on connected devices.
+# Each operation requires a 'command'. 'args' is an optional list of arguments.
+# 'output_file' is an optional destination for command output.
+default_operations:
+{% if operations is defined and operations %}
+{% for op in operations %}
+  # Operation {{ loop.index }}
+  # Description: Executes '{{ op.command }}' with optional arguments.
+{% if op.args is defined and op.args is iterable and op.args %}
+  args:
+  {% for arg in op.args %}
+    # Argument {{ loop.index }}: {{ arg }}
+    - {{ arg }}
+  {% endfor %}
+{% endif %}
+{% if op.output_file is defined and op.output_file %}
+  # Output Destination: Redirects output to this file.
+  output_file: {{ op.output_file }}
+{% endif %}
+  command: {{ op.command }}
+
+{% endfor %}
+{% else %}
+  # No operations defined.
+  # To add operations, provide a list of maps in the 'operations' variable.
+  # Example:
+  # - command: load
+  #   args:
+  #     - /path/to/image.bin
+  #   output_file: /tmp/load_log.txt
+  - command: noop
+{% endif %}
+
+# Operation Delay
+# Seconds to wait between executing successive operations.
+# This allows time for device state stabilization or USB bus recovery.
+# Default: 1
+operation_delay_seconds: {{ operation_delay_seconds|default(1) }}
+
+# Verbose Output
+# Enables verbose logging output from rkdeveloptool.
+# Useful for troubleshooting or monitoring execution progress.
+# Default: false
+verbose: {{ verbose|default(false)|lower }}

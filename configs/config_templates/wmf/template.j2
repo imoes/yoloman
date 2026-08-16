@@ -1,0 +1,77 @@
+# WMF (Web Mail Folder) Configuration File
+#
+# This configuration file controls the behavior of the wmf utility, which generates
+# HTML indexes from mailing list archives (mailbox files).
+#
+# All variables below are self-documenting. If a variable is not defined in the
+# Ansible inventory/vars, the schema default (specified in comments) is applied.
+# Use Jinja2's `default()` filter to ensure safe rendering even when variables
+# are explicitly set to undefined.
+
+# --- Directory Settings ---
+
+# Where all the generated HTML files are written to.
+# Schema default: './'
+WMF_DIR={{ (wmf_dir | default('./')) | string }}
+
+# --- Mailbox Source ---
+
+# Path to the mailbox file to process.
+# Use '-' to read from standard input.
+# Schema default: '-'
+WMF_MBOX={{ (wmf_mbox | default('-')) | string }}
+
+# --- Display Options ---
+
+# Name of the mail folder/list displayed in the generated index page header.
+# Schema default: 'Mailing List'
+WMF_NAME={{ (wmf_name | default('Mailing List')) | string }}
+
+# File extension for generated HTML pages (e.g., .html, .htm).
+# Schema default: '.html'
+WMF_EXTENSION={{ (wmf_extension | default('.html')) | string }}
+
+# --- Pagination & Limiting ---
+
+# Day limit for listing mails.
+# Mails older than this many days will NOT be listed.
+# 0 means no limit (list all mails).
+# Schema default: 0
+WMF_DAYS={{ (wmf_days | default(0)) | int }}
+
+# Number of lines (entries) per page index.
+# 0 means only one page (no pagination).
+# Schema default: 0
+WMF_LINES={{ (wmf_lines | default(0)) | int }}
+
+# --- Write Behavior ---
+
+# Write mode controlling how files are generated.
+# 0 = indexing (create new index, keep existing files)
+# 1 = overwrite (recreate all files)
+# 2 = append (add new entries to existing files)
+# Schema default: 0
+WMF_WMODE={{ (wmf_wmode | default(0)) | int }}
+
+# --- Sorting ---
+
+# Enable reverse sorting of mails in the index.
+# If true, newest mails appear first.
+# Schema default: False
+WMF_RSORT={{ (wmf_rsort | default(False)) | bool | ternary('true', 'false') }}
+
+# --- Debugging ---
+
+# Debug level (bitmask).
+# 1 = Functions
+# 2 = Information
+# 4 = Fileoperations
+# Schema default: 0
+WMF_DEBUG={{ (wmf_debug | default(0)) | int }}
+
+# --- Mail Command ---
+
+# Command to send mail (e.g., MAILTO:user@example.com).
+# Used for "mailto" links or direct email triggering if supported.
+# Schema default: 'MAILTO:'
+WMF_MCMD={{ (wmf_mcmd | default('MAILTO:')) | string }}

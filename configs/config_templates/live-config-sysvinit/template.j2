@@ -1,0 +1,42 @@
+#!/bin/sh
+
+## live-config contains the components that configure a live system during
+## the boot process (late userspace).
+##
+## This is the sysvinit initscript for live-config.
+##
+## This template is self-documented: every dynamic directive is preceded by
+## a comment derived from the Ansible schema field description. Defaults are
+## explicitly provided in the Jinja2 expressions so that the rendered script
+## is valid even if the playbook omits the variable.
+
+### BEGIN INIT INFO
+# Provides:		live-config
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:	S
+# Default-Stop:
+# Short-Description:	live-config - System Configuration Components
+# Description:		live-config contains the components that configure a
+#			live system during the boot process (late userspace).
+# X-Start-Before:	mountkernfs
+# X-Stop-After:
+# X-Interactive:	true
+### END INIT INFO
+
+case "${1}" in
+	start)
+		{# Path to the live-config binary executable. #}
+		if [ -e {{ live_config_binary_path | default('/usr/bin/live-config') }} ]
+		then
+			{# Path to the live-config binary executable. #}
+			{{ live_config_binary_path | default('/usr/bin/live-config') }} ${@}
+		fi
+		;;
+
+	force-reload|restart|stop)
+
+		;;
+esac

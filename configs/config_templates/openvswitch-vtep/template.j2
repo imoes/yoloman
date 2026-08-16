@@ -1,0 +1,114 @@
+#!/bin/sh
+# =============================================================================
+# Open vSwitch VTEP (Virtual Tunnel End Point) Emulator Initialization Script
+#
+# This script initializes and starts the Open vSwitch VTEP emulator, managing
+# the OVS database, SSL certificates, and the vswitchd daemon.
+# It is designed to be used as an init script or systemd exec start.
+#
+# Environment Variables Controlled by Ansible:
+#   OVS_LOGDIR   - Directory for log files (ovs_logdir)
+#   OVS_RUNDIR   - Runtime directory for sockets and PID files (ovs_rundir)
+#   OVS_PKGDATADIR - Package data directory containing OVSSchema files (ovs_pkgdatadir)
+#   OVS_DBDIR    - Configuration and database directory (ovs_dbdir)
+# =============================================================================
+
+# [ovs_logdir] Log directory for openvswitch-vtep
+export OVS_LOGDIR={{ ovs_logdir | default('/var/log/openvswitch-vtep') }}
+
+# [ovs_rundir] Runtime directory for openvswitch-vtep
+export OVS_RUNDIR={{ ovs_rundir | default('/run/openvswitch-vtep') }}
+
+# [ovs_pkgdatadir] Package data directory containing OVSSchemas
+export OVS_PKGDATADIR={{ ovs_pkgdatadir | default('/usr/share/openvswitch') }}
+
+# [ovs_dbdir] Configuration and database directory for openvswitch-vtep
+etcdir={{ ovs_dbdir | default('/etc/openvswitch-vtep') }}
+
+# Source the OVS library for common functions like stop_daemon
+. /usr/share/openvswitch/scripts/ovs-lib
+
+start () {
+    # Check if the ovs-system datapath is already loaded, which indicates
+    # that ovs-vswitchd might already be running in this namespace.
+    ovs-dpctl dump-dps 2>&1 | grep ovs-system > /dev/null
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        cat << EOF >&2
+An already running copy of ovs-vswitchd detected in current namespace.
+
+Running multiple instances of ovs-vswitchd in the same namespace is not
+supported.
+EOF
+        exit 1
+    fi
+
+    # Initialize the OVS configuration database if it does not exist.
+    # Uses the vswitch.ovsschema from the package data directory.
+    if [ ! -e "$etcdir/conf.db" ]; then
+        ovsdb-tool create $etcdir/conf.db $OVS_PKGDATADIR/vswitch.ovsschema
+    fi
+
+    # Initialize the VTEP database if it does not exist.
+    # Uses the vtep.ovsschema from the package data directory.
+    if [ ! -e "$etcdir/vtep.db" ]; then
+        ovsdb-tool create $etcdir/vtep.db $OVS_PKGDATADIR/vtep.ovsschema
+    fi
+
+    # Generate SSL certificates for the OVS client if they do not exist.
+    # This step ensures secure communication between ovsdb-server and clients.
+    if [ ! -e "$etcdir/ovsclient-cert.pem" ]; then
+        export RANDFILE="/root/.rnd"
+        cd $etcdir && ovs-pki req ovsclient && ovs-pki self-sign ovsclient
+    fi
+
+    # Ensure the runtime directory exists with correct permissions.
+    if [ ! -d $OVS_RUNDIR ]; then
+        install -d -m 755 -o root -g root $OVS_RUNDIR
+    fi
+
+    # Start the OVS database server (ovsdb-server) in detached mode.
+    # Listens on a Unix socket and accepts manager connections.
+    # Uses generated certificates for authentication.
+    ovsdb-server --pidfile --detach --log-file --remote \
+        unix:$OVS_RUNDIR/db.sock \
+        --remote=db:hardware_vtep,Global,managers \
+        --private-key=$etcdir/ovsclient-privkey.pem \
+        --certificate=$etcdir/ovsclient-cert.pem \
+        --bootstrap-ca-cert=$etcdir/vswitchd.cacert \
+        $etcdir/conf.db $etcdir/vtep.db
+
+    # Load the Open vSwitch kernel module if not already present.
+    modprobe openvswitch
+
+    # Start the OVS userspace switch daemon.
+    # Connects to the OVSDB via the Unix socket.
+    ovs-vswitchd --pidfile --detach --log-file \
+        unix:$OVS_RUNDIR/db.sock
+}
+
+stop () {
+    # Stop the OVS userspace switch daemon.
+    stop_daemon ovs-vswitchd
+    # Stop the OVS database server.
+    stop_daemon ovsdb-server
+}
+
+case $1 in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|force-reload)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

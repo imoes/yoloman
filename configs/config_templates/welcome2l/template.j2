@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Welcome2L Christmas Auto-Update Init Script
+# =============================================
+# This script is part of the `welcome2l` package. It ensures the
+# `/etc/issue` file is updated daily with the Christmas logo by invoking
+# the `welcome2l` binary.
+#
+# Schema Field: welcome2l_path (default: /usr/bin/welcome2l)
+# Description: The path to the welcome2l executable.
+#
+
+# Verify the welcome2l binary exists and is executable before proceeding.
+# If the binary is missing, exit silently to prevent boot failures.
+{% if welcome2l_path is defined %}
+test -x {{ welcome2l_path }} || exit 0
+{% else %}
+test -x /usr/bin/welcome2l || exit 0
+{% endif %}
+
+PATH="/sbin:/usr/sbin:/bin:/usr/bin"
+
+set -e
+
+# Restart the welcome2l service using the available service manager.
+# Prefers `invoke-rc.d` (Debian/Ubuntu standard) and falls back to
+# the legacy SysV init script.
+
+if command -v invoke-rc.d >/dev/null 2>&1; then
+    invoke-rc.d welcome2l restart
+else
+    /etc/init.d/welcome2l restart
+fi
+
+exit 0

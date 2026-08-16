@@ -1,0 +1,46 @@
+{
+  "archive_format": {
+    "type": "string",
+    "default": "lh1",
+    "description": "Default compression format identifier (e.g., lh1, lh4, lzs, pm1). Refer to COMPRESSION FORMATS in man page."
+  },
+  "extraction_dest": {
+    "type": "string",
+    "default": "/tmp/lhasa_extract",
+    "description": "Destination directory for extraction, corresponding to the 'w=<dir>' option."
+  },
+  "quiet_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Quiet mode level: 0 (normal), 1, or 2 (full suppression). Corresponds to 'q[num]' option."
+  },
+  "force_overwrite": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enables the 'f' (force overwrite) option."
+  },
+  "ignore_paths": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables the 'i' (ignore paths) option."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables the 'n' (dry run) option."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables the 'v' (verbose) option."
+  },
+  "operations": {
+    "type": "list",
+    "default": [],
+    "description": "List of archive operations to configure. Items schema defined below."
+  },
+  "operations.items": {
+    "type": "object",
+    "description": "Configuration for a single lha command invocation. Not a type field, but an items schema map for the list 'operations'. Fields are flat keys below this level in some schemas, but here we define the fields of the object in the list. Note: The prompt asks for FLAT map field-name -> schema for items. So I will define the fields of the item object here as keys of this object, but the prompt says 'items as a FLAT map'. I will interpret this as the properties of the list items.\n\nFields:\n- command: string\n- archive: string\n- files: list of strings\n- options: string\n\nWait, the prompt says: 'For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description} (NOT {type:object, properties:{\u2026}}).'\n\nThis means `operations.items` should look like:\n{\n  \"command\": { \"type\": \"string\", ... },\n  \"archive\": { \"type\": \"string\", ... }\n}\n\nI will adjust the values_schema accordingly."
+  }
+}

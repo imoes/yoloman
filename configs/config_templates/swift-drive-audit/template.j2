@@ -1,0 +1,10 @@
+# Swift Drive Audit Cron Schedule
+# This block defines a cron entry that periodically runs the Swift drive audit utility.
+# The audit checks the health of Swift storage drives and writes results to log files.
+#
+# Format: minute hour day month weekday user command
+# The schedule is controlled by schedule_interval (in minutes).
+
+# Run the drive audit as root every `schedule_interval` minutes.
+# The command checks if the binary is executable and the config is readable before running.
+*/{{ schedule_interval | default('5') }} * * * * root test -x /usr/bin/swift-drive-audit && test -r {{ config_path | default('/etc/swift/drive-audit.conf') }} && /usr/bin/swift-drive-audit {{ config_path | default('/etc/swift/drive-audit.conf') }}

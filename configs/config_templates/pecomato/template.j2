@@ -1,0 +1,63 @@
+# Configuration for pecomato (picture-embedded metadata processor)
+# See pecomato(1) man page for details.
+
+# Verbosity level: 0=quiet, 1=error, 2=warning+error, 3=info, 4=debug.
+# Corresponds to --log-level option.
+LOG_LEVEL={{ log_level | default(1) }}
+
+# Directory for extracted metadata files. Empty string means current directory or original file replacement.
+# Corresponds to -d/--target-dir option.
+TARGET_DIR={{ target_dir | default('/var/lib/pecomato/output') }}
+
+# Create backup files of original images when rewriting metadata.
+# Corresponds to -b/--backup option.
+CREATE_BACKUPS={{ create_backups | default(True) }}
+
+# Automatically fix metadata inconsistencies when possible.
+# Corresponds to -f/--fix option.
+FIX_INCONSISTENCIES={{ fix_inconsistencies | default(False) }}
+
+# File extension for standalone extracted metadata files.
+# Corresponds to -t/--ext option.
+EXTRACT_EXT={{ extract_ext | default('.iptc') }}
+
+# Append the extract extension to the original filename instead of replacing the original extension.
+# Corresponds to -a/--append-ext option.
+APPEND_EXTRACT_EXT={{ append_extract_ext | default(False) }}
+
+# Max column width for wrapping dump output. 0 or empty disables wrapping.
+# Corresponds to -w/--wrap option.
+DUMP_WRAP_WIDTH={{ dump_wrap_width | default(0) }}
+
+# List of include filter expressions (e.g., 'IPTC.3:0-100'). If empty, defaults to 'all'. Items are strings.
+# Corresponds to -i/--include option.
+INCLUDE_EXPS=
+{% for expr in include_exps | default(['all']) %}
+- {{ expr }}
+{% endfor %}
+
+# List of exclude filter expressions. If empty, defaults to 'none'.
+# Corresponds to -e/--exclude option.
+EXCLUDE_EXPS=
+{% for expr in exclude_exps | default(['none']) %}
+- {{ expr }}
+{% endfor %}
+
+# List of edit expressions to add/modify metadata. If empty, defaults to 'none'.
+# Corresponds to --edit option.
+EDIT_EXPS=
+{% for expr in edit_exps | default(['none']) %}
+- {{ expr }}
+{% endfor %}
+
+# Perform strict compliance checks against official metadata standards.
+# Corresponds to --check-compliance option.
+CHECK_COMPLIANCE={{ check_compliance | default(False) }}
+
+# If true, create *.rewrite files instead of overriding originals.
+# Corresponds to --test option.
+TEST_MODE={{ test_mode | default(False) }}
+
+# Metadata type to extract. Supported: iptc.
+# Corresponds to -x/--extract option.
+EXTRACT_TYPE={{ extract_type | default('iptc') }}

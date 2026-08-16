@@ -1,0 +1,46 @@
+{
+  "output_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory where all output files are placed. Default is current directory."
+  },
+  "output_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix all output files with this string."
+  },
+  "xplot_title_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix to place in the titles of all xplot files."
+  },
+  "output_separator": {
+    "type": "string",
+    "default": "",
+    "description": "Separator to use for long output. Supported values: csv, tsv. Leave empty to disable specific separator forcing."
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of modules to configure (http, tcplib, traffic, slice, rttgraph, collie, realtime). Each item has a name, enabled status, and optional options string."
+  },
+  "modules.items": {
+    "type": "string",
+    "default": "",
+    "description": "Flat item schema for modules list. Note: To support complex module options, this is treated as a list of strings containing the full module directive or name. However, per schema constraints, we define a flat structure. Since 'name' and 'options' are required for meaningful module config, we will use a list of objects in the sample, but the schema type must be 'list'. The 'items' field here describes the object properties if we were using nested properties, but we are forbidden from using nested objects in default. We will simplify: modules is a list of strings representing module flags like '--enable_http' or '--disable_http' to strictly adhere to 'no nested objects' in default/schema if possible, OR we allow list of objects in sample but schema 'items' is flat map. Let's stick to the prompt's requirement: 'For a list-of-objects, add items as a FLAT map field-name -> {type, default, description}'. This implies the *elements* of the list are objects. The default cannot be an object. So default is []. The sample will have objects.",
+    "enum": [
+      "http",
+      "tcplib",
+      "traffic",
+      "slice",
+      "rttgraph",
+      "collie",
+      "realtime"
+    ]
+  },
+  "input_file": {
+    "type": "string",
+    "default": "",
+    "description": "The tcpdump capture file or 'stdin' to analyze."
+  }
+}

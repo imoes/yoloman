@@ -1,0 +1,58 @@
+# The prefix key combination. e.g., 'C-b' or 'C-a'.
+# Default value: 'C-b'
+set -g prefix {{ (prefix_key | default('C-b')) }}
+
+{% if (prefix_key | default('C-b')) != 'C-b' %}
+# Unbind the default prefix key 'C-b' since a custom prefix is set.
+unbind-key C-b
+# Bind the custom prefix key to send-prefix, allowing the prefix to be passed to commands.
+bind-key {{ (prefix_key | default('C-b')) }} send-prefix
+{% endif %}
+
+# Time in milliseconds for which tmux waits after an escape is input to determine if it is part of a function or meta key sequences.
+# Default value: 500
+set -g escape-time {{ (escape_time | default(500)) }}
+
+# The maximum number of lines held in window history.
+# Default value: 20000
+set -g history-limit {{ (history_limit | default(20000)) }}
+
+# Show or hide the status line. Values: 'on', 'off', or a number for height.
+# Default value: 'on'
+set -g status {{ (status_enabled | default('on')) }}
+
+# The style for the entire status line. e.g., 'bg=black,fg=white'.
+# Default value: 'bg=colour235,fg=colour136'
+set -g status-style {{ (status_style | default('bg=colour235,fg=colour136')) }}
+
+# The format string for the left side of the status line. e.g., '#S' for session name.
+# Default value: '#S'
+set -g status-left "[{{ (status_left_text | default('#S')) }}] "
+
+# The style for the left part of the status line.
+# Default value: 'bg=colour235,fg=colour136,bold'
+set -g status-left-style {{ (status_left_style | default('bg=colour235,fg=colour136,bold')) }}
+
+# The format string or command output for the right side of the status line.
+# Default value: '#(date +%H:%M) #(date +%d-%m-%Y)'
+set -g status-right "{{ (status_right_text | default('#(date +%H:%M) #(date +%d-%m-%Y)')) }}"
+
+# The style for the right part of the status line.
+# Default value: 'bg=colour235,fg=colour136'
+set -g status-right-style {{ (status_right_style | default('bg=colour235,fg=colour136')) }}
+
+# If 'on', tmux captures the mouse and allows mouse events to be bound.
+# Default value: 'off'
+set -g mouse {{ (mouse_enabled | default('off')) }}
+
+# The base index for window and pane numbering. Usually 0 or 1.
+# Default value: 0
+set -g base-index {{ (base_index | default(0)) }}
+
+# If true, bind 'r' to reattach to the current session if detached.
+# Default value: True
+{% if (reattach_on_detach | default(True)) %}
+bind r attach-session
+{% else %}
+unbind-key r
+{% endif %}

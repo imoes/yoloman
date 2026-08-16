@@ -1,0 +1,216 @@
+# JACK Audio Connection Kit daemon configuration
+# This file configures the `jackd` process invocation via environment variables or command-line arguments.
+# The primary entry point is the `-d` driver and its specific backend parameters.
+
+# Server instance name
+# Corresponds to: -n, --name server-name
+JACK_SERVER_NAME={{ values.server_name | default('default') }}
+
+# Use realtime scheduling (true) or not (false)
+# Corresponds to: -R/--realtime or -r/--no-realtime
+JACK_REALTIME={{ values.realtime | default(true) }}
+
+# Realtime scheduler priority (only used if realtime is true)
+# Corresponds to: -P, --realtime-priority int
+JACK_RT_PRIORITY={{ values.rt_priority | default(85) }}
+
+# Do not lock memory
+# Corresponds to: -m, --no-mlock
+JACK_NO_MLOCK={{ values.no_mlock | default(false) }}
+
+# Client timeout limit in milliseconds
+# Corresponds to: -t, --timeout int
+JACK_TIMEOUT={{ values.timeout | default(500) }}
+
+# Silence output
+# Corresponds to: --silent
+JACK_SILENT={{ values.silent | default(false) }}
+
+# Verbose output
+# Corresponds to: -v, --verbose
+JACK_VERBOSE={{ values.verbose | default(false) }}
+
+# MIDI buffer size (events per cycle)
+# Corresponds to: -M, --midi-bufsize [event-count]
+JACK_MIDI_BUFSIZE={{ values.midi_bufsize | default(2048) }}
+
+# Prevent kicking out slow clients
+# Corresponds to: -Z, --nozombies
+JACK_NOZOMBIES={{ values.nozombies | default(false) }}
+
+# Stop processing if cycle fails for specified ms
+# Corresponds to: -C, --timeout-thres time
+JACK_TIMEOUT_THRESH={{ values.timeout_thresh | default(250) }}
+
+# List of additional ALSA hardware devices to attach
+# Corresponds to: -A device, -A device%p, -A device%c
+{% for device in values.additional_devices %}
+JACK_ADDITIONAL_DEVICE_{{ loop.index }}={{ device }}
+{% endfor %}
+
+# List of internal clients to load
+# Corresponds to: -I, --internal-client client-spec
+{% for client in values.internal_clients %}
+JACK_INTERNAL_CLIENT_{{ loop.index }}={{ client }}
+{% endfor %}
+
+# Load a slave driver (e.g., alsa_midi)
+# Corresponds to: -X, --slave-driver driver-name
+JACK_SLAVE_DRIVER={{ values.slave_driver | default('') }}
+
+# --- Driver Specific Settings ---
+# Select the audio backend driver
+# Corresponds to: -d, --driver backend
+JACK_DRIVER={{ values.driver | default('alsa') }}
+
+# ALSA Backend Parameters
+{% if values.driver == 'alsa' %}
+
+# ALSA PCM device name
+# Corresponds to: -d, --device name (backend param)
+JACK_ALSA_DEVICE={{ values.alsa_device | default('hw:0') }}
+
+# Number of playback periods (latency buffer)
+# Corresponds to: -n, --nperiods int (backend param)
+JACK_ALSA_NPERIODS={{ values.alsa_nperiods | default(2) }}
+
+# Frames per period (latency resolution)
+# Corresponds to: -p, --period int (backend param)
+JACK_ALSA_PERIOD={{ values.alsa_period | default(1024) }}
+
+# Sample rate (Hz)
+# Corresponds to: -r, --rate int (backend param)
+JACK_ALSA_RATE={{ values.alsa_rate | default(48000) }}
+
+# Number of capture channels
+# Corresponds to: -i, --inchannels int (backend param)
+JACK_ALSA_INCHANNELS={{ values.alsa_inchannels | default(0) }}
+
+# Number of playback channels
+# Corresponds to: -o, --outchannels int (backend param)
+JACK_ALSA_OUTCHANNELS={{ values.alsa_outchannels | default(0) }}
+
+# Dithering mode: rectangular, triangular, shaped, none
+# Corresponds to: -z, --dither [mode] (backend param)
+JACK_ALSA_DITHER={{ values.alsa_dither | default('none') }}
+
+# Enable hardware metering
+# Corresponds to: -M, --hwmeter (backend param)
+JACK_ALSA_HWMETER={{ values.alsa_hwmeter | default(false) }}
+
+# Enable hardware monitoring (zero latency monitoring)
+# Corresponds to: -H, --hwmon (backend param)
+JACK_ALSA_HWMON={{ values.alsa_hwmon | default(false) }}
+
+# Ignore xruns (soft mode)
+# Corresponds to: -s, --softmode (backend param)
+JACK_ALSA_SOFTMODE={{ values.alsa_softmode | default(false) }}
+
+# Provide bridging between ALSA MIDI and JACK MIDI
+# Corresponds to: -X, --midi seq (backend param)
+JACK_ALSA_MIDI_BRIDGE={{ values.alsa_midi_bridge | default(false) }}
+
+# Duplex mode (capture and playback)
+# Corresponds to: -D, --duplex (backend param)
+JACK_ALSA_DUPLEX={{ values.alsa_duplex | default(true) }}
+
+# Capture only device name
+# Corresponds to: -C, --capture [name] (backend param)
+JACK_ALSA_CAPTURE_DEVICE={{ values.alsa_capture_device | default('') }}
+
+# Playback only device name
+# Corresponds to: -P, --playback [name] (backend param)
+JACK_ALSA_PLAYBACK_DEVICE={{ values.alsa_playback_device | default('') }}
+
+{% endif %}
+
+# Dummy Backend Parameters
+{% if values.driver == 'dummy' %}
+
+# Number of capture ports
+# Corresponds to: -C, --capture int
+JACK_DUMMY_CAPTURE={{ values.dummy_capture | default(2) }}
+
+# Number of playback ports
+# Corresponds to: -P, --playback int
+JACK_DUMMY_PLAYBACK={{ values.dummy_playback | default(2) }}
+
+# Sample rate
+# Corresponds to: -r, --rate int
+JACK_DUMMY_RATE={{ values.dummy_rate | default(48000) }}
+
+# Frames per period
+# Corresponds to: -p, --period int
+JACK_DUMMY_PERIOD={{ values.dummy_period | default(1024) }}
+
+# Wait time in usecs between engine processes
+# Corresponds to: -w, --wait int
+JACK_DUMMY_WAIT={{ values.dummy_wait | default(21333) }}
+
+{% endif %}
+
+# PortAudio Backend Parameters
+{% if values.driver == 'portaudio' %}
+
+# Sample rate
+# Corresponds to: -r, --rate int
+JACK_PA_RATE={{ values.pa_rate | default(48000) }}
+
+# Frames per period
+# Corresponds to: -p, --period int
+JACK_PA_PERIOD={{ values.pa_period | default(1024) }}
+
+# Maximum number of input channels
+# Corresponds to: -i, --channelin int
+JACK_PA_INCHANNELS={{ values.pa_inchannels | default(0) }}
+
+# Maximum number of output channels
+# Corresponds to: -o, --channelout int
+JACK_PA_OUTCHANNELS={{ values.pa_outchannels | default(0) }}
+
+{% endif %}
+
+# Net Backend Parameters
+{% if values.driver == 'net' %}
+
+# Number of capture channels
+# Corresponds to: -i, --audio-ins int
+JACK_NET_AUDIO_INS={{ values.net_audio_ins | default(2) }}
+
+# Number of playback channels
+# Corresponds to: -o, --audio-outs int
+JACK_NET_AUDIO_OUTS={{ values.net_audio_outs | default(2) }}
+
+# Number of MIDI capture channels
+# Corresponds to: -I, --midi-ins int
+JACK_NET_MIDI_INS={{ values.net_midi_ins | default(1) }}
+
+# Number of MIDI playback channels
+# Corresponds to: -O, --midi-outs int
+JACK_NET_MIDI_OUTS={{ values.net_midi_outs | default(1) }}
+
+# Sample rate
+# Corresponds to: -r, --rate int
+JACK_NET_RATE={{ values.net_rate | default(48000) }}
+
+# Frames per period
+# Corresponds to: -p, --period int
+JACK_NET_PERIOD={{ values.net_period | default(1024) }}
+
+# Number of periods for network latency
+# Corresponds to: -n, --num-periods int
+JACK_NET_NUM_PERIODS={{ values.net_num_periods | default(5) }}
+
+# Listen port for sync packets
+# Corresponds to: -l, --listen-port int
+JACK_NET_LISTEN_PORT={{ values.net_listen_port | default(3000) }}
+
+# Factor for sample rate reduction
+# Corresponds to: -f, --factor int
+JACK_NET_FACTOR={{ values.net_factor | default(1) }}
+
+# Upstream factor for sample rate reduction
+# Corresponds to: -u, --upstream-factor int
+JACK_NET_UPSTREAM_FACTOR={{ values.net_upstream_factor | default(0) }}
+
+{% endif %}

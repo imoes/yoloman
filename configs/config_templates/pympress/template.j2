@@ -1,0 +1,55 @@
+[pympress]
+
+# Path to the presentation file to open by default
+default_file = "{{ values.default_file }}"
+
+# Estimated talk time in minutes[:seconds] for the timer
+# (e.g., "30" or "30:00")
+talk_time = "{{ values.talk_time }}"
+
+# Verbosity level of the log file: DEBUG, INFO, WARNING, ERROR
+log_level = "{{ values.log_level }}"
+
+# Position of notes on the pdf page: none, left, right, top, or bottom
+# Overrides the detection from the file.
+notes_position = "{{ values.notes_position }}"
+
+# Enable VLC integration for media playback
+# Requires python-vlc module and VLC installed
+[vlc]
+enabled = {{ values.vlc.enabled }}
+
+# GStreamer integration is enabled by default, but can be explicitly controlled
+# if needed. Usually left as default behavior.
+[gstreamer]
+enabled = {{ values.gstreamer.enabled }}
+
+# Layout configuration for the presenter window.
+# This defines the panes (current slide, next slide, notes, annotations) and their proportions.
+# Structure: {"children": [...], "proportions": [...], "orientation": "horizontal"|"vertical", "resizeable": true|false}
+# Valid leaf items: "current", "next", "notes", "annotations", "highlight"
+[layout]
+notes = {{ values.layout.notes | tojson }}
+
+# Customizable key bindings.
+# Format: "<Control>a", "<Shift><Alt>F1", etc.
+# Keys can be mapped to actions like: quit, fullscreen, next_slide, prev_slide, highlight, annotations, goto_slide, deck_overview, swap_screens
+[keybindings]
+{% for action, key in values.keybindings.items() %}
+{{ action }} = {{ key }}
+{% endfor %}
+
+# Cache size limit: Number of rendered pages to keep in memory
+# Default is 200. Reduce if memory consuming.
+cache_size = {{ values.cache_size }}
+
+# Enable automatic file reloading if the source PDF is modified
+# Preserves current slide, time, etc.
+auto_reload = {{ values.auto_reload }}
+
+# Enable automatic full screen on non-primary screen when a second screen is detected
+auto_fullscreen = {{ values.auto_fullscreen }}
+
+# Theme name for GTK3 styling (optional, depends on system theme setup)
+# Usually handled by system GTK settings, but can be specified here if using a custom settings.ini
+theme_name = {{ values.theme_name | default('Default', true) }}

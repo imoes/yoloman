@@ -1,0 +1,85 @@
+# Tkabber Configuration File
+# This file configures the Tkabber XMPP client (a Tcl/Tk based Jabber client).
+# It uses Tcl variable syntax (`set varname value`).
+#
+# Self-documenting: All directives include the schema description from which they are derived.
+# Defaults are explicitly provided for all variables to ensure safe rendering.
+
+# Initial geometry for the main window in X11 geometry format.
+# Example: "800x600+100+100" (width x height + x_offset + y_offset)
+set tkabber::config::geometry "{{ geometry | default('800x600+100+100') }}"
+
+# Name to use for the application instance.
+# Used for window titles and process identification.
+set tkabber::config::name "{{ name | default('Tkabber') }}"
+
+# X11 display to connect to.
+# Empty string usually means use the default DISPLAY environment variable.
+set tkabber::config::display "{{ display | default(':0') }}"
+
+# Colormap for the main window.
+# "default" selects the system default colormap.
+set tkabber::config::colormap "{{ colormap | default('default') }}"
+
+# Visual ID for the main window.
+# "default" selects the best visual for the display.
+set tkabber::config::visual "{{ visual | default('default') }}"
+
+# Use synchronous mode for display server interactions.
+# 1 = synchronous (slower, easier debugging), 0 = asynchronous (normal).
+# Note: This expects a string "1" or "0" in Tcl config.
+set tkabber::config::sync "{{ sync | default('0') }}"
+
+# Display the initial splash screen.
+# Valid values in Tkabber Tcl are typically "yes" or "no" (or 1/0 depending on version).
+# We map boolean defaults to string "yes"/"no" for compatibility with common Tcl expectations,
+# or pass through if explicitly provided as string.
+{% if splash is boolean %}
+    {% if splash %}
+set tkabber::config::splash "yes"
+    {% else %}
+set tkabber::config::splash "no"
+    {% endif %}
+{% else %}
+set tkabber::config::splash "{{ splash | default('yes') }}"
+{% endif %}
+
+# Id of window in which to embed the application.
+# Useful for embedding Tkabber within a larger Tk application.
+set tkabber::config::use "{{ use | default('') }}"
+
+# ==============================================================================
+# XMPP Account Configuration
+# Primary XMPP account configuration.
+# The `account` variable is expected to be a mapping/dict.
+# Keys typically: username, server, port, tls, password (if stored here), etc.
+# ==============================================================================
+
+{% if account is defined and account is mapping %}
+    {% for key, value in account | dict2items %}
+        {% if key == 'username' %}
+            {% set uname = value | default('anonymous') %}
+        {% endif %}
+    {% endfor %}
+{% else %}
+    {% set uname = 'anonymous' %}
+{% endif %}
+
+# Set the account block base name using the username.
+# If no username is defined, defaults to 'anonymous'.
+# Note: Account name is derived from `account.username`, not just `account`
+set tkabber::accounts::{{ uname | default('anonymous') }}::server "{{ (account | default({})).server | default('jabber.org') }}"
+set tkabber::accounts::{{ uname | default('anonymous') }}::port "{{ (account | default({})).port | default(5222) }}"
+set tkabber::accounts::{{ uname | default('anonymous') }}::tls "{{ (account | default({})).tls | default('1') }}"
+
+# ==============================================================================
+# Plugins Configuration
+# List of plugins to load at startup.
+# The `plugins` variable is expected to be a list of mappings with 'name' and 'enabled' keys.
+# ==============================================================================
+
+{% for plugin in (plugins | default([])) %}
+# Plugin: {{ plugin.name | default('unknown') }}
+# Enabled: {{ plugin.enabled | default(0) }}
+set tkabber::plugins::{{ plugin.name | default('unknown') }}::enabled {{ plugin.enabled | default(0) }}
+{% endfor %}

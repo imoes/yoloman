@@ -1,0 +1,167 @@
+# =============================================================================
+# Patchelf Configuration Template
+# =============================================================================
+# This template generates a command-line invocation for `patchelf`.
+# Patchelf is a utility to modify the dynamic loader and RPATH of ELF executables.
+#
+# Generated from Ansible role variables.
+# All variables are provided with safe defaults to ensure idempotency and safety.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Input / Output Configuration
+# -----------------------------------------------------------------------------
+
+# input_file: The path to the ELF executable or library to be modified.
+# If output_file is empty, this file is modified in place.
+{% set _input = input_file | default('/usr/bin/example-app') %}
+# output_file: The output file path. If empty (default), the input file is modified in place.
+{% set _output = output_file | default('') %}
+
+# -----------------------------------------------------------------------------
+# Interpreter and ABI Settings
+# -----------------------------------------------------------------------------
+
+# set_interpreter: The path to the dynamic loader (ELF interpreter) to set.
+# Common examples: /lib64/ld-linux-x86-64.so.2
+{% if set_interpreter | default('') != '' %}
+# --set-interpreter INTERPRETER
+--set-interpreter {{ set_interpreter | default('') }}
+{% endif %}
+
+# set_os_abi: The OS ABI to set (e.g., 'Linux', 'System V').
+# Default is 'Linux'.
+{% if set_os_abi | default('Linux') | trim | lower != 'linux' %}
+# --set-os-abi ABI
+--set-os-abi {{ set_os_abi | default('Linux') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Shared Library Settings (SONAME)
+# -----------------------------------------------------------------------------
+
+# set_soname: The SONAME to set for the shared library.
+{% if set_soname | default('') != '' %}
+# --set-soname SONAME
+--set-soname {{ set_soname | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# RPATH / RUNPATH Settings
+# -----------------------------------------------------------------------------
+
+# set_rpath: The RUNPATH to set, replacing any existing RPATH/RUNPATH.
+{% if set_rpath | default('') != '' %}
+# --set-rpath RUNPATH
+--set-rpath {{ set_rpath | default('') }}
+{% endif %}
+
+# add_rpaths: List of RUNPATH directories to add to the existing RPATH/RUNPATH.
+# This iterates over a list of strings.
+{% for rpath in (add_rpaths | default([])) %}
+# --add-rpath RUNPATH
+--add-rpath {{ rpath }}
+{% endfor %}
+
+# remove_rpath: If true, removes the DT_RPATH or DT_RUNPATH entry.
+{% if remove_rpath | default(false) %}
+# --remove-rpath
+--remove-rpath
+{% endif %}
+
+# shrink_rpath: If true, removes unused entries from RPATH/RUNPATH.
+{% if shrink_rpath | default(false) %}
+# --shrink-rpath
+--shrink-rpath
+
+# allowed_rpath_prefixes: List of prefixes to keep when shrinking RPATH.
+# Entries not starting with these prefixes are removed.
+{% for prefix in (allowed_rpath_prefixes | default([])) %}
+# --allowed-rpath-prefixes PREFIX
+--allowed-rpath-prefixes {{ prefix }}
+{% endfor %}
+{% endif %}
+
+# force_rpath: If true, forces the use of the obsolete DT_RPATH instead of DT_RUNPATH.
+{% if force_rpath | default(false) %}
+# --force-rpath
+--force-rpath
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Dynamic Library Dependencies (DT_NEEDED)
+# -----------------------------------------------------------------------------
+
+# add_needed_libs: List of dynamic library names to add as DT_NEEDED dependencies.
+{% for lib in (add_needed_libs | default([])) %}
+# --add-needed LIBRARY
+--add-needed {{ lib }}
+{% endfor %}
+
+# replace_needed_libs: List of objects representing library replacements.
+# Each object should have 'orig' (old name) and 'new' (new name) keys.
+{% for pair in (replace_needed_libs | default([])) %}
+# --replace-needed LIB_ORIG LIB_NEW
+--replace-needed {{ pair.orig }} {{ pair.new }}
+{% endfor %}
+
+# remove_needed_libs: List of dynamic library names to remove from DT_NEEDED dependencies.
+{% for lib in (remove_needed_libs | default([])) %}
+# --remove-needed LIBRARY
+--remove-needed {{ lib }}
+{% endfor %}
+
+# no_default_lib: If true, ignores default library search paths for dependencies.
+{% if no_default_lib | default(false) %}
+# --no-default-lib
+--no-default-lib
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Debug and Stack Settings
+# -----------------------------------------------------------------------------
+
+# add_debug_tag: If true, adds DT_DEBUG tag to the .dynamic section.
+{% if add_debug_tag | default(false) %}
+# --add-debug-tag
+--add-debug-tag
+{% endif %}
+
+# clear_execstack: If true, clears the executable flag of the GNU_STACK program header.
+{% if clear_execstack | default(false) %}
+# --clear-execstack
+--clear-execstack
+{% endif %}
+
+# set_execstack: If true, sets the executable flag of the GNU_STACK program header.
+{% if set_execstack | default(false) %}
+# --set-execstack
+--set-execstack
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Page Size and Symbol Renaming
+# -----------------------------------------------------------------------------
+
+# page_size: Uses the given page size instead of the default. 0 means use system default.
+{% if page_size | default(0) != 0 %}
+# --page-size SIZE
+--page-size {{ page_size | default(0) }}
+{% endif %}
+
+# rename_dynamic_symbols: Path to a file containing symbol rename mappings (old_name new_name).
+{% if rename_dynamic_symbols | default('') != '' %}
+# --rename-dynamic-symbols NAME_MAP_FILE
+--rename-dynamic-symbols {{ rename_dynamic_symbols | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Final Execution Command
+# -----------------------------------------------------------------------------
+
+# --output FILE
+# If _output is empty, patchelf modifies the input file in place.
+--output {{ _output }}
+
+# Input file
+{{ _input }}

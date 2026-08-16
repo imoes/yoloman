@@ -1,0 +1,82 @@
+# pisg configuration file
+# Format: opt=value (key=value pairs)
+# This configuration controls the pisg IRC statistics generator.
+# See https://github.com/flashdsp/pisg for documentation.
+
+# --- Channel Selection ---
+
+# channel: The primary IRC channel name to generate statistics for.
+# Default: '#general'
+channel={{ channel | default('#general') }}
+
+# cchannels: List of specific channels to process.
+# If provided, this OVERRIDES the single 'channel' setting.
+# Default: [] (empty list)
+{% for ch in cchannels | default([]) %}
+cchannels={{ ch }}
+{% endfor %}
+
+# --- Input Sources ---
+
+# logfile: Path to a single IRC log file to parse.
+# Used if 'dir' and 'nfiles' are not the primary method.
+# Default: '/var/log/irc/channel.log'
+logfile={{ logfile | default('/var/log/irc/channel.log') }}
+
+# dir: List of directories containing log files to analyze.
+# pisg will search these directories for files matching the 'prefix' and 'nfiles' criteria.
+# Default: ['/var/log/irc/']
+{% for d in dir | default(['/var/log/irc/']) %}
+dir={{ d }}
+{% endfor %}
+
+# prefix: List of filename prefixes to filter when scanning 'dir'.
+# Only files starting with these prefixes will be analyzed.
+# Default: ['log-']
+{% for p in prefix | default(['log-']) %}
+prefix={{ p }}
+{% endfor %}
+
+# nfiles: Number of the last files to analyze if using 'dir' scanning.
+# pisg will look at the N most recently modified files.
+# Default: 10
+nfiles={{ nfiles | default(10) }}
+
+# --- Output & Identification ---
+
+# outfile: Path and filename for the generated HTML statistics page.
+# The string '%t' in this path will be replaced by the 'tag' value at generation time.
+# Default: '/var/www/html/stats.html'
+outfile={{ outfile | default('/var/www/html/stats.html') }}
+
+# tag: A tag string used to replace '%t' in the 'outfile' name or report title.
+# Useful for versioning reports by date (e.g., '2023-10').
+# Default: '2023-10'
+tag={{ tag | default('2023-10') }}
+
+# maintainer: Name of the channel or statistics maintainer to display in the report header.
+# Default: 'Admin'
+maintainer={{ maintainer | default('Admin') }}
+
+# --- Processing Details ---
+
+# format: Format of the input logfile(s).
+# Supported formats typically include 'weechat', 'irssi', 'mirc', etc.
+# Default: 'weechat'
+format={{ format | default('weechat') }}
+
+# network: Name of the IRC network being analyzed.
+# Used for identification in the report.
+# Default: 'Libera.Chat'
+network={{ network | default('Libera.Chat') }}
+
+# moduledir: Directory containing pisg plugins/modules.
+# pisg loads Python modules from this path.
+# Default: '/usr/lib/pisg/modules'
+moduledir={{ moduledir | default('/usr/lib/pisg/modules') }}
+
+# silent: If true, suppress standard output during execution.
+# Note: While the schema defines this, pisg often handles verbosity via CLI flags.
+# If this config directive is respected, it overrides default verbose behavior.
+# Default: False
+silent={{ silent | default(False) | lower }}

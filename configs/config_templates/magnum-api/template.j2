@@ -1,0 +1,321 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          magnum-api
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs
+# Should-Start:      postgresql mysql keystone rabbitmq-server ntp
+# Should-Stop:       postgresql mysql keystone rabbitmq-server ntp
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Magnum Api
+# Description:       Magnum API
+### END INIT INFO
+
+# Author: Thomas Goirand <zigo@debian.org>
+
+# The OpenStack project name used for directory structures, PID files, and log paths.
+# Default: magnum
+PROJECT_NAME={{ project_name | default('magnum') }}
+
+# The logical name of the daemon, derived from the project name.
+NAME=${PROJECT_NAME}-api
+
+# The port number on which the UWSGI server binds for magnum-api.
+# Default: 9511
+UWSGI_PORT={{ uwsgi_port | default(9511) }}
+
+# The file path to the UWSGI configuration INI file.
+# Default: /etc/magnum/magnum-api-uwsgi.ini
+UWSGI_INI_PATH={{ uwsgi_ini_path | default('/etc/magnum/magnum-api-uwsgi.ini') }}
+
+# The file path to the UWSGI application entry point script.
+# Default: /usr/bin/magnum-api-wsgi
+UWSGI_INI_APP={{ uwsgi_ini_app | default('/usr/bin/magnum-api-wsgi') }}
+
+#!/bin/sh
+# The content after this line comes from openstack-pkg-tools
+# and has been automatically added to a .init.in script, which
+# contains only the descriptive part for the daemon. Everything
+# else is standardized as a single unique script.
+
+# Author: Thomas Goirand <zigo@debian.org>
+# Author: Ondřej Nový <novy@ondrej.org>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# Validate that essential configuration variables and the app binary are present.
+# If the application script is missing, the service cannot run, so exit cleanly.
+if [ -n "${UWSGI_PORT}" ] && [ -n "${UWSGI_INI_PATH}" ] && [ -n "${UWSGI_INI_APP}" ] ; then
+	if ! [ -f "${UWSGI_INI_APP}" ] ; then
+		exit 0
+	fi
+
+	# SSL Configuration: Locate private key and public certificate.
+	# Priority: Explicit SSL dir structure provided by OpenStack packaging.
+	if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
+		# Find the first .pem file in the private SSL directory.
+		KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
+	fi
+
+	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
+		# Fallback for Puppet-managed environments.
+		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
+	else
+		# Standard location for public SSL certificates.
+		if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
+			CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
+		fi
+	fi
+
+	# Daemon Binary Detection:
+	# Debian/Ubuntu versions of uwsgi differ by Python version suffix (e.g., uwsgi_python3, uwsgi_python39).
+	# We iterate through common Python versions to find the executable.
+	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
+		if [ -x /usr/bin/uwsgi_python${i} ] ; then
+			DAEMON=/usr/bin/uwsgi_python${i}
+		fi
+	done
+
+	# Dynamic Binding Configuration (OpenStack Package Tools):
+	# If external configuration files provide bind IP/port/worker directives, use them.
+	if [ -n "${UWSGI_BIND_CONFIG_FILE}" ] && [ -r "${UWSGI_BIND_CONFIG_FILE}" ] && [ -n "${UWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${UWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
+		. /usr/share/openstack-pkg-tools/pkgos_func
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_IP_DIRECTIVE}
+		if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_BIND_IP=${RET}
+		fi
+		pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_PORT_DIRECTIVE}
+		if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_PORT=${RET}
+		fi
+
+		# Worker/Process Count Configuration:
+		# Try to read from config, fallback to half the number of CPU threads.
+		if [ -n "${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} ${UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
+			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				UWSGI_PROCESSES=" --processes ${RET}"
+			else
+				# Fallback: threads / 2
+				UWSGI_PROCESSES=" --processes "$((${NPROC} / 2 ))
+			fi
+		fi
+
+		# Special case for Swift Object Server: multiple ports.
+		if [ "${UWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
+			pkgos_inifile get ${UWSGI_BIND_CONFIG_FILE} ${UWSGI_BIND_CONFIG_SECTION} devices
+			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				DEVICES_PATH=${RET}
+				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
+				COUNT=0
+				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
+					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
+					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
+					COUNT=$(( ${COUNT} + 1 ))
+				done
+			fi
+		fi
+	else
+		# No external bind config: use defaults.
+		UWSGI_BIND_IP=""
+	fi
+
+	# Construct Daemon Arguments:
+	# Determine if SSL is present to choose between --https-socket and --http-socket.
+	if [ -n "${BIND_PARAMS}" ] ; then
+		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
+	else
+		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
+			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
+		else
+			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
+		fi
+	fi
+
+	# Append the main UWSGI ini configuration file.
+	DAEMON_ARGS="${DAEMON_ARGS} --ini ${UWSGI_INI_PATH}"
+	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
+	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
+fi
+
+# Fallback daemon path if detection loop didn't set it.
+if [ -z "${DAEMON}" ] ; then
+	DAEMON=/usr/bin/${NAME}
+fi
+
+# Standard OpenStack path definitions.
+PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
+if [ -z "${SCRIPTNAME}" ] ; then
+	SCRIPTNAME=/etc/init.d/${NAME}
+fi
+
+# System user/group for running the service. Defaults to the project name.
+if [ -z "${SYSTEM_USER}" ] ; then
+	SYSTEM_USER=${PROJECT_NAME}
+fi
+if [ -z "${SYSTEM_GROUP}" ] ; then
+	SYSTEM_GROUP=${PROJECT_NAME}
+fi
+
+# Prepare chuid argument if not running as root.
+if [ "${SYSTEM_USER}" != "root" ] ; then
+	STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
+fi
+
+# Configuration file for the OpenStack application (distinct from UWSGI ini).
+if [ -z "${CONFIG_FILE}" ] ; then
+	CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
+fi
+
+# Log file location.
+LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
+
+# Conditionally add config file argument.
+if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
+	DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
+fi
+
+# Exit if the main daemon executable is not found or not executable.
+[ -x $DAEMON ] || exit 0
+
+# If ran as root, create required directories (lock, run, cache) with correct ownership.
+if [ `whoami` = "root" ] ; then
+	for i in lock run cache ; do
+		mkdir -p /var/$i/${PROJECT_NAME}
+		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
+	done
+fi
+
+# Load standard LSB init functions.
+. /lib/lsb/init-functions
+
+RET=0
+
+# Load default environment variables (syslog/logfile preferences).
+[ -r /etc/default/openstack ] && . /etc/default/openstack
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Determine logging arguments based on environment defaults.
+[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+	[ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
+fi
+
+# Start the daemon.
+do_start() {
+	start-stop-daemon \
+		--start \
+		--quiet \
+		--background ${STARTDAEMON_CHUID} \
+		--make-pidfile --pidfile ${PIDFILE} \
+		--chdir /var/lib/${PROJECT_NAME} \
+		--startas $DAEMON \
+		--test > /dev/null \
+		|| return 1
+	if [ -n "${PYARGV}" ] ; then
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS --pyargv "${PYARGV}" \
+			|| return 2
+	else
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/${PROJECT_NAME} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS \
+			|| return 2
+	fi
+}
+
+# Stop the daemon.
+do_stop() {
+	start-stop-daemon \
+		--stop \
+		--quiet \
+		--retry=TERM/30/KILL/5 \
+		--pidfile $PIDFILE
+	RETVAL=$?
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+# Systemd-compatible start function.
+do_systemd_start() {
+	# Set umask to ensure log files are created with 0644 mode bits.
+	# Note we can't set 0026 to have files 0640, because that's going
+	# to be in use in for example neutron-dhcp-agent, which makes it
+	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
+	# and then fail hardly. However, 0022 is enough, since the log
+	# folders are owned by <project>:adm, so users don't have access
+	# to it unless they are on the adm group, which is what we want.
+	umask 0022
+	if [ -n "${PYARGV}" ] ; then
+		exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
+	else
+		exec $DAEMON $DAEMON_ARGS
+	fi
+}
+
+# Main command dispatcher.
+case "$1" in
+start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+status)
+	status_of_proc "$DAEMON" "$NAME"
+	RET=$?
+;;
+systemd-start)
+	do_systemd_start
+;;  
+show-args)
+	if [ -n "${PYARGV}" ] ; then
+		echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}\"
+	else
+		echo $DAEMON $DAEMON_ARGS
+	fi
+;;
+restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1)
+			do_start
+			case $? in
+				0) log_end_msg 0 ; RET=$? ;;
+				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
+				*) log_end_msg 1 ; RET=$? ;; # Failed to start
+			esac
+		;;
+		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
+	esac
+;;
+*)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
+	RET=3
+;;
+esac
+
+exit $RET

@@ -1,0 +1,161 @@
+#
+# A-REX Logrotate Configuration
+#
+# This file configures log rotation for the Nordic Grid Authority (NORDuGrid) A-REX service.
+# It manages the main A-REX logs, the Web Service (WS) interface logs, external process logs,
+# and performance data logs. Each section corresponds to a specific log group and applies
+# appropriate rotation policies (daily, compression, rotation count).
+#
+# NOTE: The `create` directive without arguments defaults to 0644 root:root. If specific
+# ownership or permissions are required, they must be passed via schema fields not present
+# in the current schema. Here we rely on standard defaults or the system's umask.
+#
+
+#
+# Logs written by A-REX (Main Daemon)
+#
+# The main A-REX log file path.
+# Default: /var/log/arc/arex.log
+{{ arc_log_file | default('/var/log/arc/arex.log') }}
+
+# The A-REX jobs log file path.
+# Default: /var/log/arc/arex-jobs.log
+{{ arc_job_log_file | default('/var/log/arc/arex-jobs.log') }}
+
+# The A-REX job helper error log file path.
+# Default: /var/log/arc/job.helper.errors
+{{ arc_helper_error_log_file | default('/var/log/arc/job.helper.errors') }}
+
+# The A-REX data staging log file path.
+# Default: /var/log/arc/datastaging.log
+{{ arc_datastaging_log_file | default('/var/log/arc/datastaging.log') }}
+
+{
+    # Do not error if the log file is missing.
+    missingok
+
+    # Compress rotated log files.
+    compress
+
+    # Delay compression until the next rotation cycle.
+    delaycompress
+
+    # Rotate logs daily.
+    daily
+
+    # Number of rotated log files to keep for A-REX main logs.
+    # Default: 14
+    rotate {{ arc_log_rotate_count | default(14) }}
+
+    # Create new log files after rotation with default permissions.
+    create
+
+    # Apply these rules to all files in the block (shared scripts).
+    sharedscripts
+
+    postrotate
+        # Send SIGHUP to the A-REX daemon to reopen log files.
+        # Uses the PID file for the A-REX main daemon.
+        # Default PID file: /run/arched-arex.pid
+        kill -HUP `cat {{ arc_pid_file | default('/run/arched-arex.pid') }} 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+#
+# Logs written by A-REX WS (Web Service Interface)
+#
+# The A-REX Web Service interface log file path.
+# Default: /var/log/arc/ws-interface.log
+{{ arc_ws_log_file | default('/var/log/arc/ws-interface.log') }}
+
+{
+    # Do not error if the log file is missing.
+    missingok
+
+    # Compress rotated log files.
+    compress
+
+    # Delay compression until the next rotation cycle.
+    delaycompress
+
+    # Rotate logs daily.
+    daily
+
+    # Number of rotated log files to keep for A-REX WS logs.
+    # Default: 14
+    rotate {{ arc_ws_log_rotate_count | default(14) }}
+
+    # Create new log files after rotation with default permissions.
+    create
+
+    # Apply these rules to all files in the block.
+    sharedscripts
+
+    postrotate
+        # Send SIGHUP to the A-REX Web Service daemon to reopen log files.
+        # Uses the PID file for the A-REX Web Service daemon.
+        # Default PID file: /run/arched-arex-ws.pid
+        kill -HUP `cat {{ arc_ws_pid_file | default('/run/arched-arex-ws.pid') }} 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+#
+# External processes spawned by A-REX
+#
+# The InfoProvider log file path.
+# Default: /var/log/arc/infoprovider.log
+{{ arc_infoprovider_log_file | default('/var/log/arc/infoprovider.log') }}
+
+# The Cache Cleaner log file path.
+# Default: /var/log/arc/cache-cleaner.log
+{{ arc_cache_cleaner_log_file | default('/var/log/arc/cache-cleaner.log') }}
+
+# The Jura log file path.
+# Default: /var/log/arc/jura.log
+{{ arc_jura_log_file | default('/var/log/arc/jura.log') }}
+
+{
+    # Do not error if the log file is missing.
+    missingok
+
+    # Compress rotated log files.
+    compress
+
+    # Delay compression until the next rotation cycle.
+    delaycompress
+
+    # Rotate logs daily.
+    daily
+
+    # Number of rotated log files to keep for external processes logs.
+    # Default: 14
+    rotate {{ arc_external_processes_log_rotate_count | default(14) }}
+
+    # Create new log files after rotation with default permissions.
+    create
+}
+
+#
+# Developer-enabled performance logging
+#
+# Directory pattern for performance data logs.
+# Default: /var/log/arc/perfdata
+{{ arc_perfdata_dir | default('/var/log/arc/perfdata') }}/*.perflog
+
+{
+    # Do not error if the log file is missing.
+    missingok
+
+    # Compress rotated log files.
+    compress
+
+    # Rotate logs daily.
+    daily
+
+    # Number of rotated log files to keep for performance data logs.
+    # Default: 14
+    rotate {{ arc_perfdata_log_rotate_count | default(14) }}
+
+    # Create new log files after rotation with default permissions.
+    create
+}

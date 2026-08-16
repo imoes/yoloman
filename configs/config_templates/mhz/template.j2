@@ -1,0 +1,39 @@
+# ==============================================================================
+# mhz — CPU Frequency Measurement Utility Configuration
+# ==============================================================================
+# This template configures the behavior of the `mhz` utility, which measures
+# and reports CPU/TSC frequencies. All parameters are optional and have safe
+# defaults if not explicitly provided by Ansible variables.
+# ==============================================================================
+
+# lines: Number of measurements to perform before quitting.
+# Default: 1. Set to a higher value for more accurate averaging.
+lines: {{ (values | default({})).lines | default(1) }}
+
+# heat: Force the CPU to run a busy loop of that many microseconds before
+# starting measurements. This can help stabilize the CPU frequency before
+# measurement begins, especially on systems with aggressive power-saving.
+# Default: 0 (no busy loop).
+heat: {{ (values | default({})).heat | default(0) }}
+
+# count: Loop count value to be used as a starting point for internal
+# calibration loops. Generally left at 0 unless specific calibration is
+# required.
+# Default: 0.
+count: {{ (values | default({})).count | default(0) }}
+
+# only_cpu_freq: Only report the CPU frequency in MHz (-c).
+# If false (default), other frequency sources (like TSC) may also be reported
+# depending on the tool's default behavior.
+# Default: false.
+only_cpu_freq: {{ ((values | default({})).only_cpu_freq | default(false)) | lower }}
+
+# only_tsc_freq: Only report the TSC (Time Stamp Counter) frequency in MHz (-t).
+# If false (default), other frequency sources (like CPU) may also be reported.
+# Default: false.
+only_tsc_freq: {{ ((values | default({})).only_tsc_freq | default(false)) | lower }}
+
+# integer_freq: Truncate the frequency to the nearest integer value (-i).
+# If false (default), fractional MHz values are reported.
+# Default: false.
+integer_freq: {{ ((values | default({})).integer_freq | default(false)) | lower }}

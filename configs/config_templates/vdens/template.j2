@@ -1,0 +1,58 @@
+# vdens configuration script
+# Generated configuration for launching vdens with specified parameters.
+
+# Command to execute inside the namespace (defaults to $SHELL if empty)
+CMD={{ cmd | default('', true) }}
+
+# Virtual Private Network (VDE) network socket path(s)
+# Supports multiple networks in multi-mode
+VDE_NETWORKS={{ vde_networks | join(',') }}
+
+# Interface name prefix for virtual interfaces (e.g., 'vde', 'eth')
+IFACE_PREFIX={{ iface_prefix | default('vde', true) }}
+
+# DNS server addresses for the namespace (comma-separated IPv4/IPv6)
+# If provided, --resolvconf is ignored
+RESOLV_ADDR={{ resolv_addr | default('', true) }}
+
+# Path to resolv.conf file to mount as /etc/resolv.conf (ignored if -R used)
+RESOLV_CONF={{ resolv_conf | default('', true) }}
+
+# Enable CAP_SYS_ADMIN capability (allows bind mounts)
+USE_SYSADM={{ use_sysadm | default(false, true) }}
+
+# Use clone(2) instead of unshare(2) for namespace creation
+USE_CLONE={{ use_clone | default(false, true) }}
+
+# Run in multi-mode (one interface per network)
+MULTI_MODE={{ multi_mode | default(false, true) }}
+
+# Build the vdens command line
+VDENS_CMD="vdens"
+{% if multi_mode %}
+VDENS_CMD="{{ VDENS_CMD }} --multi"
+{% endif %}
+{% if iface_prefix != 'vde' %}
+VDENS_CMD="{{ VDENS_CMD }} --iface {{ iface_prefix }}"
+{% endif %}
+{% if resolv_addr is not none and resolv_addr != '' %}
+VDENS_CMD="{{ VDENS_CMD }} --resolvaddr {{ resolv_addr }}"
+{% elif resolv_conf is not none and resolv_conf != '' %}
+VDENS_CMD="{{ VDENS_CMD }} --resolvconf {{ resolv_conf }}"
+{% endif %}
+{% if use_sysadm %}
+VDENS_CMD="{{ VDENS_CMD }} --sysadm"
+{% endif %}
+{% if use_clone %}
+VDENS_CMD="{{ VDENS_CMD }} --clone"
+{% endif %}
+{% if vde_networks is defined and vde_networks %}
+VDENS_CMD="{{ VDENS_CMD }} {{ vde_networks | join(' ') }}"
+{% endif %}
+{% if cmd and cmd != '' %}
+VDENS_CMD="{{ VDENS_CMD }} {{ cmd }}"
+{% endif %}
+
+# Execute the command
+echo "Executing: {{ VDENS_CMD }}"
+{{ VDENS_CMD }}

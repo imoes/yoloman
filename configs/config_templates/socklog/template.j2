@@ -1,0 +1,58 @@
+# Socklog configuration script for runit
+# This script configures socklog to run under runit's runsv.
+# It defines the socket type, binding parameters, and operational flags.
+
+# Path to the socklog binary.
+# Default: /usr/bin/socklog
+exec {{ socklog_bin | default('/usr/bin/socklog') }}
+
+# Listen mode: unix, inet, or ucspi.
+# Default: unix
+# Description: Defines the socket type socklog will create and listen on.
+# - 'unix': Creates a Unix domain socket (usually /dev/log).
+# - 'inet': Listens on a TCP/UDP IP address and port.
+# - 'ucspi': Uses the ucspi-tcp format for socket connections.
+{% set _mode = listen_mode | default('unix') %}
+
+{% if _mode == 'inet' %}
+# INET MODE
+# Binds to a specific IP and port for network logging.
+# Default IP: 0 (all interfaces), Default Port: 514
+# Description: IP address to bind for inet mode. 0 means all interfaces.
+{% set _ip = inet_ip | default('0') %}
+# Description: UDP port to bind for inet mode.
+{% set _port = inet_port | default(514) %}
+inet {{ _ip }} {{ _port }}
+
+{% elif _mode == 'ucspi' %}
+# UCSPI MODE
+# Prepends arguments from the ucspi_args list to the command line.
+# Description: Arguments for ucspi mode, prepended to syslog messages if env vars exist. Max 8 args.
+ucspi{% for arg in (ucspi_args | default([])) %} {{ arg }}{% endfor %}
+
+{% else %}
+# UNIX SOCKET MODE (Default)
+# Binds to a Unix domain socket path.
+# Default: /dev/log
+# Description: Path to the unix domain socket (used when listen_mode is unix).
+{% set _path = unix_socket_path | default('/dev/log') %}
+unix {{ _path }}
+{% endif %}
+
+# Raw syslog messages only (no facility/priority conversion).
+# Description: If true, use -R flag (raw messages only).
+{% if raw_only | default(false) %}
+-R
+{% endif %}
+
+# Raw syslog messages with conversion.
+# Description: If true, use -r flag (raw + converted messages).
+{% if raw_with_conversion | default(false) %}
+-r
+{% endif %}
+
+# Respect umask for unix domain socket creation.
+# Description: If true, use -U flag to respect umask for unix sockets.
+{% if respect_umask | default(false) %}
+-U
+{% endif %}

@@ -1,0 +1,70 @@
+# =============================================================================
+# rdiff Backup Configuration Template
+# =============================================================================
+# This template generates a configuration file for rdiff (Remote Differential
+# File Backup) operations. It supports local storage, remote SSH-based
+# operations, and incremental backup cycles (signature/delta/patch).
+#
+# All variables have sensible defaults to ensure the file is always valid and
+# self-contained, even when called without any input variables.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [storage_dir]
+# Base directory where rdiff signature, delta, and patch files are stored.
+# This acts as the repository root for backup metadata and data.
+# -----------------------------------------------------------------------------
+rdiff_storage_dir: "{{ (storage_dir | default('/var/backups/rdiff')) | string }}"
+
+# -----------------------------------------------------------------------------
+# [remote_user]
+# Remote user account for SSH-based rdiff operations.
+# If backups are performed locally or via non-SSH methods, this may be
+# ignored or used only for local privilege escalation.
+# -----------------------------------------------------------------------------
+remote_user: "{{ (remote_user | default('root')) | string }}"
+
+# -----------------------------------------------------------------------------
+# [ssh_port]
+# SSH port number for remote connections.
+# Used when connecting to a remote host to perform rdiff operations.
+# -----------------------------------------------------------------------------
+ssh_port: {{ ssh_port | default(22) }}
+
+# -----------------------------------------------------------------------------
+# [compression_level]
+# Compression level for generated signature and delta files (0-9).
+# 0 = no compression, 9 = maximum compression. Default 6 offers a
+# reasonable balance between CPU usage and bandwidth/storage savings.
+# -----------------------------------------------------------------------------
+compression_level: {{ compression_level | default(6) }}
+
+# -----------------------------------------------------------------------------
+# [max_age_days]
+# Retention period in days for old backup data before cleanup.
+# rdiff-backup will prune revisions older than this threshold to save space.
+# -----------------------------------------------------------------------------
+max_age_days: {{ max_age_days | default(30) }}
+
+# -----------------------------------------------------------------------------
+# [source_dirs]
+# List of directories to back up using rdiff signature/delta/patch cycle.
+# Each entry defines a source path ('src') and a destination path
+# relative to the storage_dir ('dest').
+# -----------------------------------------------------------------------------
+source_dirs:
+{% for dir_entry in (source_dirs | default([])) %}
+  # Source directory path to compute signature from.
+  - src: "{{ (dir_entry.src | default('')) | string }}"
+    # Destination path relative to storage_dir where backup state is kept.
+    dest: "{{ (dir_entry.dest | default('')) | string }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# [extra_options]
+# List of additional command-line options for rdiff commands.
+# These are joined into a single string of space-separated flags.
+# Use this for advanced rdiff-backup or rdiff flags not covered by
+# specific configuration keys.
+# -----------------------------------------------------------------------------
+extra_options: "{{ (extra_options | default([])) | join(' ') }}"

@@ -1,0 +1,45 @@
+# ==============================================================================
+# Storj CLI Environment Configuration Template
+# ==============================================================================
+# This Jinja2 template generates a shell environment file for the Storj CLI tool.
+# It exports key-value pairs as shell environment variables that the `storj`
+# command-line utility reads to configure its behavior (authentication, encryption,
+# networking, and logging).
+#
+# Each variable is self-documenting. If a schema field is not provided by Ansible,
+# the template applies a safe default so the rendered file is always valid and
+# predictable.
+# ==============================================================================
+
+# STORJ_BRIDGE: The address of the Storj Satellite Bridge.
+# Default: empty (uses Storj's default public bridge)
+export STORJ_BRIDGE="{{ (bridge | default('')) | string }}"
+
+# STORJ_BRIDGE_USER: The username for authenticating with the Storj Bridge.
+# Default: empty
+export STORJ_BRIDGE_USER="{{ (bridge_user | default('')) | string }}"
+
+# STORJ_BRIDGE_PASS: The password for authenticating with the Storj Bridge.
+# Default: empty
+export STORJ_BRIDGE_PASS="{{ (bridge_pass | default('')) | string }}"
+
+# STORJ_KEYPASS: The passphrase used to unlock the user's local encryption keys.
+# Default: empty
+export STORJ_KEYPASS="{{ (keypass | default('')) | string }}"
+
+# STORJ_ENCRYPTION_KEY: The explicit encryption key used for file transfers.
+# Default: empty
+export STORJ_ENCRYPTION_KEY="{{ (encryption_key | default('')) | string }}"
+
+# STORJ_PROXY: A SOCKS proxy URL (e.g., socks5://127.0.0.1:1080) to route traffic.
+# Default: empty (direct connection)
+export STORJ_PROXY="{{ (proxy | default('')) | string }}"
+
+# STORJ_URL: An override for the base URL of the Storj API.
+# Default: empty (uses default API endpoint)
+export STORJ_URL="{{ (url | default('')) | string }}"
+
+# STORJ_LOG_LEVEL: The verbosity level for Storj CLI logs.
+# 0 = info, 1+ = debug.
+# Default: 0
+export STORJ_LOG_LEVEL={{ log_level | default(0) }}

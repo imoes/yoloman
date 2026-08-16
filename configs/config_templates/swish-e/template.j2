@@ -1,0 +1,74 @@
+{# ==============================================================================
+# Swish-e Configuration Template
+# This template generates the swish-e configuration file.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and default value based on the schema.
+# ============================================================================== #}
+
+{# Container for swish-e specific configuration parameters. If undefined, defaults to empty dict. #}
+{% set swish = swish | default({}) %}
+
+# ==============================================================================
+# Core Indexing Settings
+# ==============================================================================
+
+# Default index filename used when no other index name is specified.
+# Stores the binary index data for search queries.
+IndexFile {{ swish.index_file | default('/var/lib/swish-e/swish-e.index') }}
+
+# The default directory or file to search if none is specified on the command line.
+# Points to the root of the content to be indexed.
+SearchFiles {{ swish.search_files | default('/var/www/html') }}
+
+# The character set encoding of the source files. UTF-8 is recommended for modern applications.
+CharSet {{ swish.char_set | default('UTF-8') }}
+
+# ==============================================================================
+# Metadata Property Mappings
+# These directives tell swish-e which HTML/XML tags correspond to standard metadata fields.
+# ==============================================================================
+
+# Default property name for the document title.
+# Maps to the <title> tag or similar metadata.
+TitlePropName {{ swish.title_prop_name | default('Title') }}
+
+# Default property name for the document description/metadata.
+# Used for indexing summary text.
+DescriptionPropName {{ swish.description_prop_name | default('Description') }}
+
+# Default property name for the date/time the document was last modified.
+# Helps in ranking or filtering results by freshness.
+DatePropName {{ swish.date_prop_name | default('LastModified') }}
+
+# ==============================================================================
+# Tokenization and Word Processing
+# ==============================================================================
+
+# Minimum word length to index. Words shorter than this are ignored.
+# Prevents indexing of common short tokens like 'a', 'i', etc.
+MinWordLength {{ swish.min_word_length | default(2) }}
+
+# Maximum word length to index. Words longer than this are truncated.
+# Prevents excessively large tokens from bloating the index.
+MaxWordLength {{ swish.max_word_length | default(60) }}
+
+# List of phrases to exclude from indexing (stopwords).
+# These words are considered too common to be useful for searching.
+# Output as a space-separated list of quoted phrases.
+PhraseStopList {% for phrase in swish.phrase_stop_list | default(['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']) %}"{{ phrase }}"{% if not loop.last %} {% endif %}{% endfor %}
+
+# ==============================================================================
+# Indexing Behavior and Systems
+# ==============================================================================
+
+# List of file extensions to index. Only files matching these extensions will be indexed.
+# Determines which content files are picked up by the indexer.
+IndexDirs {% for ext in swish.index_dirs | default(["html", "htm", "txt", "xml", "pdf"]) %}{{ ext }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Configuration directive to define a system for indexing files.
+# 'files' is the standard backend for local disk-based indexing.
+System {{ swish.system | default('files') }}
+
+# Enable verbose output during indexing. 1 for yes, 0 for no.
+# Useful for debugging indexing issues or tracking progress.
+Verbose {{ swish.verbose | default(0) }}

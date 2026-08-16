@@ -1,0 +1,275 @@
+{# ============================================================================ #}
+{# OpenStack Cluster Installer - Configuration Template                           #}
+{#                                                                              #}
+{# This template generates a shell-compatible environment script or configuration #}
+{# file for the OpenStack Cluster Installer (OCI) automation. It uses variables   #}
+{# passed from Ansible to define network topology, VM flavors, image sources,     #}
+{# and node provisioning roles.                                                   #}
+{#                                                                              #}
+{# Self-documenting: Every directive includes its schema description as a comment #}
+{# and ensures safe rendering with default values.                                #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# General Debugging and Credentials                                          #}
+{# -------------------------------------------------------------------------- #}
+
+# Whether to enable debug mode (set -e)
+# Default: yes
+DEBUG={{ DEBUG | default('yes') }}
+
+# Path to the OpenStack credentials file
+# Default: /etc/oci-poc/openstack-credentials
+OPENSTACK_CREDENTIALS={{ OPENSTACK_CREDENTIALS | default('/etc/oci-poc/openstack-credentials') }}
+
+# Path to the ssh public key for the deployment
+# Default: /etc/oci-poc/id_rsa
+SSH_KEY_PATH={{ SSH_KEY_PATH | default('/etc/oci-poc/id_rsa') }}
+
+# Path to the authorized keys file
+# Default: /etc/oci-poc/authorized_keys
+AUTHORIZED_KEY_PATH={{ AUTHORIZED_KEY_PATH | default('/etc/oci-poc/authorized_keys') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Cluster Identity and Domain                                                #}
+{# -------------------------------------------------------------------------- #}
+
+# Name of the cluster
+# Default: cl1
+CLUSTER_NAME={{ CLUSTER_NAME | default('cl1') }}
+
+# Domain name
+# Default: example.com
+DOMAIN_NAME={{ DOMAIN_NAME | default('example.com') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Dummy Network Configuration                                                #}
+{# -------------------------------------------------------------------------- #}
+
+# Prefix for dummy network interface names
+# Default: ocidm
+DUMMYNET_IFNAME_PREFIX={{ DUMMYNET_IFNAME_PREFIX | default('ocidm') }}
+
+# Name of the dummy network bridge
+# Default: br-oci
+DUMMYNET_BRIDGE_NAME={{ DUMMYNET_BRIDGE_NAME | default('br-oci') }}
+
+{# -------------------------------------------------------------------------- #}
+{# External Network Configuration                                             #}
+{# -------------------------------------------------------------------------- #}
+
+# Prefix for the external network
+# Default: 192.168.200
+EXT_NETWORK_PREFIX={{ EXT_NETWORK_PREFIX | default('192.168.200') }}
+
+# First IP in the external network range
+# Default: 200
+EXT_NETWORK_FIRST_IP={{ EXT_NETWORK_FIRST_IP | default('200') }}
+
+# Last IP in the external network range
+# Default: 249
+EXT_NETWORK_LAST_IP={{ EXT_NETWORK_LAST_IP | default('249') }}
+
+{# -------------------------------------------------------------------------- #}
+{# VM Flavors                                                                   #}
+{# -------------------------------------------------------------------------- #}
+
+# Flavor for OCI PXE server
+# Default: cpu2-ram6-disk20
+FLAVOR_PXE={{ FLAVOR_PXE | default('cpu2-ram6-disk20') }}
+
+# Flavor for CI controller roles
+# Default: cpu8-ram24-disk20
+FLAVOR_CTRL={{ FLAVOR_CTRL | default('cpu8-ram24-disk20') }}
+
+# Flavor for CI mon roles
+# Default: cpu2-ram6-disk10
+FLAVOR_MON={{ FLAVOR_MON | default('cpu2-ram6-disk10') }}
+
+# Flavor for CI OSD roles
+# Default: cpu2-ram6-disk10
+FLAVOR_OSD={{ FLAVOR_OSD | default('cpu2-ram6-disk10') }}
+
+# Flavor for CI compute roles
+# Default: cpu8-ram24-disk40
+FLAVOR_COMP={{ FLAVOR_COMP | default('cpu8-ram24-disk40') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Public Network and VM Naming                                               #}
+{# -------------------------------------------------------------------------- #}
+
+# Network name for the VM that will host OCI
+# Default: bdb-clint-pub01
+NET_PUB_NAME={{ NET_PUB_NAME | default('bdb-clint-pub01') }}
+
+# Router gateway public name
+# Default: bdb-clint-pub01
+ROUTER_GW_PUB_NAME={{ ROUTER_GW_PUB_NAME | default('bdb-clint-pub01') }}
+
+# Name of the OCI VM
+# Default: oci
+PXE_SERVER_NAME={{ PXE_SERVER_NAME | default('oci') }}
+
+# Keypair name
+# Default: oci-keypair
+KEYPAIR_NAME={{ KEYPAIR_NAME | default('oci-keypair') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Private Network and Subnet Configuration                                   #}
+{# -------------------------------------------------------------------------- #}
+
+# Name of the private network for VM boot-up
+# Default: oci-boot-network
+NET_PRIV_NAME={{ NET_PRIV_NAME | default('oci-boot-network') }}
+
+# Name of the private subnet
+# Default: oci-boot-subnet
+SUBNET_PRIV_NAME={{ SUBNET_PRIV_NAME | default('oci-boot-subnet') }}
+
+# Prefix for the private subnet
+# Default: 192.168.100
+SUBNET_PRIV_PREFIX={{ SUBNET_PRIV_PREFIX | default('192.168.100') }}
+
+# Range of the private subnet
+# Default: 192.168.100.0
+SUBNET_PRIV_RANGE={{ SUBNET_PRIV_RANGE | default('192.168.100.0') }}
+
+# CIDR mask for the private subnet
+# Default: 24
+SUBNET_PRIV_CIDR={{ SUBNET_PRIV_CIDR | default('24') }}
+
+# Name of the private subnet router
+# Default: oci-boot-router
+SUBNET_PRIV_ROUTER_NAME={{ SUBNET_PRIV_ROUTER_NAME | default('oci-boot-router') }}
+
+# DNS server for the private subnet
+# Default: 9.9.9.9
+SUBNET_PRIV_DNS_SERVER={{ SUBNET_PRIV_DNS_SERVER | default('9.9.9.9') }}
+
+# Name of the private subnet router port
+# Default: oci-router-privnet-port
+SUBNET_PRIV_ROUTER_PORT={{ SUBNET_PRIV_ROUTER_PORT | default('oci-router-privnet-port') }}
+
+# IP address of the private subnet router port
+# Default: 192.168.100.10
+SUBNET_PRIV_ROUTER_PORT_IP={{ SUBNET_PRIV_ROUTER_PORT_IP | default('192.168.100.10') }}
+
+{# -------------------------------------------------------------------------- #}
+{# OCI PXE Server Network Settings                                            #}
+{# -------------------------------------------------------------------------- #}
+
+# Last digit of the OCI PXE server IP
+# Default: 4
+OCI_PXE_SERVER_IP_LAST_DIGIT={{ OCI_PXE_SERVER_IP_LAST_DIGIT | default('4') }}
+
+# IP address of the OCI PXE server
+# Default: 192.168.100.4
+OCI_PXE_IP={{ OCI_PXE_IP | default('192.168.100.4') }}
+
+# Name of the OCI PXE port
+# Default: oci-pxe-port
+OCI_PXE_PORT_NAME={{ OCI_PXE_PORT_NAME | default('oci-pxe-port') }}
+
+# Starting suffix for OCI API ports
+# Default: 90
+OCI_API_SUFIX_START={{ OCI_API_SUFIX_START | default('90') }}
+
+# Starting suffix for OCI cluster ports
+# Default: 100
+OCI_CLUSTER_SUFFIX_START={{ OCI_CLUSTER_SUFFIX_START | default('100') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Debian Mirror Configuration                                                #}
+{# -------------------------------------------------------------------------- #}
+
+# Address of the Debian mirror
+# Default: http://deb.debian.org/debian
+DEBIAN_MIRROR_ADDRESS={{ DEBIAN_MIRROR_ADDRESS | default('http://deb.debian.org/debian') }}
+
+# Address of the Debian security mirror
+# Default: http://security.debian.org/debian-security
+DEBIAN_SECURITY_MIRROR_ADDRESS={{ DEBIAN_SECURITY_MIRROR_ADDRESS | default('http://security.debian.org/debian-security') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Image and Boot Configuration                                               #}
+{# -------------------------------------------------------------------------- #}
+
+# Name of the image to use for booting
+# Default: debian-bullseye-11.1.0-amd64.qcow2
+PXE_SERVER_IMAGE_NAME={{ PXE_SERVER_IMAGE_NAME | default('debian-bullseye-11.1.0-amd64.qcow2') }}
+
+{# -------------------------------------------------------------------------- #}
+{# OpenStack Release                                                            #}
+{# -------------------------------------------------------------------------- #}
+
+# OpenStack release name
+# Default: xena
+OS_RELEASE={{ OS_RELEASE | default('xena') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Disk Sizes                                                                   #}
+{# -------------------------------------------------------------------------- #}
+
+# Size of the system HDDs in GB
+# Default: 20
+SYSTEM_HDD_SIZE={{ SYSTEM_HDD_SIZE | default('20') }}
+
+# Size of the additional volume for roles in GB
+# Default: 40
+DATA_HDD_SIZE={{ DATA_HDD_SIZE | default('40') }}
+
+{# -------------------------------------------------------------------------- #}
+{# VM Image Download Settings                                                 #}
+{# -------------------------------------------------------------------------- #}
+
+# Filename of the VM image to download
+# Default: cirros-0.5.1-x86_64-disk.img
+VM_IMAGE_FILENAME={{ VM_IMAGE_FILENAME | default('cirros-0.5.1-x86_64-disk.img') }}
+
+# URL to download the VM image from
+# Default: http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img
+VM_IMAGE_URL={{ VM_IMAGE_URL | default('http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img') }}
+
+{# -------------------------------------------------------------------------- #}
+{# SSH User for VM Image                                                      #}
+{# -------------------------------------------------------------------------- #}
+
+# Name of the ssh user in the image
+# Default: cirros
+IMAGE_SSH_USER={{ IMAGE_SSH_USER | default('cirros') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Node Provisioning Roles                                                    #}
+{# -------------------------------------------------------------------------- #}
+
+# Whether to provision compute nodes
+# Default: yes
+OCI_COMPUTE_NODES={{ OCI_COMPUTE_NODES | default('yes') }}
+
+# Whether to provision network nodes
+# Default: yes
+OCI_NETWORK_NODES={{ OCI_NETWORK_NODES | default('yes') }}
+
+# Whether to provision volume nodes
+# Default: yes
+OCI_VOLUME_NODES={{ OCI_VOLUME_NODES | default('yes') }}
+
+# Whether to provision Swift nodes
+# Default: no
+OCI_SWIFT_NODES={{ OCI_SWIFT_NODES | default('no') }}
+
+# Whether to provision Ceph nodes
+# Default: no
+OCI_CEPH_NODES={{ OCI_CEPH_NODES | default('no') }}
+
+# Whether to provision messaging nodes
+# Default: no
+OCI_MESSAGING_NODES={{ OCI_MESSAGING_NODES | default('no') }}
+
+# Whether to provision BillCeph nodes
+# Default: no
+OCI_BILLCEPH_NODES={{ OCI_BILLCEPH_NODES | default('no') }}
+
+# Whether to provision Tempest nodes
+# Default: yes
+OCI_TEMPEST_NODES={{ OCI_TEMPEST_NODES | default('yes') }}

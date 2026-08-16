@@ -1,0 +1,70 @@
+# Nomarch Archive Extraction Wrapper
+#
+# This script acts as a wrapper for the `nomarch` utility. It does not use a
+# persistent daemon configuration file; instead, it constructs command-line
+# arguments dynamically based on the provided schema fields.
+#
+# Generated configuration values:
+# - Archive to process: {{ archive_path | default('/var/lib/nomarch/archives/data.arc') }}
+# - Output directory:   {{ extract_dir | default('/var/lib/nomarch/output') }}
+# - Uppercase names:    {{ use_uppercase_filenames | default(False) | ternary('Yes', 'No') }}
+# - Verbose output:     {{ verbose_output | default(False) | ternary('Yes', 'No') }}
+# - Mode:               {% if test_only | default(False) %}Test CRCs{% elif list_files | default(False) %}List files{% else %}Extract files{% endif %}
+
+#!/bin/bash
+# Generated nomarch extraction wrapper
+
+# Path to the .arc archive to process.
+# Description: Path to the .arc archive to process
+ARCHIVE_PATH="{{ archive_path | default('/var/lib/nomarch/archives/data.arc') }}"
+
+# Directory where archives will be listed or extracted.
+# Description: Directory where archives will be listed or extracted
+EXTRACT_DIR="{{ extract_dir | default('/var/lib/nomarch/output') }}"
+
+# Create output directory if it does not exist
+mkdir -p "{{ extract_dir | default('/var/lib/nomarch/output') }}"
+
+cd "{{ extract_dir | default('/var/lib/nomarch/output') }}" || exit 1
+
+# Flags for the nomarch command.
+# We accumulate flags in OPTION_FLAGS.
+
+# Use uppercase filenames; preserve original case from archive (-U).
+# Description: Use uppercase filenames; preserve original case from archive (-U)
+{% set opt_flags = '' %}
+{% if use_uppercase_filenames | default(False) %}
+{% set opt_flags = opt_flags ~ '-U ' %}
+{% endif %}
+
+# Give verbose output when used with -l (-v).
+# Description: Give verbose output when used with -l (-v)
+{% if verbose_output | default(False) %}
+{% set opt_flags = opt_flags ~ '-v ' %}
+{% endif %}
+
+# Trim trailing space from flags
+{% set opt_flags = opt_flags | trim %}
+
+# The command to execute.
+# Modes:
+# -t: Test files in archive (check CRCs)
+# -l: List files in archive
+# -x: Extract files (default)
+
+{% set cmd = '' %}
+{% if test_only | default(False) %}
+{% set cmd = '-t' %}
+{% elif list_files | default(False) %}
+{% set cmd = '-l' %}
+{% else %}
+{% set cmd = '-x' %}
+{% endif %}
+
+# Execute nomarch
+# match_files: Optional filenames/wildcards to specify which members to process.
+#              Empty list processes all members.
+# Using a temporary variable for the command to ensure OPTION_FLAGS is captured
+# from the scope where it was fully constructed.
+{% set full_cmd = 'nomarch ' + opt_flags + ' ' + cmd + ' "${ARCHIVE_PATH}" ' + (match_files | default([]) | join(' ')) %}
+eval {{ full_cmd }}

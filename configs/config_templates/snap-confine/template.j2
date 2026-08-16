@@ -1,0 +1,37 @@
+# Snap-confine execution environment configuration
+#
+# This template generates the configuration block representing the invocation
+# parameters for snap-confine(8). snap-confine is a helper binary invoked
+# by snapd to set up the execution environment (AppArmor, namespaces, mounts)
+# for a snap application before executing its command.
+#
+# Self-documenting: Every variable below includes its schema default inline
+# to ensure safe rendering even if the variable is undefined in the playbook.
+
+# The security tag for the AppArmor profile ($SECURITY_TAG).
+# This tag uniquely identifies the AppArmor profile associated with the snap.
+# Mandatory field.
+security_tag={{ security_tag | default('snap.example.app') }}
+
+# The primary command to execute within the confined environment.
+# This is the executable path or command string passed to the kernel.
+command={{ command | default('/usr/bin/example-app') }}
+
+# Arguments passed to the command.
+# Rendered as a space-separated string.
+command_args={{ command_args | default(['--config', '/etc/example/app.conf']) | join(' ') }}
+
+# Option: Request classic confinement via --classic flag.
+# If true, disables mount namespace isolation and uses permissive AppArmor profiles.
+# Typically used for system snaps.
+use_classic={{ use_classic | default(false) }}
+
+# Option: Base snap to use as the root filesystem.
+# Passed to snap-confine via the --base argument.
+# Defaults to 'core' if not specified.
+base_snap={{ base_snap | default('core') }}
+
+# Environment: Enable debug output to stderr.
+# If true, sets the SNAP_CONFINE_DEBUG environment variable to trigger
+# diagnostic logging during the confinement setup process.
+enable_debug={{ enable_debug | default(false) }}

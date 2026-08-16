@@ -1,0 +1,98 @@
+# safe-vdash configuration wrapper
+# This template generates a shell script wrapper or documentation for safe-vdash.
+# It documents the recommended startup parameters based on the provided schema.
+# All variables default to their schema-defined values to ensure self-containment.
+
+# ==============================================================================
+# Logfiles Configuration
+# ==============================================================================
+# List of logfile paths to monitor directly via positional arguments.
+# Each item in `logfiles` represents a path string.
+# Corresponds to positional arguments <LOGFILE>...
+{% for logfile in logfiles | default([], true) %}
+# Logfile {{ loop.index }}: {{ logfile | default('', true) }}
+{% endfor %}
+
+# Debug Window
+# Corresponds to --debug-window
+# Parses first logfile only and adds a debug output window.
+# Enabled if debug_window is true.
+{% if debug_window | default(false, true) | bool %}
+# Debug mode enabled: parsing only the first logfile and showing a debug window.
+{% endif %}
+
+# ==============================================================================
+# Checkpoint Settings
+# ==============================================================================
+# Set checkpoint interval in seconds.
+# Set to 0 to disable checkpoints entirely.
+# Corresponds to --checkpoint-interval
+checkpoint_interval={{ checkpoint_interval | default(300, true) }}
+
+# ==============================================================================
+# Cryptocurrency API Configuration (CoinGecko)
+# ==============================================================================
+# Coingecko.com API key.
+# Corresponds to --coingecko-key
+coingecko_key={{ coingecko_key | default('', true) }}
+
+# Coingecko.com API polling interval in minutes.
+# Corresponds to --coingecko-interval
+coingecko_interval={{ coingecko_interval | default(30, true) }}
+
+# ==============================================================================
+# Cryptocurrency API Configuration (CoinMarketCap)
+# ==============================================================================
+# Coinmarketcap.com API key.
+# Corresponds to --coinmarketcap-key
+coinmarketcap_key={{ coinmarketcap_key | default('', true) }}
+
+# Coinmarketcap.com API polling interval in minutes.
+# Corresponds to --coinmarketcap-interval
+coinmarketcap_interval={{ coinmarketcap_interval | default(30, true) }}
+
+# ==============================================================================
+# Currency Formatting
+# ==============================================================================
+# Fiat currency name for API.
+# Corresponds to --currency-apiname
+currency_apiname={{ currency_apiname | default('USD', true) }}
+
+# Single character symbol for currency.
+# Corresponds to --currency-symbol
+currency_symbol={{ currency_symbol | default('$', true) }}
+
+# Token conversion rate as a positive floating point number.
+# -1 disables manual rate and falls back to API.
+# Corresponds to --currency-token-rate
+currency_token_rate={{ currency_token_rate | default(-1, true) }}
+
+# ==============================================================================
+# Glob Path Scanning
+# ==============================================================================
+# List of nix 'glob' paths to match multiple files.
+# Corresponds to -g/--glob-path
+{% for path in glob_paths | default([], true) %}
+# Glob path {{ loop.index }}: {{ path | default('', true) }}
+{% endfor %}
+
+# Enable periodic scan of any glob paths every so many seconds.
+# Set to 0 to disable periodic scanning.
+# Corresponds to --glob-scan
+glob_scan={{ glob_scan | default(0, true) }}
+
+# ==============================================================================
+# Display Limits
+# ==============================================================================
+# Maximum number of lines to display for each logfile.
+# Corresponds to --lines-max
+lines_max={{ lines_max | default(100, true) }}
+
+# Event update tick in milliseconds.
+# Controls how frequently the UI/script updates event data.
+# Corresponds to --tick-rate
+tick_rate={{ tick_rate | default(200, true) }}
+
+# Steps in each timeline for timeline graphs.
+# Corresponds to --timeline-steps
+timeline_steps={{ timeline_steps | default(210, true) }}

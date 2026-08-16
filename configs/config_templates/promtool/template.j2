@@ -1,0 +1,149 @@
+{# ============================================================================ #}
+{# promtool: Prometheus Tooling Configuration                                 #}
+{#                                                                              #}
+{# This Jinja2 template generates a command-line configuration script for the    #}
+{# promtool utility (part of the Prometheus ecosystem). It covers various        #}
+{# subcommands: check, query, push, test, and tsdb operations.                  #}
+{#                                                                              #}
+{# All variables MUST be provided by the Ansible role's defaults or vars.       #}
+{# Every variable reference uses | default(...) to prevent undefined variable    #}
+{# errors during template rendering.                                            #}
+{# ============================================================================ #}
+
+{# Global flags for promtool execution #}
+
+# Comma separated feature names to enable. Valid options: promql-experimental-functions, promql-delayed-name-removal, promql-duration-expr, promql-strict-action
+--enable-feature={{ (enable_feature | default([])) | join(',') }}
+
+# Enable experimental commands.
+--experimental={{ experimental | default(false) | lower }}
+
+# The server's maximum query lookback duration.
+--query.lookback-delta={{ query_lookback_delta | default('5m') }}
+
+{# Check configuration file validation #}
+
+# The config files to check.
+check config {{ (check_config_files | default(['prometheus.yml'])) | join(' ') }}
+{% if check_config_lint | default('duplicate-rules') %}
+--lint={{ check_config_lint | default('duplicate-rules') }}
+{% endif %}
+{% if check_config_lint_fatal | default(false) %}
+--lint-fatal
+{% endif %}
+{% if check_config_syntax_only | default(false) %}
+--syntax-only
+{% endif %}
+{% if check_config_agent | default(false) %}
+--agent
+{% endif %}
+
+{# Service discovery checks #}
+
+# Service discovery checks to perform. Each item must contain timeout, config_file, and job.
+{% for item in (check_service_discovery | default([])) %}
+check service-discovery --timeout={{ item.timeout | default('30s') }} {{ item.config_file | default('prometheus.yml') }} {{ item.job | default('prometheus') }}
+{% endfor %}
+
+{# Health and readiness checks #}
+
+# The URL for the Prometheus server.
+check healthy --url={{ check_healthy_url | default('http://localhost:9090') }}
+
+# The URL for the Prometheus server.
+check ready --url={{ check_ready_url | default('http://localhost:9090') }}
+
+{# Rule file checks #}
+
+# Linting checks to apply. Available options are: all, duplicate-rules, none.
+check rules --lint={{ check_rules_lint | default('duplicate-rules') }}
+{% if check_rules_lint_fatal | default(false) %}
+--lint-fatal
+{% endif %}
+{% if check_rules_ignore_unknown_fields | default(false) %}
+--ignore-unknown-fields
+{% endif %}
+# Rule files to check.
+{% for item in (check_rules_file | default([])) %}
+{{ item }}
+{% endfor %}
+
+{# Instant query execution #}
+
+# HTTP client configuration file.
+# Prometheus server to query.
+# PromQL query expression.
+# Query evaluation time (RFC3339 or Unix timestamp).
+query instant --format=json --http.config.file={{ query_instant_http_config | default('') }} {{ query_instant_server | default('http://localhost:9090') }} '{{ query_instant_expr | default('up') }}'
+{% if query_instant_time | default('') %}
+--time={{ query_instant_time | default('') }}
+{% endif %}
+
+{# Range query execution #}
+
+# HTTP client configuration file.
+# Prometheus server to query.
+# PromQL query expression.
+# Query range start time (RFC3339 or Unix timestamp).
+# Query range end time (RFC3339 or Unix timestamp).
+# Query step size (duration).
+query range --format=json --http.config.file={{ query_range_http_config | default('') }} {{ query_range_server | default('http://localhost:9090') }} '{{ query_range_expr | default('up') }}'
+--start={{ query_range_start | default('2023-01-01T00:00:00Z') }}
+--end={{ query_range_end | default('2023-01-01T01:00:00Z') }}
+--step={{ query_range_step | default('15s') }}
+
+{# Push metrics to remote write endpoint #}
+
+# Prometheus remote write url to push metrics.
+# Label to attach to metrics.
+# The time to wait for pushing metrics.
+# Prometheus remote write header.
+push metrics {{ push_metrics_remote_url | default('http://localhost:9091/api/v1/write') }}
+--label=job={{ push_metrics_label_job | default('promtool') }}
+--timeout={{ push_metrics_timeout | default('30s') }}
+{% for item in (push_metrics_headers | default([])) %}
+--header='{{ item }}'
+{% endfor %}
+
+{# Unit tests for rules #}
+
+# Unit tests for rules. Each item must contain run and test_rule_file.
+{% for item in (test_rules | default([])) %}
+test rules --run='{{ item.run | default('') }}' --diff={{ item.diff | default(false) | lower }} '{{ item.test_rule_file | default('rules_test.yml') }}'
+{% endfor %}
+
+{# TSDB Analysis #}
+
+# Analyze churn, label pair cardinality and compaction efficiency. Each item must contain db_path and optionally limit, extended, match.
+{% for item in (tsdb_analyze | default([])) %}
+tsdb analyze --limit={{ item.limit | default(20) }} --db-path={{ item.db_path | default('data/') }}
+{% if item.extended | default(false) %}
+--extended
+{% endif %}
+{% for matcher in (item.match | default([])) %}
+--match='{{ matcher }}'
+{% endfor %}
+{% endfor %}
+
+{# TSDB Dump #}
+
+# Dump data from a TSDB. Each item must contain db_path and optionally min_time, max_time, match.
+{% for item in (tsdb_dump | default([])) %}
+tsdb dump --db-path={{ item.db_path | default('data/') }}
+{% if item.min_time | default(-9223372036854775) %}
+--min-time={{ item.min_time | default(-9223372036854775) }}
+{% endif %}
+{% if item.max_time | default(9223372036854775) %}
+--max-time={{ item.max_time | default(9223372036854775) }}
+{% endif %}
+{% for matcher in (item.match | default([])) %}
+--match='{{ matcher }}'
+{% endfor %}
+{% endfor %}
+
+{# TSDB Benchmark Write #}
+
+# Run a write performance benchmark. Each item must contain file, out, metrics, scrapes.
+{% for item in (tsdb_bench_write | default([])) %}
+tsdb bench write --metrics={{ item.metrics | default(10000) }} --scrapes={{ item.scrapes | default(3000) }} --out={{ item.out | default('benchout') }} '{{ item.file | default('testdata/20kseries.json') }}'
+{% endfor %}

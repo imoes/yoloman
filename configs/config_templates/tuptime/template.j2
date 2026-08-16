@@ -1,0 +1,10 @@
+# /etc/cron.d/tuptime: Crontab entry for the tuptime uptime tracking utility.
+# This template configures how frequently the tuptime check runs via cron.
+
+# NOTE: The interval balances accuracy against overhead.
+# Decrease the execution time to increase accuracy of uptime reporting.
+
+# Skip execution if a systemd manager is active (prefer systemd timers).
+# The cron expression is defined below.
+
+{{ cron_schedule | default('*/5') }} * * * * root if [ ! -d /run/systemd/system ] && [ -x /usr/bin/tuptime ]; then /usr/bin/tuptime -q > /dev/null; fi

@@ -1,0 +1,94 @@
+{# ============================================================================
+   # plzip Default Configuration Profile
+   #
+   # This template generates a shell environment profile (e.g., /etc/default/plzip)
+   # that sets environment variables for the plzip compression tool.
+   # plzip itself does not read a standard global config file; instead,
+   # wrapper scripts or service definitions can source this file to enforce
+   # default behaviors for compression level, threading, buffer sizes, etc.
+   #
+   # Each variable below corresponds to a plzip command-line option.
+   # See: plzip(1) man page for detailed descriptions of each flag.
+   # ============================================================================ #}
+
+# --------------------------------------------------------------------------
+# Compression Level
+# Controls the trade-off between speed and compression ratio.
+# Range: 0 (fastest, lowest compression) to 9 (slowest, best compression).
+# Default in plzip is typically 6.
+# CLI equivalent: --fast, --best, -0 through -9
+# --------------------------------------------------------------------------
+COMPRESSION_LEVEL={{ compression_level | default(6) }}
+
+# --------------------------------------------------------------------------
+# Number of Threads
+# Determines parallelism for (de)compression.
+# Setting to 1 disables threading. The system default often detects CPU count.
+# CLI equivalent: -n, --threads
+# --------------------------------------------------------------------------
+THREADS={{ threads | default(2) }}
+
+# --------------------------------------------------------------------------
+# Dictionary Size
+# The search buffer size for the LZMA compressor.
+# Value 12-29 represents 2^value bytes.
+# Example: 23 = 2^23 = 8 MiB. Larger values improve compression but use more RAM.
+# CLI equivalent: -s, --dictionary-size
+# --------------------------------------------------------------------------
+DICT_SIZE={{ dict_size | default(23) }}
+
+# --------------------------------------------------------------------------
+# Match Length Limit
+# Maximum length of a matched string sequence in bytes.
+# Higher values may improve compression on large files at the cost of speed.
+# CLI equivalent: -m, --match-length
+# --------------------------------------------------------------------------
+MATCH_LENGTH={{ match_length | default(36) }}
+
+# --------------------------------------------------------------------------
+# Input Buffer Slots
+# Number of 1 MiB packets buffered for input streams.
+# Helps smooth I/O performance for large files or slow disks.
+# CLI equivalent: --in-slots
+# --------------------------------------------------------------------------
+IN_SLOTS={{ in_slots | default(4) }}
+
+# --------------------------------------------------------------------------
+# Output Buffer Slots
+# Number of 1 MiB packets buffered for output streams.
+# Prevents output starvation during high-speed compression.
+# CLI equivalent: --out-slots
+# --------------------------------------------------------------------------
+OUT_SLOTS={{ out_slots | default(64) }}
+
+# --------------------------------------------------------------------------
+# Keep Input Files
+# If enabled, plzip will not remove the original input file after compression.
+# Normally, plzip deletes the source file to save space, replacing it with .lz.
+# CLI equivalent: -k, --keep
+# --------------------------------------------------------------------------
+KEEP_INPUT={{ keep_input | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Verbose Output
+# If enabled, plzip prints detailed progress and statistics to stderr.
+# Useful for debugging or monitoring long-running batch jobs.
+# CLI equivalent: -v, --verbose
+# --------------------------------------------------------------------------
+VERBOSE={{ verbose | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Force Overwrite
+# If enabled, plzip will overwrite existing output files without prompting.
+# Prevents errors when the target .lz file already exists.
+# CLI equivalent: -f, --force
+# --------------------------------------------------------------------------
+FORCE={{ force | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Trailing Error Check
+# If enabled, plzip exits with an error code if there is data after the
+# compressed stream (trailing garbage). This ensures data integrity checks.
+# CLI equivalent: -a, --trailing-error
+# --------------------------------------------------------------------------
+TRAILING_ERROR={{ trailing_error | default(false) | lower }}

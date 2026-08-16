@@ -1,0 +1,43 @@
+{
+  "suite": "trixie",
+  "target": "/tmp/debian-trixie",
+  "mirrors": [
+    "http://deb.debian.org/debian"
+  ],
+  "variant": "standard",
+  "mode": "auto",
+  "format": "directory",
+  "aptopt": [
+    "Acquire::Languages \"none\";",
+    "Acquire::GzipIndexes \"true\";"
+  ],
+  "dpkgopt": [
+    "path-exclude=/usr/share/man/*;",
+    "path-exclude=/usr/share/doc/*;"
+  ],
+  "include": [
+    "bash",
+    "coreutils",
+    "systemd"
+  ],
+  "components": [
+    "main",
+    "contrib",
+    "non-free-firmware"
+  ],
+  "architectures": [
+    "amd64"
+  ],
+  "keyring": "",
+  "hooks": {
+    "setup": [
+      "echo 'deb http://deb.debian.org/debian trixie-backports main' > $1/etc/apt/sources.list.d/backports.list"
+    ],
+    "customize": [
+      "chroot $1 adduser --disabled-password --gecos '' user"
+    ]
+  },
+  "skip": [],
+  "verbosity": 1,
+  "logfile": ""
+}

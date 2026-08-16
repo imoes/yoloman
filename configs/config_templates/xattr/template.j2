@@ -1,0 +1,47 @@
+{# ============================================================================ #}
+{# xattr (Extended Attributes) Configuration Template                           #}
+{#                                                                              #}
+{# This template generates configuration for managing Linux extended attributes #}
+{# (xattr) via sysctl or kernel parameters. Extended attributes allow storing     #}
+{# additional metadata on filesystem objects (files, directories, symlinks).    #}
+{#                                                                              #}
+{# NOTE: xattr configuration is primarily handled by the kernel and filesystem  #}
+{# drivers (e.g., ext4, xfs, btrfs) at mount time or via sysctl. There is no   #}
+{# standalone "xattr" daemon or complex service with a rich config file. This   #}
+{# template provides a placeholder structure for any potential system-wide       #}
+{# xattr policies or kernel parameter adjustments (e.g., security.xattr).      #}
+{#                                                                              #}
+{# If this role manages a specific application that uses xattrs, that           #}
+{# application's config should be handled separately.                          #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# Section: General System Defaults                                           #}
+{# -------------------------------------------------------------------------- #}
+
+{# Maximum size of a single extended attribute value (in bytes).         #}
+{# Default: 65536 (64KB) is common on modern kernels, but often limited  #}
+{# by the filesystem's block size.                                       #}
+# security.xattr.max_size = {{ xattr_max_size | default(65536) }}
+
+{# Whether to enforce user namespace restrictions on xattrs.             #}
+{# Default: false. Setting to true can improve security on multi-tenant  #}
+{# systems by preventing cross-namespace attribute leakage.              #}
+# security.xattr.user_namespace_enforce = {{ xattr_user_namespace_enforce | default(false) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# Section: Filesystem-Specific Mount Options                                 #}
+{# -------------------------------------------------------------------------- #}
+
+{# This section is often handled by /etc/fstab or systemd mount units.      #}
+{# However, if a flat config is needed for documentation or a specific tool, #}
+{# it can be placed here.                                                    #}
+
+{# Default ACL behavior for xattrs on new files/dirs.                       #}
+{# Common values: 'posix' (standard POSIX ACLs), 'system' (system xattrs). #}
+{# Default: posix                                                            #}
+# default_xattr_type = {{ xattr_default_type | default('posix') }}
+
+{# Enable tracking of extended attributes for audit purposes.               #}
+{# Default: false                                                            #}
+# audit_xattr_changes = {{ xattr_audit_changes | default(false) | lower }}

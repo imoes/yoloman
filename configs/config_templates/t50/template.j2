@@ -1,0 +1,73 @@
+# ============================================================================
+# t50 Packet Injection Tool Configuration
+# ============================================================================
+# This template generates a configuration file for the t50 network testing tool.
+# t50 is used to stress-test network stacks and firewalls by injecting synthetic packets.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Target Host / CIDR
+# ---------------------------------------------------------------------------
+# Description: Target host address or CIDR range (IPv4 only).
+# This is the destination for the packet injection.
+# Corresponds to the positional 'host[/CIDR]' argument.
+TARGET_HOST={{ target_host | default('192.168.1.1') }}
+
+# ---------------------------------------------------------------------------
+# Packet Threshold
+# ---------------------------------------------------------------------------
+# Description: Number of packets to inject when not in flood mode.
+# If flood mode is disabled, t50 will inject this many packets and then stop.
+# Corresponds to --threshold NUM.
+THRESHOLD={{ threshold | default(1000) }}
+
+# ---------------------------------------------------------------------------
+# Protocol Selection
+# ---------------------------------------------------------------------------
+# Description: Protocol to inject (e.g., tcp, udp, icmp, t50).
+# Valid values include: icmp, igmpv1, igmpv3, tcp, egp, udp, ripv1, ripv2,
+# dccp, rsvp, ipsec, eigrp, ospf, t50.
+# If set to 't50', t50 can shuffle between multiple protocols.
+# Corresponds to --protocol protoname.
+PROTOCOL={{ protocol | default('tcp') }}
+
+# ---------------------------------------------------------------------------
+# Source Address
+# ---------------------------------------------------------------------------
+# Description: Source IP address for packets.
+# Use 'random' for automatic generation of source addresses.
+# Corresponds to -s ADDR.
+SOURCE_ADDR={{ source_addr | default('random') }}
+
+# ---------------------------------------------------------------------------
+# Bogus Checksums
+# ---------------------------------------------------------------------------
+# Description: Use bogus random checksums instead of calculating real ones.
+# This is useful for testing if the target system validates checksums correctly.
+# Corresponds to -B / --bogus-csum.
+BOGUS_CSUM={{ bogus_csum | default(false) }}
+
+# ---------------------------------------------------------------------------
+# Turbo Mode
+# ---------------------------------------------------------------------------
+# Description: Enable turbo mode using a child process for higher speed.
+# This forks a child process to handle packet generation/injection for performance.
+# Corresponds to --turbo.
+TURBO={{ turbo | default(false) }}
+
+# ---------------------------------------------------------------------------
+# Shuffle Protocols
+# ---------------------------------------------------------------------------
+# Description: Shuffle protocol selection when protocol is set to 't50'.
+# Only effective when PROTOCOL is set to 't50'.
+# Corresponds to --shuffle.
+SHUFFLE={{ shuffle | default(false) }}
+
+# ---------------------------------------------------------------------------
+# Flood Mode
+# ---------------------------------------------------------------------------
+# Description: Keep injecting packets until terminated.
+# When enabled, THRESHOLD is ignored. Cannot be used with threshold logic effectively
+# if you expect a specific count.
+# Corresponds to --flood.
+FLOOD={{ flood | default(false) }}

@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# Action script to enable/disable wpa-roam interfaces in reaction to
+# ifplugd events.
+#
+# Copyright: Copyright (c) 2008-2010, Kel Modderman <kel@otaku42.de>
+# License:   GPL-2
+#
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+if [ ! -x /usr/sbin/wpa_action ]; then
+	exit 0
+fi
+
+# ifplugd(8) - <iface> <action>
+#
+# If an ifplugd managed interface is brought up, disconnect any
+# wpa-roam managed interfaces so that only one "roaming" interface
+# remains active on the system.
+
+# The network interface managed by ifplugd.
+IFPLUGD_IFACE="{{ ifplugd_iface | default('') }}"
+
+case "${2}" in
+	up)
+		COMMAND=disconnect
+		;;
+	down)
+		COMMAND=reconnect
+		;;
+	*)
+		echo "$0: unknown arguments: ${@}" >&2
+		exit 1
+		;;
+esac
+
+# The path to the wpa_supplicant runtime directory.
+# Iterate over socket files in this directory to find managed interfaces.
+for CTRL in {{ wpa_supplicant_run_path | default('/run/wpa_supplicant') }}/*; do
+	[ -S "${CTRL}" ] || continue
+
+	IFACE="${CTRL#{{ wpa_supplicant_run_path | default('/run/wpa_supplicant') }}/}"
+
+	# skip if ifplugd is managing this interface
+	if [ "${IFPLUGD_IFACE}" = "${IFACE}" ]; then
+		continue
+	fi
+
+	if wpa_action "${IFACE}" check; then
+		wpa_cli -i "${IFACE}" "${COMMAND}"
+	fi
+done

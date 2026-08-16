@@ -1,0 +1,149 @@
+# =============================================================================
+# rrep - Automated search and replace in text files
+# =============================================================================
+# This configuration file drives the `rrep` utility, which performs non-interactive
+# search-and-replace operations on files and directories.
+#
+# Format: key = value
+# See rrep(1) for full documentation.
+# =============================================================================
+
+# -------------------------------------------------------------------------
+# Regular Expression Engine Settings
+# -------------------------------------------------------------------------
+
+# [default: False]
+# Controls whether PATTERN is interpreted as an extended regular expression (ERE).
+# When true, enables ERE syntax (e.g., ?, +, |, ()). Equivalent to -E / --extended-regexp.
+extended_regex = {{ extended_regex | default(False) }}
+
+# [default: False]
+# Treat PATTERN and REPLACEMENT as fixed literal strings, disabling regex interpretation.
+# Equivalent to -F / --fixed-strings.
+fixed_strings = {{ fixed_strings | default(False) }}
+
+# -------------------------------------------------------------------------
+# Search Scope & Recursion Settings
+# -------------------------------------------------------------------------
+
+# [default: False]
+# Process directories recursively.
+# Equivalent to -R / --recursive.
+recursive = {{ recursive | default(False) }}
+
+# [default: False]
+# Process files/directories starting with '.' (hidden files) in recursive scans.
+# Equivalent to -a / --all.
+all_files = {{ all_files | default(False) }}
+
+# [default: False]
+# Do not ignore binary files (files containing null bytes).
+# By default, rrep skips binary files. Equivalent to --binary.
+binary = {{ binary | default(False) }}
+
+# -------------------------------------------------------------------------
+# Safety & Dry-Run Settings
+# -------------------------------------------------------------------------
+
+# [default: False]
+# Simulate replacements without modifying files on disk.
+# Outputs what *would* happen but changes nothing. Equivalent to --dry-run.
+dry_run = {{ dry_run | default(False) }}
+
+# [default: False]
+# Prompt user before modifying each file.
+# Equivalent to --interactive.
+interactive = {{ interactive | default(False) }}
+
+# -------------------------------------------------------------------------
+# Output Control
+# -------------------------------------------------------------------------
+
+# [default: False]
+# Suppress normal output messages (e.g., "replaced X in file").
+# Equivalent to -q, --quiet, --silent.
+quiet = {{ quiet | default(False) }}
+
+# [default: False]
+# Suppress error messages (e.g., permission denied, no match).
+# Equivalent to -s, --no-messages.
+no_messages = {{ no_messages | default(False) }}
+
+# -------------------------------------------------------------------------
+# Pattern Matching Constraints
+# -------------------------------------------------------------------------
+
+# [default: False]
+# Match only whole words.
+# The pattern must match an entire word boundary. Equivalent to -w, --word-regexp.
+word_regexp = {{ word_regexp | default(False) }}
+
+# [default: False]
+# Match only whole lines.
+# The pattern must match the entire line content. Equivalent to -x, --line-regexp.
+line_regexp = {{ line_regexp | default(False) }}
+
+# [default: False]
+# Ignore case distinctions in PATTERN (case-insensitive matching).
+# Equivalent to -i, --ignore-case.
+ignore_case = {{ ignore_case | default(False) }}
+
+# -------------------------------------------------------------------------
+# Backup Settings
+# -------------------------------------------------------------------------
+
+# [default: '~']
+# Override default backup suffix. Activates backups implicitly if files are modified.
+# Example: '.bak' creates file.txt.bak. Equivalent to -S SUFFIX, --suffix=SUFFIX.
+backup_suffix = {{ backup_suffix | default('~') }}
+
+# [default: 'nil']
+# Version control method for backups. Options: none, numbered, existing, simple.
+# Equivalent to --backup[=CONTROL].
+backup_control = {{ backup_control | default('nil') }}
+
+# [default: False]
+# Restore original access and modification times after processing.
+# Equivalent to --keep-times.
+keep_times = {{ keep_times | default(False) }}
+
+# -------------------------------------------------------------------------
+# Search & Replacement Definition
+# -------------------------------------------------------------------------
+
+# [default: '']
+# The regular expression pattern (or fixed string) to search for.
+# Equivalent to -e PATTERN, --regexp=PATTERN.
+pattern = {{ pattern | default('') }}
+
+# [default: '']
+# The replacement string.
+# Equivalent to -p REPLACEMENT, --replace-with=REPLACEMENT.
+replacement = {{ replacement | default('') }}
+
+# -------------------------------------------------------------------------
+# File Selection Filters
+# -------------------------------------------------------------------------
+
+# [default: []]
+# List of file name glob patterns to INCLUDE.
+# If specified, only files matching these patterns are processed.
+# Equivalent to --include=FILE_PATTERN.
+include_patterns = {{ include_patterns | default([]) }}
+
+# [default: []]
+# List of file name glob patterns to EXCLUDE.
+# Files matching these patterns are skipped even if they match include patterns.
+# Equivalent to --exclude=FILE_PATTERN.
+exclude_patterns = {{ exclude_patterns | default([]) }}
+
+# [default: []]
+# List of directory name patterns to EXCLUDE during recursive scans.
+# Directories matching these patterns are not descended into.
+# Equivalent to --exclude-dir=PATTERN.
+exclude_dirs = {{ exclude_dirs | default([]) }}
+
+# [default: []]
+# List of target files or directories to process.
+# If empty, behavior depends on other filters or defaults.
+target_files = {{ target_files | default([]) }}

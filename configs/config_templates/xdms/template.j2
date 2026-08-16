@@ -1,0 +1,118 @@
+# ==============================================================================
+# xdms Batch Unpacking Configuration Template
+# ==============================================================================
+# This template generates a configuration file and a command execution string
+# for 'xdms', a tool used to unpack Digital Media Systems (DMS) archives.
+#
+# Variables are sourced from the Ansible role's inventory or defaults.
+# Every variable uses the `default()` filter to ensure the template renders
+# safely even if a variable is undefined, adhering to the schema defaults.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Core Settings
+# --------------------------------------------------------------------------
+
+# The destination directory where DMS files will be unpacked.
+# Default: '/tmp/xdms_output'
+DESTDIR: {{ dest_dir | default('/tmp/xdms_output') }}
+
+# Password for encrypted DMS archives.
+# If empty, the archive is assumed to be unencrypted or password will be prompted.
+# Default: '' (empty string)
+PASSWORD: {{ password | default('') }}
+
+# Specific output file name for the unpacked result.
+# If empty, xdms uses its original archive name logic.
+# Default: '' (empty string)
+OUTPUT_FILE: {{ output_file | default('') }}
+
+# The path to the DMS archive file to process.
+# This is the primary input for the extraction command.
+# Note: This field is mandatory for command generation.
+ARCHIVE_FILE: {{ archive_file | default('') }}
+
+# List of file names to exclude from unpacking.
+# xdms does not natively support exclusion in CLI, but this allows
+# template extension or future flag support. Values are joined by spaces.
+# Default: [] (empty list)
+EXCLUDE_FILES: {{ exclude_files | default([]) | join(' ') }}
+
+# Enable verbose output during execution.
+# Default: False
+VERBOSE: {{ verbose | default(false) }}
+
+# Be quiet; suppress non-essential output.
+# Takes precedence over verbose if both are true (logic handled in command construction).
+# Default: False
+QUIET: {{ quiet | default(false) }}
+
+# Override errors; force extraction even if warnings occur.
+# Default: False
+FORCE: {{ force | default(false) }}
+
+# --------------------------------------------------------------------------
+# Command Construction Logic
+# --------------------------------------------------------------------------
+# The following section builds the specific command-line flags based on the
+# variables defined above. This ensures the final command is valid and
+# only includes flags that are relevant/defined.
+
+{% if archive_file | default('', boolean=True) %}
+    # --- Flag Generation ---
+
+    # Destination directory flag
+    # Uses the DESTDIR variable if defined and non-empty.
+    {% if dest_dir | default('/tmp/xdms_output', boolean=True) %}
+    DESTDIR_FLAG: -d {{ dest_dir | default('/tmp/xdms_output') }}
+    {% else %}
+    DESTDIR_FLAG:
+    {% endif %}
+
+    # Password flag
+    # Only included if a password is explicitly provided.
+    {% if password | default('', boolean=True) %}
+    PASSWORD_FLAG: -p {{ password | default('') }}
+    {% else %}
+    PASSWORD_FLAG:
+    {% endif %}
+
+    # Verbose/Quiet flag
+    # Quiet (-q) takes precedence if set; otherwise verbose (-v).
+    {% if verbose | default(false) %}
+    VERBOSE_FLAG: -v
+    {% elif quiet | default(false) %}
+    VERBOSE_FLAG: -q
+    {% else %}
+    VERBOSE_FLAG:
+    {% endif %}
+
+    # Force flag
+    # Included only if force mode is enabled.
+    {% if force | default(false) %}
+    FORCE_FLAG: -f
+    {% else %}
+    FORCE_FLAG:
+    {% endif %}
+
+    # Output file flag
+    # Included only if a specific output filename is provided.
+    {% if output_file | default('', boolean=True) %}
+    OUTPUT_FLAG: {{ output_file | default('') }}
+    {% else %}
+    OUTPUT_FLAG:
+    {% endif %}
+
+    # ------------------------------------------------------------------
+    # Final Command Assembly
+    # ------------------------------------------------------------------
+    # Constructs the final executable command string using the generated flags.
+    # Note: EXCLUDE_FILES is listed as a variable but not passed as a CLI
+    # flag here as per the description that xdms does not support it natively.
+    COMMAND: xdms u {{ DESTDIR_FLAG }} {{ PASSWORD_FLAG }} {{ VERBOSE_FLAG }} {{ FORCE_FLAG }} {{ archive_file | default('') }} {{ OUTPUT_FLAG }}
+
+{% else %}
+    # No archive file specified.
+    # No command generated. Ensure ARCHIVE_FILE is set before execution.
+    # COMMAND: (empty)
+{% endif %}

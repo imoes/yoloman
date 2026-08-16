@@ -1,0 +1,101 @@
+# ============================================================================
+# Tarlz Configuration Template
+# ============================================================================
+# This configuration file controls the behavior of the `tarlz` tool, which
+# creates LZ4-compressed tar archives.
+#
+# Each setting corresponds to a command-line option for `tarlz`.
+# Defaults are specified inline to ensure the configuration is valid even
+# if Ansible variables are not provided.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Target size of input data blocks in bytes.
+# Controls the block size for compression. Larger blocks may improve
+# compression ratios but increase memory usage.
+# Default: 16 MiB (16 * 1024 * 1024).
+# CLI Flag: --data-size=<bytes>
+# ---------------------------------------------------------------------------
+data_size: {{ (data_size | default(16777216)) }}
+
+# ---------------------------------------------------------------------------
+# Number of (de)compression threads to use.
+# Enables parallel processing for faster compression/decompression.
+# Default: 2 threads.
+# CLI Flag: --threads=<n>
+# ---------------------------------------------------------------------------
+threads: {{ (threads | default(2)) }}
+
+# ---------------------------------------------------------------------------
+# Compression level (0-9).
+# 0 is the fastest with lowest compression; 9 is the slowest with best
+# compression. 6 is a balanced default.
+# CLI Flag: --0 .. --9
+# ---------------------------------------------------------------------------
+compression_level: {{ (compression_level | default(6)) }}
+
+# ---------------------------------------------------------------------------
+# Number of 1 MiB output packets buffered.
+# Controls the internal buffer size for output streams.
+# Default: 64 slots.
+# CLI Flag: --out-slots=<n>
+# ---------------------------------------------------------------------------
+out_slots: {{ (out_slots | default(64)) }}
+
+# ---------------------------------------------------------------------------
+# Exclude files matching these shell patterns.
+# A list of glob-style patterns. Files matching any pattern will be
+# excluded from the archive.
+# CLI Flag: --exclude=<pattern>
+# ---------------------------------------------------------------------------
+exclude_patterns:
+{% for pattern in (exclude_patterns | default([])) %}
+  - {{ pattern }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Solid compression mode.
+# Determines how blocks are treated for compression efficiency.
+# Valid values:
+#   - no-solid:     Each file is compressed independently (fastest).
+#   - per_block:    Blocks within a file are compressed together (default).
+#   - per_directory: Files in the same directory are compressed together.
+#   - solid:        All files are compressed into a single stream.
+#   - asolid:       Automatic solid mode (heuristics-based).
+# CLI Flags: --no-solid, --bsolid, --dsolid, --solid, --asolid
+# ---------------------------------------------------------------------------
+solid_mode: {{ (solid_mode | default('per_block')) }}
+
+# ---------------------------------------------------------------------------
+# Preserve permissions (don't subtract umask on extraction).
+# If true, extraction preserves file modes exactly as archived, ignoring
+# the current umask.
+# Default: false.
+# CLI Flag: -p, --preserve-permissions
+# ---------------------------------------------------------------------------
+preserve_permissions: {{ (preserve_permissions | default(false)) }}
+
+# ---------------------------------------------------------------------------
+# Dereference symlinks.
+# If true, symbolic links are followed, and the file they point to is
+# archived instead of the link itself.
+# Default: false.
+# CLI Flag: -h, --dereference
+# ---------------------------------------------------------------------------
+dereference_symlinks: {{ (dereference_symlinks | default(false)) }}
+
+# ---------------------------------------------------------------------------
+# Quiet mode.
+# If true, suppresses all standard output messages during operation.
+# Default: false.
+# CLI Flag: -q, --quiet
+# ---------------------------------------------------------------------------
+quiet: {{ (quiet | default(false)) }}
+
+# ---------------------------------------------------------------------------
+# Verbose mode.
+# If true, lists all processed files and progress details to stdout.
+# Default: false.
+# CLI Flag: -v, --verbose
+# ---------------------------------------------------------------------------
+verbose: {{ (verbose | default(false)) }}

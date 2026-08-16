@@ -1,0 +1,25 @@
+# ============================================================================
+# newpid service configuration template
+# ============================================================================
+# This template generates the configuration for the 'newpid' utility, which
+# launches a command inside a new PID namespace, optionally adding other
+# namespace isolation flags.
+#
+# Variables used:
+#   command: List of strings representing the command and its arguments.
+#            Defaults to ['/bin/bash', '-c', 'echo hello'].
+#   flags:   List of string flags to enable additional namespace isolation.
+#            Supported flags: '-i' (IPC), '-n' (Network), '-u' (UTS).
+#            Defaults to an empty list, resulting in PID namespace only.
+# ============================================================================
+
+# Flags for namespace isolation
+# -i: CLONE_NEWIPC (New IPC namespace)
+# -n: CLONE_NEWNET (New network namespace)
+# -u: CLONE_NEWUTS (New UTS namespace)
+# If empty, the command runs with default PID namespace isolation only.
+flags = {{ flags | default([]) | join(' ') }}
+
+# The command to execute within the namespace
+# This is the process that will be the init process (PID 1) of the new namespace.
+command = {{ command | default(['/bin/bash', '-c', 'echo hello']) | join(' ') }}

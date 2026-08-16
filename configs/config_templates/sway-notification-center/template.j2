@@ -1,0 +1,128 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  # Horizontal alignment of the notification popup and control center.
+  "positionX": "{{ positionX | default('right') }}",
+  # Vertical alignment of the notification popup and control center.
+  "positionY": "{{ positionY | default('top') }}",
+  # Layer group for the notification window (overlay, top, bottom).
+  "layer": "{{ layer | default('overlay') }}",
+  # Layer group for the control center window.
+  "control-center-layer": "{{ control_center_layer | default('top') }}",
+  # Use layer-shell protocol for windows.
+  "layer-shell": {{ layer_shell | default(true) | lower }},
+  # Cover the entire screen with layer-shell.
+  "layer-shell-cover-screen": {{ layer_shell_cover_screen | default(true) | lower }},
+  # Priority for the CSS theme.
+  "cssPriority": "{{ css_priority | default('application') }}",
+  # Margin top for the control center in pixels.
+  "control-center-margin-top": {{ control_center_margin_top | default(0) }},
+  # Margin bottom for the control center in pixels.
+  "control-center-margin-bottom": {{ control_center_margin_bottom | default(0) }},
+  # Margin right for the control center in pixels.
+  "control-center-margin-right": {{ control_center_margin_right | default(0) }},
+  # Margin left for the control center in pixels.
+  "control-center-margin-left": {{ control_center_margin_left | default(0) }},
+  # Enable the 2FA action button in notifications.
+  "notification-2fa-action": {{ notification_2fa_action | default(true) | lower }},
+  # Enable inline reply functionality in notifications.
+  "notification-inline-replies": {{ notification_inline_replies | default(false) | lower }},
+  # Size of the notification icon in pixels.
+  "notification-icon-size": {{ notification_icon_size | default(64) }},
+  # Height of inline images in the notification body.
+  "notification-body-image-height": {{ notification_body_image_height | default(100) }},
+  # Width of inline images in the notification body.
+  "notification-body-image-width": {{ notification_body_image_width | default(200) }},
+  # Default timeout for notifications in seconds.
+  "timeout": {{ timeout | default(10) }},
+  # Timeout for 'Low' urgency notifications.
+  "timeout-low": {{ timeout_low | default(5) }},
+  # Timeout for 'Critical' urgency notifications (0 for never).
+  "timeout-critical": {{ timeout_critical | default(0) }},
+  # Fit the notification popup to the screen width.
+  "fit-to-screen": {{ fit_to_screen | default(true) | lower }},
+  # Display relative timestamps (e.g., '2 min ago') instead of absolute.
+  "relative-timestamps": {{ relative_timestamps | default(true) | lower }},
+  # Width of the control center in pixels.
+  "control-center-width": {{ control_center_width | default(500) }},
+  # Height of the control center in pixels.
+  "control-center-height": {{ control_center_height | default(600) }},
+  # Width of the individual notification window in pixels.
+  "notification-window-width": {{ notification_window_width | default(500) }},
+  # Enable built-in keyboard shortcuts.
+  "keyboard-shortcuts": {{ keyboard_shortcuts | default(true) | lower }},
+  # When to show images in notifications (always, when-available, never).
+  "image-visibility": "{{ image_visibility | default('when-available') }}",
+  # Transition animation duration in milliseconds.
+  "transition-time": {{ transition_time | default(200) }},
+  # Hide the notification popup when the control center is cleared.
+  "hide-on-clear": {{ hide_on_clear | default(false) | lower }},
+  # Hide the notification popup when an action is taken.
+  "hide-on-action": {{ hide_on_action | default(true) | lower }},
+  # Text displayed when the notification list is empty.
+  "text-empty": "{{ text_empty | default('No Notifications') }}",
+  # Show a notification if a custom script fails.
+  "script-fail-notify": {{ script_fail_notify | default(true) | lower }},
+  # Custom scripts configuration block.
+  "scripts": {
+    "example-script": {
+      "exec": "echo 'Do something...'",
+      "urgency": "Normal"
+    },
+    "example-action-script": {
+      "exec": "echo 'Do something actionable!'",
+      "urgency": "Normal",
+      "run-on": "action"
+    }
+  },
+  # Notification visibility rules (e.g., mute specific apps).
+  "notification-visibility": {
+    "example-name": {
+      "state": "muted",
+      "urgency": "Low",
+      "app-name": "Spotify"
+    }
+  },
+  # Widgets configuration.
+  "widgets": [
+    "inhibitors",
+    "title",
+    "dnd",
+    "notifications"
+  ],
+  # Widget-specific configuration.
+  "widget-config": {
+    "inhibitors": {
+      "text": "Inhibitors",
+      "button-text": "Clear All",
+      "clear-all-button": true
+    },
+    "title": {
+      "text": "Notifications",
+      "clear-all-button": true,
+      "button-text": "Clear All"
+    },
+    "dnd": {
+      "text": "Do Not Disturb"
+    },
+    "label": {
+      "max-lines": 5,
+      "text": "Label Text"
+    },
+    "mpris": {
+      "image-size": 96,
+      "image-radius": 12,
+      "blacklist": []
+    },
+    "buttons-grid": {
+      "actions": [
+        {
+          "label": "直",
+          "type": "toggle",
+          "active": true,
+          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
+          "update-command": "sh -c '[[ $(nmcli radio wifi) == \\"enabled\\" ]] && echo true || echo false'"
+        }
+      ]
+    }
+  }
+}

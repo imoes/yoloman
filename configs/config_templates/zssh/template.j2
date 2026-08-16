@@ -1,0 +1,33 @@
+# {{ service_name | default('zssh') }} configuration template
+# Generated for {{ service_name | default('zssh') }}
+#
+# This template generates environment variables for the zssh wrapper script.
+# It self-documents each setting based on the schema fields provided to Ansible.
+
+# --zssh-escape ^X
+# Escape key sequence to enter file transfer mode.
+# Format: ^X where X is a character (e.g., ^@, ^A, ^[).
+# Default is Ctrl-Space (^@).
+export ZSSHESCAPE="{{ escape_key | default('^@') }}"
+
+# --shell cmd
+# Alternative command to run as the remote shell (e.g., 'ssh -e none').
+# If empty, standard ssh behavior is used.
+{% if (remote_shell_cmd | default('')) is string and remote_shell_cmd | default('') | length > 0 %}
+export ZSSH_SHELL="{{ remote_shell_cmd | default('') }}"
+{% endif %}
+
+# --force
+# If true, skips user questions (equivalent to -f/--force).
+export ZSSH_FORCE="{{ force_mode | default(False) | ternary('1', '0') }}"
+
+# Host and Connection Settings
+# zssh passes remaining arguments to ssh/telnet.
+# A typical invocation script would look like:
+# zssh $ZSSH_FORCE -s "$ZSSH_SHELL" -e none {{ zssh_user | default('user') }}@{{ zssh_host | default('example.com') }}
+
+# The remote hostname or IP address to connect to via SSH.
+export ZSSH_HOST="{{ zssh_host | default('example.com') }}"
+
+# The username for the remote SSH connection.
+export ZSSH_USER="{{ zssh_user | default('user') }}"

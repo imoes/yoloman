@@ -1,0 +1,70 @@
+#!/bin/bash
+# mktorrent command execution template
+# Target directory or filename to create torrent for
+TARGET="{{ target_path }}"
+
+# Output filename for the .torrent file
+OUTPUT_FILE="{{ output_filename }}"
+
+# Name of the torrent (defaults to basename of target if not specified)
+{% if name is defined %}
+NAME_ARG="--name={{ name }}"
+{% else %}
+NAME_ARG=""
+{% endif %}
+
+# Piece length exponent (2^n bytes, default 18 for 256kB)
+PIECE_LENGTH_ARG="--piece-length={{ piece_length }}"
+
+# Set private flag for the torrent
+PRIVATE_FLAG=""
+{% if private %}
+PRIVATE_FLAG="--private"
+{% endif %}
+
+# List of tracker announce URLs
+ANNOUNCE_ARGS=""
+{% for url in announce_urls %}
+ANNOUNCE_ARGS="{{ ANNOUNCE_ARGS }} -a {{ url }}"
+{% endfor %}
+
+# Web seed URLs
+WEB_SEED_ARGS=""
+{% for url in web_seed_urls %}
+WEB_SEED_ARGS="{{ WEB_SEED_ARGS }} -w {{ url }}"
+{% endfor %}
+
+# Source string embedded in infohash
+SOURCE_ARG=""
+{% if source %}
+SOURCE_ARG="--source={{ source }}"
+{% endif %}
+
+# Comment embedded in the torrent info
+COMMENT_ARG=""
+{% if comment %}
+COMMENT_ARG="--comment={{ comment }}"
+{% endif %}
+
+# Number of threads for hash calculation (default: auto)
+THREADS_ARG=""
+{% if threads %}
+THREADS_ARG="--threads={{ threads }}"
+{% endif %}
+
+# Do not write creation date
+NO_DATE_FLAG=""
+{% if no_date %}
+NO_DATE_FLAG="--no-date"
+{% endif %}
+
+# Verbose output
+VERBOSE_FLAG=""
+{% if verbose %}
+VERBOSE_FLAG="-v"
+{% endif %}
+
+# Construct and execute the mktorrent command
+mktorrent {{ VERBOSE_FLAG }} {{ NAME_ARG }} {{ ANNOUNCE_ARGS }} {{ WEB_SEED_ARGS }} \
+  --output="{{ OUTPUT_FILE }}" {{ PRIVATE_FLAG }} {{ SOURCE_ARG }} {{ COMMENT_ARG }} \
+  {{ NO_DATE_FLAG }} {{ THREADS_ARG }} {{ PIECE_LENGTH_ARG }} "{{ TARGET }}"

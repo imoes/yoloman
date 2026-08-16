@@ -1,0 +1,80 @@
+#!/bin/bash
+# Auto-generated K4Dirstat launch wrapper
+#
+# This script launches K4Dirstat (a Qt-based directory statistics tool) with
+# configurable options passed via environment variables and command-line arguments.
+# It is intended to be used as a wrapper script in Ansible-managed environments.
+#
+# Variables are sourced from the Ansible playbook variables, with sensible
+# defaults defined in Jinja2 `default()` filters to ensure idempotency and
+# safety against undefined variables.
+
+# ---------------------------------------------------------------------------
+# Target Path
+# The directory or URL to open and scan by default.
+# ---------------------------------------------------------------------------
+TARGET_PATH="{{ target_path | default('/home') }}"
+
+# ---------------------------------------------------------------------------
+# Window Title
+# A descriptive name for the wrapper script context.
+# ---------------------------------------------------------------------------
+WINDOW_TITLE="{{ window_title | default('K4Dirstat') }}"
+
+# ---------------------------------------------------------------------------
+# X11 Display
+# Switches displays on X11 (hostname:screen_number). Overrides DISPLAY env var.
+# If set, we export the DISPLAY variable and also pass the -display argument.
+# ---------------------------------------------------------------------------
+{% if display | default('') != '' %}
+DISPLAY_TARGET="{{ display }}"
+export DISPLAY="$DISPLAY_TARGET"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Qt Platform Theme
+# Specifies the Qt Platform Theme (e.g., kde, gtk). Overridden by
+# QT_QPA_PLATFORMTHEME environment variable.
+# ---------------------------------------------------------------------------
+{% if platformtheme | default('') != '' %}
+export QT_QPA_PLATFORMTHEME="{{ platformtheme }}"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Qt Platform Plugin Path
+# Specifies the path to Qt platform plugins. Overridden by
+# QT_QPA_PLATFORM_PLUGIN_PATH environment variable.
+# ---------------------------------------------------------------------------
+{% if platformpluginpath | default('') != '' %}
+export QT_QPA_PLATFORM_PLUGIN_PATH="{{ platformpluginpath }}"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Additional Qt Plugins
+# Additional Qt plugins to load. May appear multiple times.
+# ---------------------------------------------------------------------------
+{% if plugin | default([]) | length > 0 %}
+Q_PLUGIN_ARGS=""
+{% for p in plugin %}
+Q_PLUGIN_ARGS="$Q_PLUGIN_ARGS -plugin {{ p }}"
+{% endfor %}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Launch K4Dirstat
+# Executes the k4dirstat binary with the configured arguments.
+# ---------------------------------------------------------------------------
+exec k4dirstat \
+  {% if qwindowtitle | default('') != '' %}-qwindowtitle "{{ qwindowtitle }}" \
+{% endif %}
+  {% if qwindowgeometry | default('') != '' %}-qwindowgeometry "{{ qwindowgeometry }}" \
+{% endif %}
+  {% if display | default('') != '' %}-display "{{ display }}" \
+{% endif %}
+  {% if platformtheme | default('') != '' %}-platformtheme "{{ platformtheme }}" \
+{% endif %}
+  {% if platformpluginpath | default('') != '' %}-platformpluginpath "{{ platformpluginpath }}" \
+{% endif %}
+  {% for p in plugin | default([]) %}-plugin "{{ p }}" \
+{% endfor %}
+  "$TARGET_PATH"

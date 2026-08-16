@@ -1,0 +1,48 @@
+# Ifuse mount configuration
+# Generated from ifuse(1)
+#
+# This configuration defines how the `ifuse` utility (part of libimobiledevice)
+# mounts iOS device filesystems on the local host.
+# It supports mounting media, app documents, or the root filesystem (jailbroken).
+
+# Local directory where the iOS media/root is mounted.
+# Corresponds to the MOUNTPOINT argument in `ifuse MOUNTPOINT`
+# @default '/mnt/iphone'
+MOUNTPOINT: {{ mountpoint | default('/mnt/iphone') }}
+
+# UDID of the specific iOS device to mount.
+# If empty, the first attached device is mounted.
+# Corresponds to the `-u, --udid` option
+# @default ''
+UDID: "{{ udid | default('') }}"
+
+# If true, connects to the device over network (requires device to be paired and network-accessible).
+# Corresponds to the `-n, --network` option
+# @default false
+NETWORK: {{ network | default(false) | lower }}
+
+# If true, enables debugging output from libimobiledevice.
+# Corresponds to the `-d, --debug` option
+# @default false
+DEBUG: {{ debug | default(false) | lower }}
+
+# If true, mounts the root filesystem of the device.
+# WARNING: Requires a jailbroken device.
+# Corresponds to the `--root` option
+# @default false
+ROOT: {{ root | default(false) | lower }}
+
+# List of app containers/documents to mount.
+# If empty, only media (or root if specified) is mounted at MOUNTPOINT.
+# Each item should have 'id', 'type', and 'mountpoint' keys.
+# Corresponds to --documents APPID, --container APPID
+# @default []
+{% set apps_list = apps | default([]) %}
+{% if apps_list | length > 0 %}
+APPS:
+  {% for app in apps_list %}
+  - id: {{ app.id | default('') }}
+    type: {{ app.type | default('documents') }}
+    mountpoint: {{ app.mountpoint | default(app.id) }}
+  {% endfor %}
+{% endif %}

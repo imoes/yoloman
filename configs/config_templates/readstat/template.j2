@@ -1,0 +1,25 @@
+# /etc/readstat.conf
+# Global configuration file for readstat.
+# This file is managed by Ansible; do not edit manually.
+#
+# The following directives control the readstat(1) binary's
+# command-line behaviour: input data set, output format,
+# overwrite policy, and an optional external metadata file.
+
+# Path to the input data set file (SAS, SPSS, Stata, etc.).
+# Corresponds to the <input-file> argument in readstat(1).
+INPUT_FILE = "{{ input_file | default('/var/lib/readstat/input.sas7bdat', true) | string }}"
+
+# Path to the output file. Format is determined by extension.
+# Corresponds to the <output-file> argument in readstat(1).
+OUTPUT_FILE = "{{ output_file | default('/var/lib/readstat/output.csv', true) | string }}"
+
+# If true, overwrite existing output files without prompting.
+# Corresponds to the -f flag in readstat(1).
+FORCE_OVERWRITE = {{ force_overwrite | default(false) }}
+
+# Path to a separate metadata file (json, dct, sps, etc.).
+# Leave empty if not used.
+# Corresponds to the <metadata-file> argument in readstat(1).
+# Accepts sas7bcat, json, dct, sps, or sps (SAS) formats.
+METADATA_FILE = "{{ metadata_file | default('sps', true) | string }}"

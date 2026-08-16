@@ -1,0 +1,41 @@
+# Topline configuration template
+# This file configures the 'topline' system resource monitor.
+# It defines how topline samples system metrics and how it presents
+# or stores those metrics.
+
+# Global sample interval in seconds. Controls the frequency of data collection.
+# Can be a float to allow sub-second precision (e.g., 0.5 for twice per second).
+# Default: 1.0
+sample_interval: {{ sample_interval | default(1.0) }}
+
+# Path to the file where topline's output should be redirected.
+# If empty or null, topline outputs to stdout.
+# Corresponds to the -o <file> CLI option.
+# Default: '' (empty string)
+output_file: {{ output_file | default("") }}
+
+# Enable linearized output mode.
+# When true, topline marshalls program output line-by-line, avoiding
+# mix-ups with topline's internal graph data structures.
+# Corresponds to -l, --line-output, or --linearize flags.
+# Default: false
+linearize_output: {{ linearize_output | default(false) }}
+
+# Suppress graph output during execution.
+# When true, topline waits until the monitored program exits, then
+# dumps the logged graph data to stderr all at once.
+# Corresponds to -d, --dump-after, or --delay-dump flags.
+# Default: false
+delay_dump: {{ delay_dump | default(false) }}
+
+# The program to run and monitor.
+# If this is empty, topline logs system state indefinitely without
+# running a specific command.
+# If provided, topline runs this command and monitors its performance.
+# Default: '' (empty string)
+command: {{ command | default("") }}
+
+# Arguments to pass to the monitored command.
+# This list is passed directly to the process executing 'command'.
+# Default: [] (empty list)
+command_args: {{ command_args | default([]) }}

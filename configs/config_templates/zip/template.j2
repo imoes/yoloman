@@ -1,0 +1,48 @@
+#!/bin/sh
+# ==============================================================================
+# Zip Archive Wrapper Configuration
+# ==============================================================================
+# This script configures the `zip` utility with specific compression settings.
+# It is auto-generated and self-documenting. Modify the Ansible variables
+# in the role that provides this template.
+
+# ------------------------------------------------------------------------------
+# zip_compression_level: Compression level from 0 (store) to 9 (best compression). Default is 6.
+# ------------------------------------------------------------------------------
+ZIP_COMPRESSION_LEVEL={{ zip_compression_level | default(6) }}
+
+# ------------------------------------------------------------------------------
+# zip_output_path: Path to the resulting zip archive file.
+# ------------------------------------------------------------------------------
+ZIP_OUTPUT_PATH={{ zip_output_path | default('archive.zip') }}
+
+# ------------------------------------------------------------------------------
+# zip_compression_method: Compression method: 'deflate' (default), 'store', or 'bzip2'.
+# ------------------------------------------------------------------------------
+ZIP_COMPRESSION_METHOD={{ zip_compression_method | default('deflate') }}
+
+# ------------------------------------------------------------------------------
+# zip_verbose: Enable verbose mode for detailed output during archiving.
+# ------------------------------------------------------------------------------
+ZIP_VERBOSE={{ zip_verbose | default(false) }}
+
+# ------------------------------------------------------------------------------
+# zip_sources: List of file or directory paths to include in the archive.
+# ------------------------------------------------------------------------------
+ZIP_SOURCES={{ zip_sources | default([]) | join(' ') }}
+
+# ------------------------------------------------------------------------------
+# Command Execution
+# ------------------------------------------------------------------------------
+# Execute the zip command with the configured parameters.
+# -{{ zip_compression_level | default(6) }} is the legacy short form for compression level.
+# --verbose is added if zip_verbose is true.
+# --compression-method is used for the method.
+# Note: bzip2 method support depends on the installed zip version.
+
+zip \
+  --compression-method {{ zip_compression_method | default('deflate') }} \
+  -{{ zip_compression_level | default(6) }} \
+  {% if zip_verbose | default(false) %}--verbose{% endif %} \
+  {{ zip_output_path | default('archive.zip') }} \
+  {{ zip_sources | default([]) | join(' ') }}

@@ -1,0 +1,30 @@
+# ~/.config/vf1/vf1rc
+# Generated configuration for vf1 gopher client
+
+# If true, items in gopher menus are color coded according to item type using ANSI escape codes.
+set color_menus {{ color_menus | default(False) }}
+
+# If true, detailed debugging information is printed to stdout when commands are run.
+set debug {{ debug | default(False) }}
+
+# Fallback text encoding to use if received gopher content cannot be decoded as UTF-8.
+set encoding {{ encoding | default('iso-8859-1') }}
+
+# If true, vf1 preferentially attempts to connect to gopher servers via IPv6 if a AAAA DNS record is found.
+set ipv6 {{ ipv6 | default(True) }}
+
+# Time to wait, in seconds, when trying to connect to a gopher server before giving up.
+set timeout {{ timeout | default(10) }}
+
+# List of MIME type handlers to configure persistent external programs for content presentation.
+{% for handler in handlers | default([]) %}
+# A single handler definition mapping a MIME type to a shell command.
+# The MIME type or wildcard pattern (e.g., text/html, image/*) to match.
+# The shell command to execute, with %s replaced by the temporary file path.
+handler {{ handler.mime_type | default('') }} {{ handler.command | default('') }}
+{% endfor %}
+
+# A Gopher URL to visit immediately upon startup. If empty, no initial navigation occurs.
+{% if initial_url | default('') %}
+go {{ initial_url | default('') }}
+{% endif %}

@@ -1,0 +1,105 @@
+{#
+    ============================================================================
+    sendip - Network Packet Construction and Transmission Tool
+    ============================================================================
+    This template generates a command-line invocation for 'sendip'.
+    It is NOT a standard service config file (like /etc/sendip.conf); rather,
+    it assembles the arguments needed to run the sendip binary with the
+    desired parameters.
+
+    Variables must be defined by the calling playbook or role.
+    If a variable is undefined, the Jinja2 default() filter provides safe
+    fallbacks based on the schema definition.
+    ============================================================================
+#}
+
+{# --------------------------------------------------------------------------
+   Verbosity Mode
+   --------------------------------------------------------------------------
+   Description: Enable verbose mode to display packet details during
+   construction and transmission.
+   Default: False
+   Rendered as: -v flag
+   -------------------------------------------------------------------------- #}
+{% if (verbose | default(False) | bool) %}
+-v
+{% endif %}
+
+{# --------------------------------------------------------------------------
+   Socket Options
+   --------------------------------------------------------------------------
+   Description: Socket options string. Valid chars: 'b' (SO_BROADCAST),
+   'i' (IP_HDRINCL), '6' (IPV6_*). Leave empty for defaults.
+   Default: '' (empty string)
+   Rendered as: -s <options>
+   -------------------------------------------------------------------------- #}
+{# Store socket options in a variable to allow trimming before use. #}
+{% set _socket_opts = (socket_options | default('') | string | trim) %}
+{% if _socket_opts %}
+-s {{ _socket_opts }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+   Data Source: File vs Inline Payload
+   --------------------------------------------------------------------------
+   Description: Determines the source of the packet payload.
+   1. data_file: Path to a file containing raw packet data.
+   2. payload_data: Raw data string to append to the packet.
+
+   Logic: If data_file is provided, it takes precedence and payload_data
+   is ignored. Otherwise, if payload_data is set, it is used.
+
+   Defaults:
+   - data_file: ''
+   - payload_data: 'string'
+   -------------------------------------------------------------------------- #}
+{# Store data file path in a variable to allow trimming before use. #}
+{% set _data_file = (data_file | default('') | string | trim) %}
+{% if _data_file %}
+{# Data Source: External File #}
+{# Description: Read packet payload from a local file specified by data_file. #}
+-f {{ _data_file }}
+{% else %}
+{# Data Source: Inline Payload #}
+{# Description: Raw data string appended to packet. Supports 'rN' (random),
+   '0x' (hex), '0' (octal). Ignored if data_file is set. #}
+{# Store payload data in a variable to allow trimming before use. #}
+{% set _payload = (payload_data | default('string') | string | trim) %}
+{% if _payload %}
+-d {{ _payload }}
+{% endif %}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+   Protocol Modules
+   --------------------------------------------------------------------------
+   Description: List of modules to load in order. Modules are nested headers
+   inside previous ones. Each module has a 'name' and optional 'options'.
+
+   Default: [{'name': 'ipv4', 'options': ''}]
+
+   Structure:
+   - name: Module identifier (e.g., 'eth', 'ipv4', 'tcp', 'udp', 'icmp')
+   - options: Additional flags or parameters for the module
+   -------------------------------------------------------------------------- #}
+{# Iterate over the list of protocol modules defined in modules. #}
+{% for _mod in (modules | default([{'name': 'ipv4', 'options': ''}])) %}
+{# Module: {{ _mod.name }} #}
+{# Description: Load the {{ _mod.name }} protocol module. #}
+-p {{ (_mod.name | default('') | string) }}
+{# Store module options in a variable to allow trimming before use. #}
+{% set _mod_opts = (_mod.options | default('') | string | trim) %}
+{% if _mod_opts %}
+{# Module Options for {{ _mod.name }} #}
+{# Description: Specific options passed to the {{ _mod.name }} module. #}
+ {{ _mod_opts }}
+{% endif %}
+{% endfor %}
+
+{# --------------------------------------------------------------------------
+   Target Host
+   --------------------------------------------------------------------------
+   Description: Destination hostname or IP address for the packet.
+   Default: '127.0.0.1'
+   -------------------------------------------------------------------------- #}
+{{ target_host | default('127.0.0.1') | string }}

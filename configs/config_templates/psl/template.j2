@@ -1,0 +1,78 @@
+# ==============================================================================
+# PSL (Public Suffix List) Explorer Configuration
+# ==============================================================================
+#
+# This template generates a shell script wrapper to run the `psl` utility
+# with consistent arguments derived from Ansible variables.
+#
+# Self-Documenting Fields:
+# - service_name:    Identifier for this service instance.
+# - mode:            Operation mode for the `psl` command.
+# - data_source:     Source of the Public Suffix List data.
+# - psl_file_path:   Path to a local PSL file (required if data_source=load-psl-file).
+# - domains:         List of domains to validate or process.
+# - cookie_domain:   Cookie domain for validation (used only in is-cookie-domain-acceptable mode).
+#
+# Supported Modes:
+#   - is-public-suffix:          Check if domains are public suffixes (default).
+#   - is-cookie-domain-acceptable: Check if a cookie domain is acceptable for the given domains.
+#   - print-unreg-domain:        Return the longest public suffix part.
+#   - print-reg-domain:          Return the shortest private suffix part.
+#
+# Supported Data Sources:
+#   - use-latest-data:       Fetch latest PSL from online source.
+#   - use-builtin-data:      Use the PSL compiled into the `psl` binary.
+#   - load-psl-file:         Load PSL from a specific file system path.
+# ==============================================================================
+
+#!/bin/bash
+
+# Service name identifier
+SERVICE_NAME={{ service_name | default('psl-explorer') }}
+
+# Mode of operation for psl
+# Maps to psl command-line flags: --is-public-suffix, --is-cookie-domain-acceptable, etc.
+MODE={{ mode | default('is-public-suffix') }}
+
+# Data source for PSL
+# Controls how psl retrieves the Public Suffix List.
+DATA_SOURCE={{ data_source | default('use-latest-data') }}
+
+# Path to custom PSL data file.
+# Only used when DATA_SOURCE is set to 'load-psl-file'.
+PSL_FILE_PATH={{ psl_file_path | default('') }}
+
+# List of domains to process.
+# Constructed as a space-separated string for the CLI invocation.
+DOMAINS=
+{% for domain in domains | default(['example.com', 'co.uk', 'app.google.com']) %}
+{% if loop.index > 1 %}DOMAINS="${DOMAINS} {% endif %}{{ domain }}{% if loop.last %}"{% endif %}
+{% endfor %}
+
+# If mode is cookie check, specify the cookie domain.
+# This variable is only populated for the 'is-cookie-domain-acceptable' mode.
+{% if mode | default('is-public-suffix') == 'is-cookie-domain-acceptable' %}
+COOKIE_DOMAIN={{ cookie_domain | default('.example.com') }}
+{% endif %}
+
+# Execute psl with the configured options.
+# Logic branches based on MODE to construct the correct psl invocation.
+if [ "{{ mode | default('is-public-suffix') }}" = "is-cookie-domain-acceptable" ]; then
+    # For cookie domain check, psl syntax is: psl --is-cookie-domain-acceptable <cookie-domain> <domain...>
+    exec psl --is-cookie-domain-acceptable "${COOKIE_DOMAIN}" ${DOMAINS}
+
+elif [ "{{ mode | default('is-public-suffix') }}" = "print-unreg-domain" ]; then
+    exec psl --print-unreg-domain ${DOMAINS}
+
+elif [ "{{ mode | default('is-public-suffix') }}" = "print-reg-domain" ]; then
+    exec psl --print-reg-domain ${DOMAINS}
+
+else
+    # Default mode: is-public-suffix
+    # If a custom file path is provided and the data source is set to load it, use --load-psl-file.
+    {% if data_source | default('use-latest-data') == 'load-psl-file' and psl_file_path | default('') != '' %}
+    exec psl --is-public-suffix --load-psl-file "{{ psl_file_path }}" ${DOMAINS}
+    {% else %}
+    exec psl --is-public-suffix ${DOMAINS}
+    {% endif %}
+fi

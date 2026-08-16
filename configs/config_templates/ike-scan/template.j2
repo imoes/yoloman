@@ -1,0 +1,233 @@
+# ike-scan configuration
+# Controls the behavior of the ike-scan tool, an IKE/ISAKMP scanner.
+
+# Target hosts to scan
+# File containing list of target hosts/IPs to scan, one per line.
+--file {{ hosts_file | default('/etc/ike-scan/targets.list') }}
+
+# Network transport settings
+# UDP source port. 0 for random. Superuser needed for <1024.
+--sport {{ source_port | default(500) }}
+
+# UDP destination port. Default 500 (ISAKMP).
+--dport {{ dest_port | default(500) }}
+
+# Timing and retries configuration
+# Total number of attempts per host.
+--retry {{ retries | default(3) }}
+
+# Initial per-host timeout in milliseconds.
+--timeout {{ timeout | default(500) }}
+
+# Desired outbound bandwidth in bits per second.
+--bandwidth {{ bandwidth | default(56000) }}
+
+# Mode and Fingerprinting options
+# Enable backoff fingerprinting table display.
+{% if show_backoff | default(False) %}
+--showbackoff {{ backoff_wait | default(60) }}
+{% endif %}
+
+# IKE Version selection
+# Use IKE version 2.
+{% if ikev2 | default(False) %}
+--ikev2
+{% endif %}
+
+# IKEv1 Mode options (Aggressive Mode)
+# Use IKE Aggressive Mode instead of Main Mode.
+{% if aggressive_mode | default(False) %}
+--aggressive
+
+# Identification type (e.g., 3=ID_USER_FQDN). Aggressive Mode only.
+--idtype {{ id_type | default(3) }}
+
+# Diffie Hellman Group number. Aggressive Mode/IKEv2.
+--dhgroup {{ dh_group | default(2) }}
+
+# Identification string or hex value (0x...). Aggressive Mode only.
+--id {{ id_value | default('') }}
+
+# Nonce length in bytes. Aggressive Mode/IKEv2 only.
+--noncelen {{ nonce_len | default(20) }}
+{% endif %}
+
+# Output options
+# Display verbose progress messages.
+{% if verbose | default(False) %}
+--verbose
+{% endif %}
+
+# Split payload decode across multiple lines.
+{% if multiline | default(False) %}
+--multiline
+{% endif %}
+
+# Don't decode returned packet, shorter output.
+{% if quiet | default(False) %}
+--quiet
+{% endif %}
+
+# Display timestamps for received packets.
+{% if show_timestamps | default(False) %}
+--timestamp
+{% endif %}
+
+# Display host number for received packets.
+{% if show_num | default(False) %}
+--shownum
+{% endif %}
+
+# NAT Traversal
+# Enable RFC 3947 NAT-Traversal.
+{% if nat_t | default(False) %}
+--nat-t
+{% endif %}
+
+# DNS Resolution
+# Do not use DNS to resolve names.
+{% if no_dns | default(False) %}
+--nodns
+{% endif %}
+
+# Randomization
+# Randomize the host list order.
+{% if random_hosts | default(False) %}
+--random
+{% endif %}
+
+# Custom Transforms (Aggressive Mode/IKEv1)
+# List of custom transform strings to send with --trans.
+{% for t in transforms | default([]) %}
+--trans {{ t }}
+{% endfor %}
+
+# Custom Vendor IDs
+# List of vendor ID hex strings to send with --vendor.
+{% for v in vendor_ids | default([]) %}
+--vendor {{ v }}
+{% endfor %}
+
+# Patterns Files paths
+# Path to IKE backoff patterns file.
+--patterns {{ patterns_file | default('/usr/local/share/ike-scan/ike-backoff-patterns') }}
+
+# Path to Vendor ID patterns file.
+--vidpatterns {{ vidpatterns_file | default('/usr/local/share/ike-scan/ike-vendor-ids') }}
+
+# IKE Lifetime
+# IKE lifetime in seconds.
+--lifetime {{ ike_lifetime | default(28800) }}
+
+# PSK Crack Mode
+# Output aggressive mode PSK parameters for cracking.
+{% if psk_crack | default(False) %}
+--pskcrack
+{% endif %}
+
+# Source IP Spoofing
+# Source IP address for outgoing packets. Use 'random' for per-packet random.
+{% if source_ip | default('') %}
+--sourceip {{ source_ip | default('') }}
+{% endif %}
+
+# Low-level ISAKMP/SPI configuration flags
+# Pattern matching fuzz in ms. 0 to use default.
+{% if fuzz | default(0) > 0 %}
+--fuzz {{ fuzz | default(0) }}
+{% endif %}
+
+# ISAKMP header version. Default 16 (v1.0).
+{% if header_ver | default(16) != 16 %}
+--headerver {{ header_ver | default(16) }}
+{% endif %}
+
+# Value for reserved MBZ fields (0-255).
+{% if mbz | default(0) != 0 %}
+--mbz {{ mbz | default(0) }}
+{% endif %}
+
+# SA DOI. Default 1 (IPsec).
+{% if doi | default(1) != 1 %}
+--doi {{ doi | default(1) }}
+{% endif %}
+
+# SA Situation. Default 1 (SIT_IDENTITY_ONLY).
+{% if situation | default(1) != 1 %}
+--situation {{ situation | default(1) }}
+{% endif %}
+
+# Proposal protocol ID. Default 1 (PROTO_ISAKMP).
+{% if protocol | default(1) != 1 %}
+--protocol {{ protocol | default(1) }}
+{% endif %}
+
+# Transform ID. Default 1 (KEY_IKE).
+{% if transid | default(1) != 1 %}
+--transid {{ transid | default(1) }}
+{% endif %}
+
+# Proposal SPI size. 0 for no SPI.
+{% if spisize | default(0) != 0 %}
+--spisize {{ spisize | default(0) }}
+{% endif %}
+
+# ISAKMP header flags.
+{% if hdrflags | default(0) != 0 %}
+--hdrflags {{ hdrflags | default(0) }}
+{% endif %}
+
+# ISAKMP header message ID.
+{% if hdrmsgid | default(0) != 0 %}
+--hdrmsgid {{ hdrmsgid | default(0) }}
+{% endif %}
+
+# ISAKMP responder cookie in hex.
+{% if rcookie | default('') %}
+--rcookie {{ rcookie | default('') }}
+{% endif %}
+
+# CertificateRequest payload in hex.
+{% if certreq | default('') %}
+--certreq {{ certreq | default('') }}
+{% endif %}
+
+# Exchange type. 0 for default.
+{% if exchange | default(0) != 2 and exchange | default(0) != 4 %}
+--exchange {{ exchange | default(0) }}
+{% endif %}
+
+# Next payload value.
+{% if nextpayload | default(0) %}
+--nextpayload {{ nextpayload | default(0) }}
+{% endif %}
+
+# Auth method. Default 1 (PSK).
+{% if auth | default(1) != 1 %}
+--auth {{ auth | default(1) }}
+{% endif %}
+
+# GSS ID hex string.
+{% if gssid | default('') %}
+--gssid {{ gssid | default('') }}
+{% endif %}
+
+# ISAKMP header length modifier (e.g., '+10', '-5', '100').
+{% if headerlen | default('') %}
+--headerlen {{ headerlen | default('') }}
+{% endif %}
+
+# TCP transport mode. 1=RAW (Checkpoint), 2=Encapsulated (Cisco). 0=UDP.
+{% if tcp_mode | default(0) %}
+--tcp {{ tcp_mode | default(0) }}
+{% endif %}
+
+# TCP connect timeout in seconds.
+{% if tcp_timeout | default(10) != 10 %}
+--tcptimeout {{ tcp_timeout | default(10) }}
+{% endif %}
+
+# Seed for PRNG. 0 for unpredictable.
+{% if random_seed | default(0) %}
+--randomseed {{ random_seed | default(0) }}
+{% endif %}

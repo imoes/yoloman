@@ -1,0 +1,122 @@
+# ============================================================================
+# netstat-nat-ng configuration template
+# ============================================================================
+# This file controls the behavior of netstat-nat-ng, a tool for displaying
+# network connection tracking (conntrack) table entries with a focus on NAT.
+# See `man netstat-nat` for detailed options.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Source Data
+# ---------------------------------------------------------------------------
+
+# Path to the nf_conntrack file or data source.
+# Default: /proc/net/nf_conntrack
+source_file: {{ (source_file | default('/proc/net/nf_conntrack')) }}
+
+# Input stream to use instead of a file.
+# Set to '-' to read from standard input.
+# Default: '' (empty string, meaning use source_file)
+input_stream: {{ (input_stream | default('')) }}
+
+# ---------------------------------------------------------------------------
+# Output Formatting & Resolution
+# ---------------------------------------------------------------------------
+
+# Do not try to resolve IP addresses to hostnames or ports to service names.
+# Equivalent to the -n flag.
+# Default: false
+no_resolve: {{ (no_resolve | default(false)) }}
+
+# Do not output the table header line.
+# Equivalent to the -o flag.
+# Default: false
+no_header: {{ (no_header | default(false)) }}
+
+# Widen the table: addresses are displayed in 40-character columns instead of 30.
+# Equivalent to the -x flag.
+# Default: false
+wide_table: {{ (wide_table | default(false)) }}
+
+# Widen the table: address columns use the width of a fully-specified IPv6 address.
+# Equivalent to the -X flag.
+# Default: false
+wide_table_ipv6: {{ (wide_table_ipv6 | default(false)) }}
+
+# Custom width for address columns, overriding -X if set to > 0.
+# Equivalent to the -Xwidth flag.
+# Default: 0
+wide_table_width: {{ (wide_table_width | default(0)) }}
+
+# ---------------------------------------------------------------------------
+# Column Selection
+# ---------------------------------------------------------------------------
+
+# Add a Gateway Address column to the output.
+# Equivalent to the -G flag.
+# Default: false
+show_gateway: {{ (show_gateway | default(false)) }}
+
+# ---------------------------------------------------------------------------
+# Connection Filters (NAT Types & Locality)
+# ---------------------------------------------------------------------------
+
+# Only show Source NAT (SNAT) connections.
+# SNAT connections are those this node facilitates from its local network to the outside world.
+# Equivalent to the -S flag.
+# Default: false
+only_snat: {{ (only_snat | default(false)) }}
+
+# Only show Destination NAT (DNAT) connections.
+# DNAT connections are those this node facilitates to its local network from the outside world.
+# Equivalent to the -D flag.
+# Default: false
+only_dnat: {{ (only_dnat | default(false)) }}
+
+# Only show direct connections made by this node (involving local addresses).
+# Equivalent to the -L flag.
+# Default: false
+only_local: {{ (only_local | default(false)) }}
+
+# Only show non-NAT connections that do not involve this node (remote traffic).
+# Equivalent to the -R flag.
+# Default: false
+only_remote: {{ (only_remote | default(false)) }}
+
+# ---------------------------------------------------------------------------
+# Content Filters (Addresses, Gateways, Protocols)
+# ---------------------------------------------------------------------------
+
+# Hide connections that don't originate from specified sources.
+# Comma-separated list of source addresses or hostnames.
+# Equivalent to the -s flag.
+# Default: []
+sources: {{ (sources | default([]) | join(', ')) }}
+
+# Hide connections that aren't targeting specified destinations.
+# Comma-separated list of destination addresses or hostnames.
+# Equivalent to the -d flag.
+# Default: []
+destinations: {{ (destinations | default([]) | join(', ')) }}
+
+# Hide connections that aren't going through specified gateways.
+# Comma-separated list of gateway addresses.
+# Equivalent to the -g flag.
+# Default: []
+gateways: {{ (gateways | default([]) | join(', ')) }}
+
+# Hide connections that aren't formed by these layer 4 protocols.
+# Comma-separated list of protocols (e.g., TCP, UDP, ICMP).
+# Equivalent to the -p flag.
+# Default: []
+protocols: {{ (protocols | default([]) | join(', ')) }}
+
+# ---------------------------------------------------------------------------
+# Sorting
+# ---------------------------------------------------------------------------
+
+# Sort the output by the given column.
+# Valid values: src, dst, src-port, dst-port, state, gate, gate-port.
+# Equivalent to the -r flag.
+# Default: src
+sort_column: {{ (sort_column | default('src')) }}

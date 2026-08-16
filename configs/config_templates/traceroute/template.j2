@@ -1,0 +1,85 @@
+# ==============================================================================
+# Traceroute Configuration Wrapper
+# ==============================================================================
+# This template generates a configuration file for a traceroute wrapper script.
+# Since `traceroute` is primarily a command-line utility without a standard persistent
+# configuration file, this YAML/INI-like structure serves to document and inject
+# parameters into a wrapper execution context.
+# ==============================================================================
+
+# Destination host to trace
+# The hostname or IP address of the target system to trace the route to.
+host: {{ host | default('example.com') }}
+
+# Protocol version to use (4 for IPv4, 6 for IPv6)
+# Corresponds to the -4 or -6 command-line flags.
+protocol_family: {{ protocol_family | default('4') }}
+
+# Maximum number of hops to probe
+# Corresponds to the -m flag. Sets the maximum TTL (Time To Live) value.
+max_hops: {{ max_hops | default(30) }}
+
+# Number of probe packets per hop
+# Corresponds to the -q flag. Determines how many probes are sent to each hop.
+queries_per_hop: {{ queries_per_hop | default(3) }}
+
+# Number of simultaneous probe packets
+# Corresponds to the -N flag. Allows multiple probes to be in flight at once.
+simultaneous_queries: {{ simultaneous_queries | default(16) }}
+
+# Wait time for a response in seconds
+# Corresponds to the -w flag. Sets the maximum time to wait for a reply from a hop.
+wait_time: {{ wait_time | default(5.0) }}
+
+# Source address to use for packets
+# Corresponds to the -s flag. If empty, the system auto-selects the source IP.
+source_address: {{ source_address | default('') }}
+
+# Interface to send packets out of
+# Corresponds to the -i flag. If empty, the system auto-selects the interface.
+interface: {{ interface | default('') }}
+
+# Method to use for tracing (default, icmp, tcp, udp, etc.)
+# Corresponds to the -M flag. Determines the protocol behavior (UDP, TCP, ICMP, etc.).
+method: {{ method | default('default') }}
+
+# Destination port for the tracing method
+# Corresponds to the -p flag.
+# Meaning varies by method: base port for UDP, constant port for TCP, sequence start for ICMP.
+destination_port: {{ destination_port | default(33434) }}
+
+# Source port to use
+# Corresponds to the --sport flag. 0 means let the operating system choose an ephemeral port.
+source_port: {{ source_port | default(0) }}
+
+# Disable DNS resolution for IP addresses in output
+# Corresponds to the -n flag. If true, IP addresses are printed instead of hostnames.
+disable_dns: {{ disable_dns | default(false) }}
+
+# Do not fragment packets
+# Corresponds to the -F flag. Sets the Don't Fragment (DF) bit in the IP header.
+no_fragment: {{ no_fragment | default(false) }}
+
+# Type of Service (TOS) or Traffic Control value
+# Corresponds to the -t flag. Used for QoS marking in IPv4 (TOS) or IPv6 (Traffic Class).
+tos: {{ tos | default(0) }}
+
+# Flow label for IPv6 packets
+# Corresponds to the -l flag. Used to identify sequences of packets for QoS handling in IPv6.
+flow_label: {{ flow_label | default(0) }}
+
+# Minimal time interval between probes in seconds
+# Corresponds to the -z flag. Sets the minimum delay between sending probe packets.
+send_wait: {{ send_wait | default(0) }}
+
+# Packet length
+# Corresponds to the packet_len argument. 0 uses the system default (usually 60 for IPv4, 80 for IPv6).
+packet_length: {{ packet_length | default(0) }}
+
+# Start TTL value
+# Corresponds to the -f flag. Allows tracing to start from a specific hop in the path.
+first_ttl: {{ first_ttl | default(1) }}
+
+# Firewall mark for outgoing packets
+# Corresponds to the --fwmark flag. Allows marking packets for firewall/packet routing rules.
+fwmark: {{ fwmark | default(0) }}

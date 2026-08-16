@@ -1,0 +1,59 @@
+# ==============================================================================
+# XMMS2 Client CLI Configuration
+# Managed by Ansible Jinja2 template
+#
+# This template configures the interactive CLI client for XMMS2.
+# It defines aliases, client behavior (auto-complete, history, prompts),
+# and output formatting strings.
+# ==============================================================================
+
+[Alias]
+{#
+  Dictionary of command aliases to define in the [Alias] section.
+  Keys are alias names, values are command strings (semicolon separated).
+  Iterates over the 'aliases' mapping variable if it is defined and is a mapping.
+#}
+{%- if aliases is mapping %}
+{%- for alias_name, alias_command in aliases | dict2items %}
+{{ alias_name }} = {{ alias_command.value | string }}
+{%- endfor %}
+{%- else %}
+{%- for alias_name, alias_command in (aliases | default([])) %}
+{{ alias_name }} = {{ alias_command | string }}
+{%- endfor %}
+{%- endif %}
+
+[Client]
+# ==============================================================================
+# Client Behavior Settings
+# ==============================================================================
+
+# Complete an abbreviation of a command and its arguments (e.g., 'serv vol 42' -> 'server volume 42').
+Auto_Unique_Complete = {{ (auto_unique_complete | default(true)) | lower }}
+
+# Format list output similar to the classic CLI style.
+Classic_List = {{ (classic_list | default(false)) | lower }}
+
+# Format string to format classic list output with.
+Classic_List_Format = {{ classic_list_format | default('${position}: ${artist} - ${title}') | string }}
+
+# Try to guess if the URL is a playlist and add accordingly.
+Guess_Pls = {{ (guess_pls | default(false)) | lower }}
+
+# File to save command history to.
+History_File = {{ history_file | default('~/.cache/xmms2/nyxmms2_history') | string }}
+
+# String to use to mark the current active entry in the playlist.
+Playlist_Marker = {{ playlist_marker | default('>>') | string }}
+
+# String to use as a prompt in interactive mode.
+Prompt = {{ prompt | default('xmms2> ') | string }}
+
+# If true, xmms2 will attempt to start the xmms2d daemon if it is not already running.
+Server_Autostart = {{ (server_autostart | default(true)) | lower }}
+
+# If true, xmms2 will display a greeting message and basic help when started in interactive mode.
+Shell_Start_Message = {{ (shell_start_message | default(true)) | lower }}
+
+# String to format status output with.
+Status_Format = {{ status_format | default('${artist} - ${title} [${duration}]') | string }}

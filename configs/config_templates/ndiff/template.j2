@@ -1,0 +1,45 @@
+#!/bin/sh
+# Target hosts for Nmap scan
+TARGETS="{{ targets }}"
+# Nmap options for the scan
+OPTIONS="{{ nmap_options }}"
+# Date format for scan filenames
+date_format="{{ date_format }}"
+# Base directory for scan storage
+scan_base_dir="{{ scan_base_dir }}"
+# Previous scan file name
+prev_scan_file="scan-prev.xml"
+# Diff output prefix
+diff_prefix="diff-"
+# Verbose mode for ndiff
+verbose="{{ verbose }}"
+
+# Build date string
+date=`date +%{{ date_format }}`
+
+cd {{ scan_base_dir }}
+
+# Run Nmap scan
+nmap {{ nmap_options }} {{ targets }} -oA scan-{{ date }} > /dev/null
+
+# Compare with previous scan
+if [ -e {{ prev_scan_file }} ]; then
+    # Generate diff
+    if [ "{{ verbose }}" == "true" ]; then
+        ndiff -v {{ prev_scan_file }} scan-{{ date }}.xml > {{ diff_prefix }}{{ date }}
+    else
+        ndiff {{ prev_scan_file }} scan-{{ date }}.xml > {{ diff_prefix }}{{ date }}
+    fi
+
+    # Display results
+    echo "*** NDIFF RESULTS ***"
+    cat {{ diff_prefix }}{{ date }}
+    echo
+fi
+
+# Display current scan results
+echo "*** NMAP RESULTS ***"
+cat scan-{{ date }}.nmap
+
+# Update previous scan symlink
+ln -sf scan-{{ date }}.xml {{ prev_scan_file }}

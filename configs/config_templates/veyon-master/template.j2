@@ -1,0 +1,27 @@
+# Configuration for Veyon Master Application
+# Managed by configuration management system
+
+# Path to the directory containing the RSA key pair for authentication.
+KeyPath: {{ key_path | default('/etc/veyon/keys') }}
+
+# IP address the Veyon service binds to.
+ListenAddress: {{ listen_address | default('0.0.0.0') }}
+
+# TCP port used for VNC and service communication.
+Port: {{ port | default(4201) }}
+
+# Whether to enable the VNC protocol for remote control.
+EnableVnc: {{ enable_vnc | default(true) | lower }}
+
+# List of computer UUIDs allowed to connect to the master service. Items are strings representing UUIDs.
+# If the list is empty, no specific UUIDs are listed (all or default policy applies depending on other configs).
+AllowedComputers:
+{% for uuid in allowed_computers | default([]) %}
+  - {{ uuid }}
+{% endfor %}
+
+# ISO 639-1 language code for the master application UI.
+LanguageCode: {{ language_code | default('en') }}
+
+# Directory where user-specific configurations and data are stored.
+ConfigDirectory: {{ config_directory | default('~/.veyon') }}

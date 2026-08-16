@@ -1,0 +1,82 @@
+# iprange CLI invocation configuration
+# This template generates a script or configuration snippet representing
+# the execution of the `iprange` command with the specified parameters.
+
+# Command binary
+COMMAND=iprange
+
+# Input files to process. iprange accepts multiple files.
+# See iprange(1) FILES section.
+# Default is an empty list if no files are provided.
+INPUT_FILES={% for file in input_files | default([]) %}{% if loop.first %}    {% else %} \
+    {% endif %}{{ file }}{% endfor %}
+
+# Output mode: merge, common, except, diff, ipset-reduce.
+# See iprange(1) OPTIONS section.
+# Default is 'merge' if not specified.
+MODE={{ mode | default('merge') }}
+
+# Reduce factor percentage for ipset-reduce mode.
+# Default 20. See iprange(1) --ipset-reduce.
+# Defines the allowed entry increase percentage.
+REDUCE_FACTOR={{ reduce_factor | default(20) }}
+
+# Reduce entries limit for ipset-reduce mode.
+# Default 16384. See iprange(1) --ipset-reduce-entries.
+# Maximum number of entries allowed in the resulting set.
+REDUCE_ENTRIES={{ reduce_entries | default(16384) }}
+
+# Output format: cidr (default), ranges, single_ips, csv.
+# See iprange(1) --print-ranges, --print-single-ips.
+# Determines how the IP addresses are formatted in the output.
+OUTPUT_FORMAT={{ output_format | default('cidr') }}
+
+# Print CSV header if CSV mode is used.
+# See iprange(1) --header.
+# Default is False (no header).
+PRINT_CSV_HEADER={{ print_csv_header | default(False) }}
+
+# Default prefix length for IPs without mask.
+# Default 32. See iprange(1) --default-prefix.
+# Applied when an IP is specified without a CIDR notation.
+DEFAULT_PREFIX={{ default_prefix | default(32) }}
+
+# Minimum prefix length to generate.
+# See iprange(1) --min-prefix.
+# 0 means no limit on prefix length.
+MIN_PREFIX={{ min_prefix | default(0) }}
+
+# Specific prefixes to enable (comma-separated).
+# See iprange(1) --prefixes.
+# Example: "24,25,26" to force these subnet masks.
+PREFIXES={{ prefixes | default('') }}
+
+# DNS threads for resolving hostnames in input.
+# Default 5. See iprange(1) --dns-threads.
+# Number of parallel DNS queries to perform.
+DNS_THREADS={{ dns_threads | default(5) }}
+
+# Suppress DNS resolution errors.
+# See iprange(1) --dns-silent.
+# If enabled, DNS failures are silently ignored.
+DNS_SILENT={{ dns_silent | default(False) }}
+
+# Verbose output on stderr.
+# See iprange(1) -v.
+# If enabled, provides detailed logging of processing steps.
+VERBOSE={{ verbose | default(False) }}
+
+# Do not fix network address of CIDRs (e.g. keep host bit).
+# See iprange(1) --dont-fix-network.
+# By default, iprange normalizes CIDRs; disable this to preserve host bits.
+DONT_FIX_NETWORK={{ dont_fix_network | default(False) }}
+
+# Prefix string to prepend to each IP/Range/CIDR in output.
+# See iprange(1) --print-prefix.
+# Useful for adding context or tags to each line.
+OUTPUT_PREFIX={{ output_prefix | default('') }}
+
+# Suffix string to append to each IP/Range/CIDR in output.
+# See iprange(1) --print-suffix.
+# Useful for adding context or tags to each line.
+OUTPUT_SUFFIX={{ output_suffix | default('') }}

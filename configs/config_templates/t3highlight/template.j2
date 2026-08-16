@@ -1,0 +1,51 @@
+# ==============================================================================
+# t3highlight Configuration Template
+# ==============================================================================
+# This template generates a configuration file for `t3highlight` (GNU Source-highlight).
+# It is self-documenting: every variable reference includes its default value,
+# and every directive is preceded by a comment explaining its purpose.
+#
+# Schema Variables Expected:
+#   language      (str) Source language for highlighting (default: 'auto')
+#   style         (str) Output style (default: 'esc')
+#   document_type (str) Document type for styles with multiple types (default: 'standalone')
+#   verbose       (bool) Print verbose warning messages (default: false)
+#   custom_tags   (list) List of dicts {'name': str, 'value': str} for custom tags (default: [])
+#   language_file (str) Path to a custom language file (default: '')
+# ==============================================================================
+
+# --language: Specifies the source language for syntax highlighting.
+#             Default: 'auto' (automatically detect)
+LANGUAGE = {{ language | default('auto') }}
+
+# --style: Specifies the output style (e.g., esc, html, latex).
+#          Default: 'esc' (escape codes for terminal)
+STYLE = {{ style | default('esc') }}
+
+# --document-type: Specifies the document type for styles that support multiple types.
+#                  Default: 'standalone'
+DOCUMENT_TYPE = {{ document_type | default('standalone') }}
+
+# --verbose: Enables verbose warning messages.
+#            Note: This directive acts as a switch; if true, the line is present.
+#            Default: false (no verbose output)
+{% if verbose | default(false) %}
+VERBOSE = true
+{% endif %}
+
+# --tag: Adds custom key-value tags to the document header/footer.
+#        Input: A list of dicts with keys 'name' and 'value'.
+#        Default: [] (no custom tags)
+{% if custom_tags | default([]) %}
+{% for tag in custom_tags | default([]) %}
+# Custom tag: {{ tag.name | default('') }}
+TAG_{{ tag.name | default('') }} = {{ tag.value | default('') }}
+{% endfor %}
+{% endif %}
+
+# --language-file: Specifies a path to a custom language definition file.
+#                  If empty, t3highlight uses built-in definitions.
+#                  Default: '' (empty/builtin)
+{% if language_file | default('') %}
+LANGUAGE_FILE = {{ language_file | default('') }}
+{% endif %}

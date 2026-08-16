@@ -1,0 +1,41 @@
+#!/usr/bin/env /lib/init/init-d-script
+### BEGIN INIT INFO
+# Provides:          walldns
+# Should-Start:      $syslog
+# Required-Start:    $time $local_fs
+# Required-Stop:     $time $local_fs
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description: reverse DNS wall
+### END INIT INFO
+
+# The name of the service, used for identification and path construction.
+NAME='{{ name | default('walldns') }}'
+
+# The human-readable description of the service.
+DESC='{{ desc | default('reverse DNS wall') }}'
+
+# The path to the walldns daemon binary.
+DAEMON='{{ daemon | default('/usr/sbin/walldns') }}'
+
+if ! test -x '/usr/bin/daemon' ; then
+	log_failure_msg "install \`daemon' package to use ${NAME} script"
+	exit 1
+fi
+if ! test -x '/usr/bin/chpst' ; then
+	log_failure_msg "install \`runit' package to use ${NAME} script"
+	exit 1
+fi
+
+# Invoke the runit daemon wrapper with the service name and arguments passed through.
+daemon_ () { /usr/bin/daemon -D "/etc/sv/${NAME}" --noconfig --name "${NAME}" "$@"; }
+
+# Override the start command: run the service environment from ./run using chpst.
+do_start_cmd_override () { daemon_ -- /usr/bin/chpst -e conf /bin/sh ./run; }
+
+# Override the stop command: check if running and then stop via the daemon helper.
+do_stop_cmd_override () {
+	if daemon_ --running ; then
+		daemon_ --stop
+	fi
+}

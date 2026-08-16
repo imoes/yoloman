@@ -1,0 +1,40 @@
+# zmakebas configuration for generating Spectrum Basic programs
+# This file configures the zmakebas tool to generate .TAP or raw Basic files
+# for the Sinclair ZX Spectrum.
+
+# Path to the output file. Use '-' for stdout.
+output_file: {{ output_file | default('/tmp/out.tap') }}
+
+# If true, use labels instead of line numbers in input.
+# When enabled, zmakebas interprets line references as labels defined in the source.
+use_labels: {{ use_labels | default(false) }}
+
+# Starting line number for auto-generation in labels mode.
+# This is the initial line number used when generating lines in labels mode.
+start_line: {{ start_line | default(10) }}
+
+# Line number increment step in labels mode.
+# The amount to increase the line number for each subsequent generated line.
+line_increment: {{ line_increment | default(2) }}
+
+# Filename to embed in the .TAP header (padded to 10 chars).
+# This string identifies the program within the TAP file header.
+tap_filename: {{ tap_filename | default('PROGRAM   ') }}
+
+# If true, set the .TAP header to auto-run from start_target.
+# When enabled, the TAP file will automatically run the program upon loading.
+auto_start: {{ auto_start | default(false) }}
+
+# Line number or label to auto-start from.
+# Specifies the starting point for execution when auto_start is true.
+start_target: {{ start_target | default('') }}
+
+# If true, output raw headerless Basic instead of .TAP.
+# Disables the .TAP container format and outputs just the BASIC text.
+raw_format: {{ raw_format | default(false) }}
+
+# List of input text files containing Spectrum Basic source code.
+input_files:
+{%- for f in input_files | default([]) %}
+  - {{ f }}
+{%- endfor %}

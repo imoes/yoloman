@@ -1,0 +1,83 @@
+# ==============================================================================
+# StrongSwan NetworkManager Plugin Configuration
+# ==============================================================================
+# This template configures the `charon-nm` section of strongswan.conf,
+# which is the backend used by NetworkManager for IKEv2 connections.
+# Settings here are specific to the NetworkManager integration and do NOT
+# inherit from the global `charon` section, although many parameters are
+# similar.
+# ==============================================================================
+
+charon-nm {
+
+    # Interface on which virtual IP addresses are installed.
+    # Note that NM also installs the virtual IPs on the XFRM interface.
+    install_virtual_ip_on = {{ install_virtual_ip_on | default('lo') }}
+
+    # MTU for XFRM interfaces created by the NM plugin.
+    mtu = {{ mtu | default(1400) }}
+
+    # Source port when sending packets to port 500.
+    # Defaults to an ephemeral port. May be set to 500 if firewall rules
+    # require a static port.
+    port = {{ port | default(0) }}
+
+    # Source port when sending packets to port 4500 or a custom server port.
+    # Defaults to an ephemeral port. May be set to e.g. 4500 if firewall rules
+    # require a static port.
+    port_nat_t = {{ port_nat_t | default(0) }}
+
+    # Base to use for calculating exponential back off, see IKEv2 RETRANSMISSION
+    # in strongswan.conf(5). Default retransmission settings for charon-nm are
+    # deliberately lower to fail and possibly reestablish SAs more quickly.
+    retransmit_base = {{ retransmit_base | default(1.4) }}
+
+    # Timeout in seconds before sending first retransmit.
+    retransmit_timeout = {{ retransmit_timeout | default(2.0) }}
+
+    # Number of times to retransmit a packet before giving up.
+    retransmit_tries = {{ retransmit_tries | default(3) }}
+
+    # Table where routes via XFRM interface are installed.
+    # Should be different than the table used for the regular IKE daemon due to
+    # the mark.
+    routing_table = {{ routing_table | default(210) }}
+
+    # Priority of the routing table. Higher than the default priority used for
+    # the regular IKE daemon.
+    routing_table_prio = {{ routing_table_prio | default(210) }}
+
+    plugins {
+
+        kernel-netlink {
+
+            # Make packets with this mark ignore the routing table.
+            # Must be the same mark set in charon-nm.plugins.socket-default.fwmark.
+            # The '!' prefix indicates that the routing table should be ignored
+            # for these packets.
+            fwmark = !{{ routing_table | default(210) }}
+
+        }
+
+        socket-default {
+
+            # Mark applied to IKE and ESP packets to ignore the routing table
+            # and avoid routing loops when using XFRM interfaces.
+            fwmark = {{ routing_table | default(210) }}
+
+        }
+
+    }
+
+    syslog {
+
+        daemon {
+
+            # Default to logging via syslog's daemon facility on level 1.
+            default = {{ syslog_daemon_level | default(1) }}
+
+        }
+
+    }
+
+}

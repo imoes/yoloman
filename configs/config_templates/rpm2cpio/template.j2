@@ -1,0 +1,28 @@
+# rpm2cpio configuration
+# Note: rpm2cpio is a command-line utility with no persistent configuration file.
+# It operates based on command-line arguments and stdin/stdout streams.
+# The variables below define the default operational parameters for scripts
+# invoking rpm2cpio.
+
+# [input_source] Source RPM file path. Use '-' for stdin.
+# @var input_file
+# Default: Path to the RPM file to process. Use '-' to read from standard input.
+input_file = {{ input_file | default('-') }}
+
+# [output_mode] Output destination. 'stdout' writes to standard output,
+# 'directory' extracts directly into a specified directory (requires piping
+# to cpio).
+# @var output_mode
+# Default: How to handle the output. 'stdout' streams the cpio archive. 'directory' implies extraction via cpio.
+output_mode = {{ output_mode | default('stdout') }}
+
+# [extraction_dir] Target directory for extraction if output_mode is 'directory'.
+# Only used when piping rpm2cpio output to 'cpio -d -i'.
+# @var extraction_dir
+# Default: The directory where files are extracted if output_mode is 'directory'. Created if it does not exist.
+extraction_dir = {{ extraction_dir | default('/tmp/rpm_extract') }}
+
+# [verbosity] Enable verbose output from cpio (if applicable in wrapper scripts).
+# @var verbose
+# Default: If true, enables verbose listing during extraction (piped to cpio).
+verbose = {{ verbose | default(false) | bool | ternary('true', 'false') }}

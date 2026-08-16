@@ -1,0 +1,77 @@
+{
+  "archive_dir": {
+    "type": "string",
+    "default": ".",
+    "description": "Target directory for storing expired mailbox files. Default is the current directory."
+  },
+  "age_in_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Age in days. Messages older than this number of days are considered expired and moved."
+  },
+  "mailboxes": {
+    "type": "list",
+    "default": [],
+    "description": "List of mailbox files or directories to process. Supports mbox and Maildir formats."
+  },
+  "unique_output": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, if an existing archive file with the expected filename is found, another filename is chosen by appending a suffix."
+  },
+  "target_filebase": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit output target file name for all inputs. Merges all expired mails into the same target mbox."
+  },
+  "sfx_fmt": {
+    "type": "string",
+    "default": "%Y_%m",
+    "description": "Format string for the date suffix in output filenames, compatible with strftime."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, only examine input files and directories, no mail data is moved around."
+  },
+  "delete_after_expire": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, drop the old messages. No backup will be made."
+  },
+  "keep_expired": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, copy the expired messages to output files and keep them in the input file."
+  },
+  "purge_level": {
+    "type": "number",
+    "default": 1,
+    "description": "How to remove input files or folders after becoming empty. 0: never, 1: remove empty files, 2: remove empty file and Maildir, 3: like 2 but also remove input if it was empty."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level. 0: no output except errors, 1: some progress messages, 2+: verbose."
+  },
+  "compression": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression method for output archives. Options: 'gzip', 'xz', 'zstd', 'none'.",
+    "enum": [
+      "gzip",
+      "xz",
+      "zstd"
+    ]
+  },
+  "lockless": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, lockless operation. Input Mailboxes are assumed to be not touched by other tools."
+  },
+  "shell_archive_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "A shell script fragment run to archive the data. Overrides default compression."
+  }
+}

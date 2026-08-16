@@ -1,0 +1,12 @@
+#!/usr/bin/env ntfs2btrfs
+# Compression algorithm for existing files: zstd, lzo, zlib, or none.
+-c {{ compress_algo | default('zstd') }}
+
+# Checksum algorithm for new metadata/data: crc32c, xxhash, sha256, blake2.
+-h {{ hash_algo | default('crc32c') }}
+
+# Skip calculating checksums for existing data.
+{% if no_datasum | default(False) %}-d{% endif %}
+
+# The block device to convert from NTFS to btrfs.
+{{ device | default('/dev/sda1') }}

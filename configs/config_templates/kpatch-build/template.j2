@@ -1,0 +1,111 @@
+#!/bin/bash
+# Wrapper script for kpatch-build to automate kernel module patching
+
+# Specify the kernel source directory
+SOURCE_DIR="{{ values.source_dir }}"
+
+# Specify the kernel config file
+CONFIG_FILE="{{ values.config_file }}"
+
+# Specify the original vmlinux file
+VMLINUX_FILE="{{ values.vmlinux }}"
+
+# Specify the number of make jobs
+JOBS="{{ values.jobs }}"
+
+# Specify the name of the kpatch module
+MODULE_NAME="{{ values.module_name }}"
+
+# Specify the output folder
+OUTPUT_DIR="{{ values.output_dir }}"
+
+# Specify the patch file to apply
+PATCH_FILE="{{ values.patch_file }}"
+
+# Specify the kernel arch version
+ARCH_VERSION="{{ values.arch_version }}"
+
+# Specify the kernel source RPM
+SOURCE_RPM="{{ values.source_rpm }}"
+
+# Enable patching out-of-tree module
+OOT_MODULE="{% if values.oot_module %}--oot-module{% endif %}"
+
+# Specify out-of-tree module source directory
+OOT_MODULE_SRC="{% if values.oot_module_src %}--oot-module-src {{ values.oot_module_src }}{% endif %}"
+
+# Disable replace flag of KLP
+NON_REPLACE="{% if values.non_replace %}--non-replace{% endif %}"
+
+# Skip post-build cleanup
+SKIP_CLEANUP="{% if values.skip_cleanup %}--skip-cleanup{% endif %}"
+
+# Skips check that ensures that the system compiler version and the compiler version that built the kernel match
+SKIP_COMPILER_CHECK="{% if values.skip_compiler_check %}--skip-compiler-check{% endif %}"
+
+# Keep scratch files in /tmp
+DEBUG="{% if values.debug %}-d{% endif %}"
+
+# Construct the command
+cmd="kpatch-build"
+
+if [ -n "${ARCH_VERSION}" ]; then
+  cmd="${cmd} -a ${ARCH_VERSION}"
+fi
+
+if [ -n "${SOURCE_RPM}" ]; then
+  cmd="${cmd} -r ${SOURCE_RPM}"
+fi
+
+if [ -n "${SOURCE_DIR}" ]; then
+  cmd="${cmd} -s ${SOURCE_DIR}"
+fi
+
+if [ -n "${CONFIG_FILE}" ]; then
+  cmd="${cmd} -c ${CONFIG_FILE}"
+fi
+
+if [ -n "${VMLINUX_FILE}" ]; then
+  cmd="${cmd} -v ${VMLINUX_FILE}"
+fi
+
+if [ -n "${JOBS}" ]; then
+  cmd="${cmd} -j ${JOBS}"
+fi
+
+if [ -n "${MODULE_NAME}" ]; then
+  cmd="${cmd} -n ${MODULE_NAME}"
+fi
+
+if [ -n "${OUTPUT_DIR}" ]; then
+  cmd="${cmd} -o ${OUTPUT_DIR}"
+fi
+
+if [ -n "${OOT_MODULE_SRC}" ]; then
+  cmd="${cmd} ${OOT_MODULE_SRC}"
+fi
+
+if [ -n "${OOT_MODULE}" ]; then
+  cmd="${cmd} ${OOT_MODULE}"
+fi
+
+if [ -n "${NON_REPLACE}" ]; then
+  cmd="${cmd} ${NON_REPLACE}"
+fi
+
+if [ -n "${SKIP_CLEANUP}" ]; then
+  cmd="${cmd} ${SKIP_CLEANUP}"
+fi
+
+if [ -n "${SKIP_COMPILER_CHECK}" ]; then
+  cmd="${cmd} ${SKIP_COMPILER_CHECK}"
+fi
+
+if [ -n "${DEBUG}" ]; then
+  cmd="${cmd} ${DEBUG}"
+fi
+
+cmd="${cmd} ${PATCH_FILE}"
+
+echo "Running: ${cmd}"
+${cmd}

@@ -1,0 +1,285 @@
+# Configuration for pspg (PostgreSQL pager)
+#
+# This file serves as a defaults configuration for pspg.
+# Since pspg is a CLI pager for PostgreSQL result sets, this template
+# generates command-line flags suitable for a wrapper script or an
+# alias, ensuring all user-defined overrides are applied.
+#
+# Variables map to pspg CLI arguments. See pspg(1) for details.
+
+# --style=N: set color style number (0..23). 0 is typically the default monochrome.
+# If custom_style is provided, this style is ignored.
+--style={{ style | default(0) }}
+
+# --custom-style=NAME: name of custom color style.
+# If this is set, it overrides --style. If left empty, --style is used.
+{% if custom_style is defined and custom_style != '' %}
+--custom-style={{ custom_style }}
+{% endif %}
+
+# --border: type of borders (0..2).
+# 0: no border, 1: simple, 2: double/unicode.
+--border={{ border | default(2) }}
+
+# --bold-labels: row and column labels use bold font.
+{% if bold_labels | default(False) %}
+--bold-labels
+{% endif %}
+
+# --bold-cursor: cursor uses bold font.
+{% if bold_cursor | default(False) %}
+--bold-cursor
+{% endif %}
+
+# --hide-header-line: hides the header line.
+{% if hide_header_line | default(False) %}
+--hide-header-line
+{% endif %}
+
+# --highlight-odd-rec: use special style for odd records.
+{% if highlight_odd_records | default(False) %}
+--highlight-odd-rec
+{% endif %}
+
+# --null=STRING: STRING used instead of NULL values in display.
+{% if null_value is defined %}
+--null="{{ null_value }}"
+{% endif %}
+
+# --freezecols=N: freeze N columns (0..9) from the left.
+--freezecols={{ freeze_cols | default(0) }}
+
+# --line-numbers: show a line number column on the left.
+{% if line_numbers | default(False) %}
+--line-numbers
+{% endif %}
+
+# --no-bars: don't show bottom, top bar, or both.
+{% if no_bars | default(False) %}
+--no-bars
+{% endif %}
+
+# --no-cursor: row cursor will be hidden.
+{% if no_cursor | default(False) %}
+--no-cursor
+{% endif %}
+
+# --no-scrollbar: don't show scrollbar.
+{% if no_scrollbar | default(False) %}
+--no-scrollbar
+{% endif %}
+
+# --no-sound: don't use beep when scroll is not possible.
+{% if no_sound | default(False) %}
+--no-sound
+{% endif %}
+
+# --tabular-cursor: cursor is visible only when data has table format.
+{% if tabular_cursor | default(True) %}
+--tabular-cursor
+{% endif %}
+
+# --vertical-cursor: show vertical column cursor.
+{% if vertical_cursor | default(False) %}
+--vertical-cursor
+{% endif %}
+
+# --less-status-bar: status bar like the less pager.
+{% if less_status_bar | default(False) %}
+--less-status-bar
+{% endif %}
+
+# --menu-always: show top bar menu every time.
+{% if menu_always | default(False) %}
+--menu-always
+{% endif %}
+
+# --no-last-row-search: don't use the last pattern when starting a new search.
+{% if no_last_row_search | default(False) %}
+--no-last-row-search
+{% endif %}
+
+# --csv: input stream has CSV format.
+{% if csv | default(False) %}
+--csv
+{% endif %}
+
+# --csv-separator: char used as field separator in CSV mode.
+{% if csv_separator is defined %}
+--csv-separator="{{ csv_separator }}"
+{% endif %}
+
+# --csv-header: [on/off] specify header line usage in CSV input.
+{% if csv_header is defined %}
+{% if csv_header %}
+--csv-header=on
+{% else %}
+--csv-header=off
+{% endif %}
+{% endif %}
+
+# --skip-columns-like="SPACE SEPARATED STRING LIST": columns with substrings in their name are ignored.
+{% if skip_columns_like is defined and skip_columns_like %}
+--skip-columns-like="{{ skip_columns_like }}"
+{% endif %}
+
+# --csv-trim-width=NUM: trim CSV value after this many characters.
+{% if csv_trim_width is defined %}
+--csv-trim-width={{ csv_trim_width }}
+{% endif %}
+
+# --csv-trim-rows=NUM: trim CSV input after this many rows.
+{% if csv_trim_rows is defined %}
+--csv-trim-rows={{ csv_trim_rows }}
+{% endif %}
+
+# --tsv: input stream has TSV format.
+{% if tsv | default(False) %}
+--tsv
+{% endif %}
+
+# --interactive: force interactive mode.
+{% if interactive | default(False) %}
+--interactive
+{% endif %}
+
+# --ni: not interactive mode (only for csv and query).
+{% if not_interactive | default(False) %}
+--ni
+{% endif %}
+
+# --stream: read input forever.
+{% if stream | default(False) %}
+--stream
+{% endif %}
+
+# --querystream: read queries from stream forever.
+{% if query_stream | default(False) %}
+--querystream
+{% endif %}
+
+# --on-sigint-exit: exit on SIGINT (CTRL-C or Escape).
+{% if on_sigint_exit | default(False) %}
+--on-sigint-exit
+{% endif %}
+
+# --on-exit-reset: send reset terminal sequence on exit.
+{% if on_exit_reset | default(False) %}
+--on-exit-reset
+{% endif %}
+
+# --on-exit-clean: send clean terminal sequence on exit.
+{% if on_exit_clean | default(False) %}
+--on-exit-clean
+{% endif %}
+
+# --on-exit-erase-line: send erase line terminal sequence on exit.
+{% if on_exit_erase_line | default(False) %}
+--on-exit-erase-line
+{% endif %}
+
+# --on-exit-sgr0: send SGR0 terminal sequence on exit.
+{% if on_exit_sgr0 | default(False) %}
+--on-exit-sgr0
+{% endif %}
+
+# --reprint-on-exit: preserve content after exit.
+{% if reprint_on_exit | default(False) %}
+--reprint-on-exit
+{% endif %}
+
+# --pgcli-fix: try to fix some pgcli related issues.
+{% if pgcli_fix | default(False) %}
+--pgcli-fix
+{% endif %}
+
+# --direct-color: use direct true colors.
+{% if direct_color | default(False) %}
+--direct-color
+{% endif %}
+
+# --ascii: force ASCII decor.
+{% if ascii | default(False) %}
+--ascii
+{% endif %}
+
+# --blackwhite: black-white style.
+{% if blackwhite | default(False) %}
+--blackwhite
+{% endif %}
+
+# --force-uniborder: replace ASCII borders by Unicode borders.
+{% if force_uniborder | default(False) %}
+--force-uniborder
+{% endif %}
+
+# --double-header: header separator uses double lines.
+{% if double_header | default(False) %}
+--double-header
+{% endif %}
+
+# --ignore-short-rows: rows with wrong column numbers are ignored.
+{% if ignore_short_rows | default(False) %}
+--ignore-short-rows
+{% endif %}
+
+# --ignore_file_suffix: don't try to deduce format from file suffix.
+{% if ignore_file_suffix | default(False) %}
+--ignore_file_suffix
+{% endif %}
+
+# --no-mouse: don't use own mouse handling.
+{% if no_mouse | default(False) %}
+--no-mouse
+{% endif %}
+
+# --no-progressive-load: don't use progressive data load.
+{% if no_progressive_load | default(False) %}
+--no-progressive-load
+{% endif %}
+
+# --no-sigint-search-reset: don't reset search on SIGINT.
+{% if no_sigint_search_reset | default(False) %}
+--no-sigint-search-reset
+{% endif %}
+
+# --no-watch-file: don't watch inotify events of file.
+{% if no_watch_file | default(False) %}
+--no-watch-file
+{% endif %}
+
+# --no-xterm-mouse-mode: don't use optional xterm mouse mode.
+{% if no_xterm_mouse_mode | default(False) %}
+--no-xterm-mouse-mode
+{% endif %}
+
+# --only-for-tables: use standard pager when content is not a table.
+{% if only_for_tables | default(False) %}
+--only-for-tables
+{% endif %}
+
+# --quit-if-one-screen: quit if content fits on one screen.
+{% if quit_if_one_screen | default(False) %}
+--quit-if-one-screen
+{% endif %}
+
+# --quit-on-f3: exit on F3 like mc viewers.
+{% if quit_on_f3 | default(False) %}
+--quit-on-f3
+{% endif %}
+
+# --esc-delay=NUM: specify escape delay in ms (-1 inf, 0 not used).
+{% if esc_delay is defined %}
+--esc-delay={{ esc_delay }}
+{% endif %}
+
+# --clipboard-app=NUM: specify app used by copy to clipboard (1, 2, 3, 4).
+# 0 is auto/none.
+{% if clipboard_app is defined %}
+--clipboard-app={{ clipboard_app }}
+{% endif %}
+
+# --rr=ROWNUM: rows reserved for specific purposes.
+{% if reserved_rows is defined %}
+--rr={{ reserved_rows }}
+{% endif %}

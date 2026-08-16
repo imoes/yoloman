@@ -1,0 +1,92 @@
+# JMeter CLI Execution Configuration
+# This template generates a shell command to run JMeter via CLI.
+# It supports three modes: Non-GUI (CLI), Server, and GUI.
+#
+# Variables used:
+#   nongui: Boolean. If true, generates CLI flags for non-GUI execution.
+#   server: Boolean. If true, generates flags for server mode.
+#   Otherwise, generates a simple GUI launch command.
+
+{% if nongui | default(True) %}
+# Run JMeter in non-GUI (CLI) mode.
+jmeter \
+  {# Path to the JMeter test plan file (.jmx) (-t) #}
+  {% if testfile | default('') %}  -t "{{ testfile | default('') | e }}" \
+  {% endif %}
+  {# Path to the primary JMeter property file to use (-p) #}
+  {% if property_file | default('') %}  -p "{{ property_file | default('') | e }}" \
+  {% endif %}
+  {# List of additional JMeter property file paths to add (-q) #}
+  {% if additional_prop_files | default([]) %}
+  {# Join multiple property files with -q prefix for each #}
+  {% for prop_file in additional_prop_files | default([]) %}  -q "{{ prop_file | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# Path to the file to log samples to (-l) #}
+  {% if logfile | default('') %}  -l "{{ logfile | default('') | e }}" \
+  {% endif %}
+  {# Path to the JMeter run log file (-j) #}
+  {% if jmeter_logfile | default('') %}  -j "{{ jmeter_logfile | default('') | e }}" \
+  {% endif %}
+  {# The JMeter home directory to use (-d) #}
+  {% if homedir | default('') %}  -d "{{ homedir | default('') | e }}" \
+  {% endif %}
+  {# Exit remote servers at end of test in non-GUI mode (-X) #}
+  {% if remote_exit | default(False) %}  -X \
+  {% endif %}
+  {# Proxy server host (-H) #}
+  {% if proxy_host | default('') %}  -H "{{ proxy_host | default('') | e }}" \
+  {% endif %}
+  {# Proxy server port (-P) #}
+  {% if proxy_port | default('') %}  -P "{{ proxy_port | default('') | e }}" \
+  {% endif %}
+  {# Non-proxy hosts list, e.g. *.example.com|localhost (-N) #}
+  {% if non_proxy_hosts | default('') %}  -N "{{ non_proxy_hosts | default('') | e }}" \
+  {% endif %}
+  {# Username for proxy server authentication (-u) #}
+  {% if username | default('') %}  -u "{{ username | default('') | e }}" \
+  {% endif %}
+  {# Password for proxy server authentication (-a) #}
+  {% if password | default('') %}  -a "{{ password | default('') | e }}" \
+  {% endif %}
+  {# List of log level settings in 'category=level' format (-L) #}
+  {% if loglevels | default([]) %}
+  {% for level in loglevels | default([]) %}  -L "{{ level | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# List of additional JMeter properties in 'key=value' format (-J) #}
+  {% if jmeter_properties | default([]) %}
+  {% for prop in jmeter_properties | default([]) %}  -J "{{ prop | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# List of global properties to send to servers in 'key=value' format (-G) #}
+  {% if global_properties | default([]) %}
+  {% for prop in global_properties | default([]) %}  -G "{{ prop | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# List of additional Java system properties in 'key=value' format (-D) #}
+  {% if system_properties | default([]) %}
+  {% for prop in system_properties | default([]) %}  -D "{{ prop | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# List of system property file paths (-S) #}
+  {% if system_property_files | default([]) %}
+  {% for prop_file in system_property_files | default([]) %}  -S "{{ prop_file | e }}" \
+  {% endfor %}
+  {% endif %}
+  {# Start remote servers as defined in remote_hosts (-r) #}
+  {% if run_remote | default(False) %}  -r \
+  {% endif %}
+  {# List of remote servers to start, overriding remote_hosts (-R) #}
+  {% if remote_servers | default('') %}  -R "{{ remote_servers | default('') | e }}" \
+  {% endif %}
+  {# -n: Force non-GUI mode #}
+  -n
+{% elif server | default(False) %}
+# Run JMeter in Server mode.
+# Note: If server mode is selected, nongui is typically irrelevant or should be false.
+jmeter -s
+{% else %}
+# Run JMeter in GUI mode (default if neither nongui nor server is true).
+jmeter
+{% endif %}

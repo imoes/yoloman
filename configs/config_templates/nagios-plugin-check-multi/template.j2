@@ -1,0 +1,13 @@
+# Nagios plugin configuration for the 'check_multi' command wrapper.
+# This command allows Nagios to execute a plugin with custom arguments,
+# facilitating complex checks or chaining multiple checks.
+define command {
+        # command_name: The unique identifier for this command in Nagios.
+        command_name                    check_multi
+        # command_line: The actual execution line.
+        # - {{ (nagios_plugins_dir | default('/usr/lib/nagios/plugins')) }}/check_multi: Path to the check_multi plugin binary.
+        #   Defaults to '/usr/lib/nagios/plugins' as defined in the schema.
+        # - $ARG1$ through $ARG4$: Placeholder arguments passed from the service definition.
+        #   These allow dynamic configuration of the check behavior (e.g., plugin path, arguments, timeout).
+        command_line                    {{ (nagios_plugins_dir | default('/usr/lib/nagios/plugins')) }}/check_multi $ARG1$ $ARG2$ $ARG3$ $ARG4$
+}

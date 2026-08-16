@@ -1,0 +1,11 @@
+#!/bin/sh -e
+
+# Purge old news spool files after a configurable number of days.
+# This script is designed to run via cron.
+# It preserves essential welcome/policy files that should not be deleted.
+if [ -x /usr/bin/news ]; then
+	# Purge files in /var/lib/sysnews older than the configured threshold.
+	# Exclude WELCOME, POLICY, and NEWUSERS as they are static or site-specific.
+	# purge_days: default=30 — Number of days after which news spool files are purged.
+	news -e {{ purge_days | default(30) }} -x WELCOME,POLICY,NEWUSERS
+fi

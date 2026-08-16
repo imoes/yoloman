@@ -1,0 +1,55 @@
+# ==============================================================================
+# licensecheck configuration
+#
+# This file controls the scanning behavior of the `licensecheck` tool.
+# It defines which source files to analyze, how many lines/bytes to read,
+# and the output format.
+#
+# Fields:
+#   path          : The source file or directory path to check.
+#   check_regex   : Regex of files to include when more than one PATH is provided.
+#   ignore_regex  : Regex of files to skip when more than one PATH is provided.
+#   recursive     : Traverse directories recursively.
+#   lines         : Number of lines to parse from top of each file; 0 to parse whole file.
+#   tail_bytes    : Number of bytes to parse from bottom of each file.
+#   encoding      : Codec to use for decoding source files (empty for auto).
+#   copyright     : Include copyright statements in license information.
+#   skipped       : Log files not matching check/ignore regexes as warnings.
+#   machine       : Output TAB-separated fields for machine parsing.
+#   quiet         : Emit only error messages to STDERR.
+# ==============================================================================
+
+# The source file or directory path to check
+path: {{ path | default('/src') }}
+
+# Regular expression of files to include when more than one PATH is provided
+# Defaults to common programming language extensions.
+check_regex: {{ check_regex | default('\\\\.(cpp|c|h|hpp|java|py|js|ts|go)$') }}
+
+# Regular expression of files to skip when more than one PATH is provided
+# Excludes version control, dependency managers, and backups.
+ignore_regex: {{ ignore_regex | default('\\\\.git/|/node_modules/|backup$') }}
+
+# Traverse directories recursively
+recursive: {{ recursive | default(true) | lower }}
+
+# Number of lines to parse from top of each file; set to 0 to parse the whole file
+lines: {{ lines | default(60) }}
+
+# Number of bytes to parse from bottom of each file
+tail_bytes: {{ tail_bytes | default(5000) }}
+
+# Try decode source files from the specified codec; unset for no decoding
+encoding: {{ encoding | default('') }}
+
+# Add copyright statements to license information
+copyright: {{ copyright | default(false) | lower }}
+
+# Log files in PATHs matching neither --check nor --ignore as warnings
+skipped: {{ skipped | default(false) | lower }}
+
+# Print license information as TAB-separated fields
+machine: {{ machine | default(false) | lower }}
+
+# Emit only error messages to STDERR
+quiet: {{ quiet | default(false) | lower }}

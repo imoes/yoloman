@@ -1,0 +1,92 @@
+# ==============================================================================
+# newmail Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the `newmail` utility.
+# `newmail` is a command-line tool that monitors mailboxes for new messages.
+#
+# The configuration uses a key-value format (YAML-like or INI-like depending on usage).
+# All variables are sourced from Ansible's `values` dictionary.
+# If a variable is not defined in the playbook, sensible defaults are applied.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Default Mailbox Path
+# ------------------------------------------------------------------------------
+# Description: Full path of the user's spool mailbox. Corresponds to the default
+#              mailbox or the MAIL environment variable.
+# Default: /var/mail/root
+# ------------------------------------------------------------------------------
+default_mailbox: {{ (values | default({})).default_mailbox | default('/var/mail/root', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Mailbox List
+# ------------------------------------------------------------------------------
+# Description: List of mailboxes to monitor. Items should be maps containing 'path'
+#              (string) and optionally 'prefix' (string). If prefix is omitted, the
+#              base name of the path is used as the display prefix for that mailbox.
+# Structure:
+#   - path: /path/to/mailbox [string]
+#     prefix: optional_display_name [string]
+# ------------------------------------------------------------------------------
+mailbox_list:
+{% set _mailbox_list = (values | default({})).mailbox_list | default([], true) %}
+{% if _mailbox_list | length > 0 %}
+{% for _item in _mailbox_list %}
+  - path: {{ (_item.path | default('', true)) | string }}
+{% if (_item | default({})).prefix is defined and (_item | default({})).prefix != "" %}
+    prefix: {{ (_item.prefix | default('', true)) | string }}
+{% else %}
+    prefix: {{ (_item.path | default('', true)) | basename }}
+{% endif %}
+{% endfor %}
+{% else %}
+  []
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Check Interval
+# ------------------------------------------------------------------------------
+# Description: Interval between two mailbox checks in seconds. Corresponds to -i option.
+#              Setting this too low may cause excessive CPU usage or I/O load.
+# Default: 60
+# ------------------------------------------------------------------------------
+check_interval: {{ (values | default({})).check_interval | default(60, true) | int }}
+
+# ------------------------------------------------------------------------------
+# Ring Bell
+# ------------------------------------------------------------------------------
+# Description: Ring a bell after new mail detection. Corresponds to -b option.
+#              If enabled, newmail will send a BEL character (ASCII 7) to the terminal.
+# Default: false
+# ------------------------------------------------------------------------------
+ring_bell: {{ (values | default({})).ring_bell | default(false, true) | bool | lower }}
+
+# ------------------------------------------------------------------------------
+# Run Window Application
+# ------------------------------------------------------------------------------
+# Description: Run as a window application. Corresponds to -w option.
+#              If enabled, newmail will run as a window application, typically preventing
+#              backgrounding and changing output format to be more suitable for GUI windows.
+# Default: false
+# ------------------------------------------------------------------------------
+run_window_app: {{ (values | default({})).run_window_app | default(false, true) | bool | lower }}
+
+# ------------------------------------------------------------------------------
+# Raw Headers
+# ------------------------------------------------------------------------------
+# Description: Emit raw data from mail headers without decoding. Corresponds to -r option.
+#              If enabled, newmail will emit raw data from mail headers without
+#              attempting to decode RFC 2047 encoded words.
+# Default: false
+# ------------------------------------------------------------------------------
+raw_headers: {{ (values | default({})).raw_headers | default(false, true) | bool | lower }}
+
+# ------------------------------------------------------------------------------
+# Locale
+# ------------------------------------------------------------------------------
+# Description: Locale setting for output character set (LANG/LC_CTYPE).
+#              Determines how non-ASCII characters in mail headers and bodies are displayed.
+#              Common values: 'C' (POSIX/ASCII), 'en_US.UTF-8', etc.
+# Default: C
+# ------------------------------------------------------------------------------
+locale: {{ (values | default({})).locale | default('C', true) | string }}

@@ -1,0 +1,122 @@
+# JClic Player Configuration
+# This file configures the JClic Player application.
+# Each directive corresponds to a command-line option documented in jclic(1).
+#
+# This template is self-documenting: comments explain the purpose of every
+# setting and reference the Ansible variable that controls it. If you need
+# to modify a setting, change the corresponding variable in your inventory
+# or group_vars, keeping the type consistent with the defaults below.
+
+# Enable debug tracing output in the terminal
+# Type: boolean
+# Default: false
+# When enabled, JClic prints detailed diagnostic information to the terminal.
+# Useful for troubleshooting startup or interaction issues.
+# Ansible Variable: jclic
+# Note: The jclic variable is expected to be a dictionary containing configuration keys.
+# If jclic is not defined, defaults are applied directly.
+# We use a macro or inline defaulting to ensure safety against undefined jclic root.
+# Since the schema defines `jclic` as the root object (type: object, default: None),
+# we treat it as a mapping. If it is None or undefined, we use an empty dict.
+
+# To handle the case where `jclic` is undefined, we default it to an empty dict first.
+{% set jclic_config = jclic | default({}) %}
+
+# Enable debug tracing output in the terminal
+# Type: boolean
+# Default: false
+# When enabled, JClic prints detailed diagnostic information to the terminal.
+# Useful for troubleshooting startup or interaction issues.
+# Ansible Variable: jclic.trace
+- trace={{ (jclic_config.trace | default(false)) | bool }}
+
+# ISO 639 language code for system messages and menus
+# Type: string
+# Default: "en"
+# Sets the display language for the interface and system messages.
+# Uses standard ISO 639-1 two-letter codes (e.g., en, fr, de, es).
+# Ansible Variable: jclic.language
+- language={{ (jclic_config.language | default('en')) | string }}
+
+# ISO 3166-1 country code for local language variant
+# Type: string
+# Default: ""
+# Refines the locale by specifying a country, allowing region-specific
+# variations of the language (e.g., en_US for US English, fr_CA for Canadian French).
+# Ansible Variable: jclic.country
+- country={{ (jclic_config.country | default('')) | string }}
+
+# Optional language variant name
+# Type: string
+# Default: ""
+# Further customizes the locale variant, if supported by the system or JClic.
+# Often left empty unless specific localization is required.
+# Ansible Variable: jclic.variant
+- variant={{ (jclic_config.variant | default('')) | string }}
+
+# Visual skin for the interface
+# Type: string
+# Default: "@default.xml"
+# Specifies the visual theme/skin used by the JClic Player.
+# Can be built-in skins like @default.xml, @blue.xml, or a path to a custom XML skin file.
+# Ansible Variable: jclic.skin
+- skin={{ (jclic_config.skin | default('@default.xml')) | string }}
+
+# Enable or disable system sounds
+# Type: boolean
+# Default: true
+# Controls whether JClic plays system notification sounds (e.g., for errors or completion).
+# Ansible Variable: jclic.systemSounds
+- systemSounds={{ (jclic_config.systemSounds | default(true)) | bool }}
+
+# Compress images to fit into cells
+# Type: boolean
+# Default: false
+# When enabled, images that are too large for their display cells are automatically
+# compressed to fit, ensuring the interface layout is preserved.
+# Ansible Variable: jclic.compressImages
+- compressImages={{ (jclic_config.compressImages | default(false)) | bool }}
+
+# Java Look&Feel to use
+# Type: string
+# Default: "system"
+# Sets the Java Swing Look and Feel for the application interface.
+# Common values: default, system, metal, motif, windows.
+# 'system' uses the OS native appearance.
+# Ansible Variable: jclic.lookAndFeel
+- lookAndFeel={{ (jclic_config.lookAndFeel | default('system')) | string }}
+
+# Enable or disable audio playback
+# Type: boolean
+# Default: true
+# Controls whether JClic plays audio tracks embedded in activities.
+# Ansible Variable: jclic.audioEnabled
+- audioEnabled={{ (jclic_config.audioEnabled | default(true)) | bool }}
+
+# Preferred multimedia system
+# Type: string
+# Default: ""
+# Specifies the preferred multimedia backend for audio/video playback.
+# Options include JMF (Java Media Framework) or QT (QuickTime).
+# Empty usually lets JClic auto-detect or use defaults.
+# Ansible Variable: jclic.mediaSystem
+- mediaSystem={{ (jclic_config.mediaSystem | default('')) | string }}
+
+# Reporter class for data reporting
+# Type: string
+# Default: ""
+# Fully qualified Java class name of a Reporter implementation.
+# Allows collecting usage data from JClic activities. Leave empty to disable reporting.
+# Ansible Variable: jclic.reporter
+- reporter={{ (jclic_config.reporter | default('')) | string }}
+
+# Semi-colon separated key-value parameters for the reporter
+# Type: list of maps (key/value pairs)
+# Default: []
+# Configuration parameters passed to the Reporter class.
+# Each item must have 'key' and 'value' string fields.
+# These are serialized into a string like "key1=val1;key2=val2".
+# Ansible Variable: jclic.reporterParams
+# Note: Using dict2items to safely iterate if the schema defines it as a list of objects.
+# The schema says `jclic.reporterParams` is a list.
+- reporterParams="{% for param in (jclic_config.reporterParams | default([])) %}{{ param.key }}={{ param.value }}{% if not loop.last %};{% endif %}{% endfor %}"

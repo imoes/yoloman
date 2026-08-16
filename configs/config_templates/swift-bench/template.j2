@@ -1,0 +1,89 @@
+[bench]
+# Swift authentication URL.
+# See also: auth_version, use_proxy, url, account, devices.
+auth = {{ auth | default('http://localhost:8080/auth/v1.0') | string }}
+
+# Swift user name in user:key format.
+user = {{ user | default('test:tester') | string }}
+
+# Swift user key.
+key = {{ key | default('testing') | string }}
+
+# Authentication version.
+# Only relevant when use_proxy=true and the Swift auth endpoint expects a versioned path.
+auth_version = {{ auth_version | default('1.0') | string }}
+
+# Logging level.
+# Allowed values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+log_level = {{ log_level | default('INFO') | upper }}
+
+# Request timeout in seconds.
+timeout = {{ timeout | default(10) | int }}
+
+# Number of concurrent PUT operations.
+put_concurrency = {{ put_concurrency | default(10) | int }}
+
+# Number of concurrent GET operations.
+get_concurrency = {{ get_concurrency | default(10) | int }}
+
+# Number of concurrent DELETE operations.
+del_concurrency = {{ del_concurrency | default(10) | int }}
+
+# General concurrency setting, overrides individual concurrency settings if set.
+# Only set this if you want a single value for all operations.
+# When defined and not empty/None, it supersedes put_concurrency, get_concurrency, and del_concurrency.
+{% if concurrency is defined and concurrency is not none and concurrency != '' %}
+concurrency = {{ concurrency | int }}
+{% endif %}
+
+# Space-separated list of files to read for object bodies.
+# If set, these files' contents are used as PUT bodies instead of random data.
+object_sources = {{ (object_sources | default([])) | join(' ') | trim }}
+
+# Lower bound for random object size in bytes.
+# Used when object_sources is not set.
+lower_object_size = {{ lower_object_size | default(10) | int }}
+
+# Upper bound for random object size in bytes.
+# Used when object_sources is not set.
+upper_object_size = {{ upper_object_size | default(10) | int }}
+
+# Fixed object size in bytes if lower_object_size equals upper_object_size.
+# When set, lower and upper bounds are ignored in favor of this fixed value.
+object_size = {{ object_size | default(1) | int }}
+
+# Number of objects to create.
+# Applies to container creation and PUT operations.
+num_objects = {{ num_objects | default(1000) | int }}
+
+# Number of GET operations to perform.
+num_gets = {{ num_gets | default(10000) | int }}
+
+# Number of containers to create.
+num_containers = {{ num_containers | default(20) | int }}
+
+# Base name for created containers.
+# Empty string means randomly chosen UUID.
+container_name = {{ container_name | default('') | string }}
+
+# Storage policy name to use.
+policy_name = {{ policy_name | default('gold') | string }}
+
+# Whether to benchmark DELETE and cleanup containers.
+delete = {{ delete | default(true) | ternary('true', 'false') }}
+
+# Whether to use the proxy layer or talk directly to backend servers.
+# If false, url, account, and devices become required.
+use_proxy = {{ use_proxy | default(true) | ternary('true', 'false') }}
+
+# Override X-Storage-Url.
+# Required if use_proxy=no.
+url = {{ url | default('') | string }}
+
+# Account name.
+# Required if use_proxy=no.
+account = {{ account | default('') | string }}
+
+# Space-separated list of device names.
+# Required if use_proxy=no.
+devices = {{ (devices | default(['sdb1'])) | join(' ') | trim }}

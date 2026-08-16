@@ -1,0 +1,215 @@
+# =============================================================================
+# uftrace Configuration Template
+# =============================================================================
+# This template generates a configuration file for the 'uftrace' utility.
+# uftrace is a trace tool for functions in user-space and kernel-space.
+#
+# The configuration is generated via Ansible Jinja2. All variables are
+# self-documented and safely defaulted using the schema definitions.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Sub-command Selection
+# -----------------------------------------------------------------------------
+# Description: The uftrace sub-command to execute (e.g., record, replay, live,
+#              report, graph). This determines the primary mode of operation.
+# -----------------------------------------------------------------------------
+subcommand: {{ subcommand | default('live') }}
+
+# -----------------------------------------------------------------------------
+# Target Command
+# -----------------------------------------------------------------------------
+# Description: The command or binary to trace. If empty, uftrace may use a
+#              default or prompt.
+# -----------------------------------------------------------------------------
+{% if command is defined and command is not none and command | length > 0 %}
+command: {{ command }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Data Directory
+# -----------------------------------------------------------------------------
+# Description: Directory to store or read trace data. This is where uftrace
+#              persists records and loads them for replay/reporting.
+# -----------------------------------------------------------------------------
+data_dir: {{ data_dir | default('uftrace.data') }}
+
+# -----------------------------------------------------------------------------
+# Verbosity Level
+# -----------------------------------------------------------------------------
+# Description: Verbosity level (0-3).
+#              0 = quiet
+#              3 = debug
+# -----------------------------------------------------------------------------
+verbose: {{ verbose | default(0) | int }}
+
+# -----------------------------------------------------------------------------
+# Debug Domains
+# -----------------------------------------------------------------------------
+# Description: Comma-separated list of debug domains to enable (e.g., uftrace,symbol).
+#              Use empty list for default behavior.
+# -----------------------------------------------------------------------------
+{% if debug_domains is defined and debug_domains | length > 0 %}
+debug_domains: {{ debug_domains | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Color Output
+# -----------------------------------------------------------------------------
+# Description: Enable/disable color output. Values: yes, no, auto.
+# -----------------------------------------------------------------------------
+color: {{ color | default('auto') }}
+
+# -----------------------------------------------------------------------------
+# Pager Disabling
+# -----------------------------------------------------------------------------
+# Description: Do not use a pager for output.
+# -----------------------------------------------------------------------------
+{% if no_pager | default(false) | bool %}
+no_pager: yes
+{% else %}
+no_pager: no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Function Filter (Whitelist)
+# -----------------------------------------------------------------------------
+# Description: List of function names to trace (whitelist).
+#              Use empty list for no filtering.
+# -----------------------------------------------------------------------------
+{% if filter is defined and filter | length > 0 %}
+filter: {{ filter | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Function Hide (Blacklist)
+# -----------------------------------------------------------------------------
+# Description: List of function names to hide from trace output (blacklist).
+#              Use empty list for no hiding.
+# -----------------------------------------------------------------------------
+{% if hide is defined and hide | length > 0 %}
+hide: {{ hide | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Trace Depth
+# -----------------------------------------------------------------------------
+# Description: Trace functions within this depth. 0 means unlimited.
+# -----------------------------------------------------------------------------
+depth: {{ depth | default(0) | int }}
+
+# -----------------------------------------------------------------------------
+# Maximum Stack Depth
+# -----------------------------------------------------------------------------
+# Description: Set maximum stack depth for tracing.
+# -----------------------------------------------------------------------------
+max_stack: {{ max_stack | default(65535) | int }}
+
+# -----------------------------------------------------------------------------
+# Flat Output Format
+# -----------------------------------------------------------------------------
+# Description: Use flat output format instead of tree/recursive.
+# -----------------------------------------------------------------------------
+{% if flat | default(false) | bool %}
+flat: yes
+{% else %}
+flat: no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Auto Arguments
+# -----------------------------------------------------------------------------
+# Description: Automatically show arguments and return values for known functions.
+# -----------------------------------------------------------------------------
+{% if auto_args | default(false) | bool %}
+auto_args: yes
+{% else %}
+auto_args: no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Show Return Values
+# -----------------------------------------------------------------------------
+# Description: Show return values for traced functions.
+# -----------------------------------------------------------------------------
+{% if show_retval | default(false) | bool %}
+show_retval: yes
+{% else %}
+show_retval: no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Output Format Style
+# -----------------------------------------------------------------------------
+# Description: Output format style. Values: normal, html.
+# -----------------------------------------------------------------------------
+output_format: {{ output_format | default('normal') }}
+
+# -----------------------------------------------------------------------------
+# Sort Keys for Report
+# -----------------------------------------------------------------------------
+# Description: Sort keys for report output (e.g., self, total, calls).
+#              Use empty list for default sort.
+# -----------------------------------------------------------------------------
+{% if sort_keys is defined and sort_keys | length > 0 %}
+sort_keys: {{ sort_keys | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Kernel Tracing Enablement
+# -----------------------------------------------------------------------------
+# Description: Enable tracing of kernel functions as well.
+# -----------------------------------------------------------------------------
+{% if kernel_trace | default(false) | bool %}
+kernel_trace: yes
+{% else %}
+kernel_trace: no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Kernel Trace Depth
+# -----------------------------------------------------------------------------
+# Description: Trace kernel functions within this depth.
+# -----------------------------------------------------------------------------
+kernel_depth: {{ kernel_depth | default(0) | int }}
+
+# -----------------------------------------------------------------------------
+# Instrumentation Library Path
+# -----------------------------------------------------------------------------
+# Description: Load libmcount libraries from this custom path.
+# -----------------------------------------------------------------------------
+{% if libmcount_path is defined and libmcount_path is not none and libmcount_path | length > 0 %}
+libmcount_path: {{ libmcount_path }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Symbol Demangling Style
+# -----------------------------------------------------------------------------
+# Description: C++ symbol demangling style. Values: full, simple, no.
+# -----------------------------------------------------------------------------
+demangle: {{ demangle | default('simple') }}
+
+# -----------------------------------------------------------------------------
+# Pattern Matching Type
+# -----------------------------------------------------------------------------
+# Description: Pattern matching type for filters. Values: regex, glob.
+# -----------------------------------------------------------------------------
+match_type: {{ match_type | default('regex') }}
+
+# -----------------------------------------------------------------------------
+# Time Filter
+# -----------------------------------------------------------------------------
+# Description: Hide functions running less than this time (e.g., 1ms).
+# -----------------------------------------------------------------------------
+{% if time_filter is defined and time_filter is not none and time_filter | length > 0 %}
+time_filter: {{ time_filter }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Size Filter
+# -----------------------------------------------------------------------------
+# Description: Apply dynamic patching for functions bigger than this size (e.g., 100B).
+# -----------------------------------------------------------------------------
+{% if size_filter is defined and size_filter is not none and size_filter | length > 0 %}
+size_filter: {{ size_filter }}
+{% endif %}

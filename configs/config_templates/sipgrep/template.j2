@@ -1,0 +1,194 @@
+# ==============================================================================
+# sipgrep Configuration Template
+# ==============================================================================
+# This template generates a configuration file for the sipgrep tool, a SIP
+# (Session Initiation Protocol) packet capture and analysis utility.
+#
+# sipgrep is typically used for debugging SIP signaling, monitoring call
+# flows, and analyzing protocol compliance. It does not expose a network
+# service port itself; rather, it captures packets on a specified interface.
+# Therefore, it has no 'provides' capability in the standard service
+# vocabulary, nor does it require external database/cache connections.
+# ==============================================================================
+
+# [Network Interface]
+# Network interface to listen on for SIP packets.
+# Example: eth0, ens33, docker0
+interface: {{ interface | default('eth0') }}
+
+# [SIP Port Range]
+# SIP port range to capture, e.g., '5060-5061' or '5060'.
+# Default covers standard SIP (5060) and SIP-TLS (5061).
+port_range: {{ port_range | default('5060-5061') }}
+
+# [BPF Filter File]
+# Path to a file containing a Berkeley Packet Filter (BPF) expression.
+# If set, this file overrides the inline match_expression.
+# Leave empty to use inline filters or no filter.
+bpf_filter_file: {{ bpf_filter_file | default('') }}
+
+# [HEP Capture URL]
+# HEP (Homer Enhanced Protocol) Capture Server URL in ip:port format.
+# Used to send duplicate matching traffic to a HEP collector (e.g., Homer).
+hep_capture_url: {{ hep_capture_url | default('') }}
+
+# [Packet Limit]
+# Maximum number of packets to match before exiting.
+# Set to 0 for no limit (capture until interrupted).
+packet_limit: {{ packet_limit | default(0) }}
+
+# [Timeout Seconds]
+# Terminate sipgrep after this many seconds.
+# Set to 0 for no time limit.
+timeout_seconds: {{ timeout_seconds | default(0) }}
+
+# ==============================================================================
+# Display and Output Flags
+# ==============================================================================
+
+# [Show Subprotocol]
+# Show sub-protocol number along with the single-character identifier.
+# Example: UDP (u), TCP (t), SCTP (s).
+show_subprotocol: {{ show_subprotocol | default(false) }}
+
+# [No Drop Privileges]
+# Do not try to drop privileges to the DROPPRIVS_USER account.
+# Use with caution: running as root is required for raw socket capture.
+no_drop_privileges: {{ no_drop_privileges | default(false) }}
+
+# [No Promiscuous Mode]
+# Don't put the interface into promiscuous mode.
+# Usually you WANT promiscuous mode to catch all traffic.
+no_promiscuous: {{ no_promiscuous | default(false) }}
+
+# [Disable Dialog Matching]
+# Disable SIP Dialog matching.
+# Without this, sipgrep correlates requests and responses into dialogs.
+disable_dialog_matching: {{ disable_dialog_matching | default(false) }}
+
+# [Disable Dialog Cleanup]
+# Disable clean-up of Dialogs during trace.
+disable_dialog_cleanup: {{ disable_dialog_cleanup | default(false) }}
+
+# [Print Timestamps]
+# Print a timestamp in the form of +S.UUUUUU relative to capture start.
+print_timestamps: {{ print_timestamps | default(false) }}
+
+# [Print Dialogs]
+# Print Dialogs report during trace.
+print_dialogs: {{ print_dialogs | default(false) }}
+
+# [Enable Reassembly]
+# Enable packet re-assembly for TCP and SCTP streams.
+enable_reassembly: {{ enable_reassembly | default(false) }}
+
+# [Line Buffered]
+# Make stdout line buffered. Useful when piping to other tools.
+line_buffered: {{ line_buffered | default(false) }}
+
+# [Ignore Case]
+# Ignore case in regex matching for header fields.
+ignore_case: {{ ignore_case | default(false) }}
+
+# [Invert Match]
+# Invert match: print packets that DO NOT match the criteria.
+invert_match: {{ invert_match | default(false) }}
+
+# [Match Word]
+# Match the regex expression as a whole word (word boundaries).
+match_word: {{ match_word | default(false) }}
+
+# [Show Empty Packets]
+# Display empty packets (packets with no payload or headers).
+show_empty_packets: {{ show_empty_packets | default(false) }}
+
+# [Use Colors]
+# Use colors in stdout for better readability.
+# Set to false if redirecting to a log file or non-color terminal.
+use_colors: {{ use_colors | default(true) }}
+
+# ==============================================================================
+# Packet Size Limits
+# ==============================================================================
+
+# [Snaplen]
+# Set the BPF caplen (snapshot length).
+# Default 65536 ensures most SIP packets are fully captured.
+snaplen: {{ snaplen | default(65536) }}
+
+# [Limitlen]
+# Set the upper limit on the size of packets that sipgrep will inspect.
+# Default 65536.
+limitlen: {{ limitlen | default(65536) }}
+
+# [Output PCAP]
+# Output matched packets to a pcap-compatible dump file.
+# Leave empty to output to stdout.
+output_pcap: {{ output_pcap | default('') }}
+
+# ==============================================================================
+# SIP Header Matching Filters
+# ==============================================================================
+
+# [Match Contact User]
+# Match the user part of the Contact: SIP header.
+# Example: 'alice' matches Contact: <sip:alice@192.168.1.1>
+match_contact_user: {{ match_contact_user | default('') }}
+
+# [Match From User]
+# Match the user part of the From: SIP header.
+match_from_user: {{ match_from_user | default('') }}
+
+# [Match To User]
+# Match the user part of the To: SIP header.
+match_to_user: {{ match_to_user | default('') }}
+
+# [Match User Agent]
+# Match the User-Agent header string.
+# Often used to identify scanners or specific softphones.
+match_user_agent: {{ match_user_agent | default('') }}
+
+# [Match Expression]
+# Match expression (extended regular expression).
+# Used if bpf_filter_file is NOT set.
+# If both are set, bpf_filter_file takes precedence.
+match_expression: {{ match_expression | default('') }}
+
+# ==============================================================================
+# Generated Command Line Invocation
+# ==============================================================================
+# This section generates the actual command line to invoke sipgrep based on
+# the configuration above. It is often used by service wrappers or systemd
+# exec commands to ensure consistency between config and runtime.
+
+cmd_line: >-
+  sipgrep
+  {% if interface | default('eth0') != 'eth0' %} -d {{ interface }}{% endif %}
+  {% if port_range | default('5060-5061') != '5060-5061' %} -P {{ port_range }}{% endif %}
+  {% if bpf_filter_file | default('') != '' %} -F {{ bpf_filter_file }}{% endif %}
+  {% if hep_capture_url | default('') != '' %} -H {{ hep_capture_url }}{% endif %}
+  {% if packet_limit | default(0) > 0 %} -n {{ packet_limit }}{% endif %}
+  {% if timeout_seconds | default(0) > 0 %} -q {{ timeout_seconds }}{% endif %}
+  {% if snaplen | default(65536) != 65536 %} -s {{ snaplen }}{% endif %}
+  {% if limitlen | default(65536) != 65536 %} -S {{ limitlen }}{% endif %}
+  {% if output_pcap | default('') != '' %} -O {{ output_pcap }}{% endif %}
+  {% if show_subprotocol | default(false) %} -N{% endif %}
+  {% if no_drop_privileges | default(false) %} -R{% endif %}
+  {% if no_promiscuous | default(false) %} -p{% endif %}
+  {% if disable_dialog_matching | default(false) %} -m{% endif %}
+  {% if disable_dialog_cleanup | default(false) %} -g{% endif %}
+  {% if print_timestamps | default(false) %} -T{% endif %}
+  {% if print_dialogs | default(false) %} -G{% endif %}
+  {% if enable_reassembly | default(false) %} -a{% endif %}
+  {% if line_buffered | default(false) %} -l{% endif %}
+  {% if ignore_case | default(false) %} -i{% endif %}
+  {% if invert_match | default(false) %} -v{% endif %}
+  {% if match_word | default(false) %} -w{% endif %}
+  {% if show_empty_packets | default(false) %} -e{% endif %}
+  {% if not use_colors | default(true) %} -C{% endif %}
+  {% if match_contact_user | default('') != '' %} -c {{ match_contact_user }}{% endif %}
+  {% if match_from_user | default('') != '' %} -f {{ match_from_user }}{% endif %}
+  {% if match_to_user | default('') != '' %} -t {{ match_to_user }}{% endif %}
+  {% if match_user_agent | default('') != '' %} -j {{ match_user_agent }}{% endif %}
+  {% if match_expression | default('') != '' %} {{ match_expression }}{% endif %}
+  {% if bpf_filter_file | default('') == '' and match_expression | default('') == '' %} <no_bpf_filter>{% endif %}

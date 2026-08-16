@@ -1,0 +1,198 @@
+# Nast (Network Analysis Sniffing Tool) configuration template
+# This file generates the command-line arguments for the `nast` utility.
+# Variables are sourced from Ansible inventory/role defaults.
+
+# ===========================================================================
+# General / Daemon Options
+# ===========================================================================
+
+# Run nast in background/daemon mode and turn off stdout.
+# Flag: -d
+# Default: False (Run in foreground)
+{% if (values | default({})).daemon | default(False) %}
+-d
+{% endif %}
+
+# ===========================================================================
+# Network Interface & Sniffing Configuration
+# ===========================================================================
+
+# Select the network interface to sniff on.
+# Empty string triggers auto-detection by nast.
+# Flag: -i
+# Default: '' (Auto-detect)
+{% if (values | default({})).interface | default('') %}
+-i {{ (values | default({})).interface | default('') | quote }}
+{% endif %}
+
+# Apply a pcap-style filter to the sniffer.
+# Uses libpcap syntax (e.g., 'src 192.168.1.2').
+# Flag: -f
+# Default: '' (No filter)
+{% if (values | default({})).filter | default('') %}
+-f "{{ (values | default({})).filter | default('') | quote }}"
+{% endif %}
+
+# Disable promiscuous mode on the NIC.
+# By default, nast usually tries to put the NIC in promiscuous mode.
+# Flag: -p
+# Default: False (Promiscuous mode enabled)
+{% if (values | default({})).disable_promisc | default(False) %}
+-p
+{% endif %}
+
+# ===========================================================================
+# Logging Options
+# ===========================================================================
+
+# Log all packets (headers and payload) to the specified file.
+# Flag: -l
+# Default: '' (No logging to file)
+{% if (values | default({})).log_file | default('') %}
+-l "{{ (values | default({})).log_file | default('') | quote }}"
+{% endif %}
+
+# Log only captured data (payload) to the specified file.
+# Flag: --ld
+# Default: '' (No payload-only logging)
+{% if (values | default({})).log_data_file | default('') %}
+--ld "{{ (values | default({})).log_data_file | default('') | quote }}"
+{% endif %}
+
+# ===========================================================================
+# Data Display Options
+# ===========================================================================
+
+# Print captured data in ASCII format.
+# Note: This uses the -d flag, but since -d is also used for daemon mode,
+# ensure logical precedence in your command line execution if both are intended
+# (typically daemon mode suppresses stdout, so this flag might be redundant
+# or conflicting if -d is used for daemon. Assuming separate execution contexts).
+# Flag: -d (Conflict with daemon flag; verify execution context)
+# Default: False (Raw/Hex output)
+{% if (values | default({})).ascii_data | default(False) %}
+-d
+{% endif %}
+
+# Print captured data in ASCII-Hex format.
+# Flag: -x
+# Default: False (Raw output)
+{% if (values | default({})).ascii_hex_data | default(False) %}
+-x
+{% endif %}
+
+# ===========================================================================
+# Network Discovery & Scanning
+# ===========================================================================
+
+# Check other NICs on the LAN that have the promiscuous flag set.
+# Accepts an IP address to check specific hosts, or 'all' for the entire subnet.
+# Flag: -P
+# Default: '<ip>' (Check specific IP or default target)
+{% if (values | default({})).check_promisc | default('<ip>') %}
+-P {{ (values | default({})).check_promisc | default('<ip>') }}
+{% endif %}
+
+# Map the LAN by performing a series of ARP requests.
+# Useful for discovering active hosts on the local segment.
+# Flag: -m
+# Default: False
+{% if (values | default({})).host_list | default(False) %}
+-m
+{% endif %}
+
+# Try to find possible Internet gateways on the LAN.
+# Flag: -g
+# Default: False
+{% if (values | default({})).find_gateway | default(False) %}
+-g
+{% endif %}
+
+# Performs a half-open port scanning on selected hosts.
+# Item structure: { host: '192.168.1.1', range: '1-1024' }
+# Flag: -S
+# Default: [] (Empty list)
+{% if (values | default({})).port_scanner | default([]) %}
+-S
+{% for scan in (values | default({})).port_scanner | default([]) %}
+# Target: {{ scan.host }} Range: {{ scan.range }}
+{% endfor %}
+{% endif %}
+
+# Perform a half-open port scan on ALL hosts of the LAN.
+# Flag: -M
+# Default: False
+{% if (values | default({})).multi_port_scanner | default(False) %}
+-M
+{% endif %}
+
+# Determine if the LAN uses a Hub or a Switch (Layer 2 topology discovery).
+# Flag: -L
+# Default: False
+{% if (values | default({})).find_link | default(False) %}
+-L
+{% endif %}
+
+# ===========================================================================
+# Traffic Analysis & Manipulation
+# ===========================================================================
+
+# Follow a specific TCP connection and print all payload data.
+# Item structure: { ip1: '1.1.1.1', port1: 80, ip2: '2.2.2.2', port2: 12345 }
+# Flag: -s
+# Default: [] (Empty list)
+{% if (values | default({})).tcp_stream | default([]) %}
+-s
+{% for conn in (values | default({})).tcp_stream | default([]) %}
+# Stream: {{ conn.ip1 }}:{{ conn.port1 }} -> {{ conn.ip2 }}:{{ conn.port2 }}
+{% endfor %}
+{% endif %}
+
+# Reset (RST) established TCP connections.
+# Item structure: { ip1: '1.1.1.1', port1: 80, ip2: '2.2.2.2', port2: 12345 }
+# Flag: -r
+# Default: [] (Empty list)
+{% if (values | default({})).reset_connection | default([]) %}
+-r
+{% for conn in (values | default({})).reset_connection | default([]) %}
+# Reset: {{ conn.ip1 }}:{{ conn.port1 }} -> {{ conn.ip2 }}:{{ conn.port2 }}
+{% endfor %}
+{% endif %}
+
+# Apply traffic counting to a specific filter.
+# Use 'any' to count all traffic regardless of filter.
+# Flag: -C
+# Default: '' (No counting)
+{% if (values | default({})).byte_counting | default('') %}
+-C {{ (values | default({})).byte_counting | default('') }}
+{% endif %}
+
+# ===========================================================================
+# Security & Reconnaissance
+# ===========================================================================
+
+# Check the most famous daemon banners on LAN hosts.
+# Useful for identifying service versions.
+# Flag: -b
+# Default: False
+{% if (values | default({})).daemon_banner | default(False) %}
+-b
+{% endif %}
+
+# Control ARP answers to discover possible ARP spoofing/poisoning attacks.
+# Flag: -c
+# Default: False
+{% if (values | default({})).check_arp_poisoning | default(False) %}
+-c
+{% endif %}
+
+# ===========================================================================
+# User Interface
+# ===========================================================================
+
+# Run Nast with the ncurses text-based user interface.
+# Flag: -G
+# Default: False (Command-line output)
+{% if (values | default({})).ncurses | default(False) %}
+-G
+{% endif %}

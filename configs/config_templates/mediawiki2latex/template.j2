@@ -1,0 +1,72 @@
+# mediawiki2latex configuration template
+# Self-documented and safe for Ansible role reuse.
+
+# The input URI pointing to the MediaWiki page to convert.
+# Default: 'https://en.wikipedia.org/wiki/Main_Page'
+# Command-line flag: --url=URL
+URL: {{ (url | default('https://en.wikipedia.org/wiki/Main_Page')) | string }}
+
+# The filename for the resulting PDF output.
+# Default: 'output.pdf'
+# Command-line flag: --output=FILE
+Output File: {{ (output_file | default('output.pdf')) | string }}
+
+# The paper size for the LaTeX document. Possible values are A4, A5, B5, letter, legal, executive.
+# Default: 'A4'
+# Command-line flag: --paper=SIZE
+Paper Size: {{ (paper_size | default('A4')) | string }}
+
+# The maximum image resolution in dot-per-inch. The argument should be an integer.
+# Default: 300
+# Command-line flag: --resolution=DPI
+Image Resolution: {{ image_resolution | default(300) | int }}
+
+# The path to the LaTeX headers, which should be used. May be omitted.
+# Default: '' (empty string)
+# Command-line flag: --headers=HEADERSPATH
+Headers Path: {{ (headers_path | default('')) | string }}
+
+# The path to the user template map file. Usually called templates.user.
+# Default: '' (empty string)
+# Command-line flag: --templates=MAP
+Template Map: {{ (template_map | default('')) | string }}
+
+# Write all generated LaTeX files to the specified folder. If omitted, files are kept in memory and deleted on exit.
+# Default: '' (empty string)
+# Command-line flag: --copy=LATEXTREE
+LaTeX Tree Output: {{ (latex_tree_output | default('')) | string }}
+
+# Keep vector graphics in vector form.
+# Default: true
+# Command-line flag: --vector
+Use Vector Graphics: {{ use_vector_graphics | default(true) | bool | ternary('true', 'false') }}
+
+# Use internal template definitions.
+# Default: false
+# Command-line flag: --internal
+Use Internal Templates: {{ use_internal_templates | default(false) | bool | ternary('true', 'false') }}
+
+# Use mediaWiki to expand the templates.
+# Default: false
+# Command-line flag: --mediawiki
+Use MediaWiki Expansion: {{ use_mediawiki_expansion | default(false) | bool | ternary('true', 'false') }}
+
+# Use book-namespace mode for expansion. Follow all links but not recursively.
+# Default: false
+# Command-line flag: --bookmode
+Book Mode: {{ book_mode | default(false) | bool | ternary('true', 'false') }}
+
+# Output LaTeX Source Archive.
+# Default: false
+# Command-line flag: --zip
+Output Zip Archive: {{ output_zip | default(false) | bool | ternary('true', 'false') }}
+
+# Output epub file. Only works if packages latex2rtf and calibre are installed additionally.
+# Default: false
+# Command-line flag: --epub
+Output EPUB: {{ output_epub | default(false) | bool | ternary('true', 'false') }}
+
+# Output odt file. Open Document Text (for wordprocessors). Only works if packages latex2rtf and libreoffice are installed additionally.
+# Default: false
+# Command-line flag: --odt
+Output ODT: {{ output_odt | default(false) | bool | ternary('true', 'false') }}

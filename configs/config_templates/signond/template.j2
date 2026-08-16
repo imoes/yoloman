@@ -1,0 +1,52 @@
+;Signon Daemon configuration file
+[General]
+{# Path to the signon database directory. If empty, uses $XDG_CONFIG_HOME/signond or ~/.config/signond. #}
+{%- if signond_storage_path | default('') | length > 0 %}
+StoragePath={{ signond_storage_path | default('') }}
+{%- else %}
+;StoragePath=
+{%- endif %}
+
+{# Logging level: 0 - fatal, 1 - critical, 2 - info/debug. #}
+LoggingLevel={{ signond_logging_level | default(2) }}
+
+[SecureStorage]
+{# CryptoManager plugin to use (e.g., 'default', 'cryptsetup'). If empty, auto-selects the first suitable plugin. #}
+{%- if signond_crypto_manager | default('default') | length > 0 %}
+CryptoManager={{ signond_crypto_manager | default('default') }}
+{%- else %}
+;CryptoManager=
+{%- endif %}
+
+{# AccessControlManager plugin to use (e.g., 'default', 'smack-ac', 'mssf-ac', 'apparmor-ac'). If empty, auto-selects the first suitable plugin #}
+{%- if signond_access_control_manager | default('default') | length > 0 %}
+AccessControlManager={{ signond_access_control_manager | default('default') }}
+{%- else %}
+;AccessControlManager=
+{%- endif %}
+
+{# SecretsStorage backend to use (e.g., 'default', 'gnome-keyring'). If empty, auto-selects the first suitable plugin. #}
+{%- if signond_secrets_storage | default('default') | length > 0 %}
+SecretsStorage={{ signond_secrets_storage | default('default') }}
+{%- else %}
+;SecretsStorage=
+{%- endif %}
+
+{# Name of the filesystem to use for secure storage. #}
+FileSystemName={{ signond_filesystem_name | default('signonfs') }}
+
+{# Size of the secure storage filesystem in MB. #}
+Size={{ signond_filesystem_size | default(8) }}
+
+{# Filesystem type for the secure storage. #}
+FileSystemType={{ signond_filesystem_type | default('ext2') }}
+
+[ObjectTimeouts]
+{# Timeout in seconds for identity inactivity. #}
+IdentityTimeout={{ signond_identity_timeout | default(30) }}
+
+{# Timeout in seconds for authentication session inactivity. #}
+AuthSessionTimeout={{ signond_auth_session_timeout | default(30) }}
+
+{# Timeout in seconds for daemon inactivity. #}
+DaemonTimeout={{ signond_daemon_timeout | default(5) }}

@@ -1,0 +1,98 @@
+# =============================================================================
+# minilzip Configuration Template
+# =============================================================================
+# This template generates a configuration file for minilzip, a file compression
+# utility. It supports various compression parameters, file selection, and
+# behavioral flags.
+# =============================================================================
+
+# Compression level
+# Description: Sets the compression level from 0 (fastest) to 9 (best compression).
+# Default is 6.
+# minilzip flag: -0 through -9, or aliases --fast/--best
+compression_level: {{ compression_level | default(6) }}
+
+# Dictionary size
+# Description: Sets the dictionary size limit in bytes. Can include multipliers
+# like k, M, G (e.g., '8M', '512M').
+# minilzip flag: --dictionary-size or -s
+dictionary_size: "{{ dictionary_size | default('8M') }}"
+
+# Match length
+# Description: Sets the match length limit in bytes.
+# minilzip flag: --match-length or -m
+match_length: {{ match_length | default(36) }}
+
+# Member size limit
+# Description: Sets the member size limit for multimember files in bytes. Can
+# include multipliers. An empty string disables the limit.
+# minilzip flag: --member-size or -b
+member_size: "{{ member_size | default('') }}"
+
+# Volume size limit
+# Description: Sets the volume size limit in bytes. Can include multipliers. An
+# empty string disables the limit.
+# minilzip flag: --volume-size or -S
+volume_size: "{{ volume_size | default('') }}"
+
+# Keep input files
+# Description: If true, keep (don't delete) input files after processing.
+# minilzip flag: --keep or -k
+keep_input: {{ keep_input | default(false) }}
+
+# Force overwrite
+# Description: If true, force overwrite existing output files.
+# minilzip flag: --force or -f
+force_overwrite: {{ force_overwrite | default(false) }}
+
+# Write to stdout
+# Description: If true, write output to standard output, keeping input files.
+# minilzip flag: --stdout or -c
+stdout: {{ stdout | default(false) }}
+
+# Test integrity
+# Description: If true, test compressed file integrity without decompressing.
+# minilzip flag: --test or -t
+test_integrity: {{ test_integrity | default(false) }}
+
+# Decompress
+# Description: If true, decompress input files.
+# minilzip flag: --decompress or -d
+decompress: {{ decompress | default(false) }}
+
+# Recompress
+# Description: If true, force re-compression of already compressed files.
+# minilzip flag: --recompress or -F
+recompress: {{ recompress | default(false) }}
+
+# Strict trailing data
+# Description: If true, exit with error if trailing data is present after the
+# compressed file header.
+# minilzip flag: --trailing-error or -a
+strict_trailing: {{ strict_trailing | default(false) }}
+
+# Verbosity
+# Description: If true, be verbose. Note: minilzip supports -vv for more
+# verbosity, but this boolean flag only enables the base -v level.
+# minilzip flag: --verbose or -v
+verbose: {{ verbose | default(false) }}
+
+# Check library consistency
+# Description: If true, compare the version of lzlib.h with liblz.{a,so}.
+# minilzip flag: --check-lib
+check_lib: {{ check_lib | default(false) }}
+
+# Loose trailing data
+# Description: If true, allow trailing data that seems like a corrupt header.
+# This is the opposite of strict_trailing.
+# minilzip flag: --loose-trailing
+loose_trailing: {{ loose_trailing | default(false) }}
+
+# Files to process
+# Description: List of files to compress or decompress. If empty, stdin/stdout
+# is used if configured.
+# minilzip positional arguments: file1 file2 ...
+files:
+{% for file in files | default([]) %}
+  - {{ file }}
+{% endfor %}

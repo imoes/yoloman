@@ -1,0 +1,40 @@
+# PRS Password Manager Configuration
+# This file configures the Password Store (prs), a shell-based password management tool
+# using GPG for encryption and Git for version control.
+# Each setting corresponds to an environment variable or configuration option for prs.
+
+# The root directory for the password store tree.
+# This directory contains the GPG-encrypted password files and metadata.
+# Environment variable: PASSWORD_STORE_DIR
+STORE_DIR: {{ store_dir | default('/home/user/.local/share/prs') }}
+
+# The GPG executable binary path.
+# Used by prs to perform encryption, decryption, and key management operations.
+# Corresponds to the --gpg-program flag or PASSWORD_STORE_GPG_PROGRAM env var.
+GPG_PROGRAM: {{ gpg_program | default('gpg') }}
+
+# List of GPG key IDs or email addresses to encrypt new passwords to.
+# When adding a new password, it will be encrypted for these recipients in addition to the default user.
+# Corresponds to the -r/--recipient flag on prs insert/update commands.
+# If empty, only the default user's key is used.
+RECIPIENTS:
+{% for recipient in recipients | default([]) %}
+- {{ recipient }}
+{% endfor %}
+
+# The URL of the git remote repository for syncing the password store.
+# If set, prs can automatically push/pull changes to keep stores in sync across machines.
+# Corresponds to PASSWORD_STORE_ENABLE_EXTENSIONS and git remote origin URL.
+GIT_REMOTE_URL: {{ git_remote_url | default('') }}
+
+# Enable verbose output.
+# When true, prs will print detailed information about its operations to stderr.
+# Useful for debugging automation scripts or understanding why a command failed.
+# Corresponds to the -v/--verbose flag.
+VERBOSE: {{ verbose | default(false) | lower }}
+
+# Disable interactive prompts.
+# When true, prs will not ask for confirmation before overwriting passwords or performing destructive actions.
+# Essential for non-interactive/automated environments.
+# Corresponds to the -I/--no-interact flag.
+NO_INTERACT: {{ no_interact | default(false) | lower }}

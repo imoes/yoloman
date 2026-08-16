@@ -1,0 +1,9 @@
+# vim:syntax=apparmor
+# Profile abstraction for allowing mozc to run in including guest session
+# Author: Aron Xu <happyaron@ubuntu.com>
+
+# Requires apparmor 2.9
+
+# mozc_socket_prefix: The prefix for the mozc Unix socket path. Usually 'tmp' or a specific directory name.
+# This rule allows mozc to bind and listen on Unix domain sockets matching the pattern <prefix>.mozc.*
+unix (bind, listen) type=stream addr="@{{ mozc_socket_prefix | default('tmp') }}.mozc.*",

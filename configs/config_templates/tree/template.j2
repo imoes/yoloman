@@ -1,0 +1,350 @@
+# Ansible-managed configuration for the 'tree' directory listing utility.
+# This template generates a simple key=value configuration file that
+# drives the tree(1) command-line tool via an argument parser or wrapper script.
+# Every variable uses | default() to ensure safe rendering even if undefined.
+# Booleans are rendered as 'true' or 'false' strings for shell compatibility.
+
+# Root directory to start listing from.
+# Defaults to the current directory (.) if not specified.
+# Corresponds to positional argument [directory ...] or tree -d .
+ROOT_DIR={{ root_dir | default('.') }}
+
+# Max display depth of the directory tree.
+# 0 means unlimited depth. Positive integers limit the recursion level.
+# Corresponds to tree -L <level>
+{% if max_depth | default(0) != 0 %}
+MAX_DEPTH={{ max_depth | default(0) }}
+{% endif %}
+
+# List directories only.
+# If true, files are excluded from the output; only directory names are shown.
+# Corresponds to tree -d
+{% if list_dirs_only | default(False) %}
+LIST_DIRS_ONLY=true
+{% endif %}
+
+# Follow symbolic links if they point to directories.
+# By default, tree shows symlinks as links; this option makes it traverse them.
+# Corresponds to tree -l
+{% if follow_symlinks | default(False) %}
+FOLLOW_SYMLINKS=true
+{% endif %}
+
+# Print the full path prefix for each file.
+# Instead of relative names, outputs absolute or full relative paths.
+# Corresponds to tree -f
+{% if print_full_paths | default(False) %}
+PRINT_FULL_PATHS=true
+{% endif %}
+
+# Stay on the current file-system only.
+# Prevents tree from descending into mount points or other filesystems.
+# Corresponds to tree -x
+{% if stay_on_filesystem | default(False) %}
+STAY_ON_FILESYSTEM=true
+{% endif %}
+
+# List files matching these wildcard patterns (include filter).
+# Comma-separated list of glob patterns.
+# Corresponds to tree -P <pattern1>,<pattern2>...
+{% if include_patterns | default([]) | length > 0 %}
+INCLUDE_PATTERNS={{ include_patterns | default([]) | join(',') }}
+{% endif %}
+
+# Exclude files matching these wildcard patterns (exclude filter).
+# Comma-separated list of glob patterns.
+# Corresponds to tree -I <pattern1>,<pattern2>...
+{% if exclude_patterns | default([]) | length > 0 %}
+EXCLUDE_PATTERNS={{ exclude_patterns | default([]) | join(',') }}
+{% endif %}
+
+# Use .gitignore files for filtering.
+# If true, patterns from .gitignore are applied to include/exclude logic.
+# Corresponds to tree --gitignore
+{% if use_gitignore | default(False) %}
+USE_GITIGNORE=true
+{% endif %}
+
+# Ignore case in pattern matching.
+# Makes include/exclude patterns case-insensitive.
+# Corresponds to tree --ignore-case
+{% if ignore_case | default(False) %}
+IGNORE_CASE=true
+{% endif %}
+
+# Apply include patterns to directory names as well as files.
+# By default, include patterns only affect files; this enables directory filtering.
+# Corresponds to tree --matchdirs
+{% if match_dirs | default(False) %}
+MATCH_DIRS=true
+{% endif %}
+
+# Prune empty directories from output.
+# Directories that contain no matching files (or subdirs) are omitted.
+# Corresponds to tree --prune
+{% if prune_empty | default(False) %}
+PRUNE_EMPTY=true
+{% endif %}
+
+# Print file comments from .info files.
+# Requires .info companion files in the directory structure.
+# Corresponds to tree --info
+{% if print_info_comments | default(False) %}
+PRINT_INFO_COMMENTS=true
+{% endif %}
+
+# Omit the final file/directory count report.
+# Suppresses the summary line at the end of the output.
+# Corresponds to tree --noreport
+{% if omit_report | default(False) %}
+OMIT_REPORT=true
+{% endif %}
+
+# Character set for output (line drawing and HTML).
+# Common values: UTF-8, ISO-8859-1, DOS.
+# Corresponds to tree --charset=<charset>
+CHARSET={{ charset | default('UTF-8') }}
+
+# Do not descend into directories with more than this many entries.
+# 0 means unlimited. Useful for protecting against huge directory floods.
+# Corresponds to tree --filelimit=<n>
+{% if file_limit | default(0) != 0 %}
+FILE_LIMIT={{ file_limit | default(0) }}
+{% endif %}
+
+# Format string for modification times.
+# Empty string disables time display. Uses strftime format codes.
+# Corresponds to tree --timefmt="<format>"
+{% if time_fmt | default('') %}
+TIME_FMT={{ time_fmt | default('') }}
+{% endif %}
+
+# Filename to send output to.
+# Empty string means output goes to stdout.
+# Corresponds to tree -o <filename>
+{% if output_file | default('') %}
+OUTPUT_FILE={{ output_file | default('') }}
+{% endif %}
+
+# Print non-printable characters as question marks.
+# Sanitizes output for terminals that may choke on binary data.
+# Corresponds to tree -q
+{% if question_marks | default(False) %}
+QUESTION_MARKS=true
+{% endif %}
+
+# Quote filenames in double quotes.
+# Escapes special shell characters within filenames.
+# Corresponds to tree -Q
+{% if quote_names | default(False) %}
+QUOTE_NAMES=true
+{% endif %}
+
+# Print file type and permissions.
+# Adds a mode string (e.g., -rwxr-xr-x) and type indicator before filenames.
+# Corresponds to tree -p
+{% if print_permissions | default(False) %}
+PRINT_PERMISSIONS=true
+{% endif %}
+
+# Print username/UID of files.
+# Adds the owner name (or UID) next to each file.
+# Corresponds to tree -u
+{% if print_owner | default(False) %}
+PRINT_OWNER=true
+{% endif %}
+
+# Print group name/GID of files.
+# Adds the group name (or GID) next to each file.
+# Corresponds to tree -g
+{% if print_group | default(False) %}
+PRINT_GROUP=true
+{% endif %}
+
+# Print size of each file in bytes.
+# Displays the file size as a raw integer.
+# Corresponds to tree -s
+{% if print_size_bytes | default(False) %}
+PRINT_SIZE_BYTES=true
+{% endif %}
+
+# Print file size in human-readable format.
+# Uses K, M, G suffixes for sizes. Mutually exclusive/orthogonal with -s.
+# Corresponds to tree -h
+{% if human_readable_size | default(False) %}
+HUMAN_READABLE_SIZE=true
+{% endif %}
+
+# Use SI units (powers of 1000) for sizes.
+# Overrides human-readable suffixes to use KB, MB, GB (1000-based).
+# Corresponds to tree --si
+{% if si_units | default(False) %}
+SI_UNITS=true
+{% endif %}
+
+# Print directory sizes as accumulation of file sizes.
+# Adds the total size of all files within a directory to the directory line.
+# Corresponds to tree --du
+{% if disk_usage | default(False) %}
+DISK_USAGE=true
+{% endif %}
+
+# Print modification time.
+# Displays the last modification timestamp for each file/directory.
+# Corresponds to tree -D
+{% if print_mtime | default(False) %}
+PRINT_MTIME=true
+{% endif %}
+
+# Print inode number.
+# Displays the inode number for each file. Useful for filesystem diagnostics.
+# Corresponds to tree --inodes
+{% if print_inodes | default(False) %}
+PRINT_INODES=true
+{% endif %}
+
+# Print device number.
+# Displays the device ID (major:minor) for each file.
+# Corresponds to tree --device
+{% if print_device | default(False) %}
+PRINT_DEVICE=true
+{% endif %}
+
+# Sort by version string.
+# Performs natural sorting (v1.2, v1.10, v2.0) rather than lexicographic.
+# Corresponds to tree -v
+{% if sort_version | default(False) %}
+SORT_VERSION=true
+{% endif %}
+
+# Sort by last modification time.
+# Files are ordered by mtime, newest first (unless reversed).
+# Corresponds to tree -t
+{% if sort_mtime | default(False) %}
+SORT_MTIME=true
+{% endif %}
+
+# Sort by last status change time.
+# Files are ordered by ctime (metadata change time).
+# Corresponds to tree -c
+{% if sort_ctime | default(False) %}
+SORT_CTIME=true
+{% endif %}
+
+# Do not sort; list in directory order.
+# Preserves the raw order returned by the filesystem readdir().
+# Corresponds to tree -U
+{% if no_sort | default(False) %}
+NO_SORT=true
+{% endif %}
+
+# Reverse sort order.
+# Reverses the direction of the selected sort (e.g., oldest first if -t).
+# Corresponds to tree -r
+{% if reverse_sort | default(False) %}
+REVERSE_SORT=true
+{% endif %}
+
+# List directories before files.
+# Forces directories to appear at the top of each directory listing.
+# Corresponds to tree --dirsfirst
+{% if dirs_first | default(False) %}
+DIRS_FIRST=true
+{% endif %}
+
+# List files before directories.
+# Forces files to appear at the top of each directory listing.
+# Corresponds to tree --filesfirst
+{% if files_first | default(False) %}
+FILES_FIRST=true
+{% endif %}
+
+# Sort by type.
+# Determines the primary sort key: ctime, mtime, size, version, or none.
+# If empty, no type-based sorting is forced (respects other sort flags).
+# Corresponds to tree --sort=<type>
+{% if sort_type | default('name') and sort_type | default('name') != 'name' %}
+SORT_TYPE={{ sort_type | default('name') }}
+{% endif %}
+
+# Do not print indentation lines.
+# Removes the vertical/horizontal lines connecting files in the tree structure.
+# Corresponds to tree -i
+{% if no_indent | default(False) %}
+NO_INDENT=true
+{% endif %}
+
+# Turn on ANSI line graphics.
+# Uses box-drawing characters (Unicode) for tree indentation instead of ASCII.
+# Corresponds to tree -A
+{% if ansi_graphics | default(False) %}
+ANSI_GRAPHICS=true
+{% endif %}
+
+# Turn on colorization always.
+# Forces color output even if stdout is not a TTY.
+# Corresponds to tree -C
+{% if force_colors | default(False) %}
+FORCE_COLORS=true
+{% endif %}
+
+# Turn off colorization always.
+# Disables colors even if stdout is a TTY.
+# Corresponds to tree -n
+{% if no_colors | default(False) %}
+NO_COLORS=true
+{% endif %}
+
+# Output as XML.
+# Formats the tree structure as valid XML instead of text.
+# Corresponds to tree -X
+{% if xml_output | default(False) %}
+XML_OUTPUT=true
+{% endif %}
+
+# Output as JSON.
+# Formats the tree structure as JSON instead of text.
+# Corresponds to tree -J
+{% if json_output | default(False) %}
+JSON_OUTPUT=true
+{% endif %}
+
+# Output as HTML.
+# Formats the tree structure as an HTML document.
+# Corresponds to tree -H
+{% if html_output | default(False) %}
+HTML_OUTPUT=true
+{% endif %}
+
+# HTML base href.
+# Sets the base URL for hyperlinks in HTML output.
+# Corresponds to tree -H <baseHREF>
+{% if html_base_href | default('') %}
+HTML_BASE_HREF={{ html_base_href | default('') }}
+{% endif %}
+
+# HTML title.
+# Sets the <title> tag content in HTML output.
+# Corresponds to tree -T <title>
+HTML_TITLE={{ html_title | default('Tree Output') }}
+
+# Enable OSC 8 terminal hyperlinks.
+# Wraps filenames in ANSI escape sequences for clickable links in modern terminals.
+# Corresponds to tree --hyperlink
+{% if hyperlinks | default(False) %}
+HYPERLINKS=true
+{% endif %}
+
+# Scheme for hyperlinks.
+# Defines the URL scheme (e.g., file, http) for OSC 8 hyperlinks.
+# Corresponds to tree --scheme=<scheme>
+{% if hyperlink_scheme | default('file') and hyperlink_scheme | default('file') != 'file' %}
+HYPERLINK_SCHEME={{ hyperlink_scheme | default('file') }}
+{% endif %}
+
+# Authority (hostname) for hyperlinks.
+# Sets the hostname component for OSC 8 hyperlinks.
+# Corresponds to tree --authority=<authority>
+{% if hyperlink_authority | default('') %}
+HYPERLINK_AUTHORITY={{ hyperlink_authority | default('') }}
+{% endif %}

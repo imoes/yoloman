@@ -1,0 +1,145 @@
+# ==============================================================================
+# slowhttptest Configuration Template
+# ==============================================================================
+# This template generates the configuration file for slowhttptest, a tool used to
+# simulate slow HTTP DoS attacks (Slowloris, Slow POST, Range Header, Slow Read).
+#
+# The configuration is driven by Ansible variables. Each field includes a default
+# value to ensure safe rendering even if the variable is undefined.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Attack Settings
+# -----------------------------------------------------------------------------
+
+# The type of attack to simulate:
+#   H = Slowloris (holds connections open with partial headers)
+#   B = Slow POST (sends body slowly)
+#   R = Range Header (sends Range headers slowly)
+#   X = Slow Read (reads response body slowly)
+attack_type: {{ attack_type | default('H') }}
+
+# The absolute URL of the target server to test
+# Example: http://192.168.1.100/ or https://example.com/path
+url: "{{ url | default('http://localhost/') }}"
+
+# The HTTP verb (method) to use in requests (e.g., GET, POST, HEAD)
+verb: "{{ verb | default('GET') }}"
+
+# The target number of connections to establish simultaneously
+connections: {{ connections | default(100) }}
+
+# The connection rate in connections per second.
+# Controls how quickly new connections are opened.
+connection_rate: {{ connection_rate | default(10) }}
+
+# The test duration in seconds.
+# How long the attack/test should run for.
+duration: {{ duration | default(60) }}
+
+# Interval in seconds between sending follow-up data or headers.
+# This keeps the connection alive without closing it.
+interval: {{ interval | default(15) }}
+
+# HTTP proxy host:port for ALL connections.
+# Leave empty ('') to connect directly to the target without a proxy.
+proxy_all: "{{ proxy_all | default('') }}"
+
+# HTTP proxy host:port for PROBE connections ONLY.
+# Probes are used to verify the target is vulnerable before starting the main attack.
+# Leave empty ('') to use the same proxy as main connections or no proxy if proxy_all is empty.
+proxy_probe: "{{ proxy_probe | default('') }}"
+
+# Output verbosity level (0-3).
+#   0 = Silent
+#   1 = Basic status (default)
+#   2 = Detailed
+#   3 = Debug/Verbose
+verbosity: {{ verbosity | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Attack-Specific Settings
+# -----------------------------------------------------------------------------
+
+# The following sections are conditionally rendered based on the `attack_type`.
+# Only the settings relevant to the selected attack mode will appear in the output.
+
+{% if attack_type | default('H') == 'H' %}
+# ==============================================================================
+# Slowloris Settings (Type H)
+# ==============================================================================
+
+# Max length of follow-up data (in bytes) sent in each interval.
+# For Slowloris, this is typically small header fragments.
+max_data_len: {{ max_data_len | default(500) }}
+
+# Timeout in seconds for the initial probe connection.
+# Interval to wait for an HTTP response from the target before marking it as vulnerable/DoSed.
+probe_timeout: {{ probe_timeout | default(10) }}
+
+{% elif attack_type | default('H') == 'B' %}
+# ==============================================================================
+# Slow POST Settings (Type B)
+# ==============================================================================
+
+# Value of the Content-Length header (in bytes).
+# The attacker will send this amount of data, but very slowly.
+content_length: {{ content_length | default(500000) }}
+
+# Max length of follow-up data (in bytes) sent in each interval.
+# Used to slowly transmit the body defined by Content-Length.
+max_data_len: {{ max_data_len | default(500) }}
+
+# Timeout in seconds for the initial probe connection.
+probe_timeout: {{ probe_timeout | default(10) }}
+
+{% elif attack_type | default('H') == 'R' %}
+# ==============================================================================
+# Range Header Settings (Type R)
+# ==============================================================================
+
+# Start value of the range-specifier (e.g., Range: bytes=0-).
+range_start: {{ range_start | default(0) }}
+
+# Limit/End value of the range-specifier (e.g., Range: bytes=0-9999).
+range_limit: {{ range_limit | default(10000) }}
+
+{% elif attack_type | default('H') == 'X' %}
+# ==============================================================================
+# Slow Read Settings (Type X)
+# ==============================================================================
+
+# Slow read interval in seconds.
+# Time to wait between reading chunks of the response body.
+read_interval: {{ read_interval | default(5) }}
+
+# Number of bytes to read from the receive buffer with each read operation.
+read_bytes: {{ read_bytes | default(1) }}
+
+# Number of times the resource is requested per socket (pipeline factor).
+pipeline_factor: {{ pipeline_factor | default(1) }}
+
+# Start of the TCP advertised window size range (in bytes).
+# Simulates a small receive buffer on the client side to slow down the server.
+window_start: {{ window_start | default(1024) }}
+
+# End of the TCP advertised window size range (in bytes).
+window_end: {{ window_end | default(1024) }}
+
+# Timeout in seconds for the initial probe connection.
+probe_timeout: {{ probe_timeout | default(10) }}
+
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Output & Statistics Settings
+# -----------------------------------------------------------------------------
+
+# Whether to generate CSV and HTML statistics files after the test.
+# If false, no statistical output files are created.
+generate_stats: {{ generate_stats | default(True) }}
+
+# Prefix for the output file name.
+# The tool will append a timestamp and extension (.csv, .html) to this prefix.
+# Effective only if `generate_stats` is true.
+output_file: "{{ output_file | default('slowhttptest_stats') }}"

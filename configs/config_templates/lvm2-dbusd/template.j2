@@ -1,0 +1,20 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+	"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+	<!-- policy user: The Unix user allowed to own and send messages to the LVM D-Bus service. -->
+	<policy user="{{ root_user | default('root') }}">
+		<!-- allow own_prefix: Grants the policy user the ability to claim the specified D-Bus service name. -->
+		<allow own_prefix="{{ dbus_service_name | default('com.redhat.lvmdbus1') }}"/>
+		<!-- allow send_destination: Grants the policy user the ability to send messages to the specified D-Bus service name. -->
+		<allow send_destination="{{ dbus_service_name | default('com.redhat.lvmdbus1') }}"/>
+	</policy>
+
+	<!-- policy context="default": Deny all other users access to the LVM D-Bus service. -->
+	<policy context="default">
+		<!-- deny own_prefix: Prevents other users from claiming the LVM D-Bus service name. -->
+		<deny own_prefix="{{ dbus_service_name | default('com.redhat.lvmdbus1') }}"/>
+		<!-- deny send_destination: Prevents other users from sending messages to the LVM D-Bus service name. -->
+		<deny send_destination="{{ dbus_service_name | default('com.redhat.lvmdbus1') }}"/>
+	</policy>
+</busconfig>

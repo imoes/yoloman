@@ -1,0 +1,116 @@
+# ==============================================================================
+# QEMU System Virtual Machine Configuration Template
+# ==============================================================================
+# This template generates the configuration for a QEMU system virtual machine.
+# Each section corresponds to specific QEMU command-line flags as documented
+# in the qemu-system-arch(1) man pages.
+#
+# Self-documenting design: every directive is preceded by a comment explaining
+# its purpose and the related QEMU option. All variables use defaults derived
+# from the schema to ensure the template renders safely even if variables are
+# omitted during Ansible execution.
+# ==============================================================================
+
+# --- Machine Configuration ---
+# See -machine type=... in qemu-system(1)
+# Defines the emulated hardware platform (e.g., pc, q35, virt).
+# Machine type affects available devices, CPU features, and compatibility.
+machine_type = {{ machine_type | default('pc-i440fx-8.0') }}
+
+# See -accel type=... in qemu-system(1)
+# Selects the virtualization accelerator for performance.
+# 'kvm' uses Linux kernel virtualization, 'tcg' is pure software emulation.
+accelerator = {{ accelerator | default('kvm') }}
+
+# --- CPU and Memory Configuration ---
+# See -smp cpus=... in qemu-system(1)
+# Sets the number of virtual CPUs allocated to the guest.
+cpus = {{ cpus | default(2) }}
+
+# See -m size in qemu-system(1)
+# Specifies the guest RAM size in megabytes.
+memory_mb = {{ memory_mb | default(2048) }}
+
+# --- Boot Configuration ---
+# See -boot order=... in qemu-system(1)
+# Defines the boot sequence using drive letters.
+# 'c' = hard disk, 'n' = network, 'd' = CD-ROM, 'a' = floppy.
+boot_order = {{ boot_order | default('c') }}
+
+# --- Disk Image Configuration ---
+# See -drive file=... in qemu-system(1)
+# Path to the virtual disk image file on the host filesystem.
+disk_image_path = {{ disk_image_path | default('/var/lib/qemu/images/vm1.img') }}
+
+# See -drive format=... in qemu-system(1)
+# Specifies the disk image format for proper parsing.
+# Common formats: raw, qcow2, vmdk, vhdx.
+disk_format = {{ disk_format | default('qcow2') }}
+
+# See -drive cache=... in qemu-system(1)
+# Controls the host cache mode for disk I/O performance and safety.
+# 'writeback' is fastest but unsafe on power loss; 'writethrough' is safer.
+disk_cache = {{ disk_cache | default('writeback') }}
+
+# --- Network Configuration ---
+# See -netdev type=... in qemu-system(1)
+# Defines the network backend type connecting the guest to the host.
+# 'user' provides NAT networking, 'tap' provides host bridge access.
+network_backend = {{ network_backend | default('user') }}
+
+# See -device driver,mac=... in qemu-system(1)
+# Sets the MAC address for the guest's primary network interface.
+# Must be unique on the network segment.
+network_mac = {{ network_mac | default('52:54:00:12:34:56') }}
+
+# See -device driver=... in qemu-system(1)
+# Specifies the network device model (virtio for paravirtualized performance,
+# e1000/rtl8139 for emulated hardware compatibility).
+network_model = {{ network_model | default('virtio-net-pci') }}
+
+# --- Display and Console Configuration ---
+# See -vnc display in qemu-system(1)
+# Enables VNC remote access if set to a number (e.g., '0' for port 5900).
+# Set to 'none' to disable VNC.
+vnc_display = {{ vnc_display | default('none') }}
+
+# See -display type in qemu-system(1)
+# Defines the local display backend for the guest GUI.
+# Options: sdl, gtk, vnc, spice, none.
+guest_display_type = {{ guest_display_type | default('none') }}
+
+# See -serial dev in qemu-system(1)
+# Configures the guest's serial console device.
+# 'stdio' redirects to QEMU's standard input/output.
+serial_console = {{ serial_console | default('stdio') }}
+
+# --- Kernel Direct Boot Configuration ---
+# See -kernel path in qemu-system(1)
+# Path to a kernel image to boot directly instead of using the disk image bootloader.
+# Leave empty to boot from disk (default).
+kernel_path = {{ kernel_path | default('') }}
+
+# See -append cmdline in qemu-system(1)
+# Additional kernel command-line arguments passed to the kernel when using -kernel.
+kernel_cmdline = {{ kernel_cmdline | default('') }}
+
+# --- Global QEMU Runtime Options ---
+# See -enable-kvm in qemu-system(1)
+# Enables full hardware virtualization support via KVM.
+# Requires kernel module kvm_intel or kvm_amd loaded.
+enable_kvm = {{ enable_kvm | default(True) }}
+
+# See -S in qemu-system(1)
+# Pauses the VM CPU at startup until manually resumed via monitor.
+# Useful for debugging initialization issues.
+pause_on_start = {{ pause_on_start | default(False) }}
+
+# See -daemonize in qemu-system(1)
+# Forks the QEMU process into the background after starting.
+# Use with caution to avoid orphaned processes if not managed properly.
+daemonize = {{ daemonize | default(False) }}
+
+# See -name name in qemu-system(1)
+# Assigns a human-readable name to the guest VM instance.
+# Visible in management tools and process listings.
+name = {{ name | default('qemu-vm') }}

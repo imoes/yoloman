@@ -1,0 +1,91 @@
+# =============================================================================
+# websocketd Configuration Template
+#
+# This template generates the environment file for websocketd.
+# It controls HTTP listening, SSL, script execution, and logging.
+# See http://websocketd.com/ for upstream documentation.
+# =============================================================================
+
+# --port: HTTP port to listen on.
+# Default: 8080
+PORT={{ port | default(8080) }}
+
+# --address: Address to bind to (e.g., '127.0.0.1' or '::1').
+# Empty string binds to all interfaces (0.0.0.0).
+# Default: ''
+ADDRESS={{ address | default('') }}
+
+# --sameorigin: Restrict protocol upgrades if the Origin header does not match
+# the requested HTTP Host. This is a security measure against CSRF-like attacks
+# on WebSocket connections.
+# Default: False
+SAMEORIGIN={{ sameorigin | default(False) }}
+
+# --origin: Comma-separated list of allowed origin host:port combinations.
+# If empty (default), any origin is allowed. Only effective if sameorigin is true.
+# Default: ''
+ORIGIN={{ origin | default('') }}
+
+# --ssl: Enable HTTPS listening.
+# Requires sslcert and sslkey to be set.
+# Default: False
+SSL={{ ssl | default(False) }}
+
+# --sslcert: Path to the SSL certificate file.
+# Required if ssl is true.
+# Default: ''
+SSLCERT={{ sslcert | default('') }}
+
+# --sslkey: Path to the SSL private key file.
+# Required if ssl is true.
+# Default: ''
+SSLKEY={{ sslkey | default('') }}
+
+# --passenv: Comma-separated list of environment variable names allowed to be
+# passed to executed scripts. Use with caution to avoid leaking sensitive data.
+# Default: [] (empty list)
+{% if passenv | default([]) | length > 0 %}
+PASSENV={{ passenv | default([]) | join(',') }}
+{% endif %}
+
+# --reverselookup: Perform DNS reverse lookups on remote clients.
+# Disable for performance if DNS is slow or not needed.
+# Default: True
+REVERSELOOKUP={{ reverselookup | default(True) }}
+
+# --dir: Local directory containing scripts (e.g., .sh, .py) to be accessed
+# as WebSockets. The script name becomes the WebSocket path.
+# Mutually exclusive with command/args.
+# Default: ''
+DIR={{ dir | default('') }}
+
+# --staticdir: Directory to serve static files over HTTP (HTML, CSS, JS).
+# Cannot be used with devconsole.
+# Default: ''
+STATICDIR={{ staticdir | default('') }}
+
+# --cgidir: Directory to serve CGI scripts over HTTP.
+# Default: ''
+CGIDIR={{ cgidir | default('') }}
+
+# --devconsole: Enable interactive development console.
+# Provides a web UI to test the WebSocket endpoint.
+# Cannot be used with staticdir or cgidir.
+# Default: False
+DEVCONSOLE={{ devconsole | default(False) }}
+
+# --loglevel: Log level for stdout.
+# Options: debug, trace, access, info, error, fatal.
+# Default: 'access'
+LOGLEVEL={{ loglevel | default('access') }}
+
+# COMMAND: The executable command to run.
+# Mutually exclusive with dir. If dir is used, this is ignored.
+# Default: 'echo'
+COMMAND={{ command | default('echo') }}
+
+# ARGS: Arguments to pass to the command, space-separated.
+# Default: [] (empty list)
+{% if args | default([]) | length > 0 %}
+ARGS={{ args | default([]) | join(' ') }}
+{% endif %}

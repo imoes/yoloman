@@ -1,0 +1,61 @@
+# ==============================================================================
+# kpartx Device Mapper Configuration
+# ==============================================================================
+# This file configures the default behavior of kpartx, a Linux utility that
+# creates device-mapper mappings for the partitions contained within a
+# loopback device or disk image.
+#
+# Although kpartx is primarily invoked via command-line flags (e.g., kpartx -av image.img),
+# this configuration file allows setting persistent defaults for delimiter, sync mode,
+# verbosity, and other operational flags.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# delimiter: The character used to delimit the device name and partition number.
+# ------------------------------------------------------------------------------
+# Description: The character used to delimit the device name and partition number in the mapped
+#              device name (e.g., -p '_'). Must be a single character.
+# CLI Flag:    -p <char>
+# Example:     delimiter: '_' results in /dev/mapper/loop1p1 -> /dev/mapper/loop1-p1
+delimiter: {{ delimiter | default('p') }}
+
+# ------------------------------------------------------------------------------
+# sync: Synchronous execution mode.
+# ------------------------------------------------------------------------------
+# Description: If true, kpartx runs in sync mode (-s), blocking until partitions are created.
+#              If false, runs in nosync mode (-n), returning immediately while mappings are
+#              created asynchronously in the background.
+# CLI Flag:    -s (sync) / -n (nosync)
+sync: {{ sync | default(true) }}
+
+# ------------------------------------------------------------------------------
+# force: Force mapping creation despite errors.
+# ------------------------------------------------------------------------------
+# Description: If true, forces creation of mappings even if the 'no_partitions' feature is
+#              detected or other warnings occur.
+# CLI Flag:    -f
+force: {{ force | default(false) }}
+
+# ------------------------------------------------------------------------------
+# gpt_force: Force GUID Partition Table (GPT) parsing.
+# ------------------------------------------------------------------------------
+# Description: If true, forces use of GUID Partition Table (GPT) parsing logic even if the
+#              partition table type is ambiguous or non-standard.
+# CLI Flag:    -g
+gpt_force: {{ gpt_force | default(false) }}
+
+# ------------------------------------------------------------------------------
+# readonly: Read-only mapping mode.
+# ------------------------------------------------------------------------------
+# Description: If true, creates read-only partition mappings. This prevents accidental
+#              writes to the underlying device or image file through the mapper device.
+# CLI Flag:    -r
+readonly: {{ readonly | default(false) }}
+
+# ------------------------------------------------------------------------------
+# verbose: Enable verbose output.
+# ------------------------------------------------------------------------------
+# Description: If true, enables verbose output (-v), providing detailed logging of
+#              partition detection and device-mapper creation steps.
+# CLI Flag:    -v
+verbose: {{ verbose | default(false) }}

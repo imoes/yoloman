@@ -1,0 +1,23 @@
+# ==============================================================================
+# Victoria Metrics Configuration Template
+# ==============================================================================
+# This template generates command-line arguments for the Victoria Metrics server.
+# It is intended to be used in conjunction with a systemd unit file or a wrapper
+# script that passes these ARGS to the `victoria-metrics` binary.
+#
+# Self-Documentation:
+# - Each directive is prefixed with a comment derived from the schema description.
+# - Variables use the `| default()` filter to ensure safe rendering even if undefined.
+# - No arbitrary Python or non-standard filters are used.
+
+# ------------------------------------------------------------------------------
+# ARGS: The base set of command-line arguments for the Victoria Metrics server.
+# ------------------------------------------------------------------------------
+# Due to shell escaping rules, backslashes for regexes must be doubled (\\d for \d).
+# If running under systemd, escaping may need to be quadrupled depending on
+# how the service file interprets the ExecStart line.
+#
+# Variable: storage_data_path
+# Description: The path to the directory where Victoria Metrics stores its data.
+# ------------------------------------------------------------------------------
+ARGS="-storageDataPath={{ (storage_data_path | default('/var/lib/victoria-metrics')) | string }}"

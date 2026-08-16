@@ -1,0 +1,72 @@
+# ==============================================================================
+# Mkcert Configuration Template
+# ==============================================================================
+# This template configures mkcert parameters for generating locally-trusted TLS
+# certificates. It handles trust-store installation, CA storage location,
+# certificate subject names (domains/IPs/emails), and output file formats.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Trust Stores Installation
+# ------------------------------------------------------------------------------
+# Comma-separated list of trust stores to install the local root CA into.
+# Options are 'system', 'java' and 'nss'.
+# If empty, mkcert auto-detects the current system's trust store.
+TRUST_STORES={{ trust_stores | default('system') }}
+
+# ------------------------------------------------------------------------------
+# CA Storage Directory (CAROOT)
+# ------------------------------------------------------------------------------
+# Custom directory path for the CA certificate and key storage location.
+# If empty, mkcert uses the default application data folder for the current user.
+CAROOT={{ caroot | default('') }}
+
+# ------------------------------------------------------------------------------
+# Certificate Subjects / Names
+# ------------------------------------------------------------------------------
+# List of domain names, IP addresses, or email addresses to include in the
+# generated certificate(s). One entry per line, prefixed with a dash.
+# Default includes common local loopback identifiers.
+{% for name in certificate_names | default(['localhost', '127.0.0.1', '::1']) %}
+- {{ name }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Output Certificate File
+# ------------------------------------------------------------------------------
+# Custom filename for the generated certificate.
+# If empty, defaults to 'certificate.pem'.
+# Note: The path is relative to the current working directory of mkcert execution.
+-cert-file {{ cert_file | default('certificate.pem') }}
+
+# ------------------------------------------------------------------------------
+# Output Private Key File
+# ------------------------------------------------------------------------------
+# Custom filename for the generated private key.
+# If empty, defaults to 'key.pem'.
+# Note: The path is relative to the current working directory of mkcert execution.
+-key-file {{ key_file | default('key.pem') }}
+
+# ------------------------------------------------------------------------------
+# PKCS#12 Export File
+# ------------------------------------------------------------------------------
+# Custom filename for the generated PKCS#12 file (.p12/.pfx).
+# An empty string disables PKCS#12 generation.
+# The path is relative to the current working directory of mkcert execution.
+-p12-file {{ p12_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Client Authentication Certificate
+# ------------------------------------------------------------------------------
+# If true, generate a certificate suitable for client authentication (-client flag).
+# This creates a certificate with extended key usage: clientAuth.
+{% if client_auth | default(False) %}-client
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# ECDSA Key Generation
+# ------------------------------------------------------------------------------
+# If true, generate a certificate with an ECDSA key (-ecdsa flag) instead of RSA.
+# This uses the P-256 curve by default.
+{% if ecdsa | default(False) %}-ecdsa
+{% endif %}

@@ -1,0 +1,27 @@
+# ==============================================================================
+# MariaDB/MySQL Plugin Configuration: LZO Compression Provider
+# ==============================================================================
+# This file configures the LZO compression plugin for MariaDB.
+# It allows MariaDB to use LZO for compressing binary logs,
+# replication streams, or internal operations depending on the server build.
+# ==============================================================================
+
+# [server] Section: Global Server Plugin Settings
+[server]
+
+# plugin_load_add: Name of the LZO compression plugin to load for MariaDB.
+# This directive tells the server which shared library (.so/.dll) to load
+# to enable the LZO plugin. The value is typically the plugin name
+# without the file extension, e.g., 'provider_lzo'.
+# Default: 'provider_lzo'
+plugin_load_add={{ plugin_load_add | default('provider_lzo') }}
+
+# provider_lzo: Loading mode for the LZO plugin.
+# Controls how strictly the plugin must be available.
+# Allowed values:
+#   - force_plus_permanent: Load the plugin and keep it resident for the
+#     server lifetime. If loading fails, the server refuses to start.
+#   - force: Load the plugin. If loading fails, the server refuses to start.
+#   - (other modes depend on MariaDB version)
+# Default: 'force_plus_permanent'
+provider_lzo={{ provider_lzo | default('force_plus_permanent') }}

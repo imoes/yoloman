@@ -1,0 +1,16 @@
+# Netmask command output configuration
+# Format: standard dotted quad address/netmask pairs
+# See netmask(1) man page
+#
+# This template renders a list of network specifications provided by the
+# `addresses` schema field. Each item in the list must be a map containing
+# 'address' (string: IP address) and 'mask' (string: netmask in CIDR prefix like '24').
+# If no addresses are defined, an empty file is produced.
+
+{# Iterate over the list of address maps. Each entry is a dict with 'address' and 'mask'. #}
+{% for entry in (addresses | default([])) %}
+# Network entry: IP address and its CIDR mask
+# 'address': The IPv4 or IPv6 address
+# 'mask': The subnet mask in CIDR notation (e.g., '24', '64', '128')
+{{ entry.address | default('0.0.0.0') }}/{{ entry.mask | default('0') }}
+{% endfor %}

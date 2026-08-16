@@ -1,0 +1,26 @@
+# StdSyslog Configuration
+# This configuration file manages the behavior of the stdsyslog utility.
+# It defines what command to execute, how to categorize logs via syslog facilities,
+# process management via PID files, and fine-grained logging levels for file descriptors.
+
+# The command and its arguments to execute and log.
+# This list will be joined into a single space-separated string.
+exec_command: {{ (exec_command | default(['echo', 'Hello World'])) | join(' ') }}
+
+# The syslog facility to use (e.g. daemon, local0, local4).
+# This determines which subsystem the logs are assigned to in standard syslog parsers.
+syslog_facility: {{ syslog_facility | default('daemon') }}
+
+# Path to the file where the child process ID is written.
+# If empty, no PID file is created. This is useful for process supervisors.
+pid_file: {{ pid_file | default('') }}
+
+# Logging levels for specific file descriptors.
+# This section maps file descriptor numbers to syslog priorities.
+# Default behavior (if fd_levels is empty): fd 1 (stdout) -> info, fd 2 (stderr) -> err.
+# Format per entry: fd_<number>_level: <priority>
+# If no explicit mappings are provided, the application may use internal defaults.
+{% for fd_level in (fd_levels | default([])) %}
+# Map file descriptor {{ fd_level.fd | default('') }} to syslog priority '{{ fd_level.level | default('') }}'.
+fd_{{ fd_level.fd | default('') }}_level: {{ fd_level.level | default('') }}
+{% endfor %}

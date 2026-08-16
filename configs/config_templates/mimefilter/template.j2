@@ -1,0 +1,215 @@
+# MIME Filter Configuration
+#
+# This file configures the mimefilter daemon. It defines the administrator
+# contact, acceptable MIME types, and warning messages sent when messages
+# are modified or rejected.
+
+# ==============================================================================
+# Administrator Contact
+# ==============================================================================
+
+# The email address for the list administrator, used in the $::from header.
+# Defaults to 'admin@example.com' if not specified in the variable.
+# Our address: this should ultimately be $ENV{'list'}.
+#
+# NOTE: The original template used the 'e' filter which is not supported by
+# Ansible's standard Jinja2 engine. We use the 'replace' filter combined with
+# Jinja's built-in escaping (if the environment supports it) or explicit
+# replacement chains to ensure safety. However, since this is Perl code being
+# generated, we must output literal Perl string content.
+# To prevent injection in the generated Perl code, we escape special characters
+# that would break the Perl string or HTML entities if the email is displayed.
+# Since the goal is self-documenting and safe, we use a clean approach:
+# Just default and trim. If HTML escaping is needed in the *output*,
+# Jinja's `e` or `escape` filter is the standard way, but `e` was the error.
+# The error `e('html')` suggests a custom filter or confusion with PHP.
+# Standard Jinja2 `escape` takes no arguments.
+# However, this is a Perl config file. The email address is inside a Perl double-quoted string.
+# We should just provide the email. If it contains special chars for Perl, we might need
+# to escape them for Perl, not HTML. But the schema says "email address".
+# The original intent was likely HTML entity encoding for the email in the header.
+# We will use `escape` (Jinja2 built-in) which escapes to HTML entities by default.
+$::from = "The administrator of $ENV{'list'} <{{ listreq_email | default('admin@example.com') | trim | escape }}">";
+
+# ==============================================================================
+# Allowed MIME Types (@::ammessi)
+# ==============================================================================
+
+# List of admissible MIME types -- beside "multipart/*" and "message/*", which
+# both act as containers (don't ever even think to list "multipart/something"
+# and/or "message/something" here: that would be a VERY BAD idea).
+#
+# Each item in the list may be a regexp. The regexps are applied anchored with
+# "^" and "$" added in front and back, so they should match the entire MIME
+# type token, not just some substring.
+#
+# Parts of a type listed here will be accepted; you probably want to have
+# at least '/text/plain', as a minimum.
+#
+# Note: This template hardcodes a safe default list. To customize, you must
+# provide a list of strings via the 'allowed_mime_types' variable if available,
+# otherwise this default list is used.
+#
+# ANSIBLE NOTE: The variable 'allowed_mime_types' is not in the schema fields.
+# Therefore, we stick to the hardcoded defaults. If you need to add more,
+# you would typically use a separate template or modify this one with a variable
+# defined in your Ansible playbook, e.g., `{{ allowed_mime_types | default(['text/plain', 'application/pgp-signature']) | join(",\n              ") }}`
+# For this strict schema-enriched version, we output the static default.
+@::ammessi = (
+              'text/plain',
+              'application/pgp-signature',
+              # 'foo/.*',
+              # '.*bar/foo',
+              );
+
+# ==============================================================================
+# Disallowed MIME Types (@::nonammessi)
+# ==============================================================================
+
+# List of inadmissibile MIME types.
+#
+# Each item in the list may be a regexp. The regexps are applied anchored with
+# "^" and "$" added in front and back, so they should match the entire MIME
+# type token, not just some substring.
+#
+# Parts of a type listed here will never be accepted, even if they match some
+# regexp listed in @::ammessi.
+#
+# This list may be used to easily complement @::ammessi, but you should bear in
+# mind that if a MIME type doesn't match some regexp in @::ammessi it won't be
+# accepted in any way, even if it isn't listed here. To be more clear, you do
+# not need to list here every conceivable MIME type that you don't want in your
+# messages, rather just the ones (if any) that would be otherwise accepted by
+# some item in your @::ammessi list.
+@::nonammessi = (
+                  );
+
+# ==============================================================================
+# Warning Messages
+# ==============================================================================
+
+### The following here documents get included in our messages if the conditions
+### hereby listed happen.
+
+# TO.......: Author of the original message, as seen from (in decreasing order
+#            of priority) Reply-To, From or Return-Path.
+# CONDITION: MIME parsing of the original message has failed; this is very
+#            very unlikely, but possible nevertheless.
+@::invalido = <<'EOF';
+Hi,
+
+this is an automatic reply.  Your message to this list
+
+			HAS NOT BEEN DELIVERED,
+
+because it was not a valid MIME message.
+
+
+This probably means that your MUA had some technical problem.
+
+
+If you find something unclear about this warning, feel free to reply to this
+message.
+EOF;
+
+# TO.......: Author of the original message, as seen from (in decreasing order
+#            of priority) Reply-To, From or Return-Path.
+# CONDITION: Filtering resulted in an empty message (i.e., it was empty, or it
+#            has become empty after filtering away unaccettable MIME parts).
+@::vuoto = <<'EOF';
+Hi,
+
+this is an automatic reply.  Your message to this list
+
+			HAS NOT BEEN DELIVERED,
+
+because it was empty after being processed to strip (any) non textual part.
+
+
+Most often, this may be due to the following conditions:
+
+  * You really sent an empty message: you may not send empty message to this
+    list (a message is empty if its body contains no text).
+
+  * Your MUA send messages in HTML only mode: you have to change your MUA
+    configurations, we do not welcome HTML on this list.
+
+  * You meant to send an attachment, such as a program, an image or a file: you
+    may not send anything of this sort to this list. If you have something you
+    think worthwile, please, get in contact with the moderator of this list
+    (you may reply to this message, for example), and s/he will tell you what
+    to do.
+
+
+If you find something unclear about this warning, feel free to reply to this
+message.
+EOF;
+
+# TO.......: Author of the original message, as seen from (in decreasing order
+#            of priority) Reply-To, From or Return-Path.
+# CONDITION: Some MIME parts have been stripped from the original message
+#            before letting it through.
+@::mutilato = <<'EOF';
+Hi,
+
+this is an automatic reply.  Your message to this list
+
+		     HAS BEEN REGULARLY DELIVERED.
+
+However, some non textual MIME parts have been stripped from it.
+
+			YOU DO NOT NEED TO RESEND THIS MESSAGE.
+
+
+Most often, this may be due to the following conditions:
+
+  * Your MUA send messages both in text and HTML mode: you have to select text
+    only mode for your messages to this list.
+
+  * You meant to send an attachment, such as a program, an image or a file: you
+    may not send anything of this sort to this list. If you have something you
+    think worthwile, please, get in contact with the moderator of this list
+    (you may reply to this message, for example), and s/he will tell you what
+    to do.
+
+
+If you find something unclear about this warning, feel free to reply to this
+message.
+EOF;
+
+# TO.......: Author of the original message, as seen from (in decreasing order
+#            of priority) Reply-To, From or Return-Path.
+# CONDITION: Added to the bottom of our message to the author if there has
+#            been any stripped part. A complete list of every stripped part
+#            will be added to this message.
+@::tagliato = <<'EOF';
+
+This is a list of the MIME types of every stripped part:
+EOF;
+
+# ==============================================================================
+# Stripped Content Replacements
+# ==============================================================================
+
+### When we strip some part, we replace it with a short text explaining what
+### was there.
+
+# MIME descriptions of part and message replacements: think of it as a title.
+# The title/description used for MIME part and message replacements when they are stripped.
+# Defaults to 'AUTOMATIC WARNING' if not specified.
+$::descrizione = '{{ description_title | default('AUTOMATIC WARNING') }}';
+
+# This text replaces a stripped part (W: _TIPOMIME_ is a KEYWORD).
+@::sostituto = <<"EOF";
+Here was a non admissible message part of \\'_TIPOMIME_\' MIME type.
+It has been automatically discarded before sending the message to the list.
+EOF;
+
+# This text replaces a stripped message (W: _TIPOMIME_ is a KEYWORD).
+# Embedded messages are discarded if, and only if, they are or become empty.
+# If the top most message entity becomes empty, nothing will get through.
+@::messaggio = <<"EOF";
+Here was an embedded message of \\'_TIPOMIME_\' MIME type.
+It has been automatically discarded before sending the whole message to the
+list, since it didn\'t contain any(more) textual part.
+EOF;

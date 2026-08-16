@@ -1,0 +1,184 @@
+# =============================================================================
+# perftest (rdma-perftest) Configuration Template
+# =============================================================================
+# This template generates an INI-style configuration file for the `perftest`
+# benchmark suite (InfiniBand/RoCE/RDMA).
+#
+# NOTE: `perftest` is primarily a stateless command-line tool, not a daemon.
+# This configuration file serves as input for a wrapper script or systemd
+# unit that launches the appropriate `perftest` binary (`ib_write_bw`,
+# `ib_read_lat`, etc.) with the specified arguments.
+#
+# Structure:
+#   [general]    - Test mode and type
+#   [connection] - Network/IB device addressing and connection parameters
+#   [performance] - Throughput, latency, and queue depth tuning
+#   [raw_ethernet] - Raw Ethernet (RoCE/IB over Ethernet) specific MAC/IP settings
+# =============================================================================
+
+[general]
+# -----------------------------------------------------------------------------
+# Test Type Selection
+# -----------------------------------------------------------------------------
+# The type of perftest to run. This determines which binary is executed.
+# Common values:
+#   - bw:              Bandwidth test (e.g., ib_write_bw)
+#   - lat:             Latency test (e.g., ib_read_lat)
+#   - raw_ethernet_bw: Raw Ethernet Bandwidth
+#   - raw_ethernet_lat: Raw Ethernet Latency
+#
+# Default: bw
+test_type={{ test_type | default('bw') }}
+
+[connection]
+# -----------------------------------------------------------------------------
+# InfiniBand/RDMA Device and Addressing
+# -----------------------------------------------------------------------------
+
+# IB device name to use (e.g., mlx5_0, ib0).
+# If empty, the tool auto-selects the first available device.
+# Default: '' (empty string)
+ib_device="{{ ib_device | default('') }}"
+
+# Port number on the selected IB device to use.
+# Usually 1.
+# Default: 1
+ib_port={{ ib_port | default(1) }}
+
+# Connection Type (RC, XRC, UC, UD, DC, SRD).
+# Controls the reliability and flow control semantics.
+#   - RC:  Reliability Connected (most common)
+#   - XRC: Extended Remote Connected
+#   - UC:  Unreliable Connected
+#   - UD:  Unreliable Datagram
+#   - DC:  Datagrams Connected (DCI/SCI)
+#   - SRD: Saturated Reliable Datagram
+# Default: RC
+connection_type="{{ connection_type | default('RC') }}"
+
+# Server IP address to connect to.
+# Leave empty if running in server/listen mode locally, or if using RDMA
+# connection manager (rdma_cm) which resolves addresses via DNS/GID.
+# Default: '' (empty string)
+server_ip="{{ server_ip | default('') }}"
+
+# Port number for the RDMA connection.
+# Used by the server to listen and by the client to connect.
+# Default: 18515
+port={{ port | default(18515) }}
+
+# Use rdma_cm (RDMA Connection Manager) for connection establishment.
+# If true, the connection is established via the kernel's rdma_cm interface
+# rather than manual GID/IP exchange.
+# Default: false
+use_rdma_cm={{ use_rdma_cm | default(false) }}
+
+[performance]
+# -----------------------------------------------------------------------------
+# Performance and Queue Parameters
+# -----------------------------------------------------------------------------
+
+# Message size in bytes.
+# The size of the payload sent in each iteration.
+# Default: 65536
+message_size={{ message_size | default(65536) }}
+
+# Number of iterations/exchanges to perform.
+# If `duration_seconds` is non-zero, this may be ignored or used as a limit.
+# Default: 1000
+iterations={{ iterations | default(1000) }}
+
+# Duration of the test in seconds.
+# If set to 0, the test runs for the number of `iterations`.
+# If > 0, the test runs for this duration (iterations may be ignored or capped).
+# Default: 0
+duration_seconds={{ duration_seconds | default(0) }}
+
+# Number of Queue Pairs (QPs) to use for parallelism.
+# Higher values can increase throughput on multi-core systems.
+# Default: 1
+num_qps={{ num_qps | default(1) }}
+
+# Bidirectional mode.
+# If true, measures bandwidth in both directions (client->server and server->client).
+# Default: false
+bidirectional={{ bidirectional | default(false) }}
+
+# Report bandwidth in Gbit/sec.
+# If false, reports in MiB/sec.
+# Default: false
+report_gbits={{ report_gbits | default(false) }}
+
+# Report peak bandwidth.
+# If true, includes peak instantaneous bandwidth in the output.
+# Default: true
+report_peak={{ report_peak | default(true) }}
+
+# Inline send size limit (bytes).
+# Maximum message size that can be sent "inline" (without posting a WR to
+# the Send Queue), improving latency. Set to 0 to disable inline.
+# Default: 0
+inline_size={{ inline_size | default(0) }}
+
+# Receive Queue Depth.
+# Depth of the receive queue (how many receive buffers are posted).
+# Default: 512
+rx_depth={{ rx_depth | default(512) }}
+
+# Transmit Queue Depth.
+# Depth of the send queue (how many unsent send requests can be buffered).
+# Default: 128
+tx_depth={{ tx_depth | default(128) }}
+
+# Use Shared Receive Queue (SRQ).
+# If true, uses an SRQ for receive buffers instead of a per-QP RQ.
+# Useful for servers handling many connections.
+# Default: false
+use_srq={{ use_srq | default(false) }}
+
+# Perform warm-up iterations.
+# If true, runs a few iterations before the actual timing measurement to
+# warm up caches and network buffers.
+# Default: false
+perform_warm_up={{ perform_warm_up | default(false) }}
+
+[raw_ethernet]
+# -----------------------------------------------------------------------------
+# Raw Ethernet (RoCE/IB over Ethernet) Specifics
+# -----------------------------------------------------------------------------
+# These parameters are only active if `test_type` is `raw_ethernet_bw` or
+# `raw_ethernet_lat`. They define the L2/L3 addressing for the raw frames.
+
+# Source MAC address (XX:XX:XX:XX:XX:XX).
+# Default: 00:00:00:00:00:00
+source_mac="{{ source_mac | default('00:00:00:00:00:00') }}"
+
+# Destination MAC address (XX:XX:XX:XX:XX:XX).
+# Default: 00:00:00:00:00:00
+dest_mac="{{ dest_mac | default('00:00:00:00:00:00') }}"
+
+# Destination IP address.
+# Default: '' (empty string)
+dest_ip="{{ dest_ip | default('') }}"
+
+# Source IP address.
+# Default: '' (empty string)
+source_ip="{{ source_ip | default('') }}"
+
+# Destination port for UDP/TCP (used in RawEth mode).
+# Default: 5001
+dest_port={{ dest_port | default(5001) }}
+
+# Source port for UDP/TCP (used in RawEth mode).
+# Default: 5001
+source_port={{ source_port | default(5001) }}
+
+# Use TCP instead of UDP for RawEth.
+# If true, encapsulates the test traffic in TCP.
+# Default: false
+use_tcp={{ use_tcp | default(false) }}
+
+# Server flag for RawEth.
+# If true, this instance acts as the server (listener). Otherwise, it is a client.
+# Default: false
+is_server={{ is_server | default(false) }}

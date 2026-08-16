@@ -1,0 +1,246 @@
+# pgbadger configuration template
+# Generates the command-line arguments for pgbadger to analyze PostgreSQL logs.
+
+# Glob pattern(s) or path(s) to PostgreSQL log files to analyze.
+# Default: ['/var/log/postgresql/*.log']
+log_files = {{ log_files | default(['/var/log/postgresql/*.log']) | tojson }}
+
+# Directory where the HTML report will be written.
+# Default: '/var/www/reports/pgbadger'
+out_dir = {{ out_dir | default('/var/www/reports/pgbadger') }}
+
+# Base filename for the output report. Not used in incremental mode.
+# Default: 'index.html'
+output_filename = {{ output_filename | default('index.html') }}
+
+# Number of queries to store/display in the report.
+# Default: 20
+top_queries = {{ top_queries | default(20) }}
+
+# Number of query samples to store.
+# Default: 3
+query_samples = {{ query_samples | default(3) }}
+
+# Number of minutes to build the average graphs of queries and connections.
+# Default: 5
+average_graphs_minutes = {{ average_graphs_minutes | default(5) }}
+
+# Number of minutes to build the histogram graphs of queries.
+# Default: 60
+histo_average_minutes = {{ histo_average_minutes | default(60) }}
+
+# Log format (syslog, syslog2, stderr, jsonlog, csv, pgbouncer, logplex, rds, redshift).
+# Empty for autodetect.
+# Default: ''
+log_format = {{ log_format | default('') }}
+
+# Custom log_line_prefix value. Empty to use autodetect or standard.
+# Default: ''
+log_prefix = {{ log_prefix | default('') }}
+
+# Enable incremental mode to generate daily/weekly reports.
+# Default: False
+incremental = {{ incremental | default(false) }}
+
+# Number of weeks to keep in incremental mode. 0 disables retention cleanup.
+# Default: 0
+retention_weeks = {{ retention_weeks | default(0) }}
+
+# Number of jobs to run at same time for a single log file.
+# Default: 1
+jobs_per_file = {{ jobs_per_file | default(1) }}
+
+# Number of log files to parse in parallel.
+# Default: 1
+jobs_parallel = {{ jobs_parallel | default(1) }}
+
+# List of regex patterns to exclude queries from the report.
+# Default: []
+exclude_queries = {{ exclude_queries | default([]) | tojson }}
+
+# List of database names to exclude from the report.
+# Default: []
+exclude_databases = {{ exclude_databases | default([]) | tojson }}
+
+# List of usernames to exclude from the report.
+# Default: []
+exclude_users = {{ exclude_users | default([]) | tojson }}
+
+# List of client IPs to exclude from the report.
+# Default: []
+exclude_clients = {{ exclude_clients | default([]) | tojson }}
+
+# Disable the hourly report.
+# Default: False
+disable_hourly = {{ disable_hourly | default(false) }}
+
+# Disable query reports (slowest, most frequent, etc.).
+# Default: False
+disable_query = {{ disable_query | default(false) }}
+
+# Disable the session report.
+# Default: False
+disable_session = {{ disable_session | default(false) }}
+
+# Disable the connection report.
+# Default: False
+disable_connection = {{ disable_connection | default(false) }}
+
+# Disable the lock report.
+# Default: False
+disable_lock = {{ disable_lock | default(false) }}
+
+# Disable the temporary file report.
+# Default: False
+disable_temporary = {{ disable_temporary | default(false) }}
+
+# Disable the checkpoint/restartpoint report.
+# Default: False
+disable_checkpoint = {{ disable_checkpoint | default(false) }}
+
+# Disable the autovacuum report.
+# Default: False
+disable_autovacuum = {{ disable_autovacuum | default(false) }}
+
+# Do not generate the error report.
+# Default: False
+disable_error = {{ disable_error | default(false) }}
+
+# Obscure all literals in queries to hide confidential data.
+# Default: False
+anonymize = {{ anonymize | default(false) }}
+
+# Title of the HTML page report.
+# Default: 'PostgreSQL Log Analysis'
+report_title = {{ report_title | default('PostgreSQL Log Analysis') }}
+
+# Timezone offset (+/-XX) to adjust dates/times in JavaScript graphs.
+# Empty to use default.
+# Default: ''
+timezone_offset = {{ timezone_offset | default('') }}
+
+# Don't print anything to stdout, not even a progress bar.
+# Default: True
+quiet = {{ quiet | default(true) }}
+
+# Enable verbose or debug mode.
+# Default: False
+verbose = {{ verbose | default(false) }}
+
+# Command generation wrapper
+command = [
+    'pgbadger',
+]
+
+{% if quiet | default(true) %}
+command.append('-q')
+{% endif %}
+
+{% if verbose | default(false) %}
+command.append('-v')
+{% endif %}
+
+{% if log_format | default('') %}
+command.append('-f {{ log_format | default("") }}')
+{% endif %}
+
+{% if log_prefix | default('') %}
+command.append('-p "{{ log_prefix | default("") }}"')
+{% endif %}
+
+command.append('-t {{ top_queries | default(20) }}')
+command.append('-s {{ query_samples | default(3) }}')
+command.append('-a {{ average_graphs_minutes | default(5) }}')
+command.append('-A {{ histo_average_minutes | default(60) }}')
+
+{% if incremental | default(false) %}
+command.append('-I')
+command.append('-O {{ out_dir | default("/var/www/reports/pgbadger") }}')
+{% if retention_weeks | default(0) > 0 %}
+command.append('--retention {{ retention_weeks | default(0) }}')
+{% endif %}
+{% else %}
+command.append('-O {{ out_dir | default("/var/www/reports/pgbadger") }}')
+{% endif %}
+
+{% if output_filename | default('index.html') and not incremental | default(false) %}
+command.append('-o {{ output_filename | default("index.html") }}')
+{% endif %}
+
+{% if jobs_per_file | default(1) > 1 %}
+command.append('-j {{ jobs_per_file | default(1) }}')
+{% endif %}
+
+{% if jobs_parallel | default(1) > 1 %}
+command.append('-J {{ jobs_parallel | default(1) }}')
+{% endif %}
+
+{% if disable_hourly | default(false) %}
+command.append('--disable-hourly')
+{% endif %}
+
+{% if disable_query | default(false) %}
+command.append('--disable-query')
+{% endif %}
+
+{% if disable_session | default(false) %}
+command.append('--disable-session')
+{% endif %}
+
+{% if disable_connection | default(false) %}
+command.append('--disable-connection')
+{% endif %}
+
+{% if disable_lock | default(false) %}
+command.append('--disable-lock')
+{% endif %}
+
+{% if disable_temporary | default(false) %}
+command.append('--disable-temporary')
+{% endif %}
+
+{% if disable_checkpoint | default(false) %}
+command.append('--disable-checkpoint')
+{% endif %}
+
+{% if disable_autovacuum | default(false) %}
+command.append('--disable-autovacuum')
+{% endif %}
+
+{% if disable_error | default(false) %}
+command.append('--disable-error')
+{% endif %}
+
+{% if anonymize | default(false) %}
+command.append('--anonymize')
+{% endif %}
+
+{% if report_title | default('PostgreSQL Log Analysis') %}
+command.append('-T "{{ report_title | default("PostgreSQL Log Analysis") }}"')
+{% endif %}
+
+{% if timezone_offset | default('') %}
+command.append('-Z {{ timezone_offset | default("") }}')
+{% endif %}
+
+{% for q in exclude_queries | default([]) %}
+command.append('--exclude-query "{{ q }}"')
+{% endfor %}
+
+{% for db in exclude_databases | default([]) %}
+command.append('--exclude-db "{{ db }}"')
+{% endfor %}
+
+{% for u in exclude_users | default([]) %}
+command.append('--exclude-user "{{ u }}"')
+{% endfor %}
+
+{% for c in exclude_clients | default([]) %}
+command.append('--exclude-client "{{ c }}"')
+{% endfor %}
+
+{% for logfile in log_files | default(['/var/log/postgresql/*.log']) %}
+command.append('{{ logfile }}')
+{% endfor %}
+
+print(' '.join(command))

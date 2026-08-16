@@ -1,0 +1,70 @@
+# =============================================================================
+# tcptrack configuration template
+# =============================================================================
+# This configuration file defines the behavior of tcptrack, a tool for
+# monitoring TCP traffic on a specified network interface.
+#
+# Each variable MUST use the `default()` filter to ensure the template
+# renders safely even if the variable is undefined in the Ansible play.
+# =============================================================================
+
+# --- Network Interface Configuration -----------------------------------------
+# Interface to monitor traffic on.
+# Flag: -i <interface>
+# Description: The name of the network interface to sniff packets from.
+# Default: eth0
+interface: {{ interface | default('eth0') }}
+
+# --- BPF Filter Expression ---------------------------------------------------
+# BPF filter expression to limit monitored connections.
+# Flag: -f <filter> (Note: tcptrack uses -f for filter, distinct from fast_average flag in some contexts, but here mapped to 'filter' field)
+# Description: A standard pcap filter expression to limit which connections are tracked.
+# Examples: 'port 80', 'host 192.168.1.1', 'tcp'
+# Default: '' (empty string means no filter, track all)
+filter: {{ filter | default('') }}
+
+# --- New Connections Only ----------------------------------------------------
+# Do not detect existing connections, only new ones started after launch.
+# Flag: -d
+# Description: If true, tcptrack will ignore connections that were already
+# established before the daemon started. This provides a cleaner view of
+# traffic generated during the monitoring session.
+# Default: false
+new_only: {{ new_only | default(false) }}
+
+# --- Fast Average Recalculation ----------------------------------------------
+# Enable fast average recalculation for bandwidth statistics.
+# Flag: -f
+# Description: If true, uses a faster but slightly less accurate method to
+# calculate average bandwidth usage. This can be useful in high-traffic
+# scenarios where CPU usage becomes a bottleneck.
+# Default: false
+fast_average: {{ fast_average | default(false) }}
+
+# --- Promiscuous Mode Control ------------------------------------------------
+# Do not put interface into promiscuous mode.
+# Flag: -p
+# Description: If true, tcptrack will NOT set the network interface to
+# promiscuous mode. This may restrict monitoring to traffic destined for
+# this interface's IP, but reduces the risk of triggering intrusion detection
+# systems or violating network policies.
+# Default: false
+non_promiscuous: {{ non_promiscuous | default(false) }}
+
+# --- Connection Removal Delay ------------------------------------------------
+# Seconds to wait before removing a closed connection from display.
+# Flag: -r <seconds>
+# Description: When a TCP connection closes, it remains in the display for
+# this many seconds before being removed. This allows for a final review
+# of the connection's stats.
+# Default: 2
+remove_delay: {{ remove_delay | default(2) }}
+
+# --- PCAP File Input ---------------------------------------------------------
+# Read packets from a pcap file instead of the network interface.
+# Flag: -T <file>
+# Description: Path to a pcap file to read from. When this is set, the
+# 'interface' setting is typically ignored or should be set to a dummy value.
+# This is primarily used for testing or replaying captured traffic.
+# Default: '' (empty string means live capture)
+pcap_file: {{ pcap_file | default('') }}

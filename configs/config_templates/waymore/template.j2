@@ -1,0 +1,82 @@
+# Waymore Configuration File
+#
+# This configuration file controls the behavior of the waymore tool, a web archiving
+# and crawling utility. All settings are defined below with their descriptions.
+# Variables are sourced from Ansible values, with schema-defined defaults applied
+# to ensure safe rendering even when specific values are omitted.
+
+# ============================================================================
+# General Settings
+# ============================================================================
+
+# The default directory where results are saved if not specified in CLI.
+DEFAULT_OUTPUT_DIR: {{ default_output_dir | default('~/.config/waymore') }}
+
+# ============================================================================
+# Filtering Options
+# ============================================================================
+
+# Comma-separated list of HTTP status codes to filter.
+# Only responses with these status codes will be processed or retained.
+FILTER_CODE: {{ filter_code | default('200,301,302,403,404,500') }}
+
+# List of keywords or regex patterns to filter links and responses.
+# If empty, no keyword filtering is applied.
+FILTER_KEYWORDS: {{ filter_keywords | default([]) | join(',') }}
+
+# ============================================================================
+# Common Crawl Index Settings
+# ============================================================================
+
+# Limit number of Common Crawl collections to search.
+# Set to 0 to search all available collections.
+LCC: {{ lcc | default(0) }}
+
+# Limit Common Crawl collections by year.
+# Set to 0 to apply no year restriction.
+LCY: {{ lcy | default(0) }}
+
+# Default limit for number of responses to save.
+# Positive values save the first N responses; negative saves the last N; 0 saves all.
+LIMIT: {{ limit | default(5000) }}
+
+# ============================================================================
+# Network & Performance Settings
+# ============================================================================
+
+# Timeout in seconds for response downloads.
+TIMEOUT: {{ timeout | default(30) }}
+
+# Number of processes/threads to use for concurrent operations.
+PROCESSES: {{ processes | default(1) }}
+
+# Number of retries for failed requests.
+RETRIES: {{ retries | default(1) }}
+
+# Memory usage percentage threshold to stop gracefully.
+# If system memory usage exceeds this value, the tool will halt to prevent OOM.
+MEMORY_THRESHOLD: {{ memory_threshold | default(95) }}
+
+# ============================================================================
+# Rate Limit Handling
+# ============================================================================
+
+# Minutes to wait for Wayback Machine rate limit.
+# When a rate limit is hit, the tool waits this many minutes before retrying.
+WAYBACK_RATE_LIMIT_RETRY: {{ wayback_rate_limit_retry | default(3) }}
+
+# Minutes to wait for URLScan rate limit.
+# When a rate limit is hit, the tool waits this many minutes before retrying.
+URLSCAN_RATE_LIMIT_RETRY: {{ urlscan_rate_limit_retry | default(1) }}
+
+# ============================================================================
+# Notification Settings
+# ============================================================================
+
+# Whether to send Discord notifications upon completion.
+# Set to true to enable notifications via the configured webhook.
+NOTIFY_DISCORD: {{ notify_discord | default(False) }}
+
+# Discord Webhook URL for notifications.
+# Required if NOTIFY_DISCORD is true.
+WEBHOOK_DISCORD: {{ webhook_discord | default('') }}

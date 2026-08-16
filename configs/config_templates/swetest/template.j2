@@ -1,0 +1,40 @@
+# Configuration for swetest (Swiss Ephemeris test application)
+# This file defines default command-line parameters for swetest.
+# The template is self-documenting: each directive is preceded by
+# a comment explaining its purpose and mapping to the schema field.
+
+# Output format flag for swetest (e.g., 'b' for binary, 'c' for CSV, 'm' for mnesia).
+# Corresponds to the -f switch.
+# Schema field: output_format (default: 'b')
+-f {{ (output_format | default('b')) }}
+
+# The date for the ephemeris calculation.
+# Can be a Julian Day number or a date string.
+# Corresponds to the -d switch.
+# Schema field: date (default: '2000/1/1')
+-d {{ (date | default('2000/1/1')) }}
+
+# Geographic longitude for geocentric calculations in degrees.
+# Corresponds to the -l switch.
+# Schema field: longitude (default: 0)
+-l {{ (longitude | default(0)) }}
+
+# Geographic latitude for geocentric calculations in degrees.
+# Corresponds to the -t switch.
+# Schema field: latitude (default: 48)
+-t {{ (latitude | default(48)) }}
+
+# Time zone offset from UTC in hours.
+# Corresponds to the -z switch.
+# Schema field: timezone (default: 0)
+-z {{ (timezone | default(0)) }}
+
+# List of celestial bodies to calculate positions for.
+# Corresponds to the -p flag values.
+# Schema field: bodies (default: ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'])
+-p {{ (bodies | default(['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'])) | join(', ') }}
+
+# Output file path. '/' indicates standard output.
+# Corresponds to the -o switch.
+# Schema field: output_file (default: '/')
+-o {{ (output_file | default('/')) }}

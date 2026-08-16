@@ -1,0 +1,84 @@
+# =============================================================================
+# jigl configuration template
+# =============================================================================
+# This template generates the command-line arguments for the jigl tool.
+# It constructs the GAL-OPTIONS section by mapping schema fields to specific
+# command-line flags. Each variable is provided with a safe default based
+# on the schema definition.
+
+# -----------------------------------------------------------------------------
+# Section Header
+# -----------------------------------------------------------------------------
+GAL-OPTIONS
+
+# web_dir: Directory to put all the gallery files (html, slides, thumbnails) into. Default is 'web'.
+-wd {{ web_dir | default('web') }}
+
+# theme: Name of theme to use. Default is 'default'.
+-t {{ theme | default('default') }}
+
+# replace_spaces: Replaces spaces with underscores in filenames. Options: a (ask), y (yes), n (no). Default is 'y'.
+-rs {{ replace_spaces | default('y') }}
+
+# index_width: How many thumbnails per line you want on the index page. Default is 5.
+-iw {{ index_width | default(5) }}
+
+# index_row: The number of thumbnail rows you want on the index page before a new index page is generated. 0 means no limit. Default is 0.
+-ir {{ index_row | default(0) }}
+
+# index_title: Sets the title and title-bar of the index.html page. Default is 'Photo Gallery'.
+-it {{ index_title | default('Photo Gallery') }}
+
+# slide_y_size: Maximum size of slide image in the Y direction. Default is 480.
+-sy {{ slide_y_size | default(480) }}
+
+# thumb_y_size: Size of the scaled thumbnail image in the Y direction. Default is 75.
+-ty {{ thumb_y_size | default(75) }}
+
+# info_y_size: Maximum size of the info image in the Y direction. Default is 240.
+-iy {{ info_y_size | default(240) }}
+
+# use_exif_comment: Use the comment field in the exif header as the slide comment. Default is DISABLED.
+{% if use_exif_comment | default(False) %}-uec{% endif %}
+
+# generate_slides: Generate slide pages and link them to the thumbnails. Default is ENABLED.
+{% if generate_slides | default(True) %}-gs{% else %}-nosgs{% endif %}
+
+# generate_info: Generate info pages and link them to the 'info' link on the slide pages. Default is ENABLED.
+{% if generate_info | default(True) %}-gi{% else %}-noi{% endif %}
+
+# slide_kbsize: Print the file size of the slide on the index page under the thumbnails. Default is ENABLED.
+{% if slide_kbsize | default(True) %}-ks{% else %}-noskb{% endif %}
+
+# slide_xysize: Print the slide dimensions under the thumbnails on the index page. Default is ENABLED.
+{% if slide_xysize | default(True) %}-xy{% else %}-nosxy{% endif %}
+
+# use_original: Use the original images for the slides - do not generate a scaled slide image. Default is DISABLED.
+{% if use_original | default(False) %}-uo{% else %}-nouo{% endif %}
+
+# link_original: Link to the original images from the slides. Default is DISABLED.
+{% if link_original | default(False) %}-lo{% else %}-nol{% endif %}
+
+# auto_rotate_originals: Do a lossless rotation of the original images based on EXIF Orientation. Default is DISABLED.
+{% if auto_rotate_originals | default(False) %}-aro{% else %}-noaro{% endif %}
+
+# watermark_slides: Enable watermarking of the slide images. Default is DISABLED.
+{% if watermark_slides | default(False) %}-ws{% endif %}
+
+# watermark_file: Name of the watermark file to use when watermarking is enabled. Default is 'watermark.png'.
+{% if watermark_slides | default(False) %}-wf {{ watermark_file | default('watermark.png') }}{% endif %}
+
+# watermark_gravity: Where to display the watermark on the slide. Options: north, south, east, west, northeast, northwest, southeast, southwest. Default is south
+{% if watermark_slides | default(False) %}-wg {{ watermark_gravity | default('southeast') }}{% endif %}
+
+# go_back: Prepend a 'Go Back' link to the header in the index.html file. Default is DISABLED.
+{% if go_back | default(False) %}-gb{% endif %}
+
+# go_back_string: String to use for the go-back-url link. Default is 'Go Back'.
+{% if go_back | default(False) %}-gbs {{ go_back_string | default('Go Back') }}{% endif %}
+
+# go_back_url: URL to use when go-back is enabled. Default is '..'.
+{% if go_back | default(False) %}-gburl {{ go_back_url | default('..') }}{% endif %}
+
+# recurse: Recurse through all directories on the command line. Default is DISABLED.
+{% if recurse | default(False) %}-r{% endif %}

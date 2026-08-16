@@ -1,0 +1,49 @@
+%% Command-line options for qtop
+%% See qtop(1) man page for details.
+
+## Application Options
+# Username from whom the process list will be shown (short option -u).
+# If empty, qtop shows the process list for all users.
+{% set q_user = user | default('') %}
+{% if q_user %}
+-u {{ q_user | string }}
+{% endif %}
+
+## Server Options
+# Replace existing application instance with new one (short option -r).
+{% set q_replace = replace | default(False) | bool %}
+{% if q_replace %}
+-r
+{% endif %}
+
+# Ignore server mode and run a new application instance (option --no-server).
+{% set q_no_server = no_server | default(False) | bool %}
+{% if q_no_server %}
+--no-server
+{% endif %}
+
+# Host to use for server communication (option --server-host).
+# If empty, the default local host is used.
+{% set q_server_host = server_host | default('') %}
+{% if q_server_host %}
+--server-host {{ q_server_host | string }}
+{% endif %}
+
+# Port to use for server communication (option --server-port).
+# A value of 0 indicates no specific port is enforced or the default is used.
+{% set q_server_port = server_port | default(0) | int %}
+{% if q_server_port != 0 %}
+--server-port {{ q_server_port }}
+{% endif %}
+
+## Qt Options
+# Qt drawing backend. Valid values: native, raster (option -graphicssystem).
+{% set q_graphicssystem = graphicssystem | default('native') | string %}
+-graphicssystem {{ q_graphicssystem }}
+
+# Qt widget style (option -style).
+# If empty, the system default style is used.
+{% set q_style = style | default('') %}
+{% if q_style %}
+-style {{ q_style | string }}
+{% endif %}

@@ -1,0 +1,90 @@
+# AppArmor profile for WordPress
+#
+# Last Changed: 2023-11-14
+# Author: Craig Small <csmall@debian.org>
+#
+# To update: sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.apache2
+
+# The WordPress root directory, typically /usr/share/wordpress
+@{WP_ROOT} = {{ (wp_root | default('/usr/share/wordpress')) }}
+
+# The WordPress content directory, typically /var/lib/wordpress
+@{WP_CONTENT_ROOT} = {{ (wp_content_root | default('/var/lib/wordpress/wp-content')) }}
+
+# The local override profile path, for custom rules
+@{LOCAL_OVERRIDE_PATH} = {{ (local_override_path | default('/etc/apparmor.d/local/apache-wordpress')) }}
+
+^wordpress {
+  # Include standard Apache2 common abstractions
+  include <abstractions/apache2-common>
+
+  # Include base abstractions (system libs, etc.)
+  include <abstractions/base>
+
+  # Include nameservice abstractions (DNS resolution)
+  include <abstractions/nameservice>
+
+  # Include PHP abstractions.
+  # Note: This template assumes php5/php7 style abstractions for compatibility.
+  include <abstractions/php5>
+
+  # Include SSL certificate access abstractions
+  include <abstractions/ssl_certs>
+
+  # Include OpenSSL abstractions
+  include <abstractions/openssl>
+
+  # Include local overrides if they exist.
+  # Use /etc/apparmor.d/local/apache-wordpress if you have a different WP_CONTENT_DIR
+  # e.g
+  # /var/lib/wordpress/wp-content/www.example.com/{languages,plugins,themes}/** rw,
+  include if exists <{{ (local_override_path | default('/etc/apparmor.d/local/apache-wordpress')) }}>
+
+  # System node info read access
+  @{sys}/devices/system/node/ r,
+  @{sys}/devices/system/node/node[0-9]*/meminfo r,
+
+  # To make email work via sendmail/postfix
+  /{usr/,}bin/dash rix,
+  /usr/sbin/sendmail rix,
+  /usr/sbin/postdrop rix,
+  /etc/postfix/** r,
+  /etc/mailname r,
+  /var/spool/postfix/** rw,
+
+  # ImageMagick config and resource files
+  /etc/ImageMagick-6/*.xml r,
+  /usr/share/ImageMagick-6/*.xml r,
+
+  # Apache2 log write access
+  /var/log/apache2/*.log w,
+
+  # WordPress config files (e.g. config.php)
+  /etc/wordpress/config-*.php r,
+  /etc/wordpress/htaccess r,
+
+  # WordPress core files read access
+  {{ '{' }}@{WP_ROOT}{' '} r,
+  {{ '{' }}@{WP_ROOT}{' '}/** r,
+  {{ '{' }}@{WP_ROOT}{' '}/.maintenance w,
+  /usr/share/javascript/** r,
+
+  # WordPress content directory read access
+  {{ '{' }}@{WP_CONTENT_ROOT}{' '} r,
+  {{ '{' }}@{WP_CONTENT_ROOT}{' '}/ r,
+  {{ '{' }}@{WP_CONTENT_ROOT}{' '}/** r,
+
+  # WordPress content subdirectories (cache, uploads, etc.) read-write/keep access
+  {{ '{' }}@{WP_CONTENT_ROOT}{' '}/{cache,jetpack-waf,uploads,upgrade,upgrade-temp-backup}/ rwk,
+  {{ '{' }}@{WP_CONTENT_ROOT}{' '}/** rwk,
+
+  # Uncomment to permit plugins Install/Update via web
+  # {{ '{' }}@{WP_CONTENT_ROOT}{' '}/plugins/** rw,
+  # {{ '{' }}@{WP_CONTENT_ROOT}{' '}/languages/** rw,
+
+  # Uncomment to permit themes Install/Update via web
+  # {{ '{' }}@{WP_CONTENT_ROOT}{' '}/themes/** rw,
+
+  # PHP temporary directory access
+  owner /tmp/* rwk,
+}

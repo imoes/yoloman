@@ -1,0 +1,62 @@
+# ============================================================
+# WeeChat Headless Service Configuration
+# ============================================================
+# This template generates the configuration file for a headless
+# WeeChat instance, typically managed by systemd or a process
+# supervisor. All values are derived from the Ansible role variables,
+# with sensible defaults applied where variables are undefined.
+# ============================================================
+
+# --- General Settings ---
+
+# Force a single directory for all WeeChat files (config, data, cache, runtime).
+# Format: config:data:cache:runtime or a single path.
+# Defaults to $HOME/.config/weechat if empty.
+# Schema: home_dir (str)
+home_dir: {{ home_dir | default('/etc/weechat') }}
+
+# Run WeeChat in the background, as a daemon.
+# When enabled, WeeChat detaches from the controlling terminal.
+# Schema: run_as_daemon (bool)
+run_as_daemon: {{ run_as_daemon | default(False) | lower }}
+
+# Display log messages on standard output (stdout) instead of writing them to a log file.
+# This is incompatible with run_as_daemon; use only for debugging or direct console invocation.
+# Schema: log_to_stdout (bool)
+log_to_stdout: {{ log_to_stdout | default(False) | lower }}
+
+# Disable auto-connect to servers when WeeChat is starting.
+# Useful for manual session management or interactive debugging.
+# Schema: no_connect (bool)
+no_connect: {{ no_connect | default(False) | lower }}
+
+# Disable automatic loading of plugins at startup.
+# Use with 'plugins' list to selectively load only specific plugins.
+# Schema: no_plugin (bool)
+no_plugin: {{ no_plugin | default(False) | lower }}
+
+# Disable automatic loading of scripts at startup.
+# Prevents WeeChat from executing stored scripts upon launch.
+# Schema: no_script (bool)
+no_script: {{ no_script | default(False) | lower }}
+
+# Load only these specific plugins at startup.
+# Comma-separated string of plugin names. Overrides 'no_plugin' if specified.
+# Schema: plugins (list of str)
+plugins: {{ plugins | default([]) | join(',') }}
+
+# Run command(s) after startup.
+# Multiple commands can be separated by semicolons or provided as a list.
+# Executed once the IRC connection is established.
+# Schema: run_commands (list of str)
+run_commands: {{ run_commands | default([]) | join('; ') }}
+
+# Create a temporary WeeChat home directory and delete it on exit.
+# Incompatible with home_dir. Useful for ephemeral sessions.
+# Schema: use_temp_dir (bool)
+use_temp_dir: {{ use_temp_dir | default(False) | lower }}
+
+# Upgrade WeeChat using session files generated with command /upgrade -quit.
+# Usually used for one-off updates to ensure a clean upgrade process.
+# Schema: run_upgrade (bool)
+run_upgrade: {{ run_upgrade | default(False) | lower }}

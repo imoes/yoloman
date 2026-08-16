@@ -1,0 +1,113 @@
+# ============================================================================
+# TinyFugue Configuration File (tf5)
+# ============================================================================
+# This file configures TinyFugue, a terminal-based MUD client.
+# It defines the standard library path, global options, and one or more
+# MUD worlds with their specific settings (triggers, macros, keybindings,
+# and autologin credentials).
+#
+# NOTE: This template is self-documenting. Each directive is preceded
+# by a comment derived from the schema description.
+# ============================================================================
+
+# Path to the TinyFugue standard library file.
+/load {{ library_path | default('/usr/local/lib/tf.lib/stdlib.tf') }}
+
+# Global configuration options for TinyFugue.
+# --------------------------------------------------------------------------
+
+{% if options is defined %}
+    {% if options.visual_mode | default(False) %}
+# Enable visual mode (split screen for input/output).
+/visual on
+    {% endif %}
+
+    {% if options.wrap_output | default(True) %}
+# Enable automatic line wrapping for MUD output.
+/wrap on
+    {% endif %}
+
+    {% if options.autologin_disabled | default(False) %}
+# Disable automatic login at startup.
+/l on
+    {% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# World Definitions
+# --------------------------------------------------------------------------
+# List of MUD world configurations.
+{% for world in worlds | default([]) %}
+
+# --------------------------------------------------------------------------
+# World: {{ world.name | default('default') }}
+# The name of the world used for switching and identification.
+# Host: {{ world.host | default('localhost') }}
+# Port: {{ world.port | default(4000) }}
+# Type: {{ world.type | default('lp') }}
+# --------------------------------------------------------------------------
+# Define a MUD world: /addworld <name> <host> <port> <type>
+/addworld {{ world.name | default('default') }} {{ world.host | default('localhost') }} {{ world.port | default(4000) }} {{ world.type | default('lp') }}
+
+    # ----------------------------------------------------------------------
+    # Triggers (Hilites)
+    # ----------------------------------------------------------------------
+    # List of trigger/hilit definitions for the world.
+    {% for trigger in world.triggers | default([]) %}
+
+# --------------------------------------------------------------------------
+# Trigger: {{ trigger.name | default('trigger1') }}
+# Pattern: {{ trigger.pattern | default('*test*') }}
+# Color: {{ trigger.color | default('red') }}
+# --------------------------------------------------------------------------
+# Define a trigger for pattern '{{ trigger.pattern | default('*test*') }}'
+/hilite {{ trigger.name | default('trigger1') }} {{ trigger.pattern | default('*test*') }} {{ trigger.color | default('red') }}
+
+    {% endfor %}
+
+    # ----------------------------------------------------------------------
+    # Macros
+    # ----------------------------------------------------------------------
+    # List of macro definitions for the world.
+    {% for macro in world.macros | default([]) %}
+
+# --------------------------------------------------------------------------
+# Macro: {{ macro.name | default('test') }}
+# Body: {{ macro.body | default('send hello') }}
+# --------------------------------------------------------------------------
+# Define a macro for '{{ macro.name | default('test') }}'
+/macro {{ macro.name | default('test') }} {{ macro.body | default('send hello') }}
+
+    {% endfor %}
+
+    # ----------------------------------------------------------------------
+    # Key Bindings
+    # ----------------------------------------------------------------------
+    # List of key bindings for the world.
+    {% for keybind in world.keybinds | default([]) %}
+
+# --------------------------------------------------------------------------
+# Keybind: Key '{{ keybind.key | default('^P') }}' -> Command '{{ keybind.command | default('/prevworld') }}'
+# --------------------------------------------------------------------------
+# Bind key '{{ keybind.key | default('^P') }}' to command '{{ keybind.command | default('/prevworld') }}'
+/bind {{ keybind.key | default('^P') }} {{ keybind.command | default('/prevworld') }}
+
+    {% endfor %}
+
+    # ----------------------------------------------------------------------
+    # Autologin
+    # ----------------------------------------------------------------------
+    # Autologin settings for the world.
+    {% if world.autologin is defined and world.autologin is not none %}
+        {% if world.autologin.enabled | default(False) %}
+# --------------------------------------------------------------------------
+# Autologin Enabled: True
+# Username: {{ world.autologin.username | default('user') }}
+# Password: {{ world.autologin.password | default('pass') }}
+# --------------------------------------------------------------------------
+# Auto-login for world '{{ world.name | default('default') }}'
+/login {{ world.autologin.username | default('user') }} {{ world.autologin.password | default('pass') }}
+        {% endif %}
+    {% endif %}
+
+{% endfor %}

@@ -1,0 +1,32 @@
+# /etc/snooptab
+#
+# Configuration file for ttysnoop.
+# This file defines how ttysnoop intercepts and displays TTY sessions.
+# Format: tty_device <TAB> snoop_device <TAB> type <TAB> exec_program
+#
+# Lines starting with '#' are comments.
+# The wildcard entry '*' matches any TTY not explicitly listed above.
+
+# Wildcard entry: Matches all TTYs not explicitly defined in this file.
+# Columns:
+# 1. TTY device name (fixed to '*' for wildcard)
+# 2. Snoop device path (usually empty or a specific device node)
+# 3. Session type (e.g., 'login', 'socket', 'exec')
+# 4. Executable program to run for this session type
+*{{ (snoop_default_wildcard_suffix | default('')) | trim }}{{ '\t' }}{{ (snoop_default_socket_suffix | default('')) | trim }}{{ '\t' }}{{ (snoop_default_login_suffix | default('')) | trim }}{{ '\t' }}{{ (snoop_default_exec_suffix | default('')) | trim }}
+
+# Note: The 'socket' snoop-device is for use with the ttysnoop client.
+# Any TTY not listed explicitly above will match the wildcard entry defined above.
+
+# Remember to inform your incoming daemons that /usr/sbin/ttysnoops is
+# the login program.
+#
+# Example for /etc/inetd.conf:
+#   telnet stream tcp nowait root /usr/sbin/tcpd /usr/sbin/in.telnetd -L /usr/sbin/ttysnoops
+#
+# Example for /etc/inittab (using agetty):
+#   s2:23:respawn:/sbin/getty 38400 ttyS2 vt100 -l /usr/sbin/ttysnoops
+#
+# Example for /etc/mgetty/login.config:
+#   Replace: *\t  -\t-\t/bin/login	@
+#   With:    *\t-\t-\t/usr/sbin/ttysnoops @

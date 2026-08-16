@@ -1,0 +1,33 @@
+# TransIP DNS Management Configuration Template
+# This template generates the configuration for managing DNS records via the TransIP API.
+# It is self-documenting: every field includes its schema description and default value.
+
+# -----------------------------------------------------------------------------
+# Section: API Credentials and Target Domain
+# -----------------------------------------------------------------------------
+
+# The TransIP API login username.
+# Schema default: 'transip_user'
+# --login-name LOGINNAME
+login_name: {{ (login_name | default('transip_user')) | string }}
+
+# The domain name for which DNS entries are being managed.
+# Schema default: 'example.com'
+# --domain-name DOMAIN_NAME
+domain_name: {{ (domain_name | default('example.com')) | string }}
+
+# -----------------------------------------------------------------------------
+# Section: DNS Records
+# -----------------------------------------------------------------------------
+
+# A list of DNS record configurations to apply to the domain.
+# Each item represents a DNS entry to add, update, or delete.
+# Schema default: [] (empty list)
+# Corresponds to operations like --add-dns-entry, --update-dns-entry, --delete-dns-entry
+entries: >-
+  {%- for entry in (entries | default([])) %}
+  - name: {{ (entry.name | default('testentry')) | string }}
+    type: {{ (entry.type | default('A')) | string }}
+    content: {{ (entry.content | default('127.0.0.1')) | string }}
+    expire: {{ (entry.expire | default(86400)) | int }}{% if not loop.last %}
+{% endif %}{% endfor -%}

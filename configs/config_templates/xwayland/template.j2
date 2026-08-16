@@ -1,0 +1,37 @@
+# ==============================================================================
+# Xwayland Service Configuration Template
+# ==============================================================================
+# This template generates systemd unit overrides or environment variables for Xwayland.
+# It is self-documenting: every variable reference includes its schema default.
+
+# --- Environment Variables ---
+
+# WAYLAND_DISPLAY: The name of the Wayland server display socket.
+# Default: 'wayland-0'
+# This variable tells Xwayland which Wayland socket to connect to.
+{% set _wayland_display = (values | default({})).wayland_display | default('wayland-0') %}
+Environment=WAYLAND_DISPLAY={{ _wayland_display | default('wayland-0') }}
+
+# XWAYLAND_NO_GLAMOR: Disable glamor and DRI3 support in Xwayland.
+# Default: False
+# Use this for testing purposes or if glamor causes issues on specific hardware.
+# When true (non-false), it sets the environment variable to 1.
+{% set _no_glamor = (values | default({})).xwayland_no_glamor | default(False) %}
+{% if _no_glamor | default(False) is boolean and _no_glamor | default(False) == true %}
+Environment=XWAYLAND_NO_GLAMOR=1
+{% endif %}
+
+# --- Command Line Arguments ---
+
+# xwayland_args: List of additional command line arguments to pass to Xwayland.
+# Default: []
+# Examples: ['-rootless', '-verbose']
+# These arguments are appended to the ExecStart or ExecStartPre commands.
+{% set _args = (values | default({})).xwayland_args | default([]) %}
+{% if _args | default([]) | length > 0 %}
+# Additional Xwayland arguments: {{ _args | default([]) | join(' ') }}
+# Note: Systemd ExecStartPre/ExecStart directives must be constructed by the
+# calling role using these arguments. This template provides the list for that purpose.
+{% set _escaped_args = _args | default([]) | map('quote') | join(' ') %}
+ExecStartPre=/bin/sh -c 'echo {{ _escaped_args }} > /dev/null' # Placeholder for args
+{% endif %}

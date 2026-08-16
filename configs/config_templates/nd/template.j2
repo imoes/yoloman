@@ -1,0 +1,19 @@
+# Configuration for the nd WebDAV client
+# This template generates environment export statements for the nd WebDAV client.
+
+# HTTP Proxy configuration
+# The URL of the HTTP proxy to use for WebDAV requests. If empty, no proxy is used.
+# Defaults to empty string (''), meaning no proxy is configured.
+{# Check if the http_proxy variable is defined and has a non-empty value #}
+{% if (values | default({})).http_proxy | default('') | length > 0 %}
+# If a proxy URL is provided, export it for both lowercase and uppercase environment
+# variable conventions to ensure the WebDAV client picks it up regardless of implementation.
+export http_proxy="{{ (values | default({})).http_proxy | default('') }}"
+export HTTP_PROXY="{{ (values | default({})).http_proxy | default('') }}"
+{% endif %}
+
+# Lock Owner Identity
+# The default owner name to use for file locks if the -o option is not explicitly provided.
+# Mirrors the USER environment variable behavior.
+# Defaults to 'nd-user'.
+export LOCK_OWNER="{{ (values | default({})).lock_owner | default('nd-user') }}"

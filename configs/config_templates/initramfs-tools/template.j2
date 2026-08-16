@@ -1,0 +1,57 @@
+#!/bin/sh
+set -e
+
+# =============================================================================
+# initramfs-tools: Hook script to generate/initramfs images.
+#
+# This script is intended to be invoked by the package maintainer scripts
+# (specifically postinst) during kernel package installation or upgrade.
+# It is NOT a user-editable configuration file.
+#
+# Variables expected by the calling environment (DPKG/Debian hooks):
+#   - DPKG_MAINTSCRIPT_PACKAGE: The name of the package triggering this script.
+#   - INITRD: 'Yes' or 'No'; whether the kernel needs an initrd.
+#   - DEB_MAINT_PARAMS: Arguments passed from the maintainer script.
+#   - $1: Kernel version string (e.g., '5.4.0-42-generic').
+#   - $2: Optional absolute path to the kernel image (determines output boot dir).
+#
+# Configuration for this script is effectively hardcoded in the logic below.
+# No external variable injection is safe or supported.
+# =============================================================================
+
+version="$1"
+bootopt=""
+
+command -v update-initramfs >/dev/null 2>&1 || exit 0
+
+test "$(update-initramfs --version | cut -d ' ' -f 1)" = initramfs-tools || exit 0
+
+# passing the kernel version is required
+if [ -z "${version}" ]; then
+	echo >&2 "W: initramfs-tools: ${DPKG_MAINTSCRIPT_PACKAGE:-kernel package} did not pass a version number"
+	exit 2
+fi
+
+# exit if kernel does not need an initramfs
+if [ "$INITRD" = 'No' ]; then
+	exit 0
+fi
+
+# absolute file name of kernel image may be passed as a second argument;
+# create the initrd in the same directory
+if [ -n "$2" ]; then
+	bootdir=$(dirname "$2")
+	bootopt="-b ${bootdir}"
+fi
+
+# avoid running multiple times
+if [ -n "$DEB_MAINT_PARAMS" ]; then
+	eval set -- "$DEB_MAINT_PARAMS"
+	if [ -z "$1" ] || [ "$1" != "configure" ]; then
+		exit 0
+	fi
+fi
+
+# we're good - create initramfs.  update runs do_bootloader
+# shellcheck disable:SC2086
+update-initramfs -c -k "${version}" ${bootopt} >&2

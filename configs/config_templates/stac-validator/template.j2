@@ -1,0 +1,104 @@
+# stac-validator CLI configuration template
+# This template generates a command line invocation for stac-validator.
+# It is self-documenting: every option is explained via comments derived from the schema.
+
+# ---------------------------------------------------------------------------
+# Core Validation Mode
+# ---------------------------------------------------------------------------
+
+# Validate core STAC object only, ignoring all extensions.
+# If this is true, extension validation and link/asset validation are skipped.
+# Corresponds to: --core
+{% if validate_core_only | default(false) %}--core {% endif %}
+
+# ---------------------------------------------------------------------------
+# Extension Validation Mode
+# ---------------------------------------------------------------------------
+
+# Validate extensions only, ignoring the core STAC object structure.
+# Mutually exclusive with `validate_core_only` in typical usage, but both
+# flags are available for explicit control.
+# Corresponds to: --extensions
+{% if validate_extensions_only | default(false) %}--extensions {% endif %}
+
+# ---------------------------------------------------------------------------
+# Additional Validation Targets
+# ---------------------------------------------------------------------------
+
+# Additionally validate links (rel types and targets).
+# This option only works in "default mode" (i.e., not when core-only or extensions-only is set).
+# Corresponds to: --links
+{% if validate_links | default(false) %}--links {% endif %}
+
+# Additionally validate assets (metadata and content).
+# This option only works in "default mode" (i.e., not when core-only or extensions-only is set).
+# Corresponds to: --assets
+{% if validate_assets | default(false) %}--assets {% endif %}
+
+# ---------------------------------------------------------------------------
+# Custom Schema
+# ---------------------------------------------------------------------------
+
+# Path to a custom JSON schema for validation.
+# Accepts a local filepath or a remote URL.
+# If empty, the built-in STAC schemas are used.
+# Corresponds to: --custom <path>
+{% if custom_schema | default('') | trim != '' %}--custom {{ custom_schema | default('') | trim }} {% endif %}
+
+# ---------------------------------------------------------------------------
+# Recursive Traversal
+# ---------------------------------------------------------------------------
+
+# Recursively validate all related STAC objects found via links.
+# Traverses href targets to validate the entire graph.
+# Corresponds to: --recursive
+{% if recursive | default(false) %}--recursive {% endif %}
+
+# Maximum depth to traverse when recursing.
+# 0 means unlimited depth. Ignored if `recursive` is false.
+# Corresponds to: --max-depth <number>
+{% if recursive | default(false) and (max_depth | default(0)) > 0 %}--max-depth {{ max_depth | default(0) }} {% endif %}
+
+# ---------------------------------------------------------------------------
+# Item Collection Validation
+# ---------------------------------------------------------------------------
+
+# Validate the input as an Item Collection response (a collection of items).
+# Can be combined with `--pages` to paginate through large collections.
+# Corresponds to: --item-collection
+{% if validate_item_collection | default(false) %}--item-collection {% endif %}
+
+# Maximum number of pages to validate when using --item-collection.
+# Ignored if `validate_item_collection` is false.
+# Corresponds to: --pages <number>
+{% if validate_item_collection | default(false) and (pages | default(1)) > 1 %}--pages {{ pages | default(1) }} {% endif %}
+
+# ---------------------------------------------------------------------------
+# Output Control
+# ---------------------------------------------------------------------------
+
+# Enables verbose output.
+# Especially useful in recursive mode to see traversal details.
+# Corresponds to: --verbose
+{% if verbose | default(false) %}--verbose {% endif %}
+
+# Suppresses all console output (stdout and stderr).
+# Useful for strict exit-code-only integration scripts.
+# Corresponds to: --no-output
+{% if no_output | default(false) %}--no-output {% endif %}
+
+# Save full recursive output to a log file.
+# Writes the complete validation trace to this local filepath.
+# Empty string disables logging to file.
+# Corresponds to: --log-file <path>
+{% if log_file | default('') | trim != '' %}--log-file {{ log_file | default('') | trim }} {% endif %}
+
+# ---------------------------------------------------------------------------
+# Input Targets
+# ---------------------------------------------------------------------------
+
+# The STAC file(s) or URI(s) to validate.
+# This is the positional argument for stac-validator.
+# Must contain at least one item for a valid run.
+# Corresponds to: <STAC_FILE>
+{% for stac_file in (stac_files | default([])) %}{{ stac_file }} {% endfor %}

@@ -1,0 +1,29 @@
+# PackUP Configuration
+# This file controls the behavior of the PackUP solver wrapper.
+# All settings are self-documented via the comments below.
+
+# External solver command used by packup.
+# This command is invoked to perform the actual constraint solving.
+# Ensure the solver binary is in PATH or provide an absolute path.
+external_solver: {{ (packup|default({})).external_solver|default('minisat+ -ansi') }}
+
+# String separating coefficients and variables in solver input.
+# This string is used when formatting polynomial terms for the solver.
+multiplication_string: {{ (packup|default({})).multiplication_string|default('*') }}
+
+# Temporary directory for solver intermediate files.
+# The solver may write temporary files here; ensure sufficient disk space.
+# Must be a valid, writable directory path.
+temporary_directory: {{ (packup|default({})).temporary_directory|default('/tmp') }}
+
+# Whether to preserve temporary files after execution.
+# If true, temporary files are left on disk for debugging or inspection.
+# If false, they are cleaned up automatically.
+leave_temporary_files: {{ (packup|default({})).leave_temporary_files|default(false)|lower }}
+
+# Optimization criterion: trendy, paranoid, or a custom expression.
+# 'trendy': use the default trendy optimization mode (-t).
+# 'paranoid': use the paranoid optimization mode (-p).
+# Custom: provide a comma-separated list of optimization metrics, e.g., '-removed,-changed'.
+# If empty, packup may use its internal default or fail depending on version.
+criterion: {{ (packup|default({})).criterion|default('trendy') }}

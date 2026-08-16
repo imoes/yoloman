@@ -1,0 +1,35 @@
+# Nagios NRPE Plugin Configuration Template
+# This template defines commands for the check_nrpe plugin, allowing Nagios
+# to monitor remote hosts via the NRPE (Nagios Remote Plugin Executor) protocol.
+
+# =============================================================================
+# Command: check_nrpe
+# Description: Runs the check_nrpe binary with SSL support enabled.
+#              Used for secure communication with remote NRPE agents.
+# Parameters:
+#   -H $HOSTADDRESS$: The IP or hostname of the remote host to monitor.
+#   -c $ARG1$:       The name of the check command to execute on the remote host.
+# =============================================================================
+define command {
+    # nrpe_plugin_path: The full path to the check_nrpe binary.
+    # Default: /usr/lib/nagios/plugins/check_nrpe
+    command_name	check_nrpe
+    command_line	{{ nrpe_plugin_path | default('/usr/lib/nagios/plugins/check_nrpe') }} -H $HOSTADDRESS$ -c $ARG1$
+}
+
+# =============================================================================
+# Command: check_nrpe_nossl
+# Description: Runs the check_nrpe binary with SSL support explicitly DISABLED.
+#              Use this only if the remote NRPE agent is configured to use
+#              plaintext communication (insecure).
+# Parameters:
+#   -H $HOSTADDRESS$: The IP or hostname of the remote host to monitor.
+#   -c $ARG1$:       The name of the check command to execute on the remote host.
+#   -n:             Flag to disable SSL/TLS.
+# =============================================================================
+define command {
+    # nrpe_plugin_path: The full path to the check_nrpe binary.
+    # Default: /usr/lib/nagios/plugins/check_nrpe
+    command_name	check_nrpe_nossl
+    command_line	{{ nrpe_plugin_path | default('/usr/lib/nagios/plugins/check_nrpe') }} -H $HOSTADDRESS$ -c $ARG1$ -n
+}

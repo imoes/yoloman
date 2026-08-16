@@ -1,0 +1,25 @@
+# =============================================================================
+# Lighttpd Mod Deflate Configuration
+# =============================================================================
+# This template configures the `mod_deflate` module for Lighttpd.
+# It enables HTTP compression (gzip/deflate) to reduce bandwidth usage
+# and improve transfer times for supported MIME types.
+
+# --- Module Loading ---
+# Adds the mod_deflate module to the list of loaded Lighttpd modules.
+# Ensure the lighttpd package includes this module.
+server.modules += ( "{{ lighttpd_modules_deflate | default('mod_deflate') }}" )
+
+# --- Cache Directory ---
+# Specifies the directory where Lighttpd stores pre-compressed files.
+# Using a cache directory avoids recompressing static content on every request.
+# The directory must exist and be writable by the Lighttpd process user.
+deflate.cache-dir = "{{ lighttpd_deflate_cache_dir | default('/var/cache/lighttpd/compress/') }}"
+
+# --- MIME Types to Compress ---
+# Defines the list of MIME types that should be compressed.
+# Lighttpd will only compress responses matching these types.
+# The list is formatted as a Lighttpd array of strings.
+deflate.mimetypes = (
+    {{ lighttpd_deflate_mimetypes | default(['"application/javascript"', '"text/css"', '"text/html"', '"text/plain"']) | join(',\n    ') }}
+)

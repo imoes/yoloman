@@ -1,0 +1,106 @@
+# kcollectd configuration template
+# This template generates the configuration file for kcollectd, a plugin-based daemon that
+# collects system and application performance statistics and forwards them to various sinks.
+#
+# Since no schema fields were provided, this template provides a minimal, safe, self-documenting
+# default configuration. It is designed to collect local system metrics and forward them to
+# a metrics sink (e.g., InfluxDB, Prometheus) or log to a local file if no external sink is configured.
+#
+# All variables use the 'default' filter to ensure safe rendering even if the variable is undefined.
+
+# === General Settings ===
+
+# Log level: debug, info, warning, error, critical
+# Controls the verbosity of the kcollectd log output.
+log_level = {{ log_level | default("info") }}
+
+# Log file path where kcollectd writes its logs.
+# Set to /dev/null to disable file logging, or use a syslog integration.
+log_file = {{ log_file | default("/var/log/kcollectd/kcollectd.log") }}
+
+# Daemon mode: true to run as a background daemon, false to run in foreground.
+# Useful for debugging or when managed by a process supervisor (systemd, supervisord).
+daemon_mode = {{ daemon_mode | default(true) | lower }}
+
+# PID file location to store the process ID.
+pid_file = {{ pid_file | default("/var/run/kcollectd/kcollectd.pid") }}
+
+# === Data Collection ===
+
+# Global interval in seconds for collecting metrics.
+# This affects all collectors unless overridden by individual collector settings.
+collect_interval = {{ collect_interval | default(10) }}
+
+# Buffer size: number of data points to hold in memory before flushing.
+# Larger buffers may improve throughput but increase memory usage.
+buffer_size = {{ buffer_size | default(1000) }}
+
+# Flush timeout: maximum time in seconds to wait before flushing buffered data.
+flush_timeout = {{ flush_timeout | default(5) }}
+
+# === Collectors ===
+
+# Enable CPU usage statistics collection.
+# Collects CPU time breakdown (user, system, idle, etc.) and load averages.
+enable_cpu = {{ enable_cpu | default(true) | lower }}
+
+# Enable Memory usage statistics collection.
+# Collects total, used, free, buffers, and cached memory statistics.
+enable_memory = {{ enable_memory | default(true) | lower }}
+
+# Enable Disk I/O statistics collection.
+# Collects read/write bytes, operations per second, and utilization per disk device.
+enable_disk = {{ enable_disk | default(true) | lower }}
+
+# Enable Network interface statistics collection.
+# Collects bytes in/out, packets in/out, errors, and drops per interface.
+enable_network = {{ enable_network | default(true) | lower }}
+
+# Enable Filesystem usage statistics collection.
+# Collects total, used, and free space per mounted filesystem.
+enable_filesystem = {{ enable_filesystem | default(true) | lower }}
+
+# === Output Sinks ===
+
+# === InfluxDB Output ===
+# Enable forwarding metrics to an InfluxDB instance.
+enable_influxdb = {{ enable_influxdb | default(false) | lower }}
+
+# InfluxDB server hostname or IP address.
+influxdb_host = {{ influxdb_host | default("localhost") }}
+
+# InfluxDB server port.
+influxdb_port = {{ influxdb_port | default(8086) }}
+
+# InfluxDB database name where metrics will be written.
+influxdb_database = {{ influxdb_database | default("kcollectd") }}
+
+# InfluxDB username for authentication.
+influxdb_user = {{ influxdb_user | default("") }}
+
+# InfluxDB password for authentication.
+influxdb_password = {{ influxdb_password | default("") }}
+
+# === Prometheus Output ===
+# Enable exposing metrics on a local HTTP endpoint for Prometheus to scrape.
+enable_prometheus = {{ enable_prometheus | default(false) | lower }}
+
+# Prometheus HTTP server hostname to bind to.
+prometheus_host = {{ prometheus_host | default("0.0.0.0") }}
+
+# Prometheus HTTP server port to listen on.
+prometheus_port = {{ prometheus_port | default(9100) }}
+
+# Path for the Prometheus metrics endpoint.
+prometheus_path = {{ prometheus_path | default("/metrics") }}
+
+# === Log Output (Fallback) ===
+# Enable writing metrics to a local log file in a structured format (e.g., JSON).
+# Useful for debugging or when no network sink is available.
+enable_log_output = {{ enable_log_output | default(false) | lower }}
+
+# Log file path for metric data when log_output is enabled.
+log_output_path = {{ log_output_path | default("/var/log/kcollectd/metrics.log") }}
+
+# Log format: json, csv, or text.
+log_output_format = {{ log_output_format | default("json") }}

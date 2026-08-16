@@ -1,0 +1,90 @@
+# ipv6calc configuration for batch processing or service integration
+# This file configures the ipv6calc utility for automated IPv6/IPv4/MAC address conversions.
+# It is structured as a simple key-value directive file, where each section defines a processing task.
+#
+# Global settings are defined at the top. Each task in the 'tasks' list defines a specific
+# conversion operation (input -> transformation -> output).
+
+# =========================================================================
+# Global Configuration
+# =========================================================================
+
+# Debug level (bitwise flags) for ipv6calc. 0 disables debug output.
+# Higher values enable verbose logging of internal states and parsing steps.
+# Maps to: --debug or IPV6CALC_DEBUG
+# Schema: debug_mode (default=0)
+DEBUG_MODE = {{ (ipv6calc | default({})).debug_mode | default(0) }}
+
+# Directory path for IP2Location database files.
+# If empty or unset, IP2Location support is disabled and lookups will fail or return unknown.
+# Maps to: --db-ip2location-dir DIRECTORY
+# Default from man page: /usr/share/IP2Location
+# Schema: db_ip2location_dir (default='/usr/share/IP2Location')
+IP2LOCATION_DIR = {{ (ipv6calc | default({})).db_ip2location_dir | default('/usr/share/IP2Location') }}
+
+# Directory path for GeoIP database files.
+# If empty or unset, GeoIP support is disabled and lookups will fail or return unknown.
+# Maps to: --db-geoip-dir DIRECTORY
+# Default from man page: /usr/share/GeoIP
+# Schema: db_geoip_dir (default='/usr/share/GeoIP')
+GEOIP_DIR = {{ (ipv6calc | default({})).db_geoip_dir | default('/usr/share/GeoIP') }}
+
+# =========================================================================
+# Processing Tasks
+# =========================================================================
+
+# List of processing tasks to execute sequentially.
+# Each task defines input data, conversion types, and specific actions.
+# If no tasks are defined, ipv6calc runs in interactive mode or uses stdin.
+# Schema: tasks (default=[])
+{% for task in (ipv6calc | default({})).tasks | default([], true) %}
+# --------------------------------------------------------------------------
+# Task {{ loop.index }}: {{ task.name | default('Unnamed Task') }}
+# --------------------------------------------------------------------------
+# A brief description of what this task does, if available in the schema.
+# Schema: task.description
+TASK_DESCRIPTION = {{ task.description | default('') }}
+
+# Input data to process.
+# This can be an IP address, MAC address, hostname, or other supported input format.
+# Maps to: positional argument for input
+# Schema: task.input_data
+INPUT_DATA = {{ task.input_data | default('') }}
+
+# Input type specification (e.g., ipv6addr, ipv4, mac, ifinet6, hostname).
+# If empty, ipv6calc attempts to autodetect the input type.
+# Maps to: --in INPUT-TYPE
+# Schema: task.input_type
+INPUT_TYPE = {{ task.input_type | default('') }}
+
+# Output type specification (e.g., compressed, arpa, bitstring, dotted-quad, mac).
+# If empty, ipv6calc defaults to a standard verbose output format.
+# Maps to: --out OUTPUT-TYPE
+# Schema: task.output_type
+OUTPUT_TYPE = {{ task.output_type | default('') }}
+
+# Action to perform (e.g., format conversion, conv6to4, genprivacyiid, getipv6).
+# Specific actions depend on the input/output types. Autodetect if empty.
+# Maps to: --action ACTION
+# Schema: task.action
+ACTION = {{ task.action | default('') }}
+
+# Additional format options for specific conversions.
+# These are flags or parameters passed to ipv6calc to fine-tune the output.
+# Examples: --printfulluncompressed, --noipv4, --strict
+# Schema: task.format_options (list of strings)
+FORMAT_OPTIONS = {{ task.format_options | default([]) | join(' ') }}
+
+# Command Line Construction Guide:
+# The actual command executed by the wrapper script or service would resemble:
+#   ipv6calc [OPTIONS] {{ task.input_data | default('') }}
+# With options constructed as follows:
+#   --debug {{ (ipv6calc | default({})).debug_mode | default(0) }}
+#   --db-ip2location-dir {{ (ipv6calc | default({})).db_ip2location_dir | default('/usr/share/IP2Location') }}
+#   --db-geoip-dir {{ (ipv6calc | default({})).db_geoip_dir | default('/usr/share/GeoIP') }}
+#   {% if task.input_type | default('') != '' %}--in {{ task.input_type }}{% endif %}
+#   {% if task.output_type | default('') != '' %}--out {{ task.output_type }}{% endif %}
+#   {% if task.action | default('') != '' %}--action {{ task.action }}{% endif %}
+#   {% for opt in task.format_options | default([]) %}{{ opt }} {% endfor %}
+
+{% endfor %}

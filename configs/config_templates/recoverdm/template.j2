@@ -1,0 +1,90 @@
+# RecoverDM Configuration Template
+#
+# NOTE: recoverdm is a command-line utility for data recovery, not a daemon with a persistent configuration file.
+# This template generates a shell script to invoke recoverdm with the specified parameters.
+# It acts as a self-contained execution context for the recovery process.
+#
+# All variables below correspond to recoverdm's command-line flags.
+# Defaults are applied using Jinja2 `default` filters to ensure robustness against missing variables.
+
+# ==============================================================================
+# Input Configuration
+# ==============================================================================
+
+# Input device or file to recover.
+# This can be a block device (e.g., /dev/sdb) or an image file (e.g., /path/to/image.iso).
+# Command-line flag: -i <file/device-in>
+input_source: "{{ input_source | default('/dev/sdb') }}"
+
+# Type of device being recovered.
+# Valid types:
+#   1    = FILE
+#   10   = FLOPPY
+#   11   = FLOPPY_IDE
+#   12   = FLOPPY_SCSI
+#   20   = CDROM_IDE
+#   21   = CDROM_SCSI
+#   30   = DVD_IDE
+#   31   = DVD_SCSI
+#   40   = DISK_IDE
+#   41   = DISK_SCSI
+# Command-line flag: -t <type>
+device_type: "{{ device_type | default('40') }}"
+
+# Output file where recovered data will be written.
+# WARNING: This file must NOT already exist. recoverdm will fail if the file is present.
+# Command-line flag: -o <output_file>
+output_file: "{{ output_file | default('/tmp/recovered.img') }}"
+
+# ==============================================================================
+# Recovery Behavior Configuration
+# ==============================================================================
+
+# Number of retries before moving on to the next sector in Normal mode.
+# A higher value increases the chance of reading bad sectors but slows down recovery.
+# Default is 6.
+# Command-line flag: -n <retries_normal>
+retries_normal: {{ retries_normal | default(6) }}
+
+# Number of retries while reading in RAW mode before moving on to the next sector.
+# Recommended value: >= 3.
+# Default is 6.
+# Command-line flag: -r <retries_raw>
+retries_raw: {{ retries_raw | default(6) }}
+
+# Rotation speed of CDROM/DVD media during recovery.
+# Useful for media that degrades with speed.
+# Default is 1.
+# Command-line flag: -s <rotation_speed>
+rotation_speed: {{ rotation_speed | default(1) }}
+
+# Starting sector offset for recovery.
+# Use this to skip bad sectors at the beginning of a media or focus on specific regions.
+# Default is 0 (start from the beginning).
+# Command-line flag: -b <start_offset>
+start_offset: {{ start_offset | default(0) }}
+
+# Number of sectors to skip after encountering a non-read (bad) sector.
+# Can be used to skip clusters or groups of bad sectors.
+# Default is 1.
+# Command-line flag: -p <skip_blocks_count>
+skip_blocks_count: {{ skip_blocks_count | default(1) }}
+
+# ==============================================================================
+# Advanced / Diagnostic Configuration
+# ==============================================================================
+
+# Path to a sectors map file containing checksums and a list of bad sectors.
+# Used with the `mergebad` tool functionality.
+# If not using this feature, leave empty.
+# Command-line flag: -l <sectors_file>
+sectors_file: "{{ sectors_file | default('') }}"
+
+# ==============================================================================
+# Generated Command Line Invocation
+# ==============================================================================
+# The following script block constructs the exact recoverdm command line based
+# on the variables defined above. It only includes arguments that differ from
+# the defaults or are explicitly provided, ensuring a clean and standard invocation.
+
+cmd: "recoverdm -t {{ device_type | default('40') }} -i {{ input_source | default('/dev/sdb') }} -o {{ output_file | default('/tmp/recovered.img') }}{% if retries_normal | default(6) != 6 %} -n {{ retries_normal | default(6) }}{% endif %}{% if retries_raw | default(6) != 6 %} -r {{ retries_raw | default(6) }}{% endif %}{% if rotation_speed | default(1) != 1 %} -s {{ rotation_speed | default(1) }}{% endif %}{% if start_offset | default(0) != 0 %} -b {{ start_offset | default(0) }}{% endif %}{% if skip_blocks_count | default(1) != 1 %} -p {{ skip_blocks_count | default(1) }}{% endif %}{% if sectors_file | default('') != '' %} -l {{ sectors_file | default('') }}{% endif %}"

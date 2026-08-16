@@ -1,0 +1,41 @@
+# Module Assistant Configuration
+# This file controls global settings for the module-assistant (m-a) tool.
+# Most settings are environment variables or CLI flags, but MA_VARDIR and MODULE_LOC
+# are commonly persisted in configuration files or exported profiles.
+#
+# This template is self-documenting: every variable reference includes its default value
+# and is preceded by a comment describing the field's purpose based on the schema.
+
+# MA_VARDIR: Directory for cached data used by helper scripts.
+# Corresponds to MA_VARDIR environment variable.
+MA_VARDIR={{ ma_vardir|default('/var/cache/modass') }}
+
+# MODULE_LOC: Base directory for extracted module source directories.
+# Corresponds to MODULE_LOC environment variable.
+MODULE_LOC={{ module_loc|default('/usr/src/modules') }}
+
+# KERNELDIRS: List of kernel source/header directories.
+# Corresponds to KERNELDIRS environment variable and -k option.
+# Default is a list containing a single string with the current kernel release placeholder.
+KERNELDIRS={{ kernel_dirs|default(['/usr/src/linux-headers-$(uname -r)'])|join(' ') }}
+
+# MOD_SRCDIR: Location for module source tarballs.
+# Corresponds to MOD_SRCDIR environment variable.
+MOD_SRCDIR={{ mod_srcdir|default('/usr/src') }}
+
+# ROOT_CMD: Wrapper command to execute privileged operations.
+# Corresponds to ROOT_CMD environment variable.
+ROOT_CMD={{ root_cmd|default('sudo') }}
+
+# KMAINT: Real name of the package builder.
+# Corresponds to KMAINT/DEBFULLNAME environment variable.
+KMAINT={{ kmaint|default('Debian Module Maintainer') }}
+
+# KEMAIL: Email address of the package builder.
+# Corresponds to KEMAIL/DEBEMAIL environment variable.
+KEMAIL={{ kemail|default('maint@debian.org') }}
+
+# AUTO_BUILD_COMMANDS: Preferred sequence of m-a commands for automated module building workflows.
+# Corresponds to AUTO_BUILD_COMMANDS environment variable (conceptually).
+# Default is a list of command strings: prepare, get, unpack, build.
+AUTO_BUILD_COMMANDS={{ auto_build_commands|default(['prepare', 'get', 'unpack', 'build'])|join(', ') }}

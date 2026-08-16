@@ -1,0 +1,29 @@
+# ==============================================================================
+# XZ Utils (lzma) Configuration Template
+# ==============================================================================
+# This template configures the xz/lzma compression tools via environment variables.
+# It provides system-wide or user-specific defaults for compression behavior.
+#
+# Fields:
+#   xz_defaults: Default command-line options applied when no arguments are provided.
+#                Typically used to set memory limits, compression presets, or thread counts.
+#                Corresponds to the XZ_DEFAULTS environment variable.
+#
+#   xz_opt:      Options passed to xz when invoked by other tools (e.g., tar, dpkg).
+#                Corresponds to the XZ_OPT environment variable.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# XZ_DEFAULTS: System-wide or user-specific default options.
+# Used as the base set of options for all xz/lzma invocations unless overridden.
+# See xz(1) for available options (e.g., --memlimit, -T for threads).
+# ------------------------------------------------------------------------------
+XZ_DEFAULTS={{ xz_defaults | default("--memlimit=150MiB") }}
+
+# ------------------------------------------------------------------------------
+# XZ_OPT: Tool-invocation specific options.
+# These options are prepended to command-line arguments when xz is called by
+# wrapper scripts or tools like tar. Useful for enforcing compression levels
+# or specific flags during archive operations.
+# ------------------------------------------------------------------------------
+XZ_OPT={{ xz_opt | default("-7e") }}

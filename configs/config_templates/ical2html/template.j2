@@ -1,0 +1,66 @@
+#!/bin/bash
+# Wrapper script to generate HTML from iCalendar data using ical2html.
+# This template configures the arguments passed to the ical2html command.
+#
+# Self-documenting configuration for ical2html:
+# - include_class / exclude_class: Filter events by CLASS property (PUBLIC, CONFIDENTIAL, PRIVATE, NONE).
+# - include_categories / exclude_categories: Filter events by CATEGORIES property.
+# - include_description / include_location: Toggle inclusion of long description and location in <PRE> blocks.
+# - html_title / footer_text: HTML page title and footer text.
+# - mark_today: Highlight current day.
+# - timezone: Timezone offset for rendering.
+# - monday_first: Week start day adjustment.
+# - start_date / duration: Date range for the calendar view.
+# - input_file: Source iCalendar file.
+
+ical2html \
+{# Filter to only events with this class (PUBLIC, CONFIDENTIAL, PRIVATE, NONE). #}
+{% if (include_class | default('')) is string and include_class | default('') %}
+-c {{ include_class | default('') }} \
+{% endif %}
+{# Exclude events with this class (PUBLIC, CONFIDENTIAL, PRIVATE, NONE). #}
+{% if (exclude_class | default('')) is string and exclude_class | default('') %}
+-P {{ exclude_class | default('') }} \
+{% endif %}
+{# List of category names to include in the output. #}
+{% for category in (include_categories | default([])) %}
+-c {{ category }} \
+{% endfor %}
+{# List of category names to exclude from the output. #}
+{% for category in (exclude_categories | default([])) %}
+-C {{ category }} \
+{% endfor %}
+{# Include the event's long description in a <PRE> block. #}
+{% if include_description | default(False) %}
+-d \
+{% endif %}
+{# Include the event's location in a <PRE> block. #}
+{% if include_location | default(False) %}
+-l \
+{% endif %}
+{# Text to use for the HTML page title. #}
+{% if (html_title | default('Calendar')) is string and (html_title | default('Calendar')) != 'Calendar' %}
+-t "{{ html_title | default('Calendar') }}" \
+{% endif %}
+{# Text to add at the bottom of the HTML file. #}
+{% if (footer_text | default('')) is string and footer_text | default('') %}
+-f "{{ footer_text | default('') }}" \
+{% endif %}
+{# Mark the current day with #today in the HTML file. #}
+{% if mark_today | default(False) %}
+-T \
+{% endif %}
+{# Adjust for this timezone, specified as country/city. #}
+{% if (timezone | default('GMT')) is string and (timezone | default('GMT')) != 'GMT' %}
+-z {{ timezone | default('GMT') }} \
+{% endif %}
+{# Draw Monday as the first day of the week (Sunday is default). #}
+{% if monday_first | default(False) %}
+-m \
+{% endif %}
+{# The start date for the calendar view in yyyymmdd format. #}
+{{ start_date | default('20240101') }} \
+{# The duration of the calendar view, in ISO 8601 duration format. #}
+{{ duration | default('P1M') }} \
+{# Path to the input iCalendar file. Defaults to standard input if empty. #}
+{{ input_file | default('/etc/ical2html/calendar.ics') }}

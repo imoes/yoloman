@@ -1,0 +1,85 @@
+# Sylpheed Configuration File
+# This file is managed by Ansible. Do not edit manually.
+# Path: ~/.sylpheed/sylpheedrc
+#
+# Sylpheed is a GTK+ based, lightweight, and fast email client.
+# The configuration directory is determined by the 'configdir' setting.
+
+# ==============================================================================
+# Global Settings
+# ==============================================================================
+
+# Directory used for storing Sylpheed configuration and data files.
+# All relative paths in this config are resolved against this directory.
+configdir: {{ configdir | default('/home/user/.sylpheed') }}
+
+# Enables debug mode producing highly verbose console output.
+# Useful for troubleshooting connection or rendering issues.
+# Values: True / False
+debug: {{ debug | default(false) }}
+
+# Enables safe mode where plugins are not loaded.
+# Disables all extensions and add-ons. Useful for diagnosing plugin conflicts.
+# Values: True / False
+safe_mode: {{ safe_mode | default(false) }}
+
+# Default compose window settings
+compose: {
+    # Default behavior to attach files to composed messages.
+    # If True, file attachment dialog opens automatically on new message.
+    attach_files: {{ attach_files | default(false) }}
+}
+
+# ==============================================================================
+# Email Account Settings
+# ==============================================================================
+# Each account in the 'accounts' list generates a configuration block below.
+# To add an account, provide a dictionary with the required keys (in_server,
+# out_server, user, etc.) in the 'accounts' variable passed to this template.
+# If 'accounts' is not defined or empty, no account blocks are generated.
+
+{% for account in accounts | default([]) %}
+# -------------------------------------------------------------------------
+# Account {{ loop.index }} Configuration
+# -------------------------------------------------------------------------
+
+# Account name displayed in the folder list.
+# Used as the label for this identity in the UI.
+name: {{ account.name | default('Personal') }}
+
+# Server type such as imap, pop3, or nntp.
+# 'imap' allows syncing state with the server; 'pop3' downloads and usually deletes.
+type: {{ account.type | default('imap') }}
+
+# Hostname of the incoming mail server.
+# This is the server from which messages are retrieved.
+in_server: {{ account.in_server | default('mail.example.com') }}
+
+# Hostname of the outgoing mail server.
+# This is the SMTP server used to send messages.
+out_server: {{ account.out_server | default('smtp.example.com') }}
+
+# User login name for the account.
+# Used for authentication against both incoming and outgoing servers.
+user: {{ account.user | default('user@example.com') }}
+
+# Port number for the incoming mail server.
+# Common values: 143 (IMAP), 993 (IMAPS), 110 (POP3), 995 (POP3S).
+in_port: {{ account.in_port | default(143) }}
+
+# Port number for the outgoing mail server.
+# Common values: 25 (SMTP), 587 (SMTP/STARTTLS), 465 (SMTPS).
+out_port: {{ account.out_port | default(25) }}
+
+# Whether to use SSL/TLS for the incoming connection.
+# If True, the connection to in_server will be encrypted.
+in_use_ssl: {{ account.in_use_ssl | default(false) }}
+
+# Whether to use SSL/TLS for the outgoing connection.
+# If True, the connection to out_server will be encrypted.
+out_use_ssl: {{ account.out_use_ssl | default(false) }}
+
+# Local folder path for storing mail messages.
+# Path to the local maildir or mbox where copied/processed messages are kept.
+local_folder: {{ account.local_folder | default('/home/user/Mail') }}
+{% endfor %}

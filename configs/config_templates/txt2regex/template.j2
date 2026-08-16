@@ -1,0 +1,107 @@
+# ==============================================================================
+# txt2regex CLI Configuration Template
+# ==============================================================================
+# This template generates a shell script or configuration snippet to invoke
+# the `txt2regex` utility with the specified options.
+#
+# Self-Documenting: Every variable and directive is commented with its schema
+# description and default value.
+# ==============================================================================
+
+# --- Executable Path ---
+# Path to the txt2regex executable.
+# Default: /usr/bin/txt2regex
+EXEC_PATH={{ exec_path | default('/usr/bin/txt2regex') }}
+
+# --- Program List ---
+# List of program names to generate regexes for (e.g., perl, python).
+# Overrides --prog if non-empty.
+# Default: [] (empty list)
+{% if prog_list | default([]) | length > 0 %}
+# Targeting specific programs: {{ prog_list | default([]) | join(', ') }}
+PROG_ARGS=--prog {{ prog_list | default([]) | join(' ') }}
+{% else %}
+# No specific programs targeted; will use default or interactive mode.
+PROG_ARGS=
+{% endif %}
+
+# --- Color Settings ---
+# If true, disables color output (--nocolor).
+# Default: False
+{% if nocolor | default(False) | bool %}
+COLOR_ARGS=--nocolor
+{% else %}
+COLOR_ARGS=
+{% endif %}
+
+# If true, adjusts colors for white background terminals (--whitebg).
+# Default: False
+{% if white_bg | default(False) | bool %}
+# Enable white background mode
+COLOR_ARGS=${COLOR_ARGS} --whitebg
+{% endif %}
+
+# --- Pre-made Regex Label ---
+# Label for a pre-made regex (e.g., 'hour', 'date2').
+# If empty, runs wizard unless other flags are set.
+# Default: 'hour'
+{% if make_label | default('hour') | trim | length > 0 %}
+# Generating regex for label: {{ make_label | default('hour') }}
+LABEL_ARGS=--make {{ make_label | default('hour') }}
+{% else %}
+# No pre-made label; wizard will run.
+LABEL_ARGS=
+{% endif %}
+
+# --- History Replay ---
+# History string to replay. If empty, ignores --history.
+# Default: '' (empty string)
+{% if history_value | default('') | trim | length > 0 %}
+# Replaying history: {{ history_value | default('') }}
+HISTORY_ARGS=--history '{{ history_value | default('') }}'
+{% else %}
+# No history replay.
+HISTORY_ARGS=
+{% endif %}
+
+# --- Show Info ---
+# Program name for --showinfo (e.g., 'sed'). If empty, ignores --showinfo.
+# Default: '' (empty string)
+{% if showinfo_program | default('') | trim | length > 0 %}
+# Showing info for program: {{ showinfo_program | default('') }}
+SHOWINFO_ARGS=--showinfo {{ showinfo_program | default('') }}
+{% else %}
+# No showinfo requested.
+SHOWINFO_ARGS=
+{% endif %}
+
+# --- Meta Characters ---
+# If true, shows the metacharacters table (--showmeta).
+# Default: False
+{% if show_meta | default(False) | bool %}
+# Showing meta characters table
+META_ARGS=--showmeta
+{% else %}
+# Meta characters table disabled.
+META_ARGS=
+{% endif %}
+
+# ==============================================================================
+# Command Construction
+# ==============================================================================
+# Assembles the final command based on the above flags.
+# Note: txt2regex typically takes options directly. This template constructs
+# a command string that can be executed.
+
+# The final command line.
+# Structure: EXEC_PATH [OPTIONS]
+CMD="${EXEC_PATH}" \
+    ${PROG_ARGS} \
+    ${COLOR_ARGS} \
+    ${LABEL_ARGS} \
+    ${HISTORY_ARGS} \
+    ${SHOWINFO_ARGS} \
+    ${META_ARGS}
+
+# Output the command for execution or logging
+echo "Running: ${CMD}"

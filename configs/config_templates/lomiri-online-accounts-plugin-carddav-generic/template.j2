@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lomiri Online Accounts Plugin - CardDAV Generic Configuration
+
+  This template generates an XML configuration profile for the Lomiri online accounts plugin,
+  specifically configured for CardDAV synchronization. It defines the profile metadata,
+  synchronization behavior, and schedule.
+
+  Variables should be defined in the Ansible inventory or playbook. All variables have safe
+  defaults derived from the schema to ensure valid XML output even if variables are undefined.
+-->
+<profile name="{{ profile_name | default('lomiri-generic-carddav') }}" type="sync" >
+    <!-- Category name for contacts -->
+    <key value="{{ contacts_category | default('contacts') }}" name="category"/>
+    
+    <!-- Remote service name identifier -->
+    <key value="{{ remote_service_name | default('lomiri-generic-carddav') }}" name="remote_service_name"/>
+    
+    <!-- Destination type for the account -->
+    <key name="destinationtype" value="{{ destinationtype | default('online') }}"/>
+    
+    <!-- Whether the profile is enabled by default -->
+    <key name="enabled" value="{{ enabled | default(false) }}"/>
+    
+    <!-- Whether the profile is hidden in the UI -->
+    <key name="hidden" value="{{ hidden | default(false) }}"/>
+    
+    <!-- Whether to use system accounts -->
+    <key name="use_accounts" value="{{ use_accounts | default(true) }}"/>
+
+    <profile type="client" name="carddav">
+        <!-- Direction of synchronization -->
+        <key value="{{ sync_direction | default('two-way') }}" name="Sync Direction"/>
+        
+        <!-- Protocol used for synchronization -->
+        <key value="{{ sync_protocol | default('carddav') }}" name="Sync Protocol"/>
+        
+        <!-- Transport protocol used -->
+        <key value="{{ sync_transport | default('HTTP') }}" name="Sync Transport"/>
+        
+        <!-- Conflict resolution policy -->
+        <key value="{{ conflictpolicy | default('prefer remote') }}" name="conflictpolicy" />
+    </profile>
+
+    <!-- Schedule configuration -->
+    <!-- enabled: Whether the automatic schedule is enabled -->
+    <!-- interval: The interval for synchronization (e.g., 15m, 1h) -->
+    <!-- days: Comma-separated list of days for synchronization (1=Mon, 7=Sun) -->
+    <!-- syncconfiguredtime: Specific sync configured time if applicable -->
+    <!-- time: The default time for synchronization -->
+    <schedule enabled="{{ schedule_enabled | default(false) }}" interval="{{ schedule_interval | default('') }}" days="{{ schedule_days | default('1,2,3,4,5,6,7') }}" syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}" time="{{ schedule_time | default('05:00:00') }}" />
+</profile>

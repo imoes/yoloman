@@ -1,0 +1,28 @@
+# wlopm configuration
+# Controls whether wlopm uses JSON output for listing outputs
+# Schema: json_enabled (bool, default: false)
+# desc: Enable JSON formatting for listing outputs and errors.
+json_enabled: {{ (json_enabled | default(false)) | lower }}
+
+# List of outputs to configure
+# Schema: outputs (list of objects, default: [])
+# desc: List of output configurations to apply via wlopm commands. If empty, wlopm will just list outputs if json_enabled is false, or list in JSON
+{% for output_config in (outputs | default([])) %}
+# Item description for the outputs list structure.
+# desc: Item description for the outputs list structure.
+# The name of the display output (e.g., 'DP-1', 'HDMI-A-1'). Compositor dependent.
+# desc: The name of the display output (e.g., 'DP-1', 'HDMI-A-1'). Compositor dependent.
+# The power management action to perform on the output. Must be one of 'on', 'off', or 'toggle'.
+# desc: The power management action to perform on the output. Must be one of 'on', 'off', or 'toggle'.
+{% set action = (output_config.action | default('toggle')) %}
+# If empty, defaults to 'toggle'
+# Output name: {{ (output_config.name | default('')) }}
+# Action: {{ action }}
+{% if action == 'on' %}
+--on {{ (output_config.name | default('')) }}
+{% elif action == 'off' %}
+--off {{ (output_config.name | default('')) }}
+{% else %}
+--toggle {{ (output_config.name | default('')) }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,43 @@
+# ============================================================================
+# wmpomme Configuration Template
+# ============================================================================
+# This template generates a shell script wrapper to launch wmpomme, a
+# WindowMaker dockapp. wmpomme does not use a traditional static configuration
+# file; its runtime behavior is controlled entirely via command-line arguments.
+#
+# Variables:
+#   display         : The X server display string (e.g., ":0", "localhost:10.0").
+#                     Maps to the -display CLI argument.
+#   refresh_interval  : The screen update interval in seconds.
+#                     Maps to the -r CLI argument. If null or undefined, this
+#                     argument is omitted to use the application default.
+# ============================================================================
+
+# Command to launch wmpomme
+CMD="wmpomme"
+
+# -----------------------------------------------------------------------------
+# -display <display>
+# Specify the X server to contact.
+# Corresponds to the 'display' schema field.
+# Default: ':0'
+# -----------------------------------------------------------------------------
+DISPLAY_ARG="{{ display | default(':0') }}"
+
+# -----------------------------------------------------------------------------
+# -r <time>
+# Set the refresh interval in seconds.
+# Corresponds to the 'refresh_interval' schema field.
+# If undefined or null, this argument is omitted.
+# -----------------------------------------------------------------------------
+{% if refresh_interval is defined and refresh_interval is not none %}
+REFRESH_ARG="-r {{ refresh_interval }}"
+{% else %}
+REFRESH_ARG=""
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Launch command
+# Executes wmpomme with the configured display and refresh options.
+# -----------------------------------------------------------------------------
+exec $CMD $REFRESH_ARG -display $DISPLAY_ARG

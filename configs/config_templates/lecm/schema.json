@@ -1,0 +1,26 @@
+{
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/lecm",
+    "description": "Directory where lecm stores its internal state and logs."
+  },
+  "account_key": {
+    "type": "string",
+    "default": "/etc/lecm/keys/account.key",
+    "description": "Path to the Let's Encrypt account private key."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug output."
+  },
+  "certificates": {
+    "type": "list",
+    "default": [],
+    "description": "List of certificate configurations to manage by lecm. Each item defines a certificate entry with its domains and file paths."
+  },
+  "certificates.items": {
+    "type": "object",
+    "description": "An individual certificate configuration entry within the 'certificates' list. This is a flat map of field names to types/defaults, not a nested schema object in the values schema sense, but logically an object. However, per constraints, items must be a FLAT map. Since the template accesses fields like name, domains, key_path, I must define these as top-level keys in the schema if they were standalone, but here they are part of the list. The constraint says: \"For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description}\". This implies the `items` value in the schema describes the *structure* of the objects in the list. I will define the schema for the *items* as a nested structure in the `values_schema` key `certificates.items` which maps field names to their properties. Wait, the prompt says `items` is a FLAT map field-name -> {type, default, description}. This usually means the schema definition for the list's contents. I will structure `values_schema` such that `certificates` is type `list` and has an `items` key which is a map of the object's fields. But the prompt says `values_schema` var -> {type...}. It doesn't explicitly allow nested objects in the *value* of the schema, but it does say `items` is a flat map. I will interpret this as: the schema for `certificates` is type `list`, and the schema for the objects within that list is defined under the key `certificates.items` in the top-level schema? No, that's confusing. Let's look at the example: `default` MUST be a BARE scalar... For a list-of-objects, add `items` as a FLAT map... This suggests the `values_schema` itself might have a specific key `items` inside the definition of the list? No, JSON keys are strings. I will define `certificates` with type `list`. The `items` description says it's a flat map. I will include a key `certificates_items`? Or does `items` go inside the object definition of the list? The prompt says: `values_schema`: var -> {type, default, description}. It doesn't allow deep nesting in the *structure* of the schema definition itself, except for the `items` field. I will assume the `items` field is part of the `{type, default, description}` object for the list variable. So `certificates` in `values_schema` will look like: `{type: list, default: [], description: ..., items: {name: {type: string...}, ...}}`. This fits the "
+  }
+}

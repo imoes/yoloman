@@ -1,0 +1,42 @@
+# rsbackup-graph configuration
+# This file controls the behavior of rsbackup-graph, a utility that generates PNG
+# volume usage graphs from an rsbackup database.
+#
+# Syntax: Key = Value
+# Paths: Use absolute paths for file-based resources.
+# Lists: Enclose comma-separated items in square brackets [].
+
+# The canonical path to this configuration file.
+# Default: /etc/rsbackup/config
+# Note: This variable is used to identify the config file itself, primarily for
+#       documentation or dynamic reload mechanisms. It is not parsed as a setting.
+config_path = "{{ config_path | default('/etc/rsbackup/config') }}"
+
+# Path to the output PNG image.
+# Use '-' for stdout.
+# Default: rsbackup.png
+output = "{{ output_path | default('rsbackup.png') }}"
+
+# Path to the rsbackup database file containing volume metadata.
+# Default: /var/lib/rsbackup/db
+database = "{{ database_path | default('/var/lib/rsbackup/db') }}"
+
+# List of font family names to use for text rendering in the graph.
+# Default: ['DejaVu Sans', 'Liberation Sans']
+fonts = [
+{% for font in (font_families | default(['DejaVu Sans', 'Liberation Sans'])) %}
+  "{{ font }}",
+{% endfor %}
+]
+
+# List of volume selectors (HOST, HOST:VOLUME, -HOST, *) to filter the display.
+# Default: [] (empty list)
+selectors = [
+{% for selector in (selectors | default([])) %}
+  "{{ selector }}",
+{% endfor %}
+]
+
+# Color theme for the graph output (e.g., 'light', 'dark').
+# Default: light
+theme = "{{ theme | default('light') }}"

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    oFono D-Bus System Bus Configuration
+    =====================================
+    This configuration file defines the security policies for the oFono core daemon.
+    It allows the specified system user to own the oFono D-Bus service and interact
+    with various modem agents, while denying all other default access.
+
+    This is a D-Bus busconfig XML file.
+-->
+
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    Policy for the privileged system user.
+    Field: ofono_dbus_root_user
+    Description: The system user allowed to own and communicate with the oFono D-Bus service.
+  -->
+  <policy user="{{ (ofono_dbus_root_user | default('root')) | string }}">
+    <!-- Allow this user to own the oFono service name -->
+    <allow own="{{ ofono_dbus_service_name | default('org.ofono') | string }}"/>
+    
+    <!-- Allow this user to send messages to the oFono service -->
+    <allow send_destination="{{ ofono_dbus_service_name | default('org.ofono') | string }}"/>
+    
+    <!-- Allow interactions with various oFono agent interfaces -->
+    <allow send_interface="org.ofono.SimToolkitAgent"/>
+    <allow send_interface="org.ofono.PushNotificationAgent"/>
+    <allow send_interface="org.ofono.SmartMessagingAgent"/>
+    <allow send_interface="org.ofono.PositioningRequestAgent"/>
+    <allow send_interface="org.ofono.HandsfreeAudioAgent"/>
+    <allow send_interface="org.ofono.NetworkMonitorAgent"/>
+    <allow send_interface="org.ofono.intel.LteCoexistenceAgent"/>
+  </policy>
+
+  <!--
+    Policy for console sessions.
+    Allows any process running on the local physical console to communicate with oFono.
+  -->
+  <policy at_console="true">
+    <allow send_destination="{{ ofono_dbus_service_name | default('org.ofono') | string }}"/>
+  </policy>
+
+  <!--
+    Default deny policy.
+    Since ../system.conf has denied everything by default, we explicitly deny
+    access to the oFono service name for any context not explicitly allowed above.
+  -->
+  <policy context="default">
+    <deny send_destination="{{ ofono_dbus_service_name | default('org.ofono') | string }}"/>
+  </policy>
+
+</busconfig>

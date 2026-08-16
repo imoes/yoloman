@@ -1,0 +1,249 @@
+# =============================================================================
+# ifstat Configuration Template
+# =============================================================================
+# This template generates the configuration arguments for the `ifstat` network
+# traffic monitor. ifstat is primarily a command-line tool; this configuration
+# defines how to construct the command invocation via the generated 'args' list.
+#
+# Schema Reference:
+# - ifstat_delay: Delay between updates (seconds). Supports decimals.
+# - ifstat_subsequent_delay: Second delay for subsequent polls (format: 'delay/delay').
+# - ifstat_count: Number of updates before stopping. 0 means unlimited.
+# - ifstat_interfaces: List of interface names to monitor.
+# - ifstat_monitor_loopback: Enable loopback monitoring (-l).
+# - ifstat_monitor_all: Monitor all interfaces including inactive (-a).
+# - ifstat_hide_null: Hide interfaces with null counters (-z).
+# - ifstat_no_header: Suppress periodic header display (-n).
+# - ifstat_timestamp: Add timestamp to each line (-t).
+# - ifstat_total_bandwidth: Report total bandwidth (-T).
+# - ifstat_no_index: Disable interface indexes (-A).
+# - ifstat_fixed_width: Use fixed-width columns (-w).
+# - ifstat_wrap_lines: Wrap long lines (-W).
+# - ifstat_no_scroll: Keep stats on the same line (-S).
+# - ifstat_kbits: Report in kbits/sec instead of kbytes/sec (-b).
+# - ifstat_quiet: Quiet mode, suppress warnings (-q).
+# - ifstat_driver: Driver name (e.g., proc, snmp).
+# - ifstat_driver_opts: Driver-specific options.
+# - ifstat_snmp_target: SNMP target string [comm@][#]host[/nn].
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Basic Settings
+# -----------------------------------------------------------------------------
+
+# Delay between updates in seconds. Supports decimals (min 0.1).
+# Default: 1
+ifstat_delay = {{ ifstat_delay | default(1) }}
+
+# Second delay for subsequent polls, separated by '/'.
+# If empty, uses the first delay only.
+# Example: '1/5' updates every 1s initially, then every 5s.
+# Default: ''
+ifstat_subsequent_delay = {{ ifstat_subsequent_delay | default('') }}
+
+# Number of updates before stopping.
+# 0 or empty means unlimited updates.
+# Default: 0
+ifstat_count = {{ ifstat_count | default(0) }}
+
+# List of interface names to monitor.
+# If empty, ifstat monitors all non-loopback interfaces that are up.
+# Default: []
+ifstat_interfaces = {{ ifstat_interfaces | default([]) }}
+
+# -----------------------------------------------------------------------------
+# Boolean Flags (CLI Options)
+# -----------------------------------------------------------------------------
+
+# Enable monitoring of loopback interfaces.
+# Corresponds to CLI flag: -l
+# Default: false
+ifstat_monitor_loopback = {{ ifstat_monitor_loopback | default(false) }}
+
+# Enable monitoring of all interfaces found, including inactive/down ones.
+# Corresponds to CLI flag: -a
+# Default: false
+ifstat_monitor_all = {{ ifstat_monitor_all | default(false) }}
+
+# Hide interfaces with null counters (up but not used).
+# Corresponds to CLI flag: -z
+# Default: false
+ifstat_hide_null = {{ ifstat_hide_null | default(false) }}
+
+# Turn off displaying the header periodically.
+# Corresponds to CLI flag: -n
+# Default: false
+ifstat_no_header = {{ ifstat_no_header | default(false) }}
+
+# Add timestamp at the beginning of each line.
+# Corresponds to CLI flag: -t
+# Default: false
+ifstat_timestamp = {{ ifstat_timestamp | default(false) }}
+
+# Report total bandwidth for all monitored interfaces.
+# Corresponds to CLI flag: -T
+# Default: false
+ifstat_total_bandwidth = {{ ifstat_total_bandwidth | default(false) }}
+
+# Disable use of interface indexes (useful for dynamic interfaces).
+# Corresponds to CLI flag: -A
+# Default: false
+ifstat_no_index = {{ ifstat_no_index | default(false) }}
+
+# Use fixed width columns.
+# Corresponds to CLI flag: -w
+# Default: false
+ifstat_fixed_width = {{ ifstat_fixed_width | default(false) }}
+
+# Wrap lines larger than terminal width.
+# Corresponds to CLI flag: -W
+# Default: false
+ifstat_wrap_lines = {{ ifstat_wrap_lines | default(false) }}
+
+# Keep stats on the same line if possible.
+# Corresponds to CLI flag: -S
+# Default: false
+ifstat_no_scroll = {{ ifstat_no_scroll | default(false) }}
+
+# Report bandwidth in kbits/sec instead of kbytes/sec.
+# Corresponds to CLI flag: -b
+# Default: false
+ifstat_kbits = {{ ifstat_kbits | default(false) }}
+
+# Quiet mode, no warnings.
+# Corresponds to CLI flag: -q
+# Default: false
+ifstat_quiet = {{ ifstat_quiet | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Driver Configuration
+# -----------------------------------------------------------------------------
+
+# Driver to use for gathering stats (e.g., proc, snmp, ifmib).
+# If empty, uses the first compiled-in driver.
+# Default: proc
+ifstat_driver = {{ ifstat_driver | default('proc') }}
+
+# Options for the driver (e.g., alternate proc file or SNMP comm@host/nn).
+# For 'proc', this might be an alternate /proc file path.
+# For 'snmp', this is 'comm@host/nn'.
+# Default: ''
+ifstat_driver_opts = {{ ifstat_driver_opts | default('') }}
+
+# SNMP target configuration [comm@][#]host[/nn].
+# Overrides driver_opts if driver is snmp.
+# Default: ''
+ifstat_snmp_target = {{ ifstat_snmp_target | default('') }}
+
+# =============================================================================
+# Generated Command Line Arguments
+# =============================================================================
+# The following section constructs the argument list to be passed to ifstat.
+# This is typically consumed by a wrapper script or systemd ExecStart directive.
+# It avoids Jinja 'do' syntax which is not supported in standard Jinja2 engines.
+
+{% set args = [] %}
+
+# Boolean flags
+{% if ifstat_monitor_loopback | default(false) %}
+{% set _ = args.append('-l') %}
+{% endif %}
+
+{% if ifstat_monitor_all | default(false) %}
+{% set _ = args.append('-a') %}
+{% endif %}
+
+{% if ifstat_hide_null | default(false) %}
+{% set _ = args.append('-z') %}
+{% endif %}
+
+{% if ifstat_no_header | default(false) %}
+{% set _ = args.append('-n') %}
+{% endif %}
+
+{% if ifstat_timestamp | default(false) %}
+{% set _ = args.append('-t') %}
+{% endif %}
+
+{% if ifstat_total_bandwidth | default(false) %}
+{% set _ = args.append('-T') %}
+{% endif %}
+
+{% if ifstat_no_index | default(false) %}
+{% set _ = args.append('-A') %}
+{% endif %}
+
+{% if ifstat_fixed_width | default(false) %}
+{% set _ = args.append('-w') %}
+{% endif %}
+
+{% if ifstat_wrap_lines | default(false) %}
+{% set _ = args.append('-W') %}
+{% endif %}
+
+{% if ifstat_no_scroll | default(false) %}
+{% set _ = args.append('-S') %}
+{% endif %}
+
+{% if ifstat_kbits | default(false) %}
+{% set _ = args.append('-b') %}
+{% endif %}
+
+{% if ifstat_quiet | default(false) %}
+{% set _ = args.append('-q') %}
+{% endif %}
+
+# Interface selection
+# Joins the list of interfaces with commas for the -i option.
+{% set ifs = ifstat_interfaces | default([]) %}
+{% if ifs | length > 0 %}
+{% set _ = args.append('-i ' + ifs | join(',')) %}
+{% endif %}
+
+# Driver specification
+# Formats as -d driver[:options]
+{% set drv = ifstat_driver | default('proc') %}
+{% if drv %}
+{% set driver_arg = drv %}
+{% set drv_opts = ifstat_driver_opts | default('') %}
+{% if drv_opts %}
+  {% set driver_arg = driver_arg ~ ':' ~ drv_opts %}
+{% endif %}
+{% set _ = args.append('-d ' + driver_arg) %}
+{% endif %}
+
+# SNMP target
+# Formats as -s <target>
+{% set snmp_target = ifstat_snmp_target | default('') %}
+{% if snmp_target %}
+{% set _ = args.append('-s ' + snmp_target) %}
+{% endif %}
+
+# Delay and Count
+# Formats as [delay[/subsequent_delay]][/count]
+{% set delay = ifstat_delay | default(1) %}
+{% set subsequent_delay = ifstat_subsequent_delay | default('') %}
+{% set count = ifstat_count | default(0) %}
+
+{% set delay_str = '' %}
+{% if subsequent_delay %}
+  {% set delay_str = (delay | string) ~ '/' ~ subsequent_delay %}
+{% else %}
+  {% set delay_str = (delay | string) %}
+{% endif %}
+
+{% if count > 0 %}
+{% set _ = args.append(delay_str ~ '/' ~ (count | string)) %}
+{% else %}
+{% set _ = args.append(delay_str) %}
+{% endif %}
+
+# =============================================================================
+# Final Invocation Example
+# =============================================================================
+# To use this in a service file or script, join the args:
+#   ifstat {{ args | join(' ') }}
+#
+# Note: ifstat_interfaces defaults to monitoring all up non-loopback interfaces
+# if this list is empty.
+# =============================================================================

@@ -1,0 +1,77 @@
+# SecPanel Configuration File
+# This file configures the SecPanel Tcl/Tk application.
+# All settings are applied as `set SecPanel::<variable> <value>`.
+
+# ==============================================================================
+# General Application Settings
+# ==============================================================================
+
+# Main window title for the SecPanel application.
+# @default "SecPanel"
+set SecPanel::title "{{ title | default('SecPanel') }}"
+
+# Path or command name of the SSH client to use for connections.
+# @default "ssh"
+set SecPanel::ssh_executable "{{ ssh_executable | default('ssh') }}"
+
+# Path or command name of the SCP client to use for file transfers.
+# @default "scp"
+set SecPanel::scp_executable "{{ scp_executable | default('scp') }}"
+
+# Default port number for SSH connections when not specified in a profile.
+# @default 22
+set SecPanel::default_port {{ default_port | default(22) }}
+
+# Whether to enable the ssh-agent for managing authentication keys.
+# Set to 1/true to enable, 0/false to disable.
+# @default false
+set SecPanel::use_agent {{ use_agent | default(false) }}
+
+# The default directory where SSH private keys are stored.
+# @default "~/.ssh"
+set SecPanel::key_directory "{{ key_directory | default('~/.ssh') }}"
+
+# The default username to use for connections if not specified per profile.
+# @default "" (empty string)
+set SecPanel::default_user "{{ default_user | default('') }}"
+
+# The theme name for the Tcl/Tk GUI appearance.
+# @default "default"
+set SecPanel::theme "{{ theme | default('default') }}"
+
+# ==============================================================================
+# Connection Profiles
+# ==============================================================================
+# List of pre-configured SSH connection profiles.
+# @default [] (empty list)
+set SecPanel::profiles {
+{% if profiles is defined and profiles | length > 0 %}
+    {% for profile in profiles %}
+    {
+        # Display name for the connection profile.
+        # @default "" (empty string)
+        name "{{ profile.name | default('') }}"
+
+        # Hostname or IP address of the remote server.
+        # @default "" (empty string)
+        host "{{ profile.host | default('') }}"
+
+        # Port number for the SSH connection.
+        # Defaults to the global default_port if not set in the profile.
+        port {{ profile.port | default(default_port) }}
+
+        # Username for this specific profile.
+        # Defaults to the global default_user if not set in the profile.
+        user "{{ profile.user | default(default_user) }}"
+
+        # Authentication method: password, key, or agent.
+        # @default "password"
+        auth "{{ profile.auth | default('password') }}"
+
+        # Path to the private key file for key-based authentication.
+        # @default "" (empty string)
+        key_file "{{ profile.key_file | default('') }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+{% endif %}
+}

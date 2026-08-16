@@ -1,0 +1,29 @@
+# Postfix Policyd SPF Python Logging Pattern Configuration
+# This template generates a syslog regex pattern used to parse logs emitted by the postfix-policyd-spf-python daemon.
+# The pattern captures standard syslog fields plus SPF-specific metadata.
+
+# Timestamp: Matches standard syslog timestamps (e.g., "Jan  1 12:00:00") or ISO-8601 variants.
+# See schema: timestamp (default: '')
+^(?P<timestamp>{{ timestamp | default('') }}[[:space:]])?
+
+# Process Identification: Matches the hostname and the daemon name with its PID.
+# The PID is captured for correlation.
+# See schema: pid (default: '')
+[._[:alnum:]-]+ policyd-spf\[(?P<pid>{{ pid | default('') }})\]:
+
+# SPF Result and Metadata: Captures the SPF check outcome, method, and client details.
+# The result field captures the SPF verdict.
+# See schema: result (default: 'Pass')
+[[:space:]]prepend Received-SPF: (?P<result>{{ result | default('Pass') }})
+
+# SPF Method: Captures whether the check was triggered by HELO/EHLO or MAIL FROM.
+# See schema: method (default: 'helo')
+\((?P<method>{{ method | default('helo') }})\)
+
+# Additional Context: Captures identity, client IP, helo name, envelope from, and receiver.
+# The client_ip captures the sender's IP address.
+# See schema: client_ip (default: '0.0.0.0')
+[[:space:]]identity=(?P<identity>helo|mailfrom);[[:space:]]client-ip=(?P<client_ip>{{ client_ip | default('0.0.0.0') }});
+
+# Optional trailing fields for completeness of syslog parsing.
+[[:space:]]helo=(?P<helo>.*);[[:space:]]envelope-from=(?P<envelope_from>.*);[[:space:]]receiver=(?P<receiver>.*)

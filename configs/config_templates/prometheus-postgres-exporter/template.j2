@@ -1,0 +1,42 @@
+# prometheus-postgres-exporter configuration
+# This file configures the PostgreSQL exporter for Prometheus.
+# It primarily defines how the exporter connects to the database
+# and any additional command-line flags for the server process.
+
+# -----------------------------------------------------------------------------
+# DATA_SOURCE_NAME: PostgreSQL connection string
+#
+# This variable holds the connection parameters for the exporter to reach the
+# PostgreSQL instance. It supports both standard URL-style connection strings
+# and libpq-style keyword/value pairs.
+#
+# Examples:
+#   URL style:     'postgresql://prometheus:secretpass@localhost:5432/postgres?sslmode=disable'
+#   Libpq style:   'user=prometheus host=/run/postgresql dbname=postgres port=5432'
+#
+# The exporter uses this string to establish the initial connection to query
+# database metrics. Ensure the user has sufficient privileges to read
+# pg_stat_statements and other monitoring views.
+# -----------------------------------------------------------------------------
+# Default: empty string (must be provided by the role or environment)
+DATA_SOURCE_NAME='{{ data_source_name | default("") }}'
+
+# -----------------------------------------------------------------------------
+# ARGS: Additional command-line arguments
+#
+# This variable accepts a string of space-separated arguments passed directly
+# to the prometheus-postgres-exporter server process.
+#
+# Common uses include:
+#   - Changing the listen port: --web.listen-address=":9188"
+#   - Enabling/disabling specific metrics
+#   - Setting query timeout durations
+#
+# ESCAPING NOTICE:
+# If running under systemd, shell escaping rules apply. Backslashes and
+# newlines in regex arguments (e.g., for metric name exclusion) may need
+# double-escaping depending on the service manager's interpretation.
+#
+# Default: empty string (no extra arguments)
+# -----------------------------------------------------------------------------
+ARGS="{{ args | default("") }}"

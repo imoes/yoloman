@@ -1,0 +1,54 @@
+# ==============================================================================
+# u2f-host Configuration Template
+#
+# This template generates the configuration file for the `u2f-host` utility,
+# which handles U2F (Universal 2nd Factor) operations such as token registration
+# and authentication from the command line or scripts.
+#
+# See `man u2f-host` or the upstream documentation for details on each option.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# origin = <string>
+# Description: Origin URL to use for U2F token binding.
+#              U2F tokens bind cryptographic challenges to a specific origin
+#              (scheme + host + optional port) to prevent cross-site attacks.
+#              Default: 'https://localhost'
+# ------------------------------------------------------------------------------
+origin = {{ (origin | default('https://localhost')) | string }}
+
+# ------------------------------------------------------------------------------
+# action = <string>
+# Description: Action to take. Possible values:
+#              - register: Register a new U2F token.
+#              - authenticate: Authenticate with an existing U2F token.
+#              - sendrecv: Low-level send/receive command for testing.
+#              Default: 'register'
+# ------------------------------------------------------------------------------
+action = {{ (action | default('register')) | string }}
+
+# ------------------------------------------------------------------------------
+# touch_enabled = <boolean>
+# Description: Invert user-presence flag.
+#              When true (default), the utility expects the user to touch the
+#              token during operations. Setting to false inverts this logic.
+#              Default: true
+# ------------------------------------------------------------------------------
+touch_enabled = {{ touch_enabled | default(true) | lower }}
+
+# ------------------------------------------------------------------------------
+# debug = <boolean>
+# Description: Print debug information to standard error.
+#              Useful for troubleshooting connection or protocol issues.
+#              Default: false
+# ------------------------------------------------------------------------------
+debug = {{ debug | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# command = <string>
+# Description: Command string for 'sendrecv' action.
+#              Used only when `action` is set to 'sendrecv'. Can be empty for
+#              other actions.
+#              Default: ''
+# ------------------------------------------------------------------------------
+command = {{ (command | default('')) | string }}

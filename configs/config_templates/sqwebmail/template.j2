@@ -1,0 +1,10 @@
+# /etc/cron.d/sqwebmail: crontab fragment for sqwebmail
+# This file manages periodic maintenance tasks for the sqwebmail service.
+# Each line defines a cron job executed by the system scheduler.
+
+# Remove stale cache records at a configurable minute past every hour.
+# The 'minute' field is controlled by sqwebmail_cache_clean_minute (0-59).
+# The job checks if the cache cleaner script is executable before running it.
+{% set _minute = (sqwebmail_cache_clean_minute | default(16)) %}
+# The minute (0-59) at which the sqwebmail cache cleaner cron job runs.
+{{ _minute }} * * * * bin [ -x /usr/lib/courier/sqwebmail/cleancache.pl ] && /usr/lib/courier/sqwebmail/cleancache.pl

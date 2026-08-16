@@ -1,0 +1,19 @@
+# micro-httpd inetd configuration
+# Serves simple HTTP files via the xinetd/inetd superserver.
+
+# Service name registered in /etc/services
+# The service name to be registered in /etc/services and used in inetd.conf
+{{ service_name | default('micro-http') }} port/tcp #Micro HTTP server
+
+# inetd configuration line
+# Format: <service> <socket_type> <proto> <wait> <user> <server_path> <server_args>
+#
+# - socket_type: stream (TCP)
+# - protocol: tcp
+# - wait: nowait (allow concurrent connections)
+# - user: The system user account under which micro-httpd processes will run
+# - server_path: The absolute path to the micro-httpd executable
+# - server_args: Passed as argv[0] and additional arguments to the server
+# - document_root: The directory path that micro-httpd will serve files from
+#   (appended as the document root argument to the server)
+{{ service_name | default('micro-http') }} stream tcp nowait {{ user | default('nobody') }} {{ server_path | default('/usr/sbin/micro-httpd') }} {{ server_path | default('/usr/sbin/micro-httpd') }} {{ document_root | default('/var/www/micro-httpd') }}

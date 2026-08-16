@@ -1,0 +1,46 @@
+# KVIrc Configuration File
+# Generated for kvirc service
+
+[General]
+# Default server to connect to on startup
+DefaultServer={{ values.default_server }}
+# Default port for the server
+DefaultPort={{ values.default_port }}
+# Nickname to use
+Nickname={{ values.nickname }}
+# Username for IRC (often same as nick)
+Username={{ values.username }}
+# Real name displayed in WHOIS
+RealName={{ values.real_name }}
+# Language code for the UI (e.g., en, de)
+Language={{ values.language | default('en') }}
+
+[Connection]
+# Auto-connect to the default server
+AutoConnect={{ values.auto_connect | default(true) }}
+# Number of reconnect attempts
+ReconnectAttempts={{ values.reconnect_attempts | default(5) }}
+# Delay between reconnect attempts in seconds
+ReconnectDelay={{ values.reconnect_delay | default(3) }}
+
+[Servers]
+{% for server in values.servers %}
+[Server:{{ loop.index }}]
+# Server hostname or IP
+Hostname={{ server.hostname }}
+# Server port
+Port={{ server.port }}
+# Optional password for the server
+Password={{ server.password | default('') }}
+{% endfor %}
+
+[Channels]
+{% for channel in values.channels %}
+[Channel:{{ loop.index }}]
+# Channel name (e.g., #general)
+Name={{ channel.name }}
+{% if channel.password %}
+# Password for the channel
+Password={{ channel.password }}
+{% endif %}
+{% endfor %}

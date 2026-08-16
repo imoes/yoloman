@@ -1,0 +1,101 @@
+# =============================================================================
+# GNU Units Configuration Template
+# =============================================================================
+# This template generates configuration/arguments for the `units` command-line tool.
+# It is self-documenting: every directive is preceded by a comment explaining
+# the source schema field and its purpose.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# digits: Number of significant digits in output, corresponding to the --digits
+#         command-line option.
+# ------------------------------------------------------------------------------
+# Default: 8
+# Type: int
+{{ (digits | default(8)) | int }}
+
+# ------------------------------------------------------------------------------
+# output_style: Preferred output style.
+#   - 'verbose'  : Human-readable labels (e.g., "1 meter = 3.28084 feet")
+#   - 'compact'  : Minimal output (e.g., "1 m = 3.28084 ft")
+#   - 'terse'    : Machine-parseable single-line output (e.g., "1 m 3.28084 ft")
+# Default: 'standard' (treated as compact in this logic if not explicitly verbose/terse)
+# Type: string
+# ------------------------------------------------------------------------------
+# Note: The original template had a bug where 'standard' fell through to compact_output
+# but the schema default is 'standard'. We map 'standard' to 'compact' behavior as per
+# the original intent, or explicitly handle the default.
+{% set effective_style = output_style | default('standard') %}
+{% if effective_style == 'verbose' %}
+{{ verbose_output | default('--verbose') }}
+{% elif effective_style == 'terse' %}
+{{ terse_output | default('--terse') }}
+{% else %}
+{{ compact_output | default('--compact') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# unit_system: Alternative unit system to use (e.g., 'gaussian', 'esu', 'planck').
+#              Empty string or 'si' uses the default SI system.
+# Default: 'si'
+# Type: string
+# ------------------------------------------------------------------------------
+{% set usys = unit_system | default('si') %}
+{% if usys != 'si' and usys != '' %}
+{{ unit_system_flag | default('--units') }} {{ usys }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# units_file: Path to a custom units definition file.
+#             Empty string uses the default system definitions.
+# Default: ''
+# Type: string
+# ------------------------------------------------------------------------------
+{% if units_file is defined and units_file != '' %}
+{{ units_file_flag | default('--file') }} {{ units_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# locale: Locale to force for localized unit definitions (e.g., 'en_GB').
+#         Empty string uses system default.
+# Default: ''
+# Type: string
+# ------------------------------------------------------------------------------
+{% if locale is defined and locale != '' %}
+{{ locale_flag | default('--locale') }} {{ locale }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# log_file: Path to a log file to record interactive calculation history.
+#           Empty string disables logging.
+# Default: ''
+# Type: string
+# ------------------------------------------------------------------------------
+{% if log_file is defined and log_file != '' %}
+{{ log_flag | default('--log') }} {{ log_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# strict_mode: If true, suppresses reciprocal unit conversion (e.g., Hz to seconds)
+#              and enforces strict conformability.
+# Default: False
+# Type: boolean
+# ------------------------------------------------------------------------------
+{% if strict_mode is not defined or not strict_mode %}
+{% set strict_enabled = false %}
+{% else %}
+{% set strict_enabled = strict_mode | bool %}
+{% endif %}
+{% if strict_enabled %}
+UNITS_STRICT=1
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# env_overrides: List of environment variable overrides to set for the units process.
+#                Items should be strings in the format 'KEY=VALUE'.
+# Default: []
+# Type: list of strings
+# ------------------------------------------------------------------------------
+{% for env_item in (env_overrides | default([])) %}
+{{ env_item }}
+{% endfor %}

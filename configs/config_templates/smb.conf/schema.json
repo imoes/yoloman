@@ -9,40 +9,41 @@
     "default": "Samba Server",
     "description": "The descriptive string displayed when listing the server in network browsing."
   },
-  "security_mode": {
+  "security": {
     "type": "string",
     "default": "user",
     "description": "Security model: 'user' for local SMB user accounts, 'domain' for domain controller, 'ads' for Active Directory.",
     "enum": [
       "user",
+      "server",
       "domain",
       "ads",
-      "server"
+      "share"
     ]
   },
   "passdb_backend": {
     "type": "string",
     "default": "tdbsam",
-    "description": "Password database backend (e.g., tdbsam, ldapsam). Only used when security_mode is 'user' or 'domain'."
+    "description": "Password database backend (e.g., tdbsam, ldapsam)."
   },
   "log_level": {
     "type": "number",
     "default": 1,
     "description": "Verbosity of logging: 0 (minimal), 3 (normal), 5 (verbose), 10 (debug)."
   },
-  "log_file_path": {
+  "log_file": {
     "type": "string",
     "default": "/var/log/samba/log.%m",
     "description": "Path to log files. Use %m for per-machine log files."
   },
-  "max_log_size_kb": {
+  "max_log_size": {
     "type": "number",
     "default": 5000,
     "description": "Maximum size (in KB) per log file before rotation."
   },
   "bind_interfaces_only": {
-    "type": "boolean",
-    "default": true,
+    "type": "bool",
+    "default": false,
     "description": "If true, only bind to specified interfaces; otherwise bind to all interfaces."
   },
   "interfaces": {
@@ -70,22 +71,49 @@
   "server_min_protocol": {
     "type": "string",
     "default": "SMB2",
-    "description": "Minimum supported SMB protocol version (e.g., 'NT1', 'SMB2', 'SMB3_11'). Leave empty to auto-select."
+    "description": "Minimum supported SMB protocol version (e.g., 'NT1', 'SMB2', 'SMB3_11'). Leave empty to auto-select.",
+    "enum": [
+      "CORE",
+      "COREPLUS",
+      "LANMAN1",
+      "LANMAN2",
+      "NT1",
+      "SMB2",
+      "SMB2_02",
+      "SMB2_10",
+      "SMB3",
+      "SMB3_00",
+      "SMB3_02",
+      "SMB3_11",
+      "SMB2_FF",
+      "default"
+    ]
   },
   "server_max_protocol": {
     "type": "string",
     "default": "SMB3",
-    "description": "Maximum supported SMB protocol version. Leave empty to auto-select highest."
+    "description": "Maximum supported SMB protocol version. Leave empty to auto-select highest.",
+    "enum": [
+      "CORE",
+      "COREPLUS",
+      "LANMAN1",
+      "LANMAN2",
+      "NT1",
+      "SMB2",
+      "SMB2_02",
+      "SMB2_10",
+      "SMB3",
+      "SMB3_00",
+      "SMB3_02",
+      "SMB3_11",
+      "SMB2_FF",
+      "default"
+    ]
   },
   "max_connections": {
     "type": "number",
     "default": 100,
     "description": "Maximum number of concurrent SMB connections allowed."
-  },
-  "max_open_files": {
-    "type": "number",
-    "default": 16384,
-    "description": "Maximum number of files a single smbd process may have open. Set to match system limits (ulimit -n)."
   },
   "socket_options": {
     "type": "list",
@@ -97,14 +125,9 @@
     "description": "TCP socket tuning options (e.g., buffer sizes, Nagle algorithm)."
   },
   "time_server": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, act as an NTP time server for connected Windows clients."
-  },
-  "timezone": {
-    "type": "string",
-    "default": "UTC",
-    "description": "Timezone string (e.g., 'America/New_York', 'Europe/London'). Defaults to system timezone if omitted."
   },
   "shares": {
     "type": "list",
@@ -113,7 +136,7 @@
         "name": "homes",
         "path": "/home",
         "description": "Home directories",
-        "browsable": true,
+        "browseable": true,
         "read_only": false,
         "guest_ok": false,
         "valid_users": [

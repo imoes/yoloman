@@ -1,0 +1,44 @@
+# xmount command configuration template
+# Generated for gonja/jinja2
+#
+# This template generates a shell command line for xmount, a tool to create
+# virtual disk images from various input formats using FUSE.
+# See `man xmount` or `xmount --help` for detailed option descriptions.
+
+xmount \
+{# inputs: List of input image strings in format 'type|file'. E.g. ['raw|image.dd']. For multiple inputs, add more entries. #}
+{% for in_img in inputs | default([], true) %}
+    --in {{ in_img.type }} {{ in_img.file }} \
+{# input_opts: List of comma-separated inopts strings corresponding to each input. If input is single, this can be empty or single item. #}
+    {% if in_img.opts | default('', true) %}
+    --inopts {{ in_img.opts | join(',') }} \
+    {% endif %}
+{% endfor %}
+{# morph: Morphing function to apply. See xmount --info for supported types. Empty string disables morphing if default is not wanted, but manpage says #}
+{% if (morph | default('combine', true)) != '' %}
+    --morph {{ morph | default('combine', true) }} \
+{# morph_opts: List of morph opts strings to join with comma. #}
+    {% if morph_opts | default([], true) %}
+    --morphopts {{ morph_opts | join(',') }} \
+    {% endif %}
+{% endif %}
+{# offset: Offset in bytes to move output image data start. #}
+{% if (offset | default(0, true)) != 0 %}
+    --offset {{ offset | default(0, true) }} \
+{% endif %}
+{# sizelimit: Data end limit in bytes. 0 means no limit. #}
+{% if (sizelimit | default(0, true)) != 0 %}
+    --sizelimit {{ sizelimit | default(0, true) }} \
+{% endif %}
+{# output_format: Output image format (raw, dmg, vdi, vhd, vmdk, vmdks). Defaults to raw. #}
+    --out {{ output_format | default('raw', true) }} \
+{# cache_file: Path to cache file for virtual write support. Empty disables. #}
+{% if cache_file | default('', true) %}
+    --cache {{ cache_file | default('', true) }} \
+{% endif %}
+{# fuse_opts: List of FUSE-specific options (e.g., '-d', '-s', '-o no_allow_other'). #}
+{% if fuse_opts | default([], true) %}
+    {{ fuse_opts | join(' ') }} \
+{% endif %}
+{# mount_point: Mount point where virtual files should be located. #}
+    {{ mount_point | default('/mnt/xmount', true) }}

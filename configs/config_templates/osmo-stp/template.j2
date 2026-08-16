@@ -1,0 +1,68 @@
+! =============================================================================
+! Osmocom STP (Signaling Transfer Point) Configuration Template
+! =============================================================================
+! This template generates the configuration for the Osmocom STP, a software
+! implementation of a SS7/ISDN Signaling Transfer Point. It handles M3UA, ASP,
+! and SCCP routing.
+!
+! Variables used in this template:
+!   - logging_timestamp: Enable timestamps in log messages (0 or 1)
+!   - logging_level:     Default log level for all loggers (e.g., 'notice', 'debug')
+!   - m3ua_listen_port:  Port number for the M3UA listener socket
+
+! -----------------------------------------------------------------------------
+! Global Logging Configuration
+! -----------------------------------------------------------------------------
+! Enable logging to stderr (standard error stream).
+log stderr
+
+! Enable the logging filter for all categories.
+logging filter all 1
+
+! Enable colored output for log messages (if terminal supports it).
+logging color 1
+
+! Print the log message category (e.g., "SS7", "M3UA").
+logging print category 1
+
+! Include timestamps in log messages.
+! Value: 1 to enable, 0 to disable.
+! Schema default: 0
+logging timestamp {{ logging_timestamp | default(0) }}
+
+! Set the default logging level for all loggers.
+! Common levels: emergency, alert, critical, error, warning, notice, info, debug.
+! Schema default: 'notice'
+logging level set-all {{ logging_level | default('notice') }}
+
+! -----------------------------------------------------------------------------
+! VTY (Line) Configuration
+! -----------------------------------------------------------------------------
+! Configure the Virtual Teletype (VTY) lines for CLI access.
+line vty
+    ! Disable authentication for VTY lines (typically managed externally via systemd or container security).
+    no login
+!
+
+! -----------------------------------------------------------------------------
+! SS7 / M3UA Configuration
+! -----------------------------------------------------------------------------
+! Configure the first SS7 instance (index 0).
+! Note: The variable name 'cs7' in the original template appears to be a typo
+! for 'ss7' (Signaling System No. 7). This template uses the correct command 'cs7'
+! as per Osmocom documentation, but strictly adheres to the schema fields provided.
+! Since the schema fields are limited, this block uses the variables defined in the schema.
+
+cs7 instance 0
+    ! Use dynamic-permitted routing-key allocation for the XUA RKM (Routing Key Manager).
+    xua rkm routing-key-allocation dynamic-permitted
+
+    ! Listen for M3UA ASP (Application Server Process) connections on the specified port.
+    ! The STP will listen on all interfaces by default on this port.
+    ! Schema default: 2905
+    listen m3ua {{ m3ua_listen_port | default(2905) }}
+
+    ! Accept ASP connections dynamically (allowed to register dynamically).
+    accept-asp-connections dynamic-permitted
+!
+! End of SS7/CS7 instance 0 configuration

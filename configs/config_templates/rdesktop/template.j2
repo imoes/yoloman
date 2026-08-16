@@ -1,0 +1,250 @@
+# ==============================================================================
+# rdesktop connection profile configuration
+# ==============================================================================
+# This file defines the parameters for an rdesktop session.
+# It is typically used by a wrapper script or service to invoke:
+# rdesktop {{ options_flags | default('') }} {{ server_address | default('192.168.1.100') }}
+#
+# This template is self-documenting: every directive is preceded by its
+# schema description and the corresponding rdesktop command-line flag.
+# ==============================================================================
+
+# Server hostname or IP address and optional port
+# Corresponds to: [server[:port]]
+# Default: '192.168.1.100'
+server_address = {{ server_address | default('192.168.1.100') }}
+
+# Username for authentication
+# Corresponds to: -u <username>
+# Default: 'admin'
+username = {{ username | default('admin') }}
+
+# Domain for authentication (optional)
+# Corresponds to: -d <domain>
+# Default: ''
+{% if domain | default('') != '' %}
+domain = {{ domain | default('') }}
+{% endif %}
+
+# Startup shell/application to run instead of full desktop
+# Corresponds to: -s <shell>
+# Default: ''
+startup_shell = {{ startup_shell | default('') }}
+
+# Initial working directory for the session
+# Corresponds to: -c <directory>
+# Default: ''
+working_directory = {{ working_directory | default('') }}
+
+# Client hostname identity sent to the server
+# Corresponds to: -n <hostname>
+# Default: ''
+client_hostname = {{ client_hostname | default('') }}
+
+# Keyboard layout keymap (e.g., en-us, de, fr)
+# Corresponds to: -k <keyboard-map>
+# Default: 'en-us'
+keyboard_map = {{ keyboard_map | default('en-us') }}
+
+# Desktop geometry: WxH[@DPI][+X[+Y]] or 'workarea' or percentage
+# Corresponds to: -g <geometry>
+# Default: '1024x768'
+desktop_geometry = {{ desktop_geometry | default('1024x768') }}
+
+# Color depth (bpp): 8, 15, 16, 24, or 32
+# Corresponds to: -a <bpp>
+# Default: 32
+color_depth = {{ color_depth | default(32) }}
+
+# Network experience level: m[odem], b[roadband], l[an]
+# Corresponds to: -x <experience>
+# Default: 'b'
+experience_level = {{ experience_level | default('b') }}
+
+# TLS/SSL version: 1.0, 1.1, or 1.2
+# Corresponds to: -V <tls version>
+# Default: '' (allow all)
+tls_version = {{ tls_version | default('') }}
+
+# Window title displayed by the client
+# Corresponds to: -T <title>
+# Default: 'Remote Desktop'
+window_title = {{ window_title | default('Remote Desktop') }}
+
+# Enable fullscreen mode
+# Corresponds to: -f
+# Default: false
+{% if fullscreen_enabled | default(false) %}
+fullscreen_enabled = true
+{% endif %}
+
+# Enable RDP compression
+# Corresponds to: -z
+# Default: true
+{% if compression_enabled | default(true) %}
+compression_enabled = true
+{% endif %}
+
+# Enable persistent bitmap caching to disk
+# Corresponds to: -P
+# Default: false
+{% if bitmap_caching_enabled | default(false) %}
+bitmap_caching_enabled = true
+{% endif %}
+
+# Enable numlock synchronization
+# Corresponds to: -N
+# Default: false
+{% if numlock_sync_enabled | default(false) %}
+numlock_sync_enabled = true
+{% endif %}
+
+# Hide window manager decorations
+# Corresponds to: -D
+# Default: false
+{% if hide_decorations_enabled | default(false) %}
+hide_decorations_enabled = true
+{% endif %}
+
+# Use private colourmap for better color accuracy on 8-bit displays
+# Corresponds to: -C
+# Default: false
+{% if colormap_private_enabled | default(false) %}
+colormap_private_enabled = true
+{% endif %}
+
+# Disable use of remote control features
+# Corresponds to: -t
+# Default: false
+{% if remote_control_disabled | default(false) %}
+remote_control_disabled = true
+{% endif %}
+
+# Use local X cursor instead of server cursor
+# Corresponds to: -M
+# Default: false
+{% if local_cursor_enabled | default(false) %}
+local_cursor_enabled = true
+{% endif %}
+
+# Do not send mouse motion events to save bandwidth
+# Corresponds to: -m
+# Default: false
+{% if mouse_motion_disabled | default(false) %}
+mouse_motion_disabled = true
+{% endif %}
+
+# Force screen updates as bitmaps
+# Corresponds to: -b
+# Default: false
+{% if force_bitmaps_enabled | default(false) %}
+force_bitmaps_enabled = true
+{% endif %}
+
+# Use BackingStore of Xserver
+# Corresponds to: -B
+# Default: false
+{% if x_backing_store_enabled | default(false) %}
+x_backing_store_enabled = true
+{% endif %}
+
+# Enable single application mode
+# Corresponds to: -S <button size>
+# Default: false
+{% if single_app_mode_enabled | default(false) %}
+# Button size for single application mode in pixels or 'standard'
+# Default: 'standard'
+single_app_button_size = {{ single_app_button_size | default('standard') }}
+{% endif %}
+
+# SeamlessRDP shell path (enables SeamlessRDP)
+# Corresponds to: -A <seamlessrdpshell>
+# Default: ''
+{% if seamlessrdp_shell | default('') != '' %}
+seamlessrdp_shell = {{ seamlessrdp_shell | default('') }}
+{% endif %}
+
+# List of device redirections to enable
+# Corresponds to: -r <device>
+# Devices can be: comport, disk, lptport, printer, sound, clipboard, scard, lspci
+# Default: [] (empty list)
+{% if redirections | default([]) | length > 0 %}
+redirections = {{ redirections | default([]) | join(' ') }}
+{% endif %}
+
+# CredSSP Smartcard CSP Name
+# Corresponds to: --sc-csp-name <name>
+# Default: ''
+{% if sc_csp_name | default('') != '' %}
+sc_csp_name = {{ sc_csp_name | default('') }}
+{% endif %}
+
+# CredSSP Smartcard Container Name
+# Corresponds to: --sc-container-name <name>
+# Default: ''
+{% if sc_container_name | default('') != '' %}
+sc_container_name = {{ sc_container_name | default('') }}
+{% endif %}
+
+# CredSSP Smartcard Reader Name
+# Corresponds to: --sc-reader-name <name>
+# Default: ''
+{% if sc_reader_name | default('') != '' %}
+sc_reader_name = {{ sc_reader_name | default('') }}
+{% endif %}
+
+# CredSSP Smartcard Card Name
+# Corresponds to: --sc-card-name <name>
+# Default: ''
+{% if sc_card_name | default('') != '' %}
+sc_card_name = {{ sc_card_name | default('') }}
+{% endif %}
+
+# Disable encryption (only for specific NT TSE setups)
+# Corresponds to: -e
+# Default: false
+{% if disable_encryption_enabled | default(false) %}
+disable_encryption_enabled = true
+{% endif %}
+
+# Disable encryption from client to server
+# Corresponds to: -E
+# Default: false
+{% if disable_client_encryption_enabled | default(false) %}
+disable_client_encryption_enabled = true
+{% endif %}
+
+# Embed rdesktop in another window (Window ID)
+# Corresponds to: -X <windowid>
+# Default: ''
+{% if embed_window_id | default('') != '' %}
+embed_window_id = {{ embed_window_id | default('') }}
+{% endif %}
+
+# Use RDP version 4 (default is 5)
+# Corresponds to: -4
+# Default: false
+{% if rdp_version_4_enabled | default(false) %}
+rdp_version_4_enabled = true
+{% endif %}
+
+# Attach to server console
+# Corresponds to: -0
+# Default: false
+{% if console_mode_enabled | default(false) %}
+console_mode_enabled = true
+{% endif %}
+
+# Use password as smartcard PIN
+# Corresponds to: -i
+# Default: false
+{% if smartcard_pin_enabled | default(false) %}
+smartcard_pin_enabled = true
+{% endif %}
+
+# Do not override window manager key bindings
+# Corresponds to: -K
+# Default: false
+{% if wm_keybindings_preserved | default(false) %}
+wm_keybindings_preserved = true
+{% endif %}

@@ -1,0 +1,160 @@
+# /etc/s3fs.conf - Configuration for s3fs (FUSE-based S3 file system)
+# This file controls how s3fs mounts an S3 bucket to a local directory.
+# See `man s3fs` for detailed documentation of each option.
+
+# Path to the credentials file for s3fs authentication.
+# The file must exist and contain AWS Access Key ID and Secret Access Key.
+# Format: bucketName:accessKeyId:secretAccessKey or accessKeyId:secretAccessKey
+# Permissions should be set to 0640 (owner read/write, group read, others none).
+passwd_file={{ passwd_file | default('/etc/passwd-s3fs') }}
+
+# AWS S3 bucket name to mount.
+# Can optionally include a path prefix within the bucket (e.g., 'mybucket:/subdir/path').
+bucket={{ bucket | default('my-s3-bucket') }}
+
+# Local directory path where the S3 bucket will be mounted.
+# This directory must exist on the local system before mounting.
+mountpoint={{ mountpoint | default('/mnt/s3') }}
+
+# AWS region endpoint for Signature Version 4 authentication.
+# Examples: us-east-1, eu-west-1, ap-northeast-1.
+# If using a non-AWS S3-compatible host, this may still be required for signing.
+endpoint={{ endpoint | default('us-east-1') }}
+
+# URL of the S3-compatible host to connect to.
+# Default is Amazon S3. Change this for MinIO, Ceph, or other S3 APIs.
+host={{ host | default('https://s3.amazonaws.com') }}
+
+# Default canned ACL (Access Control List) for uploaded objects.
+# Examples: private, public-read, public-read-write.
+# 'private' ensures only the owner can access the object.
+default_acl={{ default_acl | default('private') }}
+
+# Number of times to retry a failed S3 transaction.
+# Helps handle transient network errors or rate limiting.
+retries={{ retries | default(5) }}
+
+# Local folder for storing temporary files during upload/download operations.
+# Must have sufficient free space for large objects.
+tmpdir={{ tmpdir | default('/tmp') }}
+
+# Local folder to use for file caching.
+# If empty, caching is disabled and every file access hits S3.
+# Specify a path (e.g., '/var/cache/s3fs') to enable disk-based caching.
+use_cache={{ use_cache | default('') }}
+
+# S3 storage class for uploaded objects.
+# Examples: standard, standard_ia, onezone_ia, intelligent_tiering, glacier, deep_archive.
+# Note: 'reduced_redundancy' is deprecated; use appropriate S3 classes.
+storage_class={{ storage_class | default('standard') }}
+
+# Enable server-side encryption (SSE) for objects.
+# '1' enables SSE-S3 (S3-managed keys).
+# 'kmsid:<key-id>' enables SSE-KMS with a specific KMS key.
+# 'custom:<path>' enables SSE-C with a customer-provided key.
+use_sse={{ use_sse | default('') }}
+
+# Connection timeout in seconds for establishing S3 connections.
+connect_timeout={{ connect_timeout | default(300) }}
+
+# Read/Write activity timeout in seconds.
+# If no data is transferred for this duration, the connection may be dropped or retried.
+readwrite_timeout={{ readwrite_timeout | default(120) }}
+
+# Number of parallel requests for uploading large objects.
+# Increasing this can improve throughput for large files but uses more bandwidth/threads.
+parallel_count={{ parallel_count | default(5) }}
+
+# Part size in MB for multipart uploads.
+# Minimum is typically 5MB. Default is 10MB.
+multipart_size={{ multipart_size | default(10) }}
+
+# Threshold in MB to switch from single-part to multipart upload.
+# Files larger than this size will be uploaded in parts.
+multipart_threshold={{ multipart_threshold | default(25) }}
+
+# Maximum number of entries in the stat cache.
+# The stat cache stores file metadata (size, mtime, etc.) to reduce S3 API calls.
+max_stat_cache_size={{ max_stat_cache_size | default(100000) }}
+
+# Expiry time in seconds for stat cache entries.
+# After this time, the cache entry is refreshed from S3.
+stat_cache_expire={{ stat_cache_expire | default(900) }}
+
+# Umask applied to files and directories created under the mountpoint.
+# Controls default permissions for users other than the mounting user.
+# Example: '0022' for rw-r--r--, '0007' for rwxrwx---.
+umask={{ umask | default('0000') }}
+
+# Enable the 'allow_other' FUSE option.
+# When True, other users on the system can access the mountpoint.
+# Requires 'user_allow_other' in /etc/fuse.conf.
+allow_other={{ allow_other | default(false) }}
+
+# Path to a log file for s3fs output.
+# If empty, logs are sent to syslog or stderr.
+logfile={{ logfile | default('') }}
+
+# Debug message level.
+# Options: crit (critical), err, warn, info, debug.
+# 'crit' is default; use 'info' or 'debug' for troubleshooting.
+dbglevel={{ dbglevel | default('crit') }}
+
+# IAM Role name for authentication on EC2 instances.
+# Set to 'auto' to automatically detect the instance profile role.
+# If empty, uses static credentials from passwd_file or ~/.aws/credentials.
+iam_role={{ iam_role | default('') }}
+
+# Enable Requester Pays mode.
+# When True, the requester (you) pays for S3 request charges and data transfer,
+# rather than the bucket owner.
+requester_pays={{ requester_pays | default(false) }}
+
+# Disable SSL certificate verification.
+# Set to True only for testing with self-signed certificates.
+# NOT recommended for production environments.
+no_check_certificate={{ no_check_certificate | default(false) }}
+
+# Use path-style request URLs instead of virtual-host style.
+# Required if bucket names contain dots or if using certain S3-compatible APIs
+# that do not support virtual-hosted style paths (e.g., https://s3.amazonaws.com/bucket).
+use_path_request_style={{ use_path_request_style | default(false) }}
+
+# AWS profile name to use from ~/.aws/credentials or ~/.aws/config.
+# If empty or 'default', uses the default profile or static credentials.
+profile={{ profile | default('default') }}
+
+# Enable experimental stream upload.
+# May offer better performance for certain workloads but is experimental.
+streamupload={{ streamupload | default(false) }}
+
+# Maximum number of threads for stream uploads.
+# Only relevant if streamupload is enabled.
+max_thread_count={{ max_thread_count | default(5) }}
+
+# Minimum amount of free disk space in MB to ensure in the cache directory.
+# Set to 0 to disable this check.
+ensure_diskfree={{ ensure_diskfree | default(0) }}
+
+# Minimum free space ratio (0-100 percent) of the disk.
+# s3fs will adjust its cache size to ensure the idle disk space ratio remains above this value.
+free_space_ratio={{ free_space_ratio | default(10) }}
+
+# Comma-separated FUSE/mount options passed to the underlying mount command.
+# s3fs adds 'defaults,nodev,nosuid' by default.
+# Examples: allow_other, noexec, sync.
+fuse_opts={{ fuse_opts | default('defaults,nodev,nosuid') }}
+
+# Disable multipart uploads entirely.
+# Files will be uploaded in a single part. Not recommended for files larger than 25MB.
+nomultipart={{ nomultipart | default(false) }}
+
+# Proxy URL to use for S3 requests.
+# Format: http://proxy-host:port or https://proxy-host:port.
+# If empty, no proxy is used.
+proxy={{ proxy | default('') }}
+
+# AWS Signature Version to use for request authentication.
+# 'sigv4' (True) forces AWS Signature Version 4.
+# 'sigv4' (False) allows fallback to Signature Version 2 (deprecated, not recommended).
+sigv4={{ sigv4 | default(true) }}

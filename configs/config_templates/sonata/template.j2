@@ -1,0 +1,47 @@
+# Sonata Music Player Client Configuration
+# Managed by Ansible Jinja2
+#
+# This configuration file controls the behavior of Sonata, a Qt-based frontend
+# for the Music Player Daemon (MPD). It defines connection details to the MPD
+# server and various UI/playback preferences.
+#
+# Sections:
+#   [general]  - Connection parameters for the MPD server.
+#   [playback] - Playback modes and behaviors.
+#   [display]  - Desktop integration and notification settings.
+
+[general]
+# Hostname or IP address of the Music Player Daemon server.
+# Defaults to localhost if not specified.
+host = {{ (host | default('localhost')) | string }}
+
+# Port number for the MPD connection.
+# The standard MPD port is 6600.
+port = {{ (port | default(6600)) | int }}
+
+# Password for authenticating with the MPD server.
+# Leave empty if the server does not require a password.
+password = {{ (password | default('')) | string }}
+
+[playback]
+# Toggle repeat mode.
+# When enabled, the playlist will restart from the beginning after the last song.
+repeat = {{ (repeat | default(true)) | bool | lower }}
+
+# Toggle random mode.
+# When enabled, songs will be played in a random order.
+random = {{ (random | default(false)) | bool | lower }}
+
+[display]
+# Enable popup song notifications (requires D-Bus).
+# When enabled, the desktop environment will show notifications for track changes.
+popup = {{ (popup | default(false)) | bool | lower }}
+
+# Start the app hidden in the system tray (requires systray).
+# If true, the main window is minimized to the system tray on startup.
+start_hidden = {{ (start_hidden | default(false)) | bool | lower }}
+
+# Profile number to start with.
+# Used to load specific configuration profiles if supported by the backend.
+# Note: Often handled via CLI argument --profile=[NUM], but stored here for persistence.
+profile = {{ (profile | default(0)) | int }}

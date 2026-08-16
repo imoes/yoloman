@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# qv4l2 Configuration Template
+# ==============================================================================
+# This script launches qv4l2 (Qt V4L2 Loopback Utility) with specified
+# device parameters. It is generated as an Ansible Jinja2 template to ensure
+# safe variable interpolation and self-documentation.
+#
+# Generated for: qv4l2
+# Role: Video capture/output utility configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Device Node Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the main video capture/output device.
+# Schema: video_device (string) | Default: '/dev/video0'
+# Description: The video device node to use for capture or output. If a number,
+#              /dev/video<num> is used.
+VIDEO_DEVICE="{{ video_device | default('/dev/video0') }}"
+
+# Path to the VBI (Vertical Blanking Interval) device.
+# Schema: vbi_device (string) | Default: '/dev/vbi0'
+# Description: The VBI device node to use.
+VBI_DEVICE="{{ vbi_device | default('/dev/vbi0') }}"
+
+# Path to the radio device.
+# Schema: radio_device (string) | Default: '/dev/radio0'
+# Description: The radio device node to use.
+RADIO_DEVICE="{{ radio_device | default('/dev/radio0') }}"
+
+# Path to the SDR (Software Defined Radio) device.
+# Schema: sdr_device (string) | Default: '/dev/swradio0'
+# Description: The SDR device node to use.
+SDR_DEVICE="{{ sdr_device | default('/dev/swradio0') }}"
+
+# ------------------------------------------------------------------------------
+# Operational Mode
+# ------------------------------------------------------------------------------
+
+# Flag to open the device in raw mode without libv4l2 wrapper functions.
+# Schema: raw_mode (bool) | Default: False
+# Description: If true, opens the device in raw mode without using libv4l2
+#              wrapper functions.
+# Note: Jinja2 `false` renders as string "false". We use ternary to ensure
+#       bash truthiness checks or explicit string comparison works if needed.
+#       However, for constructing CLI flags, we just check definedness below.
+RAW_MODE="{{ raw_mode | default(false) }}"
+
+# ------------------------------------------------------------------------------
+# Argument Construction
+# ------------------------------------------------------------------------------
+
+ARGS=""
+
+# Append video device argument if provided.
+# Checks if the variable is defined and not empty to avoid passing empty strings.
+{% if video_device is defined and video_device | length > 0 %}
+ARGS="${ARGS} -d {{ video_device | default('/dev/video0') }}"
+{% endif %}
+
+# Append VBI device argument if provided.
+{% if vbi_device is defined and vbi_device | length > 0 %}
+ARGS="${ARGS} -V {{ vbi_device | default('/dev/vbi0') }}"
+{% endif %}
+
+# Append radio device argument if provided.
+{% if radio_device is defined and radio_device | length > 0 %}
+ARGS="${ARGS} -r {{ radio_device | default('/dev/radio0') }}"
+{% endif %}
+
+# Append SDR device argument if provided.
+{% if sdr_device is defined and sdr_device | length > 0 %}
+ARGS="${ARGS} -S {{ sdr_device | default('/dev/swradio0') }}"
+{% endif %}
+
+# Append raw mode flag if enabled.
+# Checks if the variable is defined, boolean, and true.
+{% if raw_mode is defined and raw_mode is true %}
+ARGS="${ARGS} -R"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Execution
+# ------------------------------------------------------------------------------
+
+# Execute qv4l2 with the constructed arguments.
+# Uses bash built-in exec to replace the current shell process.
+exec qv4l2 ${ARGS}

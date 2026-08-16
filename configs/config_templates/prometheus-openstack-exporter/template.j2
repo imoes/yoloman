@@ -1,0 +1,96 @@
+# Prometheus OpenStack Exporter Configuration
+#
+# This file configures the prometheus-openstack-exporter service.
+# It connects to an OpenStack cloud (via Keystone) and exports metrics
+# for Nova, Neutron, Cinder, Swift, and other components.
+
+# listen_port: Port on which the exporter listens for metrics.
+# Type: integer
+listen_port: {{ listen_port | default(9183) }}
+
+# cache_refresh_interval: Cache refresh interval in seconds.
+# This controls how often the exporter re-fetches data from the OpenStack API.
+# Type: integer
+cache_refresh_interval: {{ cache_refresh_interval | default(300) }}
+
+# cache_file: Path to the cache file.
+# Used to cache authentication tokens and other transient data.
+# Type: string
+cache_file: {{ cache_file | default('/var/cache/prometheus-openstack-exporter/mycloud') }}
+
+# openstack_cloud_name: Name of the OpenStack cloud configuration to use.
+# This refers to the cloud name defined in the clouds.yaml file.
+# Type: string
+cloud: {{ openstack_cloud_name | default('mycloud') }}
+
+# openstack_allocation_ratio_vcpu: VCPU allocation ratio for OpenStack.
+# Multiplier used to calculate vCPU usage metrics against physical cores.
+# Type: float
+openstack_allocation_ratio_vcpu: {{ openstack_allocation_ratio_vcpu | default(2.5) }}
+
+# openstack_allocation_ratio_ram: RAM allocation ratio for OpenStack.
+# Multiplier used to calculate RAM usage metrics against physical RAM.
+# Type: float
+openstack_allocation_ratio_ram: {{ openstack_allocation_ratio_ram | default(1.1) }}
+
+# openstack_allocation_ratio_disk: Disk allocation ratio for OpenStack.
+# Multiplier used to calculate disk usage metrics against physical disk.
+# Type: float
+openstack_allocation_ratio_disk: {{ openstack_allocation_ratio_disk | default(1.0) }}
+
+# log_level: Logging level (e.g., DEBUG, INFO, WARNING, ERROR).
+# Controls the verbosity of the exporter's logs.
+# Type: string
+log_level: {{ log_level | default('INFO') | upper }}
+
+# enabled_collectors: List of enabled collectors.
+# Selectors determine which OpenStack services to scrape metrics for.
+# Type: list
+enabled_collectors:
+{% for collector in enabled_collectors | default(['cinder', 'neutron', 'nova', 'swift']) %}
+  - {{ collector }}
+{% endfor %}
+#  - swift-account-usage
+
+# schedulable_instance_size: Configuration for the hypervisor_schedulable_instances metric.
+# Defines the hypothetical instance size used to calculate schedulable capacity.
+# Type: object
+schedulable_instance_size:
+    ram_mbs: {{ schedulable_instance_size_ram_mbs | default(4096) }}
+    vcpu: {{ schedulable_instance_size_vcpu | default(2) }}
+    disk_gbs: {{ schedulable_instance_size_disk_gbs | default(20) }}
+
+# swift_hosts: List of Swift hosts.
+# Explicit list of Swift proxy nodes to query for metrics.
+# Required if the cloud doesn't expose Swift endpoints via standard APIs.
+# Type: list
+swift_hosts:
+{% for host in swift_hosts | default(['host1.example.com', 'host2.example.com']) %}
+  - {{ host }}
+{% endfor %}
+
+# keystone_tenants_map: Path to the file mapping tenant names to IDs.
+# OpenStack APIs often return tenant IDs, but metrics are easier to read with names.
+# This file should contain lines: <tenant_name> <tenant_id>.
+# Type: string
+keystone_tenants_map: {{ keystone_tenants_map_path | default('') }}
+
+# reseller_prefix: Reseller prefix for Swift middleware.
+# Used by Swift middleware to separate accounts from different providers.
+# Type: string
+reseller_prefix: {{ reseller_prefix | default('AUTH_') }}
+
+# ring_path: Path to the Swift rings directory.
+# Directory containing the Swift account, container, and object rings.
+# Type: string
+ring_path: {{ ring_path | default('/etc/swift') }}
+
+# hash_path_prefix: Hash path prefix for Swift.
+# Prefix used in Swift's path hashing algorithm.
+# Type: string
+hash_path_prefix: {{ hash_path_prefix | default('') }}
+
+# hash_path_suffix: Hash path suffix for Swift.
+# Suffix used in Swift's path hashing algorithm.
+# Type: string
+hash_path_suffix: {{ hash_path_suffix | default('') }}

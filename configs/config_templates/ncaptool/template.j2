@@ -1,0 +1,89 @@
+# =============================================================================
+# ncaptool Configuration Template
+# =============================================================================
+# This template generates the command-line arguments for the `ncap` (Network
+# CAPture) tool. It is self-documenting: every parameter maps to a schema
+# field with its default value and description commented above the directive.
+#
+# Schema Field Reference:
+# - interfaces: List of interfaces to capture. Format: `-i <name>[+]`
+#   Default: [{'name': 'eth0', 'promiscuous': True}]
+# - bpf_filter: BPF filter pattern (-b). Empty string disables filtering.
+#   Default: ''
+# - output_file: Output file path (-o). '-' for stdout.
+#   Default: '/var/log/ncap.dump'
+# - count: Number of messages to stop after (-c). 0 means no limit.
+#   Default: 0
+# - interval: Time in seconds to stop after (-t). 0 means no limit.
+#   Default: 0
+# - post_process_cmd: Command to run on new files (-k). Empty string disables.
+#   Default: ''
+# - hide_source: Hide source IPs (-H s). Default: False
+# - hide_dest: Hide dest IPs (-H d). Default: False
+# - debug: Increment debug level (-d). Default: False
+# - summary: Emit summary to stderr on exit (-v). Default: False
+# =============================================================================
+
+# --- Interfaces ---
+# List of network interfaces to capture from. Each item has 'name' (string)
+# and 'promiscuous' (bool). The '+' suffix is added if promiscuous mode is
+# enabled for that interface.
+{% for item in (interfaces | default([{'name': 'eth0', 'promiscuous': True}])) %}
+-i {{ item.name | default('eth0') }}{% if (item.promiscuous | default(True) | bool) %}+{% endif %}
+{% endfor %}
+
+# --- BPF Filter ---
+# BPF filter pattern for data sources, corresponding to the -b flag.
+# Empty string means no filter is applied.
+{% if (bpf_filter | default('') | trim) %}
+-b {{ bpf_filter | default('') | trim }}
+{% endif %}
+
+# --- Output File ---
+# Path to write ncap data to, corresponding to the -o flag. Use '-' for stdout.
+-o {{ output_file | default('/var/log/ncap.dump') }}
+
+# --- Count Limit ---
+# Number of messages to process before stopping, corresponding to the -c flag.
+# 0 means no limit.
+{% if (count | default(0) | int) > 0 %}
+-c {{ count | default(0) | int }}
+{% endif %}
+
+# --- Interval Limit ---
+# Time interval in seconds to process before stopping, corresponding to the -t flag.
+# 0 means no limit.
+{% if (interval | default(0) | int) > 0 %}
+-t {{ interval | default(0) | int }}
+{% endif %}
+
+# --- Post-Process Command ---
+# Command to run on each new file for continuous operation, corresponding to
+# the -k flag. Empty string means no command.
+{% if (post_process_cmd | default('') | trim) %}
+-k "{{ post_process_cmd | default('') | trim }}"
+{% endif %}
+
+# --- Hide Source IPs ---
+# Hide source IP addresses, corresponding to the 's' option of the -H flag.
+{% if (hide_source | default(False) | bool) %}
+-H s
+{% endif %}
+
+# --- Hide Destination IPs ---
+# Hide destination IP addresses, corresponding to the 'd' option of the -H flag.
+{% if (hide_dest | default(False) | bool) %}
+-H d
+{% endif %}
+
+# --- Debug Mode ---
+# Increment debugging level, corresponding to the -d flag.
+{% if (debug | default(False) | bool) %}
+-d
+{% endif %}
+
+# --- Summary ---
+# Emit traffic summary to stderr on exit, corresponding to the -v flag.
+{% if (summary | default(False) | bool) %}
+-v
+{% endif %}

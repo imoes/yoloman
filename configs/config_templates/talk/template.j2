@@ -1,0 +1,25 @@
+# /etc/talk/ntalkd.conf
+# Network Talk Daemon Configuration
+# Self-documented template: every directive is preceded by its schema description.
+
+# UDP port used by the ntalk daemon
+port={{ port | default(517) }}
+
+# Enable logging for the talk daemon
+log_enabled={{ log_enabled | default(True) | lower }}
+
+# Path to the log file for talk connections
+log_file="{{ log_file | default('/var/log/talk.log') }}"
+
+# Maximum concurrent talk sessions
+max_sessions={{ max_sessions | default(10) | int }}
+
+# Idle connection timeout in seconds
+timeout={{ timeout | default(300) | int }}
+
+# List of usernames allowed to use talk; empty means all users
+{%- if allowed_users is defined and allowed_users | length > 0 %}
+allowed_users={{ allowed_users | join(' ') }}
+{%- else %}
+allowed_users=
+{%- endif %}

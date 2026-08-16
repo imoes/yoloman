@@ -1,0 +1,30 @@
+# ==============================================================================
+# MyProxy Server Configuration
+# ==============================================================================
+# This template generates the environment/startup configuration for the MyProxy server.
+# MyProxy is a server for managing X.509 certificates and credentials, typically used
+# in Grid computing environments.
+#
+# Variables are sourced from the Ansible role inventory. All variables use explicit
+# defaults to ensure the template is safe and self-documenting.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Environment variables for MyProxy startup process
+# ------------------------------------------------------------------------------
+
+# MYPROXY_USER: The system user account under which MyProxy runs.
+# This user must have read access to the data directory and private keys.
+## MYPROXY_USER={{ myproxy_user | default('myproxy') }}
+
+# MYPROXY_OPTIONS: Additional options passed to the MyProxy server daemon.
+# The default includes setting the secure data directory for certificates.
+## MYPROXY_OPTIONS="-s {{ myproxy_data_dir | default('/var/lib/myproxy') }}"
+
+# X509_USER_CERT: Path to the host X.509 certificate file.
+# Used by the server to identify itself to clients during TLS handshake.
+## X509_USER_CERT={{ x509_host_cert | default('/etc/grid-security/myproxy/hostcert.pem') }}
+
+# X509_USER_KEY: Path to the host X.509 private key file.
+# MUST be kept secret and readable only by the myproxy_user.
+## X509_USER_KEY={{ x509_host_key | default('/etc/grid-security/myproxy/hostkey.pem') }}

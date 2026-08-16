@@ -1,0 +1,118 @@
+{
+  "input_file": {
+    "type": "string",
+    "default": "/usr/bin/example-app",
+    "description": "The path to the ELF executable or library to be modified."
+  },
+  "output_file": {
+    "type": "string",
+    "default": "",
+    "description": "The output file path. If empty, the input file is modified in place."
+  },
+  "set_interpreter": {
+    "type": "string",
+    "default": "",
+    "description": "The path to the dynamic loader (ELF interpreter) to set."
+  },
+  "set_os_abi": {
+    "type": "string",
+    "default": "Linux",
+    "description": "The OS ABI to set (e.g., 'Linux', 'System V').",
+    "enum": [
+      "Linux",
+      "System V",
+      "FreeBSD",
+      "Solaris"
+    ]
+  },
+  "set_soname": {
+    "type": "string",
+    "default": "",
+    "description": "The SONAME to set for the shared library."
+  },
+  "set_rpath": {
+    "type": "string",
+    "default": "",
+    "description": "The RUNPATH to set, replacing any existing RPATH/RUNPATH."
+  },
+  "add_rpaths": {
+    "type": "list",
+    "default": [],
+    "description": "List of RUNPATH directories to add to the existing RPATH/RUNPATH. Uses items schema for individual strings if nested, but here it is a simple list of strings for Jinja2 iteration compatibility with the constraint of flat items. To adhere strictly to 'items as a FLAT map', we interpret add_rpaths as a list of objects where the object has a single field 'path'."
+  },
+  "add_rpaths_items": {
+    "type": "object",
+    "default": "",
+    "description": "Internal schema descriptor for items of add_rpaths. Since Jinja2 lists of strings are harder to distinguish from other lists in this specific schema constraint without a name, we define the structure of the list elements. However, the prompt asks for `items` as a FLAT map. For a list of strings, this is tricky. Let's assume the user wants to add specific rpaths. If we must use a list of objects to satisfy the 'items map' requirement, we define the structure. But usually, rpaths are just strings. Let's look at `replace_needed_libs` which is clearly objects. For `add_rpaths`, standard patchelf usage is `--add-rpath /path`. A list of strings is most natural. If the schema requires `items` to be a map for lists, I will define `add_rpaths` as a list of objects with a single key `rpath` to be safe and consistent with the 'items as flat map' rule, although it's slightly verbose. Alternatively, I can leave `add_rpaths` as a list of strings if the 'items' constraint only applies to list-of-objects. The prompt says: 'For a list-of-objects, add `items` as a FLAT map'. So if it's a list of strings, I don't need items. I will use list of strings for simplicity unless it's clearly objects."
+  },
+  "remove_rpath": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, removes the DT_RPATH or DT_RUNPATH entry."
+  },
+  "shrink_rpath": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, removes unused entries from RPATH/RUNPATH."
+  },
+  "allowed_rpath_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of prefixes to keep when shrinking RPATH."
+  },
+  "force_rpath": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, forces the use of the obsolete DT_RPATH instead of DT_RUNPATH."
+  },
+  "add_needed_libs": {
+    "type": "list",
+    "default": [],
+    "description": "List of dynamic library names to add as DT_NEEDED dependencies."
+  },
+  "replace_needed_libs": {
+    "type": "list",
+    "default": [],
+    "description": "List of objects representing library replacements."
+  },
+  "replace_needed_libs_items": {
+    "type": "object",
+    "default": "",
+    "description": "Schema for items in replace_needed_libs."
+  },
+  "remove_needed_libs": {
+    "type": "list",
+    "default": [],
+    "description": "List of dynamic library names to remove from DT_NEEDED dependencies."
+  },
+  "no_default_lib": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, ignores default library search paths for dependencies."
+  },
+  "add_debug_tag": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, adds DT_DEBUG tag to the .dynamic section."
+  },
+  "clear_execstack": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, clears the executable flag of the GNU_STACK program header."
+  },
+  "set_execstack": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, sets the executable flag of the GNU_STACK program header."
+  },
+  "page_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Uses the given page size instead of the default. 0 means default."
+  },
+  "rename_dynamic_symbols": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file containing symbol rename mappings (old_name new_name)."
+  }
+}

@@ -1,0 +1,94 @@
+# Paramspider Configuration Wrapper
+# This template generates a shell script that executes paramspider with the specified parameters.
+# paramspider is a CLI security tool for finding endpoints and parameters on websites.
+# It does not have a persistent daemon config file; instead, this script acts as the entry point.
+
+# ============================================================
+# Domain to fetch related URLs for.
+# If `list` is provided, this field is ignored.
+# ============================================================
+# The domain name to target. Defaults to 'example.com' if not specified.
+DOMAIN={{ domain | default('example.com') }}
+
+# ============================================================
+# File containing a list of domain names (optional).
+# If provided, paramspider will process each domain in this file.
+# Mutually exclusive with `domain` in terms of primary target selection
+# (though `domain` may serve as a fallback or reference).
+# ============================================================
+# Path to a file containing a list of domains. Empty string means use the single `domain` field.
+LIST={{ list | default('') }}
+
+# ============================================================
+# Stream URLs on the terminal.
+# When enabled, paramspider outputs results as they are found
+# rather than collecting them into a file.
+# ============================================================
+# Boolean flag to enable streaming output. Defaults to False.
+STREAM={{ stream | default(False) }}
+
+# ============================================================
+# Proxy address for web requests (optional).
+# Useful for routing traffic through Tor, Burp Suite, or other proxies.
+# If empty, direct connection is used.
+# ============================================================
+# Proxy string (e.g., 'http://127.0.0.1:8080'). Empty means no proxy.
+PROXY={{ proxy | default('') }}
+
+# ============================================================
+# Placeholder for parameter values.
+# Used during fuzzing to represent variable parts of URLs/parameters.
+# ============================================================
+# The string used as a placeholder for parameters. Defaults to 'FUZZ'.
+PLACEHOLDER={{ placeholder | default('FUZZ') }}
+
+# ============================================================
+# Execution Logic
+# Generates the correct paramspider command based on available inputs.
+# ============================================================
+
+{% if list | default('') != '' %}
+  # --- Mode: List-based ---
+  # Using a file containing multiple domains.
+  
+{% if stream | default(False) %}
+  # Streaming enabled: output results to stdout immediately.
+  exec paramspider --list "{{ list | default('') }}" --stream
+{% endif %}
+
+{% if proxy | default('') != '' %}
+  # Proxy configured: route requests through the specified proxy.
+  exec paramspider --list "{{ list | default('') }}" --proxy "{{ proxy | default('') }}"
+{% endif %}
+
+{% if placeholder | default('FUZZ') != 'FUZZ' %}
+  # Custom placeholder: use a specific string for parameter fuzzing.
+  exec paramspider --list "{{ list | default('') }}" -p "{{ placeholder | default('FUZZ') }}"
+{% endif %}
+
+  # Default command if no optional flags were matched above.
+  exec paramspider --list "{{ list | default('') }}"
+
+{% else %}
+  # --- Mode: Single Domain ---
+  # Using the single `domain` field.
+
+{% if stream | default(False) %}
+  # Streaming enabled: output results to stdout immediately.
+  exec paramspider --domain "{{ domain | default('example.com') }}" --stream
+{% endif %}
+
+{% if proxy | default('') != '' %}
+  # Proxy configured: route requests through the specified proxy.
+  exec paramspider --domain "{{ domain | default('example.com') }}" --proxy "{{ proxy | default('') }}"
+{% endif %}
+
+{% if placeholder | default('FUZZ') != 'FUZZ' %}
+  # Custom placeholder: use a specific string for parameter fuzzing.
+  exec paramspider --domain "{{ domain | default('example.com') }}" -p "{{ placeholder | default('FUZZ') }}"
+{% endif %}
+
+  # Default command if no optional flags were matched above.
+  exec paramspider --domain "{{ domain | default('example.com') }}"
+
+{% endif %}

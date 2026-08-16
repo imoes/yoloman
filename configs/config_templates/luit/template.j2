@@ -1,0 +1,138 @@
+#!/bin/sh
+# ==============================================================================
+# luit wrapper script
+# ==============================================================================
+# This script configures the 'luit' utility (Local/Internationalized UTF-8 Terminal)
+# to act as a locale/encoding converter for a child process. It sets environment
+# variables for the locale and constructs a command line with specific charset
+# and logging flags.
+#
+# Self-documenting: every flag is mapped to a schema field with its description.
+# Use this template in an Ansible role to generate a wrapper script for luit.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Locale Configuration
+# ------------------------------------------------------------------------------
+# The locale setting for character conversion (e.g., en_US.UTF-8). Sets LC_ALL.
+# Corresponds to the environment variable LC_ALL.
+export LC_ALL="{{ locale | default('C') }}"
+
+# ------------------------------------------------------------------------------
+# Encoding Flags
+# ------------------------------------------------------------------------------
+# Specific encoding to use (e.g., ISO-8859-1). Overrides locale derivation.
+# Corresponds to the -encoding flag. If empty, luit derives it from the locale.
+encoding_args="-encoding {{ encoding | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Charset Selection Flags (G0, G1, G2, G3)
+# ------------------------------------------------------------------------------
+# Output charset for G0 (default charset selection).
+# Corresponds to the -g0 flag.
+g0_args="-g0 {{ g0_charset | default('') }}"
+
+# Output charset for G1.
+# Corresponds to the -g1 flag.
+g1_args="-g1 {{ g1_charset | default('') }}"
+
+# Initial GL assignment for output (g0, g1, g2, g3).
+# Corresponds to the -gl flag.
+gl_args="-gl {{ g1_assignment | default('g0') }}"
+
+# Initial GR assignment for output (g0, g1, g2, g3).
+# Corresponds to the -gr flag.
+gr_args="-gr {{ g2_assignment | default('g2') }}"
+
+# ------------------------------------------------------------------------------
+# Logging Flags
+# ------------------------------------------------------------------------------
+# File path to log bytes received from child (-ilog).
+# If empty, no input logging is performed.
+ilog_args="-ilog {{ input_log | default('') }}"
+
+# File path to log bytes sent to terminal (-olog).
+# If empty, no output logging is performed.
+olog_args="-olog {{ output_log | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Shift Interpretation Control Flags
+# ------------------------------------------------------------------------------
+# Disable interpretation of locking shifts (+ols).
+# Corresponds to the +ols flag.
+{% if ols | default(false) %}
+ols_flag="+ols"
+{% else %}
+ols_flag=""
+{% endif %}
+
+# Disable interpretation of character set selection sequences (+osl).
+# Corresponds to the +osl flag.
+{% if osl | default(false) %}
+osl_flag="+osl"
+{% else %}
+osl_flag=""
+{% endif %}
+
+# Disable interpretation of single shifts (+oss).
+# Corresponds to the +oss flag.
+{% if oss | default(false) %}
+oss_flag="+oss"
+{% else %}
+oss_flag=""
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Process Lifecycle Flags
+# ------------------------------------------------------------------------------
+# Exit immediately when child dies (-x).
+# Corresponds to the -x flag.
+{% if exit_on_child_exit | default(false) %}
+exit_flag="-x"
+{% else %}
+exit_flag=""
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Preference Flags
+# ------------------------------------------------------------------------------
+# Comma-separated lookup order for charsets (-prefer).
+# Example: fontenc,builtin,iconv,posix.
+prefer_args="-prefer {{ prefer | default('fontenc,builtin,iconv,posix') }}"
+
+# ------------------------------------------------------------------------------
+# Verbosity Flags
+# ------------------------------------------------------------------------------
+# Verbosity level: 0=normal, 1=-v, 2=-vv.
+# We calculate the flag string directly.
+{% set v = verbose | default(0) | int %}
+{% if v >= 2 %}
+verbose_args="-vv"
+{% elif v >= 1 %}
+verbose_args="-v"
+{% else %}
+verbose_args=""
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Final Command Construction
+# ------------------------------------------------------------------------------
+# Constructs the final command line for luit and executes it.
+# Passes the configured child program and its arguments.
+exec luit \
+    {{ encoding_args | default('') }} \
+    {{ g0_args | default('') }} \
+    {{ g1_args | default('') }} \
+    {{ gl_args | default('') }} \
+    {{ gr_args | default('') }} \
+    {{ ilog_args | default('') }} \
+    {{ olog_args | default('') }} \
+    {{ ols_flag | default('') }} \
+    {{ osl_flag | default('') }} \
+    {{ oss_flag | default('') }} \
+    {{ exit_flag | default('') }} \
+    {{ prefer_args | default('') }} \
+    {{ verbose_args | default('') }} \
+    -- \
+    {{ command | default('/bin/sh') }} \
+    {% for arg in arguments | default([]) %}{{ arg }}{% if not loop.last %} {% endif %}{% endfor %}

@@ -1,0 +1,139 @@
+# =============================================================================
+# xe configuration template
+#
+# This template generates a configuration file for 'xe' (extended xargs).
+# 'xe' is a utility that runs specified commands on zero or more input files,
+# arguments, or filenames. This configuration allows customization of execution
+# behavior, concurrency, argument handling, and output modes.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Command Execution Settings
+# -----------------------------------------------------------------------------
+
+# The primary command to execute for each argument.
+# Maps to the command portion of the 'xe' invocation.
+# Example: 'ffmpeg', 'gzip', 'rm'
+cmd: {{ cmd | default('echo') }}
+
+# -----------------------------------------------------------------------------
+# Argument Handling (-N, -I)
+# -----------------------------------------------------------------------------
+
+# Maximum number of arguments to pass to each command invocation.
+# Corresponds to the -N <maxargs> flag.
+# A value of 0 means as many arguments as possible are passed at once.
+max_args: {{ max_args | default(1) }}
+
+# String to replace with the argument in the command line.
+# Corresponds to the -I <replace-arg> flag.
+# If empty, arguments are appended to the end of the command.
+# Example: '{}' allows 'echo {} file2' to become 'echo arg1 file2'
+replace_arg: {{ replace_arg | default('{}') }}
+
+# -----------------------------------------------------------------------------
+# Input Separator (-0)
+# -----------------------------------------------------------------------------
+
+# Use NUL bytes as separators instead of newlines when reading input.
+# Corresponds to the -0 flag.
+# Enable this if your filenames or arguments contain newline characters.
+nuls: {{ nuls | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Concurrency Control (-j)
+# -----------------------------------------------------------------------------
+
+# Maximum number of processes to run concurrently.
+# Corresponds to the -j <maxjobs> flag.
+# A value of 0 uses all available CPU cores.
+max_jobs: {{ max_jobs | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Error Handling (-F)
+# -----------------------------------------------------------------------------
+
+# Stop immediately if any command execution fails.
+# Corresponds to the -F flag.
+# When enabled, 'xe' exits with an error status upon the first failure.
+fatal: {{ fatal | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Output Buffering (-L)
+# -----------------------------------------------------------------------------
+
+# Run commands with line-buffered output.
+# Corresponds to the -L flag.
+# Useful when piping command output to other processes that expect line-based
+# data immediately.
+line_buffered: {{ line_buffered | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Argument Validation (-R)
+# -----------------------------------------------------------------------------
+
+# Return an error if no arguments are provided.
+# Corresponds to the -R flag.
+# Prevents the command from running if the input source is empty.
+require_args: {{ require_args | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Execution Modes (-n, -q, -v)
+# -----------------------------------------------------------------------------
+
+# Dry run: Print commands without executing them.
+# Corresponds to the -n flag.
+# Useful for debugging configuration before actual execution.
+dry_run: {{ dry_run | default(false) }}
+
+# Quiet mode: Suppress output of commands.
+# Corresponds to the -q flag.
+# Redirects standard output and standard error to /dev/null for processed items.
+quiet: {{ quiet | default(false) }}
+
+# Verbose: Print commands to stderr before running them.
+# Corresponds to the -v flag.
+# If verbose is enabled, detailed execution logs are generated.
+verbose: {{ verbose | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Pattern Matching (-p)
+# -----------------------------------------------------------------------------
+
+# Enable make-style percent rules for pattern matching.
+# Corresponds to the -p flag.
+# When enabled, 'pattern' is used to filter or transform 'args_list'.
+percent_rules: {{ percent_rules | default(false) }}
+
+# The glob pattern to match arguments when using percent rules.
+# Only relevant if percent_rules is true.
+# Example: '%.mp3' matches files ending in .mp3.
+pattern: {{ pattern | default('%.mp3') }}
+
+# -----------------------------------------------------------------------------
+# Shell Script Mode (-s)
+# -----------------------------------------------------------------------------
+
+# Shell script to execute with arguments as $1, $2, etc.
+# Corresponds to the -s flag.
+# If empty, this mode is disabled and 'cmd' is used directly.
+shell_script: {{ shell_script | default('', true) }}
+
+# -----------------------------------------------------------------------------
+# Argument Separator (-A)
+# -----------------------------------------------------------------------------
+
+# Custom separator for command and args when using -A mode.
+# Corresponds to the -A <argsep> flag.
+# Empty string means default space/newline separation is used.
+arg_sep: {{ arg_sep | default('', true) }}
+
+# -----------------------------------------------------------------------------
+# Input Data (args_list)
+# -----------------------------------------------------------------------------
+
+# List of arguments/items to process.
+# These are the items that will be iterated over and passed to the command.
+# If percent_rules is true, these are the files to match against the pattern.
+# The list is rendered as a YAML sequence for clarity and ease of modification.
+args_list: {{ args_list | default(['file1.txt', 'file2.txt']) | to_nice_yaml | indent(2, true) | trim }}

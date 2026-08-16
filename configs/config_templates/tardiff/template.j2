@@ -1,0 +1,26 @@
+# =============================================================================
+# TarDiff Configuration Template
+# =============================================================================
+# This template configures TarDiff, a tool for comparing tar archives.
+# It is self-documenting: every directive is preceded by its schema description.
+# =============================================================================
+
+# output_mode: The comparison mode: 'modified' for changed files, 'list' for all files,
+# or 'none' for standard diff.
+# Valid values: 'modified', 'list', 'none'
+output_mode: {{ output_mode | default('modified') }}
+
+# autoskip_autotools: Whether to skip files belonging to GNU autotools when in modified mode.
+# Valid values: true, false
+autoskip_autotools: {{ autoskip_autotools | default(true) }}
+
+# run_stats: Whether to run diffstat statistics on all modified files.
+# Valid values: true, false
+run_stats: {{ run_stats | default(false) }}
+
+# ignore_patterns: List of file or directory patterns to ignore during comparison.
+# These patterns are used to filter out specific files or directories from the diff output.
+ignore_patterns:
+{% for pattern in ignore_patterns | default(['.gitignore', '.git']) %}
+  - "{{ pattern }}"
+{% endfor %}

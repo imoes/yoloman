@@ -1,0 +1,120 @@
+# ============================================================
+# Nodeenv Configuration Template
+# -----------------------------------------------------------
+# This file configures the nodeenv tool, which creates isolated
+# Node.js virtual environments. It manages installation of
+# Node.js, NPM, and related build options.
+#
+# All variables are sourced from Ansible variables. Each
+# variable uses |default() to ensure safe rendering even if
+# the variable is undefined in the playbook context.
+# ============================================================
+
+[env]
+# Directory path where the Node.js environment will be created
+# Default: /opt/nodeenv
+env_dir = {{ env_dir | default('/opt/nodeenv') }}
+
+[node]
+# Node.js version to install (e.g., 'latest', '14.17.0', 'system')
+# Use 'system' to utilize the system-wide Node.js installation
+# Default: 'latest'
+version = {{ node_version | default('latest') }}
+
+[npm]
+# NPM version to install alongside Node.js
+# Use 'latest' to get the most recent stable version
+# Default: 'latest'
+version = {{ npm_version | default('latest') }}
+
+[build]
+# Number of parallel jobs for compiling Node.js from source
+# Higher values speed up compilation on multi-core systems
+# Default: 2
+parallel_jobs = {{ parallel_jobs | default(2) }}
+
+# Maximum load average allowed before skipping parallel compilation
+# Set to 0 to disable load average checks
+# Default: 0
+load_average = {{ load_average | default(0) }}
+
+# Path to the make command used for compilation
+# Leave empty to use the default system 'make'
+# Default: '' (empty string)
+make_path = "{{ make_path | default('') }}"
+
+[options]
+# Use io.js instead of Node.js
+# Deprecated but retained for legacy environments
+# Default: False
+use_iojs = {{ use_iojs | default(False) | lower }}
+
+# Build Node.js without SSL support
+# Disabling this reduces build time and dependencies
+# Default: False
+without_ssl = {{ without_ssl | default(False) | lower }}
+
+# Enable profiling builds for Node.js
+# Increases binary size and performance overhead
+# Default: False
+enable_profiling = {{ enable_profiling | default(False) | lower }}
+
+# Build debug variant of Node.js
+# Increases binary size and disables optimizations
+# Default: False
+build_debug = {{ build_debug | default(False) | lower }}
+
+# Use prebuilt package instead of compiling from source
+# Recommended for faster installation
+# Default: True
+use_prebuilt = {{ use_prebuilt | default(True) | lower }}
+
+# Install npm into the virtual environment
+# Required for Node.js < 0.6.3
+# Default: True
+install_npm = {{ install_npm | default(True) | lower }}
+
+# Skip npm 0.x cleanup process
+# Note: Schema says "Perform npm 0.x cleanup process", default True
+# Default: True
+clean_npm = {{ clean_npm | default(True) | lower }}
+
+# Remove source directory after installation
+# Default: True
+clean_src = {{ clean_src | default(True) | lower }}
+
+# Force installation into a pre-existing directory
+# Default: False
+force_install = {{ force_install | default(False) | lower }}
+
+# Python virtualenv integration
+# Uses the current Python virtualenv context
+# Default: False
+use_python_virtualenv = {{ use_python_virtualenv | default(False) | lower }}
+
+[requirements]
+# Path to requirements file for installing npm packages
+# File should contain one package per line
+# Default: '' (empty string)
+requirements_file = "{{ requirements_file | default('') }}"
+
+[logging]
+# Verbose mode output
+# Provides detailed build information
+# Default: False
+verbose = {{ verbose | default(False) | lower }}
+
+# Quiet mode output
+# Suppresses non-error output
+# Default: False
+quiet = {{ quiet | default(False) | lower }}
+
+[customization]
+# Alternative prompt prefix for the activated environment
+# Default: '' (empty string)
+prompt_prefix = "{{ prompt_prefix | default('') }}"
+
+# Path to custom configuration file
+# Use empty string to use built-in defaults
+# Default: '' (empty string)
+config_file = "{{ config_file | default('') }}"

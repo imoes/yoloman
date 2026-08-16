@@ -1,0 +1,31 @@
+# Tina Configuration Template
+# This is a configuration file for the 'tina' personal information manager.
+# Note: The 'tina' package (Linux User's Manual tina(1)) does not use a standard
+# configuration file. It operates on a personal data file specified at runtime.
+# This template defines the structure of that personal data file.
+
+# Data file path
+# Path to the default personal information file.
+# Default: ~/.tina
+data_file: {{ data_file | default('~/.tina') }}
+
+# Lock file path
+# Path to the default lock file used to prevent concurrent access.
+# Default: ~/.tina.lock
+lock_file: {{ lock_file | default('~/.tina.lock') }}
+
+# User Settings
+# The name of the user managing the information.
+# Default: User
+username: {{ username | default('User') }}
+
+# Entries
+# A list of personal information entries to initialize in the data file.
+# Each entry is a map with type, title, and content fields.
+# Default: [] (empty list)
+default_entries:
+{%- for entry in (entries | default([])) %}
+  - type: {{ entry.type | default('note') }}
+    title: {{ entry.title | default('') }}
+    content: {{ entry.content | default('') }}
+{%- endfor %}

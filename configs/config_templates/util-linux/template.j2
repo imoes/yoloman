@@ -1,0 +1,30 @@
+# PAM configuration for util-linux session management.
+# This file defines the Pluggable Authentication Modules (PAM) stack
+# used by services linked against libpam.
+#
+# The util-linux package provides core system utilities and may depend
+# on or provide PAM modules for authentication and session setup.
+#
+# Note: 'util-linux' itself is a meta-package for core utils; PAM
+# configuration is typically handled by the 'pam' or 'system-auth'
+# service definition. This template provides a safe default configuration.
+
+auth		sufficient	pam_rootok.so
+# Allow root user to authenticate without password prompt.
+# 'sufficient' means if this module succeeds, authentication succeeds
+# and no further modules are required.
+
+session		optional	pam_keyinit.so revoke
+# Revoke any existing keyring/session initialization during session
+# setup. 'optional' means errors here do not fail the session.
+# Useful for cleaning up stale session keys.
+
+session		required	pam_limits.so
+# Enforce resource limits (ulimit) defined in /etc/security/limits.conf
+# or /etc/security/limits.d/. 'required' means this module must succeed
+# for the session to be established.
+
+session		required	pam_unix.so
+# Standard UNIX authentication module. Handles password checking and
+# session creation using /etc/passwd and /etc/shadow. 'required'
+# ensures valid user credentials are present.

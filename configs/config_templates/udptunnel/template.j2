@@ -1,0 +1,68 @@
+# Udptunnel Server Configuration Template
+# This template generates the command-line arguments for the udptunnel binary.
+# udptunnel is used to tunnel UDP (and optionally RTP) traffic over a TCP connection.
+
+# --server-tcp-port: The TCP port udptunnel will listen on in server mode.
+# The port is taken from the 'server_tcp_port' variable, defaulting to 33434.
+server_tcp_port={{ server_tcp_port | default(33434) }}
+
+# --udp-address: The IPv4 address or hostname of the UDP service to tunnel.
+# Specifies where the tunneled UDP traffic should be sent, defaulting to localhost.
+udp_address={{ udp_address | default('127.0.0.1') }}
+
+# --udp-port: The UDP port on the target host to send tunneled packets to.
+# The destination UDP port, defaulting to 5000.
+udp_port={{ udp_port | default(5000) }}
+
+# --ttl: Time To Live for multicast UDP packets. Set to 0 for unicast.
+# Controls the TTL of the underlying UDP packets, defaulting to 0.
+ttl={{ ttl | default(0) }}
+
+# --rtp-mode: Enable RTP mode to tunnel RTP/RTCP traffic on consecutive ports.
+# If true, udptunnel uses the -r flag to handle RTP/RTCP pairs, defaulting to false.
+rtp_mode={{ rtp_mode | default(false) }}
+
+# --verbose: Enable verbose output for debugging connection establishment.
+# If true, adds the -v flag for debugging, defaulting to false.
+verbose={{ verbose | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Generated Command Line Construction
+# The logic below constructs the command line for udptunnel based on the mode.
+# -----------------------------------------------------------------------------
+
+{# Determine the base command parts #}
+{# In server mode (-s), udptunnel listens on server_tcp_port #}
+{# If rtp_mode is true, the syntax is -r <addr>/<port>[/<ttl>] #}
+{# If rtp_mode is false, the syntax is <addr>/<port>[/<ttl>] #}
+
+{# Initialize CMD variable #}
+{% set cmd_base = "udptunnel -s " + (server_tcp_port | default(33434)) | string %}
+
+{% if rtp_mode | default(false) | bool %}
+{# RTP Mode: Use -r flag for relay mode (tunnels two consecutive ports) #}
+{# Format: -r address/port[/ttl] #}
+{% set CMD = cmd_base + " -r " + (udp_address | default('127.0.0.1')) + "/" + (udp_port | default(5000)) | string %}
+{% else %}
+{# Standard Mode: Tunnel single UDP stream #}
+{# Format: address/port[/ttl] #}
+{% set CMD = cmd_base + " " + (udp_address | default('127.0.0.1')) + "/" + (udp_port | default(5000)) | string %}
+{% endif %}
+
+{# Append TTL if specified and non-zero #}
+{# Note: udptunnel syntax for TTL is usually /<ttl> appended to the port #}
+{% if (ttl | default(0) | int) != 0 %}
+{% set CMD = CMD + "/" + (ttl | default(0) | int) | string %}
+{% endif %}
+
+{# Append Verbose flag if enabled #}
+{% if verbose | default(false) | bool %}
+# Verbose mode is enabled for debugging
+{% set CMD = CMD + " -v" %}
+{% endif %}
+
+# Note: In a real deployment, this CMD variable would be executed by a systemd service
+# or a wrapper script. This template provides the exact parameters required.
+
+# Final Command Line
+CMD={{ CMD }}

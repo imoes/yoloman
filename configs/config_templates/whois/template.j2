@@ -1,0 +1,17 @@
+# /etc/whois.conf
+# Configuration file for the whois client.
+# This configuration allows specifying a fallback WHOIS server and custom server mappings.
+# Each mapping consists of a regex pattern and the WHOIS server to query for matches.
+
+# Default server: The fallback WHOIS server to query when the client cannot determine
+# the appropriate registry (e.g., for IPv4/IPv6 or NIC handles if IANA reference is missing).
+# Default: whois.arin.net
+{{ default_server | default('whois.arin.net') }}
+
+# Custom WHOIS server mappings.
+# Each item defines a regex pattern and the server to use for queries matching that pattern.
+# Format: <regex_pattern> <server_address>
+# Default: [] (empty list, no custom mappings)
+{% for mapping in whois_servers | default([]) %}
+{{ mapping.regex }} {{ mapping.server }}
+{% endfor %}

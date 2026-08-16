@@ -1,0 +1,136 @@
+# strace configuration wrapper script
+# This template generates a shell script that wraps strace with the specified parameters.
+# The script is self-documenting: every variable and option is commented with its
+# schema description and default value for immediate clarity.
+
+#!/bin/bash
+
+# Command to execute under strace
+# Schema: command (default='/bin/sleep 60')
+# Description: The command to execute or attach to.
+COMMAND="{{ command | default('/bin/sleep 60') }}"
+
+# Base options: Follow forks
+# Schema: follow_forks (default=False)
+# Description: Trace child processes as they are created (-f).
+{% if follow_forks | default(False) %}
+FOLLOW_FORKS="-f"
+{% else %}
+FOLLOW_FORKS=""
+{% endif %}
+
+# Base options: Daemonize
+# Schema: daemonize (default=False)
+# Description: Run tracer process as a grandchild (-D).
+{% if daemonize | default(False) %}
+DAEMONIZE="-D"
+{% else %}
+DAEMONIZE=""
+{% endif %}
+
+# Attach to existing PIDs
+# Schema: attach_pids (default=[])
+# Description: List of PIDs to attach to instead of running a command. If empty, command is run.
+{% if attach_pids | default([]) | length > 0 %}
+# Attach to existing PIDs
+ATTACH="{{ attach_pids | default([]) | map('regex_replace', '^(.*)', '-p \\1') | join(' ') }}"
+{% else %}
+ATTACH=""
+{% endif %}
+
+# Output file configuration
+# Schema: output_file (default='')
+# Description: Write trace output to this file. Empty means stderr.
+# Schema: output_append (default=False)
+# Description: Open output file in append mode (-A).
+{% if output_file | default('') %}
+{% if output_append | default(False) %}
+OUTPUT="-o {{ output_file | default('') }} -A"
+{% else %}
+OUTPUT="-o {{ output_file | default('') }}"
+{% endif %}
+{% else %}
+OUTPUT=""
+{% endif %}
+
+# Output separately (per-process files)
+# Schema: output_separately (default=False)
+# Description: Write each process trace to filename.pid (-ff implies -f).
+{% if output_separately | default(False) %}
+OUTPUT_SEP="-ff"
+{% else %}
+OUTPUT_SEP=""
+{% endif %}
+
+# Filtering options: Trace set
+# Note: Complex -e expressions are joined here.
+# The 'trace' set defines which syscalls to monitor.
+# Schema: trace_set (default=['all'])
+# Description: List of syscall names or categories to trace (e.g., 'network', 'read', 'write').
+TRACE_SET="{{ trace_set | default(['all']) | join(',') }}"
+
+# String limit (max characters to print)
+# Schema: string_limit (default=32)
+# Description: Maximum string size to print (-s).
+STR_LIMIT="-s {{ string_limit | default(32) }}"
+
+# Syscall limit (detach after N syscalls)
+# Schema: syscall_limit (default=0)
+# Description: Detach after this number of syscalls (0 for unlimited).
+{% if syscall_limit | default(0) > 0 %}
+SYSCALL_LIMIT="--syscall-limit={{ syscall_limit | default(0) }}"
+{% else %}
+SYSCALL_LIMIT=""
+{% endif %}
+
+# Kill on exit
+# Schema: kill_on_exit (default=False)
+# Description: Send SIGKILL to tracees if strace exits (--kill-on-exit).
+{% if kill_on_exit | default(False) %}
+KILL_ON_EXIT="--kill-on-exit"
+{% else %}
+KILL_ON_EXIT=""
+{% endif %}
+
+# Quiet mode
+# Schema: quiet (default=False)
+# Description: Suppress attach/detach messages (-q).
+{% if quiet | default(False) %}
+QUIET="-q"
+{% else %}
+QUIET=""
+{% endif %}
+
+# Build the strace command
+STRACE_CMD="strace"
+
+# Add basic flags conditionally
+{% if FOLLOW_FORKS | default('') %}STRACE_CMD="${STRACE_CMD} ${FOLLOW_FORKS}"{% endif %}
+{% if DAEMONIZE | default('') %}STRACE_CMD="${STRACE_CMD} ${DAEMONIZE}"{% endif %}
+{% if ATTACH | default('') %}STRACE_CMD="${STRACE_CMD} ${ATTACH}"{% endif %}
+{% if OUTPUT | default('') %}STRACE_CMD="${STRACE_CMD} ${OUTPUT}"{% endif %}
+{% if OUTPUT_SEP | default('') %}STRACE_CMD="${STRACE_CMD} ${OUTPUT_SEP}"{% endif %}
+
+# Add filtering flags
+{% if TRACE_SET | default('') %}STRACE_CMD="${STRACE_CMD} -e trace=${TRACE_SET}"{% endif %}
+{% if STR_LIMIT | default('') %}STRACE_CMD="${STRACE_CMD} ${STR_LIMIT}"{% endif %}
+{% if SYSCALL_LIMIT | default('') %}STRACE_CMD="${STRACE_CMD} ${SYSCALL_LIMIT}"{% endif %}
+{% if KILL_ON_EXIT | default('') %}STRACE_CMD="${STRACE_CMD} ${KILL_ON_EXIT}"{% endif %}
+{% if QUIET | default('') %}STRACE_CMD="${STRACE_CMD} ${QUIET}"{% endif %}
+
+# Add user context if specified
+# Schema: run_as_user (default='')
+# Description: Run command with the user/group ID of this username (-u).
+{% if run_as_user | default('') %}
+STRACE_CMD="${STRACE_CMD} -u {{ run_as_user | default('') }}"
+{% endif %}
+
+# Add environment variables if specified
+# Schema: environment_vars (default=[])
+# Description: List of environment variable assignments or removals (-E).
+{% for env_var in environment_vars | default([]) %}
+STRACE_CMD="${STRACE_CMD} -E {{ env_var }}"
+{% endfor %}
+
+# Execute the constructed command
+exec ${STRACE_CMD} ${COMMAND}

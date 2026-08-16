@@ -1,0 +1,35 @@
+# =============================================================================
+# overlayroot configuration template
+# =============================================================================
+# This file configures the overlayroot mechanism, which allows the root filesystem
+# to be mounted read-only, with changes stored in a temporary or persistent
+# backing device.
+#
+# Supported modes:
+#   - tmpfs:   Uses RAM for changes (volatile).
+#   - device:  Uses a block device for changes (persistent or volatile).
+#   - crypt:   Uses an encrypted device for changes.
+#   - disabled: Disables overlayroot entirely.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# overlayroot_cfgdisk
+# -----------------------------------------------------------------------------
+# Description: If set, this references a disk/filesystem that may exist and
+#              contains a separate 'overlayroot.conf' file in its root directory.
+#              If such a device is found, its configuration takes precedence or
+#              supplements the local configuration.
+# Default:     'disabled'
+# -----------------------------------------------------------------------------
+overlayroot_cfgdisk="{{ overlayroot_cfgdisk | default('disabled') }}"
+
+# -----------------------------------------------------------------------------
+# overlayroot
+# -----------------------------------------------------------------------------
+# Description: The main configuration directive to enable or disable overlayroot.
+#              Supported values include 'tmpfs', 'device', 'crypt', or 'disabled'.
+#              An empty string effectively disables overlayroot.
+#              For complex setups, parameters can be appended (e.g., 'tmpfs:swap=1').
+# Default:     'disabled'
+# -----------------------------------------------------------------------------
+overlayroot="{{ overlayroot | default('disabled') }}"

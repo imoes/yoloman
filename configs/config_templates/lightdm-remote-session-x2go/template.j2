@@ -1,0 +1,144 @@
+# vim:syntax=apparmor
+# Profile for restricting lightdm-remote-session-x2go
+# This AppArmor profile confines the X2Go session wrapper binary to limit
+# its access to system resources, following the principle of least privilege.
+# Based on the Guest Account Apparmor script from:
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+#         Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+
+# Include global AppArmor tunables (e.g., @{HOME}, @{PROC})
+#include <tunables/global>
+
+# The main binary being confined.
+# Variable: bin_path - The path to the x2go-session-wrapper executable.
+/usr/lib/lightdm-remote-session-x2go/x2go-session-wrapper {
+  # Include standard AppArmor abstractions for common functionality.
+  # Abstraction: authentication - Allow access to authentication mechanisms (e.g., /etc/shadow, nsswitch.conf).
+  #include <abstractions/authentication>
+  
+  # Abstraction: nameservice - Allow DNS lookups and /etc/hosts, nsswitch access.
+  #include <abstractions/nameservice>
+  
+  # Abstraction: wutmp - Allow writing to wtmp/utmp for login tracking.
+  #include <abstractions/wutmp>
+
+  # Compiz configuration file read access.
+  # Description: Required by the session wrapper to read Compiz settings.
+  # Reference: Bug https://launchpad.net/bugs/697678
+  /etc/compizconfig/config rw,
+
+  # Root directory read access.
+  / r,
+
+  # Binaries:
+  # /bin/rm - File removal (execute + read + mmap).
+  /bin/rm ix,
+  # /bin/fusermount - Allow mounting FUSE filesystems.
+  # Note: 'Px' allows execution with profile transition if defined, otherwise just execute.
+  /bin/fusermount Px,
+  # All binaries in /bin/
+  /bin/** ix,
+  # CD-ROM access.
+  /cdrom/ r,
+  /cdrom/** rix,
+
+  # Device files:
+  /dev/ r,
+  # All device files read/write (for audio, input, etc.).
+  /dev/** rw,
+  # Shared memory: Owner read/write.
+  owner /dev/shm/** rw,
+
+  # Etc directory:
+  /etc/ r,
+  # All files in /etc/ read/mmap/kexec.
+  /etc/** rkm,
+  # GDM Xsession script execution.
+  /etc/gdm/Xsession ix,
+
+  # Library directories:
+  /lib/ r,
+  /lib/** rkmix,
+  /lib32/ r,
+  /lib32/** rkmix,
+  /lib64/ r,
+  /lib64/** rkmix,
+
+  # Media access:
+  /media/ r,
+  /media/** rwlkmix,  # We want access to USB sticks and the like (Read, Write, Lock, Kill, Mmap, Exec)
+  /opt/ r,
+  /opt/** rkmix,
+
+  # Proc filesystem (Process information):
+  @{PROC}/ r,
+  @{PROC}/* r,
+  @{PROC}/asound r,
+  @{PROC}/asound/** r,
+  @{PROC}/ati r,
+  @{PROC}/ati/** r,
+  owner @{PROC}/** r,
+  # Needed for gnome-keyring-daemon status.
+  @{PROC}/*/status r,
+
+  # Sbin directory:
+  /sbin/ r,
+  /sbin/** rkmix,
+
+  # Sys filesystem:
+  /sys/ r,
+  /sys/** r,
+
+  # Temp directories:
+  /tmp/ rw,
+  owner /tmp/** rwlkmix,
+  /var/tmp/ rw,
+  owner /var/tmp/** rwlkm,
+
+  # Run directories (sockets, PID files):
+  /{,var/}run/ r,
+  # Necessary for writing to sockets, etc.
+  /{,var/}run/** rkmix,
+  /{,var/}run/shm/** wl,
+
+  # Kernel UUID generator access (required by pyhoca-cli).
+  @{PROC}/sys/kernel/random/uuid r,
+  /var/lib/libuuid/clock.txt rw,
+
+  # Systemd journal access.
+  /run/systemd/journal/dev-log w,
+
+  # X2Go specific socket access.
+  /tmp/**/.x2go-socket r,
+  /tmp/.X11-unix/X[0-9]* wr,
+
+  # UUId request socket.
+  /run/uuidd/request w,
+
+  # Kernel configuration read.
+  /proc/sys/kernel/ngroups_max r,
+
+  # Network rules:
+  # Allow all network access (TCP/UDP, IPv4/IPv6).
+  network,
+
+  # D-Bus rules:
+  # Send messages on the session bus.
+  dbus(send) bus=session,
+  # Send and receive messages on the accessibility bus.
+  dbus(send, receive) bus=accessibility,
+
+  # Capabilities:
+  # IPC Lock: Allow locking of shared memory segments.
+  capability ipc_lock,
+
+  # Deny rules to silence warnings for potentially dangerous actions we explicitly DO NOT want.
+  # Deny DAC Override (bypass file permission checks).
+  deny capability dac_override,
+  # Deny DAC Read Search (bypass file read/search permission checks).
+  deny capability dac_read_search,
+  # Deny writing to /usr/** (system binaries should not be modified by the session).
+  deny /usr/** w,
+  # Deny writing to /var/crash/ (prevent creating crash dumps that might be misused).
+  deny /var/crash/ w,
+}

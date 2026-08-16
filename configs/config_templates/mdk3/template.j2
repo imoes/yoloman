@@ -1,0 +1,71 @@
+# ==============================================================================
+# mdk3 Wireless Attack Tool Configuration Template
+# ==============================================================================
+# This template generates a configuration file for mdk3, a wireless network
+# testing and attack tool.
+#
+# IMPORTANT: mdk3 is a network security testing tool. Ensure you have explicit
+# authorization to test the wireless networks you target. Unauthorized use
+# against networks you do not own or have permission to test is illegal.
+# ==============================================================================
+
+# --- Network Interface Configuration ---
+
+# The wireless network interface to be used for sending frames.
+# Typically, this should be a monitor mode interface (e.g., wlan0mon).
+# Using the wrong interface will result in failure or unintended behavior.
+interface: {{ interface | default('wlan0mon') }}
+
+# --- Attack Mode Configuration ---
+
+# The test mode to execute. Controls the type of 802.11 frames generated.
+# Valid options:
+#   b - Beacon Flood (spams beacon frames with random SSIDs)
+#   a - Auth DoS (sends deauthentication packets to disconnect clients)
+#   p - Probe/Bruteforce (sends probe requests)
+#   d - Deauth (targeted deauthentication, can hop channels)
+#   m - Michael (tests MIC integrity)
+#   x - 802.1X (tests 802.1X authentication)
+#   w - WIDS (tests Wireless IDS evasion)
+mode: {{ mode | default('d') }}
+
+# --- Target Parameters ---
+
+# The SSID to target or spoof.
+# Usage depends on the 'mode' selected:
+#   - Mode b: Used as the beacon SSID or filename containing SSIDs.
+#   - Mode p: Used to target probe requests.
+#   - Mode x: Used for 802.1X authentication testing.
+target_ssid: {{ target_ssid | default('TestNetwork') }}
+
+# The MAC address (BSSID) of the target Access Point.
+# Required for directed attacks in modes a, p, m, x, w, g.
+# Format: XX:XX:XX:XX:XX:XX
+target_bssid: {{ target_bssid | default('AA:BB:CC:DD:EE:FF') }}
+
+# The channel to target or spoof on.
+#   - Mode b: The channel on which to broadcast beacons.
+#   - Mode d: Can be a comma-separated list for channel hopping if enabled.
+target_channel: {{ target_channel | default('1') }}
+
+# --- Performance Settings ---
+
+# Packets per second limit.
+# Controls the transmission rate. Can be a specific number (e.g., 1000) or
+# 'unlimited' to send as fast as the interface/hardware allows.
+# Note: Some modes have their own defaults or overrides for this value.
+speed_pps: {{ speed_pps | default('unlimited') }}
+
+# --- Extra Flags ---
+
+# Additional command-line flags to append to the mdk3 invocation.
+# These allow fine-grained control over the tool's behavior.
+# Examples:
+#   -v: Verbose mode
+#   -j: TKIP QoS-Exploit
+#   -f: Force specific behavior
+# Each item in the list corresponds to a flag argument.
+extra_flags:
+{% for flag in extra_flags | default([]) %}
+- {{ flag }}
+{% endfor %}

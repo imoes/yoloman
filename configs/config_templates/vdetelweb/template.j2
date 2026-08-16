@@ -1,0 +1,23 @@
+# VDETelWeb RC File Configuration
+# See vdetelweb(1) for details on the rcfile format.
+
+# Path to the management socket used to communicate with vde_switch
+# Corresponds to the -M option of vde_switch and must match the mgmt_socket passed to vdetelweb.
+socket {{ values.socket }}
+
+# The nodename as seen from remote connections (e.g., in the command prompt or web page title)
+# Corresponds to the --nodename option. If omitted, the system uname nodename is used.
+{% if values.nodename is defined %}
+nodename {{ values.nodename }}
+{% endif %}
+
+# Initial switch configuration commands.
+# These are loaded from this rcfile when vdetelweb starts.
+# Corresponds to the -f option which points to this file.
+# Example: set the switch port state or ACLs.
+# (No default commands are specified; user must define switch config logic here)
+{% if values.switch_config is defined and values.switch_config|length > 0 %}
+{% for command in values.switch_config %}
+{{ command }}
+{% endfor %}
+{% endif %}

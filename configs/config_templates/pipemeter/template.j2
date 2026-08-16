@@ -1,0 +1,49 @@
+# pipemeter command-line configuration
+# pipemeter measures speed of data going through a pipe.
+# This template generates the command invocation with specified parameters.
+
+# input_size: Sets the total size of the input stream to enable progress bar mode. Corresponds to -s.
+{% set _input_size = input_size | default('') %}
+{% if _input_size != '' %}
+-s {{ _input_size }} \
+{% endif %}
+
+# block_size: Size of blocks in bytes to move through the program at once. Can have suffixes K, M, G. Corresponds to -b.
+{% set _block_size = block_size | default('8192') %}
+-b {{ _block_size }} \
+
+# max_block_size: Maximum block size for adaptive block sizing. Corresponds to -m.
+{% set _max_block_size = max_block_size | default('8M') %}
+-m {{ _max_block_size }} \
+
+# interval: Number of seconds between updates on speed/progress bar. Corresponds to -i.
+{% set _interval = interval | default('1') %}
+-i {{ _interval }} \
+
+# input_files: List of input file paths to read from. If empty, defaults to /dev/stdin. Corresponds to -f or positional args.
+{% set _input_files = input_files | default([]) %}
+{% if _input_files | length > 0 %}
+{% for file in _input_files %}
+{{ file }} \
+{% endfor %}
+{% else %}
+/dev/stdin \
+{% endif %}
+
+# adaptive_block_sizing_disabled: Turns off adaptive block sizing. Corresponds to -a.
+{% set _adaptive_block_sizing_disabled = adaptive_block_sizing_disabled | default(False) %}
+{% if _adaptive_block_sizing_disabled %}
+-a \
+{% endif %}
+
+# logging_mode_enabled: Turns on logging mode (newlines only). Corresponds to -l.
+{% set _logging_mode_enabled = logging_mode_enabled | default(False) %}
+{% if _logging_mode_enabled %}
+-l \
+{% endif %}
+
+# report_mode_enabled: Enable report-only mode, suppressing normal output. Corresponds to -r.
+{% set _report_mode_enabled = report_mode_enabled | default(False) %}
+{% if _report_mode_enabled %}
+-r \
+{% endif %}

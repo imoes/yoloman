@@ -1,0 +1,47 @@
+# Speedometer monitoring configuration
+# This template configures the speedometer command-line utility to monitor network throughput or file transfer speeds.
+# It generates a command-line argument string or configuration file content.
+#
+# Fields used:
+#   rx_iface: Network interface for received bytes
+#   tx_iface: Network interface for transmitted bytes
+#   interval: Update interval in seconds
+#   display_mode: 'plain' for text-only, 'smooth' for graphical
+#   display_style: 'smoothed' for smooth graph, 'blocky' for ASCII blocks
+#   monitored_file: Path to a file to monitor
+#   monitored_file_size: Expected size of the monitored file
+#   report_zero_size: Whether to report zero size for non-existent files
+
+# Interface for tracking received bytes (e.g., eth0)
+# Default: eth0
+-rx {{ rx_iface | default('eth0') }}
+
+# Interface for tracking transmitted bytes (e.g., eth0)
+# Default: eth0
+-tx {{ tx_iface | default('eth0') }}
+
+# Update interval in seconds between updates
+# Default: 1.0
+-i {{ interval | default(1.0) }}
+
+# Display mode: plain-text output
+# If set to 'plain', only one tap is allowed and display is plain text
+# Default: smooth
+{% if display_mode | default('smooth') == 'plain' %}-p{% endif %}
+
+# Display style: graphical representation
+# Use 'blocky' for old blocky display even if UTF-8 is detected
+# Default: smoothed
+{% if display_style | default('smoothed') == 'blocky' %}-b{% endif %}
+
+# File download monitoring
+# Monitor speed/progress of a specific file transfer.
+# If a file path is specified, the -f flag is added followed by the path.
+# If monitored_file_size is also set, it is appended as the expected size.
+# Default: empty (no file monitoring)
+{% if monitored_file | default('') %}-f {{ monitored_file | default('') }}{% if monitored_file_size | default(0) %} {{ monitored_file_size | default(0) }}{% endif %}{% endif %}
+
+# Report zero size on files that don't exist
+# Useful if the target file does not exist yet but is being created.
+# Default: false
+{% if report_zero_size | default(false) %}-z{% endif %}

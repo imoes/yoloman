@@ -1,0 +1,99 @@
+{#
+  setop configuration template
+  Generates command-line arguments for the setop utility based on the `config` dictionary.
+  This template is self-documenting: every directive is preceded by a comment explaining its purpose,
+  derived from the schema description.
+#}
+
+{# --quiet suppresses output messages for special queries #}
+{% if (config | default({})).quiet | default(false) %}
+--quiet
+{% endif %}
+
+{# --verbose forces output messages even on success for special queries #}
+{% if (config | default({})).verbose | default(false) %}
+--verbose
+{% endif %}
+
+{# -C ignores case when handling input elements #}
+{% if (config | default({})).ignore_case | default(false) %}
+-C
+{% endif %}
+
+{# --include-empty ensures empty elements are not ignored #}
+{% if (config | default({})).include_empty | default(false) %}
+--include-empty
+{% endif %}
+
+{# -n specifies the input separator as a regular expression (default: newline) #}
+{% if (config | default({})).input_separator is defined %}
+-n {{ (config | default({})).input_separator | default('\n') }}
+{% endif %}
+
+{# -l specifies the input element form as a regular expression #}
+{% if (config | default({})).input_element is defined %}
+-l {{ config.input_element }}
+{% endif %}
+
+{# -o specifies the output separator string (default: newline) #}
+{% if (config | default({})).output_separator is defined %}
+-o {{ (config | default({})).output_separator | default('\n') }}
+{% endif %}
+
+{# -t specifies characters to trim from beginning and end of elements #}
+{% if (config | default({})).trim_chars is defined %}
+-t {{ config.trim_chars }}
+{% endif %}
+
+{# Set operation flags:
+   -u : union (default behavior)
+   -i : intersection
+   -s : symmetric difference #}
+{% set operation = (config | default({})).operation | default('union') %}
+{% if operation == 'union' %}
+-u
+{% elif operation == 'intersection' %}
+# -i intersects all given input sets
+-i
+{% elif operation == 'symmetric_difference' %}
+# -s builds symmetric difference for all given input sets
+-s
+{% endif %}
+
+{# -d subtracts elements in the given file from the output set #}
+{% for diff_file in (config | default({})).diff_files | default([]) %}
+-d {{ diff_file }}
+{% endfor %}
+
+{# [inputfilename]* defines the input files to process #}
+{% for input_file in (config | default({})).input_files | default([]) %}
+{{ input_file }}
+{% endfor %}
+
+{# Output modes:
+   -# : count elements
+   --is-empty : check if empty
+   -c : check contains (requires contains_element)
+   -e : check equality (requires equal_file)
+   -b : check subset (requires subset_file)
+   -p : check superset (requires superset_file) #}
+{% set mode = (config | default({})).mode | default('') %}
+{% if mode == 'count' %}
+# --count
+-#
+{% elif mode == 'is_empty' %}
+# --is-empty checks if resulting set is empty
+--is-empty
+{% elif mode == 'contains' %}
+# -c checks if the given element is contained in the set
+-c {{ (config | default({})).contains_element | default('') }}
+{% elif mode == 'equal' %}
+# -e checks set equality against the content of a file
+-e {{ (config | default({})).equal_file | default('') }}
+{% elif mode == 'subset' %}
+# -b checks if the content of the file is a subset of the output set
+-b {{ (config | default({})).subset_file | default('') }}
+{% elif mode == 'superset' %}
+# -p checks if the content of the file is a superset of the output set
+-p {{ (config | default({})).superset_file | default('') }}
+{% endif %}

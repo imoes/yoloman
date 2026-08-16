@@ -1,0 +1,59 @@
+# =============================================================================
+# powerdebug Service Configuration Template
+# =============================================================================
+# This template generates a configuration file for the 'powerdebug' utility,
+# a tool for debugging power management subsystems in the Linux kernel.
+# It controls execution user, output modes, verbosity, polling interval,
+# run-once behavior, and log destination.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# System User
+# -----------------------------------------------------------------------------
+# The system user account under which the powerdebug command will be executed.
+# Ensure this user has sufficient privileges to access hardware interfaces.
+# TYPE: string
+user: {{ user | default('root') }}
+
+# -----------------------------------------------------------------------------
+# Output Modes
+# -----------------------------------------------------------------------------
+# A list of output modes to enable for the powerdebug tool.
+# Valid items are: 'regulator', 'sensor', 'clock'.
+# These correspond to the -r (regulator), -s (sensor), and -c (clock) flags.
+# If empty, defaults are applied by the tool.
+# TYPE: list of strings
+modes: {{ modes | default(['regulator', 'sensor', 'clock']) | join(', ') }}
+
+# -----------------------------------------------------------------------------
+# Verbose Mode
+# -----------------------------------------------------------------------------
+# Enable verbose mode (-v) to output detailed debugging information and
+# internal state changes to the log or stdout.
+# TYPE: boolean
+verbose: {{ verbose | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Tick Time
+# -----------------------------------------------------------------------------
+# The time interval, in milliseconds, between polling cycles or display updates.
+# Lower values provide more frequent updates but increase CPU usage.
+# TYPE: number (milliseconds)
+ticktime: {{ ticktime | default(5000) }}
+
+# -----------------------------------------------------------------------------
+# Dump Once
+# -----------------------------------------------------------------------------
+# If true, powerdebug reads and lists the current power information once and
+# then exits immediately (equivalent to the -d flag).
+# If false, it runs in a continuous loop (default behavior).
+# TYPE: boolean
+dump_once: {{ dump_once | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Log Path
+# -----------------------------------------------------------------------------
+# The absolute file path where powerdebug output will be redirected.
+# Ensure the directory exists and the service user has write permissions.
+# TYPE: string (file path)
+log_path: {{ log_path | default('/var/log/powerdebug.log') }}

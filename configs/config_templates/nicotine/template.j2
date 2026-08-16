@@ -1,0 +1,82 @@
+# Nicotine+ configuration file
+# See /etc/nicotine/config for defaults or ~/.config/nicotine/config
+#
+# This configuration controls Nicotine+, a Soulseek network client.
+# It defines server connection details, user authentication,
+# transfer directories and limits, UI behavior, and environment settings.
+
+# ==============================================================================
+# [server] - Soulseek Network Connection
+# ==============================================================================
+
+[server]
+
+# Hostname of the Soulseek network server to connect to.
+# If left empty or omitted, defaults to the main server.
+host = {{ server_host | default("server.slsknet.org") }}
+
+# Port number of the Soulseek network server.
+# Standard port is 2234.
+port = {{ server_port | default(2234) }}
+
+# ==============================================================================
+# [login] - Authentication
+# ==============================================================================
+
+[login]
+
+# Soulseek username for authentication.
+# Leave empty to start in guest mode or if not yet configured.
+username = {{ login_username | default("") }}
+
+# Soulseek password for authentication.
+# Leave empty if not yet configured or using guest mode.
+password = {{ login_password | default("") }}
+
+# ==============================================================================
+# [transfers] - File Transfers
+# ==============================================================================
+
+[transfers]
+
+# Path to the directory containing shared files.
+# This is the local directory that other users can browse and download from.
+# Ensure the service user has read permissions on this directory.
+shared_directory = {{ transfers_shared_directory | default("/home/user/Shared") }}
+
+# Path to the directory where downloaded files are saved.
+# Ensure the service user has write permissions on this directory.
+download_directory = {{ transfers_download_directory | default("/home/user/Downloads") }}
+
+# Maximum number of simultaneous uploads allowed.
+# Limits bandwidth usage on the upload side.
+max_uploads = {{ transfers_max_uploads | default(5) }}
+
+# ==============================================================================
+# [ui] - User Interface Behavior
+# ==============================================================================
+
+[ui]
+
+# Whether to start the application window hidden (equivalent to -s/--hidden).
+# Use 'yes' to start minimized to tray, 'no' to show the window.
+start_hidden = {{ ui_start_hidden | default(false) | ternary('yes', 'no') }}
+
+# Whether to start the application in headless mode without a GUI (equivalent to -n/--headless).
+# Use 'yes' for daemon-like operation, 'no' for standard graphical interface.
+headless = {{ ui_headless | default(false) | ternary('yes', 'no') }}
+
+# ==============================================================================
+# [environment] - Runtime Environment Settings
+# ==============================================================================
+
+[environment]
+
+# The major GTK version to use (NICOTINE_GTK_VERSION environment variable).
+# Typically '3' or '4'. Determines which toolkit bindings are loaded.
+# Note: This setting is primarily for internal environment variable mapping.
+gtk_version = {{ environment_gtk_version | default("4") }}
+
+# Whether to enable libadwaita/GNOME theme (NICOTINE_LIBADWAITA environment variable).
+# Use '1' to enable modern GNOME styling, '0' to disable and use standard GTK theme.
+libadwaita = {{ environment_libadwaita | default(true) | ternary('1', '0') }}

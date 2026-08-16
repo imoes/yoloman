@@ -1,0 +1,109 @@
+# ==============================================================================
+# idevicerestore Configuration Template
+# ==============================================================================
+# This template generates a configuration file for `idevicerestore`, a tool used
+# to restore iOS/iPadOS/tvOS devices. It manages device targeting, firmware paths,
+# restore modes, and caching.
+#
+# Variables are sourced from Ansible facts or role variables. All variables
+# include sensible defaults to ensure the template is safe to reuse without
+# prior definition of every option.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Device Targeting
+# ------------------------------------------------------------------------------
+
+# Target specific device by its ECID (hex or decimal).
+# Empty string disables this option (auto-detect).
+# Command-line flag: --ecid <ECID>
+ecid: "{{ ecid | default('') }}"
+
+# Target specific device by its UDID.
+# Only works with devices in normal mode.
+# Command-line flag: --udid <UDID>
+udid: "{{ udid | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Firmware & Restore Source
+# ------------------------------------------------------------------------------
+
+# Path to the compressed .ipsw file or directory containing extracted IPSW files.
+# Command-line flag: <PATH> (positional argument)
+ipsw_path: "{{ ipsw_path | default('/srv/ios/firmware.ipsw') }}"
+
+# Use the latest available firmware with on-demand download.
+# If true, the PATH argument is ignored.
+# Command-line flag: --latest
+latest_firmware: {{ latest_firmware | default(false) | bool }}
+
+# ------------------------------------------------------------------------------
+# Restore Behavior
+# ------------------------------------------------------------------------------
+
+# Perform full restore instead of update.
+# This erases all data on the device.
+# Command-line flag: --erase
+erase: {{ erase | default(false) | bool }}
+
+# Non-interactive mode.
+# Disables prompts that might prevent automated data loss or long hangs.
+# Command-line flag: --no-input
+no_input: {{ no_input | default(false) | bool }}
+
+# Do not perform any restore action.
+# Used primarily for downloading IPSWs with --latest or validating configurations.
+# Command-line flag: --no-action
+no_action: {{ no_action | default(false) | bool }}
+
+# Do not restore and end after booting to the ramdisk.
+# Useful for debugging or manual intervention during the restore process.
+# Command-line flag: --no-restore
+no_restore: {{ no_restore | default(false) | bool }}
+
+# Allow restoring from Restore mode (Recovery mode).
+# By default, some operations may only work in Normal mode.
+# Command-line flag: --restore-mode
+restore_mode: {{ restore_mode | default(false) | bool }}
+
+# Use given VARIANT to match the build identity.
+# Examples: 'Customer Erase Install (IPSW)'
+# Command-line flag: --variant <VARIANT>
+variant: "{{ variant | default('') }}"
+
+# Continue the restore process after certain errors.
+# WARNING: May render device unable to boot if critical errors are ignored.
+# Command-line flag: --ignore-errors
+ignore_errors: {{ ignore_errors | default(false) | bool }}
+
+# Exclude nor/baseband upgrade.
+# Only works with legacy devices or custom firmware.
+# Command-line flag: --exclude-nor-baseband
+exclude_nor_baseband: {{ exclude_nor_baseband | default(false) | bool }}
+
+# ------------------------------------------------------------------------------
+# Caching & Logging
+# ------------------------------------------------------------------------------
+
+# Directory for caching extracted or other reused files.
+# Command-line flag: --cache-path <DIR>
+cache_path: "{{ cache_path | default('/var/cache/idevicerestore') }}"
+
+# Enable communication debugging.
+# Outputs verbose logs for troubleshooting connection or protocol issues.
+# Command-line flag: --debug
+debug: {{ debug | default(false) | bool }}
+
+# ------------------------------------------------------------------------------
+# Signing & TSS
+# ------------------------------------------------------------------------------
+
+# Override the default signing server request URL.
+# Useful for using a local or custom blob cache.
+# Command-line flag: --server <URL>
+signing_server: "{{ signing_server | default('') }}"
+
+# Fetch TSS record and save to .shsh file, then exit.
+# Useful for SHSH blob retention for future restores.
+# Command-line flag: --shsh
+fetch_shsh: {{ fetch_shsh | default(false) | bool }}

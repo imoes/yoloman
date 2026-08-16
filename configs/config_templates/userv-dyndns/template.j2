@@ -1,0 +1,69 @@
+# userv-dyne: Dynamic DNS Update Authorization Configuration
+#
+# This configuration file defines the dynamic DNS zone, rate-limiting rules,
+# allowed RR types, and specific subdomain grants for the userv-dyndns service.
+# The service allows authorized users to update specific DNS records in the
+# specified zone.
+
+# ratelimit: Configure rate limiting for dynamic updates.
+# - min-seconds: Minimum seconds between rate-limited updates. Prevents rapid-fire updates.
+# - avg-seconds: Average seconds for rate limiting window. Defines the window for average rate calculation.
+# - memory-seconds: Memory seconds for rate limiting history. How long update history is kept for averaging.
+# Schema Description:
+#   - ratelimit_min_seconds: 'Minimum seconds between rate-limited updates'
+#   - ratelimit_avg_seconds: 'Average seconds for rate limiting window'
+#   - ratelimit_memory_seconds: 'Memory seconds for rate limiting history'
+ratelimit {{ ratelimit_min_seconds | default(30) }} {{ ratelimit_avg_seconds | default(300) }} {{ ratelimit_memory_seconds | default(3600) }}
+
+# zone: The DNS zone for dynamic updates.
+# All subdomain directives below apply to this zone.
+# Schema Description:
+#   - dns_zone: 'The DNS zone for dynamic updates'
+zone {{ dns_zone | default('dynamic.greenend.org.uk') }}
+
+# ttlrange: Minimum and Maximum TTL value for dynamic updates.
+# This restricts the TTL values that can be set by dynamic clients.
+# Schema Description:
+#   - ttl_min: 'Minimum TTL value'
+#   - ttl_max: 'Maximum TTL value'
+ttlrange {{ ttl_min | default(30) }} {{ ttl_max | default(86400) }}
+
+# rrs: Allowed RR types for a group of subdomains.
+# This directive sets the allowed Resource Record types (e.g., A, AAAA, CNAME)
+# for the subsequent 'subdomain' lines until the next 'rrs' or 'eof'.
+# Schema Description:
+#   - rrs_types_1: 'Allowed RR types for the first group of subdomains'
+#   - rrs_types_2: 'Allowed RR types for the second group of subdomains'
+#   - rrs_types_3: 'Allowed RR types for the third group of subdomains'
+rrs {{ rrs_types_1 | default('A') }}
+
+# subdomain_1: List of subdomain directives for the first RRS group.
+# Each entry grants a user (groupname) permission to update the specified subdomain
+# with the RR types defined in the preceding 'rrs' directive.
+# Schema Description:
+#   - subdomain_1: 'List of subdomain directives for the first RRS group'
+{% for entry in subdomain_1 | default(['subdomain\tanjou\t\trich-avn', 'subdomain\tbadgers\t\tsion-net', 'subdomain\tbellevue\ttheom', 'subdomain\tburrow\t\tvcla-brw', 'subdomain\tconfusion\tmatt-cnf', 'subdomain\tdorothee\tjdamery', 'subdomain\tecstacy\t\tdunc-xtc', 'subdomain\tfirestorm\tdavi-mul', 'subdomain\tgallery\t\tjayl-dns', 'subdomain\tnosreme\t\tceme-gal', 'subdomain\theresy\t\tcjwa-vpn', 'subdomain\tlemoncurd\tbjha-dd', 'subdomain\tlilac\t\tdame-lil', 'subdomain\tnijinsky\tjmatthew', 'subdomain\trelativity\tijackson', 'subdomain\triva\t\tcjwatson', 'subdomain\tsinister\tMgend', 'subdomain\tslappy\t\tchri-cat', 'subdomain\tstardust\tsgtatham', 'subdomain\tthistles\trcooksey', 'subdomain\ttitus\t\towen-dns', 'subdomain\tmilton\t\tstev-pub']) %}
+{{ entry }}
+{% endfor %}
+
+rrs {{ rrs_types_2 | default('A CNAME') }}
+
+# subdomain_2: List of subdomain directives for the second RRS group.
+# Schema Description:
+#   - subdomain_2: 'List of subdomain directives for the second RRS group'
+{% for entry in subdomain_2 | default(['subdomain\tgin\t\tdh219', 'subdomain\taibs\t\tdh219']) %}
+{{ entry }}
+{% endfor %}
+
+rrs {{ rrs_types_3 | default('A MX CNAME') }}
+
+# subdomain_3: List of subdomain directives for the third RRS group.
+# Schema Description:
+#   - subdomain_3: 'List of subdomain directives for the third RRS group'
+{% for entry in subdomain_3 | default(['subdomain test ijackson']) %}
+{{ entry }}
+{% endfor %}
+
+# eof: End of configuration file.
+# Signals the end of directives for the userv-dyndns parser.
+eof

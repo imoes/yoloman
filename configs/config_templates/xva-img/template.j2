@@ -1,0 +1,58 @@
+# ==========================================================================
+# xva-img Configuration Template
+# ==========================================================================
+# This configuration file manages the behavior of xva-img, a tool for
+# handling Xen Virtual Appliance (.xva) images and disk image extraction.
+# It controls output verbosity, file creation modes, and directory layout.
+#
+# All variables use explicit defaults as defined in the schema to ensure
+# safe rendering even when roles are partially defined.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# Progress Output
+# --------------------------------------------------------------------------
+# Enables progress output during operations, corresponding to the
+# -p/--progress command line flag.
+# Type: Boolean
+# --------------------------------------------------------------------------
+progress = {{ progress | default(True) }}
+
+# --------------------------------------------------------------------------
+# Sparse File Creation
+# --------------------------------------------------------------------------
+# Creates sparse files on export, corresponding to the -s/--sparse command
+# line flag. Sparse files consume disk space only for written blocks,
+# allowing virtual disk images to appear larger than the actual data.
+# Type: Boolean
+# --------------------------------------------------------------------------
+sparse = {{ sparse | default(False) }}
+
+# --------------------------------------------------------------------------
+# Checksum Handling
+# --------------------------------------------------------------------------
+# Only warns on failed checksums instead of failing the operation,
+# corresponding to the -i/--ignore-checksum command line flag.
+# Set to false to enforce strict integrity checks.
+# Type: Boolean
+# --------------------------------------------------------------------------
+ignore_checksum = {{ ignore_checksum | default(False) }}
+
+# --------------------------------------------------------------------------
+# Output Directory
+# --------------------------------------------------------------------------
+# The base directory for extracting .xva files or storing generated
+# disk images. Ensure this path exists and has sufficient write
+# permissions for the service user.
+# Type: String (absolute path)
+# --------------------------------------------------------------------------
+output_dir = "{{ output_dir | default('/var/lib/xva-img/images') }}"
+
+# --------------------------------------------------------------------------
+# Input Directory
+# --------------------------------------------------------------------------
+# The base directory containing source .xva archives and ova.xml manifest
+# files. The tool will look here for input artifacts unless overridden.
+# Type: String (absolute path)
+# --------------------------------------------------------------------------
+input_dir = "{{ input_dir | default('/var/lib/xva-img/inputs') }}"

@@ -1,0 +1,138 @@
+# mergerfs configuration file
+# Path to the config file is passed via 'config' mount option.
+
+# Colon-delimited list of branch paths to pool.
+branches={{ branches | default(['/mnt/drive1', '/mnt/drive2']) | join(':') }}
+
+# Minimum free space (e.g., 4G) to consider a branch for creation.
+# Overrides branch-specific minfreespace if set globally.
+minfreespace={{ minfreespace | default('4G') }}
+
+# Move file if ENOSPC/EDQUOT occurs. Default false, or policy name like 'mfs'.
+moveonenospc={{ moveonenospc | default('false') }}
+
+# Inode calculation algorithm: passthrough, path-hash, devino-hash, hybrid-hash.
+inodecalc={{ inodecalc | default('hybrid-hash') }}
+
+# Drop kernel page cache on file close. Recommended with caching enabled.
+dropcacheonclose={{ dropcacheonclose | default(true) }}
+
+# Symlinkify timeout in seconds. Turns old non-writable files into symlinks.
+symlinkify_timeout={{ symlinkify_timeout | default(3600) }}
+
+# Enable symlinks for non-writable files older than symlinkify_timeout.
+symlinkify={{ symlinkify | default(false) }}
+
+# No-op reads and writes. Useful for benchmarking.
+nullrw={{ nullrw | default(false) }}
+
+# Attempt lazy umount before mounting (for live upgrades).
+lazy_umount_mountpoint={{ lazy_umount_mountpoint | default(false) }}
+
+# Ignore path preservation on rename/link.
+ignorepponrename={{ ignorepponrename | default(false) }}
+
+# Enable NFS export support flag.
+export_support={{ export_support | default(true) }}
+
+# Return ENOATTR for security.capability xattr queries if false.
+security_capability={{ security_capability | default(true) }}
+
+# Runtime control of xattrs: passthrough, noattr, nosys.
+xattr={{ xattr | default('passthrough') }}
+
+# Copy-on-write for hardlinks (>1 link). Breaks link and copies to temp.
+link_cow={{ link_cow | default(false) }}
+
+# Statfs calculation mode: base (all branches) or full (path preserving).
+statfs={{ statfs | default('base') }}
+
+# Ignore RO/NC branches in statfs calculations: none, ro, nc.
+statfs_ignore={{ statfs_ignore | default('none') }}
+
+# NFS open hack: off, git, all.
+nfsopenhack={{ nfsopenhack | default('off') }}
+
+# Timeout in seconds for branches to mount at startup.
+branches_mount_timeout={{ branches_mount_timeout | default(0) }}
+
+# Follow symlinks: never, directory, regular, all.
+follow_symlinks={{ follow_symlinks | default('never') }}
+
+# Handle EXDEV on link: passthrough, rel-symlink, abs-base-symlink, abs-pool-symlink.
+link_exdev={{ link_exdev | default('passthrough') }}
+
+# Handle EXDEV on rename: passthrough, rel-symlink, abs-symlink.
+rename_exdev={{ rename_exdev | default('passthrough') }}
+
+# Readahead in kilobytes.
+readahead={{ readahead | default(0) }}
+
+# Enable POSIX ACL support.
+posix_acl={{ posix_acl | default(false) }}
+
+# Perform reads asynchronously.
+async_read={{ async_read | default(true) }}
+
+# Max pages per FUSE message (1-256).
+fuse_msg_size={{ fuse_msg_size | default(256) }}
+
+# Number of threads to use (0 for auto, -1 for half cores, etc.).
+threads={{ threads | default(0) }}
+
+# Flush data cache on file close: never, always, opened-for-write.
+flush_on_close={{ flush_on_close | default('opened-for-write') }}
+
+# Scheduling priority (-20 to 19).
+scheduling_priority={{ scheduling_priority | default(-10) }}
+
+# Filesystem name string.
+fsname={{ fsname | default('') }}
+
+# Policy for specific FUSE function (e.g., func.getattr=newest).
+func_getattr={{ func_getattr | default('') }}
+
+# Readdir policy: seq, cosr, cor, or with thread count (e.g., cor:4).
+func_readdir={{ func_readdir | default('seq') }}
+
+# Policy for action category (chmod, chown, rename, etc.).
+category_action={{ category_action | default('epall') }}
+
+# Policy for create category (mkdir, create, etc.).
+category_create={{ category_create | default('epmfs') }}
+
+# Policy for search category (getattr, open, etc.).
+category_search={{ category_search | default('ff') }}
+
+# Cache timeout for 'open' policy in seconds.
+cache_open={{ cache_open | default(0) }}
+
+# Cache timeout for 'statfs' in seconds.
+cache_statfs={{ cache_statfs | default(0) }}
+
+# File attribute cache timeout in seconds.
+cache_attr={{ cache_attr | default(1) }}
+
+# File name lookup cache timeout in seconds.
+cache_entry={{ cache_entry | default(1) }}
+
+# Negative file name lookup cache timeout in seconds.
+cache_negative_entry={{ cache_negative_entry | default(0) }}
+
+# File page caching mode: libfuse, off, partial, full, auto-full, per-process.
+cache_files={{ cache_files | default('off') }}
+
+# Pipe-delimited list of process names for per-process caching.
+cache_files_process_names={{ cache_files_process_names | default(['rtorrent', 'qbittorrent-nox']) | join('|') }}
+
+# Enable kernel writeback caching.
+cache_writeback={{ cache_writeback | default(false) }}
+
+# Cache symlinks.
+cache_symlinks={{ cache_symlinks | default(false) }}
+
+# Cache readdir.
+cache_readdir={{ cache_readdir | default(false) }}
+
+# Allow parallel direct writes.
+parallel_direct_writes={{ parallel_direct_writes | default(false) }}

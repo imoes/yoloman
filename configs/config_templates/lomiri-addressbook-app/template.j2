@@ -1,0 +1,37 @@
+# AppArmor profile for Lomiri Address Book Application
+#
+# This profile provides a permissive security context for the Lomiri address book service.
+# It allows broad file access and networking, suitable for applications that need
+# to interact with various system components without strict confinement.
+
+#include <tunables/global>
+
+# Apply the profile named by profile_name to the application process.
+# attach_disconnected allows the process to start even if it's not yet attached.
+profile {{ profile_name | default('lomiri-addressbook-app') }} (attach_disconnected) {
+  # Allow all network operations (TCP, UDP, raw sockets, etc.)
+  network,
+
+  # Allow reading and listing the root directory.
+  / rwkl,
+
+  # Allow read/write access to all files and subdirectories recursively.
+  # k allows keeping setuid/setgid bits, m allows mapping memory.
+  /** rwlkm,
+
+  # Set pix (protect, inherit, execute) flags on all files.
+  # This ensures proper execution permissions and inheritance.
+  /** pix,
+
+  # Allow interaction with the D-Bus message bus system.
+  dbus,
+
+  # Allow sending and receiving signals to/from other processes.
+  signal,
+
+  # Allow ptrace operations (debugging/tracing other processes).
+  ptrace,
+
+  # Allow use of Unix domain sockets for inter-process communication.
+  unix,
+}

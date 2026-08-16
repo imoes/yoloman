@@ -1,0 +1,129 @@
+;;; 50mew.el --- Debian mew startup file -*-mode: emacs-lisp;-*-
+;;
+;; Self-documenting configuration template for the Mew mail user agent.
+;; All variables are sourced from Ansible facts/vars, with schema defaults applied inline.
+;; Ensure the parent context variables are defined if accessed via dotted paths, though this
+;; template primarily uses flat names matching the schema.
+
+(let* (
+       ;; Package name identifier. Used to construct paths and load paths.
+       ;; Default: 'mew'
+       (pkg "{{ pkg_name | default('mew') }}")
+
+       ;; Short package name for directory structures. Used in Emacs site-lisp paths.
+       ;; Default: 'mew'
+       (pkg-sname "{{ pkg_sname | default('mew') }}")
+
+       ;; Default Emacs flavor if 'debian-emacs-flavor' is not bound in the environment.
+       ;; Used to determine the site-lisp subdirectory (e.g., 'emacs' vs 'emacs27').
+       ;; Default: 'emacs'
+       (flavor-name (if (boundp 'debian-emacs-flavor)
+                        (symbol-name debian-emacs-flavor)
+                      "{{ emacs_flavor | default('emacs') }}"))
+
+       ;; Path to the Emacsen common installation script for this package.
+       ;; Constructed dynamically; no direct variable, but relies on `pkg`.
+       (pkg-inst (concat "/usr/lib/emacsen-common/packages/install/" pkg))
+
+       ;; Directory where compiled Lisp files (.elc) are stored for this package.
+       ;; Constructed from flavor and package short name.
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/" pkg-sname)))
+  ;;
+  ;; Only proceed if the compiled directory and installation script actually exist.
+  ;; This prevents errors during bootstrapping or if the package is partially installed.
+  (when (and (file-exists-p elc-dir)
+             (file-exists-p pkg-inst))
+
+    ;; Add the package's Lisp directory to the Emacs load path.
+    ;; Uses the Debian-specific helper if available, otherwise modifies load-path directly.
+    (if (fboundp 'debian-pkg-add-load-path-item)
+        (debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+
+    ;;
+    ;; Autoload definitions for Mew functions to allow lazy loading.
+    ;; These define the entry points for the mail user agent.
+    (autoload 'mew-user-agent-compose "{{ autoload_mew | default('mew') }}" nil t)
+    
+    ;; Define Mew as the default mail user agent if the hook is available.
+    ;; This integrates Mew with Emacs' standard mail composition workflow.
+    (if (fboundp 'define-mail-user-agent)
+        (define-mail-user-agent
+          'mew-user-agent
+          'mew-user-agent-compose
+          'mew-draft-send-message
+          'mew-draft-kill
+          'mew-send-hook))
+    
+    (autoload 'mew "{{ autoload_mew | default('mew') }}" nil t)
+    (autoload 'mew-send "{{ autoload_mew | default('mew') }}" nil t)
+
+    ;; Directory containing Mew-specific icons (e.g., for the status bar).
+    ;; Default: '/usr/share/pixmaps/mew'
+    (setq mew-icon-directory "{{ mew_icon_directory | default('/usr/share/pixmaps/mew') }}")
+
+    ;; Program used for handling SSL/TLS connections (via tunneled commands).
+    ;; Default: 'mewstunnel'
+    (setq mew-prog-ssl "{{ mew_prog_ssl | default('mewstunnel') }}")
+    
+    ;; Note: SSL cipher arguments are commented out by default to allow user customization.
+    ;; Uncomment and adjust `mew-prog-ssl-arg` as needed for specific security policies.
+    ;;(setq mew-prog-ssl-arg "ciphers=DEFAULT:@SECLEVEL=2\nsslVersionMin=TLSv1.2\n")
+
+    ;; Directory containing SSL certificates required for verifying server identity.
+    ;; Default: '/etc/ssl/certs'
+    (setq mew-ssl-cert-directory "{{ mew_ssl_cert_directory | default('/etc/ssl/certs') }}")
+
+    ;; SSL verification level. Controls strictness of certificate verification.
+    ;; 0: No verification. 1: Verify server cert. 2: Verify server cert and hostname.
+    ;; Default: 2
+    (setq mew-ssl-verify-level {{ mew_ssl_verify_level | default(2) }})
+
+    ;; Unix command to open web links (e.g., in MIME parts).
+    ;; Default: '/usr/bin/sensible-browser'
+    (setq mew-unix-browser "{{ mew_unix_browser | default('/usr/bin/sensible-browser') }}")
+    
+    ;; Argument to pass to the unix browser (left nil for default behavior).
+    (setq mew-unix-browser-arg nil)
+
+    ;; Do not delete temporary files (useful for debugging, but consider security implications).
+    (setq mew-delete-temp-file nil)
+
+    ;; Program used for GPG v1 signing and verification.
+    ;; Default: 'gpg1'
+    (setq mew-prog-gpg "{{ mew_prog_gpg | default('gpg1') }}")
+
+    ;; Program used for GPG v2 signing and verification.
+    ;; Default: 'gpg'
+    (setq mew-prog-gpg2 "{{ mew_prog_gpg2 | default('gpg') }}")
+
+    ;; Set PGP compatibility program to the GPG v2 binary.
+    (setq mew-prog-pgp mew-prog-gpg2)
+
+    ;; Set password retrieval program to the GPG v2 binary (for secret key handling).
+    (setq mew-prog-passwd mew-prog-gpg2)
+
+    ;; Value for the `mew-field-comment` header. Workaround for Gmail's handling of comments.
+    ;; Empty by default.
+    (setq mew-field-comment "{{ mew_field_comment | default('') }}") ;; workaround for Gmail, cf. [mew-ja] on 2020-11-12
+
+    ;; Image processing aliases. Configures Mew to use Netpbm tools for handling various image formats.
+    ;; Checks for `pngtopam` availability; if missing, falls back to Netpbm 10.0 style commands or leaves nil.
+    (or (executable-find "pngtopam") ;; Netpbm 10.44 or later
+        (setq mew-image-alist ;; Netpbm 10.0
+              '((jpeg mew-jpeg-size "jpegtopnm" "pnmtojpeg")
+                (png  mew-png-size  "pngtopnm"  "pnmtopng")
+                (gif  mew-gif-size  "giftopnm"  "ppmtogif")
+                (tiff mew-tiff-size "tifftopnm" "pnmtotiff")
+                (xwd  nil           "xwdtopnm"  "pnmtoxwd")
+                (xbm  nil           "xbmtopbm"  "pbmtoxbm")
+                (xpm  nil           "xpmtoppm"  "ppmtoxpm")
+                (bmp  mew-bmp-size  "bmptopnm"  "ppmtobmp")
+                (PCX  nil           "pcxtoppm"  "ppmtopcx")
+                (TGA  nil           "tgatoppm"  "ppmtotga")
+                (ICO  nil           "winicontoppm" "ppmtowinicon")
+                (pbm  mew-pbm-size  nil         nil)
+                (PAM  mew-pbm-size  nil         nil)))))
+  )
+
+;;; 50mew.el ends here

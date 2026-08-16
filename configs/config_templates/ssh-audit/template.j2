@@ -1,0 +1,102 @@
+# ============================================================
+# ssh-audit Configuration Template
+# ============================================================
+# This template generates a configuration file for ssh-audit,
+# a tool used to analyze SSH servers or clients for cryptographic
+# algorithm weaknesses and policy compliance.
+# ============================================================
+
+# target_host: The SSH server hostname or IP address to audit
+# Specifies the remote host that will be audited.
+target_host = {{ (target_host | default('localhost')) | string }}
+
+# audit_type: The type of audit: 'server', 'client', or 'lookup'
+# 'server' audits the SSH daemon configuration.
+# 'client' audits the SSH client configuration (e.g., /etc/ssh/ssh_config).
+# 'lookup' checks if specific algorithms are supported by the server without connecting.
+audit_type = {{ (audit_type | default('server')) | string }}
+
+# output_format: Output format: 'text' or 'json'
+# 'text' produces human-readable output.
+# 'json' produces machine-parseable JSON output.
+output_format = {{ (output_format | default('text')) | string }}
+
+# verbose: Enable verbose output
+# If true, provides detailed information about the auditing process.
+verbose = {{ verbose | default(False) | ternary('true', 'false') }}
+
+# debug: Enable debug output
+# If true, outputs low-level debugging information useful for troubleshooting.
+debug = {{ debug | default(False) | ternary('true', 'false') }}
+
+# no_colors: Disable color output
+# If true, forces plain text output even if the terminal supports colors.
+no_colors = {{ no_colors | default(False) | ternary('true', 'false') }}
+
+# level: Minimum output level: 'info', 'warn', or 'fail'
+# Filters the output to only show issues at or above this severity level.
+level = {{ (level | default('info')) | string }}
+
+# port: The TCP port to connect to or listen on
+# The port on the target host to audit. Defaults to standard SSH port.
+port = {{ (port | default(22)) | int }}
+
+# timeout: Connection timeout in seconds
+# The maximum time to wait for a connection before failing.
+timeout = {{ (timeout | default(5)) | int }}
+
+# skip_rate_test: Skip the connection rate test
+# If true, bypasses the test that measures connection establishment speed.
+skip_rate_test = {{ skip_rate_test | default(False) | ternary('true', 'false') }}
+
+# threads: Number of threads for scanning multiple targets
+# Parallelizes the scan when auditing multiple hosts (defined in targets_file).
+threads = {{ (threads | default(32)) | int }}
+
+# policy: Policy name or path to custom policy file
+# Specifies a policy to evaluate the server's configuration against.
+# Can be a built-in policy name or a path to a custom YAML/JSON policy file.
+policy = {{ (policy | default('')) | string }}
+
+# targets_file: Path to file containing list of target hosts
+# A file with one target hostname or IP per line. Used for batch auditing.
+targets_file = {{ (targets_file | default('')) | string }}
+
+# gex_test: Diffie-Hellman Group Exchange modulus size test parameters
+# Defines specific parameters for testing Diffie-Hellman Group Exchange (DHE) key sizes.
+gex_test = {{ (gex_test | default('')) | string }}
+
+# dheat: DHEat DoS attack parameters
+# Enables or configures parameters for the DHEat Denial-of-Service attack simulation.
+dheat = {{ (dheat | default('')) | string }}
+
+# conn_rate_test: Connection rate test parameters
+# Defines parameters for testing how quickly the server accepts new connections.
+conn_rate_test = {{ (conn_rate_test | default('')) | string }}
+
+# lookup_algorithms: Comma-separated list of algorithms to look up
+# Used in 'lookup' mode to check if specific SSH algorithms are present in the server's offer.
+lookup_algorithms = {{ (lookup_algorithms | default('')) | string }}
+
+# ssh_version: SSH protocol version to use: '1' or '2'
+# Forces the audit to use a specific SSH protocol version during the connection attempt.
+ssh_version = {{ (ssh_version | default('2')) | string }}
+
+# ip_version: IP version to prioritize: '4' for IPv4 or '6' for IPv6
+# Forces the DNS resolution and connection attempt to use IPv4 or IPv6.
+ip_version = {{ (ip_version | default('4')) | string }}
+
+# make_policy: Filename to create a policy based on the target server
+# If set, saves the current server's algorithm negotiation state into a policy file at this path.
+make_policy = {{ (make_policy | default('')) | string }}
+
+# ============================================================
+# Audit Mode Status
+# ============================================================
+{% if (audit_type | default('server')) == 'client' %}
+# NOTE: Audit is running in CLIENT mode. The tool will analyze local SSH client configurations.
+{% elif (audit_type | default('server')) == 'server' %}
+# NOTE: Audit is running in SERVER mode. The tool will analyze the remote SSH server configuration.
+{% elif (audit_type | default('server')) == 'lookup' %}
+# NOTE: Audit is running in LOOKUP mode. The tool will check algorithm availability without connecting.
+{% endif %}

@@ -1,0 +1,96 @@
+# ident2 configuration file
+# Managed by Ansible Jinja2 template.
+# This file configures the identd (RFC 1413) service 'ident2'.
+# See `man ident2` or `man 5 ident2.conf` for details.
+
+{% if run_mode | default('daemon') != 'inetd' %}
+# -----------------------------------------------------------------------------
+# Operational Mode
+# Specifies whether ident2 runs as a standalone daemon or under inetd/xinetd supervision.
+# Values: 'daemon' (default) or 'inetd'.
+# -----------------------------------------------------------------------------
+RUNMODE={{ run_mode | default('daemon') }}
+
+# -----------------------------------------------------------------------------
+# Daemon Options String
+# Accumulates command-line flags passed to the ident2 process.
+# Populated based on the selected options below.
+# -----------------------------------------------------------------------------
+OPTIONS=""
+
+{% if listen_port | default(113) != 113 %}
+# -----------------------------------------------------------------------------
+# Listen Port
+# The TCP port ident2 listens on. Default is 113 (auth).
+# -----------------------------------------------------------------------------
+PORT={{ listen_port | default(113) }}
+{% endif %}
+
+{% if max_clients | default(30) is not none %}
+# -----------------------------------------------------------------------------
+# Maximum Clients
+# Maximum number of simultaneous connections allowed in daemon mode.
+# Set to null/none to use system default.
+# -----------------------------------------------------------------------------
+MAXCLIENTS={{ max_clients | default(30) }}
+{% endif %}
+
+{% if client_timeout | default(15) is not none %}
+# -----------------------------------------------------------------------------
+# Client Timeout
+# Timeout in seconds for client connections.
+# -----------------------------------------------------------------------------
+TIMEOUT={{ client_timeout | default(15) }}
+{% endif %}
+
+{% if random_replies | default(False) | bool %}
+# -----------------------------------------------------------------------------
+# Random Replies
+# If true, always send random replies regardless of client request type.
+# Adds --always-random to OPTIONS.
+# -----------------------------------------------------------------------------
+OPTIONS="${OPTIONS} --always-random"
+{% endif %}
+
+{% if allow_noident | default(False) | bool %}
+# -----------------------------------------------------------------------------
+# Allow NoIdent
+# If true, check for ~/.noident file to disable replies for specific users.
+# Adds --allow-noident-file to OPTIONS.
+# -----------------------------------------------------------------------------
+OPTIONS="${OPTIONS} --allow-noident-file"
+{% endif %}
+
+{% if user_ident_enabled | default(True) | bool %}
+# -----------------------------------------------------------------------------
+# User Ident Enabled
+# If true, allow users to define custom replies in ~/.ident.
+# Adds --use-user-ident to OPTIONS.
+# -----------------------------------------------------------------------------
+OPTIONS="${OPTIONS} --use-user-ident"
+{% endif %}
+
+{% if user_reply_file | default('~/.ident') is not none %}
+# -----------------------------------------------------------------------------
+# User Reply File
+# Path to the file ident2 reads for user-defined replies.
+# -----------------------------------------------------------------------------
+USERREPLYFILE={{ user_reply_file | default('~/.ident') }}
+{% endif %}
+
+{% if skip_uid_change | default(False) | bool %}
+# -----------------------------------------------------------------------------
+# Skip UID Change
+# If true, ident2 will not drop root privileges after binding.
+# Adds --dont-change-uid to OPTIONS.
+# -----------------------------------------------------------------------------
+OPTIONS="${OPTIONS} --dont-change-uid"
+{% endif %}
+
+{% else %}
+# -----------------------------------------------------------------------------
+# Operational Mode: inetd
+# ident2 is invoked by the internet superserver.
+# -----------------------------------------------------------------------------
+RUNMODE=inetd
+{% endif %}

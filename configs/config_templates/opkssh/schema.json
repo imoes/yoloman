@@ -1,0 +1,48 @@
+{
+  "providers": {
+    "type": "list",
+    "description": "List of allowed OpenID Provider configurations. Each item must contain issuer_uri, client_id, and expiration fields as defined in the items schema below."
+  },
+  "policy_rules": {
+    "type": "list",
+    "description": "List of access policy rules. Each item defines who can login as which local principal, optionally restricted to a specific provider."
+  },
+  "providers_items": {
+    "type": "object",
+    "description": "Schema for individual provider entries in the providers list. Note: This is a helper for the list items, not a top-level variable, but included here for schema completeness if the engine supported recursive schemas. Since we use flat map for items: {issuer_uri: string, client_id: string, expiration: string}. The actual schema for the list items is implicit in the template usage of provider.issuer_uri, etc. However, per instructions, for a list-of-objects, add items as a FLAT map field-name -> {type, default, description}. So we define the fields of the objects inside the list here."
+  },
+  "providers_items.issuer_uri": {
+    "type": "string",
+    "default": "",
+    "description": "The Issuer URI of the OpenID Provider (e.g., https://accounts.google.com)."
+  },
+  "providers_items.client_id": {
+    "type": "string",
+    "default": "",
+    "description": "The Client-ID (audience claim) in the ID Token."
+  },
+  "providers_items.expiration": {
+    "type": "string",
+    "default": "24h",
+    "description": "Expiration policy for user's SSH public key. Options: 12h, 24h, 48h.",
+    "enum": [
+      "12h",
+      "24h"
+    ]
+  },
+  "policy_rules.principal": {
+    "type": "string",
+    "default": "",
+    "description": "The local system user account that can be logged into (e.g., root, alice)."
+  },
+  "policy_rules.identity_spec": {
+    "type": "string",
+    "default": "",
+    "description": "The identity specification to match. Can be an email (alice@example.com), a group (oidc:groups:ssh-users), or a custom claim (oidc:\"https://acme.com/groups\":ssh-users)."
+  },
+  "policy_rules.provider_issuer": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: The Issuer URI of the provider to restrict this rule to. If omitted, matches any defined provider."
+  }
+}

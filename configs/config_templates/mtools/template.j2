@@ -1,0 +1,38 @@
+# =============================================================================
+# mtools configuration template (mtools.conf)
+# =============================================================================
+# Self-documented Jinja2 template for mtools.
+# mtools is a set of programs that allow MS-DOS/Windows partitions and floppy
+# images to be accessed from Unix without mounting them.
+#
+# Each 'drive <letter>:' directive maps a virtual DOS drive letter to a
+# real device file or an image file on the host filesystem.
+# =============================================================================
+
+# --- Linux floppy drives -----------------------------------------------------
+# Drive A: typically the first floppy disk drive.
+# Specifies the block device file for the physical floppy drive 'a:'.
+# Default is '/dev/fd0' which is the standard first floppy device on Linux.
+drive a: file="{{ drive_a_file | default('/dev/fd0') }}" exclusive
+
+# Drive B: typically the second floppy disk drive.
+# Specifies the block device file for the physical floppy drive 'b:'.
+# Default is '/dev/fd1' which is the standard second floppy device on Linux.
+drive b: file="{{ drive_b_file | default('/dev/fd1') }}" exclusive
+
+# --- DOS Hard Disk Emulation (dosemu) ----------------------------------------
+# Drive M: emulates a hard disk using a dosemu hdimage file.
+# Specifies the path to the hard disk image file for drive 'm:'.
+# This is commonly used by dosemu to provide a persistent filesystem.
+# Default points to a first dosemu hard disk image.
+drive m: file="{{ drive_m_file | default('/var/lib/dosemu/hdimage.first') }}" partition=1 offset=128
+
+# Drive N: emulates a floppy disk using a dosemu fdimage file.
+# Specifies the path to the floppy image file for drive 'n:'.
+# Used by dosemu to provide a bootable or data floppy image.
+# Default points to a standard dosemu floppy image.
+drive n: file="{{ drive_n_file | default('/var/lib/dosemu/fdimage') }}"
+
+# =============================================================================
+# End of mtools configuration
+# =============================================================================

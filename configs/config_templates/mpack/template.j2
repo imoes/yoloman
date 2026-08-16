@@ -1,0 +1,66 @@
+# =============================================================================
+# mpack MIME encoding configuration
+#
+# This template configures the `mpack` utility for encoding files into MIME
+# format, optionally sending them via email or posting to Usenet newsgroups.
+# It handles attachments, splitting large messages, and temporary file management.
+# =============================================================================
+
+# [descriptionfile]
+# Path to a file containing introductory text to include at the beginning of
+# the first generated message. If empty, no intro file is used.
+description_file: '{{ (description_file | default("", true)) | default("") }}'
+
+# [maxsize]
+# Maximum size in characters for partial messages. 0 means no limit.
+# This setting overrides SPLITSIZE if it is set.
+max_size: {{ max_size | default(0, true) | default(0) }}
+
+# [content-type]
+# MIME type (subtype of application, audio, image, or video) for the attached file.
+# Leave empty for auto-detection based on file content/extension.
+content_type: '{{ (content_type | default("", true)) | default("") }}'
+
+# [subject]
+# Subject header for the MIME message.
+# Leave empty to prompt the user or let the command line handle it.
+subject: '{{ (subject | default("", true)) | default("") }}'
+
+# [attachment]
+# If true, sets Content-Disposition to attachment.
+# If false, sets it to inline (viewable in the browser/client).
+attachment: {{ attachment | default(false, true) | default(false) }}
+
+# [newsgroups]
+# Comma-separated list of newsgroups to post the message to.
+# Leave empty to send to recipients instead.
+newsgroups: '{{ (newsgroups | default("", true)) | default("") }}'
+
+# [output_file]
+# Path to write the generated MIME message.
+# If splitting is active, mpack appends .01, .02, etc. to this path.
+# Leave empty to mail to recipients or post to newsgroups.
+output_file: '{{ (output_file | default("", true)) | default("") }}'
+
+# [recipients]
+# List of email addresses to send the message to.
+# This is required if both output_file and newsgroups are not set.
+# Formatted as a space-separated list.
+recipients: {{ recipients | default([], true) | default([]) | join(' ') }}
+
+# [files]
+# List of file paths to encode in MIME format.
+# At least one file is required for a valid MIME message.
+# Each file is listed on a new line with an index.
+{% for file in (files | default([], true) | default([])) %}{{ loop.index }}. {{ file }}
+{% endfor %}
+
+# [tmpdir]
+# Directory to store temporary files during encoding.
+tmp_dir: '{{ (tmp_dir | default("/tmp", true)) | default("/tmp") }}'
+
+# [splitsize]
+# Value for the SPLITSIZE environment variable.
+# Used if max_size is not set (or lower).
+# If empty, mpack relies on max_size.
+splitsize: '{{ (splitsize | default("", true)) | default("") }}'

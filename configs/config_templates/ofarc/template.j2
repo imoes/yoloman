@@ -1,0 +1,95 @@
+# ============================================================================
+# ofarc Configuration Template
+# ============================================================================
+# This template configures the ofarc utility, a command-line tool for managing
+# archive files (similar to tar but with additional features).
+#
+# The generated configuration is read by the ofarc binary to determine
+# default behaviors and target files.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# action: High-level action descriptor. Maps to operation.
+# ----------------------------------------------------------------------------
+# Default: list
+action = {{ action | default('list') }}
+
+# ----------------------------------------------------------------------------
+# archive_path: Path to the local archive file.
+# ----------------------------------------------------------------------------
+# Default: /var/lib/ofarc/archive.tar.gz
+target_archive = {{ archive_path | default('/var/lib/ofarc/archive.tar.gz') }}
+
+# ----------------------------------------------------------------------------
+# operation: The primary operation: create (-c), list (-l), extract (-x),
+#            append (-a), or print (-p).
+# ----------------------------------------------------------------------------
+# Default: list
+operation = {{ operation | default('list') }}
+
+# ----------------------------------------------------------------------------
+# verbose: Enable verbose output (-v).
+# ----------------------------------------------------------------------------
+# Default: false
+verbose = {{ verbose | default(false) }}
+
+# ----------------------------------------------------------------------------
+# quiet: Enable quiet mode, no output except errors (-q).
+# ----------------------------------------------------------------------------
+# Default: false
+quiet = {{ quiet | default(false) }}
+
+# ----------------------------------------------------------------------------
+# force: Force overwrite of files (-f).
+# ----------------------------------------------------------------------------
+# Default: false
+force = {{ force | default(false) }}
+
+# ----------------------------------------------------------------------------
+# no_clobber: Never overwrite existing files (-n).
+# ----------------------------------------------------------------------------
+# Default: false
+no_clobber = {{ no_clobber | default(false) }}
+
+# ----------------------------------------------------------------------------
+# extraction_directory: Directory to extract files into (-C).
+# ----------------------------------------------------------------------------
+# Default: /tmp/ofarc_output
+extraction_directory = {{ extraction_directory | default('/tmp/ofarc_output') }}
+
+# ----------------------------------------------------------------------------
+# archive_type: Explicitly define archive type: gz, lha, tar, tgz, zip, or
+#               zoo (--type).
+# ----------------------------------------------------------------------------
+# Default: tgz
+type = {{ archive_type | default('tgz') }}
+
+# ----------------------------------------------------------------------------
+# encoding: Encoding used by the archive (--encoding).
+# ----------------------------------------------------------------------------
+# Default: utf-8
+encoding = {{ encoding | default('utf-8') }}
+
+# ----------------------------------------------------------------------------
+# archive_comment: Comment to store in the archive (--archive-comment).
+# ----------------------------------------------------------------------------
+# Default: Managed by ofarc
+archive_comment = {{ archive_comment | default('Managed by ofarc') }}
+
+# ----------------------------------------------------------------------------
+# use_iri: Use an IRI to access the archive (--iri).
+# ----------------------------------------------------------------------------
+# Default: false
+use_iri = {{ use_iri | default(false) }}
+
+# ----------------------------------------------------------------------------
+# files: List of files/directories to operate on. For extraction/listing,
+#        this can specify specific members. For creation/appending, these
+#        are the source files.
+# ----------------------------------------------------------------------------
+# Default: []
+{% if files is defined and files | length > 0 %}
+files = {{ files | join('\nfiles = ') }}
+{% else %}
+files =
+{% endif %}

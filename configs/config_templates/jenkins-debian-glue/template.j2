@@ -1,0 +1,138 @@
+# ============================================================================
+# jenkins-debian-glue Configuration Template
+# Install this file as /etc/jenkins/debian_glue to enable it.
+# This file documents every configurable option with its schema description
+# and provides safe defaults for all variables.
+# ============================================================================
+
+# GnuPG ID used for signing the reprepro repository (e.g. DEADBEEF).
+# If you build packages for Squeeze your reprepro repositories *MUST* be
+# signed and the keyring that holds the public key (REPOSITORY_KEYRING)
+# must be set.
+# Expected format: DEADBEEF
+KEY_ID={{ KEY_ID | default('') }}
+
+# Repository name to copy built packages to, creating a central trunk repository.
+# If TRUNK_RELEASE is set then the package(s) of the repository
+# receiving the packages that are built will be copied to the
+# repository specified in TRUNK_RELEASE. This provides the option
+# to have all recent versions of packages in a central repository.
+TRUNK_RELEASE='{{ TRUNK_RELEASE | default('') }}'
+
+# Architecture on which to build 'Architecture: all' packages. Defaults to host architecture if unset.
+# If packages are build for more than one architecture you can
+# decide which architecture should build the "Architecture: all"
+# packages. On all other architectures only the arch specific
+# packages will be build then.
+# If unset it will default to the architecture of the host system.
+MAIN_ARCHITECTURE="{{ MAIN_ARCHITECTURE | default('') }}"
+
+# Directory containing hook scripts for pbuilder/cowbuilder.
+# Hook scripts for pbuilder/cowbuilder, used e.g. for autopkgtest.
+# Default: /usr/share/jenkins-debian-glue/pbuilder-hookdir/
+PBUILDER_HOOKDIR={{ PBUILDER_HOOKDIR | default('/usr/share/jenkins-debian-glue/pbuilder-hookdir/') }}
+
+# Path to a user-specific pbuilder configuration file.
+# To enable a pbuilder configuration file for usage as documented
+# in man pbuilder(8) under --configfile set this option.
+# By default no user specific pbuilder configuration file is used.
+PBUILDER_CONFIG={{ PBUILDER_CONFIG | default('') }}
+
+# Base directory for reprepro repositories.
+# Base directory for reprepro repositories, can be overwritten
+# via REPOSITORY on demand
+# Default: /srv/repository
+DEFAULT_REPOSITORY='{{ DEFAULT_REPOSITORY | default('/srv/repository') }}'
+
+# If true, preserve the version number from the changelog without padding.
+# In order to keep the build versions unique and to ensure that there
+# are no duplicates, the version number from the changelog is padded
+# with the date and the build number.
+# To override this behaviour and preserve the version number from the
+# changelog, set USE_ORIG_VERSION to true.
+USE_ORIG_VERSION={{ USE_ORIG_VERSION | default(false) | lower }}
+
+# Path to the keyring file holding the public key for signing repositories.
+# By default reprepro repositories are not verified but assumed to be
+# trustworthy.
+# Please note that if you build packages for Squeeze, the reprepro
+# repositories *MUST* be signed and verifiable. I.e. you need to set
+# KEY_ID and the corresponding keyring in REPOSITORY_KEYRING that
+# holds the public key portion for that KEY_ID.
+REPOSITORY_KEYRING={{ REPOSITORY_KEYRING | default('') }}
+
+# If true, remove packages from a release repository before processing incoming.
+# If $release is set then "${REPOSITORY}/release/${release}"
+# is used as release repository. If you want to use a different
+# directory set RELEASE_REPOSITORY accordingly.
+# Default:
+RELEASE_REPOSITORY="${REPOSITORY}/release/${release}"
+
+# If true, remove packages from a release repository before processing incoming.
+# This allows to rebuild and provide versions already existent
+# in the release repository they are built for.
+# Default: false
+REMOVE_FROM_RELEASE={{ REMOVE_FROM_RELEASE | default(false) | lower }}
+
+# If true, keep a copy of the build environment on failure.
+# By default the underlying build system (cowbuilder/pbuilder)
+# automatically destroys the build environment, even if building
+# fails for whatever reason. If DEB_KEEP_BUILD_ENV is set then
+# a copy of the build environment is created under
+# /var/cache/pbuilder/build/debug.$JOBNAME
+# Please be aware that those build environments usually require
+# quite some disk space, so do not forget to remove them.
+# If unset the build environment won't be kept if building fails.
+DEB_KEEP_BUILD_ENV={{ DEB_KEEP_BUILD_ENV | default(false) | lower }}
+
+# Comma-separated list of extra repositories for resolving dependencies.
+# Comma separated list of extra repositories for resolving dependencies.
+# Usage example:
+# REPOSITORY_EXTRA='deb http://security.debian.org/ wheezy/updates main,deb-src http://security.debian.org/ wheezy/updates main'
+# Default:
+REPOSITORY_EXTRA={{ REPOSITORY_EXTRA | default('') }}
+
+# Comma-separated list of URLs with keys for extra repositories.
+# Comma separated list of URLs with keys for extra repositories.
+# Usage example:
+# REPOSITORY_EXTRA_KEYS='http://foorepo.domain.com/key1.gpg,http://barrepo.domain.com/key2.gpg'
+# Default:
+REPOSITORY_EXTRA_KEYS={{ REPOSITORY_EXTRA_KEYS | default('') }}
+
+# Control autopkgtest execution: internal, external, all, or skip.
+# autopkgtests are executed automatically inside the cowbuilder environment by
+# default, corresponding to the ADT='internal' setting or if ADT is unset.
+# To execute autopkgtests also externally you need to set ADT to
+# either 'external' (no internal runs) or 'all' (internal + external runs).
+# The external autopkgtests depend on a configured ADT_RUNNER setting.
+# To skip internal as well as external autopkgtests set ADT='skip'.
+# Usage example (see adt-virt-qemu(1) for details regarding image setup):
+ADT='{{ ADT | default('internal') }}'
+# ADT_RUNNER="adt-virt-qemu /srv/adt-${distribution:-}-${architecture:-}.img"
+
+# Control usage of eatmydata to speed up builds (true/false or auto).
+# Control usage of eatmydata to speed up builds. If eatmydata is present on the
+# host system and when building for a recent distribution (Debian/jessie +
+# Ubuntu/vivid or newer) eatmydata is enabled automatically.
+# To force its usage (skipping any host + distribution checks) set it to 'true'.
+# To disable its usage set it to 'false'.
+USE_EATMYDATA={{ USE_EATMYDATA | default(false) | lower }}
+
+# Enable ccache for fast recompilation of C/C++ code.
+# Enable ccache (compiler cache for fast recompilation of C/C++ code)
+# to speed up builds.
+USE_CCACHE={{ USE_CCACHE | default(false) | lower }}
+
+# Format string for the generated build timestamp.
+# Specify the format (as accepted by the 'date' command) for the generated
+# build timestamp.
+# Default: %Y%m%d%H%M%S
+TIMESTAMP_FORMAT="{{ TIMESTAMP_FORMAT | default('%Y%m%d%H%M%S') }}"
+
+# If true, append SCM commit to version number even if marked UNRELEASED.
+# In case you are explicitly marking your new package version as "UNRELEASED"
+# inside the debian/changelog file, you may not get a package build version
+# number containing the SCM commit. Set this to 'true' in order to work around
+# this.
+# Default: false
+UNRELEASED_APPEND_COMMIT={{ UNRELEASED_APPEND_COMMIT | default(false) | lower }}

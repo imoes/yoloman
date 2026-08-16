@@ -1,0 +1,122 @@
+# tsctp command-line configuration generator
+# This template produces the command-line arguments for the tsctp SCTP test/traffic tool.
+# It supports both server mode (listening on local addresses) and client mode
+# (connecting to a remote address). All variables from the Ansible role variables
+# are used with sensible defaults derived from the schema.
+
+# === Connection Mode ===
+# If `remote_address` is provided (non-empty), tsctp runs in CLIENT mode, connecting
+# to that address. Otherwise, it runs in SERVER mode, listening on `local_addresses`.
+
+# === Bind Local Address(es) ===
+# List of local addresses to bind/listen on. Use 0.0.0.0 for IPv4 and :: for IPv6.
+# Supports multiple -L flags for dual-stack listening.
+{% for addr in local_addresses | default(['0.0.0.0', '::']) %}
+-L {{ addr | quote }}
+{% endfor %}
+
+# === Port Number ===
+# Port number for the SCTP socket. Used for listening (server mode) or connecting (client mode).
+-p {{ port | default(1234) }}
+
+# === Remote Address (Client Mode Only) ===
+# Remote address to connect to. If empty, the tool runs in server mode and this
+# argument is omitted.
+{% if remote_address | default('') %}
+{{ remote_address | quote }}
+{% endif %}
+
+# === Message Count ===
+# Number of messages to send. 0 means infinite (run until stopped).
+# Only relevant in client mode.
+{% if remote_address | default('') %}
+-n {{ number_of_messages | default(0) }}
+{% endif %}
+
+# === Buffer Size ===
+# Size of send/receive buffer (message size) in bytes.
+-l {{ buffer_size | default(1000) }}
+
+# === Socket Send Buffer Size ===
+# Socket send buffer size. 0 uses the system default.
+{% if sndbufsize | default(0) %}
+-S {{ sndbufsize | default(0) }}
+{% endif %}
+
+# === Socket Receive Buffer Size ===
+# Socket receive buffer size. 0 uses the system default.
+{% if rcvbufsize | default(0) %}
+-R {{ rcvbufsize | default(0) }}
+{% endif %}
+
+# === Time To Live ===
+# Time to live for messages.
+{% if timetolive | default(0) %}
+-t {{ timetolive | default(0) }}
+{% endif %}
+
+# === Runtime Limit ===
+# Runtime limit in seconds. 0 means no limit.
+{% if runtime | default(0) %}
+-T {{ runtime | default(0) }}
+{% endif %}
+
+# === Adaptation Indication ===
+# Adaptation layer indication value.
+{% if adaptation_indication | default('0') | int != 0 %}
+-a {{ adaptation_indication | default('0') }}
+{% endif %}
+
+# === Authentication Chunk Type ===
+# Chunk type to authenticate.
+{% if auth_chunk_type | default('DATA') %}
+-A {{ auth_chunk_type | default('DATA') }}
+{% endif %}
+
+# === Fragmentation Point ===
+# Fragmentation point.
+{% if fragmentation_point | default(0) %}
+-f {{ fragmentation_point | default(0) }}
+{% endif %}
+
+# === UDP Encapsulation ===
+# Port for UDP encapsulation. 0 disables UDP encapsulation.
+{% if udp_port | default(0) %}
+-U {{ udp_port | default(0) }}
+{% endif %}
+
+# === Disable Nagle Algorithm ===
+# Turns Nagle algorithm off.
+{% if disable_nagle | default(False) | bool %}
+-D
+{% endif %}
+
+# === Unordered Messages ===
+# Set use of unordered messages.
+{% if unordered | default(False) | bool %}
+-u
+{% endif %}
+
+# === Verbose Output ===
+# Enable verbose output.
+{% if verbose | default(False) | bool %}
+-v
+{% endif %}
+
+# === Very Verbose Output ===
+# Enable very verbose output.
+{% if very_verbose | default(False) | bool %}
+-V
+{% endif %}
+
+# === IPv4 Only ===
+# Use IPv4 only.
+{% if ipv4_only | default(False) | bool %}
+-4
+{% endif %}
+
+# === IPv6 Only ===
+# Use IPv6 only.
+{% if ipv6_only | default(False) | bool %}
+-6
+{% endif %}

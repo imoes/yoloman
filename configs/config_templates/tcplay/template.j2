@@ -1,0 +1,65 @@
+# tcplay configuration template
+# This template generates a configuration file for tcplay, a TrueCrypt volume manager.
+# It manages dm-crypt mappings for encrypted volumes using passphrases and keyfiles.
+
+# Specifies the disk device on which the TrueCrypt volume resides.
+# Default: /dev/sda
+device: {{ device | default('/dev/sda') }}
+
+# Specifies the logical name for the dm-crypt mapping.
+# Default: truecrypt1
+mapping: {{ mapping | default('truecrypt1') }}
+
+# List of paths to keyfiles used in addition to the passphrase for the outer volume.
+# If empty, no keyfiles are configured.
+# Example:
+#   keyfiles:
+#     - /path/to/keyfile1
+#     - /path/to/keyfile2
+keyfiles: {{ keyfiles | default([]) | tojson }}
+
+# List of paths to keyfiles used for the hidden volume.
+# If empty, no keyfiles are configured for the hidden volume.
+hidden_keyfiles: {{ hidden_keyfiles | default([]) | tojson }}
+
+# Specifies the cipher algorithm or cascade of ciphers to use for the outer volume.
+# Common values: AES-256-XTS, Serpent-256-XTS, Twofish-256-XTS
+# Default: AES-256-XTS
+cipher: {{ cipher | default('AES-256-XTS') }}
+
+# Specifies the cipher algorithm for the hidden volume.
+# If omitted, the outer volume cipher (cipher) is used.
+# Default: None (uses outer cipher)
+hidden_cipher: {{ hidden_cipher | default(none) }}
+
+# Specifies the hash algorithm for the PBKDF2 password derivation for the outer volume.
+# Common values: whirlpool-VC, whirlpool, sha512
+# Default: whirlpool-VC
+pbkdf_prf: {{ pbkdf_prf | default('whirlpool-VC') }}
+
+# Specifies the hash algorithm for the PBKDF2 password derivation for the hidden volume.
+# If omitted, the outer volume PBKDF PRF (pbkdf_prf) is used.
+# Default: None (uses outer PBKDF PRF)
+hidden_pbkdf_prf: {{ hidden_pbkdf_prf | default(none) }}
+
+# Enables TRIM (discard) support on the mapped volume.
+# Useful for SSDs to maintain performance over time.
+# Default: false
+allow_trim: {{ allow_trim | default(false) }}
+
+# Specifies that an outer volume will be mapped, but its reported size will be adjusted
+# to protect the hidden volume from being overwritten by writes to the outer volume.
+# This is essential for dual-layer hidden volume setups.
+# Default: false
+protect_hidden: {{ protect_hidden | default(false) }}
+
+# Forces tcplay to use backup headers located at the end of the device.
+# Use this if the primary volume headers are corrupted or missing.
+# Default: false
+use_backup: {{ use_backup | default(false) }}
+
+# Required if accessing a device using system encryption; points to the parent physical device.
+# This is used for system-level encryption scenarios where the encrypted volume
+# sits on top of a physical disk managed by the OS.
+# Default: None
+system_device: {{ system_device | default(none) }}

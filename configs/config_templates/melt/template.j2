@@ -1,0 +1,134 @@
+# ==============================================================================
+# Melt (MLT Framework) Command Configuration Template
+# ==============================================================================
+# This template generates a command-line execution string for the 'melt' media
+# compositor (part of the MLT Framework). It translates structured Ansible
+# variables into the specific CLI flags expected by melt.
+#
+# Self-Documentation:
+# Every variable reference below uses Jinja2's `default()` filter to ensure that
+# if the variable is undefined in the Ansible playbook, the template renders
+# safely using the schema's specified default value. This prevents render errors
+# and ensures predictable behavior.
+# ==============================================================================
+
+melt
+
+{# Logging Level #}
+{# Sets the verbosity of melt's output. Overrides 'quiet' unless 'quiet' is true. #}
+{% if (log_level | default('quiet')) != 'quiet' %}
+--loglevel {{ log_level | default('quiet') }}
+{% endif %}
+
+{# Quiet Mode #}
+{# If true, sets logging to quiet, overriding log_level. #}
+{% if quiet | default(True) %}
+--quiet
+{% endif %}
+
+{# Silent Mode #}
+{# Hides position and transport information from the output. #}
+{% if silent | default(False) %}
+--silent
+{% endif %}
+
+{# Progress Display #}
+{# Displays progress information alongside position updates. #}
+{% if progress | default(False) %}
+--progress
+{% endif %}
+
+{# JACK Transport #}
+{# Enables synchronization with JACK Audio Connection Kit. #}
+{% if jack | default(False) %}
+--jack
+{% endif %}
+
+{# Serialization #}
+{# Writes the generated command sequence to a text file for later re-execution. #}
+{% if serialise | default(False) %}
+--serialise {{ serialise_filename | default('melt_commands.txt') }}
+{% endif %}
+
+{# Repository Path #}
+{# Specifies a custom directory for MLT modules. Empty string disables custom repo. #}
+{% if (repository | default('')) != '' %}
+--repository {{ repository | default('') }}
+{% endif %}
+
+{# Global Consumer (Output Sink) #}
+{# Defines how/where the final output is rendered (e.g., sdl, avformat). #}
+{# Iterates over the 'consumers' list. #}
+{% for consumer in consumers | default([]) %}
+--consumer {{ consumer.id | default('default') }}{% if consumer.args %} {{ consumer.args }}{% endif %}
+{% endfor %}
+
+{# Global Profile Settings #}
+{# Sets the processing profile (e.g., default, hdtv, etc.). #}
+{% if (profile | default('default')) != 'default' %}
+--profile {{ profile | default('default') }}
+{% endif %}
+
+{# Tracks and Content #}
+{# Defines the composition tracks (video/audio layers). #}
+{% for track in tracks | default([{}]) %}
+# Track {{ loop.index }}
+--track
+{% if track.audio_only | default(False) %}-audio-track{% endif %}
+{% if track.video_only | default(False) %}-video-track{% endif %}
+{% if track.hidden | default(False) %}-hide-track{% endif %}
+
+{# Clips/Chains for this track #}
+{# A clip is a producer chain (video/audio source). #}
+{% if track.clips | default([]) %}
+{% for clip in track.clips %}
+# Clip: {{ clip.id | default('default') }}
+--chain {{ clip.id | default('default') }}{% if clip.args %} {{ clip.args }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Filters for this track #}
+{# Applies visual/audio effects to the track. #}
+{% if track.filters | default([]) %}
+{% for filter in track.filters %}
+--filter {{ filter.id | default('none') }}{% if filter.args %} {{ filter.args }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Cuts/Joins for this track #}
+{# Combines clips or chains in the track. #}
+{% if track.cuts | default([]) %}
+{% for cut in track.cuts %}
+# Cut {{ loop.index }}
+--join {{ cut.id | default('default') }}{% if cut.args %} {{ cut.args }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Mixes/Transitions for this track #}
+{# Transitions between cuts in the track. #}
+{% if track.mixes | default([]) %}
+{% for mix in track.mixes %}
+# Mix {{ loop.index }}
+--mix {{ mix.length | default(0) }}{% if mix.mixer %} --mixer {{ mix.mixer }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+{# Global Filters #}
+{# Filters applied to the entire composition output. #}
+{% for filter in global_filters | default([]) %}
+--filter {{ filter.id | default('none') }}{% if filter.args %} {{ filter.args }}{% endif %}
+{% endfor %}
+
+{# Global Transitions #}
+{# Transitions applied globally between compositions or major sections. #}
+{% for transition in global_transitions | default([]) %}
+--transition {{ transition.id | default('none') }}{% if transition.args %} {{ transition.args }}{% endif %}
+{% endfor %}
+
+{# Global Attachments #}
+{# Files (images, fonts, etc.) attached to the output composition. #}
+{% for attach in global_attachments | default([]) %}
+--attach {{ attach.id | default('none') }}{% if attach.args %} {{ attach.args }}{% endif %}
+{% endfor %}

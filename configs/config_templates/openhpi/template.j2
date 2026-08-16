@@ -1,0 +1,18 @@
+# OpenHPI Client Configuration File
+# Specifies the HPI domains and addresses of daemons serving the domains.
+# See openhpi(7) for details on OPENHPICLIENT_CONF.
+
+# List of HPI domain configurations. Each entry defines a domain name,
+# the host URL/IP of the OpenHPI daemon, and the port number.
+{% for domain in (domains | default([{'name': 'default', 'host': 'localhost', 'port': 4743}])) %}
+# Domain: {{ domain.name | default('default') }}
+[{{ domain.name | default('default') | string }}]
+# The host URL/IP of the OpenHPI daemon.
+host={{ domain.host | default('localhost') }}
+# The port number of the OpenHPI daemon.
+port={{ domain.port | default(4743) }}
+
+{% endfor %}
+
+# Global configuration value.
+value={{ value | default('sysfs') }}

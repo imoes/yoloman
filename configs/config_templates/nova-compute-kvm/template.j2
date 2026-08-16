@@ -1,0 +1,23 @@
+# Nova Compute (KVM) configuration template.
+# This file configures the nova-compute service for KVM/libvirt virtualization.
+# Variables are drawn from the schema defaults to ensure idempotent, safe rendering.
+
+[DEFAULT]
+# The compute driver to use for KVM instances.
+compute_driver = {{ compute_driver | default('libvirt.LibvirtDriver') }}
+
+# The name of the Open vSwitch bridge used for Neutron networking.
+neutron_ovs_bridge = {{ neutron_ovs_bridge | default('br-int') }}
+
+[libvirt]
+# The type of virtualization to use (e.g., kvm, qemu).
+virt_type = {{ virt_type | default('kvm') }}
+
+# The VIF (Virtual Interface) driver to use for connecting instances to the network.
+vif_driver = {{ vif_driver | default('nova.virt.libvirt.vif.LibvirtGenericVIFDriver') }}
+
+# Whether to use virtio model for network bridges.
+use_virtio_for_bridges = {{ use_virtio_for_bridges | default(True) }}
+
+# This may be needed for CPU passthrough performance tuning.
+# cpu_mode = host-passthrough

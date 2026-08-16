@@ -1,0 +1,28 @@
+# sleepenh configuration file
+# This template configures the `sleepenh` daemon/behavior, enabling precise sleep intervals
+# to reduce system load in tight loops.
+
+# Enable warp mode for sleepenh to adjust resulting timestamps
+# When enabled, `sleepenh` adjusts the wake-up time based on the actual time taken
+# by the task, compensating for execution overhead to maintain strict periodicity.
+# Values: true, false
+WARP: {{ (warp | default(false)) | ternary('true', 'false') }}
+
+# Default time interval in seconds to sleep if not specified in individual tasks
+# This serves as the fallback `interval` value for tasks defined in the `tasks` list
+# that do not explicitly define their own interval.
+DEFAULT_INTERVAL: {{ (default_interval | default(1.0)) | float }}
+
+# List of periodic tasks to execute with sleepenh timing control
+# Each task object should contain at least a 'command'.
+# Optional fields include 'interval' (seconds) to override DEFAULT_INTERVAL.
+{% for task in (tasks | default([])) %}
+TASK_{{ loop.index0 }}:
+  # Command to execute for this task
+  # This is the shell command or script that will run periodically.
+  command: {{ (task.command | default('echo noop')) | string }}
+  
+  # Interval in seconds for this specific task
+  # Overrides the global DEFAULT_INTERVAL if specified.
+  interval: {{ (task.interval | default(default_interval)) | float }}
+{% endfor %}

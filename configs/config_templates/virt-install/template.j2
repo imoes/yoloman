@@ -1,0 +1,106 @@
+{# ============================================================================== #}
+{# virt-install Command Generator                                                      #}
+{# Self-documented Jinja2 template for Ansible roles.                                #}
+{# Generates a complete 'virt-install' command line based on provided schema fields.   #}
+{# ============================================================================== #}
+
+{# ------------------------------------------------------------------------------ #}
+{# Global Connection: Libvirt Hypervisor URI                                       #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: URI for connecting to the hypervisor (e.g., qemu:///system)        #}
+virt-install \
+  --connect {{ libvirt_uri | default('qemu:///system') }} \
+{# ------------------------------------------------------------------------------ #}
+{# Target VM Identity                                                              #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Name of the new guest virtual machine instance                     #}
+  --name {{ vm_name | default('test-vm') }} \
+{# ------------------------------------------------------------------------------ #}
+{# Memory Allocation                                                               #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Memory to allocate for the guest, in MiB                           #}
+  --memory {{ vm_memory | default(512) }} \
+{# ------------------------------------------------------------------------------ #}
+{# CPU Configuration                                                               #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Number of virtual cpus to configure for the guest                  #}
+{# Note: Conditionally included if defined, as 1 vCPU is often the default.        #}
+  {% if vm_vcpus is defined %}
+  --vcpus {{ vm_vcpus | default(1) }} \
+  {% endif %}
+{# ------------------------------------------------------------------------------ #}
+{# OS Detection                                                                    #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: OS short-id from libosinfo (e.g., fedora32, win10, debian11)       #}
+  --osinfo {{ os_info | default('generic') }} \
+{# ------------------------------------------------------------------------------ #}
+{# Installation Source                                                             #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Determines how the VM is installed. Supports 'location', 'cdrom',  #}
+{#              or 'import' (existing disk image).                                 #}
+{# Note: Uses individual schema variables (install_source, install_source_url,     #}
+{#       install_source_path) for clarity and default handling.                    #}
+  {% if install_source is defined and install_source %}
+  {% set src_type = install_source | default('location') %}
+  {% if src_type == 'location' %}
+  --location {{ install_source_url | default('https://debian.osuosl.org/debian/dists/stable/main/installer-amd64/') }}
+  {% elif src_type == 'cdrom' %}
+  --cdrom {{ install_source_path | default('') }}
+  {% elif src_type == 'import' %}
+  --import
+  {% endif %}
+  {% endif %} \
+{# ------------------------------------------------------------------------------ #}
+{# Disk Configuration                                                              #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: List of disk configuration objects for --disk option.              #}
+{#              If empty, virt-install defaults will be used or a default disk     #}
+{#              created if size is specified.                                      #}
+{# Iterate over the list of disk objects.                                          #}
+  {% for disk in disks | default([]) %}
+  --disk {{ disk.args | default('') }} \
+  {% endfor %}
+{# Alternative: Full argument string for disks                                     #}
+{# Description: The full argument string to pass to --disk.                        #}
+{#              Example: 'size=10' or '/path/to/image.img,bus=virtio'              #}
+{# Note: This is provided as a separate variable for convenience if the user       #}
+{#       prefers a single string over a list of objects.                           #}
+  {% if disks_items is defined and disks_items %}
+  --disk {{ disks_items | default('') }} \
+  {% endif %}
+{# ------------------------------------------------------------------------------ #}
+{# Network Configuration                                                           #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: List of network configuration objects for --network option.        #}
+{#              If empty, default network is used.                                 #}
+{# Iterate over the list of network objects.                                       #}
+  {% for net in networks | default([]) %}
+  --network {{ net.args | default('') }} \
+  {% endfor %}
+{# Alternative: Full argument string for networks                                  #}
+{# Description: The full argument string to pass to --network.                     #}
+{#              Example: 'bridge=virbr0' or 'network=default'                      #}
+{# Note: This is provided as a separate variable for convenience if the user       #}
+{#       prefers a single string over a list of objects.                           #}
+  {% if networks_items is defined and networks_items %}
+  --network {{ networks_items | default('') }} \
+  {% endif %}
+{# ------------------------------------------------------------------------------ #}
+{# Graphics/Console Configuration                                                  #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Graphics type: vnc, spice, or none                                 #}
+{# Note: If graphics are enabled, listen address and port are also specified.      #}
+  {% if graphics_type is defined and graphics_type != 'none' %}
+  --graphics {{ graphics_type | default('none') }},listen={{ graphics_listen | default('127.0.0.1') }},port={{ graphics_port | default(-1) }} \
+  {% else %}
+  --graphics none \
+  {% endif %}
+{# ------------------------------------------------------------------------------ #}
+{# Console Mode                                                                    #}
+{# ------------------------------------------------------------------------------ #}
+{# Description: Console mode: graphical, text, or none                             #}
+  {% if autoconsole is defined and autoconsole %}
+  --autoconsole {{ autoconsole | default('graphical') }} \
+  {% endif %}
+
+{# End of virt-install command generation                                          #}

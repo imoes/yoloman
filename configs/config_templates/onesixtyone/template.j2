@@ -1,0 +1,80 @@
+# =============================================================================
+# onesixtyone Configuration Template
+# =============================================================================
+# This template configures the onesixtyone SNMP scanner.
+# onesixtyone is a tool for rapid SNMP scanning using known community strings.
+# It reads community names and target hosts from separate files and writes
+# scan results to a log file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Community File Configuration
+# -----------------------------------------------------------------------------
+# Path to the file with community names to try.
+# This file should contain one community string per line.
+# Example: public, private, secret
+# -----------------------------------------------------------------------------
+community_file: {{ community_file | default('/etc/onesixtyone/community') }}
+
+# -----------------------------------------------------------------------------
+# Host File Configuration
+# -----------------------------------------------------------------------------
+# Path to the file with target hosts to scan.
+# This file should contain one hostname or IP address per line.
+# DNS resolution is performed for each entry.
+# -----------------------------------------------------------------------------
+host_file: {{ host_file | default('/etc/onesixtyone/hosts') }}
+
+# -----------------------------------------------------------------------------
+# Output File Configuration
+# -----------------------------------------------------------------------------
+# Output log file for scan results.
+# The scanner will append results to this file.
+# Ensure the directory exists and is writable by the user running the scan.
+# -----------------------------------------------------------------------------
+output_file: {{ output_file | default('/var/log/onesixtyone/scan.log') }}
+
+# -----------------------------------------------------------------------------
+# Port Configuration
+# -----------------------------------------------------------------------------
+# Specify an alternate destination SNMP port.
+# SNMP typically runs on UDP port 161.
+# Use this if targets are listening on a non-standard port.
+# -----------------------------------------------------------------------------
+port: {{ port | default(161) }}
+
+# -----------------------------------------------------------------------------
+# Wait Time Configuration
+# -----------------------------------------------------------------------------
+# Wait n milliseconds (1/1000 of a second) between sending packets.
+# This controls the pacing of SNMP queries to avoid overwhelming targets
+# or the network. Higher values are safer for large scans.
+# -----------------------------------------------------------------------------
+wait_time: {{ wait_time | default(10) }}
+
+# -----------------------------------------------------------------------------
+# Debug Mode
+# -----------------------------------------------------------------------------
+# Enable debug mode.
+# When true, the tool may emit additional diagnostic information to stderr.
+# Useful for troubleshooting connection or parsing issues.
+# -----------------------------------------------------------------------------
+debug: {{ debug | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Short Mode
+# -----------------------------------------------------------------------------
+# Enable short mode, only print IP addresses.
+# When true, the output is reduced to just the IP of reachable hosts,
+# suppressing community string and SNMP response details.
+# -----------------------------------------------------------------------------
+short_mode: {{ short_mode | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Quiet Mode
+# -----------------------------------------------------------------------------
+# Enable quiet mode, do not print log to stdout, use with -o.
+# When true, progress and result messages are suppressed from the terminal.
+# Results are only written to the output_file.
+# -----------------------------------------------------------------------------
+quiet: {{ quiet | default(false) }}

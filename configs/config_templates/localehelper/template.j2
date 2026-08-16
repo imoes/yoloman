@@ -1,0 +1,39 @@
+# localehelper Environment Configuration
+# This file sets the system-wide default locale and specific category overrides.
+# It is sourced by the shell or included by session managers.
+
+# Primary language-independent locale to set
+# Uses 'en_US.UTF-8' if not specified in the role variables.
+LANG={{ lang_default | default('en_US.UTF-8') }}
+
+# Locale for string collation and regular expression matching.
+# Empty string leaves it unset or inherits system default.
+LC_COLLATE={{ lc_collate | default('') }}
+
+# Locale for character classification, conversion, and wide character functions.
+# Empty string leaves it unset or inherits system default.
+LC_CTYPE={{ lc_ctype | default('') }}
+
+# Locale for natural-language messages.
+# Empty string leaves it unset or inherits system default.
+LC_MESSAGES={{ lc_messages | default('') }}
+
+# Locale for monetary formatting.
+# Empty string leaves it unset or inherits system default.
+LC_MONETARY={{ lc_monetary | default('') }}
+
+# Locale for number formatting.
+# Empty string leaves it unset or inherits system default.
+LC_NUMERIC={{ lc_numeric | default('') }}
+
+# Locale for time and date formatting.
+# Empty string leaves it unset or inherits system default.
+LC_TIME={{ lc_time | default('') }}
+
+# List of additional locales to ensure are generated/available.
+# These locales are made available via the localehelper utility even if not used by env vars.
+# Uses the -x option syntax internally.
+# If empty, this line is omitted or empty.
+{% if required_locales | default([]) | length > 0 %}
+REQUIRED_LOCALES={{ required_locales | default([]) | join(',') }}
+{% endif %}

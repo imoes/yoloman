@@ -1,0 +1,21 @@
+# RPKI Trust Anchor Configuration
+# This file defines the location and content of a Route Origin Authorization (ROA)
+# trust anchor certificate used by RPKI validators (e.g., Routinator, Fortify).
+
+# The human-readable name of this trust anchor (e.g., afrinic, ripencc, arin).
+# Used to construct repository URLs.
+rpki_trust_anchor_name: {{ trust_anchor_name | default('afrinic') }}
+
+# Repository URL (HTTPS) for downloading the Trust Anchor certificate.
+# Constructed from the trust anchor name.
+repository_https: https://rpki.{{ trust_anchor_name | default('afrinic') }}.net/repository/{{ trust_anchor_name | default('afrinic') }}.cer
+
+# Repository URL (RSYNC) for downloading the Trust Anchor certificate.
+# Constructed from the trust anchor name.
+repository_rsync: rsync://rpki.{{ trust_anchor_name | default('afrinic') }}.net/repository/{{ trust_anchor_name | default('afrinic') }}.cer
+
+# The base64-encoded content of the RPKI Trust Anchor X.509 certificate.
+# This is the actual root of trust for the RPKI hierarchy.
+# Usually provided as a PEM-encoded certificate block.
+trust_anchor_certificate: |
+{{ trust_anchor_certificate | default('MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxsAqAhWIO+ON2Ef9oRDM\npKxv+AfmSLIdLWJtjrvUyDxJPBjgR+kVrOHUeTaujygFUp49tuN5H2C1rUuQavTH\nvve6xNF5fU3OkTcqEzMOZy+ctkbde2SRMVdvbO22+TH9gNhKDc9l7Vu01qU4LeJH\nk3X0f5uu5346YrGAOSv6AaYBXVgXxa0s9ZvgqFpim50pReQe/WI3QwFKNgpPzfQL\n6Y7fDPYdYaVOXPXSKtx7P4s4KLA/ZWmRL/bobw/i2fFviAGhDrjqqqum+/9w1hEl\nL/vqihVnV18saKTnLvkItA/Bf5i11Yhw2K7qv573YWxyuqCknO/iYLTR1DToBZcZ\nUQIDAQAB') | indent(1) | trim }}

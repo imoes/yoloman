@@ -1,0 +1,97 @@
+# OsmoHLR Configuration Template
+# ================================
+# This template generates the configuration file for the OpenBSC/OSMocom HLR (Home Location Register).
+# It manages logging levels, network binding addresses for various interfaces (VTY, Control, GSUP),
+# and PDP profile APNs for subscriber data.
+
+# Global logging settings
+# -----------------------
+# These are static OSMocom defaults. They control the format and destination of log output.
+log stderr
+logging filter all 1
+logging color 1
+logging print category-hex 0
+logging print category 1
+logging timestamp 0
+logging print file basename last
+logging print level 1
+
+# Logging Levels
+# --------------
+# Set the minimum severity for log messages in specific subsystems.
+# Allowed levels: debug, notice, error, warning, etc. (OSMocom specific).
+
+# Logging level for the main component
+# This is the general logging level for the HLR daemon logic.
+# Schema field: log_level_main
+logging level main {{ log_level_main | default('notice') }}
+
+# Logging level for the database component
+# Controls verbosity of database interactions (e.g., subscriber lookups).
+# Schema field: log_level_db
+logging level db {{ log_level_db | default('notice') }}
+
+# Logging level for the AUC (Authentication Center) component
+# Controls verbosity of authentication algorithm execution (MiMe, Milenage, etc.).
+# Schema field: log_level_auc
+logging level auc {{ log_level_auc | default('notice') }}
+
+# Logging level for the SS (Supplementary Services) component
+# Controls verbosity for services like call forwarding, Barring, etc.
+# Schema field: log_level_ss
+logging level ss {{ log_level_ss | default('notice') }}
+
+# Logging level for the LINP (Location Information Notification Protocol) component
+# Controls verbosity for location updates and notifications.
+# Schema field: log_level_linp
+logging level linp {{ log_level_linp | default('error') }}
+
+# Interface Bindings
+# ------------------
+# Define which IP addresses the HLR listens on for management and signaling.
+
+# Line VTY (Virtual Terminal) Interface
+# Bind the VTY interface to a specific IP for CLI management access.
+# Default 127.0.0.1 restricts access to localhost.
+# Schema field: bind_vty_ip
+line vty
+ bind {{ bind_vty_ip | default('127.0.0.1') }}
+
+# Control Interface
+# Bind the control interface to a specific IP for internal process communication.
+# Schema field: bind_ctrl_ip
+ctrl
+ bind {{ bind_ctrl_ip | default('127.0.0.1') }}
+
+# GSUP Interface (GSM Signaling Protocol)
+# Bind the GSUP interface to a specific IP. This is typically used by the MSC/AuC
+# to query subscriber information.
+# Schema field: bind_gsup_ip
+hlr
+ gsup
+  bind ip {{ bind_gsup_ip | default('127.0.0.1') }}
+
+  # USSD Routing
+  # ------------
+  # Configure prefixes for USSD codes and their internal handling.
+  # These are static configuration values for this package.
+  ussd route prefix *#100# internal own-msisdn
+  ussd route prefix *#101# internal own-imsi
+
+  # PDP Profiles
+  # ------------
+  # Define PDP (Packet Data Protocol) profiles for GPRS/UMTS data sessions.
+  ps
+   pdp-profiles default
+
+    # PDP Profile 1
+    # APN for PDP profile 1. Used for default data sessions.
+    # Schema field: apn_1
+    profile 1
+     apn {{ apn_1 | default('internet') }}
+
+    # PDP Profile 2
+    # APN for PDP profile 2. Often used for secondary or specific service APNs.
+    # Schema field: apn_2
+    profile 2
+     apn {{ apn_2 | default('*') }}

@@ -1,0 +1,111 @@
+# ==============================================================================
+# rosbash - Self-documenting shell aliases and completions for ROS
+# ==============================================================================
+# This template generates a bash script providing convenience aliases and
+# shell completions for Robot Operating System (ROS) tools.
+# It is designed to be included in a user's .bashrc or sourced on demand.
+#
+# Since the original template contained no configurable schema fields (no
+# variables, only static shell logic), this enriched version preserves the
+# original logic exactly while adding structural comments for clarity.
+# No Jinja2 variable injection is required or possible as no schema exists.
+# ==============================================================================
+
+# --- Aliases ---
+
+# cd into a ROS package directory.
+# Tries to find the package using 'rospack' first, then falls back to 'rosstack'.
+alias roscd 'cd `rospack find \!*; if ($status) rosstack find \!*;`'
+
+# Alias for roscd
+alias rcd roscd
+
+# List files in a ROS package directory.
+# Uses 'rospack' to resolve the package path.
+alias rosls 'ls `rospack find \!*`'
+
+# --- Commented-out aliases ---
+# These aliases are defined in the original template but commented out.
+# They represent unimplemented or deprecated ROS utilities.
+# Uncommenting them may have no effect or produce errors if the underlying
+# commands do not exist in the current ROS distribution.
+
+#alias rosd 'echo "unimplemented"'
+#alias rospd 'echo "unimplemented"'
+#alias rosed 'echo "unimplemented"'
+#alias roscat 'echo "unimplemented"'
+#alias roscmd 'echo "unimplemented"'
+#alias roscp 'echo "unimplemented"'
+#alias rosmv 'echo "unimplemented"'
+
+# --- Shell Completions ---
+
+# Completion for roscd
+# Completes the first argument with ROS package and stack names.
+complete roscd 'p/1/`rospack list-names && rosstack list-names`/'
+
+# Completion for rosmake
+# Completes all arguments with ROS package and stack names.
+complete rosmake 'p/*/`rospack list-names && rosstack list-names`/'
+
+# Completion for rosupdate
+# Completes the first argument with ROS package and stack names.
+complete rosupdate 'p/1/`rospack list-names && rosstack list-names`/'
+
+# Completion for rosdeb
+# Completes all arguments with ROS package and stack names.
+complete rosdeb 'p/*/`rospack list-names && rosstack list-names`/'
+
+# Completion for rosdep
+# Provides subcommand completion and argument completion for package names.
+complete rosdep \
+   'p/1/(help generate_bash install depdb what_needs check satisfy)/' \
+   'n/{generate_bash,install,depdb,check,satisfy}/`rospack list-names`/'
+
+# Completion for rospack
+# Provides subcommand completion and argument completion for package names.
+complete rospack \
+   'p/1/(help find list list-names langs deps deps-manifests deps1 deps-indent rosdeps rosdeps0 vcs vcs0 depends-on)/' \
+   'n/{find,deps,deps-manifests,deps1,deps-indent,rosdeps,rosdeps0,vcs,vcs0,depends-on,depends-on1,export,cflags-only-I,cflags-only-other,libs-only-L,libs-only-l,libs-only-other}/`rospack list-names`/'
+
+# Completion for rosstack
+# Provides subcommand completion and argument completion for stack names.
+complete rosstack \
+   'p/1/(help find list list-names langs deps deps-manifests deps1 deps-indent rosdeps rosdeps0 vcs vcs0 depends-on)/' \
+   'n/{find,deps,deps-manifests,deps1,deps-indent,rosdeps,rosdeps0,vcs,vcs0,depends-on,depends-on1,export,cflags-only-I,cflags-only-other,libs-only-L,libs-only-l,libs-only-other}/`rosstack list-names`/'
+
+# Completion for rostopic
+# Provides subcommand completion and topic name completion.
+complete rostopic \
+   'p/1/(hz echo type list)/' \
+   'n/{echo,hz,type}/`rostopic list | sort -u`/'
+
+# Completion for rosmsg
+# Provides subcommand completion and message/field name completion.
+# Uses rostopic list to find available messages.
+complete rosmsg \
+   'p/1/(show users package packages)/' \
+   'n@{show,users}@`rostopic list -v | grep " \* " | cut -f 4 -d " " | grep -v unknown | sed -e "s/[\d93\d91]//g"`@' \
+   'n/{package,packages}/`rospack list-names`/'
+
+# Completion for rossrv
+# Provides subcommand completion and service/field name completion.
+# Uses rostopic list -v to find available services.
+complete rossrv \
+   'p/1/(show users package packages)/' \
+   'n@{show,users}@`rostopic list -v | grep " \* " | cut -f 4 -d " +" | grep -v unknown | sed -e "s/[\d93\d91]//g"`@' \
+   'n/{package,packages}/`rospack list-names`/'
+
+# Completion for rosrun
+# Completes the first argument with package names and the second with
+# executable files found within that package.
+complete rosrun \
+   'p/1/`rospack list-names`/' \
+   'p@2@`rospack find $:1 | xargs -I 1 find 1 -perm /a+x -type f -printf "%f\n"`@'
+
+# Completion for roslaunch
+# Completes the first argument with package names and launch files,
+# and the second argument with launch files in the selected package.
+complete roslaunch \
+   'p/1/`rospack list-names && find . -maxdepth 3 -regex ".*[xl][am][ul]n*c*h*" -printf "%P\n" `/' \
+   'p@2@`rospack find $:1 | xargs -I 1 find 1 -maxdepth 3 -regex ".*[xl][am][ul]n*c*h*" -type f -printf "%f\n"`@'

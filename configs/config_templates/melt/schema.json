@@ -1,0 +1,226 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "quiet",
+    "description": "Logging level (quiet, panic, fatal, error, warning, info, verbose, debug, timings).",
+    "enum": [
+      "quiet",
+      "panic",
+      "fatal",
+      "error",
+      "warning",
+      "info",
+      "verbose",
+      "debug",
+      "timings"
+    ]
+  },
+  "quiet": {
+    "type": "bool",
+    "default": true,
+    "description": "Set the logging level to quiet (overrides log_level if true)."
+  },
+  "silent": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not display position/transport."
+  },
+  "progress": {
+    "type": "bool",
+    "default": false,
+    "description": "Display progress along with position."
+  },
+  "jack": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable JACK transport synchronization."
+  },
+  "serialise": {
+    "type": "bool",
+    "default": false,
+    "description": "Write the commands to a text file."
+  },
+  "serialise_filename": {
+    "type": "string",
+    "default": "melt_commands.txt",
+    "description": "Filename for serialised commands."
+  },
+  "repository": {
+    "type": "string",
+    "default": "",
+    "description": "Set the directory of MLT modules. Empty string disables this flag."
+  },
+  "profile": {
+    "type": "string",
+    "default": "default",
+    "description": "Set the processing settings profile name."
+  },
+  "consumers": {
+    "type": "list",
+    "default": [],
+    "description": "List of consumer definitions for output/sinks. If empty, melt uses default stdout/file behavior."
+  },
+  "consumers/items": {
+    "type": "object",
+    "description": "Schema for individual consumer items. Note: In strict Jinja2 list schema, this defines the structure of items if treated as a map, but here we define the flat fields expected in the list items if we were to parse them, but since it's a list of strings/complex objects, we define the flat keys allowed in the object."
+  },
+  "tracks": {
+    "type": "list",
+    "default": [
+      {}
+    ],
+    "description": "List of tracks to add to the composition."
+  },
+  "tracks/items": {
+    "type": "object",
+    "description": "Schema for track items."
+  },
+  "tracks/items/audio_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Add an audio-only track (-audio-track)."
+  },
+  "tracks/items/video_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Add a video-only track (-video-track)."
+  },
+  "tracks/items/hidden": {
+    "type": "bool",
+    "default": false,
+    "description": "Add a hidden track (-hide-track)."
+  },
+  "tracks/items/clips": {
+    "type": "list",
+    "default": [],
+    "description": "List of clips/produced chains for this track."
+  },
+  "tracks/items/clips/items": {
+    "type": "object",
+    "description": "Schema for clip items."
+  },
+  "tracks/items/clips/items/id": {
+    "type": "string",
+    "default": "default",
+    "description": "Producer ID or chain ID."
+  },
+  "tracks/items/clips/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the producer (e.g., 'filename=/path/to/video')."
+  },
+  "tracks/items/filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of filters applied to this track."
+  },
+  "tracks/items/filters/items": {
+    "type": "object",
+    "description": "Schema for filter items."
+  },
+  "tracks/items/filters/items/id": {
+    "type": "string",
+    "default": "none",
+    "description": "Filter ID (e.g., 'alpha', 'color', 'resize')."
+  },
+  "tracks/items/filters/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the filter."
+  },
+  "tracks/items/cuts": {
+    "type": "list",
+    "default": [],
+    "description": "List of cuts (combinations of clips) for this track."
+  },
+  "tracks/items/cuts/items": {
+    "type": "object",
+    "description": "Schema for cut items."
+  },
+  "tracks/items/cuts/items/id": {
+    "type": "string",
+    "default": "default",
+    "description": "Clip/Chain ID to cut from."
+  },
+  "tracks/items/cuts/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the cut."
+  },
+  "tracks/items/mixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of mixes (transitions) between the last two cuts."
+  },
+  "tracks/items/mixes/items": {
+    "type": "object",
+    "description": "Schema for mix items."
+  },
+  "tracks/items/mixes/items/length": {
+    "type": "number",
+    "default": 0,
+    "description": "Length of the mix in frames."
+  },
+  "tracks/items/mixes/items/mixer": {
+    "type": "string",
+    "default": "",
+    "description": "Transition ID for the mixer (e.g., 'dissolve')."
+  },
+  "global_filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of filters applied globally to the output."
+  },
+  "global_filters/items": {
+    "type": "object",
+    "description": "Schema for global filter items."
+  },
+  "global_filters/items/id": {
+    "type": "string",
+    "default": "none",
+    "description": "Filter ID."
+  },
+  "global_filters/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the global filter."
+  },
+  "global_transitions": {
+    "type": "list",
+    "default": [],
+    "description": "List of global transitions."
+  },
+  "global_transitions/items": {
+    "type": "object",
+    "description": "Schema for global transition items."
+  },
+  "global_transitions/items/id": {
+    "type": "string",
+    "default": "none",
+    "description": "Transition ID."
+  },
+  "global_transitions/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the global transition."
+  },
+  "global_attachments": {
+    "type": "list",
+    "default": [],
+    "description": "List of attachments to the output."
+  },
+  "global_attachments/items": {
+    "type": "object",
+    "description": "Schema for global attachment items."
+  },
+  "global_attachments/items/id": {
+    "type": "string",
+    "default": "none",
+    "description": "Attachment ID."
+  },
+  "global_attachments/items/args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments for the global attachment."
+  }
+}

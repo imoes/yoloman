@@ -1,0 +1,27 @@
+# unaccent command-line configuration template
+# This template generates the command-line arguments for the `unaccent` utility.
+# Variables are sourced from the Ansible inventory/host_vars/group_vars.
+# All variables use Jinja2 `default()` filters to ensure safe rendering even if a variable is undefined.
+
+# Input character set (e.g., ISO-8859-1, UTF-8).
+# Specifies the character encoding for the input data.
+# Corresponds to the 'charset' positional argument.
+--charset {{ charset | default('UTF-8') }}
+
+# Enable low-level debug output.
+# Prints human-readable information about the unaccentuation process.
+# Corresponds to the --debug_low flag.
+{% if debug_low | default(False) | bool %}--debug_low {% endif %}
+
+# Enable high-level debug output.
+# Prints very detailed information about the unaccentuation process.
+# Corresponds to the --debug_high flag.
+{% if debug_high | default(False) | bool %}--debug_high {% endif %}
+
+# Expected output string for validation.
+# If provided, `unaccent` compares its transformed output to this value.
+# If they do not match, the program exits with an error code.
+# Corresponds to the 'expected' argument.
+{% if expected_output | default('') | string | length > 0 %}
+--expected {{ expected_output | default('') }}
+{% endif %}

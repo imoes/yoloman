@@ -1,0 +1,145 @@
+#
+# sosreport configuration preset
+# Managed by automation. Do not edit manually.
+#
+# This INI-style configuration controls the behavior of the 'sosreport'
+# diagnostic collection tool. It defines profiles, collection limits,
+# plugin behavior, and optional upload/encryption settings.
+#
+# [main]
+# Global settings for sos report collection
+#
+
+[main]
+# Comma-separated list of sos profiles to enable (e.g., 'networking, storage').
+# Defaults to 'default' if not specified.
+profile = {{ profile | default('default') }}
+
+# Enable batch mode to suppress interactive prompts.
+# When true, sosreport runs non-interactively.
+batch = {{ batch | default(true) }}
+
+# Number of concurrent threads for data collection.
+# Higher values may speed up collection on multi-core systems.
+threads = {{ threads | default(4) }}
+
+# Compression method for the final archive (zip, gz, bz2, xz).
+# Controls the algorithm used to compress the output tarball.
+compression_type = {{ compression_type | default('gz') }}
+
+# Arbitrary identifier to append to the archive filename.
+# Useful for sorting or identifying reports in bulk.
+label = {{ label | default('') }}
+
+# Support case identifier to include in the archive metadata.
+# Often used by vendor support teams to link reports to tickets.
+case_id = {{ case_id | default('') }}
+
+# Maximum size in MiB for collected logs.
+# Set to 0 for unlimited size.
+log_size = {{ log_size | default(25) }}
+
+# Maximum size in MiB for collected journals (systemd).
+# Set to 0 for unlimited size.
+journal_size = {{ journal_size | default(100) }}
+
+# Global timeout in seconds for each plugin to complete.
+# Set to 0 for no limit. Plugins exceeding this are skipped/killed.
+plugin_timeout = {{ plugin_timeout | default(300) }}
+
+# Global timeout in seconds for individual command execution.
+# Set to 0 for no limit.
+cmd_timeout = {{ cmd_timeout | default(0) }}
+
+# Directory used for temporary files and staging the archive.
+tmp_dir = {{ tmp_dir | default('/var/tmp') }}
+
+# Attempt to upload the archive to a remote location after collection.
+upload = {{ upload | default(false) }}
+
+{% if upload | default(false) %}
+# Target URL (https/sftp/ftp) for the upload.
+# Required if upload is true.
+upload_url = {{ upload_url | default('') }}
+
+# Username for upload authentication.
+# Required if the target URL requires authentication.
+upload_user = {{ upload_user | default('') }}
+
+# Password for upload authentication.
+# Stored in plaintext in this configuration file.
+upload_pass = {{ upload_pass | default('') }}
+
+# Remote directory path to upload to.
+upload_directory = {{ upload_directory | default('/') }}
+
+# HTTP method for upload (put, post, auto).
+# Controls how the data is sent to the server.
+upload_method = {{ upload_method | default('auto') }}
+
+# Protocol override for upload (https, ftp, sftp, auto).
+upload_protocol = {{ upload_protocol | default('auto') }}
+
+# Disable SSL certificate verification for HTTPS uploads.
+# Use with caution; reduces security against MITM attacks.
+upload_no_ssl_verify = {{ upload_no_ssl_verify | default(false) }}
+{% endif %}
+
+# Encrypt the resulting archive using GPG or symmetric encryption.
+encrypt = {{ encrypt | default(false) }}
+
+{% if encrypt | default(false) %}
+# GPG key ID or recipient for asymmetric encryption.
+# If empty and symmetric encryption is used, encrypt_pass is required.
+encrypt_key = {{ encrypt_key | default('') }}
+
+# Passphrase for symmetric encryption.
+# Required if encrypt is true and no asymmetric key is provided.
+encrypt_pass = {{ encrypt_pass | default('') }}
+{% endif %}
+
+# List of plugin names to disable during collection.
+# Comma-separated string output.
+skip_plugins = {{ skip_plugins | default([]) | join(',') }}
+
+# List of additional plugin names to enable.
+# Comma-separated string output.
+enable_plugins = {{ enable_plugins | default([]) | join(',') }}
+
+# List of plugin names to enable exclusively (disabling others).
+# Comma-separated string output.
+only_plugins = {{ only_plugins | default([]) | join(',') }}
+
+# List of shell-wildcard patterns for commands to skip execution.
+# Comma-separated string output.
+skip_commands = {{ skip_commands | default([]) | join(',') }}
+
+# List of file path patterns to skip collection.
+# Comma-separated string output.
+skip_files = {{ skip_files | default([]) | join(',') }}
+
+# Allow plugins to run commands that might modify system state.
+# Dangerous; generally kept false for safe diagnostics.
+allow_system_changes = {{ allow_system_changes | default(false) }}
+
+# Run sos with low priority (niceness 19) to reduce impact on the system.
+low_priority = {{ low_priority | default(false) }}
+
+# Alternate root filesystem path for container or image analysis.
+sysroot = {{ sysroot | default('') }}
+
+# Chroot mode setting: auto, always, or never.
+chroot = {{ chroot | default('auto') }}
+
+# Limit namespaces for collection.
+# 0 means all namespaces. Useful for containerized sos.
+namespaces = {{ namespaces | default(0) }}
+
+# Force container runtime for data collection (auto, podman, docker, none).
+container_runtime = {{ container_runtime | default('auto') }}
+
+# List of plugin-specific option objects to configure individual plugins.
+# Each object must have keys: plugin (string), option (string), value.
+{% for opt in plugin_options | default([]) %}
+{{ opt.plugin }}.{{ opt.option }} = {{ opt.value }}
+{% endfor %}

@@ -1,0 +1,56 @@
+# Configuration file arguments for prometheus-exporter-exporter
+# This template generates a single ARGS variable containing all command-line flags.
+# It is consumed by a systemd service unit via Environment="ARGS=...".
+
+# The address and port to listen on for HTTP requests.
+# Format: [host]:port. Default: :9999
+# Field: listen_address
+- web.listen-address {{ listen_address | default(':9999') }}
+
+# The path for proxy-related requests.
+# Default: /proxy
+# Field: proxy_path
+- web.proxy-path {{ proxy_path | default('/proxy') }}
+
+# The path for telemetry/metrics requests (Prometheus scraping endpoint).
+# Default: /metrics
+# Field: telemetry_path
+- web.telemetry-path {{ telemetry_path | default('/metrics') }}
+
+# Path to the TLS CA certificate to authenticate clients against (mTLS).
+# Default: ca.pem
+# Field: tls_ca
+- web.tls.ca {{ tls_ca | default('ca.pem') }}
+
+# Path to the TLS certificate file for HTTPS termination.
+# Default: cert.pem
+# Field: tls_cert
+- web.tls.cert {{ tls_cert | default('cert.pem') }}
+
+# Path to the TLS private key file for HTTPS termination.
+# Default: key.pem
+# Field: tls_key
+- web.tls.key {{ tls_key | default('key.pem') }}
+
+# Path to the YAML configuration file loaded by the exporter.
+# Default: /etc/prometheus/exporter-exporter.yml
+# Field: config_file
+- config.file {{ config_file | default('/etc/prometheus/exporter-exporter.yml') }}
+
+# Assemble all arguments into a single shell-quoted string.
+# This variable is exported to the service environment so the ExecStart directive can use it.
+# Note: We use join to build this safely, ensuring proper quoting if needed.
+{% set _args = [
+    '-web.listen-address ' + (listen_address | default(':9999') | string | quote),
+    '-web.proxy-path ' + (proxy_path | default('/proxy') | string | quote),
+    '-web.telemetry-path ' + (telemetry_path | default('/metrics') | string | quote),
+    '-web.tls.ca ' + (tls_ca | default('ca.pem') | string | quote),
+    '-web.tls.cert ' + (tls_cert | default('cert.pem') | string | quote),
+    '-web.tls.key ' + (tls_key | default('key.pem') | string | quote),
+    '-config.file ' + (config_file | default('/etc/prometheus/exporter-exporter.yml') | string | quote)
+] %}
+ARGS="{{ _args | join(' ') }}"
+
+# Final output: The assembled ARGS string for consumption by the wrapper.
+# The consuming service should use: $ARGS or ${ARGS}
+ARGS="{{ _args | join(' ') }}"

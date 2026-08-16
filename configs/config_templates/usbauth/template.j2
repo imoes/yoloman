@@ -1,0 +1,16 @@
+# usbauth configuration file
+# Manages USB device access policies.
+# Each line is a rule. Lines starting with '#' are comments (disabled rules).
+# The default policy is to deny all USB devices unless explicitly allowed.
+
+# Rule to allow all USB devices.
+# Default is commented out to deny by default.
+{{ allow_all | default('#allow all # allow all') }}
+
+# Rule to allow USB hubs based on device and interface class codes.
+# Matches devices where bDeviceClass==09 and bInterfaceClass==09.
+{{ allow_hubs | default('#allow bDeviceClass==09 bInterfaceClass==09 # allow hubs') }}
+
+# Rule to deny Human Interface Devices (HIDs) if more than 2 are connected.
+# Applies to devices with bInterfaceClass==03.
+{{ deny_hids_if_many | default('#deny bInterfaceClass==03 devcount > 2 #deny HIDs if more than 2 are connected') }}

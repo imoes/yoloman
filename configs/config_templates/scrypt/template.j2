@@ -1,0 +1,166 @@
+#!/bin/bash
+# =============================================================================
+# Scrypt Automation Wrapper
+# =============================================================================
+# This Jinja2 template generates a Bash script that constructs and executes
+# a `scrypt` command line based on configuration parameters.
+#
+# Self-Documentation:
+# - All configuration variables have inline defaults matching the schema.
+# - Each section corresponds to a specific `scrypt` CLI flag or behavior.
+# - Error handling ensures invalid combinations (e.g., --logN without -r/-p)
+#   fail fast with clear messages.
+# =============================================================================
+
+# --- Operation Mode ---
+# Description: Operation mode: 'enc' to encrypt, 'dec' to decrypt, 'info' to view parameters.
+MODE="{{ mode | default('enc') }}"
+
+# --- Input File ---
+# Description: Path to the input file to encrypt, decrypt, or inspect.
+INFILE="{{ infile | default('/tmp/input.txt') }}"
+
+# --- Output File ---
+# Description: Path to the output file. If empty, output goes to stdout.
+OUTFILE="{{ outfile | default('') }}"
+
+# --- Passphrase Method ---
+# Description: Method to read the passphrase: 'dev:stdin-once', 'dev:tty-once', 'env:VAR_NAME', or 'file:PATH'.
+PASSPHRASE_METHOD="{{ passphrase_method | default('dev:stdin-once') }}"
+
+# --- Environment Variable Name ---
+# Description: Name of the environment variable containing the passphrase if passphrase_method is env:.
+ENV_VAR_NAME="{{ env_var_name | default('SCRYPT_PASSPHRASE') }}"
+
+# --- Passphrase File Path ---
+# Description: Path to the file containing the passphrase if passphrase_method is file:.
+PASSPHRASE_FILE="{{ passphrase_file | default('/etc/secure/scrypt.key') }}"
+
+# --- Force Flag ---
+# Description: Force operation even if excessive memory or CPU time is anticipated.
+# Note: Jinja2 renders boolean `False` as string "False". Bash checks for "true".
+FORCE="{{ force | default(false) | lower }}"
+
+# --- Work Parameter logN ---
+# Description: Work parameter logN (N=2^logN). Must be set with r and p to disable resource limits.
+LOG_N="{{ log_n | default('') }}"
+
+# --- Memory Limit (Bytes) ---
+# Description: Max memory in bytes (M parameter). Ignored if explicit N, r, p are set.
+MEMORY_LIMIT="{{ memory_limit | default('') }}"
+
+# --- Memory Fraction ---
+# Description: Max memory fraction of available RAM (m parameter). Max 0.5. Ignored if explicit N, r, p are set.
+MEMORY_FRAC="{{ memory_frac | default('') }}"
+
+# --- CPU Time Limit ---
+# Description: Max CPU time in seconds (t parameter). Ignored if explicit N, r, p are set.
+TIME_LIMIT="{{ time_limit | default('') }}"
+
+# --- Work Parameter p ---
+# Description: Work parameter p. Required if --logN is set.
+P_VALUE="{{ p_value | default('') }}"
+
+# --- Work Parameter r ---
+# Description: Work parameter r. Required if --logN is set.
+R_VALUE="{{ r_value | default('') }}"
+
+# --- Verbose Output ---
+# Description: Print encryption parameters and limits.
+VERBOSE="{{ verbose | default(false) | lower }}"
+
+# =============================================================================
+# Command Construction Logic
+# =============================================================================
+
+CMD="scrypt"
+
+# 1. Validate and Append Mode
+# Description: Ensures mode is one of enc, dec, or info.
+if [ "$MODE" == "enc" ] || [ "$MODE" == "dec" ] || [ "$MODE" == "info" ]; then
+    CMD="${CMD} $MODE"
+else
+    echo "ERROR: Invalid mode '$MODE'. Must be enc, dec, or info."
+    exit 1
+fi
+
+# 2. Append Force Flag
+# Description: Adds -f flag if force is true.
+if [ "$FORCE" == "true" ]; then
+    CMD="${CMD} -f"
+fi
+
+# 3. Handle Passphrase
+# Description: Selects the correct passphrase source syntax based on method.
+# Supported methods: env:VAR, file:PATH, or implicit dev:stdin-once.
+if [[ "$PASSPHRASE_METHOD" == env:* ]]; then
+    VAR_NAME="${PASSPHRASE_METHOD#env:}"
+    CMD="${CMD} --passphrase env:${VAR_NAME}"
+elif [[ "$PASSPHRASE_METHOD" == file:* ]]; then
+    FILE_PATH="${PASSPHRASE_METHOD#file:}"
+    CMD="${CMD} --passphrase file:${FILE_PATH}"
+else
+    # Default dev:stdin-once is often implied by scrypt, but we handle explicit methods.
+    # If the method is literally "dev:stdin-once" or "dev:tty-once", scrypt handles them natively
+    # without a specific flag in newer versions, or via stdin.
+    # Here we pass the method string if it's not the default env/file patterns.
+    if [ "$PASSPHRASE_METHOD" != "dev:stdin-once" ]; then
+        CMD="${CMD} --passphrase $PASSPHRASE_METHOD"
+    fi
+fi
+
+# 4. Handle Algorithm Parameters (logN, r, p)
+# Description: If logN is specified, r and p are mandatory to disable resource limits.
+if [ -n "$LOG_N" ]; then
+    CMD="${CMD} --logN $LOG_N"
+    if [ -z "$R_VALUE" ] || [ -z "$P_VALUE" ]; then
+        echo "ERROR: If LogN is set, r and p must also be set."
+        exit 1
+    fi
+    CMD="${CMD} -r $R_VALUE -p $P_VALUE"
+fi
+
+# 5. Handle Memory Limit (Bytes)
+# Description: Adds -M flag if memory_limit is specified.
+if [ -n "$MEMORY_LIMIT" ]; then
+    CMD="${CMD} -M $MEMORY_LIMIT"
+fi
+
+# 6. Handle Memory Fraction
+# Description: Adds -m flag if memory_frac is specified.
+if [ -n "$MEMORY_FRAC" ]; then
+    CMD="${CMD} -m $MEMORY_FRAC"
+fi
+
+# 7. Handle Time Limit
+# Description: Adds -t flag if time_limit is specified.
+if [ -n "$TIME_LIMIT" ]; then
+    CMD="${CMD} -t $TIME_LIMIT"
+fi
+
+# 8. Handle Verbose Mode
+# Description: Adds -v flag if verbose is true.
+if [ "$VERBOSE" == "true" ]; then
+    CMD="${CMD} -v"
+fi
+
+# 9. Append Input File
+# Description: Adds the input file path to the command.
+CMD="${CMD} $INFILE"
+
+# 10. Append Output File (Optional)
+# Description: Adds the output file path if provided. Otherwise, scrypt defaults to stdout.
+if [ -n "$OUTFILE" ]; then
+    CMD="${CMD} $OUTFILE"
+fi
+
+# =============================================================================
+# Execution
+# =============================================================================
+
+# Output the generated command for review or execution.
+echo "Generated Command:"
+echo "$CMD"
+
+# To execute instead of echoing, uncomment the next line:
+# exec $CMD

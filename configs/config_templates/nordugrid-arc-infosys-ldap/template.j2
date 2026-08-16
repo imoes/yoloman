@@ -1,0 +1,26 @@
+# Nordugrid ARC INFOsys LDAP (BDII) Log Configuration
+# This section defines the logging behavior for the Basic Data Information Index (BDII).
+# BDII is part of the Nordugrid ARC middleware, providing grid information via LDAP.
+
+# Path to the BDII update log file.
+bdii_log_file = /var/log/arc/bdii/bdii-update.log
+
+# Log rotation settings for bdii-update.log
+<logrotate>
+  # Do not error if the log file is missing during rotation.
+  missingok
+
+  # Compress rotated log files to save disk space.
+  compress
+
+  # Rotate the log file every day.
+  daily
+
+  # Number of rotated log files to keep.
+  # This ensures we retain logs for a specific period before deletion.
+  rotate {{ rotate_count | default(14) }}
+
+  # Copy the log file and then truncate the original, keeping the file descriptor valid.
+  # This is useful for applications that do not reopen log files after rotation.
+  copytruncate
+</logrotate>

@@ -1,0 +1,65 @@
+# Trinity Linux system call fuzzer configuration
+# This file controls the behavior of the 'trinity' syscall fuzzer.
+
+# Selects syscalls for the specified architecture (32 or 64). 'all' by default.
+ARCH={{ arch | default('all') }}
+
+# Number of child processes to spawn for parallel fuzzing.
+CHILDREN={{ children | default(1) }}
+
+# Disable logging ('off') or specify a directory where logfiles will be placed.
+LOGGING={{ logging | default('off') }}
+
+# Log important info to syslog.
+SYSLOG={{ syslog | default(False) }}
+
+# If run as root, switch to nobody [EXPERIMENTAL].
+DROPPRIVS={{ dropprivs | default(False) }}
+
+# Increase output verbosity.
+VERBOSE={{ verbose | default(False) }}
+
+# Less output.
+QUIET={{ quiet | default(False) }}
+
+# Use this number as the random seed. 0 uses system entropy.
+SEED={{ seed | default(0) }}
+
+# Do this many syscalls then exit. 0 means run indefinitely.
+MAX_SYSCALLS={{ max_syscalls | default(0) }}
+
+# Target specific syscalls to whitelist. If empty, all known syscalls are used.
+SYSCALLS={{ syscalls | default([]) | join(' ') }}
+
+# Syscalls to exclude from testing.
+EXCLUDE_SYSCALLS={{ exclude_syscalls | default([]) | join(' ') }}
+
+# Target specific syscall with optional width. Format: 'syscall_name:width'.
+TARGET_SYSCALLS={{ target_syscalls | default([]) | join(' ') }}
+
+# Only run syscalls from a certain group. 'vfs' or 'vm'.
+GROUP={{ group | default('all') }}
+
+# Specify specific network domain for sockets (e.g., ipv4, ipv6).
+DOMAIN={{ domain | default('all') }}
+
+# Network domains to be excluded from testing.
+NO_DOMAIN={{ no_domain | default([]) | join(' ') }}
+
+# Enable specific fd types. Options: sockets, pipes, perf, epoll, eventfd, pseudo, timerfd, testfile, memfd, drm.
+ENABLE_FDS={{ enable_fds | default(['sockets', 'pipes']) | join(' ') }}
+
+# Block device nodes to use for destructive tests.
+BDEV={{ bdev | default([]) | join(' ') }}
+
+# Path to victim files for specific testing.
+VICTIMS={{ victims | default('') }}
+
+# Pause after each syscall.
+PAUSE={{ pause | default(False) }}
+
+# Kernel taint flags to consider (e.g., P, W, S).
+KERNEL_TAINT={{ kernel_taint | default([]) | join(' ') }}
+
+# Pick N syscalls at random and fuzz only those. 0 means all.
+RANDOM_COUNT={{ random_count | default(0) }}

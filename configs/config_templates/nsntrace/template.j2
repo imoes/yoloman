@@ -1,0 +1,46 @@
+#!/bin/bash
+# nsntrace wrapper script
+# This script constructs the command line for the nsntrace tool based on configuration variables.
+# It handles namespace creation, network device selection, DNS override, pcap output, user context,
+# capture filters, and target program execution.
+
+# Path to the nsntrace binary
+PROGRAM="/usr/bin/nsntrace"
+
+# Command-line options passed to nsntrace
+OPTIONS=(
+{# device: The network device to use in trace. Defaults to empty string (auto-detect or default interface). #}
+{% if (device | default('')) %}
+  "-d" "{{ device | default('') }}"
+{% endif %}
+
+{# use_public_dns: Override resolv.conf in namespace to use public nameservers. Defaults to False. #}
+{% if use_public_dns | default(False) | bool %}
+  "--use-public-dns"
+{% endif %}
+
+{# outfile: Write the trace output to this file. Defaults to 'nsntrace.pcap'. #}
+{% if (outfile | default('nsntrace.pcap')) %}
+  "-o" "{{ outfile | default('nsntrace.pcap') }}"
+{% endif %}
+
+{# user: Run program with the user ID, group ID and supplementary groups of this user. Defaults to empty string (run as current user). #}
+{% if (user | default('')) %}
+  "-u" "{{ user | default('') }}"
+{% endif %}
+
+{# filter: The capture filter to use while capturing (pcap-filter syntax). Defaults to empty string (no filter). #}
+{% if (filter | default('')) %}
+  "-f" "{{ filter | default('') }}"
+{% endif %}
+)
+
+{# target_program: The program to launch and trace inside the network namespace. Defaults to empty string. #}
+TARGET_PROGRAM="{{ target_program | default('') }}"
+
+{# target_args: Arguments to pass to the target program. Items are strings. Defaults to empty list. #}
+{% set args_list = target_args | default([]) %}
+TARGET_ARGS="{% for arg in args_list %}{{ arg }} {% endfor %}"
+
+# Execute nsntrace with specified options and target
+exec $PROGRAM ${OPTIONS[@]} $TARGET_PROGRAM $TARGET_ARGS

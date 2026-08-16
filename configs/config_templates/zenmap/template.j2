@@ -1,0 +1,55 @@
+# ==============================================================================
+# Zenmap Environment Configuration
+# ==============================================================================
+# This template generates the Zenmap environment/configuration file.
+# It controls runtime behaviors, default Nmap commands, and scan profiles
+# available in the Zenmap GUI.
+#
+# This file is self-documenting: every directive is preceded by a comment
+# explaining its purpose based on the schema definition.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Nmap Default Command
+# -----------------------------------------------------------------------------
+# The default Nmap command line template used for standard scans.
+# Uses $TARGET as a placeholder for the user-specified target.
+# Default: 'nmap -sV -sC -O $TARGET'
+NMAP_CMD={{ nmap_command | default('nmap -sV -sC -O $TARGET') }}
+
+# -----------------------------------------------------------------------------
+# Scan Profiles
+# -----------------------------------------------------------------------------
+# A list of scan profiles to make available in the Zenmap interface.
+# Each item contains a name and the Nmap arguments string.
+# If the list is empty, no custom profiles are defined.
+# Format: PROFILE_N=<name>=<args>
+
+{% set profiles_list = profiles | default([]) %}
+{% if profiles_list | length > 0 %}
+# List of saved scan profiles to preload or make available in the UI
+# Each profile is defined by its name and the corresponding Nmap arguments
+{% for profile in profiles_list %}
+PROFILE_{{ loop.index }}={{ profile.name | default('Quick Scan') }}={{ profile.profile_args | default('-sS -T4') }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Crash Reporting
+# -----------------------------------------------------------------------------
+# If true, sets the ZENMAP_DEVELOPMENT environment variable to disable
+# automatic crash reporting.
+# Default: false
+{% if disable_crash_reporting | default(false) | bool %}
+# Disable automatic crash reporting to Nmap/Zenmap developers
+# Equivalent to setting the ZENMAP_DEVELOPMENT environment variable
+ZENMAP_DEVELOPMENT=1
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Default Target
+# -----------------------------------------------------------------------------
+# The default network target (IP address or hostname) pre-filled in the
+# target field when Zenmap starts.
+# Default: '192.168.1.1'
+DEFAULT_TARGET={{ default_target | default('192.168.1.1') }}

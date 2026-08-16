@@ -1,0 +1,34 @@
+# Zabbix Proxy log rotation configuration
+# Managed by Ansible role: zabbix-proxy-sqlite3
+
+# Path to the Zabbix Proxy log file being rotated.
+# This block applies logrotate directives to the specific log file.
+/var/log/zabbix-proxy/{{ log_file_name | default('zabbix_proxy.log') }} {
+    # Rotate logs on a weekly basis.
+    weekly
+
+    # Number of rotated log files to keep before overwriting the oldest.
+    # Default is 7, keeping one week's worth of logs.
+    rotate {{ log_rotate_count | default(7) }}
+
+    # Compress rotated log files to save disk space.
+    compress
+
+    # Delay compression of the most recent rotated file until the next rotation cycle.
+    # This ensures that log writing processes do not fail if they still hold the file descriptor.
+    delaycompress
+
+    # Do not raise an error if the log file is missing (e.g., before the first log entry).
+    missingok
+
+    # Do not rotate the log if it is empty.
+    notifempty
+
+    # Create new log files with these permissions, owner, and group after rotation.
+    # 0640 = read/write for owner, read for group.
+    # zabbix = owner and group user.
+    create 0640 zabbix zabbix
+
+    # Run the postrotate/endscript scripts only once for all files in the block.
+    sharedscripts
+}

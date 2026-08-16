@@ -1,0 +1,181 @@
+# Configuration file for netsniff-ng
+# https://linux.die.net/man/8/netsniff-ng
+#
+# This file is a Jinja2 template enriched with self-documenting comments.
+# Each directive is preceded by its schema description for clarity.
+# All variables use safe defaults derived from the schema to prevent render errors.
+
+# Input network device, pcap file, or stdin (-).
+--in {{ input_dev | default('eth0') }}
+
+# Output network device, pcap file, or directory for rotation.
+--out {{ output_dest | default('capture.pcap') }}
+
+# BPF filter expression (tcpdump syntax) or path to compiled filter.
+# Only emitted if a non-empty filter is provided.
+{% if bpf_filter | default('') %}
+--filter {{ bpf_filter | default('') }}
+{% endif %}
+
+# Suppress packet dissector output to terminal.
+# Only emitted if the value is truthy.
+{% if silent | default(true) %}
+--silent
+{% endif %}
+
+# CPU core ID to pin the process and NIC IRQ to.
+# Only emitted if the value is not None.
+{% if bind_cpu is not none %}
+--bind-cpu {{ bind_cpu | default(0) }}
+{% endif %}
+
+# Rotation interval for pcap files (e.g., 100MiB, 120sec).
+# Only emitted if a non-empty interval is provided.
+{% if rotation_interval | default('') %}
+--interval {{ rotation_interval | default('') }}
+{% endif %}
+
+# Prefix for rotated pcap filenames.
+# Only emitted if a non-empty prefix is provided.
+{% if file_prefix | default('') %}
+--prefix {{ file_prefix | default('dump-') }}
+{% endif %}
+
+# PCAP magic number/type (e.g., 0xa1b2c3d4).
+# Only emitted if a non-empty type is provided.
+{% if pcap_type | default('') %}
+--magic {{ pcap_type | default('') }}
+{% endif %}
+
+# Disable promiscuous mode on input interface.
+# Only emitted if the value is truthy.
+{% if no_promisc | default(false) %}
+--no-promisc
+{% endif %}
+
+# Use scatter-gather I/O for pcap writing.
+# Only emitted if the value is truthy.
+{% if use_sg | default(true) %}
+--sg
+{% endif %}
+
+# Use mmap I/O for pcap writing.
+# Only emitted if the value is truthy.
+{% if use_mmap | default(false) %}
+--mmap
+{% endif %}
+
+# Do not touch IRQ CPU affinity.
+# Note: In the original schema, this was incorrectly nested under bind_cpu.
+# It is now a standalone directive, emitted if truthy.
+{% if notouch_irq | default(false) %}
+--notouch-irq
+{% endif %}
+
+# Fanout group ID for load balancing.
+# Only emitted if the value is not None.
+{% if fanout_group is not none %}
+--fanout-group {{ fanout_group | default(0) }}
+{% endif %}
+
+# Fanout type: hash, lb, cpu, rnd, roll, qm.
+# Only emitted if a non-empty type is provided.
+{% if fanout_type | default('') %}
+--fanout-type {{ fanout_type | default('lb') }}
+{% endif %}
+
+# Fanout options: defrag, roll.
+# Only emitted if a non-empty options string is provided.
+{% if fanout_opts | default('') %}
+--fanout-opts {{ fanout_opts | default('') }}
+{% endif %}
+
+# Kernel pull interval in microseconds.
+# Only emitted if the value is not None.
+{% if kernel_pull is not none %}
+--kernel-pull {{ kernel_pull | default(10) }}
+{% endif %}
+
+# User to drop privileges to after ring setup.
+# Only emitted if a non-empty user is provided.
+{% if drop_user | default('') %}
+--user {{ drop_user | default('') }}
+{% endif %}
+
+# Group to drop privileges to after ring setup.
+# Only emitted if a non-empty group is provided.
+{% if drop_group | default('') %}
+--group {{ drop_group | default('') }}
+{% endif %}
+
+# Max packets to process before exit (0 for infinite).
+# Only emitted if the value is not None.
+{% if max_packets is not none %}
+--num {{ max_packets | default(0) }}
+{% endif %}
+
+# Enable jumbo frame support.
+# Only emitted if the value is truthy.
+{% if jumbo_support | default(false) %}
+--jumbo-support
+{% endif %}
+
+# Enable RFRAW mode for wireless monitor capture.
+# Only emitted if the value is truthy.
+{% if rfraw | default(false) %}
+--rfraw
+{% endif %}
+
+# Enable GeoIP database updates.
+# Only emitted if the value is truthy.
+{% if geoip_update | default(false) %}
+--update
+{% endif %}
+
+# Use cooked header for packets.
+# Only emitted if the value is truthy.
+{% if cooked | default(false) %}
+--cooked
+{% endif %}
+
+# Verbose startup output.
+# Only emitted if the value is truthy.
+{% if verbose | default(false) %}
+--verbose
+{% endif %}
+
+# Hex dump output.
+# Only emitted if the value is truthy.
+{% if hex_dump | default(false) %}
+--hex
+{% endif %}
+
+# ASCII only dump.
+# Only emitted if the value is truthy.
+{% if ascii_dump | default(false) %}
+--ascii
+{% endif %}
+
+# Randomize packet order in output.
+# Only emitted if the value is truthy.
+{% if randomize_order | default(false) %}
+--rand
+{% endif %}
+
+# Set high priority process.
+# Only emitted if the value is truthy.
+{% if prio_high | default(false) %}
+--prio-high
+{% endif %}
+
+# Disable hardware timestamps.
+# Only emitted if the value is truthy.
+{% if no_hwtimestamp | default(false) %}
+--no-hwtimestamp
+{% endif %}
+
+# Do not modify socket buffer sizes.
+# Only emitted if the value is truthy.
+{% if no_sock_mem | default(false) %}
+--no-sock-mem
+{% endif %}

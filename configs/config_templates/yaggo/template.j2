@@ -1,0 +1,61 @@
+# ============================================================================
+# yaggo (Yet Another Go Go) CLI Application Configuration Template
+# ============================================================================
+# This template generates a yaggo configuration file based on the provided
+# schema fields. It defines the application's purpose, description, and
+# command-line interface (CLI) structure including options and arguments.
+#
+# Variables are expected to be passed from Ansible inventory or group_vars.
+# All variables have sensible defaults to allow rendering without explicit
+# definition for every field.
+# ============================================================================
+
+# --- Application Metadata ---
+
+# purpose: Short purpose of the application.
+# Used as the primary identifier for the CLI tool.
+purpose "{{ purpose | default('Default CLI application') }}"
+
+# description: Longer description of the application's function.
+# Provides context for help text or documentation.
+description "{{ description | default("A description of the application's function.") }}"
+
+# --- CLI Options ---
+
+# options: List of command line options to parse.
+# Each item defines a flag, integer, or string option.
+{% for opt in (options | default([])) %}
+# Option Definition
+# short: Short option character (e.g. 'f')
+# long: Long option name (e.g. 'flag')
+# description: Description of the option.
+# type: Type of option: flag, int, or string.
+# default: Default value for the option (if applicable).
+option("{{ opt.short | default('') }}", "{{ opt.long | default('') }}") {
+ description "{{ opt.description | default('Option description') }}"
+ {% if opt.type | default('flag') == 'flag' %}
+ off
+ {% elif opt.type | default('flag') == 'int' %}
+ int
+ {% elif opt.type | default('flag') == 'string' %}
+ c_string
+ {% endif %}
+ {% if opt.default is not none %}
+ default {{ opt.default }}
+ {% endif %}
+}
+{% endfor %}
+
+# --- Positional Arguments ---
+
+# args: List of positional arguments to parse.
+# Each item defines a required or optional argument.
+{% for arg in (args | default([])) %}
+# Argument Definition
+# name: Name of the positional argument.
+# description: Description of the argument.
+arg("{{ arg.name | default('') }}") {
+ description "{{ arg.description | default('Argument description') }}"
+ c_string
+}
+{% endfor %}

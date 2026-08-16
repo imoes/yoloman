@@ -1,0 +1,77 @@
+# ofhttp configuration template
+# This template generates a bash script that executes 'ofhttp' for each URI defined in the 'uris' list.
+# It maps all Ansible variables to their corresponding command-line flags.
+#
+# Variables are sourced from the Ansible inventory/vars and use defaults as defined in the schema
+# to ensure idempotent and safe rendering even if a variable is undefined.
+
+{% for uri in uris | default([], true) %}
+# -----------------------------------------------------------------------------
+# Processing URI: {{ uri }}
+# Iteration index: {{ loop.index0 }}
+# -----------------------------------------------------------------------------
+
+# Construct the ofhttp command for this URI.
+# Each option is guarded by a check against its schema default to avoid emitting
+# unnecessary flags when the feature is disabled or empty.
+
+ofhttp \
+{# Headers: List of objects with 'key' and 'value' #}
+{% for h in headers | default([], true) %}
+    -H "{{ h.key }}: {{ h.value }}" \
+{% endfor %}
+
+{# Insecure TLS: Ignore certificate errors and insecure redirects #}
+{% if (insecure | default(false, true)) is sameas true %}
+    --insecure \
+{% endif %}
+
+{# Ignore HTTP Status: Do not fail on non-2xx responses #}
+{% if (ignore_status | default(false, true)) is sameas true %}
+    --ignore-status \
+{% endif %}
+
+{# Output File: Redirect output to a file. '-' means stdout. #}
+{% if output | default('', true) %}
+    -o "{{ output | default('', true) }}" \
+{% endif %}
+
+{# Continue Download: Resume partially downloaded files #}
+{% if (continue_download | default(false, true)) is sameas true %}
+    --continue \
+{% endif %}
+
+{# Force Overwrite: Overwrite existing output file without confirmation #}
+{% if (force | default(false, true)) is sameas true %}
+    --force \
+{% endif %}
+
+{# HTTP Method: Specify request method (GET, POST, HEAD, etc.) #}
+{% if method | default('', true) %}
+    -m "{{ method | default('', true) }}" \
+{% endif %}
+
+{# Body File: Send a file as the request body. '-' means stdin. #}
+{% if body_file | default('', true) %}
+    -b "{{ body_file | default('', true) }}" \
+{% elif (body_stdin | default(false, true)) is sameas true %}
+    -b- \
+{% endif %}
+
+{# Proxy: SOCKS5 proxy address (e.g., 127.0.0.1:9050) #}
+{% if proxy | default('', true) %}
+    -P "{{ proxy | default('', true) }}" \
+{% endif %}
+
+{# Quiet Mode: Suppress non-error output #}
+{% if (quiet | default(false, true)) is sameas true %}
+    -q \
+{% endif %}
+
+{# Verbose Mode: Print headers and other debug info #}
+{% if (verbose | default(false, true)) is sameas true %}
+    -v \
+{% endif %}
+
+    "{{ uri }}"
+{% endfor %}

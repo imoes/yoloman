@@ -1,0 +1,156 @@
+{#
+    Restic Global Configuration Template
+    ====================================
+    This template generates a configuration file for restic, a fast, secure, and efficient
+    backup program. The file follows restic's TOML-like syntax (key: value pairs).
+
+    Variables are sourced from the Ansible 'values' dictionary. All variables use the
+    |default() filter to ensure valid output even if a variable is undefined in the
+    playbooks.
+
+    Security Note: restic does not store passwords in this config file. The repository
+    password should be provided via environment variable RESTIC_PASSWORD or via the
+    password_file path specified below.
+#}
+
+# =============================================================================
+# Repository Configuration
+# =============================================================================
+
+# Repository location to backup to or restore from.
+# Supports local paths (e.g., '/media/backup') or remote URLs (e.g., 'sftp:server:/path', 'b2:bucket-name').
+# Corresponds to CLI flag: --repo
+repository: {{ (values | default({})).repository | default('') }}
+
+# Path to a file containing the repository password.
+# The file must contain only the password string.
+# Note: Using environment variables or a keyring is often preferred for higher security.
+# Corresponds to CLI flag: --password-file
+password_file: {{ (values | default({})).password_file | default('') }}
+
+# =============================================================================
+# Cache Settings
+# =============================================================================
+
+# Directory to use for the local cache.
+# Restic caches index and data to speed up subsequent operations.
+# Corresponds to CLI flag: --cache-dir
+cache_dir: {{ (values | default({})).cache_dir | default('/var/cache/restic') }}
+
+# Do not use a local cache.
+# If set to true, restic will not store cache files, potentially slowing down repeated operations.
+# Corresponds to CLI flag: --no-cache
+no_cache: {{ (values | default({})).no_cache | default(false) }}
+
+# Auto-remove old cache directories.
+# When enabled, restic will automatically clean up unused cache entries to save disk space.
+# Corresponds to CLI flag: --cleanup-cache
+cleanup_cache: {{ (values | default({})).cleanup_cache | default(false) }}
+
+# =============================================================================
+# Performance & Limits
+# =============================================================================
+
+# Compression mode for data chunks.
+# Options: 'auto' (heuristic based), 'off' (no compression), 'max' (maximum compression).
+# 'auto' is usually recommended for a balance of speed and size.
+# Corresponds to CLI flag: --compression
+compression: {{ (values | default({})).compression | default('auto') }}
+
+# Limit upload speed to this many KiB/s.
+# Set to 0 to disable speed limiting. Useful for backup jobs on shared links.
+# Corresponds to CLI flag: --limit-upload
+limit_upload: {{ (values | default({})).limit_upload | default(0) }}
+
+# Limit download speed to this many KiB/s.
+# Set to 0 to disable speed limiting. Useful for restore operations.
+# Corresponds to CLI flag: --limit-download
+limit_download: {{ (values | default({})).limit_download | default(0) }}
+
+# Target pack size in MiB.
+# Controls the size of data packs created during backup. Smaller values reduce storage
+# waste for unused data but may increase overhead; larger values improve speed.
+# Set to 0 to use restic's default behavior.
+# Corresponds to CLI flag: --pack-size
+pack_size: {{ (values | default({})).pack_size | default(0) }}
+
+# =============================================================================
+# Retry & Timeout Settings
+# =============================================================================
+
+# Duration to retry locking the repository.
+# Restic requires exclusive locks for backups/repairs. This setting defines how long
+# to wait for the lock before failing. Format: duration string (e.g., '5m', '2h').
+# Corresponds to CLI flag: --retry-lock
+retry_lock: {{ (values | default({})).retry_lock | default('5m') }}
+
+# Stuck request timeout duration.
+# If a network request hangs, restic will wait this duration before retrying or failing.
+# Format: duration string (e.g., '5m').
+# Corresponds to CLI flag: --stuck-request-timeout
+stuck_request_timeout: {{ (values | default({})).stuck_request_timeout | default('5m') }}
+
+# =============================================================================
+# Security & TLS Configuration
+# =============================================================================
+
+# Skip TLS certificate verification when connecting to the repository.
+# WARNING: Setting this to true disables verification of the server's certificate.
+# This exposes the connection to Man-in-the-Middle attacks. Only use for internal
+# or self-signed certificate environments where host verification is not required.
+# Corresponds to CLI flag: --insecure-tls
+insecure_tls: {{ (values | default({})).insecure_tls | default(false) }}
+
+# Path to a file containing root certificates to use for TLS verification.
+# Allows custom Certificate Authorities (CA) for private repositories.
+# Corresponds to CLI flag: --cacert
+cacert: {{ (values | default({})).cacert | default('') }}
+
+# Path to a file containing PEM encoded TLS client certificate and private key.
+# Used for mTLS (mutual TLS) authentication with the repository server.
+# Corresponds to CLI flag: --tls-client-cert
+tls_client_cert: {{ (values | default({})).tls_client_cert | default('') }}
+
+# Key ID of the key to try decrypting first.
+# Optimizes decryption by hinting which private key to attempt first.
+# Corresponds to CLI flag: --key-hint
+key_hint: {{ (values | default({})).key_hint | default('') }}
+
+# =============================================================================
+# Operational Settings
+# =============================================================================
+
+# Verbose level for output.
+# 0: Quiet (only errors), 1: Normal progress, 2: Debug information.
+# Corresponds to CLI flag: --verbose
+verbose: {{ (values | default({})).verbose | default(0) }}
+
+# Do not lock the repository.
+# Useful for read-only operations (like 'list' or 'cat') or if locking is handled
+# externally. WARNING: Using this for backups may cause corruption if multiple
+# processes run simultaneously.
+# Corresponds to CLI flag: --no-lock
+no_lock: {{ (values | default({})).no_lock | default(false) }}
+
+# Skip additional verification of data before upload.
+# Disables the SHA256 check of data chunks before sending them to the backend.
+# Speeds up backups but reduces integrity verification safety.
+# Corresponds to CLI flag: --no-extra-verify
+no_extra_verify: {{ (values | default({})).no_extra_verify | default(false) }}
+
+# User agent string for outgoing HTTP requests.
+# Used when connecting to HTTP/HTTPS based repositories (e.g., S3, Azure).
+# Corresponds to CLI flag: --http-user-agent
+http_user_agent: {{ (values | default({})).http_user_agent | default('restic') }}
+
+# =============================================================================
+# Extended Options
+# =============================================================================
+
+# Additional options passed to restic via --option.
+# Each item should be in the format 'key=value'.
+# Example: 'blob-cache-duration=10m'
+# Corresponds to CLI flag: --option
+{% for opt in (values | default({})).options | default([]) %}
+option: {{ opt }}
+{% endfor %}

@@ -1,0 +1,59 @@
+# ==============================================================================
+# Configuration for pysassc CLI invocation
+# This template generates a YAML-like configuration file used to pass arguments
+# to the pysassc Python package (Sass to CSS compiler).
+# ==============================================================================
+
+# The SCSS source file to compile.
+# Schema: scss_file (string)
+source_file: {{ (scss_file | default('input.scss')) | string }}
+
+# The CSS output file. Required if sourcemap is enabled.
+# Schema: css_file (string)
+output_file: {{ (css_file | default('output.css')) | string }}
+
+# Coding style of the compiled result.
+# Allowed values: nested, expanded, compact, compressed
+# Schema: style (string)
+style: {{ (style | default('nested')) | string }}
+
+# Optional directory paths to find @imported (S)CSS files.
+# Can be used multiple times in CLI, represented as a list here.
+# Schema: include_paths (list)
+include_paths:
+{% for path in include_paths | default([]) %}
+  - {{ path | string }}
+{% endfor %}
+
+# Emit source map. Requires the second argument (output CSS filename).
+# Schema: sourcemap (boolean)
+emit_sourcemap: {{ sourcemap | default(false) | lower }}
+
+# Set the precision for numbers in the compiled output.
+# Schema: precision (integer)
+precision: {{ (precision | default(5)) | int }}
+
+# Include debug info in output (line numbers, file names).
+# Schema: source_comments (boolean)
+source_comments: {{ source_comments | default(false) | lower }}
+
+# Output file for source map.
+# If not specified, defaults to output filename + .map.
+# Schema: sourcemap_file (string or null)
+sourcemap_file: {{ sourcemap_file | default(None) | string }}
+
+# Embed sourcesContent in source map (include original SCSS content in map).
+# Schema: sourcemap_contents (boolean)
+sourcemap_contents: {{ sourcemap_contents | default(false) | lower }}
+
+# Embed sourceMappingUrl as data URI instead of a separate file reference.
+# Schema: sourcemap_embed (boolean)
+sourcemap_embed: {{ sourcemap_embed | default(false) | lower }}
+
+# Omit source map URL comment from output CSS.
+# Schema: omit_sourcemap_url (boolean)
+omit_sourcemap_url: {{ omit_sourcemap_url | default(false) | lower }}
+
+# Base path, will be emitted to sourceRoot in source-map as is.
+# Schema: sourcemap_root (string or null)
+sourcemap_root: {{ sourcemap_root | default(None) | string }}

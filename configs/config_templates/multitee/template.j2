@@ -1,0 +1,46 @@
+# ==============================================================================
+# multitee configuration template
+# ==============================================================================
+# This template configures `multitee`, a tool for redirecting file descriptors
+# to multiple outputs, similar to `tee` but for arbitrary FDs.
+#
+# Self-documenting: every variable usage is paired with its schema default
+# and description as a comment above the directive.
+# ==============================================================================
+
+# Input buffer size in bytes. Default is 8192. Corresponds to the -bsize flag.
+# Variable: buffer_size (int)
+buffer_size = {{ (buffer_size | default(8192)) }}
+
+# Verbosity level. Must be one of 'quiet', 'normal', or 'verbose'.
+# Corresponds to -q, -Q, or -v flags.
+# Variable: verbosity (string)
+verbosity = "{{ (verbosity | default('normal')) }}"
+
+# List of stream mappings specifying which input file descriptors send to
+# which output file descriptors. Supports EOF signaling for outputs.
+# Variable: streams (list of dicts)
+# Expected structure per item: { "input_fd": int, "output_fds": [int, ...], "eof_signal": bool }
+# If `streams` is undefined or empty, no stream mappings are generated.
+{% if streams is defined and streams %}
+streams = [
+  {% for stream in streams %}
+  {
+    # File descriptor to read from for this stream
+    # Variable: stream.input_fd (int)
+    "input_fd": {{ stream.input_fd | default(omit) }},
+
+    # List of output file descriptors to write to
+    # Variable: stream.output_fds (list of ints)
+    "output_fds": [{{ stream.output_fds | default([]) | join(', ') }}],
+
+    # Signal EOF to output FDs when input is closed
+    # Variable: stream.eof_signal (bool)
+    "eof_signal": {{ stream.eof_signal | default(false) | lower }}
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+]
+{% else %}
+# No stream mappings configured.
+streams = []
+{% endif %}

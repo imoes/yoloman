@@ -1,0 +1,89 @@
+# =============================================================================
+# iSNS Server (isnsd) Configuration Template
+# =============================================================================
+# This file configures the iSNS (Internet Storage Name Service) server daemon.
+# iSNS provides discovery and configuration management for iSCSI storage devices.
+#
+# Directives use KEY = VALUE syntax.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Source Name: The iSCSI qualified source name of the server.
+# If left empty, the source name is derived from the client's hostname.
+# -----------------------------------------------------------------------------
+SourceName = {{ source_name | default('') }}
+
+# -----------------------------------------------------------------------------
+# Database Path: Absolute path to the directory where the iSNS database is stored.
+# If empty, isnsd keeps the database in memory.
+# -----------------------------------------------------------------------------
+Database = {{ database_path | default('/var/lib/isns') }}
+
+# -----------------------------------------------------------------------------
+# Registration Period: Period of inactivity after which registered entities are purged.
+# '0' disables automatic purging.
+# -----------------------------------------------------------------------------
+RegistrationPeriod = {{ registration_period | default('10m') }}
+
+# -----------------------------------------------------------------------------
+# Default Discovery Domain: If 1, creates a virtual default discovery domain
+# holding all nodes not in an admin-configured domain.
+# This ensures nodes without explicit domain assignment can still discover each other.
+# -----------------------------------------------------------------------------
+DefaultDiscoveryDomain = {{ default_discovery_domain | default(1) }}
+
+# -----------------------------------------------------------------------------
+# SLP Register: If 1, register the iSNS server with SLP (Service Location Protocol)
+# for service discovery. Clients can query for "iscsi:sms" and "(protocols=isns)".
+# -----------------------------------------------------------------------------
+SLPRegister = {{ slp_register | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Client Key Store: Location of the client key store.
+# 'DB:' uses the iSNS database itself.
+# Otherwise, specify a path to a flat directory containing public keys in PEM format.
+# -----------------------------------------------------------------------------
+ClientKeyStore = {{ client_key_store | default('DB:') }}
+
+# -----------------------------------------------------------------------------
+# SCN Timeout: Time in seconds to wait for an ACK on State Change Notifications
+# before retransmitting.
+# -----------------------------------------------------------------------------
+SCNTimeout = {{ scn_timeout | default(60) }}
+
+# -----------------------------------------------------------------------------
+# SCN Retries: Number of retransmission attempts for State Change Notifications
+# if an ACK is not received.
+# -----------------------------------------------------------------------------
+SCNRetries = {{ scn_retries | default(3) }}
+
+# -----------------------------------------------------------------------------
+# ESI (Endpoint Status Indication) Minimum Interval: Minimum interval for ESI checks.
+# Controls how frequently the server checks endpoint status.
+# -----------------------------------------------------------------------------
+ESIMinInterval = {{ esi_min_interval | default('1m') }}
+
+# -----------------------------------------------------------------------------
+# ESI Maximum Interval: Maximum interval for ESI checks.
+# Caps the maximum time between status checks.
+# -----------------------------------------------------------------------------
+ESIMaxInterval = {{ esi_max_interval | default('2m') }}
+
+# -----------------------------------------------------------------------------
+# ESI Retries: Number of retries for ESI checks.
+# Setting to 0 disables ESI support entirely, and the server will reject
+# portal registrations that specify an ESI portal.
+# -----------------------------------------------------------------------------
+ESIRetries = {{ esi_retries | default(3) }}
+
+# -----------------------------------------------------------------------------
+# Auth Replay Window: Time window for verifying authentication timestamps to
+# prevent replay attacks.
+# -----------------------------------------------------------------------------
+Auth.ReplayWindow = {{ auth_replay_window | default('2m') }}
+
+# -----------------------------------------------------------------------------
+# Auth Timestamp Jitter: Amount of jitter added to authentication timestamps
+# to prevent replay attacks and ensure uniqueness.
+# -----------------------------------------------------------------------------
+Auth.TimeStampJitter = {{ auth_timestamp_jitter | default('1s') }}

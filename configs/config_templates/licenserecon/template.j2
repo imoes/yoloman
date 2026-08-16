@@ -1,0 +1,33 @@
+# licenserecon configuration file
+# Syntax: /usr/share/lrc/lrc.config
+# This file is used to suppress false positives and define license aliases.
+#
+# Self-documenting template for ansible-role licenserecon.
+# Variables are defaulted to schema values to prevent render failures
+# when variables are omitted from the playbook.
+
+# -------------------------------------------------------------------------
+# Exclusions
+# -------------------------------------------------------------------------
+# List of file paths or directory prefixes to exclude from license checking.
+# One entry per line.
+# Example: debian/tests/
+# Default: [] (empty list, no exclusions)
+
+{% for exclusion in (exclusions | default([])) %}{{ exclusion }}
+{% endfor %}
+# If exclusions list is empty, the above loop produces no lines.
+# To keep the file clean, you may leave a blank line or nothing here.
+
+# -------------------------------------------------------------------------
+# License Aliases
+# -------------------------------------------------------------------------
+# License alias definitions.
+# Format: Alias_Name : License_Name
+# This allows mapping a detected license string to a standard SPDX or DEP-5 short name.
+# Example: LGPL-3.0-or-later : LGPLv3+
+# Default: [] (empty list, no aliases)
+
+{% for alias in (aliases | default([])) %}{{ alias.key }} : {{ alias.value }}
+{% endfor %}
+# If aliases list is empty, the above loop produces no lines.

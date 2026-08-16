@@ -1,0 +1,96 @@
+{#
+  Apache VirtualHost and WSGI configuration for the WIMS LTI application.
+  This template renders an Apache 2.4 configuration block including:
+  - A WSGI daemon process definition (runs as a specific system user/group).
+  - An HTTP (port 80) VirtualHost block.
+  - An HTTPS (port 443) VirtualHost block.
+  
+  Self-documenting: every directive is preceded by a comment derived from the schema
+  or standard Apache documentation. All variables use Jinja2 defaults to prevent
+  rendering failures when optional fields are omitted.
+#}
+
+{# The system user running the WSGI daemon process. #}
+{# The system group running the WSGI daemon process. #}
+{# The document root directory for the WIMS LTI application. #}
+WSGIDaemonProcess wimslti python-path={{ document_root | default('/var/lib/wims-lti') }}/wimsLTI user={{ lti_user | default('lti') }} group={{ lti_group | default('lti') }}
+
+{# HTTP VirtualHost: listens on port 80. #}
+<VirtualHost *:80>
+    {# The server hostname or domain name for the VirtualHost. #}
+    ServerName {{ server_name | default('SERVERNAME') }}
+
+    {# The document root directory for the WIMS LTI application. #}
+    DocumentRoot {{ document_root | default('/var/lib/wims-lti') }}
+
+    {# Static files alias: serves content from the static subdirectory. #}
+    Alias /static/ {{ document_root | default('/var/lib/wims-lti') }}/static/
+    <Directory {{ document_root | default('/var/lib/wims-lti') }}/static>
+        Require all granted
+    </Directory>
+
+    {# WSGI Script Alias: maps the root URL to the WSGI entry point, using the wimslti process group. #}
+    WSGIScriptAlias / {{ document_root | default('/var/lib/wims-lti') }}/wimsLTI/wsgi.py process-group=wimslti application-group=%{GLOBAL}
+
+    {# Directory permissions for the WSGI application code directory. #}
+    <Directory {{ document_root | default('/var/lib/wims-lti') }}/wimsLTI>
+        <Files wsgi.py>
+            Require all granted
+        </Files>
+    </Directory>
+
+    {# Error log path, includes the server name for distinct logging per vhost. #}
+    ErrorLog /var/log/apache2/{{ server_name | default('SERVERNAME') }}-error.log
+    
+    {# Log level for this virtual host. #}
+    LogLevel warn
+    
+    {# Access log path, uses the 'combined' log format. #}
+    CustomLog /var/log/apache2/{{ server_name | default('SERVERNAME') }}-access.log combined
+
+    {# Environment variable to ensure Python outputs UTF-8 encoded strings. #}
+    SetEnv PYTHONIOENCODING utf-8
+
+    {# Assign this request handler to the 'wimslti' WSGI process group. #}
+    WSGIProcessGroup wimslti
+</VirtualHost>
+
+{# HTTPS VirtualHost: listens on port 443. #}
+<VirtualHost *:443>
+    {# The server hostname or domain name for the VirtualHost. #}
+    ServerName {{ server_name | default('SERVERNAME') }}
+
+    {# The document root directory for the WIMS LTI application. #}
+    DocumentRoot {{ document_root | default('/var/lib/wims-lti') }}
+
+    {# Static files alias: serves content from the static subdirectory. #}
+    Alias /static/ {{ document_root | default('/var/lib/wims-lti') }}/static/
+    <Directory {{ document_root | default('/var/lib/wims-lti') }}/static>
+        Require all granted
+    </Directory>
+
+    {# WSGI Script Alias: maps the root URL to the WSGI entry point, using the wimslti process group. #}
+    WSGIScriptAlias / {{ document_root | default('/var/lib/wims-lti') }}/wimsLTI/wsgi.py process-group=wimslti application-group=%{GLOBAL}
+
+    {# Directory permissions for the WSGI application code directory. #}
+    <Directory {{ document_root | default('/var/lib/wims-lti') }}/wimsLTI>
+        <Files wsgi.py>
+            Require all granted
+        </Files>
+    </Directory>
+
+    {# Error log path, includes the server name for distinct logging per vhost. #}
+    ErrorLog /var/log/apache2/{{ server_name | default('SERVERNAME') }}-error.log
+    
+    {# Log level for this virtual host. #}
+    LogLevel warn
+    
+    {# Access log path, uses the 'combined' log format. #}
+    CustomLog /var/log/apache2/{{ server_name | default('SERVERNAME') }}-access.log combined
+
+    {# Environment variable to ensure Python outputs UTF-8 encoded strings. #}
+    SetEnv PYTHONIOENCODING utf-8
+
+    {# Assign this request handler to the 'wimslti' WSGI process group. #}
+    WSGIProcessGroup wimslti
+</VirtualHost>

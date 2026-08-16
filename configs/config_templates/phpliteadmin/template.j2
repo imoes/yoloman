@@ -1,0 +1,24 @@
+# phpLiteAdmin configuration template
+#
+# phpLiteAdmin is a single-file PHP-based database management tool for SQLite databases.
+# It is designed to be self-contained and does not require an external database server connection,
+# nor does it support dynamic configuration injection of database credentials at runtime via this
+# configuration mechanism. The configuration below defines Apache web-server directives to expose
+# the application files via an Alias.
+
+<IfModule mod_php.c>
+    # Alias directive: Maps the URL path /phpliteadmin to the local filesystem directory
+    # where phpLiteAdmin is installed.
+    # Variable: document_root (The absolute path to the phpLiteAdmin installation directory on the server filesystem.)
+    Alias /phpliteadmin {{document_root | default('/usr/share/phpliteadmin')}}
+</IfModule>
+
+<Directory {{document_root | default('/usr/share/phpliteadmin')}}>
+    # DirectoryIndex: Specifies the default file to serve when a directory is requested.
+    # Setting this ensures users land directly on the phpLiteAdmin interface.
+    DirectoryIndex phpliteadmin.php
+    # DirectoryIndexRedirect: Controls how the server handles requests for directories that
+    # match the DirectoryIndex. 'permanent' sends a 301 Moved Permanently redirect to the
+    # URL including the index filename.
+    DirectoryIndexRedirect permanent
+</Directory>

@@ -1,0 +1,128 @@
+# =============================================================================
+# virt-v2v Conversion Job Definition
+# =============================================================================
+# virt-v2v is a command-line tool for converting virtual machines from one
+# hypervisor to another. It does not run as a daemon, but this template
+# provides a structured configuration format (INI-like) for defining conversion
+# jobs, which can be consumed by wrapper scripts or orchestration playbooks.
+#
+# This configuration is SELF-DOCUMENTING: every field is commented with its
+# schema description and valid options.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Input Configuration
+# -----------------------------------------------------------------------------
+
+# Input mode: Specifies the source hypervisor or format.
+# Options: libvirt, vmx, vddk, disk, ova, libvirtxml.
+# Default: 'libvirt'
+input_mode = {{ input_mode | default('libvirt') }}
+
+# Input URI: Connection string for the source hypervisor.
+# For -i libvirt, this is the libvirt URI (e.g., qemu:///system).
+# For -i vpx, this is vpx://vcenter.example.com/Datacenter/esxi.
+# For -i disk, this is the path to the disk image.
+# Default: 'qemu:///system'
+input_uri = {{ input_uri | default('qemu:///system') }}
+
+# -----------------------------------------------------------------------------
+# Output Configuration
+# -----------------------------------------------------------------------------
+
+# Output mode: Specifies the target KVM management system or storage.
+# Options: libvirt, local, qemu, rhv, rhv-upload, openstack, vdsm.
+# Default: 'libvirt'
+output_mode = {{ output_mode | default('libvirt') }}
+
+# Output Storage: Location for the converted guest.
+# For -o libvirt: pool name or UUID.
+# For -o local: directory path.
+# For -o rhv-upload: storage domain name.
+# For -o openstack: Cinder volume type.
+# Default: 'default'
+output_storage = {{ output_storage | default('default') }}
+
+# -----------------------------------------------------------------------------
+# Guest Source & Identity
+# -----------------------------------------------------------------------------
+
+# Guest Name: The name of the source guest (required for -i libvirt) or the
+# input file/path (for disk/vmx/vddk/ova modes).
+# Default: '' (empty string)
+guest_source = {{ guest_source | default('') }}
+
+# Rename: New name for the guest upon conversion.
+# If empty, the original name is preserved.
+# Default: '' (empty string)
+output_guest_name = {{ output_guest_name | default('') }}
+
+# -----------------------------------------------------------------------------
+# Network Mappings
+# -----------------------------------------------------------------------------
+
+# Bridge Mapping: List of network mappings to apply during conversion.
+# Format: "source_network:target_bridge"
+# Example: ['virbr0:br0', 'vnet0:eth0']
+# Default: []
+bridge_mappings = {{ bridge_mappings | default([]) | tojson }}
+
+# MAC-to-Network Mapping: Fine-grained mapping of specific NIC MACs to target
+# networks/bridges.
+# Format: "mac:type:target_name" or "mac:bridge:target_name"
+# Example: ['00:11:22:33:44:55:bridge:br0']
+# Default: []
+mac_mappings = {{ mac_mappings | default([]) | tojson }}
+
+# -----------------------------------------------------------------------------
+# Performance & Constraints
+# -----------------------------------------------------------------------------
+
+# Bandwidth Limit: Static network bandwidth limit for the conversion (e.g., '10M').
+# Supported by some input transports.
+# Default: '' (empty string, no limit)
+bandwidth_limit = {{ bandwidth_limit | default('') }}
+
+# -----------------------------------------------------------------------------
+# Disk Image Options
+# -----------------------------------------------------------------------------
+
+# Disk Format: Target disk image format.
+# Options: qcow2, raw, etc.
+# If empty, the input format is used.
+# Default: '' (empty string)
+disk_format = {{ disk_format | default('') }}
+
+# Allocation Mode: 'sparse' or 'preallocated'.
+# Sparse allocates space only when written; preallocated reserves all space.
+# Default: 'sparse'
+allocation_mode = {{ allocation_mode | default('sparse') }}
+
+# Compressed Output: Use compressed qcow2 if output format supports it.
+# Corresponds to -oo compressed flag.
+# Default: false
+compressed = {{ compressed | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Customizations
+# -----------------------------------------------------------------------------
+
+# Customization Scripts: List of virt-customize commands to apply during conversion.
+# Based on virt-customize options like --firstboot-command, --run-command, --hostname.
+# Example: ['--run-command="yum update -y"', '--hostname="newguest.example.com"']
+# Default: []
+customizations = {{ customizations | default([]) | tojson }}
+
+# -----------------------------------------------------------------------------
+# Logging & Output Control
+# -----------------------------------------------------------------------------
+
+# Verbose Mode: Enable verbose messages for debugging.
+# Corresponds to -v, --verbose flag.
+# Default: false
+verbose = {{ verbose | default(false) }}
+
+# Quiet Mode: Disable progress bars and unnecessary output.
+# Corresponds to -q, --quiet flag.
+# Default: false
+quiet = {{ quiet | default(false) }}

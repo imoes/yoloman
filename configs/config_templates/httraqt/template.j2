@@ -1,0 +1,51 @@
+# HTTraQt Configuration File
+# This file controls default settings for HTTraQt, the Qt-based GUI for HTTrack.
+
+[General]
+# default_url: The starting URL for new downloads if none is specified in the UI
+{{ values.general.default_url | default('http://www.example.com') }}
+
+[Download]
+# max_retries: Maximum number of connection retries before giving up
+{{ values.download.max_retries | default(3) }}
+
+# user_agent: Custom User-Agent string to send to servers
+{{ values.download.user_agent | default('HTTraQt/' + values.version) }}
+
+[Proxy]
+# proxy_enabled: Enable use of an HTTP proxy server
+{{ values.proxy.enabled | default(false) }}
+
+# proxy_host: Hostname or IP address of the proxy server
+{% if values.proxy.enabled %}
+{{ values.proxy.host | default('localhost') }}
+{% endif %}
+
+# proxy_port: Port number of the proxy server
+{% if values.proxy.enabled %}
+{{ values.proxy.port | default(8080) }}
+{% endif %}
+
+# proxy_user: Username for proxy authentication (leave blank if not required)
+{% if values.proxy.enabled and values.proxy.use_auth %}
+{{ values.proxy.user | default('') }}
+{% endif %}
+
+# proxy_password: Password for proxy authentication (leave blank if not required)
+{% if values.proxy.enabled and values.proxy.use_auth %}
+{{ values.proxy.password | default('') }}
+{% endif %}
+
+[Appearance]
+# theme: The UI theme to use ('light', 'dark', or 'system')
+{{ values.appearance.theme | default('system') }}
+
+# language: The interface language code (e.g., 'en', 'de', 'fr')
+{{ values.appearance.language | default('en') }}
+
+[Logs]
+# log_level: Verbosity of the log file ('error', 'info', 'debug')
+{{ values.logs.level | default('info') }}
+
+# log_file: Path to the log file
+{{ values.logs.file | default('/var/log/httraqt.log') }}

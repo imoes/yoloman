@@ -1,0 +1,78 @@
+# Sccache configuration file
+# See docs/Configuration.md in the sccache repository for full documentation.
+
+[config]
+# Enable client-side mode to reduce server round-trips (opt-in in v0.17.0).
+client_side_mode = {{ sccache.config.client_side_mode | default(false) | lower }}
+
+# Path to the local cache directory. Only used if no remote backend is configured or for multi-level caching.
+cache_dir = "{{ sccache.config.cache_dir | default('/var/cache/sccache') }}"
+
+[backend.s3]
+{% if sccache.backends.s3.enabled %}
+# Enable S3 storage backend.
+enabled = true
+
+# AWS Region for the S3 bucket.
+bucket = "{{ sccache.backends.s3.bucket }}"
+region = "{{ sccache.backends.s3.region | default('us-east-1') }}"
+
+# The S3 access key ID. Set via environment or config file.
+access_key = "{{ sccache.backends.s3.access_key | default('') }}"
+
+# The S3 secret access key. Set via environment or config file.
+secret_access_key = "{{ sccache.backends.s3.secret_access_key | default('') }}"
+
+# Enable SSE-KMS for server-side encryption with KMS keys.
+use_sse_kms = {{ sccache.backends.s3.use_sse_kms | default(false) | lower }}
+
+# The KMS Key ID to use for SSE-KMS encryption.
+kms_key_id = "{{ sccache.backends.s3.kms_key_id | default('') }}"
+
+# Enable this backend as read-only (no cache writes).
+readonly = {{ sccache.backends.s3.readonly | default(false) | lower }}
+{% endif %}
+
+[backend.redis]
+{% if sccache.backends.redis.enabled %}
+# Enable Redis storage backend.
+enabled = true
+
+# Redis connection URL. Supports tcp://, unix://, and abstract socket format (\x00...).
+url = "{{ sccache.backends.redis.url | default('tcp://127.0.0.1:6379') }}"
+
+# Optional password for Redis authentication.
+password = "{{ sccache.backends.redis.password | default('') }}"
+
+# Enable this backend as read-only.
+readonly = {{ sccache.backends.redis.readonly | default(false) | lower }}
+{% endif %}
+
+[dist]
+{% if sccache.distributed.enabled %}
+# Enable distributed compilation mode.
+enabled = true
+
+# The address of the sccache distribution server.
+server_addr = "{{ sccache.distributed.server_addr | default('127.0.0.1:8080') }}"
+
+# Authentication key for the distribution server.
+auth_key = "{{ sccache.distributed.auth_key | default('') }}"
+
+# Enable transport layer encryption (TLS) for distribution.
+tls = {{ sccache.distributed.tls | default(false) | lower }}
+
+# Path to the CA certificate for verifying the distribution server.
+ca_cert = "{{ sccache.distributed.ca_cert | default('') }}"
+
+# Path to the client certificate for mutual TLS authentication.
+client_cert = "{{ sccache.distributed.client_cert | default('') }}"
+
+# Path to the client private key for mutual TLS authentication.
+client_key = "{{ sccache.distributed.client_key | default('') }}"
+{% endif %}
+
+[environment]
+# Environment variables to pass to the compiler wrapper.
+# These are set when sccache invokes the actual compiler.
+compiler_env_vars = {{ sccache.environment.compiler_env_vars | default([]) | join(', ') }}

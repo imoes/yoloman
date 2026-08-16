@@ -1,0 +1,93 @@
+#!/bin/sh
+
+# =============================================================================
+# ucarp: Virtual IP Failover Configuration Script
+# =============================================================================
+# This script generates the command-line parameters for the ucarp daemon.
+# It supports configuration of up/down scripts, master/slave mode, advertising
+# skew/base, dead ratio, multicast suppression, and extended parameters.
+# =============================================================================
+
+UCARP=/usr/sbin/ucarp
+EXTRA_PARAMS=""
+
+# Check if the ucarp binary exists and is executable.
+if [ ! -x $UCARP ]; then
+    exit 0
+fi
+
+# -----------------------------------------------------------------------------
+# Script Execution Paths
+# -----------------------------------------------------------------------------
+
+# default_upscript: Path to the script executed when the virtual IP comes up.
+if [ -z "$IF_UCARP_UPSCRIPT" ]; then
+    IF_UCARP_UPSCRIPT={{ default_upscript | default('/usr/share/ucarp/vip-up') }}
+fi
+
+# default_downscript: Path to the script executed when the virtual IP goes down.
+if [ -z "$IF_UCARP_DOWNSCRIPT" ]; then
+    IF_UCARP_DOWNSCRIPT={{ default_downscript | default('/usr/share/ucarp/vip-down') }}
+fi
+
+# -----------------------------------------------------------------------------
+# Operational Mode and Timing Parameters
+# -----------------------------------------------------------------------------
+
+# IF_UCARP_MASTER: Set to 'true', 'yes', '1', or any value not 'no','off','false','0'
+# to run in master (active) mode. Otherwise, runs in slave mode.
+if [ -n "$IF_UCARP_MASTER" ]; then
+    if ! expr "$IF_UCARP_MASTER" : "no\|off\|false\|0" > /dev/null; then
+        EXTRA_PARAMS="$EXTRA_PARAMS -P"
+    fi
+fi
+
+# IF_UCARP_ADVSKEW: Advertising skew value. Used as -k <value>.
+if [ -n "$IF_UCARP_ADVSKEW" ]; then
+    EXTRA_PARAMS="$EXTRA_PARAMS -k $IF_UCARP_ADVSKEW"
+fi
+
+# IF_UCARP_ADVBASE: Advertising base interval. Used as -b <value>.
+if [ -n "$IF_UCARP_ADVBASE" ]; then
+    EXTRA_PARAMS="$EXTRA_PARAMS -b $IF_UCARP_ADVBASE"
+fi
+
+# IF_UCARP_DEADRATIO: Dead ratio for failure detection. Used as -r <value>.
+if [ -n "$IF_UCARP_DEADRATIO" ]; then
+    EXTRA_PARAMS="$EXTRA_PARAMS -r $IF_UCARP_DEADRATIO"
+fi
+
+# -----------------------------------------------------------------------------
+# Network and Protocol Options
+# -----------------------------------------------------------------------------
+
+# IF_UCARP_NOMCAST: If set to 'true' or similar non-exclusion value, disable
+# multicast and use unicast instead (-M flag).
+if [ -n "$IF_UCARP_NOMCAST" ]; then
+    if ! expr "$IF_UCARP_NOMCAST" : "no\|off\|false\|0" > /dev/null; then
+        EXTRA_PARAMS="$EXTRA_PARAMS -M"
+    fi
+fi
+
+# IF_UCARP_XPARAM: Arbitrary extra parameter passed directly to ucarp via -x.
+if [ -n "$IF_UCARP_XPARAM" ]; then
+    EXTRA_PARAMS="$EXTRA_PARAMS -x $IF_UCARP_XPARAM"
+fi
+
+# -----------------------------------------------------------------------------
+# Main ucarp Execution
+# -----------------------------------------------------------------------------
+
+# Execute ucarp if all mandatory credentials and identifiers are present.
+# Mandatory fields: IF_UCARP_VID (VLAN ID), IF_UCARP_VIP (Virtual IP),
+#                   IF_UCARP_PASSWORD (Shared Secret).
+# Required environment variables not passed here: IFACE (interface),
+# IF_ADDRESS (local address).
+if [ -n "$IF_UCARP_VID" -a -n "$IF_UCARP_VIP" -a \
+        -n "$IF_UCARP_PASSWORD" ]; then
+    $UCARP -i $IFACE -s $IF_ADDRESS -B -z -v $IF_UCARP_VID \
+        -p $IF_UCARP_PASSWORD -a $IF_UCARP_VIP -u $IF_UCARP_UPSCRIPT \
+        -d $IF_UCARP_DOWNSCRIPT $EXTRA_PARAMS
+fi
+
+# vi:ai sw=4 ts=4 tw=0 et

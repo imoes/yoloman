@@ -1,0 +1,121 @@
+#!/bin/bash
+# Wrapper script to invoke lziprecover with site-specific defaults.
+# Executes lziprecover with the configured options.
+
+LZIPRECOVER_BIN="{{ lziprecover_bin }}"
+INPUT_FILES="{{ input_files | join(' ') }}"
+OUTPUT_DIR="{{ output_dir | default('', true) }}"
+
+# Check if binary exists
+if [ ! -x "${LZIPRECOVER_BIN}" ]; then
+    echo "Error: lziprecover binary not found at ${LZIPRECOVER_BIN}" >&2
+    exit 1
+fi
+
+# Build command arguments
+ARGS=""
+{% if force %}
+ARGS="${ARGS} --force"
+{% endif %}
+{% if quiet %}
+ARGS="${ARGS} --quiet"
+{% else %}
+{% if verbose %}
+ARGS="${ARGS} --verbose{% if verbose == 2 %} -v{% endif %}"
+{% endif %}
+{% endif %}
+{% if keep %}
+ARGS="${ARGS} --keep"
+{% endif %}
+{% if ignore_errors %}
+ARGS="${ARGS} --ignore-errors"
+{% endif %}
+{% if fec_level %}
+ARGS="${ARGS} --fec={{ fec_level }}"
+{% endif %}
+{% if threads %}
+ARGS="${ARGS} --threads={{ threads }}"
+{% endif %}
+{% if block_size %}
+ARGS="${ARGS} --block-size={{ block_size }}"
+{% endif %}
+{% if output_dir %}
+ARGS="${ARGS} --output={{ output_dir }}"
+{% endif %}
+{% if stdout %}
+ARGS="${ARGS} --stdout"
+{% endif %}
+{% if decompress %}
+ARGS="${ARGS} --decompress"
+{% endif %}
+{% if test_mode %}
+ARGS="${ARGS} --test"
+{% endif %}
+{% if list_files %}
+ARGS="${ARGS} --list"
+{% endif %}
+{% if merge %}
+ARGS="${ARGS} --merge"
+{% endif %}
+{% if byte_repair %}
+ARGS="${ARGS} --byte-repair"
+{% endif %}
+{% if trailing_error %}
+ARGS="${ARGS} --trailing-error"
+{% endif %}
+{% if alone_to_lz %}
+ARGS="${ARGS} --alone-to-lz"
+{% endif %}
+{% if reproduce %}
+{% if reference_file %}
+ARGS="${ARGS} --reference-file={{ reference_file }}"
+{% endif %}
+{% if lzip_name %}
+ARGS="${ARGS} --lzip-name={{ lzip_name }}"
+{% endif %}
+{% if lzip_level %}
+ARGS="${ARGS} --lzip-level={{ lzip_level }}"
+{% endif %}
+{% if reproduce == 'repair' %}
+ARGS="${ARGS} --reproduce"
+{% elif reproduce == 'test' %}
+ARGS="${ARGS} --reproduce --test" # Note: man page says --reproduce, no specific --test for reproduce mode, but combining implies checking integrity
+{% endif %}
+{% endif %}
+{% if fec_mode %}
+ARGS="${ARGS} --fec={{ fec_mode }}{% if fec_file %} {{ fec_file }}{% endif %}"
+{% endif %}
+{% if fec_file and not fec_mode %}
+ARGS="${ARGS} --fec-file={{ fec_file }}"
+{% endif %}
+{% if recursive %}
+ARGS="${ARGS} --recursive"
+{% endif %}
+{% if dereference_recursive %}
+ARGS="${ARGS} --dereference-recursive"
+{% endif %}
+{% if split %}
+ARGS="${ARGS} --split"
+{% endif %}
+{% if range_decompress %}
+ARGS="${ARGS} --range-decompress={{ range_decompress }}"
+{% endif %}
+{% if dump_spec %}
+ARGS="${ARGS} --dump={{ dump_spec }}"
+{% endif %}
+{% if remove_spec %}
+ARGS="${ARGS} --remove={{ remove_spec }}"
+{% endif %}
+{% if strip_spec %}
+ARGS="${ARGS} --strip={{ strip_spec }}"
+{% endif %}
+{% if loose_trailing %}
+ARGS="${ARGS} --loose-trailing"
+{% endif %}
+{% if nonzero_repair %}
+ARGS="${ARGS} --nonzero-repair"
+{% endif %}
+
+# Execute lziprecover
+echo "Executing: ${LZIPRECOVER_BIN} ${ARGS} ${INPUT_FILES}"
+exec ${LZIPRECOVER_BIN} ${ARGS} ${INPUT_FILES}

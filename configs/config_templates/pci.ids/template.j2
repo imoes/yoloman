@@ -1,0 +1,64 @@
+# PCI ID List Configuration
+#
+# This template generates the raw text format used by PCI utilities
+# (such as lspci) to map hexadecimal PCI identifiers to human-readable names.
+# The data structure is defined by the 'entries' list variable.
+#
+# Reference: https://pci-ids.ucw.cz/
+
+# Date the PCI ID list was last updated.
+# Default: 'N/A'
+#
+## Updated: {{ update_date | default('N/A') }}
+
+{# Iterate over the list of PCI entries (classes, vendors, etc.) #}
+{% for entry in entries | default([]) %}
+
+    {# Handle PCI Device Classes #}
+    {% if entry.type == 'class' %}
+        # PCI Class Entry
+        # Format: C <class_id> <class_name>
+        # See schema: entry.type='class', entry.id (string), entry.name (string)
+        C {{ entry.id }} {{ entry.name }}
+
+        {# Iterate over subclasses defined within this class #}
+        {# Note: entry.subclasses is expected to be a list of objects with 'id' and 'name' #}
+        {% for subclass in entry.subclasses | default([]) %}
+            # Subclass Entry
+            # Format: <subclass_id> <subclass_name>
+            # Indented to reflect hierarchy under the parent class.
+            {{ subclass.id }} {{ subclass.name }}
+
+            {# Iterate over programming interface info (progif) for this subclass #}
+            {# Note: subclass.progifs is expected to be a list of objects with 'id' and 'name' #}
+            {% for progif in subclass.progifs | default([]) %}
+                # Programming Interface Entry
+                # Format: <progif_id> <progif_name>
+                {{ progif.id }} {{ progif.name }}
+            {% endfor %}
+        {% endfor %}
+
+    {# Handle PCI Vendors #}
+    {% elif entry.type == 'vendor' %}
+        # PCI Vendor Entry
+        # Format: <vendor_id> <vendor_name>
+        # See schema: entry.type='vendor', entry.id (string), entry.name (string)
+        {{ entry.id }} {{ entry.name }}
+
+        {# Iterate over devices defined within this vendor #}
+        {# Note: entry.devices is expected to be a list of objects with 'id' and 'name' #}
+        {% for device in entry.devices | default([]) %}
+            # Device Entry
+            # Format: <device_id> <device_name>
+            {{ device.id }} {{ device.name }}
+
+            {# Iterate over subsystems defined within this device #}
+            {# Note: device.subsystems is expected to be a list of objects with 'id' and 'name' #}
+            {% for subsystem in device.subsystems | default([]) %}
+                # Subsystem Entry
+                # Format: <subsystem_id> <subsystem_name>
+                {{ subsystem.id }} {{ subsystem.name }}
+            {% endfor %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}

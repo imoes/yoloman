@@ -1,0 +1,32 @@
+# Configuration file for the pass-otp extension.
+# This file controls the default behavior of OTP (One-Time Password) generation
+# and management commands (e.g., `otp insert`, `otp code`).
+
+[pass-otp]
+
+# Hashing algorithm used for OTP secrets (e.g., sha1, sha256, sha512).
+# Must match oathtool compatibility. Defaults to sha1.
+algorithm = {{ algo | default('sha1') }}
+
+# Time period in seconds for the OTP generation cycle.
+# Standard TOTP uses 30 seconds. Defaults to 30.
+period = {{ period | default(30) }}
+
+# Number of digits in the generated OTP code.
+# Common values are 6 (standard) or 8 (higher security). Defaults to 6.
+digits = {{ digits | default(6) }}
+
+# Enable clipboard copying for otp code and otp uri commands by default.
+# If true, the command output is copied to the clipboard instead of printed.
+# Defaults to false.
+clip = {{ clip | default(false) | ternary('true', 'false') }}
+
+# Default issuer label used in the otpauth URI if not explicitly provided.
+# This label is shown in most authenticator apps (Google Authenticator, Authy, etc.).
+# Defaults to 'pass-otp'.
+default_issuer = {{ default_issuer | default('pass-otp') }}
+
+# Duration in seconds to wait before restoring the clipboard buffer after a clip operation.
+# This helps prevent accidental leakage of the OTP code in the clipboard history.
+# Defaults to 45 seconds.
+clip_time = {{ clip_time | default(45) }}

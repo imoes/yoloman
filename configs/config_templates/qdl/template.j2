@@ -1,0 +1,93 @@
+# ============================================================================
+# QDL (Qualcomm Download Loader) Configuration Template
+# ============================================================================
+# This template generates a configuration file for the Qualcomm Download Loader
+# tool, used for flashing and configuring Qualcomm-based embedded devices (e.g.,
+# Snapdragon modules, IoT boards).
+#
+# All variables below are self-documented with their schema defaults.
+# If a variable is not provided by Ansible, the default is used.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Target Identification
+# ----------------------------------------------------------------------------
+
+# Select target by serial number (e.g., 0AA94EFD).
+# Leave empty to auto-select the first available device.
+Serial: {{ serial | default('') }}
+
+# Set target storage type: emmc, nand, nvme, spinor, or ufs.
+# Leave empty to let the tool auto-detect the storage medium.
+Storage: {{ storage | default('') }}
+
+# Set slot number for multiple storage devices (e.g., A/B slot systems).
+# Leave empty if not applicable.
+Slot: {{ slot | default('') }}
+
+# ----------------------------------------------------------------------------
+# Operation Behavior
+# ----------------------------------------------------------------------------
+
+# Override chunk size for transaction with device.
+# 0 uses the tool's default behavior.
+OutChunkSize: {{ out_chunk_size | default(0) }}
+
+# Print detailed debug info to stdout/stderr.
+# Useful for troubleshooting connection or flashing issues.
+Debug: {{ debug | default(False) }}
+
+# Dry run execution: no device reading or flashing occurs.
+# Simulates the operation to validate configuration.
+DryRun: {{ dry_run | default(False) }}
+
+# Allow skipping of missing files during flashing.
+# If false, the tool will error out if a required file is missing.
+AllowMissing: {{ allow_missing | default(False) }}
+
+# Provision the target storage after flashing completes.
+# Configures boot parameters, partitions, or other post-flash steps.
+FinalizeProvisioning: {{ finalize_provisioning | default(False) }}
+
+# Do not send the reset command after flashing completes.
+# Prevents the device from rebooting automatically.
+SkipReset: {{ skip_reset | default(False) }}
+
+# ----------------------------------------------------------------------------
+# Backend Selection
+# ----------------------------------------------------------------------------
+
+# Select device backend: auto, usb, or qud.
+# 'auto' lets the tool choose the best available interface.
+Backend: {{ backend | default('auto') }}
+
+# Use readback mechanism to skip program entries already on flash.
+# Options: 'none' (always write) or 'sha256' (verify via digest).
+Skipblock: {{ skipblock | default('none') }}
+
+# ----------------------------------------------------------------------------
+# File Paths and Directories
+# ----------------------------------------------------------------------------
+
+# Set an optional folder to search for files if they are not in the current directory.
+# Useful for organizing build artifacts.
+IncludeDir: {{ include_dir | default('') }}
+
+# Generate table of digests in this folder.
+# Creates a directory structure with SHA256 hashes for verification.
+CreateDigestsDir: {{ create_digests_dir | default('') }}
+
+# Use digest tables in this folder for VIP (Very Important Partition) handling.
+# Points to a directory containing pre-generated digest tables.
+VipTablePath: {{ vip_table_path | default('') }}
+
+# ----------------------------------------------------------------------------
+# File List
+# ----------------------------------------------------------------------------
+
+# List of file paths to process (e.g., prog.mbn, program XML files).
+# Each entry is an absolute or relative path to a binary or configuration file.
+Files:
+{% for file in files | default([]) %}
+  - {{ file }}
+{% endfor %}

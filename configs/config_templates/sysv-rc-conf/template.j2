@@ -1,0 +1,55 @@
+# ============================================================================
+# sysv-rc-cli configuration template
+# ============================================================================
+# This file configures the sysv-rc-cli utility, which manages SysV-style
+# init scripts (runlevels) on Linux systems that rely on the traditional
+# /etc/init.d/ structure (e.g., older Debian/Ubuntu, RHEL/CentOS 6).
+#
+# Variables used:
+#   cache_dir        - Directory for caching priority numbers and old runlevel states
+#   root_dir         - Root directory to operate on (useful for chroot/rescue)
+#   show_levels      - Which runlevels to display in the interactive interface
+#   default_cli_levels - Default runlevels targeted by CLI commands
+#   verbose_file     - Path to a file for verbose logging; empty string disables file logging
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# cache_dir: The directory where priority numbers and old runlevel configuration
+# are stored. This allows the tool to persist state between invocations.
+# Default: /var/lib/sysv-rc-conf
+# -----------------------------------------------------------------------------
+cache_dir = {{ cache_dir | default('/var/lib/sysv-rc-conf') }}
+
+# -----------------------------------------------------------------------------
+# root_dir: The root directory to use for the operation.
+# This is primarily useful for rescue disks or chroot environments where the
+# target root filesystem is mounted elsewhere.
+# Default: /
+# -----------------------------------------------------------------------------
+root_dir = {{ root_dir | default('/') }}
+
+# -----------------------------------------------------------------------------
+# show_levels: Which runlevels to show in the interface.
+# This is a concatenated string of runlevel digits/characters, e.g., '1234506S'.
+# The tool will only display and manage services for these runlevels.
+# Default: 1234506S
+# -----------------------------------------------------------------------------
+show_levels = {{ show_levels | default('1234506S') }}
+
+# -----------------------------------------------------------------------------
+# default_cli_levels: The default runlevels affected by CLI commands if
+# the --level option is not explicitly provided.
+# For example, running 'sysv-rc-cli --start nginx' without --level would
+# affect services in these runlevels.
+# Default: 2345
+# -----------------------------------------------------------------------------
+default_cli_levels = {{ default_cli_levels | default('2345') }}
+
+# -----------------------------------------------------------------------------
+# verbose_file: File path to print verbose information to.
+# If this is an empty string, verbose output is sent to stdout/normal logging.
+# Specify a path (e.g., '/var/log/sysv-rc-verbose.log') to redirect verbose
+# output to a specific file.
+# Default: '' (empty string)
+# -----------------------------------------------------------------------------
+verbose_file = {{ verbose_file | default('') }}

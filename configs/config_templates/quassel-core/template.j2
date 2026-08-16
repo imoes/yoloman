@@ -1,0 +1,29 @@
+# Logrotate configuration for the Quassel Core IRC bouncer logs.
+# This template manages the rotation policies for the core service's log files.
+
+/var/log/quassel/core.log {
+    # rotate_count: Number of rotated log files to keep.
+    # The default is 4, meaning the service retains the current log plus 4 rotated archives.
+    rotate {{ rotate_count | default(4) }}
+
+    # weekly: Rotate the log file on a weekly basis.
+    weekly
+
+    # compress: Compress rotated log files using gzip to save disk space.
+    compress
+
+    # delaycompress: Delay compression of the most recent rotated log file until the next rotation cycle.
+    # This ensures that any process still writing to the delayed-compress log can finish successfully.
+    delaycompress
+
+    # copytruncate: Truncate the original log file to zero size in-place after copying it.
+    # This is preferred for daemons like Quassel Core that keep their file descriptors open,
+    # avoiding the need to signal the daemon to reopen its log files.
+    copytruncate
+
+    # missingok: Do not produce an error if the log file is missing.
+    missingok
+
+    # notifempty: Do not rotate the log file if it is empty.
+    notifempty
+}

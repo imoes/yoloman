@@ -1,0 +1,187 @@
+# shntool global configuration
+# Mode of operation: len, fix, hash, pad, join, split, cat, cmp, cue, conv, info, strip, gen, trim
+mode: {{ mode|default('len') }}
+
+# Global Options
+# Output directory for generated files
+output_directory: {{ output_directory|default('.') }}
+
+# File naming prefix for output files
+filename_prefix: {{ filename_prefix|default('') }}
+
+# File naming postfix for output files
+filename_postfix: {{ filename_postfix|default('') }}
+
+# Overwrite existing files? ask, always, never
+overwrite_policy: {{ overwrite_policy|default('ask') }}
+
+# Progress indicator type: pct, dot, spin, face, none
+progress_indicator: {{ progress_indicator|default('pct') }}
+
+# Input file format decoder and/or arguments (e.g., 'shn shorten -x %f')
+input_decoder: {{ input_decoder|default('') }}
+
+# Output file format extension, encoder and/or arguments (e.g., 'flac - %f')
+output_encoder: {{ output_encoder|default('') }}
+
+# Reorder input files? ask, ascii, natural, none
+file_reorder: {{ file_reorder|default('natural') }}
+
+# Suppress non-critical output (quiet mode)
+quiet: {{ quiet|default(false) }}
+
+# Suppress warnings
+suppress_warnings: {{ suppress_warnings|default(false) }}
+
+# Print debugging information
+debug: {{ debug|default(false) }}
+
+# Print times in h:mm:ss.{ff,nnn} format
+time_format_high_precision: {{ time_format_high_precision|default(false) }}
+
+{% if mode == 'len' %}
+# Len Mode Specific Options
+# Unit for total size: b, kb, mb, gb, tb
+total_unit: {{ total_unit|default('b') }}
+
+# Unit for individual file size: b, kb, mb, gb, tb
+file_unit: {{ file_unit|default('b') }}
+
+# Do not show column names
+column_names_hidden: {{ column_names_hidden|default(false) }}
+
+# Do not show totals line
+totals_line_hidden: {{ totals_line_hidden|default(false) }}
+{% endif %}
+
+{% if mode == 'fix' %}
+# Fix Mode Specific Options
+# Shift track breaks backward to previous sector boundary (default)
+shift_backward: {{ shift_backward|default(true) }}
+
+# Shift track breaks forward to next sector boundary
+shift_forward: {{ shift_forward|default(false) }}
+
+# Round track breaks to nearest sector boundary
+round_sectors: {{ round_sectors|default(false) }}
+
+# Pad last file with silence to multiple of 2352 bytes (default)
+pad_last_file: {{ pad_last_file|default(true) }}
+
+# Check whether fixing is needed without fixing
+check_only: {{ check_only|default(false) }}
+
+# Process all files even if first few wouldn't be altered
+process_all: {{ process_all|default(false) }}
+{% endif %}
+
+{% if mode == 'hash' %}
+# Hash Mode Specific Options
+# Generate composite fingerprint for all input files
+composite_fingerprint: {{ composite_fingerprint|default(false) }}
+
+# Generate MD5 fingerprints (default)
+md5: {{ md5|default(true) }}
+
+# Generate SHA1 fingerprints
+sha1: {{ sha1|default(false) }}
+{% endif %}
+
+{% if mode == 'split' %}
+# Split Mode Specific Options
+# Number to start counting from when naming output files
+count_start: {{ count_start|default(1) }}
+
+# File count output format (e.g., %02d)
+count_format: {{ count_format|default('%02d') }}
+
+# Split points file to read from
+split_points_file: {{ split_points_file|default('') }}
+
+# Split input file into smaller files based on multiples of len time interval
+split_interval: {{ split_interval|default('') }}
+
+# Character manipulation string for filenames from CUE sheets
+cue_name_manipulation: {{ cue_name_manipulation|default('') }}
+
+# Name output files in user-specified format based on CUE sheet fields
+cue_filename_format: {{ cue_filename_format|default('') }}
+
+# Prefix each track with lead-in taken from previous track
+lead_in: {{ lead_in|default('') }}
+
+# Postfix each track with lead-out taken from next track
+lead_out: {{ lead_out|default('') }}
+
+# Only extract tracks in list (e.g., 1-3,5)
+extract_tracks: {{ extract_tracks|default('') }}
+{% endif %}
+
+{% if mode == 'conv' %}
+# Conv Mode Specific Options
+# Read WAVE data from the terminal
+read_from_terminal: {{ read_from_terminal|default(false) }}
+{% endif %}
+
+{% if mode == 'gen' %}
+# Gen Mode Specific Options
+# Generate files containing len amount of silence
+generate_length: {{ generate_length|default('0:00') }}
+{% endif %}
+
+{% if mode == 'trim' %}
+# Trim Mode Specific Options
+# Only trim silence from the beginning of files
+trim_beginning: {{ trim_beginning|default(false) }}
+
+# Only trim silence from the end of files
+trim_ending: {{ trim_ending|default(false) }}
+{% endif %}
+
+{% if mode == 'strip' %}
+# Strip Mode Specific Options
+# Do not strip extra RIFF chunks (default is to strip)
+keep_extra_chunks: {{ keep_extra_chunks|default(false) }}
+
+# Do not make WAVE headers canonical (default is to canonicalize)
+keep_non_canonical_headers: {{ keep_non_canonical_headers|default(false) }}
+{% endif %}
+
+{% if mode == 'cmp' %}
+# Cmp Mode Specific Options
+# Seconds of audio to use for byte-shift comparison buffer
+byte_shift_buffer_secs: {{ byte_shift_buffer_secs|default(3) }}
+
+# Fuzz factor for byte-shift comparison
+byte_shift_fuzz: {{ byte_shift_fuzz|default(8) }}
+
+# Check if WAVE data identical modulo byte-shift
+check_byte_shift: {{ check_byte_shift|default(false) }}
+
+# List offsets and values of all differing bytes
+list_differences: {{ list_differences|default(false) }}
+{% endif %}
+
+{% if mode == 'cue' %}
+# Cue Mode Specific Options
+# Output simple CUE sheet (default)
+output_simple_cue: {{ output_simple_cue|default(true) }}
+
+# Output split points in explicit byte-offset format
+output_split_points: {{ output_split_points|default(false) }}
+{% endif %}
+
+{% if mode == 'cat' %}
+# Cat Mode Specific Options
+# Suppress extra RIFF chunks (default is to write)
+suppress_extra_chunks: {{ suppress_extra_chunks|default(false) }}
+
+# Suppress WAVE data (default is to write)
+suppress_data: {{ suppress_data|default(false) }}
+
+# Suppress WAVE header (default is to write)
+suppress_header: {{ suppress_header|default(false) }}
+
+# Suppress NULL pad byte at end of odd-sized data chunks (default is to write)
+suppress_null_pad: {{ suppress_null_pad|default(false) }}
+{% endif %}

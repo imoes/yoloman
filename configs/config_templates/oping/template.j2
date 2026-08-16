@@ -1,0 +1,96 @@
+# ==============================================================================
+# oping configuration template
+# ==============================================================================
+# This template generates a shell command line for the `oping` utility,
+# which is a persistent ping (ICMP Echo Request) tool.
+#
+# It is designed to be consumed by an Ansible task that executes this command,
+# or by a wrapper script. The template is SELF-DOCUMENTING: every option
+# is described in a comment matching the underlying schema description.
+#
+# Variables used:
+#   af_inet      - Force IPv4 or IPv6
+#   count        - Number of packets per host
+#   interval     - Seconds between packets
+#   timeout      - Seconds to wait for reply
+#   ttl          - IP Time To Live
+#   source_address - Source IP for packets
+#   interface    - Network interface to use
+#   hosts_file   - File containing host list
+#   csv_output   - CSV output file path
+#   qos          - QoS packet marking
+#   mark         - Linux socket mark
+#   percentile   - Latency percentile to calculate
+#   drop_limit   - Max tolerated drop rate
+#   hosts        - List of target hosts/IPs
+# ==============================================================================
+
+# Force IPv4 addressing mode
+# af_inet: Force IPv4 (true) or IPv6 (false).
+# If true, the command uses '-4' (IPv4); if false/empty, it uses '-6' (IPv6).
+AF_INET: {{ (af_inet | default(false) | bool) | ternary('4', '6') }}
+
+# Number of ICMP packets to send per host
+# count: Number of ICMP packets to send per host.
+COUNT: {{ count | default(10) }}
+
+# Interval between sending packets (in seconds)
+# interval: Interval between sending packets in seconds.
+INTERVAL: {{ interval | default(1.0) }}
+
+# Timeout for receiving replies (in seconds)
+# timeout: Seconds to wait for reply in seconds.
+TIMEOUT: {{ timeout | default(1.0) }}
+
+# IP Time To Live (TTL)
+# ttl: IP Time To Live (TTL) value, 1-255.
+TTL: {{ ttl | default(64) }}
+
+# Source IP address or hostname
+# source_address: Source IP address or hostname to use.
+# Adds the -I flag to the command if set.
+SOURCE_ADDRESS: {{ (source_address | default('')) | ternary('-I ' + source_address | default(''), '') }}
+
+# Outgoing network interface name
+# interface: Outgoing network device/interface name.
+# Adds the -D flag to the command if set.
+INTERFACE: {{ (interface | default('')) | ternary('-D ' + interface | default(''), '') }}
+
+# File containing list of hosts to ping
+# hosts_file: Filename containing list of hosts to ping. Use '-' for stdin.
+# Adds the -f flag to the command if set.
+HOSTS_FILE: {{ (hosts_file | default('')) | ternary('-f ' + hosts_file | default(''), '') }}
+
+# Output measurement data to CSV file
+# csv_output: Filename to write CSV measurements to.
+# Adds the -O flag to the command if set.
+CSV_OUTPUT: {{ (csv_output | default('')) | ternary('-O ' + csv_output | default(''), '') }}
+
+# Quality of Service (QoS) setting
+# qos: Quality of Service setting (e.g., be, ef, va, af13, cs0).
+QOS: {{ qos | default('be') }}
+
+# Linux packet mark for iptables/routing
+# mark: Linux packet mark for iptables. Set to -1 to disable.
+# Adds the -m flag to the command if set and not -1.
+MARK: {{ (mark | default(-1)) | ternary('-m ' + (mark | default(-1)) | string, '') }}
+
+# Latency percentile to report (0-100)
+# percentile: Latency percentile to report, 0-100.
+PERCENTILE: {{ percentile | default(95) }}
+
+# Exit with non-zero status if drop rate exceeds this percent
+# drop_limit: Exit non-zero if drop rate exceeds this percent. Set to -1 to disable.
+# Adds the -Z flag to the command if set and not -1.
+DROP_LIMIT: {{ (drop_limit | default(-1)) | ternary('-Z ' + (drop_limit | default(-1)) | string, '') }}
+
+# Hosts to ping
+# hosts: List of hostnames or IP addresses to ping. Only used if hosts_file is empty.
+HOSTS: {{ (hosts | default(['127.0.0.1'])) | join(' ') }}
+
+# ==============================================================================
+# Final command construction
+# ==============================================================================
+# This variable holds the complete `oping` command string suitable for execution
+# by Ansible's command or shell module, or for saving to a script.
+COMMAND: oping{{ ' -' + (af_inet | default(false) | bool) | ternary('4', '6') }}{{ ' -c' + (count | default(10)) | string }}{{ ' -i' + (interval | default(1.0)) | string }}{{ ' -w' + (timeout | default(1.0)) | string }}{{ ' -t' + (ttl | default(64)) | string }}{{ (source_address | default('')) | ternary('-I ' + source_address | default(''), '') }}{{ (interface | default('')) | ternary('-D ' + interface | default(''), '') }}{{ (hosts_file | default('')) | ternary('-f ' + hosts_file | default(''), '') }}{{ (csv_output | default('')) | ternary('-O ' + csv_output | default(''), '') }}{{ ' -Q' + (qos | default('be')) }}{{ (mark | default(-1)) | ternary('-m ' + (mark | default(-1)) | string, '') }}{{ ' -P' + (percentile | default(95)) | string }}{{ (drop_limit | default(-1)) | ternary('-Z ' + (drop_limit | default(-1)) | string, '') }} {{ (hosts | default(['127.0.0.1'])) | join(' ') }}

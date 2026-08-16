@@ -1,0 +1,70 @@
+# pycrc configuration template
+# This template generates the command-line invocation parameters for pycrc.
+# It supports both checksum calculation and C code generation.
+# Self-documenting: every variable is defaulted to its schema default to ensure safe rendering.
+
+{% if (generate_code | default(True)) %}
+# === Code Generation Mode ===
+# Generate C source code for CRC implementation based on the selected model and algorithm.
+# When generate_code is true, pycrc.py produces .c and .h files containing the CRC logic.
+
+python pycrc.py \
+  --model {{ model | default('crc-32') }} \
+  --algorithm {{ algorithm | default('tbl') }} \
+  --std {{ std | default('C99') }} \
+  --generate {{ generate_type | default('h') }} \
+  {% if symbol_prefix | default('') %}--symbol-prefix {{ symbol_prefix | default('') }} \
+  {% endif %}
+  {% if crc_type | default('') %}--crc-type {{ crc_type | default('') }} \
+  {% endif %}
+  {% if include_files | default([]) | length > 0 %}--include-file {{ include_files | default([]) | join(' --include-file ') }} \
+  {% endif %}
+  {% if slice_by | default(0) %}--slice-by {{ slice_by | default(0) }} \
+  {% endif %}
+  {% if table_idx_width | default(8) %}--table-idx-width {{ table_idx_width | default(8) }} \
+  {% endif %}
+  {% if width | default(0) %}--width {{ width | default(0) }} \
+  {% endif %}
+  {% if poly | default('') %}--poly {{ poly | default('') }} \
+  {% endif %}
+  {% if reflect_in | default(False) %}--reflect-in {{ reflect_in | default(False) }} \
+  {% endif %}
+  {% if xor_in | default('') %}--xor-in {{ xor_in | default('') }} \
+  {% endif %}
+  {% if reflect_out | default(False) %}--reflect-out {{ reflect_out | default(False) }} \
+  {% endif %}
+  {% if xor_out | default('') %}--xor-out {{ xor_out | default('') }} \
+  {% endif %}
+  {% if force_poly | default(False) %}--force-poly \
+  {% endif %}
+  -o {{ output_file | default('crc.c') }}
+{% else %}
+# === Checksum Calculation Mode ===
+# Calculate CRC checksum for data strings, hex strings, or files.
+# When generate_code is false, pycrc.py computes and prints the CRC value.
+
+python pycrc.py \
+  --model {{ model | default('crc-32') }} \
+  --algorithm {{ algorithm | default('tbl') }} \
+  {% if width | default(0) %}--width {{ width | default(0) }} \
+  {% endif %}
+  {% if poly | default('') %}--poly {{ poly | default('') }} \
+  {% endif %}
+  {% if reflect_in | default(False) %}--reflect-in {{ reflect_in | default(False) }} \
+  {% endif %}
+  {% if xor_in | default('') %}--xor-in {{ xor_in | default('') }} \
+  {% endif %}
+  {% if reflect_out | default(False) %}--reflect-out {{ reflect_out | default(False) }} \
+  {% endif %}
+  {% if xor_out | default('') %}--xor-out {{ xor_out | default('') }} \
+  {% endif %}
+  {% if check_string | default('') %}--check-string {{ check_string | default('') }} \
+  {% endif %}
+  {% if check_hexstring | default('') %}--check-hexstring {{ check_hexstring | default('') }} \
+  {% endif %}
+  {% if check_file | default('') %}--check-file {{ check_file | default('') }} \
+  {% endif %}
+  {% if verbose | default(False) %}--verbose \
+  {% endif %}
+  -o /dev/null
+{% endif %}

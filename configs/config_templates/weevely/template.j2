@@ -1,0 +1,52 @@
+# === weevely configuration file ===
+# This file is managed by Ansible. Do not edit manually.
+# Generated from Jinja2 template.
+
+# Target URL for the web shell
+# Type: string
+# The full URL pointing to the PHP web shell on the target server.
+url = {{ target_url | default('http://example.com/shell.php') }}
+
+# Password for authentication with the target
+# Type: string
+# Shared secret used to authenticate with the web shell.
+password = {{ password | default('secretpassword') }}
+
+# Path to store session files
+# Type: string
+# Directory where weevely stores its session data.
+session_path = {{ session_path | default('/home/user/.weevely/sessions') }}
+
+# Path to store generated agents
+# Type: string
+# Directory where weevely stores generated backdoor agents.
+agent_path = {{ agent_path | default('/home/user/.weevely/agents') }}
+
+# List of modules to enable by default
+# Type: list
+# Modules loaded upon initialization. Prefix with ':' for internal modules.
+modules = [
+{% for module in modules | default([':audit_filesystem', ':shell_sh']) %}
+    '{{ module }}',
+{% endfor %}
+]
+
+# Proxy settings for HTTP/HTTPS traffic
+# Type: string
+# Proxy URL (e.g., http://proxy:8080) for outgoing connections. Empty string disables proxy.
+proxy = {{ proxy | default('') }}
+
+# User-Agent string for HTTP requests
+# Type: string
+# HTTP User-Agent header sent with requests to avoid detection or match browser profiles.
+user_agent = {{ user_agent | default('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36') }}
+
+# Timeout in seconds for HTTP requests
+# Type: number
+# Maximum seconds to wait for a response from the web shell before aborting.
+timeout = {{ timeout | default(10) }}
+
+# Enable verbose output
+# Type: bool
+# If true, prints detailed debugging information to stdout/stderr.
+verbose = {{ verbose | default(false) }}

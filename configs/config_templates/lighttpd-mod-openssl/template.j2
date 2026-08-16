@@ -1,0 +1,30 @@
+# Lighttpd OpenSSL Module Configuration
+#
+# This template configures the mod_openssl plugin for Lighttpd.
+# It sets up an SSL listener on a specific host and port, using a PEM file
+# containing the certificate and private key.
+
+# Enable the mod_openssl module so that SSL directives are recognized.
+server.modules += ( "mod_openssl" )
+
+# Path to the SSL PEM file containing the certificate and private key.
+# This file must be readable by the lighttpd process user.
+# ssl.pemfile: Path to the SSL PEM file containing the certificate and private key.
+ssl.pemfile = "{{ (ssl | default({})).pemfile | default('/etc/lighttpd/server.pem') }}"
+
+# SSL Listener Configuration
+# Binds the SSL engine to the specified IP address and port.
+# ssl.host: IP address to bind the SSL listener to (default: 0.0.0.0)
+# ssl.port: Port number for the SSL listener (default: 443)
+$SERVER["socket"] == "{{ (ssl | default({})).host | default('0.0.0.0') }}:{{ (ssl | default({})).port | default(443) }}" {
+    # Enable SSL engine for this specific socket
+    ssl.engine = "enable"
+    
+    # Note: ssl.pemfile defined in the global scope is automatically
+    # inherited by this socket block.
+}
+
+# Helper to include IPv6 configuration if applicable.
+# This shell script typically checks for IPv6 support and adds
+# corresponding IPv6 socket configurations.
+include_shell "/usr/share/lighttpd/use-ipv6.pl {{ (ssl | default({})).port | default(443) }}"

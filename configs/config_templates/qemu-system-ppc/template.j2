@@ -1,0 +1,140 @@
+# ==============================================================================
+# QEMU System PPC Configuration Template
+# ==============================================================================
+# This template generates a command-line invocation for qemu-system-ppc.
+# It is self-documenting: every directive is preceded by a comment describing
+# the source schema field, its default value, and its purpose.
+# ==============================================================================
+
+# --- Guest Identification ---
+
+# qname: Name of the guest, displayed in VNC/SDL windows and used for identification.
+# Default: 'ppc-guest'
+-name {{ qname | default('ppc-guest') }}
+
+# uuid: System UUID for the guest. Must be a valid UUID string.
+# Default: '00000000-0000-0000-0000-000000000000'
+-uuid {{ uuid | default('00000000-0000-0000-0000-000000000000') }}
+
+# --- Machine & Acceleration ---
+
+# machine_type: The emulated PowerPC machine type. Common options: mac99 (Power Mac G3),
+# prep (PReP), g3beige, ibm_termserver.
+# Default: 'mac99'
+-machine {{ machine_type | default('mac99') }}
+
+# accel: Acceleration engine to use. Options: kvm (Linux), xen, hvf (macOS),
+# nvmm (NetBSD), whpx (Windows), tcg.
+# Default: 'tcg'
+-accel {{ accel | default('tcg') }}
+
+# --- CPU & Memory ---
+
+# cpu_model: CPU model to emulate. Use '-cpu help' for available models for the selected machine.
+# Default: 'G4'
+-cpu {{ cpu_model | default('G4') }}
+
+# smp_config: SMP configuration string. Format: cpus[,sockets=...][,cores=...][,threads=...].
+# Product must equal cpus.
+# Default: '1,sockets=1,cores=1,threads=1'
+-smp {{ smp_config | default('1,sockets=1,cores=1,threads=1') }}
+
+# memory: Guest RAM size. Supports suffixes M, G. Example: 1G, 256M.
+# Default: '512M'
+-m {{ memory | default('512M') }}
+
+# --- Storage ---
+
+# disk_image: Path to the primary disk image file. If the filename contains commas,
+# they must be doubled in the values.
+# Default: 'disk.img'
+-drive file={{ disk_image | default('disk.img') }},if=ide,index=0,media=disk
+
+# cdrom_image: Path to the CD-ROM image file. If null or empty string, no CD-ROM drive is configured.
+# Default: None
+{% if cdrom_image | default(None) is not none and cdrom_image | default('') | trim | length > 0 %}
+-drive file={{ cdrom_image | default('') }},if=ide,index=1,media=cdrom
+{% endif %}
+
+# --- Networking ---
+
+# network_backend: Network backend type. Supported in template: 'user' (NAT), 'tap' (TAP interface).
+# Others require manual config.
+# Default: 'user'
+# network_model: Network device model to use. Common options: ne2k_pci, rtl8139, virtio-net-pci.
+# Default: 'ne2k_pci'
+# mac_address: MAC address for the virtual network interface.
+# Default: '52:54:00:12:34:56'
+{% set backend = network_backend | default('user') %}
+{% if backend == 'tap' %}
+-netdev tap,id=net0,ifname=tap0,script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown
+-device {{ network_model | default('ne2k_pci') }},netdev=net0,mac={{ mac_address | default('52:54:00:12:34:56') }}
+{% elif backend == 'user' %}
+-netdev user,id=net0
+-device {{ network_model | default('ne2k_pci') }},netdev=net0,mac={{ mac_address | default('52:54:00:12:34:56') }}
+{% else %}
+# WARNING: Network backend '{{ backend }}' is not directly supported in this simplified template.
+# Please configure manually using -netdev {{ backend }}...
+{% endif %}
+
+# --- Display ---
+
+# display_type: Display backend. Options: gtk, sdl, curses, spice-app, vnc, none, cocoa (Mac).
+# Default: 'gtk'
+# vnc_display: VNC display number or socket path, used when display_type is 'vnc'.
+# Example: ':0' or 'localhost:5900'. Default: ':0'
+# spice_port: SPICE port number, used when display_type is 'spice'. Default: '5900'
+{% set dtype = display_type | default('gtk') %}
+{% if dtype == 'vnc' %}
+-vnc {{ vnc_display | default(':0') }}
+{% elif dtype == 'spice' %}
+-spice port={{ spice_port | default('5900') }}
+{% else %}
+-display {{ dtype }}
+{% endif %}
+
+# --- Serial & Boot ---
+
+# serial_output: Serial port backend. Options: vc, pty, none, stdio, tcp:..., udp:....
+# Default: 'vc'
+-serial {{ serial_output | default('vc') }}
+
+# boot_order: Boot order string. Drive letters: a (floppy), c (hard disk), d (CD-ROM), n (network).
+# Default: 'c'
+-boot order={{ boot_order | default('c') }}
+
+# --- BIOS Environment ---
+
+# prom_envs: List of OpenBIOS NVRAM environment variables to set. Format: 'variable=value'.
+# Example: ['auto-boot?=false', 'boot-device=hd:2,\yaboot'].
+# Default: ['auto-boot?=true']
+{% for env in prom_envs | default(['auto-boot?=true']) %}
+-prom-env "{{ env }}"
+{% endfor %}
+
+# --- Kernel Direct Boot ---
+
+# kernel_image: Path to a kernel image (bzImage, zImage) for direct boot. If null, BIOS bootloader is used.
+# Default: None
+# initrd_image: Path to an initial ramdisk image (initrd). Used with -kernel.
+# Default: None
+# kernel_cmdline: Kernel command line arguments. Used with -kernel.
+# Default: ''
+{% if kernel_image | default(None) is not none and kernel_image | default('') | trim | length > 0 %}
+-kernel {{ kernel_image | default('') }}
+{% if initrd_image | default(None) is not none and initrd_image | default('') | trim | length > 0 %}
+-initrd {{ initrd_image | default('') }}
+{% endif %}
+{% if kernel_cmdline | default('') is not none and kernel_cmdline | default('') | trim | length > 0 %}
+-append "{{ kernel_cmdline | default('') }}"
+{% endif %}
+{% endif %}
+
+# --- Extra Arguments ---
+
+# extra_args: List of additional command-line arguments not covered by other variables.
+# Example: ['-no-reboot', '-S'].
+# Default: []
+{% for arg in extra_args | default([]) %}
+{{ arg }}
+{% endfor %}

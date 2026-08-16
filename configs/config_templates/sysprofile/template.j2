@@ -1,0 +1,64 @@
+# sysprofile: System Profile Aggregation Script
+#
+# This shell script collects system profile data by executing configuration
+# scripts from a system-wide directory (/etc/sysprofile.d) and a user-specific
+# directory (~/.sysprofile.d).
+#
+# It respects user opt-out via the presence of ~/.nosysprofile.
+# It supports a debugging mode controlled by sysdebug_default.
+
+# Default value for SYSDEBUG variable (0 or 1).
+# When set to 1, enables verbose debugging operations such as creating
+# and managing temporary files for diagnostic data.
+SYSDEBUG={{ sysdebug_default | default('0') }}
+
+# Path to the temporary directory for sysprofile debugging data.
+# This directory is created with sticky bit (1777) permissions if it
+# does not exist, ensuring safe multi-user access for debug artifacts.
+TMPDIR_PATH={{ tmpdir_path | default('/var/tmp/sysprofile') }}
+
+# Only run if user doesn't prevent it:
+# The script checks for the existence of "$HOME/.nosysprofile"
+# and simply quits if it exists. If the file does not exist, it
+# further checks for the directory "/etc/sysprofile.d" which contains
+# all configuration scripts to execute. If the latter doesn't exist,
+# it quits without any unnecessary complaints.
+if [ ! -f $HOME/.nosysprofile ]; then
+
+    # Debugging section:
+    if [ "$SYSDEBUG" = "1" ]; then
+        # Create the debugging temporary directory if it does not exist.
+        # Permissions are set to 1777 (sticky bit + rwx for all) to allow
+        # users to create files but only delete their own.
+        if [ ! -d {{ tmpdir_path | default('/var/tmp/sysprofile') }} ]; then
+            mkdir -m 1777 {{ tmpdir_path | default('/var/tmp/sysprofile') }}
+            # Create a user-specific marker file in the temp directory.
+            touch {{ tmpdir_path | default('/var/tmp/sysprofile') }}/$USER
+            # Restrict access to the marker file to the owner only.
+            chmod 600 {{ tmpdir_path | default('/var/tmp/sysprofile') }}/$USER
+        fi
+    fi
+
+    # First run common system wide scripts if no
+    # user defined version exists:
+    # Scans /etc/sysprofile.d for *.bash files and sources them
+    # unless the user has defined a local override in ~/.sysprofile.d.
+    if [ -d /etc/sysprofile.d ]; then
+        for i in `cd /etc/sysprofile.d && echo *.bash`
+        do
+            # Check for user-defined override
+            if [ ! -f $HOME/.sysprofile.d/$i ]; then
+                . /etc/sysprofile.d/$i
+            fi
+        done
+    fi
+
+    # Then run any existing user defined scripts:
+    # Sources all *.bash scripts found in the user's personal sysprofile directory.
+    if [ -d $HOME/.sysprofile.d ]; then
+        for i in `cd $HOME/.sysprofile.d && echo *.bash`
+        do
+            . $HOME/.sysprofile.d/$i
+        done
+    fi
+fi

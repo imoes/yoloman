@@ -1,0 +1,40 @@
+# Configuration for kmod (kernel module management)
+# This file controls the behavior of kmod utilities such as modprobe and insmod.
+# It supports global options, module blacklisting, and alias definitions.
+
+# Enable verbose logging for kmod commands (true/false)
+# See: kmod(8) DESCRIPTION
+# Default: true
+verbose: {{ verbose | default(true) }}
+
+# Path to the modules.dep file used for dependency resolution
+# See: modprobe(8) SEE ALSO
+# Note: kernel_version is interpolated here.
+# Default: /lib/modules/5.15.0/modules.dep
+modules_dep_path: {{ modules_dep_path | default('/lib/modules/' ~ (kernel_version | default('5.15.0')) ~ '/modules.dep') }}
+
+# List of extra options to pass to modprobe
+# These options are applied globally to all module loads
+# See: modprobe(8) OPTIONS
+# If no options are specified, this line remains empty or omitted.
+# Default: [] (empty list)
+modprobe_options: {{ modprobe_options | default([]) | join(' ') }}
+
+# List of modules to blacklist (prevent auto-loading)
+# See: modprobe.d(5) (Standard kmod configuration context)
+# Each module is listed on a new line with the 'blacklist' directive.
+# Default: [] (empty list)
+blacklist_modules:
+{% for mod in blacklist_modules | default([]) %}
+blacklist {{ mod }}
+{% endfor %}
+
+# List of aliases to configure
+# Format: alias <name> <module_name>
+# See: modprobe.d(5)
+# Each alias maps a logical name to a specific kernel module.
+# Default: [] (empty list)
+aliases:
+{% for alias_item in aliases | default([]) %}
+alias {{ alias_item.alias_name | default('eth0') }} {{ alias_item.module_name | default('e1000') }}
+{% endfor %}

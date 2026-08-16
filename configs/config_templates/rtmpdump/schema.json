@@ -1,0 +1,181 @@
+{
+  "rtmp_url": {
+    "type": "string",
+    "default": "rtmp://example.com/app/stream",
+    "description": "The URL of the RTMP server and media content."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Overrides the hostname in the RTMP URL."
+  },
+  "port": {
+    "type": "number",
+    "default": 0,
+    "description": "Overrides the port number in the RTMP URL. 0 means use default."
+  },
+  "protocol": {
+    "type": "number",
+    "default": 0,
+    "description": "Overrides the protocol: 0=rtmp, 1=rtmpt, 2=rtmpe, 3=rtmpte, 4=rtmps, 5=rtmpts."
+  },
+  "socks_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "Use the specified SOCKS4 proxy in host:port format."
+  },
+  "app": {
+    "type": "string",
+    "default": "",
+    "description": "Name of application to connect to on the RTMP server."
+  },
+  "tc_url": {
+    "type": "string",
+    "default": "",
+    "description": "URL of the target stream."
+  },
+  "page_url": {
+    "type": "string",
+    "default": "",
+    "description": "URL of the web page in which the media was embedded."
+  },
+  "swf_url": {
+    "type": "string",
+    "default": "",
+    "description": "URL of the SWF player for the media."
+  },
+  "flash_ver": {
+    "type": "string",
+    "default": "LNX 10,0,32,18",
+    "description": "Version of the Flash plugin used to run the SWF player."
+  },
+  "auth": {
+    "type": "string",
+    "default": "",
+    "description": "Authentication string appended to the Connect message."
+  },
+  "conn_packets": {
+    "type": "list",
+    "default": [],
+    "description": "List of arbitrary AMF data packets to append to the Connect message. Each item is a map with 'type' and 'data'. Type is B/N/S/O/Z. Data format depends on type (e.g., 0/1 for B, number for N, string for S). Objects are delimited by O:1 (start) and O:0 (end). Named fields are prefixed with N (e.g., NN:field:value). If an item has a name, use 'type', 'name', and 'data' keys. If no name, use 'type' and 'data'. For nested objects, you must include an 'O:1' packet before the fields and 'O:0' after, or rely on explicit object markers if the structure is complex. Simpler: just pass the full -C argument string in 'data' and type as 'S' is not quite right for AMF structure. Better approach for schema: allow raw AMF snippet in 'data' if type is 'S', but strictly AMF types require specific formats. For simplicity in this generator, we allow 'type' and 'data' where data is the value part after the colon for simple types, or the full value string for complex types if specified. To be safe and compliant with man page examples like 'S:authMe', we will treat 'type' as the AMF type char and 'data' as the value string. For objects 'O', 'data' might be empty or 1/0. For named fields, we add a 'name' key to the item schema below if needed, but the man page says prefix with N. Let's simplify: Each item in conn_packets is a map: { 'type': str, 'data': str, 'name': str (optional) }. If name is present, it's a named field. If type is 'O' and data is '1', it starts an object. If type is 'O' and data is '0', it ends an object. If type is 'O' and no data, it might be ignored or treated as start? Man page says O:1 for begin, O:0 for end. So data is '1' or '0'. If it's a named field, type is 'NN', 'NS', 'NB', 'NO' (not explicitly supported as single char, but man page says 'N' prefix). The man page example: 'NN:code:1.23'. This implies type='NN', name='code', data='1.23'. Or type='N', name='code', data='1.23'. Let's assume 'type' is the full prefix like 'NN', 'NS', 'B', 'N', 'S', 'O', 'Z'. If 'name' is present, the command line becomes -C 'type:name:data'. If 'name' is absent, -C 'type:data'. If type is 'O', data is '1' or '0'. If type is 'B', data is '0' or '1'. If type is 'N', data is number. If type is 'S', data is string. If type is 'Z', data is empty/null. If type is 'O' and not 1/0, it's invalid. I will add 'name' to the items schema.}, "
+  },
+  "conn_packets_items": {
+    "type": "list",
+    "default": [],
+    "description": "Placeholder to define items for conn_packets. This is a meta-field for the list type. The actual item schema is defined below."
+  },
+  "_conn_packet_item_schema": {
+    "type": "object",
+    "description": "Schema for an individual connection packet item. Not directly used as a value, but defines the structure for conn_packets items."
+  },
+  "playpath": {
+    "type": "string",
+    "default": "",
+    "description": "Overrides the playpath parsed from the RTMP URL."
+  },
+  "playlist": {
+    "type": "bool",
+    "default": false,
+    "description": "Issue a set_playlist command before sending the play command."
+  },
+  "live": {
+    "type": "bool",
+    "default": false,
+    "description": "Specify that the media is a live stream."
+  },
+  "subscribe": {
+    "type": "string",
+    "default": "",
+    "description": "Name of live stream to subscribe to. Defaults to playpath."
+  },
+  "realtime": {
+    "type": "bool",
+    "default": false,
+    "description": "Download approximately in realtime."
+  },
+  "resume": {
+    "type": "bool",
+    "default": false,
+    "description": "Resume an incomplete RTMP download."
+  },
+  "skip_keyframes": {
+    "type": "number",
+    "default": 0,
+    "description": "Skip num keyframes when looking for the last keyframe from which to resume."
+  },
+  "start_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Start at num seconds into the stream."
+  },
+  "stop_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Stop at num seconds into the stream."
+  },
+  "buffer_time": {
+    "type": "number",
+    "default": 36000000,
+    "description": "Set buffer time to num milliseconds."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout the session after num seconds without receiving any data."
+  },
+  "token": {
+    "type": "string",
+    "default": "",
+    "description": "Key for SecureToken response."
+  },
+  "jtv_token": {
+    "type": "string",
+    "default": "",
+    "description": "JSON token used by legacy Justin.tv servers."
+  },
+  "swf_hash": {
+    "type": "string",
+    "default": "",
+    "description": "SHA256 hash of the decompressed SWF file."
+  },
+  "swf_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Size of the decompressed SWF file."
+  },
+  "swf_vfy_url": {
+    "type": "string",
+    "default": "",
+    "description": "URL of the SWF player for SWF Verification."
+  },
+  "swf_age": {
+    "type": "number",
+    "default": 30,
+    "description": "Days to use the cached SWF info before re-checking."
+  },
+  "output_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Specify the output file name. Use '-' for stdout."
+  },
+  "hashes": {
+    "type": "bool",
+    "default": false,
+    "description": "Display streaming progress with a hash mark for each 1% of progress."
+  },
+  "quiet": {
+    "type": "bool",
+    "default": false,
+    "description": "Suppress all command output."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Verbose command output."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Debug level output."
+  }
+}

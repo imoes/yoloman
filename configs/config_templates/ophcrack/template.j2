@@ -1,0 +1,173 @@
+# =============================================================================
+# Ophcrack Configuration Template
+# =============================================================================
+# This template configures the Ophcrack tool (Windows password cracker using
+# rainbow tables). Ophcrack is a standalone security auditing tool; it does
+# NOT connect to any external services (databases, caches, queues, etc.).
+# Consequently, there are no "requires" or "provides" capabilities.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Rainbow tables selection
+# Field: tables
+# Default: [] (empty list)
+# Description: List of rainbow table names to use. Format per item is
+#              'table_name[,a[,b,...]]' as specified by the -t option.
+# ------------------------------------------------------------------------------
+tables = {{ tables | default([]) | join(',') }}
+
+# ------------------------------------------------------------------------------
+# Rainbow tables storage directory
+# Field: tables_dir
+# Default: '/usr/share/ophcrack/tables'
+# Description: Base directory where rainbow tables are stored, specified by
+#              the -d option.
+# ------------------------------------------------------------------------------
+tables_dir = {{ tables_dir | default('/usr/share/ophcrack/tables') }}
+
+# ------------------------------------------------------------------------------
+# Input hashes file
+# Field: input_file
+# Default: '/tmp/hashes.txt'
+# Description: Path to the file containing hashes to crack (pwdump or session
+#              format), specified by the -f option.
+# ------------------------------------------------------------------------------
+input_file = {{ input_file | default('/tmp/hashes.txt') }}
+
+# ------------------------------------------------------------------------------
+# Output results file
+# Field: output_file
+# Default: '/tmp/cracked.txt'
+# Description: Path to write cracking output in pwdump format, specified by
+#              the -o option.
+# ------------------------------------------------------------------------------
+output_file = {{ output_file | default('/tmp/cracked.txt') }}
+
+# ------------------------------------------------------------------------------
+# Log file path
+# Field: log_file
+# Default: None (no log file created)
+# Description: Path to log all output to. If not set or empty, no log file is
+#              created. Specified by the -l option. Omitted from config if
+#              undefined.
+# ------------------------------------------------------------------------------
+{% if log_file is defined and log_file is not none and log_file | length > 0 %}
+log_file = {{ log_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Number of cracking threads
+# Field: threads
+# Default: 1
+# Description: Number of threads to use for cracking. Specified by the -n
+#              option.
+# ------------------------------------------------------------------------------
+threads = {{ threads | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Verbose output mode
+# Field: verbose
+# Default: False
+# Description: Enable verbose output. Specified by the -v option.
+# ------------------------------------------------------------------------------
+verbose = {{ verbose | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Bruteforce mode
+# Field: bruteforce
+# Default: True
+# Description: Enable bruteforce mode. Specified by the -B option. Default is
+#              enabled.
+# ------------------------------------------------------------------------------
+bruteforce = {{ bruteforce | default(True) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Audit mode
+# Field: audit_mode
+# Default: False
+# Description: Enable audit mode. Specified by the -A option.
+# ------------------------------------------------------------------------------
+audit_mode = {{ audit_mode | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Hide usernames in output
+# Field: hide_usernames
+# Default: False
+# Description: Hide usernames in output. Specified by the -i option. Default
+#              is to show usernames (-I).
+# ------------------------------------------------------------------------------
+hide_usernames = {{ hide_usernames | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Show statistics on completion
+# Field: show_stats
+# Default: False
+# Description: Display statistics when cracking ends. Specified by the -u
+#              option.
+# ------------------------------------------------------------------------------
+show_stats = {{ show_stats | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Suppress empty password display
+# Field: no_empty_passwords
+# Default: False
+# Description: Do not display empty passwords. Specified by the -e option.
+# ------------------------------------------------------------------------------
+no_empty_passwords = {{ no_empty_passwords | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Disable session auto-saving
+# Field: no_session_autosave
+# Default: False
+# Description: Disable session auto-saving. Specified by the -s option.
+# ------------------------------------------------------------------------------
+no_session_autosave = {{ no_session_autosave | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Export data in CSV format
+# Field: export_csv
+# Default: False
+# Description: Export data in CSV format to the file specified by -o.
+#              Specified by the -x option.
+# ------------------------------------------------------------------------------
+export_csv = {{ export_csv | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Session file for progress saving
+# Field: session_file
+# Default: None (no session file)
+# Description: File to use to automatically save the progress of the search.
+#              Specified by the -S option. Omitted from config if undefined.
+# ------------------------------------------------------------------------------
+{% if session_file is defined and session_file is not none and session_file | length > 0 %}
+session_file = {{ session_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Debug mode
+# Field: debug
+# Default: False
+# Description: Display lots of debugging information. Specified by the -D
+#              option.
+# ------------------------------------------------------------------------------
+debug = {{ debug | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Launch cracking on start
+# Field: launch_on_start
+# Default: False
+# Description: Launch the cracking when ophcrack starts. GUI only. Specified
+#              by the -r option.
+# ------------------------------------------------------------------------------
+launch_on_start = {{ launch_on_start | default(False) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# SAM directory for encrypted hash loading
+# Field: sam_dir
+# Default: None (no SAM directory specified)
+# Description: Directory to load hashes from encrypted SAM file. Specified by
+#              the -w option. Omitted from config if undefined.
+# ------------------------------------------------------------------------------
+{% if sam_dir is defined and sam_dir is not none and sam_dir | length > 0 %}
+sam_dir = {{ sam_dir }}
+{% endif %}

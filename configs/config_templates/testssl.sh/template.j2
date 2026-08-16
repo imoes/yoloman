@@ -1,0 +1,442 @@
+#!/bin/bash
+#
+# testssl.sh Configuration Wrapper
+# Generated via Ansible Jinja2 template
+#
+# This script exports environment variables that control the behavior of
+# testssl.sh (https://testssl.sh/). It acts as a centralized configuration
+# point for SSL/TLS scanning operations orchestrated by Ansible.
+#
+
+# Base path to the testssl.sh installation.
+# Schema: install_dir (string, default: '/opt/testssl.sh')
+# Description: Base directory where testssl.sh is installed.
+export TESTSSL_INSTALL_DIR="{{ install_dir | default('/opt/testssl.sh') }}"
+
+# Path to the OpenSSL binary used for SSL/TLS checks.
+# Schema: openssl_path (string, default: '/usr/bin/openssl')
+# Description: Path to the OpenSSL binary used for SSL/TLS checks.
+export OPENSSL="{{ openssl_path | default('/usr/bin/openssl') }}"
+
+# Optional second OpenSSL binary for TLS 1.3 support if the primary one lacks it.
+# Schema: openssl_2_path (string, default: '')
+# Description: Optional second OpenSSL binary for TLS 1.3 support if the primary one lacks it.
+{% if openssl_2_path | default('') %}
+export OPENSSL2="{{ openssl_2_path }}"
+{% endif %}
+
+# Output directory for scan results (logs, json, csv, html).
+# If empty, results go to current working directory.
+# Schema: output_dir (string, default: '')
+# Description: Directory where output files (log, json, csv, html) will be stored. If empty, uses current working directory.
+{% if output_dir | default('') %}
+export LOGFILE="{{ output_dir }}"
+export JSONFILE="{{ output_dir }}"
+export CSVFILE="{{ output_dir }}"
+export HTMLFILE="{{ output_dir }}"
+{% endif %}
+
+# Prepend prefix to output filenames (e.g., 'prod-', 'staging-').
+# Schema: output_prefix (string, default: '')
+# Description: Prefix prepended to output filenames (e.g., 'prod-', 'staging-').
+{% if output_prefix | default('') %}
+export FNAME_PREFIX="{{ output_prefix }}"
+{% endif %}
+
+# Enable wide output mode to display full cipher suite names.
+# Schema: wide_output (boolean, default: False)
+# Description: Enable wide output mode to display full cipher suite names.
+{% if wide_output | default(False) | bool %}
+export WIDE=true
+{% else %}
+export WIDE=false
+{% endif %}
+
+# Enable color output mode.
+# Values: 0=no color, 1=markup, 2=ansi color, 3=color rated.
+# Schema: color_output (number, default: 2)
+# Description: Color output mode: 0=no color, 1=markup, 2=ansi color, 3=color rated.
+export COLOR="{{ color_output | default(2) }}"
+
+# DNS lookup behavior: 'min' (A/AAAA only) or 'none' (no DNS lookups).
+# Schema: nodns (string, default: 'min')
+# Description: DNS lookup behavior: 'min' (A/AAAA only) or 'none' (no DNS lookups).
+export NODNS="{{ nodns | default('min') }}"
+
+# Connect timeout for TCP sockets in seconds.
+# Schema: connect_timeout (number, default: 30)
+# Description: Connect timeout for TCP sockets in seconds.
+export CONNECT_TIMEOUT="{{ connect_timeout | default(30) }}"
+
+# OpenSSL connect timeout in seconds.
+# Schema: openssl_timeout (number, default: 10)
+# Description: OpenSSL connect timeout in seconds.
+export OPENSSL_TIMEOUT="{{ openssl_timeout | default(10) }}"
+
+# Perform checks for revoked certificates via OCSP/CRL (phone-out).
+# Note: Privacy implications, may download large CRL files.
+# Schema: phone_out (string, default: 'false')
+# Description: Enable checks for revoked certificates via OCSP/CRL. Must be 'true' or 'false'.
+export PHONE_OUT="{{ phone_out | default('false') | lower }}"
+
+# Add additional CA files/directories for trust chain validation.
+# Comma-separated list of paths or directory containing .pem files.
+# Schema: additional_ca_files (string, default: '')
+# Description: Comma-separated list of CA files or directories for trust chain validation.
+{% if additional_ca_files | default('') %}
+export ADDTL_CA_FILES="{{ additional_ca_files }}"
+{% endif %}
+
+# Force HTTP detection even if protocol detection fails.
+# Enables HTTP header checks and browser-based client simulation.
+# Schema: assume_http (boolean, default: False)
+# Description: Force HTTP detection to enable HTTP header checks and client simulation.
+{% if assume_http | default(False) | bool %}
+export ASSUME_HTTP=true
+{% else %}
+export ASSUME_HTTP=false
+{% endif %}
+
+# HTTP Basic Auth credentials for header checks (user:pass).
+# Only applicable if assume_http is true or service is HTTP.
+# Schema: basicauth (string, default: '')
+# Description: HTTP Basic Auth credentials in 'user:pass' format for header checks.
+{% if basicauth | default('') %}
+export BASICAUTH="{{ basicauth }}"
+{% endif %}
+
+# Additional HTTP request headers to send.
+# Format: "HeaderName: HeaderValue"
+# Schema: reqheaders (list, default: [])
+# Description: List of additional HTTP request headers in 'HeaderName: HeaderValue' format.
+{% if reqheaders | default([]) | length > 0 %}
+# The following headers will be passed to the testssl.sh invocation:
+{% for header in reqheaders | default([]) %}
+#   {{ header }}
+{% endfor %}
+{% endif %}
+
+# User-Agent string for HTTP header checks.
+# Schema: user_agent (string, default: 'Mozilla/5.0 (compatible; testssl.sh/3.2)')
+# Description: User-Agent string for HTTP header checks.
+export USERAGENT="{{ user_agent | default('Mozilla/5.0 (compatible; testssl.sh/3.2)') }}"
+
+# Certificate expiration warning thresholds (in days).
+# First warning threshold.
+# Schema: days2warn1 (number, default: 60)
+# Description: First certificate expiration warning threshold in days.
+export DAYS2WARN1="{{ days2warn1 | default(60) }}"
+
+# Second warning threshold.
+# Schema: days2warn2 (number, default: 30)
+# Description: Second certificate expiration warning threshold in days.
+export DAYS2WARN2="{{ days2warn2 | default(30) }}"
+
+# HSTS minimum validity period (in days) for warning.
+# Schema: hsts_min (number, default: 179)
+# Description: HSTS minimum validity period in days for warning.
+export HSTS_MIN="{{ hsts_min | default(179) }}"
+
+# HPKP minimum validity period (in days) for warning.
+# Schema: hpkp_min (number, default: 30)
+# Description: HPKP minimum validity period in days for warning.
+export HPKP_MIN="{{ hpkp_min | default(30) }}"
+
+# Severity threshold for file output (LOW, MEDIUM, HIGH, CRITICAL).
+# Only findings at or above this severity are included in log/json/csv.
+# Schema: severity_threshold (string, default: '')
+# Description: Severity threshold for file output (LOW, MEDIUM, HIGH, CRITICAL).
+{% if severity_threshold | default('') %}
+export SEVERITY_THRESHOLD="{{ severity_threshold }}"
+{% endif %}
+
+# Overwrite existing output files without prompting.
+# Schema: overwrite (boolean, default: False)
+# Description: Overwrite existing output files without prompting.
+{% if overwrite | default(False) | bool %}
+export OVERWRITE=true
+{% else %}
+export OVERWRITE=false
+{% endif %}
+
+# Append to existing output files.
+# Schema: append (boolean, default: False)
+# Description: Append to existing output files.
+{% if append | default(False) | bool %}
+export APPEND=true
+{% else %}
+export APPEND=false
+{% endif %}
+
+# Maximum number of parallel tests in mass testing mode.
+# Schema: max_parallel (number, default: 20)
+# Description: Maximum number of parallel tests in mass testing mode.
+export MAX_PARALLEL="{{ max_parallel | default(20) }}"
+
+# Maximum wait time for a single test in parallel mass testing (seconds).
+# Schema: max_wait_test (number, default: 1200)
+# Description: Maximum wait time for a single test in parallel mass testing in seconds.
+export MAX_WAIT_TEST="{{ max_wait_test | default(1200) }}"
+
+# Disable rating calculation.
+# Schema: disable_rating (boolean, default: False)
+# Description: Disable rating calculation.
+{% if disable_rating | default(False) | bool %}
+export DISABLE_RATING=true
+{% else %}
+export DISABLE_RATING=false
+{% endif %}
+
+# Use native OpenSSL checks only (faster, less accurate).
+# Schema: ssl_native (boolean, default: False)
+# Description: Use native OpenSSL checks only (faster, less accurate).
+{% if ssl_native | default(False) | bool %}
+export SSL_NATIVE=true
+{% else %}
+export SSL_NATIVE=false
+{% endif %}
+
+# Proxy settings for HTTP/HTTPS connections (host:port).
+# Schema: proxy (string, default: '')
+# Description: Proxy settings in 'host:port' format.
+{% if proxy | default('') %}
+export PROXY="{{ proxy }}"
+{% endif %}
+
+# Run DNS lookups via proxy.
+# Schema: dns_via_proxy (boolean, default: False)
+# Description: Run DNS lookups via proxy.
+{% if dns_via_proxy | default(False) | bool %}
+export DNS_VIA_PROXY=true
+{% else %}
+export DNS_VIA_PROXY=false
+{% endif %}
+
+# Ignore OCSP proxy restrictions and check OCSP directly.
+# Schema: ign_ocsp_proxy (boolean, default: False)
+# Description: Ignore OCSP proxy restrictions and check OCSP directly.
+{% if ign_ocsp_proxy | default(False) | bool %}
+export IGN_OCSP_PROXY=true
+{% else %}
+export IGN_OCSP_PROXY=false
+{% endif %}
+
+# CA Bundles Path for custom trust stores.
+# Overrides builtin paths if set.
+# Schema: ca_bundles_path (string, default: '')
+# Description: Path to custom CA bundles directory, overriding builtin paths.
+{% if ca_bundles_path | default('') %}
+export CA_BUNDLES_PATH="{{ ca_bundles_path }}"
+{% endif %}
+
+# Maximum socket failures before giving up.
+# Schema: max_socket_fail (number, default: 2)
+# Description: Maximum socket failures before giving up.
+export MAX_SOCKET_FAIL="{{ max_socket_fail | default(2) }}"
+
+# Maximum OpenSSL failures before giving up.
+# Schema: max_ossl_fail (number, default: 2)
+# Description: Maximum OpenSSL failures before giving up.
+export MAX_OSSL_FAIL="{{ max_ossl_fail | default(2) }}"
+
+# Maximum HTTP header failures before giving up.
+# Schema: max_header_fail (number, default: 3)
+# Description: Maximum HTTP header failures before giving up.
+export MAX_HEADER_FAIL="{{ max_header_fail | default(3) }}"
+
+# Run all clients in client simulation (126+ clients).
+# Schema: all_clients (boolean, default: False)
+# Description: Run all clients (126+) in client simulation.
+{% if all_clients | default(False) | bool %}
+export ALL_CLIENTS=true
+{% else %}
+export ALL_CLIENTS=false
+{% endif %}
+
+# Show each cipher tested in wide modes.
+# Schema: show_each (boolean, default: False)
+# Description: Show each cipher tested in wide modes.
+{% if show_each | default(False) | bool %}
+export SHOW_EACH_C=true
+{% else %}
+export SHOW_EACH_C=false
+{% endif %}
+
+# Mapping for cipher suite names: openssl, iana, no-openssl, no-iana.
+# Schema: mapping (string, default: 'openssl')
+# Description: Cipher suite name mapping: openssl, iana, no-openssl, no-iana.
+export MAPPING="{{ mapping | default('openssl') }}"
+
+# Colorblind mode (swaps green and blue).
+# Schema: colorblind (boolean, default: False)
+# Description: Enable colorblind mode (swaps green and blue).
+{% if colorblind | default(False) | bool %}
+export COLORBLIND=true
+{% else %}
+export COLORBLIND=false
+{% endif %}
+
+# Debug level (0-6).
+# Schema: debug (number, default: 0)
+# Description: Debug level (0-6).
+export DEBUG="{{ debug | default(0) }}"
+
+# Disable offensive checks (IDS-friendly: skips Heartbleed, CCS, Ticketbleed, ROBOT).
+# Schema: ids_friendly (boolean, default: False)
+# Description: IDS-friendly mode (skips Heartbleed, CCS, Ticketbleed, ROBOT).
+{% if ids_friendly | default(False) | bool %}
+export OFFENSIVE=false
+{% else %}
+export OFFENSIVE=true
+{% endif %}
+
+# Provide hints for fixing findings.
+# Schema: hints (boolean, default: False)
+# Description: Provide hints for fixing findings.
+{% if hints | default(False) | bool %}
+export GIVE_HINTS=true
+{% else %}
+export GIVE_HINTS=false
+{% endif %}
+
+# Use sneaky user agent (Firefox-like) for HTTP header checks.
+# Schema: sneaky (boolean, default: False)
+# Description: Use sneaky Firefox-like user agent for HTTP header checks.
+{% if sneaky | default(False) | bool %}
+export SNEAKY=true
+{% else %}
+export SNEAKY=false
+{% endif %}
+
+# Quiet mode (suppress banner).
+# Schema: quiet (boolean, default: False)
+# Description: Suppress banner output.
+{% if quiet | default(False) | bool %}
+export QUIET=true
+{% else %}
+export QUIET=false
+{% endif %}
+
+# Resolve the script directory for testssl.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TESTSSL_BIN="${TESTSSL_INSTALL_DIR:-${SCRIPT_DIR}}/testssl.sh"
+
+# If no target is provided, exit with error
+if [ $# -eq 0 ]; then
+    echo "Error: No target specified. Usage: $0 [OPTIONS] <URI>"
+    echo "See man page for options."
+    exit 1
+fi
+
+# Build the command line
+CMD=("${TESTSSL_BIN}")
+
+# Add specific flags that are better passed as CLI args for clarity
+if [ -n "${WIDE}" ] && [ "${WIDE}" = "true" ]; then
+    CMD+=("--wide")
+fi
+
+if [ -n "${NODNS}" ] && [ "${NODNS}" != "min" ]; then
+    CMD+=("--nodns" "${NODNS}")
+fi
+
+if [ -n "${ASSUME_HTTP}" ] && [ "${ASSUME_HTTP}" = "true" ]; then
+    CMD+=("--assume-http")
+fi
+
+if [ -n "${SSL_NATIVE}" ] && [ "${SSL_NATIVE}" = "true" ]; then
+    CMD+=("--ssl-native")
+fi
+
+if [ -n "${DISABLE_RATING}" ] && [ "${DISABLE_RATING}" = "true" ]; then
+    CMD+=("--disable-rating")
+fi
+
+if [ -n "${OFFENSIVE}" ] && [ "${OFFENSIVE}" = "false" ]; then
+    CMD+=("--ids-friendly")
+fi
+
+if [ -n "${QUIET}" ] && [ "${QUIET}" = "true" ]; then
+    CMD+=("-q")
+fi
+
+if [ -n "${SHOW_EACH_C}" ] && [ "${SHOW_EACH_C}" = "true" ]; then
+    CMD+=("--show-each")
+fi
+
+if [ -n "${GIVE_HINTS}" ] && [ "${GIVE_HINTS}" = "true" ]; then
+    CMD+=("--hints")
+fi
+
+if [ -n "${COLORBLIND}" ] && [ "${COLORBLIND}" = "true" ]; then
+    CMD+=("--colorblind")
+fi
+
+# Add file output options
+if [ -n "${LOGFILE}" ]; then
+    CMD+=("--log")
+    CMD+=("--logfile" "${LOGFILE}")
+fi
+
+if [ -n "${JSONFILE}" ]; then
+    CMD+=("--json")
+    CMD+=("--jsonfile" "${JSONFILE}")
+fi
+
+if [ -n "${CSVFILE}" ]; then
+    CMD+=("--csv")
+    CMD+=("--csvfile" "${CSVFILE}")
+fi
+
+if [ -n "${HTMLFILE}" ]; then
+    CMD+=("--html")
+    CMD+=("--htmlfile" "${HTMLFILE}")
+fi
+
+# Add severity threshold for file outputs
+if [ -n "${SEVERITY_THRESHOLD}" ]; then
+    CMD+=("--severity" "${SEVERITY_THRESHOLD}")
+fi
+
+# Add overwrite/append options
+if [ -n "${OVERWRITE}" ] && [ "${OVERWRITE}" = "true" ]; then
+    CMD+=("--overwrite")
+fi
+
+if [ -n "${APPEND}" ] && [ "${APPEND}" = "true" ]; then
+    CMD+=("--append")
+fi
+
+# Add output prefix
+if [ -n "${FNAME_PREFIX}" ]; then
+    CMD+=("--outprefix" "${FNAME_PREFIX}")
+fi
+
+# Add basic auth
+if [ -n "${BASICAUTH}" ]; then
+    CMD+=("--basicauth" "${BASICAUTH}")
+fi
+
+# Add reqheaders (multiple flags)
+{% if reqheaders | default([]) | length > 0 %}
+{% for header in reqheaders | default([]) %}
+CMD+=("--reqheader" "{{ header | string }}")
+{% endfor %}
+{% endif %}
+
+# Add user agent
+if [ -n "${USERAGENT}" ] && [ "${USERAGENT}" != "Mozilla/5.0 (compatible; testssl.sh/3.2)" ]; then
+    CMD+=("--user-agent" "${USERAGENT}")
+fi
+
+# Add proxy
+if [ -n "${PROXY}" ]; then
+    CMD+=("--proxy" "${PROXY}")
+fi
+
+# Add all remaining arguments (target URI and any extra CLI options)
+CMD+=("$@")
+
+# Execute the command
+echo "Executing: ${CMD[*]}"
+eval "${CMD[*]}"

@@ -1,0 +1,177 @@
+# =============================================================================
+# rbd-nbd Configuration Template
+# =============================================================================
+# This template generates the configuration file for rbd-nbd, a tool that maps
+# Ceph RBD (Rados Block Device) images to Linux block devices via the NBD
+# (Network Block Device) protocol.
+#
+# See `man rbd-nbd` for detailed syntax and option descriptions.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+
+# Path to the Ceph configuration file.
+# Overrides the default /etc/ceph/ceph.conf location.
+# Option: -c <path>
+cconf = {{ (ceph_conf_path | default('/etc/ceph/ceph.conf')) | string }}
+
+# Global default: Map images read-only.
+# If true, the mapped block device will not allow writes.
+# Option: --read-only
+readonly = {{ readonly | default(false) | lower }}
+
+# Global default: Override the kernel module parameter nbds_max.
+# Limits the total number of NBD devices available to rbd-nbd.
+# Option: --nbds-max <limit>
+nbds_max = {{ nbds_max | default(8) | int }}
+
+# Global default: Override the kernel module parameter max_part.
+# Limits the number of partitions per NBD device.
+# Option: --max-part <limit>
+max_part = {{ max_part | default(0) | int }}
+
+# Global default: Forbid writes by other clients (exclusive map).
+# Ensures no other client can map the image simultaneously.
+# Option: --exclusive
+exclusive = {{ exclusive | default(false) | lower }}
+
+# Global default: Turn off trim/discard.
+# Prevents issuing TRIM/DISCARD commands to the underlying storage.
+# Option: --notrim
+notrim = {{ notrim | default(false) | lower }}
+
+# Global default: Image encryption format.
+# Valid values: luks, luks1, luks2.
+# Set to null or empty string to disable encryption.
+# Option: --encryption-format <format>
+{% set enc_fmt = encryption_format | default(null) %}
+{% if enc_fmt is not none and enc_fmt is defined %}
+encryption_format = {{ enc_fmt | string }}
+{% else %}
+# encryption_format is disabled (null)
+{% endif %}
+
+# Global default: Path to file containing encryption passphrase.
+# Required if encryption_format is set.
+# Option: --encryption-passphrase-file <path>
+{% set enc_pass = encryption_passphrase_file | default(null) %}
+{% if enc_pass is not none and enc_pass is defined %}
+encryption_passphrase_file = {{ enc_pass | string }}
+{% else %}
+# encryption_passphrase_file is disabled (null)
+{% endif %}
+
+# Global default: IO timeout in seconds.
+# Time to wait for I/O operations before timing out.
+# Option: --io-timeout <seconds>
+io_timeout = {{ io_timeout | default(30) | int }}
+
+# Global default: Reattach timeout in seconds.
+# Time to wait when reattaching to a disconnected server.
+# Option: --reattach-timeout <seconds>
+reattach_timeout = {{ reattach_timeout | default(30) | int }}
+
+# -----------------------------------------------------------------------------
+# Image Mappings
+# -----------------------------------------------------------------------------
+# List of RBD images to map. Each item in this list corresponds to a single
+# `rbd-nbd map` invocation context.
+#
+# Structure of a mapping item:
+# - pool: Ceph pool name (required)
+# - image: RBD image name (required)
+# - snap_id: Snapshot ID (optional)
+# - read_only: Override global readonly for this image (optional)
+# - exclusive: Override global exclusive for this image (optional)
+# - notrim: Override global notrim for this image (optional)
+# - io_timeout: Override global io_timeout for this image (optional)
+# - reattach_timeout: Override global reattach_timeout for this image (optional)
+# - encryption_format: Override global encryption format (optional)
+# - encryption_passphrase_file: Override global passphrase file (optional)
+
+{% set mappings_list = mappings | default([]) %}
+
+{% if mappings_list is not none and mappings_list | length > 0 %}
+# --- Begin Mapped Images ---
+{% for mapping in mappings_list %}
+# =============================================================================
+# Mapping Item: {{ mapping.pool | default('unknown') }}/{{ mapping.image | default('unknown') }}
+# =============================================================================
+# Source: RBD Image {{ mapping.pool | default('unknown') }}/{{ mapping.image | default('unknown') }}
+{% if mapping.snap_id is defined and mapping.snap_id is not none %}
+# Snapshot: {{ mapping.snap_id }}
+{% endif %}
+
+# Read-Only Mode
+# Overrides the global `readonly` setting for this specific image.
+{% if mapping.read_only is defined and mapping.read_only %}
+readonly=true
+{% else %}
+# readonly inherits global setting
+{% endif %}
+
+# Exclusive Map
+# Overrides the global `exclusive` setting for this specific image.
+{% if mapping.exclusive is defined and mapping.exclusive %}
+exclusive=true
+{% else %}
+# exclusive inherits global setting
+{% endif %}
+
+# Disable TRIM/Discard
+# Overrides the global `notrim` setting for this specific image.
+{% if mapping.notrim is defined and mapping.notrim %}
+notrim=true
+{% else %}
+# notrim inherits global setting
+{% endif %}
+
+# IO Timeout
+# Overrides the global `io_timeout` for this specific image.
+{% if mapping.io_timeout is defined and mapping.io_timeout is not none %}
+io_timeout={{ mapping.io_timeout | int }}
+{% else %}
+# io_timeout inherits global setting ({{ io_timeout | default(30) }})
+{% endif %}
+
+# Reattach Timeout
+# Overrides the global `reattach_timeout` for this specific image.
+{% if mapping.reattach_timeout is defined and mapping.reattach_timeout is not none %}
+reattach_timeout={{ mapping.reattach_timeout | int }}
+{% else %}
+# reattach_timeout inherits global setting ({{ reattach_timeout | default(30) }})
+{% endif %}
+
+# Encryption Format
+# Overrides the global encryption format if set.
+{% if mapping.encryption_format is defined and mapping.encryption_format is not none %}
+encryption_format={{ mapping.encryption_format | string }}
+{% else %}
+# encryption_format inherits global setting
+{% endif %}
+
+# Encryption Passphrase File
+# Overrides the global passphrase file path if set.
+{% if mapping.encryption_passphrase_file is defined and mapping.encryption_passphrase_file is not none %}
+encryption_passphrase_file={{ mapping.encryption_passphrase_file | string }}
+{% else %}
+# encryption_passphrase_file inherits global setting
+{% endif %}
+
+# Snapshot ID
+# If specified, maps a specific snapshot instead of the latest.
+{% if mapping.snap_id is defined and mapping.snap_id is not none %}
+snap_id={{ mapping.snap_id | string }}
+{% endif %}
+
+# The target RBD identifier
+# Format: pool/image
+{{ mapping.pool }}/{{ mapping.image }}
+
+{% endfor %}
+# --- End Mapped Images ---
+{% else %}
+# No mappings defined. No RBD images will be mapped by this configuration.
+{% endif %}

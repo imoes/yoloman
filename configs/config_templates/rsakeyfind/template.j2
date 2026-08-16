@@ -1,0 +1,23 @@
+# ==============================================================================
+# rsakeyfind Configuration Template
+# ==============================================================================
+# This file configures rsakeyfind, a utility designed to extract RSA private
+# keys from memory images or specific modulus files.
+# ==============================================================================
+
+# Path to the memory image file containing the BER-encoded RSA private keys
+# to be located. This is the primary input file for scanning.
+# Schema: memory_image (string) - Path to the memory image file containing the BER-encoded RSA private keys to be located.
+# Default: /var/lib/rsakeyfind/memory_dump.bin
+MEMORY_IMAGE={{ memory_image | default('/var/lib/rsakeyfind/memory_dump.bin') }}
+
+# Optional path to a file containing a hex-encoded RSA modulus.
+# If provided, rsakeyfind will restrict its search to locate only private
+# and public keys that match this specific modulus. If omitted or left
+# empty, the tool will locate ALL BER-encoded RSA private keys found in
+# the memory image.
+# Schema: modulus_file (string, nullable) - Path to a file containing the hex-encoded modulus.
+# Default: None (scan for all keys)
+{% if modulus_file is defined and modulus_file | trim != '' %}
+MODULUS_FILE={{ modulus_file }}
+{% endif %}

@@ -1,0 +1,92 @@
+#!/bin/bash
+# Wrapper script to run {{ (command_name | default('sqlite3')) }} with rlwrap
+# Command to wrap
+COMMAND="{{ command_name | default('sqlite3') }}"
+# History file location (resolves to $RLWRAP_HOME or ~/.command_name_history)
+# Path to the file for storing command history.
+HISTORY_FILE="{{ history_filename | default('/var/lib/rlwrap/sqlite3_history') }}"
+# Completion word list files to include
+# List of files containing completion word lists to be loaded by rlwrap.
+{% for comp_file in completion_files | default([]) %}
+COMPLETION_FILES+=("{{ comp_file }}")
+{% endfor %}
+# Max history entries
+# Maximum number of entries to keep in the history list. Use 0 for unlimited or negative for read-only.
+HIST_SIZE={{ histsize | default(300) }}
+# Ignore input lines matching this regex
+# Regular expression pattern. Input lines matching this pattern will be excluded from history (case-insensitive).
+HISTORY_FILTER_REGEX="{{ history_filter_regex | default('') }}"
+# Prompt substitution text
+# Text to substitute for the command's native prompt. Useful if the command has no prompt.
+PROMPT_SUBSTITUTE="{{ prompt_substitute | default('') }}"
+# Prompt color (e.g., Blue, Yellow, Red)
+# ANSI color name or spec (e.g., Blue, Yellow, 1;31) for the prompt.
+PROMPT_COLOR="{{ prompt_color | default('Blue') }}"
+# Wait timeout in milliseconds for prompt detection
+# Time in milliseconds rlwrap waits after receiving output to determine if it is a prompt.
+WAIT_TIMEOUT={{ wait_timeout | default(40) }}
+# Disable warnings
+NO_WARNINGS=true
+# Force readline mode
+ALWAYS_READLINE=true
+# Pass SIGINT as SIGTERM
+PASS_SIGINT_AS_SIGTERM=true
+
+# Build rlwrap options
+RLWRAP_OPTS=""
+
+if [ -n "$HISTORY_FILE" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -H ${HISTORY_FILE}"
+fi
+
+{% if (histsize | default(300)) > 0 %}
+if [ $HIST_SIZE -gt 0 ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -s ${HIST_SIZE}"
+fi
+{% endif %}
+
+{% if (history_filter_regex | default('')) != '' %}
+if [ -n "$HISTORY_FILTER_REGEX" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -g '${HISTORY_FILTER_REGEX}'"
+fi
+{% endif %}
+
+{% if (prompt_substitute | default('')) != '' %}
+if [ -n "$PROMPT_SUBSTITUTE" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -S '${PROMPT_SUBSTITUTE}'"
+fi
+{% endif %}
+
+{% if (prompt_color | default('Blue')) != '' %}
+if [ -n "$PROMPT_COLOR" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -p ${PROMPT_COLOR}"
+fi
+{% endif %}
+
+{% if (wait_timeout | default(40)) > 0 %}
+if [ $WAIT_TIMEOUT -gt 0 ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -w ${WAIT_TIMEOUT}"
+fi
+{% endif %}
+
+if [ "$NO_WARNINGS" = "true" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -n"
+fi
+
+if [ "$ALWAYS_READLINE" = "true" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -a"
+fi
+
+if [ "$PASS_SIGINT_AS_SIGTERM" = "true" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -I"
+fi
+
+# Add completion files
+# List of files containing completion word lists to be loaded by rlwrap.
+{% for comp_file in completion_files | default([]) %}
+if [ -f "{{ comp_file }}" ]; then
+    RLWRAP_OPTS="${RLWRAP_OPTS} -f {{ comp_file }}"
+fi
+{% endfor %}
+
+exec rlwrap $RLWRAP_OPTS $COMMAND "$@"

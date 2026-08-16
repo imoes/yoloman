@@ -1,0 +1,38 @@
+{# --------------------------------------------------------------------------- #}
+{# whohas configuration template                                                #}
+{# Self-documenting Jinja2 template for the whohas package query tool.          #}
+{# See schema fields for variable definitions and defaults.                     #}
+{# --------------------------------------------------------------------------- #}
+
+{# use_threads: default=True                                                  #}
+{# Whether to use multiple threads to query package lists.                    #}
+{# If false, adds the --no-threads flag.                                      #}
+{% if not (use_threads | default(true)) %}
+--no-threads
+{% endif %}
+
+{# shallow: default=False                                                     #}
+{# If true, limits queries to one call per server.                            #}
+{# Adds the --shallow flag.                                                   #}
+{% if (shallow | default(false)) %}
+--shallow
+{% endif %}
+
+{# strict: default=False                                                      #}
+{# If true, lists only packages that have exactly the specified name.         #}
+{# Adds the --strict flag.                                                    #}
+{% if (strict | default(false)) %}
+--strict
+{% endif %}
+
+{# distros: default=[]                                                        #}
+{# List of distribution identifiers to query.                                 #}
+{# Recognised values: archlinux, cygwin, debian, fedora, fink,                #}
+{# freebsd, gentoo, mageia, mandriva, ma, etc.                                #}
+{% if distros | default([]) %}
+-d {{ distros | default([]) | join(',') }}
+{% endif %}
+
+{# package_name: default='nginx'                                              #}
+{# The name of the package to query for in the repositories.                  #}
+{{ package_name | default('nginx') }}

@@ -1,0 +1,39 @@
+# Sopv-gpgv verification configuration
+# This template configures the sopv-gpgv service wrapper or invocation parameters.
+# Note: sopv-gpgv is a CLI tool; this template represents its configuration context.
+
+# Path to the gpgv backend binary
+# Name or path of the gpgv implementation used as backend.
+BACKEND = {{ backend | default('gpgv') }}
+
+# Enable debug logging for verbose output
+# Enable debugging information output.
+DEBUG = {{ debug | default(false) }}
+
+# Verification mode: 'verify' for detached signatures or 'inline-verify' for inline
+# The subcommand to execute: 'verify' for detached signatures or 'inline-verify' for inline signatures.
+MODE = {{ mode | default('verify') }}
+
+# List of certificate files (OpenPGP public keys) to accept for verification
+# List of paths to Acceptable OpenPGP Certificates for signature verification.
+CERTS = 
+{% for cert in certs | default([]) %}
+- {{ cert }}
+{% endfor %}
+
+# Path to the signature file to verify (used when mode is 'verify')
+# Path to the OpenPGP signature file (required for 'verify' mode).
+SIGNATURE_FILE = {{ signature_file | default('/var/lib/sopv-gpgv/signature.asc') }}
+
+# Optional: Restrict signature validity to not start before this timestamp
+# Only accept signatures created later than this timestamp. Empty string implies no restriction.
+# Note: Default is empty string '' in schema, not None, to respect the "no restriction" logic explicitly.
+NOT_BEFORE = {{ not_before | default('') }}
+
+# Optional: Restrict signature validity to not end after this timestamp
+# Only accept signatures created earlier than this timestamp. Empty string implies no restriction (defaults to now).
+NOT_AFTER = {{ not_after | default('') }}
+
+# Output file for SOP-style VERIFICATIONS report (used only for 'inline-verify')
+# File path to write SOP-style VERIFICATIONS output. Empty implies stdout.
+VERIFICATIONS_OUT = {{ verifications_out | default('') }}

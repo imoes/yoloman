@@ -1,0 +1,47 @@
+# Global default settings for procmail
+# This file configures the core behavior of the procmail mail processing agent.
+
+# SHELL: The shell used to execute commands in recipes
+SHELL=/bin/sh
+
+# PATH: Search path for executables
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# LOGPATH: The directory where the procmail logfile is stored.
+LOGPATH={{ logpath | default('/var/log') }}
+
+# VERBOSE: Enable or disable extended diagnostics. Use 'yes' or 'no'.
+VERBOSE={{ verbose | default('no') }}
+
+# LOGFILE: File to write diagnostics to (derived from LOGPATH).
+LOGFILE={{ logpath | default('/var/log') }}/procmail.log
+
+# MAILDIR: The default directory for mail delivery.
+MAILDIR={{ maildir | default('/var/mail') }}
+
+# DEFAULT: The default mailbox file name within MAILDIR.
+DEFAULT={{ default_folder | default('mbox') }}
+
+# ORGMAIL: The original mailbox path.
+ORGMAIL={{ orgmail | default('/var/mail/MAILER_DAEMON') }}
+
+# BOUNCE_ON_ERROR: Whether to bounce mail on delivery errors. Use 'yes' or 'no'.
+BOUNCE_ON_ERROR={{ bounce_on_error | default('yes') }}
+
+# SAFEPATH: If set, procmail restricts PATH to this value only. Leave empty for default PATH.
+SAFEPATH={{ safepath | default('') }}
+
+# DROPPRIVS: Drop privileges before executing filters. Use 'yes' or 'no'.
+DROPPRIVS={{ dropprivs | default('yes') }}
+
+# Recipes
+# Each recipe consists of a lock file, conditions, and an action.
+# The 'recipes' variable is a list of mappings containing:
+#   - conditions: list of strings (regex patterns to match)
+#   - action: string (command or file to deliver to)
+{% for recipe in recipes | default([]) %}
+:0
+{% for condition in recipe.conditions %}
+* {{ condition }}
+{% endfor %}{{ recipe.action }}
+{% endfor %}

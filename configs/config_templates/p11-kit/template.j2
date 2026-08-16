@@ -1,0 +1,28 @@
+# /etc/pkcs11/pkcs11.conf
+# p11-kit configuration template
+# See pkcs11.conf(5)
+#
+# This template is self-documenting. Each directive is preceded by
+# its schema description and safe default value.
+#
+# p11-kit is a PKCS#11 module provider and manager. It does not expose
+# a network service (no listening port, no client API over network),
+# so it has no peer connections in the infrastructure sense.
+
+[remote]
+# List of remote PKCS#11 module definitions to expose or access via stdin/stdout.
+# See pkcs11.conf(5) remote option syntax.
+# Default: [] (empty list — no remote modules)
+{% for remote in remote_modules | default([]) %}
+# Remote module entry: {{ remote.name }}
+# Type: {{ remote.type }}
+# URI: {{ remote.uri }}
+{% if remote.is_enabled | default(true) %}
+{{ remote.name }} = {{ remote.type }}, {{ remote.uri }}
+{% endif %}
+{% endfor %}
+
+[trust]
+# Default path where PKCS#11 modules are located, used by trust extract and other commands.
+# Default: /usr/lib/x86_64-linux-gnu/pkcs11
+module_path = {{ trust_module_path | default('/usr/lib/x86_64-linux-gnu/pkcs11') }}

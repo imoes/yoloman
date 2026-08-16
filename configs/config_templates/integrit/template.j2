@@ -1,0 +1,73 @@
+#!/bin/sh
+
+# /etc/cron.daily/integrit : integrit daily cron job
+# Initially written by Andras Bali
+#
+# This script is managed by Ansible. Do not edit manually.
+# It orchestrates daily integrity checks for files monitored by 'integrit'.
+# Configuration files are sourced from /etc/integrit/integrit.debian.conf.
+
+# Ensure the integrit binary exists and is executable.
+test -x /usr/sbin/integrit || exit 0
+
+# Ensure the main configuration file exists.
+test -f /etc/integrit/integrit.debian.conf || exit 0
+
+# Collect all configuration files specified in the debian config.
+CONFIGS=""
+. /etc/integrit/integrit.debian.conf
+
+# Exit if no configurations were loaded.
+test -n "$CONFIGS" || exit 0
+
+# Validate that an email recipient is configured.
+if test -z "$EMAIL_RCPT"; then
+  echo "EMAIL_RCPT must be set in /etc/integrit/integrit.debian.conf" >&2
+  exit 1
+fi
+
+# Prepare a temporary report file for this run.
+REPORT="/var/lib/integrit/current.report.$$"
+cp /dev/null "$REPORT"
+
+# Clean up the report file on exit.
+trap "rm -f \"$REPORT\"" EXIT
+
+rc=0
+for i in $CONFIGS; do
+  # Extract 'known' database path from the config.
+  known=`sed -n 's/^ *known *= *\(.*\) *$/\1/p' <$i |head -n1`
+  # Extract 'current' database path from the config.
+  current=`sed -n 's/^ *current *= *\(.*\) *$/\1/p' <$i |head -n1`
+  
+  # Skip if essential paths are missing.
+  if test -z "$known" -o -z "$current"; then
+    echo "known and/or current not set in $i, skipping." >&2; echo
+    continue
+  fi
+
+  # Determine options: -cu (check and update) if known db exists, else -u (update only).
+  OPTS='-cu'
+  test -e "$known" || OPTS='-u'
+
+  echo "start: integrit -C $i $OPTS"
+  RC=0
+  # Run the integrity check with nice priority.
+  nice integrit -C $i "$OPTS" 2>&1 || RC="$?"
+  echo "exit: $RC"; echo
+
+  # If check passed and we just created the known db, copy current to known.
+  if test "$RC" -eq 0; then
+    test -e "$known" || cp "$current" "$known"
+  else
+    # If check failed, record the error code.
+    rc="$RC"
+  fi
+
+done >>"$REPORT"
+
+# Decide whether to send email.
+# Send if: errors occurred (rc != 0) OR always_email is {{ always_email | default(True) }}.
+test "$rc" -ne 0 || test "$ALWAYS_EMAIL" = '{{ always_email | default(True) }}' || exit 0
+
+mail -s "$EMAIL_SUBJ" "$EMAIL_RCPT" <"$REPORT"

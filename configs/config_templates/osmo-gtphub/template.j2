@@ -1,0 +1,84 @@
+!
+! Osmocom GTP-Hub Configuration
+! This template generates the configuration file for the osmo-gtphub service.
+! The GTP-Hub acts as a GTPv2-C proxy for 4G/5G core networks (MME/HSS/SGSN/GGSN).
+!
+
+! --- Logging Configuration ---
+
+! Log to stderr by default (standard for foreground daemons)
+log stderr
+
+! Enable color output in logs for human readability
+# Default: 1 (enabled)
+logging color {{ logging_color | default(1) }}
+
+! Print category as hex code in logs
+# Default: 0 (disabled)
+logging print category-hex {{ logging_print_category_hex | default(0) }}
+
+! Print category name in logs
+# Default: 1 (enabled)
+logging print category {{ logging_print_category | default(1) }}
+
+! Include timestamps in log messages
+# Default: 0 (disabled)
+logging timestamp {{ logging_timestamp | default(0) }}
+
+! Print file basename in logs (last part of filename)
+! This is hardcoded in this template as per the original structure.
+logging print file basename last
+
+! Print log level in messages
+# Default: 1 (enabled)
+logging print level {{ logging_print_level | default(1) }}
+
+! --- VTY (Console) Configuration ---
+
+line vty
+! Disable login check for VTY access (simplified local management)
+no login
+
+! --- GTP-Hub Network Configuration ---
+
+! Global GTP-Hub configuration block
+gtphub
+    !
+    ! Local address to bind to for SGSN traffic (GTPv2-C)
+    ! The GTP-Hub listens on this address for control plane messages from SGSNs.
+    ! Standard port is 2123. Setting this address is mandatory for operation.
+    ! Default: 127.0.0.10
+    !
+    bind-to-sgsns {{ bind_to_sgsns | default('127.0.0.10') }}
+
+    ! Local address to bind to for GGSN traffic (GTPv2-C)
+    ! The GTP-Hub listens on this address for control plane messages from GGSNs.
+    ! Standard port is 2152. Setting this address is mandatory for operation.
+    ! Default: 127.0.0.20
+    !
+    bind-to-ggsns {{ bind_to_ggsns | default('127.0.0.20') }}
+
+    !
+    ! --- Optional: Nonstandard Ports / Separate IPs ---
+    ! Uncomment and adjust to listen on different ports or IPs for specific user/ctrl planes.
+    ! Example:
+    ! bind-to-sgsns ctrl 127.0.0.1 2342 user 127.0.0.1 4223
+    !
+
+    ! --- Optional: Proxy Configuration ---
+    ! If enabled, unconditionally direct all traffic to a specific backend.
+    ! Example:
+    ! ggsn-proxy 127.0.0.3
+    ! sgsn-proxy 127.0.0.4
+    !
+
+    ! --- Optional: Proxy with Nonstandard Ports ---
+    ! Example:
+    ! ggsn-proxy ctrl 127.0.0.3 2123 user 127.0.0.5 2152
+    !
+
+    ! --- Optional: DNS Configuration for GGSN Resolution ---
+    ! Add a name server for GGSN resolution if needed.
+    ! Example:
+    ! grx-dns-add 192.168.0.1
+    !

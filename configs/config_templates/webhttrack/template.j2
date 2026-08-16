@@ -1,0 +1,69 @@
+# ==============================================================================
+# WebHTTrack Configuration Template
+# ==============================================================================
+# This configuration file manages the behavior of the WebHTTrack web crawler/downloader.
+# It controls where files are stored, how deep the crawl goes, and network behavior.
+#
+# Schema Reference:
+#   path           : Base directory for storing downloaded websites (default: /var/www/websites)
+#   filter_rules   : List of string rules to restrict/allow file types (default: [])
+#   depth          : Maximum recursion depth for following links (default: 5)
+#   mirror         : Enable mirror mode for recursive downloading (default: true)
+#   keep_alive     : Enable HTTP keep-alive connections (default: true)
+#   user_agent     : User-Agent string to identify this downloader (default: 'WebHTTrack/3.49')
+#   max_retries    : Number of times to retry a failed request (default: 3)
+#   timeout        : Timeout in seconds for network connections (default: 10)
+# ==============================================================================
+
+# --- Storage Settings ---
+
+# path: The base directory where downloaded websites are stored.
+# Supports ~ for home directory expansion.
+# Example: /var/www/websites or ~/my-copies
+path {{ path | default('/var/www/websites') }}
+
+# --- Filtering ---
+
+# filter: Defines filter rules to control which files are downloaded.
+# Format: [+-][type][/pattern]
+#   '+' to allow, '-' to deny.
+#   'type' can be 'html', 'jpg', 'css', etc., or ']' to denote a path pattern.
+# Example: '+html[/]' allows all HTML files. '-jpg' denies JPEG images.
+# If filter_rules is empty, WebHTTrack uses its internal default broad filters.
+{% for filter_rule in filter_rules | default([]) %}
+filter {{ filter_rule }}
+{% endfor %}
+
+# --- Crawl Depth ---
+
+# depth: Maximum recursion depth for following links.
+# 0 indicates unlimited depth (be cautious, may consume significant resources).
+# Typical safe values are between 5 and 10.
+depth {{ depth | default(5) }}
+
+# --- Mode Settings ---
+
+# mirror: Enables mirror mode (recursive downloading).
+# Set to true to enable recursive fetching of linked pages.
+# Set to false to disable recursive downloading.
+mirror {{ mirror | default(true) | lower }}
+
+# --- Network Settings ---
+
+# keep_alive: Controls HTTP keep-alive connections.
+# true enables persistent connections for better performance.
+# false disables keep-alive.
+keep_alive {{ keep_alive | default(true) | lower }}
+
+# user_agent: The User-Agent string sent to web servers.
+# Used to identify this downloader to the remote server.
+# Enclosed in quotes as required by many web server configurations.
+user_agent "{{ user_agent | default('WebHTTrack/3.49') }}"
+
+# max_retries: Number of times to retry a request if it fails.
+# Helps handle transient network errors.
+max_retries {{ max_retries | default(3) }}
+
+# timeout: Timeout in seconds for network connections.
+# Defines how long to wait before giving up on a connection attempt.
+timeout {{ timeout | default(10) }}

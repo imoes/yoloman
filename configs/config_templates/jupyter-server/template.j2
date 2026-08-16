@@ -1,0 +1,95 @@
+# ============================================================================
+# Jupyter Server Configuration Template
+# ============================================================================
+# This template generates a Python configuration file for jupyter-server.
+# It is fully self-documenting: every directive is preceded by a comment
+# explaining its purpose and default value from the schema.
+#
+# Variables are rendered safely using `| default(...)` to prevent undefined
+# variable errors during Ansible execution. String values are quoted,
+# booleans and integers are not.
+# ============================================================================
+
+# Full path of a config file.
+# Default: ~/.jupyter/jupyter_server_config.py
+c = '{{ config_file | default("~/.jupyter/jupyter_server_config.py") }}'
+
+# Set log level by value or name.
+# Choices: 0, 10, 20, 30, 40, 50, 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'
+# Default: INFO
+c.ServerApp.log_level = '{{ log_level | default("INFO") }}'
+
+# The IP address the Jupyter server will listen on.
+# Default: localhost
+c.ServerApp.ip = '{{ ip | default("localhost") }}'
+
+# The port the Jupyter server will listen on.
+# Default: 8888
+c.ServerApp.port = {{ port | default(8888) }}
+
+# The number of additional ports to try if the specified port is not available.
+# Default: 50
+c.ServerApp.port_retries = {{ port_retries | default(50) }}
+
+# The directory to use for notebooks and kernels.
+# Default: '' (empty string, uses cwd or default)
+c.ServerApp.root_dir = '{{ root_dir | default("") }}'
+
+# Allow the server to be run from root user.
+# Default: False
+c.ServerApp.allow_root = {{ allow_root | default(false) }}
+
+# Prevent the opening of the default url in the browser.
+# Default: True
+c.ServerApp.open_browser = {{ open_browser | default(true) }}
+
+# The full path to a private key file for usage with SSL/TLS.
+# Default: ''
+c.ServerApp.keyfile = '{{ keyfile | default("") }}'
+
+# The full path to an SSL/TLS certificate file.
+# Default: ''
+c.ServerApp.certfile = '{{ certfile | default("") }}'
+
+# The full path to a certificate authority certificate for SSL/TLS client authentication.
+# Default: ''
+c.ServerApp.client_ca = '{{ client_ca | default("") }}'
+
+# Transport mechanism.
+# Choices: 'tcp', 'ipc'.
+# Default: tcp
+c.ServerApp.transport = '{{ transport | default("tcp") }}'
+
+# The url of the Kernel or Enterprise Gateway server.
+# Default: ''
+c.ServerApp.gateway_url = '{{ gateway_url | default("") }}'
+
+# Specify what command to use to invoke a web browser.
+# Default: ''
+c.ServerApp.browser = '{{ browser | default("") }}'
+
+# DISABLED: use %pylab or %matplotlib in the notebook.
+# Default: disabled
+c.ServerApp.pylab = '{{ pylab | default("disabled") }}'
+
+# List of extension names to load.
+# Default: []
+{% set extensions_list = extensions | default([]) %}
+{% if extensions_list %}
+c.ServerApp.extensions = [
+{% for ext in extensions_list %}
+    '{{ ext }}',
+{% endfor %}
+]
+{% endif %}
+
+# List of environment variables to set for the server process.
+# Default: []
+{% set env_vars_list = environment_vars | default([]) %}
+{% if env_vars_list %}
+c.ServerApp.env_vars = {
+{% for var in env_vars_list %}
+    '{{ var.name | default("") }}': '{{ var.value | default("") }}',
+{% endfor %}
+}
+{% endif %}

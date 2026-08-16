@@ -1,0 +1,96 @@
+# Lunar Calendar Conversion Configuration
+# This template generates a parameterized command line for the 'lunar' utility.
+# The 'lunar' tool converts between Solar (Gregorian) and Lunar (Chinese) dates.
+
+# Set the output character encoding.
+# Options: utf8, gb, big5.
+# Default: utf8
+output_encoding = {{ (encoding | default('utf8')) }}
+
+# Set the character style for Chinese output.
+# Options: simplified, traditional.
+# Only applies if encoding is utf8.
+# Default: simplified
+char_style = {{ (char_style | default('simplified')) }}
+
+# Direction of conversion.
+# If true: converts Lunar date to Solar date.
+# If false: converts Solar date to Lunar date.
+# Default: false
+convert_lunar_to_solar = {{ (convert_lunar_to_solar | default(false)) | lower }}
+
+# Indicates the input month is a leap month.
+# Only meaningful when convert_lunar_to_solar is true.
+# Default: false
+leap_month = {{ (leap_month | default(false)) | lower }}
+
+# Output ganzhi (Stem-Branch) in bitmap characters.
+# If true, outputs special bitmap characters for the Ganzhi cycle.
+# Default: false
+bitmap_ganzhi = {{ (bitmap_ganzhi | default(false)) | lower }}
+
+# The year for the date conversion.
+# Default: 2024
+year = {{ (year | default(2024)) }}
+
+# The month for the date conversion (1-12).
+# Default: 1
+month = {{ (month | default(1)) }}
+
+# The day for the date conversion.
+# Default: 1
+day = {{ (day | default(1)) }}
+
+# The hour for the date conversion (0-23).
+# Optional. If omitted or 0, hour is not included in the conversion.
+# Default: 0
+hour = {{ (hour | default(0)) }}
+
+# Construct the final command line based on the parameters above.
+# This block assembles the 'lunar' command with appropriate flags.
+
+# Base command
+command = "lunar"
+
+# Input mode: -i for Lunar-to-Solar, default is Solar-to-Lunar
+{% if (convert_lunar_to_solar | default(false)) %}
+command = command + " -i"
+{% endif %}
+
+# Leap month flag: -l
+{% if (leap_month | default(false)) %}
+command = command + " -l"
+{% endif %}
+
+# Bitmap ganzhi flag: -b
+{% if (bitmap_ganzhi | default(false)) %}
+command = command + " -b"
+{% endif %}
+
+# Encoding flag
+{% set enc = (encoding | default('utf8')) %}
+{% if enc == 'utf8' %}
+command = command + " -u"
+{% elif enc == 'gb' %}
+command = command + " -g"
+{% elif enc == 'big5' %}
+command = command + " -5"
+{% endif %}
+
+# Character style flag
+{% set style = (char_style | default('simplified')) %}
+{% if style == 'simplified' %}
+command = command + " -s"
+{% elif style == 'traditional' %}
+command = command + " -t"
+{% endif %}
+
+# Date arguments
+# Always append Year Month Day
+command = command + " " + string((year | default(2024))) + " " + string((month | default(1))) + " " + string((day | default(1)))
+
+# Optional Hour argument
+{% set hr = (hour | default(0)) %}
+{% if hr > 0 %}
+command = command + " " + string(hr)
+{% endif %}

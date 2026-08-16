@@ -1,0 +1,56 @@
+{# ============================================================= #}
+{# securefs configuration template                               #}
+{#                                                               #}
+{# SecureFS is a transparent filesystem encryption layer. This   #}
+{# template configures the client-side daemon. Since the provided#}
+{# schema was empty, this template provides a minimal, safe      #}
+{# baseline configuration with sensible defaults.                #}
+{# ============================================================= #}
+
+[securefs]
+# Path to the SecureFS binary or executable (optional, usually handled by systemd)
+# binary_path = /usr/bin/securefs
+
+# Directory where SecureFS stores its internal metadata and keyrings
+# Default: /var/lib/securefs
+metadata_dir = {{ metadata_dir | default('/var/lib/securefs') }}
+
+# Log level: debug, info, warn, error
+# Default: warn
+log_level = {{ log_level | default('warn') }}
+
+# Path to the log file (set to /dev/null or syslog for no file log)
+# Default: /var/log/securefs.log
+log_file = {{ log_file | default('/var/log/securefs.log') }}
+
+# Enable or disable the SecureFS mount daemon
+# Default: true
+enabled = {{ enabled | default(true) }}
+
+# Timeout in seconds for connection attempts to the storage backend
+# Default: 30
+timeout = {{ timeout | default(30) }}
+
+# Cipher suite to use for encryption (e.g., aes-256-cbc, chacha20-poly1305)
+# Default: aes-256-cbc
+cipher = {{ cipher | default('aes-256-cbc') }}
+
+# Key derivation function (e.g., pbkdf2, scrypt, argon2)
+# Default: scrypt
+kdf = {{ kdf | default('scrypt') }}
+
+# Number of iterations for KDF (security vs performance trade-off)
+# Default: 100000
+kdf_iterations = {{ kdf_iterations | default(100000) }}
+
+# Maximum size of the encrypted metadata cache in MB
+# Default: 256
+cache_size_mb = {{ cache_size_mb | default(256) }}
+
+# Allow or deny mount operations for non-root users
+# Default: false
+allow_unprivileged = {{ allow_unprivileged | default(false) }}
+
+# Socket path for IPC control interface (empty to disable)
+# Default: ''
+control_socket = {{ control_socket | default('') }}

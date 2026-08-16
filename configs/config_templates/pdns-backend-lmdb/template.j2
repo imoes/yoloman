@@ -1,0 +1,39 @@
+# PowerDNS Authoritative Backend: LMDB Configuration
+# This template configures the LMDB (Lightning Memory-Mapped Database) backend for PowerDNS.
+# See https://docs.powerdns.com/authoritative/backends/lmdb.html for details.
+
+# Enable the LMDB backend launch plugin.
+# This tells PowerDNS to load the LMDB backend.
+launch+=lmdb
+
+#################################
+# lmdb-filename: Filename for lmdb database
+# Specifies the path to the LMDB database file used by the PowerDNS LMDB backend.
+# Default: /var/lib/powerdns/pdns.lmdb
+#################################
+lmdb-filename={{ (lmdb_filename | default('/var/lib/powerdns/pdns.lmdb')) | string | trim }}
+
+#################################
+# lmdb-schema-version: Maximum allowed schema version to run on this DB.
+# If a lower version is found, auto update is performed.
+# Currently commented out; PowerDNS defaults to the latest supported version.
+# Uncomment and adjust if you need to force a specific schema version.
+#################################
+# lmdb-schema-version=5
+
+#################################
+# lmdb-shards: Records database will be split into this number of shards.
+# This value is arch-specific and defaults to a sensible number based on CPU count.
+# Uncomment and adjust if you need to override the default sharding behavior.
+# Default: 64 (example)
+#################################
+# lmdb-shards=64
+
+#################################
+# lmdb-sync-mode: Synchronisation mode for LMDB.
+# Options: nosync, nometasync, mapasync, sync.
+# 'mapasync' is generally recommended for a good balance of performance and safety.
+# Uncomment and adjust if you have specific durability requirements.
+# Default: mapasync (example)
+#################################
+# lmdb-sync-mode=mapasync

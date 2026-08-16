@@ -1,0 +1,42 @@
+# ==============================================================================
+# Tang Server Configuration Template
+# ==============================================================================
+# This template configures `tangd` (Tang server). Tang provides cryptographic
+# binding of data to a network connection, enabling automatic disk encryption
+# unlocking via the network.
+#
+# Note: When running under systemd socket activation, the Port and BindAddress
+# are handled by the socket unit file. This configuration file is primarily
+# used for other runtime options like key storage and logging.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Port Configuration
+# ------------------------------------------------------------------------------
+# The TCP port number on which the Tang server listens. Corresponds to the -p flag.
+# Note: If using systemd socket activation, this value may be overridden by
+# the socket unit's ListenStream directive.
+# Default: 9090
+Port={{ (port | default(9090)) | int }}
+
+# ------------------------------------------------------------------------------
+# Endpoint Prefix
+# ------------------------------------------------------------------------------
+# The URL endpoint prefix for the Tang service. Empty string means root path.
+# Corresponds to the -e flag.
+# Default: '' (empty string)
+Endpoint={{ (endpoint | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# Key Directory
+# ------------------------------------------------------------------------------
+# The absolute path to the directory containing the JWK key files. Corresponds to the -k flag or default location.
+# Default: /var/db/tang
+KeyDir={{ (key_dir | default('/var/db/tang')) | string }}
+
+# ------------------------------------------------------------------------------
+# Verbose Logging
+# ------------------------------------------------------------------------------
+# Enable verbose logging output. Corresponds to the -v flag.
+# Default: false
+Verbose={{ verbose | default(false) | bool }}

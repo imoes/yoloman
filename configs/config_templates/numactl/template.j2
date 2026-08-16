@@ -1,0 +1,156 @@
+# Auto-generated numactl configuration for service: {{ service_name }}
+
+# Executable to run under NUMA policy
+EXECUTABLE="{{ executable }}"
+
+# Command arguments to pass to the executable
+EXEC_ARGS="{{ exec_args | default([]) | join(' ') }}"
+
+# CPU binding: restrict process execution to specific physical CPUs (e.g., '0-3', '+0-4,8-12')
+# Maps to --physcpubind
+PHYS_CPUBIND="{{ physcpubind | default('') }}"
+
+# Node binding: restrict process execution to CPUs of specified NUMA nodes (e.g., '0', '0,1')
+# Maps to --cpunodebind
+CPU_NODE_BIND="{{ cpunodebind | default('') }}"
+
+# Memory binding: allocate memory only from specified nodes (e.g., '0', 'all')
+# Maps to --membind
+MEM_BIND="{{ membind | default('') }}"
+
+# Preferred node: preferably allocate memory on this single node
+# Maps to --preferred
+PREFERRED_NODE="{{ preferred_node | default('') }}"
+
+# Interleave policy: round-robin memory allocation across specified nodes
+# Maps to --interleave
+INTERLEAVE_NODES="{{ interleave_nodes | default('') }}"
+
+# Weighted interleave policy: allocate memory based on weighted ratios across nodes
+# Maps to --weighted-interleave
+WEIGHTED_INTERLEAVE_NODES="{{ weighted_interleave_nodes | default('') }}"
+
+# Balancing: enable kernel NUMA balancing for the process
+# Maps to --balancing
+BALANCING="{{ balancing | default(false) }}"
+
+# Strict: error if a page in shared memory segment has conflicting policy
+# Maps to --strict
+STRICT="{{ strict | default(false) }}"
+
+# Huge pages: use huge pages for SYSV shared memory creation
+# Maps to --huge
+HUGE_PAGES="{{ huge_pages | default(false) }}"
+
+# Touch: touch pages to enforce policy early
+# Maps to --touch
+TOUCH="{{ touch | default(false) }}"
+
+# Shared memory file path (for persistent policy on tmpfs/hugetlbfs)
+# Maps to --file
+SHM_FILE="{{ shm_file | default('') }}"
+
+# Shared memory segment ID (numeric)
+# Maps to --shmid
+SHM_ID="{{ shm_id | default('') }}"
+
+# Shared memory key file (for ftok)
+# Maps to --shm
+SHM_KEYFILE="{{ shm_keyfile | default('') }}"
+
+# Length of shared memory region to apply policy to
+# Maps to --length
+SHM_LENGTH="{{ shm_length | default('') }}"
+
+# Offset into shared memory segment
+# Maps to --offset
+SHM_OFFSET="{{ shm_offset | default('') }}"
+
+# Mode for creating shared memory segment
+# Maps to --shmmode
+SHM_MODE="{{ shm_mode | default('') }}"
+
+# Use all possible CPUs/nodes by default (unset cpuset awareness)
+# Maps to --all
+USE_ALL="{{ use_all | default(false) }}"
+
+# Start command with '--' to separate numactl options from command options
+SEPARATOR_CMD="{{ separator_cmd | default(false) }}"
+
+# Generate the numactl command line
+NUMACTL_CMD="numactl"
+
+{% if use_all %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --all"
+{% endif %}
+
+{% if physcpubind %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --physcpubind={{ physcpubind }}"
+{% endif %}
+
+{% if cpunodebind %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --cpunodebind={{ cpunodebind }}"
+{% endif %}
+
+{% if membind %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --membind={{ membind }}"
+{% endif %}
+
+{% if preferred_node %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --preferred={{ preferred_node }}"
+{% endif %}
+
+{% if interleave_nodes %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --interleave={{ interleave_nodes }}"
+{% endif %}
+
+{% if weighted_interleave_nodes %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --weighted-interleave={{ weighted_interleave_nodes }}"
+{% endif %}
+
+{% if balancing %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --balancing"
+{% endif %}
+
+{% if strict %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --strict"
+{% endif %}
+
+{% if huge_pages %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --huge"
+{% endif %}
+
+{% if touch %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --touch"
+{% endif %}
+
+{% if shm_file %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --file={{ shm_file }}"
+{% endif %}
+
+{% if shm_id %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --shmid={{ shm_id }}"
+{% endif %}
+
+{% if shm_keyfile %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --shm={{ shm_keyfile }}"
+{% endif %}
+
+{% if shm_length %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --length={{ shm_length }}"
+{% endif %}
+
+{% if shm_offset %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --offset={{ shm_offset }}"
+{% endif %}
+
+{% if shm_mode %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --shmmode={{ shm_mode }}"
+{% endif %}
+
+{% if separator_cmd %}
+NUMACTL_CMD="{{ NUMACTL_CMD }} --"
+{% endif %}
+
+# Final command to be executed
+FINAL_CMD="{{ NUMACTL_CMD }} {{ EXECUTABLE }}{{ ' ' + exec_args if exec_args else '' }}"

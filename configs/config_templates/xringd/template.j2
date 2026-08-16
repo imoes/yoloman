@@ -1,0 +1,54 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          {{ service_name | default('xringd') }}
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Init script for {{ service_name | default('xringd') }}
+# Description:       Starts and stops the {{ service_name | default('xringd') }} service,
+#                    a phone line monitor.
+### END INIT INFO
+
+set -e
+
+# Configuration variables with safe defaults from schema
+DESC="Phone line monitor: {{ service_name | default('xringd') }}"
+# Path to the xringd binary executable.
+DAEMON="{{ daemon_path | default('/usr/sbin/xringd') }}"
+NAME="{{ service_name | default('xringd') }}"
+
+test -f $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+    echo -n "Starting $DESC"
+    start-stop-daemon --quiet --start --background --exec $DAEMON
+    echo "$NAME."
+    ;;
+  stop)
+    echo -n "Stopping $DESC"
+    start-stop-daemon --quiet --oknodo --stop --exec $DAEMON
+    echo "$NAME."
+    ;;
+  restart|reload|force-reload)
+    echo -n "Restarting $DESC"
+    start-stop-daemon --quiet --oknodo --stop --exec $DAEMON
+    start-stop-daemon --quiet --start --background --exec $DAEMON
+    echo "$NAME."
+    ;;
+  parse)
+    $0 stop
+    $DAEMON -n
+    if [ $? -eq 0 ]; then
+        $0 start
+    fi
+    ;;
+  *)
+    echo "Usage: /etc/init.d/{{ service_name | default('xringd') }} {start|stop|restart|reload|force-reload|parse}"
+    exit 1
+esac
+
+exit 0

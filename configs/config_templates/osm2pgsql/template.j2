@@ -1,0 +1,266 @@
+# ==============================================================================
+# osm2pgsql Import Configuration
+# This file serves as a parameterised configuration for the osm2pgsql tool.
+# While osm2pgsql is primarily a CLI tool, this template generates a structured
+# config file (or can be used by a wrapper script/Ansible task to construct the
+# exact command line arguments).
+#
+# Every field uses a default value to ensure safe rendering even if a variable
+# is undefined in the Ansible playbook.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Mode: Import Operation
+# Corresponds to: -c / --create (default) or -a / --append
+# - 'create': Remove existing data in the output tables and recreate them.
+# - 'append': Add new data to existing tables without removing old data.
+# ------------------------------------------------------------------------------
+Mode: {{ mode | default('create') }}
+
+# ------------------------------------------------------------------------------
+# Database Connection Settings
+# These parameters define how osm2pgsql connects to the PostgreSQL backend.
+# Corresponds to: -d, -U, -H, -P, -W
+# ------------------------------------------------------------------------------
+
+# Database: Name of the PostgreSQL database to use.
+Database: {{ database | default('gis') }}
+
+# Username: The PostgreSQL role to authenticate as.
+# Note: If the backend provides a 'user' via capabilities, this should ideally
+# map to that.
+Username: {{ username | default('osm') }}
+
+# Host: PostgreSQL server hostname or path to a local socket directory.
+# If 'localhost', it may use a local socket or TCP loopback.
+Host: {{ host | default('localhost') }}
+
+# Port: TCP port for the PostgreSQL server.
+Port: {{ port | default(5432) }}
+
+# UsePasswordPrompt: Force the tool to prompt for a password interactively.
+# Corresponds to: -W
+# Set to 'true' if you do not want to embed passwords in this file.
+UsePasswordPrompt: {{ use_password_prompt | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Schema Configuration
+# Defines the database schemas used for storing data and temporary middle tables.
+# Corresponds to: --schema, --middle-schema
+# ------------------------------------------------------------------------------
+
+# PrimarySchema: The schema where the main OSM tables (planet_osm_*) will live.
+PrimarySchema: {{ primary_schema | default('public') }}
+
+# MiddleSchema: The schema used for the 'middle' tables (temporary storage during import).
+# These tables are often dropped or truncated after import.
+MiddleSchema: {{ middle_schema | default('public') }}
+
+# ------------------------------------------------------------------------------
+# Table Naming
+# Corresponds to: -p / --prefix
+# ------------------------------------------------------------------------------
+
+# TablePrefix: A prefix added to all created table names.
+# Example: 'planet_osm' results in tables like planet_osm_roads.
+TablePrefix: {{ table_prefix | default('planet_osm') }}
+
+# ------------------------------------------------------------------------------
+# Input Configuration
+# Specifies the format of the OSM data file being processed.
+# Corresponds to: -r / --input-reader
+# ------------------------------------------------------------------------------
+
+# InputFormat: Auto-detect or force a specific format (xml, o5m, pbf).
+# 'auto' is usually sufficient as osm2pgsql can detect the format.
+InputFormat: {{ input_format | default('auto') }}
+
+# ------------------------------------------------------------------------------
+# Bounding Box Filter
+# Limits the import to a specific geographic area.
+# Corresponds to: -b / --bbox MINLON,MINLAT,MAXLON,MAXLAT
+# ------------------------------------------------------------------------------
+
+# BBox: Comma-separated coordinates. Empty string means full import.
+# Example: '-180,-90,180,90' for the entire planet.
+BBox: {{ bbox | default('') }}
+
+# ------------------------------------------------------------------------------
+# Slim Mode and Intermediate Storage
+# 'Slim' mode stores data in the database during import, allowing for updates.
+# Corresponds to: -s, -C, --drop, -F, --middle-with-nodes
+# ------------------------------------------------------------------------------
+
+# SlimMode: Enable 'slim' mode. Required for subsequent updates (-a).
+SlimMode: {{ slim_mode | default(true) }}
+
+# CacheSizeMB: Amount of RAM (in MB) to use for caching geometry data.
+# Increase this for faster imports if memory allows.
+CacheSizeMB: {{ cache_size_mb | default(800) }}
+
+# DropSlimTablesAfterImport: Drop the temporary slim tables after a 'create' import.
+# Corresponds to: --drop
+DropSlimTablesAfterImport: {{ drop_slime_tables | default(false) }}
+
+# FlatNodesFile: Path to an external file for storing node coordinates.
+# Useful when RAM is limited and slim mode is used.
+# Corresponds to: -F / --flat-nodes
+FlatNodesFile: {{ flat_nodes_file | default('') }}
+
+# MiddleWithNodes: Store node coordinates in the middle database.
+# Required if you plan to use 'flat-nodes'.
+# Corresponds to: --middle-with-nodes
+MiddleWithNodes: {{ middle_with_nodes | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Output Configuration
+# Defines where and how the OSM data is stored.
+# Corresponds to: -O / --output
+# ------------------------------------------------------------------------------
+
+# OutputType: The backend format.
+# 'pgsql': Legacy direct-to-PostgreSQL output.
+# 'flex': Newer, more flexible Lua-script-based output (recommended).
+# 'null': Test mode, no output written.
+OutputType: {{ output_type | default('pgsql') }}
+
+# StyleFile: Path to the style file (for 'pgsql') or Lua config script (for 'flex').
+# Corresponds to: -S / --style
+StyleFile: {{ style_file | default('/usr/share/osm2pgsql/default.style') }}
+
+# ------------------------------------------------------------------------------
+# Logging and Verbosity
+# Controls the amount of information printed to stdout/stderr.
+# Corresponds to: --log-level, --log-progress, --log-sql, --log-sql-data, -v
+# ------------------------------------------------------------------------------
+
+# LogLevel: Minimum log level to display (debug, info, warn, error).
+LogLevel: {{ log_level | default('info') }}
+
+# LogProgress: Whether to log periodic progress updates.
+# Values: 'true', 'false', 'auto' (auto is often best for pipes).
+LogProgress: {{ log_progress | default('true') }}
+
+# LogSQL: Log all SQL queries executed. Useful for debugging database issues.
+# Corresponds to: --log-sql
+LogSQL: {{ log_sql | default(false) }}
+
+# LogSQLData: Log all data rows inserted. Very verbose, use for deep debugging.
+# Corresponds to: --log-sql-data
+LogSQLData: {{ log_sql_data | default(false) }}
+
+# Verbose: Enable general verbose output (-v).
+Verbose: {{ verbose | default(false) }}
+
+# ------------------------------------------------------------------------------
+# PostgreSQL Output Specifics (Relevant for OutputType='pgsql')
+# These options control the geometry projection and indexing strategies.
+# ------------------------------------------------------------------------------
+
+# UseMercator: Use Web Mercator projection (EPSG:3857).
+# Corresponds to: -m / --merc
+UseMercator: {{ use_mercator | default(true) }}
+
+# ProjectionSRID: Explicitly set the EPSG SRID for the output geometry.
+# Usually 3857 (Mercator) or 4326 (WGS84 Lat/Lon).
+# Corresponds to: -E / --proj
+ProjectionSRID: {{ projection_srid | default(3857) }}
+
+# ------------------------------------------------------------------------------
+# Hstore Column Options
+# Hstore is a PostgreSQL extension for storing key-value pairs in a single column.
+# Useful for storing all OSM tags without creating thousands of columns.
+# Corresponds to: --hstore, --hstore-all, --hstore-column, --hstore-match-only, --hstore-add-index
+# ------------------------------------------------------------------------------
+
+# UseHstore: Add a single hstore column for all tags that don't fit in standard columns.
+UseHstore: {{ use_hstore | default(false) }}
+
+# UseHstoreAll: Put ALL tags into the hstore column, ignoring standard column mapping.
+UseHstoreAll: {{ use_hstore_all | default(false) }}
+
+# HstoreColumnPrefix: Prefix for the hstore column (default 'tags').
+# Corresponds to: -z / --hstore-column
+HstoreColumnPrefix: {{ hstore_column_prefix | default('') }}
+
+# HstoreMatchOnly: Only use hstore for objects that have values in non-hstore columns.
+HstoreMatchOnly: {{ hstore_match_only | default(false) }}
+
+# HstoreAddIndex: Create a GIN index on the hstore column for faster querying.
+HstoreAddIndex: {{ hstore_add_index | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Additional Attribute Options
+# Controls whether to store user, changeset, timestamp, and version data.
+# Corresponds to: --extra-attributes
+# ------------------------------------------------------------------------------
+
+# IncludeExtraAttributes: Store OSM object metadata (user, changeset, etc.).
+IncludeExtraAttributes: {{ include_extra_attributes | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Geometry Options
+# Controls how geometries are stored (single vs multi-geometry).
+# Corresponds to: -G, -K
+# ------------------------------------------------------------------------------
+
+# MultiGeometry: Generate multi-geometry features (POLYGON/MULTIPOLYGON).
+# Better for rendering, but increases DB size.
+MultiGeometry: {{ multi_geometry | default(false) }}
+
+# KeepCoastlines: Keep coastline data which might otherwise be filtered out.
+# Corresponds to: -K / --keep-coastlines
+KeepCoastlines: {{ keep_coastlines | default(false) }}
+
+# ReprojectArea: Compute area using Web Mercator coordinates (for --reproject-area).
+# Note: Area calculations in Mercator are distorted at high latitudes.
+ReprojectArea: {{ reproject_area | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Tablespace Options
+# Allows placing database tables on specific disk locations.
+# Corresponds to: --tablespace-main-data, --tablespace-main-index, etc.
+# ------------------------------------------------------------------------------
+
+# TablespaceMainData: Tablespace for main data tables.
+TablespaceMainData: {{ tablespace_main_data | default('') }}
+
+# TablespaceMainIndex: Tablespace for main index tables.
+TablespaceMainIndex: {{ tablespace_main_index | default('') }}
+
+# TablespaceSlimData: Tablespace for slim mode data tables.
+TablespaceSlimData: {{ tablespace_slime_data | default('') }}
+
+# TablespaceSlimIndex: Tablespace for slim mode index tables.
+TablespaceSlimIndex: {{ tablespace_slime_index | default('') }}
+
+# ------------------------------------------------------------------------------
+# Tile Expiry Options
+# Generates a list of tiles to expire when the database is updated.
+# Used by rendering engines like Mapnik/Renderd.
+# Corresponds to: -e, -o, --expire-bbox-size
+# ------------------------------------------------------------------------------
+
+# ExpireTilesMaxZoom: Maximum zoom level for expiry tiles.
+ExpireTilesMaxZoom: {{ expire_tiles_max_zoom | default(18) }}
+
+# ExpireTilesMinZoom: Minimum zoom level for expiry tiles.
+ExpireTilesMinZoom: {{ expire_tiles_min_zoom | default(0) }}
+
+# ExpireOutputFile: File path to write the list of expired tiles.
+ExpireOutputFile: {{ expire_output_file | default('') }}
+
+# ExpireBBoxSize: Maximum polygon size (in degrees) to expire as a full bbox.
+ExpireBBoxSize: {{ expire_bbox_size | default(20000) }}
+
+# ------------------------------------------------------------------------------
+# Performance Options
+# Controls parallelism during import.
+# Corresponds to: --number-processes, -I / --disable-parallel-indexing
+# ------------------------------------------------------------------------------
+
+# NumberProcesses: Number of parallel threads for indexing (0 = auto-detect CPU count).
+NumberProcesses: {{ number_processes | default(0) }}
+
+# DisableParallelIndexing: Disable parallel indexing, forcing sequential indexing.
+DisableParallelIndexing: {{ disable_parallel_indexing | default(false) }}

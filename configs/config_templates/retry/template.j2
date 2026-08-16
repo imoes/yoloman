@@ -1,0 +1,34 @@
+#!/bin/sh
+# Retry command execution until a criteria is met.
+# This script is a wrapper generated to configure the 'retry' tool behavior.
+# The actual command execution happens at the end of this file.
+
+# The criteria for stopping retries (e.g., 'success', 'true', 'fail').
+# Corresponds to --until=criteria.
+# Options: success, true, fail, false, or integer/range.
+until_criteria="{{ until_criteria | default('success') }}"
+
+# The criteria for continuing retries (e.g., 'fail', 'false').
+# Corresponds to --while=criteria.
+# Options: success, true, fail, false, or integer/range.
+# Empty string disables this option.
+while_criteria="{{ while_criteria | default('') }}"
+
+# The number of seconds to back off after each attempt.
+# Comma-separated values for exponential/backoff delays, or a single number.
+# Corresponds to --delay=seconds.
+delay_seconds="{{ delay_seconds | default('10') }}"
+
+# The message to include in the notification when backing off.
+# Corresponds to --message=message.
+# Empty string uses default.
+notification_message="{{ notification_message | default('') }}"
+
+# The number of times to retry the command. Empty or 0 means forever.
+# Corresponds to --times=times.
+max_retries="{{ max_retries | default(0) }}"
+
+# The command to retry.
+# Note: In a real systemd service or cron wrapper, this would be the ExecStart.
+# For a pure config template of the 'retry' tool options, we document the args.
+# The command itself is usually not

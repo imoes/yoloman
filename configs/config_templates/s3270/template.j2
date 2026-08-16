@@ -1,0 +1,89 @@
+# ==============================================================================
+# s3270 Configuration Template
+#
+# This file configures the s3270 terminal emulator for TN3270 connections
+# to IBM mainframe hosts (System/390, z/OS).
+#
+# s3270 is a text-mode terminal emulator that supports TN3270 and TN3270E
+# protocols. It allows users to interact with IBM 3270 terminals over TCP/IP.
+#
+# The directives below map to the `s3270` application's internal configuration
+# parser. Empty or default values are safely handled via Jinja2 defaults.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Host Connection Settings
+# ------------------------------------------------------------------------------
+
+# default_host
+# Description: The hostname or IP address of the IBM host to connect to by default.
+#              If empty or not set, s3270 may prompt for a host or use command-line
+#              arguments. This is the primary target for the session.
+default_host = {{ host | default('', true) }}
+
+# default_port
+# Description: The TCP port number for the TN3270 service on the host.
+#              The standard port for TN3270 is 23. If the mainframe uses a
+#              non-standard port, override this value here.
+default_port = {{ port | default(23, true) }}
+
+# ------------------------------------------------------------------------------
+# Authentication Settings
+# ------------------------------------------------------------------------------
+
+# login_id
+# Description: The user ID to send automatically for authentication when
+#              connecting to a host that requests it. Use with caution in
+#              shared configuration files; prefer external credential management
+#              or interactive login for security.
+login_id = {{ login_id | default('', true) }}
+
+# password
+# Description: The password to send automatically for authentication.
+#              WARNING: Storing plaintext passwords in configuration files is
+#              a security risk. Ensure this file has restrictive permissions
+#              (e.g., 600). Empty string means no password is sent automatically.
+password = {{ password | default('', true) }}
+
+# ------------------------------------------------------------------------------
+# Terminal Emulation Settings
+# ------------------------------------------------------------------------------
+
+# terminal_type
+# Description: The emulation type string specifying which IBM terminal model
+#              the session should mimic. Common values include 'IBM-3270-2',
+#              'IBM-3270-3', 'IBM-3278-2', or 'IBM-3287'. The remote host
+#              uses this to determine screen layout and key mapping.
+terminal_type = {{ terminal_type | default('IBM-3270-2', true) }}
+
+# color
+# Description: Enable color support if the remote host and terminal emulator
+#              allow it. Set to 'true' to allow color attributes in the TN3270
+#              data stream; otherwise, the session will be monochrome.
+color = {{ color | default(false, true) }}
+
+# ------------------------------------------------------------------------------
+# File Transfer Settings
+# ------------------------------------------------------------------------------
+
+# transfer_dir
+# Description: The local directory where IND$FILE transfers are saved.
+#              IND$FILE is the file transfer protocol used in TN3270 sessions.
+#              This directory must exist and be writable by the user running s3270.
+transfer_dir = {{ transfer_dir | default('/tmp', true) }}
+
+# ------------------------------------------------------------------------------
+# Macro Scripts
+# ------------------------------------------------------------------------------
+
+# macros
+# Description: A list of file paths to macro scripts to execute on session startup.
+#              Macro scripts automate common login sequences, menu navigation,
+#              or data entry tasks. They are processed in the order listed.
+#              If no macros are defined, this directive is omitted or left empty.
+{% set _macros = macros | default([], true) %}
+{% if _macros | length > 0 %}
+macros = {{ _macros | join(', ') }}
+{% else %}
+# macros = (none defined)
+{% endif %}

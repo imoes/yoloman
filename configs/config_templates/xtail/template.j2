@@ -1,0 +1,53 @@
+# ==============================================================================
+# xtail configuration template
+# ==============================================================================
+# xtail is a tool for tailing multiple files and detecting new files in directories.
+# This configuration file controls its behavior.
+
+# ------------------------------------------------------------------------------
+# files: List of file paths or directories to monitor.
+# ------------------------------------------------------------------------------
+# The default is ['/var/log/syslog']. Each entry should be a full path to a file
+# or a directory. If a directory is specified, xtail will watch for new files
+# appearing in that directory.
+files:
+{%- for file_path in files | default(['/var/log/syslog']) %}
+  - {{ file_path }}
+{%- endfor %}
+
+# ------------------------------------------------------------------------------
+# new_file_command: Shell command to run when a new file appears in a watched directory.
+# ------------------------------------------------------------------------------
+# If 'files' contains directories, xtail will execute this command for each new
+# file detected. The default is '/bin/cat', which simply streams the new file's
+# content. This is only relevant if directories are in 'files'.
+new_file_command: {{ new_file_command | default('/bin/cat') }}
+
+# ------------------------------------------------------------------------------
+# poll_interval: Seconds between polling watched directories for new files.
+# ------------------------------------------------------------------------------
+# xtail does not use inotify for new file detection (it is primarily file-based);
+# it polls directories at this interval to find new files. The default is 1 second.
+poll_interval: {{ poll_interval | default(1) }}
+
+# ------------------------------------------------------------------------------
+# show_file_headers: Whether to print the filename header when switching between monitored files.
+# ------------------------------------------------------------------------------
+# If true, xtail prints a banner (e.g., "--> /var/log/syslog <--") when the output
+# switches from one file to another. The default is True.
+show_file_headers: {{ show_file_headers | default(true) }}
+
+# ------------------------------------------------------------------------------
+# timestamps: Whether to prefix output lines with timestamps.
+# ------------------------------------------------------------------------------
+# If true, each line of output is prefixed with a timestamp indicating when the
+# new content was detected. The default is False.
+timestamps: {{ timestamps | default(false) }}
+
+# ------------------------------------------------------------------------------
+# context_lines: Number of context lines to display (limited support in xtail).
+# ------------------------------------------------------------------------------
+# This is a legacy/compatibility hint. xtail is primarily for real-time monitoring,
+# so this option has limited support. It specifies how many context lines to show.
+# The default is 0.
+context_lines: {{ context_lines | default(0) }}

@@ -1,0 +1,77 @@
+[common]
+# certificatepath: Path to the client certificate file.
+# Overridden by environment variable X509_USER_CERT.
+# default: /home/user/credentials/cert.pem
+certificatepath={{ certificatepath | default('/home/user/credentials/cert.pem') }}
+
+# keypath: Path to the client secret key file.
+# Overridden by environment variable X509_USER_KEY.
+# default: /home/user/credentials/key.pem
+keypath={{ keypath | default('/home/user/credentials/key.pem') }}
+
+# cacertificatesdirectory: Path to the CA certificates directory.
+# Overridden by environment variable X509_CERT_DIR.
+# default: /home/user/.globus/certificates
+cacertificatesdirectory={{ cacertificatesdirectory | default('/home/user/.globus/certificates') }}
+
+# causesystem: Use default CA layout of OpenSSL (system).
+# 1/true enables system CA, 0/false disables it.
+# Overridden by environment variable X509_CERT_POLICY.
+# default: 1
+causesystem={{ causesystem | default('1') }}
+
+# proxypath: Path to the proxy certificate file.
+# Used for both generation and usage of the proxy.
+# Overridden by environment variable X509_USER_PROXY.
+# default: /home/user/credentials/proxy.pem
+proxypath={{ proxypath | default('/home/user/credentials/proxy.pem') }}
+
+# vomsespath: Path to VOMS configuration file or directory.
+# Used to generate proxy certificates.
+# Overridden by environment variables X509_VOMS_FILE and X509_VOMSES.
+# default: /home/user/credentials/vomses
+vomsespath={{ vomsespath | default('/home/user/credentials/vomses') }}
+
+# defaultvoms: List of default VOMS settings for proxy certificate generation.
+# Format: vo[:command] or vo:command.
+{% for defaultvoms in defaultvoms_list | default(['atlas:/atlas/Role=pilot', 'nordugrid.org:all', 'ops.ndgf.org']) %}
+defaultvoms={{ defaultvoms }}
+{% endfor %}
+
+# rejectdiscovery: List of FQDNs/URLs of services to reject during discovery.
+# Services listed here will be ignored by CLI tools like arcsub and arctest.
+{% for rejectdiscovery in rejectdiscovery_list | default(['bad.service.org', 'bad2.service.org']) %}
+rejectdiscovery={{ rejectdiscovery }}
+{% endfor %}
+
+# rejectmanagement: List of FQDNs/URLs of CEs to skip during job management.
+# CEs listed here will be skipped by tools like arcstat and arckill.
+{% for rejectmanagement in rejectmanagement_list | default(['bad3.service.org', 'bad4.service.org']) %}
+rejectmanagement={{ rejectmanagement }}
+{% endfor %}
+
+# brokername: Broker used in resource discovery.
+# See "arcsub -P" for a list of available brokers.
+# default: FastestQueue
+brokername={{ brokername | default('FastestQueue') }}
+
+# brokerarguments: Arguments for the specified broker.
+# These arguments are passed to the broker implementation.
+# default: ACIXBroker.ACIXBroker:https://cacheindex.ndgf.org:6443/data/index
+brokerarguments={{ brokerarguments | default('ACIXBroker.ACIXBroker:https://cacheindex.ndgf.org:6443/data/index') }}
+
+# timeout: Timeout in seconds for service responses.
+# If a service does not respond within this time, it is considered dead.
+# default: 60
+timeout={{ timeout | default(60) }}
+
+# joblist: Path to the jobs database file.
+# Stores extra data about submitted jobs for management purposes.
+# default: /home/user/arcjobs.dat
+joblist={{ joblist | default('/home/user/arcjobs.dat') }}
+
+# joblisttype: Type of backend for the jobs database.
+# Allowed values: SQLITE, XML.
+# SQLITE is strongly advised.
+# default: XML
+joblisttype={{ joblisttype | default('XML') }}

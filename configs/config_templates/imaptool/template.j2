@@ -1,0 +1,47 @@
+# imaptool configuration template
+# This package provides a set of command-line utilities for managing IMAP accounts
+# and migrating email data. It is primarily a client-side tool or a management daemon
+# and does not listen for incoming network connections itself.
+# Most configuration is handled via CLI arguments or environment variables.
+# This template serves as a central configuration file for shared settings,
+# such as logging levels or default system paths, if required by a specific wrapper script.
+
+[general]
+# Default log level for imaptool operations (debug, info, warning, error, critical)
+log_level = {{ log_level | default('info') }}
+
+# Path to the log file. If empty or '-', logs to stderr.
+log_file = {{ log_file | default('/var/log/imaptool/imaptool.log') }}
+
+# Enable verbose output for debugging migrations or account operations
+verbose = {{ verbose | default(false) }}
+
+[paths]
+# Base directory for storing local caches, temporary files, and state databases
+data_dir = {{ data_dir | default('/var/lib/imaptool') }}
+
+# Directory for storing user-specific configuration overrides (if using a multi-user daemon mode)
+config_dir = {{ config_dir | default('/etc/imaptool/conf.d') }}
+
+# Maximum size for temporary files during IMAP uploads/downloads (e.g., '10M', '1G')
+max_temp_size = {{ max_temp_size | default('100M') }}
+
+[defaults]
+# Default IMAP port if not specified per account
+default_imap_port = {{ default_imap_port | default(143) }}
+
+# Default SSL/TLS IMAP port if not specified per account
+default_imap_ssl_port = {{ default_imap_ssl_port | default(993) }}
+
+# Default SMTP port for sending mail (used by send/reply functions)
+default_smtp_port = {{ default_smtp_port | default(587) }}
+
+# Timeout for network operations in seconds
+network_timeout = {{ network_timeout | default(30) }}
+
+[security]
+# Allow insecure (non-TLS) IMAP connections if explicitly required
+allow_insecure = {{ allow_insecure | default(false) }}
+
+# Path to the CA certificate bundle for verifying IMAP/SMTP server certificates
+ca_cert_path = {{ ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}

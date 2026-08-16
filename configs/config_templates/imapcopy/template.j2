@@ -1,0 +1,39 @@
+# IMAPCopy Configuration File
+# See imapcopy(1) for details
+
+# Name of the profile for this copy operation.
+profile = {{ profile_name | default('default') }}
+
+# Hostname or IP of the source IMAP server (typically localhost if using stunnel).
+source_server = {{ source_server | default('localhost') }}
+
+# Port of the source IMAP service (typically stunnel port).
+source_port = {{ source_port | default(1143) }}
+
+# Username for the source IMAP account.
+source_user = {{ source_user | default('source@example.com') }}
+
+# Password for the source IMAP account.
+source_password = {{ source_password | default('secret') }}
+
+# Hostname or IP of the destination IMAP server.
+dest_server = {{ dest_server | default('localhost') }}
+
+# Port of the destination IMAP service.
+dest_port = {{ dest_port | default(2143) }}
+
+# Username for the destination IMAP account.
+dest_user = {{ dest_user | default('dest@example.com') }}
+
+# Password for the destination IMAP account.
+dest_password = {{ dest_password | default('secret') }}
+
+# List of folder names to copy from source to destination.
+# Note: imapcopy may require a single folder directive per line or a specific format depending on version.
+# This template outputs one 'folder' directive per folder in the list.
+{% for folder in folders | default(['INBOX']) %}
+folder = {{ folder }}
+{% endfor %}
+
+# Enable verbose logging output.
+verbose = {{ verbose | default(True) | lower }}

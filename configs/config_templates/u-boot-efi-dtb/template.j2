@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# Copyright (C) 2024 Aurelien Jarno <aurel32@debian.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>
+#
+# This script is assumed to run as a kernel hook, as described here:
+# https://kernel-team.pages.debian.net/kernel-handbook/ch-update-hooks.html#s-kernel-hooks
+#
+# Self-documentation:
+# - boot_subpath: Alternative boot subpath to match in lsblk filter (default: 'boot/efi')
+# - efi_mountpoint: EFI mountpoint name to match in lsblk filter (default: 'efi')
+# - dtb_source_path: Source path for DTB files to copy to the ESP (default: '/usr/lib/linux-image-${latest_kernel}')
+
+set -e
+
+# Play nice when run under debconf.
+exec </dev/null >&2
+
+eval set -- "$DEB_MAINT_PARAMS"
+
+# Only run on configure to avoid unnecessary work.
+if [ "$1" = "configure" ] || [ "$1" = "remove" ] ; then
+
+  # Check to see if the host is running in EFI mode
+  if ! test -d "/sys/firmware/efi" ; then
+    exit 0
+  fi
+
+  # Look for ESP, the corresponding partition type GUID in a GPT partition
+  # table isc12a7328-f81f-11d2-ba4b-00a0c93ec93b
+  #
+  # Variables:
+  # boot_subpath: Alternative boot subpath to match in lsblk filter
+  efi_mountpoint: EFI mountpoint name to match in lsblk filter
+  esp_path=$(lsblk -n -o MOUNTPOINTS --filter 'MOUNTPOINTS =~ "^/(boot|{{ boot_subpath | default('boot/efi') }}|{{ efi_mountpoint | default('efi') }})$" && (PARTTYPE == "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" || TYPE == "raid1")')
+  esp_count=$(echo "$esp_path" | wc -l)
+  if [ "$esp_count" -gt 1 ] ; then
+    echo "uboot-efi-dtb: more than one EFI partition mounted, do not know what to do" >&2
+    exit 1
+  elif [ "$esp_count" = "0" ] || ! [ -d "$esp_path" ] ; then
+    echo "uboot-efi-dtb: EFI partition not found, did you forget to mount it?" >&2
+    if ischroot ; then
+      # Allow the package to be installed in a chroot by ignoring the issue
+      exit 0
+    else
+      exit 1
+    fi
+  fi
+
+  # Only consider the latest kernel, the assumption is that there is no
+  # device-tree ABI breakage and thus the newest device version is always the
+  # best one
+  latest_kernel=$(linux-version list | linux-version sort --reverse | head -1)
+  if [ -z "$latest_kernel" ] ; then
+    echo "uboot-efi-dtb: no kernel found, can't determine latest kernel version"
+    exit 0
+  fi
+
+  # Copy the all the DTBs to /boot/efi/dtb
+  #
+  # Variables:
+  # dtb_source_path: Source path for DTB files to copy to the ESP
+  dtb_path="{{ dtb_source_path | default('/usr/lib/linux-image-${latest_kernel}') }}"
+  echo "uboot-efi-dtb: updating /boot/efi/dtb using $dtb_path"
+  cp -RT "$dtb_path" "$esp_path/dtb"
+
+fi

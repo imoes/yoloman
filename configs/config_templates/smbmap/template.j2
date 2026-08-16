@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+# Auto-generated configuration for smbmap CLI execution
+# Note: smbmap is a CLI tool, not a daemon with a static config file.
+# This template generates a shell wrapper script to execute smbmap with the specified parameters.
+#
+# Self-documenting: Every variable and flag corresponds to a schema field.
+# Defaults are applied inline to ensure safe rendering even if the variable is undefined.
+
+import sys
+import os
+
+# smbmap executable path.
+# Schema: smbmap_bin (string, default='/usr/bin/smbmap')
+SMBMAP_BIN = "{{ smbmap_bin|default('/usr/bin/smbmap') }}"
+
+# Target Host Configuration
+# Host IP or hostname to enumerate.
+# Schema: host (string, default='192.168.1.10')
+HOST = "{{ host|default('192.168.1.10') }}"
+
+# Authentication Credentials
+# Username for SMB authentication. If empty, null session is assumed.
+# Schema: username (string, default='administrator')
+USERNAME = "{{ username|default('administrator') }}"
+
+# Password or NTLM hash for authentication.
+# Schema: password (string, default='Password123')
+PASSWORD = "{{ password|default('Password123') }}"
+
+# Domain/Workgroup for authentication.
+# Schema: domain (string, default='WORKGROUP')
+DOMAIN = "{{ domain|default('WORKGROUP') }}"
+
+# SMB Port to connect to.
+# Schema: port (int, default=445)
+PORT = {{ port|default(445) }}
+
+# Operation Mode
+# 'list': Enumerate shares (-L)
+# 'recursive': List files recursively (-r)
+# 'command': Execute remote command (-x)
+# 'share': List specific share (-s)
+# Schema: mode (string, default='list')
+MODE = "{{ mode|default('list') }}"
+
+# Additional Flags
+# Show OS version of the remote host (-v).
+# Schema: show_version (boolean, default=False)
+SHOW_VERSION = {{ show_version|default(false) }}
+
+# Use Kerberos authentication (-k).
+# Schema: kerberos (boolean, default=False)
+KERBEROS = {{ kerberos|default(false) }}
+
+# Remove the banner from the output (--no-banner).
+# Schema: no_banner (boolean, default=False)
+NO_BANNER = {{ no_banner|default(false) }}
+
+# Remove color from output (--no-color).
+# Schema: no_color (boolean, default=False)
+NO_COLOR = {{ no_color|default(false) }}
+
+# Quiet mode, only show shares with READ/WRITE (-q).
+# Schema: quiet (boolean, default=False)
+QUIET = {{ quiet|default(false) }}
+
+# Just report if the user is an admin (--admin).
+# Schema: admin_only (boolean, default=False)
+ADMIN_ONLY = {{ admin_only|default(false) }}
+
+# Specific share to target (-s).
+# Schema: share (string, default='C$')
+SHARE = "{{ share|default('C$') }}"
+
+# Path for recursive listing (-r).
+# Schema: recursive_path (string, default='')
+RECURSIVE_PATH = "{{ recursive_path|default('') }}"
+
+# Command to execute on the remote host (-x).
+# Schema: command (string, default='')
+COMMAND = "{{ command|default('') }}"
+
+# Traverse directory tree to specific depth (--depth).
+# Schema: depth (int, default=1)
+DEPTH = {{ depth|default(1) }}
+
+# Regex pattern for auto-downloading files (-A).
+# Schema: download_pattern (string, default='')
+DOWNLOAD_PATTERN = "{{ download_pattern|default('') }}"
+
+# Output file for grep-friendly format (-g).
+# Schema: grep_output_file (string, default='')
+GREP_OUTPUT_FILE = "{{ grep_output_file|default('') }}"
+
+# Output file for CSV results (--csv).
+# Schema: csv_output_file (string, default='')
+CSV_OUTPUT_FILE = "{{ csv_output_file|default('') }}"
+
+# List only directories, omit files (--dir-only).
+# Schema: dir_only (boolean, default=False)
+DIR_ONLY = {{ dir_only|default(false) }}
+
+# Socket timeout in seconds (--timeout).
+# Schema: timeout (float, default=0.5)
+TIMEOUT = {{ timeout|default(0.5) }}
+
+# Timeout for file content search jobs in seconds (--search-timeout).
+# Schema: search_timeout (int, default=300)
+SEARCH_TIMEOUT = {{ search_timeout|default(300) }}
+
+# Path to search for file content (--search-path).
+# Schema: search_path (string, default='C:\\Users')
+SEARCH_PATH = "{{ search_path|default('C:\\\\Users') }}"
+
+# Pattern to search for in file contents (-F).
+# Schema: file_search_pattern (string, default='')
+FILE_SEARCH_PATTERN = "{{ file_search_pattern|default('') }}"
+
+# List of shares to exclude from search and listing (--exclude).
+# Schema: exclude_shares (list, default=[])
+EXCLUDE_SHARES = {{ exclude_shares|default([]) }}
+
+# Build the command line
+CMD = [SMBMAP_BIN]
+
+# Add host
+if HOST:
+    CMD.extend(['-H', HOST])
+else:
+    # If no single host, host-file logic would go here, but simplified for single target
+    print("Error: Host is required.", file=sys.stderr)
+    sys.exit(1)
+
+# Add authentication
+if USERNAME:
+    CMD.extend(['-u', USERNAME])
+if PASSWORD:
+    CMD.extend(['-p', PASSWORD])
+if DOMAIN:
+    CMD.extend(['-d', DOMAIN])
+if PORT != 445:
+    CMD.extend(['-P', str(PORT)])
+
+# Add Kerberos
+if KERBEROS:
+    CMD.append('--kerberos')
+
+# Add Mode/Action
+if MODE == 'list':
+    CMD.append('-L')
+elif MODE == 'recursive':
+    if SHARE:
+        CMD.extend(['-s', SHARE])
+    if RECURSIVE_PATH:
+        CMD.extend(['-r', RECURSIVE_PATH])
+    else:
+        CMD.append('-r')
+elif MODE == 'command':
+    if COMMAND:
+        CMD.extend(['-x', COMMAND])
+    else:
+        print("Error: Command is required for 'command' mode.", file=sys.stderr)
+        sys.exit(1)
+elif MODE == 'share':
+    if SHARE:
+        CMD.extend(['-s', SHARE])
+    else:
+        print("Error: Share is required for 'share' mode.", file=sys.stderr)
+        sys.exit(1)
+else:
+    # Default to listing the specified share if no specific mode action defined beyond defaults
+    if SHARE:
+        CMD.extend(['-s', SHARE])
+
+# Add Search/Enumerate Options
+if SHOW_VERSION:
+    CMD.append('-v')
+if NO_BANNER:
+    CMD.append('--no-banner')
+if NO_COLOR:
+    CMD.append('--no-color')
+if QUIET:
+    CMD.append('-q')
+if ADMIN_ONLY:
+    CMD.append('--admin')
+if DIR_ONLY:
+    CMD.append('--dir-only')
+if DEPTH != 1:
+    CMD.extend(['--depth', str(DEPTH)])
+if DOWNLOAD_PATTERN:
+    CMD.extend(['-A', DOWNLOAD_PATTERN])
+if GREP_OUTPUT_FILE:
+    CMD.extend(['-g', GREP_OUTPUT_FILE])
+if CSV_OUTPUT_FILE:
+    CMD.extend(['--csv', CSV_OUTPUT_FILE])
+if FILE_SEARCH_PATTERN:
+    CMD.extend(['-F', FILE_SEARCH_PATTERN])
+if SEARCH_PATH:
+    CMD.extend(['--search-path', SEARCH_PATH])
+if SEARCH_TIMEOUT != 300:
+    CMD.extend(['--search-timeout', str(SEARCH_TIMEOUT)])
+if TIMEOUT != 0.5:
+    CMD.extend(['--timeout', str(TIMEOUT)])
+
+if EXCLUDE_SHARES:
+    for share in EXCLUDE_SHARES:
+        CMD.extend(['--exclude', share])
+
+# Execute
+print("Running: " + ' '.join(CMD))
+# In a real wrapper, we would subprocess.call(CMD)
+# For the template output, we just output the command line or execute it.
+# Since this is a config template for a 'service' wrapper, we assume it's a script.

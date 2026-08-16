@@ -1,0 +1,91 @@
+# =============================================================================
+# PhpPgAdmin Apache Configuration Template
+# =============================================================================
+# This template generates an Apache virtual-host or directory configuration
+# for the PhpPgAdmin web interface, which provides a browser-based admin
+# panel for PostgreSQL databases.
+#
+# It serves the static files and PHP scripts located at /usr/share/phppgadmin,
+# configures the Apache directory handler, and sets up the PHP execution
+# environment (mod_php or CGI/CGID).
+#
+# Self-documenting: every variable uses | default() with the schema's
+# implied default value so the template renders correctly even if the
+# variable is not explicitly set by the playbook.
+# =============================================================================
+
+# Alias definition: Maps the URL path /phppgadmin to the filesystem directory
+# /usr/share/phppgadmin. This allows users to access the application via
+# http://<hostname>/phppgadmin.
+# Schema field: phppgadmin_alias_path
+Alias /phppgadmin {{ phppgadmin_alias_path | default('/usr/share/phppgadmin') }}
+
+# Directory block: Configures Apache's behavior for the PhpPgAdmin installation
+# directory.
+# Schema field: phppgadmin_directory_path
+<Directory {{ phppgadmin_directory_path | default('/usr/share/phppgadmin') }}>
+
+    # DirectoryIndex: Specifies the default file to serve when a directory
+    # is requested. For PhpPgAdmin, this is always index.php.
+    # Schema field: phppgadmin_directory_index
+    <IfModule mod_dir.c>
+        DirectoryIndex {{ phppgadmin_directory_index | default('index.php') }}
+    </IfModule>
+
+    # AllowOverride: Controls which directives in .htaccess files are allowed
+    # to override server configuration. Set to 'None' for performance and
+    # security, as PhpPgAdmin does not require per-directory overrides.
+    # Schema field: phppgadmin_allow_override
+    AllowOverride {{ phppgadmin_allow_override | default('None') }}
+
+    # Access Control: Restricts access to local connections only by default.
+    # This is a security best practice for database admin interfaces.
+    # Only allow connections from localhost:
+    # Schema field: phppgadmin_require_access
+    Require {{ phppgadmin_require_access | default('local') }}
+
+    # PHP Configuration Block: Configures PHP flags specifically for PhpPgAdmin.
+    # Schema field: phppgadmin_php_module (used to guard this block)
+    <IfModule mod_php.c>
+      # Disable magic_quotes_gpc. This directive is deprecated in PHP 5.3+ and
+      # removed in 5.4+, but kept here for legacy compatibility if needed.
+      # It was historically used to escape input data, but is no longer safe.
+      # Schema field: phppgadmin_magic_quotes_gpc
+      php_flag magic_quotes_gpc {{ phppgadmin_magic_quotes_gpc | default('Off') }}
+
+      # Enable track_vars. Ensures that HTTP request variables are tracked
+      # in the superglobal arrays (GET, POST, COOKIE), which is standard
+      # for web applications.
+      # Schema field: phppgadmin_track_vars
+      php_flag track_vars {{ phppgadmin_track_vars | default('On') }}
+
+      # Example: Custom include path. Disabled by default as it is rarely
+      # needed and can cause security issues if pointing to insecure paths.
+      #php_value include_path {{ phppgadmin_include_path | default('.') }}
+    </IfModule>
+
+    # Fallback CGI/CGID Configuration: If mod_php is not loaded, configure
+    # Apache to handle PHP files via CGI or CGID modules.
+    # Schema field: phppgadmin_cgi_module (used to guard this block)
+    <IfModule !mod_php.c>
+      <IfModule mod_actions.c>
+        <IfModule mod_cgi.c>
+          # Map .php files to the PHP handler via CGI.
+          # Schema field: phppgadmin_php_extension
+          AddType application/x-httpd-php {{ phppgadmin_php_extension | default('.php') }}
+          # Define the action for the PHP MIME type, pointing to the CGI script.
+          # Schema field: phppgadmin_cgi_action
+          Action application/x-httpd-php {{ phppgadmin_cgi_action | default('/cgi-bin/php') }}
+        </IfModule>
+        <IfModule mod_cgid.c>
+          # Map .php files to the PHP handler via CGID (multi-process).
+          # Schema field: phppgadmin_php_extension
+          AddType application/x-httpd-php {{ phppgadmin_php_extension | default('.php') }}
+          # Define the action for the PHP MIME type, pointing to the CGID script.
+          # Schema field: phppgadmin_cgid_action
+          Action application/x-httpd-php {{ phppgadmin_cgid_action | default('/cgi-bin/php') }}
+        </IfModule>
+      </IfModule>
+    </IfModule>
+
+</Directory>

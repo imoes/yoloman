@@ -1,0 +1,36 @@
+# IAT Configuration Template
+# Auto-generated for iat (Image Audio Tool) - handles extraction/processing of audio tracks from CD/DVD images.
+# The tool reads an input disc image (CD-ROM/DVD) and optionally extracts or converts it.
+#
+# Variables used:
+#   input_file: Path to the source disc image (CD-ROM/DVD)
+#   output_file: Path where the processed/output image will be saved
+#   output_format: The desired output format ('iso', 'cue', or 'toc')
+#   debug: Boolean flag to enable verbose debug logging
+
+# Input image file path
+# Specifies the source disc image to process.
+-i {{ input_file | default('/var/lib/iat/images/image.img') }}
+
+# Output file path
+# Specifies the destination path for the converted or processed image.
+-o {{ output_file | default('/var/lib/iat/images/output.iso') }}
+
+# Output format selection
+# Determines the format of the resulting image.
+# Valid options: 'iso', 'cue', 'toc'
+{% set fmt = output_format | default('iso') %}
+{% if fmt == 'iso' %}
+--iso
+{% elif fmt == 'cue' %}
+--cue
+{% elif fmt == 'toc' %}
+--toc
+{% endif %}
+
+# Debug mode
+# When enabled, provides detailed logging output for troubleshooting.
+{% if debug | default(False) is sameas true %}
+# Debug flag
+--debug
+{% endif %}

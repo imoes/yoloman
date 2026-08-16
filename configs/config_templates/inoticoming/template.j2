@@ -1,0 +1,72 @@
+# inoticoming configuration file
+# This template manages the main configuration for inoticoming, a filesystem change notification tool.
+# It generates a command-line style configuration file where the first non-option argument
+# is the watched directory, followed by action definitions.
+
+# Global options block
+# These flags apply to the entire inoticoming process.
+
+# Path to the log file for inoticoming's internal logs.
+# If not specified, defaults to /var/log/inoticoming.log.
+--logfile {{ (inotify | default({})).logfile | default('/var/log/inoticoming.log') }}
+
+# Path to the PID file created by inoticoming.
+# Used to identify the running process.
+--pid-file {{ (inotify | default({})).pid_file | default('/run/inoticoming.pid') }}
+
+# Perform an initial search of the directory upon startup.
+# If true, inoticoming will scan the directory for existing files
+# and trigger actions for them immediately.
+{% if (inotify | default({})).initial_search is sameas true %}--initialsearch
+{% endif %}
+
+# Run in the foreground.
+# If true, inoticoming will NOT fork to the background and will
+# stay attached to the terminal/stdout. Useful for debugging.
+{% if (inotify | default({})).foreground is sameas true %}--foreground
+{% endif %}
+
+# Watched directory
+# The root directory path to monitor for file system events.
+# This is the first positional argument in inoticoming's config format.
+{{ (inotify | default({})).directory | default('/') }}
+
+# Actions block
+# Defines one or more actions to trigger when file events occur in the watched directory.
+# Each action is a dictionary with fields like command, prefix, suffix, regexp, etc.
+{% for action in (inotify | default({})).actions | default([]) %}
+# Action {{ loop.index }}
+# This block defines the command and filters for a specific event handler.
+
+# Optional prefix to prepend to the filename when executing the command.
+{% if action.prefix is defined %}--prefix {{ action.prefix }}
+{% endif %}
+
+# Optional suffix to append to the filename when executing the command.
+{% if action.suffix is defined %}--suffix {{ action.suffix }}
+{% endif %}
+
+# Regular expression pattern to filter filenames.
+# Only files matching this regex will trigger the action.
+{% if action.regexp is defined %}--regexp {{ action.regexp }}
+{% endif %}
+
+# Change directory to this path before executing the command.
+{% if action.chdir is defined %}--chdir {{ action.chdir }}
+{% endif %}
+
+# Redirect stdout of the action command to the inoticoming log file.
+{% if action.stdout_to_log is sameas true %}--stdout-to-log
+{% endif %}
+
+# Redirect stderr of the action command to the inoticoming log file.
+{% if action.stderr_to_log is sameas true %}--stderr-to-log
+{% endif %}
+
+# The actual command to execute.
+# The special variable $file (or similar, depending on inoticoming version)
+# is typically injected here by the tool, or handled via prefix/suffix.
+# The line ends with a semicolon to separate actions.
+{{ action.command | default('') }} ;
+
+{% endfor %}

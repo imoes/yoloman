@@ -1,0 +1,89 @@
+# AppArmor profile for StrongSwan's Charon daemon.
+# This profile confines the `/usr/lib/ipsec/charon` process to limit its capabilities
+# and filesystem access, mitigating the impact of potential vulnerabilities.
+
+#include <tunables/global>
+
+# The path to the StrongSwan charon daemon binary.
+# Default: /usr/lib/ipsec/charon
+{{ (ipsec_charon_binary | default('/usr/lib/ipsec/charon')) }} flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/authentication>
+  #include <abstractions/openssl>
+  #include <abstractions/p11-kit>
+
+  # Required for IPsec key management and socket creation.
+  capability ipc_lock,
+  capability net_admin,
+  capability net_raw,
+
+  # Allow dropping privileges after startup (LP: #1333655).
+  capability chown,
+  capability setgid,
+  capability setuid,
+  capability setpcap,
+
+  # libcharon-extra-plugins: xauth-pam
+  capability audit_write,
+
+  # libstrongswan-standard-plugins: agent
+  capability dac_override,
+
+  # Networking permissions.
+  network,
+  network raw,
+
+  # Allow execution of dash shell if needed by plugins.
+  /{,usr/}bin/dash                 rmPUx,
+
+  # libcharon-extra-plugins: kernel-libipsec
+  # Allow access to the TUN/TAP device for IPsec tunnels.
+  /dev/net/tun              rw,
+
+  # Configuration file read access.
+  /etc/ipsec.conf           r,
+  /etc/ipsec.secrets        r,
+  /etc/ipsec.*.secrets      r,
+  /etc/ipsec.d/             r,
+  /etc/ipsec.d/**           r,
+  /etc/ipsec.d/crls/*       rw,
+  /etc/opensc/opensc.conf   r,
+  /etc/strongswan.conf      r,
+  /etc/strongswan.d/        r,
+  /etc/strongswan.d/**      r,
+  /etc/tnc_config           r,
+
+  # Allow writing to xfrm expire settings.
+  /proc/sys/net/core/xfrm_acq_expires   w,
+
+  # The path pattern for the charon run directory/files.
+  # Default: /run/charon.*
+  {{ (charon_run_path | default('/run/charon.*')) }}             rw,
+  /run/pcscd/pcscd.comm     rw,
+
+  # Allow execution of the charon binary itself.
+  {{ (ipsec_charon_binary | default('/usr/lib/ipsec/charon')) }}     rmix,
+  /usr/lib/ipsec/imcvs/     r,
+  /usr/lib/ipsec/imcvs/**   rm,
+
+  # Allow loading OpenSC PKCS#11 module.
+  /usr/lib/*/opensc-pkcs11.so rm,
+
+  # Allow reading StrongSwan state files.
+  /var/lib/strongswan/*     r,
+
+  # Allow systemd notification.
+  /{,var/}run/systemd/notify w,
+
+  # Allow self to read file descriptors (LP #1786250).
+  # Restrict to our own process-ID as per apparmor vars.
+  @{PROC}/@{pid}/fd/        r,
+
+  # For using the ha plugin (LP: #1773956).
+  @{PROC}/@{pid}/net/ipt_CLUSTERIP/ r,
+  @{PROC}/@{pid}/net/ipt_CLUSTERIP/* rw,
+
+  # Site-specific additions and overrides. See local/README for details.
+  #include <local/usr.lib.ipsec.charon>
+}

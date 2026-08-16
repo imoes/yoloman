@@ -1,0 +1,235 @@
+# ==============================================================================
+# Layer Four Traceroute (lft) Configuration Template
+# ==============================================================================
+#
+# This template generates the configuration file for the `lft` command,
+# and optionally constructs the full command line based on these settings.
+#
+# The configuration file format is a simple KEY: VALUE structure.
+# All variables are provided with safe defaults derived from the schema.
+#
+# ==============================================================================
+# Configuration Directives
+# ==============================================================================
+
+# Destination host name or IP address to trace
+# Default: example.com
+host: {{ host | default('example.com') }}
+
+# Protocol family to use for tracing
+# Valid values: ipv4, ipv6
+# Default: ipv4
+# Note: This variable MUST have a default to ensure command construction works.
+protocol: {{ protocol | default('ipv4') }}
+
+# Traceroute method to employ
+# Valid values: default, icmp, tcp, udp, udplite, dccp, raw
+# Default: tcp
+method: {{ method | default('tcp') }}
+
+# Method-specific options passed to the traceroute binary via -O
+# Context-dependent options (e.g., syn/ack for TCP, raw for ICMP)
+# Default: syn
+method_options: {{ method_options | default('syn') }}
+
+# Firewall mark for outgoing packets
+# Used to mark packets for firewall rules (iptables/nftables)
+# Default: 0
+fwmark: {{ fwmark | default(0) }}
+
+# Source IP address for probe packets
+# If empty, the system chooses the default source address
+# Default: ''
+source_address: {{ source_address | default('') }}
+
+# Network interface to send packets from
+# If empty, the default route's interface is used
+# Default: ''
+interface: {{ interface | default('') }}
+
+# Source port for probe packets
+# Useful for bypassing firewalls that block specific ports
+# Default: 0
+source_port: {{ source_port | default(0) }}
+
+# Destination port for probe packets
+# Used for TCP/UDP methods. ICMP uses this as sequence value in some contexts.
+# Default: 80
+destination_port: {{ destination_port | default(80) }}
+
+# Maximum number of hops (TTL) to trace
+# Prevents infinite loops and limits the trace depth
+# Default: 30
+max_hops: {{ max_hops | default(30) }}
+
+# Initial TTL value to start tracing from
+# Usually 1 to see the first hop immediately
+# Default: 1
+first_ttl: {{ first_ttl | default(1) }}
+
+# Number of probe packets sent per hop
+# Higher values provide better RTT statistics
+# Default: 3
+queries: {{ queries | default(3) }}
+
+# Number of simultaneous probe packets (parallel probes)
+# Increases speed but may trigger rate-limiting on some nodes
+# Default: 16
+simultaneous_queries: {{ simultaneous_queries | default(16) }}
+
+# Waiting time settings for probe responses
+# Format: max[,here,near]
+# - max: Max seconds to wait for any response
+# - here: Factor for RTT of current hop
+# - near: Factor for RTT of next hop
+# Default: '5.0,3.0,10.0'
+wait_time: {{ wait_time | default('5.0,3.0,10.0') }}
+
+# Minimal time interval between probes in seconds
+# Controls the pacing of the traceroute
+# Default: 0
+send_wait: {{ send_wait | default(0) }}
+
+# Type of Service (TOS) byte for IPv4 or Traffic Control class for IPv6
+# Used for QoS marking of probe packets
+# Default: 0
+tos: {{ tos | default(0) }}
+
+# IPv6 Flow Label
+# Used for QoS identification in IPv6 packets
+# Default: 0
+flow_label: {{ flow_label | default(0) }}
+
+# Packet length for probe payloads
+# 0 uses the default size. Useful for Path MTU discovery scenarios
+# Default: 0
+packet_length: {{ packet_length | default(0) }}
+
+# Comma-separated list of gateways for source routing
+# Allows specifying intermediate hops explicitly
+# Default: ''
+gateways: {{ gateways | default('') }}
+
+# Show ICMP extensions (RFC 4884)
+# Displays additional information if supported by the target
+# Default: false
+show_extensions: {{ show_extensions | default(false) }}
+
+# Perform AS path lookups
+# Resolves autonomous system numbers for each hop (requires DNS access)
+# Default: false
+as_path_lookups: {{ as_path_lookups | default(false) }}
+
+# Resolve IP addresses to host names via DNS
+# Set to false for faster output if DNS is slow or unreliable
+# Default: true
+dns_resolve: {{ dns_resolve | default(true) }}
+
+# Bypass normal routing tables
+# Forces the use of specific routing logic (rarely used)
+# Default: false
+bypass_routing: {{ bypass_routing | default(false) }}
+
+# Do not fragment probe packets
+# Sets the DF (Don't Fragment) flag in IP headers
+# Default: false
+no_fragment: {{ no_fragment | default(false) }}
+
+# Discover MTU along the path
+# Attempts to find the path MTU using fragmentation tests
+# Default: false
+mtu_discovery: {{ mtu_discovery | default(false) }}
+
+# Print backward hops (reverse traceroute)
+# Shows the path from target back to source
+# Default: false
+show_backward: {{ show_backward | default(false) }}
+
+# Enable socket level debugging
+# Outputs verbose debugging information for troubleshooting lft itself
+# Default: false
+debug: {{ debug | default(false) }}
+
+# Additional command-line options
+# Allows passing arbitrary flags not covered by other fields
+# Default: ''
+extra_options: {{ extra_options | default('') }}
+
+# ==============================================================================
+# Command Construction
+# ==============================================================================
+# The following section constructs the actual `lft` command line based
+# on the configuration values above. This is useful for generating
+# scripts or logging the exact command executed.
+
+command: lft \
+{% if (protocol | default('ipv4')) == 'ipv6' %}
+    -6 \
+{% else %}
+    -4 \
+{% endif %}
+    -M {{ method | default('tcp') }} \
+{% if (method_options | default('syn')) | length > 0 %}
+    -O {{ method_options | default('syn') }} \
+{% endif %}
+{% if (fwmark | default(0)) != 0 %}
+    --fwmark={{ fwmark | default(0) }} \
+{% endif %}
+{% if (source_address | default('')) | length > 0 %}
+    -s {{ source_address | default('') }} \
+{% endif %}
+{% if (interface | default('')) | length > 0 %}
+    -i {{ interface | default('') }} \
+{% endif %}
+{% if (source_port | default(0)) != 0 %}
+    --sport={{ source_port | default(0) }} \
+{% endif %}
+{% if (destination_port | default(80)) != 0 %}
+    -p {{ destination_port | default(80) }} \
+{% endif %}
+    -m {{ max_hops | default(30) }} \
+    -f {{ first_ttl | default(1) }} \
+{% if (gateways | default('')) | length > 0 %}
+    -g {{ gateways | default('') }} \
+{% endif %}
+    -N {{ simultaneous_queries | default(16) }} \
+{% if not (dns_resolve | default(true)) %}
+    -n \
+{% endif %}
+    -w {{ wait_time | default('5.0,3.0,10.0') }} \
+    -q {{ queries | default(3) }} \
+{% if (bypass_routing | default(false)) %}
+    -r \
+{% endif %}
+{% if (no_fragment | default(false)) %}
+    -F \
+{% endif %}
+    -t {{ tos | default(0) }} \
+{% if (flow_label | default(0)) != 0 %}
+    -l {{ flow_label | default(0) }} \
+{% endif %}
+{% if (send_wait | default(0)) != 0 %}
+    -z {{ send_wait | default(0) }} \
+{% endif %}
+{% if (show_extensions | default(false)) %}
+    -e \
+{% endif %}
+{% if (as_path_lookups | default(false)) %}
+    -A \
+{% endif %}
+{% if (mtu_discovery | default(false)) %}
+    --mtu \
+{% endif %}
+{% if (show_backward | default(false)) %}
+    --back \
+{% endif %}
+{% if (debug | default(false)) %}
+    -d \
+{% endif %}
+{% if (packet_length | default(0)) != 0 %}
+    {{ packet_length | default(0) }} \
+{% endif %}
+{% if (extra_options | default('')) | length > 0 %}
+    {{ extra_options | default('') }} \
+{% endif %}
+{{ host | default('example.com') }}

@@ -1,0 +1,123 @@
+{# ============================================================================ #}
+{# qrencode Command-Line Configuration Template                                 #}
+{#                                                                              #}
+{# This template generates a command-line invocation for the qrencode utility.   #}
+{# Every option is documented with its schema description and defaults.         #}
+{# Variables use the |default() filter to ensure safe rendering even if         #}
+{# undefined in the Ansible playbook context.                                   #}
+{# ============================================================================ #}
+
+# ============================================================================
+# Output filename for the generated QR code image.
+# If '-', output goes to stdout.
+# ============================================================================
+--output={{ output_file | default('qrcode.png') }}
+
+# Input data string to encode.
+# The raw text/data that will be embedded in the QR code.
+# Supports basic character escaping for special chars.
+{{ input_data | default('Hello, World!') }}
+
+# ============================================================================
+# Error correction level: L (lowest), M, Q, H (highest).
+# ============================================================================
+--level={{ level | default('L') }}
+
+# ============================================================================
+# Size of each dot (module) in pixels. Range: 1-16.
+# ============================================================================
+--size={{ dot_size | default(3) }}
+
+# ============================================================================
+# Width of the quiet zone (margin) around the QR code.
+# Measured in modules.
+# ============================================================================
+--margin={{ margin | default(4) }}
+
+# ============================================================================
+# Minimum version of the QR code symbol (1-40).
+# Set to 0 for automatic version detection based on data size.
+# ============================================================================
+--symversion={{ symversion | default(0) }}
+
+# ============================================================================
+# Output image format type.
+# Supported: PNG, PNG32, EPS, SVG, XPM, ANSI, ASCII, UTF8, etc.
+# ============================================================================
+--type={{ output_type | default('PNG') }}
+
+# ============================================================================
+# DPI resolution for PNG output. Ignored for other formats.
+# ============================================================================
+--dpi={{ dpi | default(72) }}
+
+# ============================================================================
+# Enable structured append mode for multi-part QR codes.
+# This allows splitting large data into multiple QR codes that must be
+# read in sequence. Requires symversion to be set explicitly (non-zero).
+# ============================================================================
+{% if structured_append | default(False) %}--structured
+{% endif %}
+
+# ============================================================================
+# Assume input text contains Kanji (Shift-JIS).
+# Forces the encoding mode to Kanji for better compression of Japanese text.
+# ============================================================================
+{% if kanji_mode | default(False) %}--kanji
+{% endif %}
+
+# ============================================================================
+# Ignore case distinctions; use only uppercase characters.
+# Converts all input letters to uppercase before encoding.
+# ============================================================================
+{% if ignore_case | default(False) %}--ignorecase
+{% endif %}
+
+# ============================================================================
+# Encode entire data in 8-bit mode (overrides -k, -c, -i).
+# Bypasses numeric/kanji/alphanumeric optimization and treats data as raw bytes.
+# ============================================================================
+{% if mode_8bit | default(False) %}--8bit
+{% endif %}
+
+# ============================================================================
+# Encode in Micro QR Code format.
+# Generates smaller, simpler QR codes with less capacity and error correction.
+# ============================================================================
+{% if micro_qr | default(False) %}--micro
+{% endif %}
+
+# ============================================================================
+# Enable run-length encoding for SVG output.
+# Optimizes the SVG file size by grouping consecutive modules.
+# ============================================================================
+{% if svg_rle | default(False) %}--rle
+{% endif %}
+
+# ============================================================================
+# Use single path to draw modules for SVG output.
+# Draws the entire QR code as one continuous SVG path instead of many rects.
+# ============================================================================
+{% if svg_path | default(False) %}--svg-path
+{% endif %}
+
+# ============================================================================
+# Foreground color in Hex (RRGGBB or RRGGBBAA) for PNG/EPS/SVG.
+# Default is black (000000).
+# ============================================================================
+--foreground={{ foreground_color | default('000000') }}
+
+# ============================================================================
+# Background color in Hex (RRGGBB or RRGGBBAA) for PNG/EPS/SVG.
+# Default is white (FFFFFF).
+# ============================================================================
+--background={{ background_color | default('FFFFFF') }}
+
+# ============================================================================
+# Disable automatic version number adjustment.
+# If enabled, qrencode exits with error 1 if the data size exceeds the
+# capacity of the specified symversion. Otherwise, it automatically
+# increases the version to fit the data.
+# ============================================================================
+{% if strict_version | default(False) %}--strict-version
+{% endif %}

@@ -1,0 +1,110 @@
+#!/usr/bin/env perl
+# MySQLTuner configuration wrapper
+# This file is a Jinja2 template rendered by Ansible. It generates the
+# command-line argument list for the `mysqltuner.pl` script.
+# All variables are drawn from the Ansible role's inventory/group_vars.
+
+# Hostname or IP of the MySQL server to connect to.
+# Default: 'localhost'
+--host {{ host | default('localhost') }} \
+
+# Port number to use for the MySQL connection.
+# Default: 3306
+--port {{ port | default(3306) }} \
+
+# Path to the MySQL unix socket file.
+# Default: '' (empty string, let mysqltuner auto-detect or rely on host/port)
+--socket {{ socket | default('') }} \
+
+# Force TCP connection instead of socket connection.
+# If True, the --protocol tcp flag is added.
+{% if use_tcp | default(False) %}
+--protocol tcp \
+{% endif %}
+
+# Username for MySQL authentication.
+# Default: 'root'
+--user {{ user | default('root') }} \
+
+# Password for MySQL authentication.
+# Default: '' (empty)
+--pass {{ pass | default('') }} \
+
+# Absolute path to the mysqladmin binary.
+# Used by mysqltuner to query server status.
+# Default: '/usr/bin/mysqladmin'
+--mysqladmin {{ mysqladmin_path | default('/usr/bin/mysqladmin') }} \
+
+# Absolute path to the mysql binary.
+# Used by mysqltuner to run diagnostic queries.
+# Default: '/usr/bin/mysql'
+--mysqlcmd {{ mysqlcmd_path | default('/usr/bin/mysql') }} \
+
+# Do not enumerate tables and their types/sizes.
+# Recommended for servers with many tables to save time.
+# Default: True
+{% if skip_size | default(True) %}
+--skipsize \
+{% endif %}
+
+# Print the result as a JSON string.
+# Useful for parsing the report in other tools.
+# Default: False
+{% if output_json | default(False) %}
+--json \
+{% endif %}
+
+# Skip checks on user account passwords.
+# Skips the password strength and history analysis.
+# Default: True
+{% if skip_password_checks | default(True) %}
+--skippassword \
+{% endif %}
+
+# Force the amount of RAM installed in megabytes.
+# 0 to use auto-detect from the system.
+# Default: 0
+{% if forced_mem | default(0) %}
+--forcemem {{ forced_mem | default(0) }} \
+{% endif %}
+
+# Force the amount of swap memory configured in megabytes.
+# 0 to use auto-detect from the system.
+# Default: 0
+{% if forced_swap | default(0) %}
+--forceswap {{ forced_swap | default(0) }} \
+{% endif %}
+
+# Path to a file where the output report will be written.
+# Default: '/dev/stdout'
+--outputfile {{ output_file | default('/dev/stdout') }} \
+
+# Do not output anything on the screen.
+# Useful when output_file is set to capture the report silently.
+# Default: False
+{% if silent | default(False) %}
+--silent \
+{% endif %}
+
+# Print out all options including detailed statistics.
+# Default: False
+{% if verbose | default(False) %}
+--verbose \
+{% endif %}
+
+# Print output in color.
+# Default: False
+{% if color | default(False) %}
+--color \
+{% endif %}
+
+# Consider the server is not dedicated to DB server usage only.
+# Adjusts performance recommendations for shared environments.
+# Default: False
+{% if nondedicated | default(False) %}
+--nondedicated \
+{% endif %}
+
+# Print global and per-thread buffer values.
+# Always included as the final argument.
+--buffers

@@ -1,0 +1,48 @@
+# Configuration for rifiuti2 Windows Recycle Bin Analysis Tool
+# This file controls how the tool analyzes Windows $Recycle.Bin (INFO2) files
+# or directories containing recycle bin artifacts.
+# Generated via Jinja2 template for Ansible integration
+
+# Output format for the analysis results.
+# Supported values are 'xml' or 'json'.
+# 'json' is generally preferred for programmatic parsing.
+# Schema: output_format, default='json', desc="The output format for the analysis results. Supported values are 'xml' or 'json'."
+output_format = "{{ output_format|default('json') }}"
+
+# The path to the output file.
+# If empty or omitted, output is written to stdout.
+# Schema: output_file, default='', desc='The path to the output file. If empty or omitted, output is written to stdout.'
+output_file = "{{ output_file|default('') }}"
+
+# If true, the output file will be compressed using zip format.
+# Only applies when output_file is specified.
+# Schema: compressed_output, default=False, desc='If true, the output file will be compressed using zip format. Only applies when output_file is specified.'
+compressed_output = {{ compressed_output|default(false)|lower }}
+
+# If true, timestamps in the output will be numeric (epoch) instead of human-readable strings.
+# Useful for JSON/XML parsing by external scripts.
+# Schema: numeric_timestamps, default=False, desc='If true, timestamps in the output will be numeric (epoch) instead of human-readable strings. Useful for JSON/XML parsing.'
+numeric_timestamps = {{ numeric_timestamps|default(false)|lower }}
+
+# The delimiter character to use if the output format is tab-separated (legacy mode).
+# Default is tab. Note: rifiuti2 primarily outputs JSON/XML; this is for older modes.
+# Schema: tab_delimiter, default='\t', desc='The delimiter character to use if the output format is tab-separated (legacy mode). Default is tab.'
+tab_delimiter = "{{ tab_delimiter|default('\t') }}"
+
+# Specifies whether the input is a single INF2 file ('file') or a directory containing recycle bin data ('directory').
+# 'file' targets a specific $RECYCLE.BIN/INFO2 file.
+# 'directory' scans a folder (like $Recycle.Bin/S-1-5-21-...) for all INFO2 files.
+# Schema: input_type, default='file', desc="Specifies whether the input is a single INF2 file ('file') or a directory containing recycle bin data ('directory')."
+input_type = "{{ input_type|default('file') }}"
+
+# The path to the input .INF2 file or the directory to analyze.
+# If input_type is 'file', this should point to the specific INFO2 file.
+# If input_type is 'directory', this should point to the root of the recycle bin directory structure.
+# Schema: input_path, default='', desc='The path to the input .INF2 file or the directory to analyze.'
+input_path = "{{ input_path|default('') }}"
+
+# The character encoding codepage to use for parsing filenames in legacy INF2 files.
+# Examples: 'cp1252' for Western European, 'utf8' for modern systems.
+# Only used with 'rifiuti' (older mode) for legacy files. 'rifiuti-vista' usually handles UTF8 automatically.
+# Schema: input_codepage, default='utf8', desc="The character encoding codepage to use for parsing filenames in legacy INF2 files (e.g., 'cp1252', 'utf8')."
+input_codepage = "{{ input_codepage|default('utf8') }}"

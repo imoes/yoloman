@@ -1,0 +1,49 @@
+# zipcmp configuration template
+# This template generates the command-line arguments for the `zipcmp` utility,
+# which compares two zip archives and optionally creates a third archive with differences.
+
+# --- Comparison mode flags ---
+
+# -C: Check consistency of archives (e.g. CRC32 values match)
+# Default: False
+{% if (consistency_check | default(False)) is boolean and consistency_check | default(False) %}-C {% endif %}
+
+# -i: Compare names ignoring case distinctions (case-insensitive comparison)
+# Default: False
+{% if (ignore_case | default(False)) is boolean and ignore_case | default(False) %}-i {% endif %}
+
+# -p: Enable paranoid checks of metadata (extra fields, comments, etc.)
+# Default: False
+{% if (paranoid | default(False)) is boolean and paranoid | default(False) %}-p {% endif %}
+
+# -s: Print summary of differences (added, removed, changed files)
+# Default: False
+{% if (summary | default(False)) is boolean and summary | default(False) %}-s {% endif %}
+
+# -T: Compare entry timestamps (modification times)
+# Default: False
+{% if (compare_timestamps | default(False)) is boolean and compare_timestamps | default(False) %}-T {% endif %}
+
+# -t: Test contents against checksums (verify integrity)
+# Default: False
+{% if (test_checksums | default(False)) is boolean and test_checksums | default(False) %}-t {% endif %}
+
+# --- Output mode flags ---
+
+# -q: Quiet mode (suppress normal output)
+# Default: False
+{% if (quiet | default(False)) is boolean and quiet | default(False) %}-q {% endif %}
+
+# -v: Verbose mode (print detailed output)
+# Default: True
+{% if (verbose | default(True)) is boolean and verbose | default(True) %}-v {% endif %}
+
+# --- Archive arguments ---
+
+# archive1: Path to the first zip archive or directory to compare
+# Default: '/var/lib/app/archive1.zip'
+{{ archive1 | default('/var/lib/app/archive1.zip') }}
+
+# archive2: Path to the second zip archive or directory to compare
+# Default: '/var/lib/app/archive2.zip'
+{{ archive2 | default('/var/lib/app/archive2.zip') }}

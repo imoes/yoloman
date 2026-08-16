@@ -1,0 +1,77 @@
+# ==============================================================================
+# Scriptisto Global Configuration Template
+# ==============================================================================
+# This template generates a TOML configuration file for Scriptisto, a
+# tool that compiles and runs scripts written in various programming languages.
+#
+# Self-documentation principle: Every configuration directive is preceded
+# by a comment explaining its purpose, derived from the schema definition.
+# Variables use Jinja2 defaults to ensure the template renders safely even
+# if an optional variable is not provided by the Ansible playbook.
+# ==============================================================================
+
+[scriptisto]
+
+# Path to the directory where compiled binaries are stored.
+# Default: /var/cache/scriptisto
+cache_dir = "{{ cache_dir | default('/var/cache/scriptisto') }}"
+
+# Path to the directory containing custom script templates for `scriptisto-new`.
+# Default: /etc/scriptisto/templates
+template_dir = "{{ template_dir | default('/etc/scriptisto/templates') }}"
+
+# Default compilation timeout in seconds.
+# If a script takes longer than this to compile, the build fails.
+# Default: 60
+compile_timeout = {{ compile_timeout | default(60) }}
+
+# Default execution timeout in seconds.
+# If a compiled script runs longer than this, it is killed.
+# Default: 300
+exec_timeout = {{ exec_timeout | default(300) }}
+
+# List of language configurations supported by Scriptisto.
+# Each language item defines the compiler path, arguments, and file extensions.
+{% set _languages = languages | default([]) %}
+{% if _languages is iterable and _languages | length > 0 %}
+{% for language in _languages %}
+
+[scriptisto.languages.{{ (language.name | default('')) | trim }}]
+
+# Name of the programming language (e.g., python3, rust, go).
+name = "{{ language.name | default('') }}"
+
+# Path to the compiler or interpreter executable.
+compiler_path = "{{ language.compiler_path | default('') }}"
+
+# Arguments to pass to the compiler during the build phase.
+# These arguments are appended to the compiler command.
+# Example: ['--release', '-O2']
+compiler_args = [
+    {% for arg in (language.compiler_args | default([])) %}
+    "{{ arg }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+
+# Arguments to pass to the executable during the run phase.
+# These arguments are passed to the compiled binary when the script is executed.
+exec_args = [
+    {% for arg in (language.exec_args | default([])) %}
+    "{{ arg }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+
+# File extension(s) associated with this language.
+# Scriptisto uses these extensions to identify scripts belonging to this language.
+extensions = [
+    {% for ext in (language.extensions | default([])) %}
+    "{{ ext }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+
+{% if language.description is defined and language.description | trim %}
+# Optional description of this language configuration.
+description = "{{ language.description | trim }}"
+{% endif %}
+{% endfor %}
+{% endif %}

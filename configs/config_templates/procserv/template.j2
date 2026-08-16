@@ -1,0 +1,103 @@
+# procServ configuration template
+# Generates a shell script wrapper that invokes procServ with the specified parameters.
+# This file is processed by Ansible/Jinja2 and outputs a valid shell script.
+#
+# IMPORTANT: procServ does not natively read a config file; this template
+# generates a wrapper script or a systemd ExecStart line.
+
+#!/bin/sh
+
+# Execute procServ with the configured arguments
+exec {{ command_exec | default('/usr/bin/procServ') }} \
+\
+# The title/name displayed in server messages (must not contain spaces if used in some contexts, but procServ accepts it)
+--name {{ name | default('My Service') }} \
+\
+# Log file path; '-' for stdout. Empty string means no log file creation.
+{% if logfile | default('') %}
+--logfile {{ logfile | default('') }} \
+{% endif %}
+\
+# PID file path for the procServ server process. Empty string disables PID file creation.
+{% if pidfile | default('') %}
+--pidfile {{ pidfile | default('') }} \
+{% endif %}
+\
+# Debug mode: keep server in foreground with verbose debug output
+{% if debug | default(False) | bool %}
+--debug \
+{% endif %}
+\
+# Foreground mode: keep the server process in the foreground (no daemonization)
+{% if foreground | default(False) | bool %}
+--foreground \
+{% endif %}
+\
+# Quiet mode: suppress informational output
+{% if quiet | default(False) | bool %}
+--quiet \
+{% endif %}
+\
+# Change directory to the specified path before starting the child process
+{% if chdir | default('') %}
+--chdir {{ chdir | default('') }} \
+{% endif %}
+\
+# Ignore dangerous characters on control connections (e.g., '^D^C')
+{% if ignore_chars | default('') %}
+--ignore {{ ignore_chars | default('') }} \
+{% endif %}
+\
+# Minimum seconds between child restart attempts
+--holdoff {{ holdoff | default(15) }} \
+\
+# Do not automatically restart the child process on exit
+{% if noautorestart | default(False) | bool %}
+--noautorestart \
+{% endif %}
+\
+# Wait for a manual start command from a control connection before launching the child
+{% if wait | default(False) | bool %}
+--wait \
+{% endif %}
+\
+# Exit the server immediately when the child process exits (oneshot mode)
+{% if oneshot | default(False) | bool %}
+--oneshot \
+{% endif %}
+\
+# Restrict TCP access for both control and log endpoints to localhost only
+{% if restrict | default(False) | bool %}
+--restrict \
+{% endif %}
+\
+# Endpoint for read-only log access (e.g., '20001' or 'unix:/var/run/procServ/log')
+{% if logport | default('') %}
+--logport {{ logport | default('') }} \
+{% endif %}
+\
+# Path to a file where server PID and endpoint information are written
+{% if info_file | default('') %}
+--info-file {{ info_file | default('') }} \
+{% endif %}
+\
+# Maximum size of core file for the child process in kilobytes. 0 disables core dumps.
+{% if corysize | default(0) != 0 %}
+--coresize {{ corysize | default(0) }} \
+{% endif %}
+\
+# Signal number sent to kill the child process (e.g., 9 for SIGKILL)
+--killsig {{ killsig | default(9) }} \
+\
+# Control endpoint(s) providing interactive access (ports or unix sockets)
+{% for endpoint in endpoints | default(['20000']) %}
+--port {{ endpoint }} \
+{% endfor %}
+\
+# The command executable to run as the child process
+{{ command | default('./st.cmd') }} \
+\
+# Arguments to pass to the child command
+{% if command_args | default('') %}
+{{ command_args | default('') }}
+{% endif %}

@@ -1,0 +1,54 @@
+# OpenDoas (Open Default Administrator of System) configuration
+# This template configures the `opendoas` command, a secure replacement for sudo.
+# It defines which users or groups are permitted to execute commands as root
+# and how authentication is handled.
+
+# The path to the authentication module. 'pam' allows Doas to use PAM
+# for authentication, leveraging existing system authentication mechanisms.
+# Default: pam
+# Description: Authentication module to use for verifying user identity.
+# Note: While Doas doesn't have a 'module' directive, it relies on PAM by default.
+# We use the 'persist' option to cache credentials, which is the standard secure default.
+permit ::root
+
+# Allow users in the 'wheel' group to run any command after authenticating.
+# 'persist' caches the password for a short duration.
+# Default: permit persist ::wheel as root
+# Description: Privilege escalation rules for the wheel group.
+permit persist ::wheel as root
+
+# PAM module configuration block.
+# Description: Conditional block to handle PAM vs non-PAM authentication logic if explicitly requested.
+{% if doas_pam_module is defined %}
+    # PAM module to use for authentication.
+    # If set to 'pam', Doas will authenticate via the system's PAM stack.
+    # If set to 'none', no authentication is required (DANGEROUS).
+    # Description: The backend authentication mechanism (pam, none, or a custom plugin path).
+    {% set pam_mod = doas_pam_module | default('pam') | lower %}
+    {% if pam_mod == 'pam' %}
+        # Explicitly enabling PAM authentication (Standard)
+        permit persist ::wheel as root
+    {% elif pam_mod == 'none' %}
+        # WARNING: Disabling authentication allows any user to become root without a password.
+        permit ::root without password
+        permit persist ::wheel as root without password
+    {% else %}
+        # Custom authentication module path.
+        # Description: Path to a custom Doas authentication plugin.
+        permit ::root
+    {% endif %}
+{% else %}
+    # Default configuration:
+    # Allow root to run any command.
+    # Allow users in the 'wheel' group to run any command after authenticating (persist).
+    # Description: Default privilege rules when no custom PAM/module configuration is provided.
+    permit ::root
+    permit persist ::wheel as root
+{% endif %}
+
+# Global flags for Doas behavior.
+# Default: empty
+# Description: Command-line flags passed to the Doas executable (e.g., -u, -s, -C).
+{% if doas_flags is defined and doas_flags %}
+# Doas flags: {{ doas_flags }}
+{% endif %}

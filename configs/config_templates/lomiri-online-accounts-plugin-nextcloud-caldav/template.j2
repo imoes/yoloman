@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lomiri Online Accounts Plugin: Nextcloud CalDAV Profile Configuration
+
+  This template generates an XML profile for the Lomiri Online Accounts plugin
+  to synchronize calendar data with a Nextcloud (or compatible CalDAV) server.
+
+  The configuration is self-documenting: every attribute corresponds to a
+  schema field defined in the role's variable specifications. Defaults are
+  applied inline to ensure safe rendering even if variables are undefined.
+-->
+<profile name="{{ name | default('lomiri-nextcloud-caldav') }}" type="sync" >
+    <!-- Category of the account/service (e.g., calendar, contacts, mail). -->
+    <key name="category" value="{{ category | default('calendar') }}" />
+    
+    <!-- Remote service name identifier used by the plugin to identify the backend type. -->
+    <key name="remote_service_name" value="{{ remote_service_name | default('lomiri-nextcloud-caldav') }}"/>
+    
+    <!-- Destination type for the data (e.g., online, local). -->
+    <key name="destinationtype" value="{{ destinationtype | default('online') }}"/>
+    
+    <!-- Whether the profile is enabled by default upon creation. -->
+    <key name="enabled" value="{{ enabled | default(false) }}"/>
+    
+    <!-- Whether the profile is hidden from the user interface. -->
+    <key name="hidden" value="{{ hidden | default(false) }}"/>
+    
+    <!-- Whether to use system accounts for authentication/management. -->
+    <key name="use_accounts" value="{{ use_accounts | default(true) }}"/>
+
+    <!-- Sub-profile defining the client synchronization behavior. -->
+    <profile type="client" name="{{ client_name | default('caldav') }}">
+        <!-- Direction of synchronization: one-way, two-way, etc. -->
+        <key value="{{ sync_direction | default('two-way') }}" name="Sync Direction"/>
+        
+        <!-- Protocol used for synchronization (e.g., caldav, webdav). -->
+        <key value="{{ sync_protocol | default('caldav') }}" name="Sync Protocol"/>
+        
+        <!-- Transport protocol used for synchronization (e.g., HTTP, HTTPS). -->
+        <key value="{{ sync_transport | default('HTTP') }}" name="Sync Transport"/>
+        
+        <!-- Policy for handling synchronization conflicts (e.g., 'prefer remote', 'prefer local'). -->
+        <key value="{{ conflict_policy | default('prefer remote') }}" name="conflictpolicy" />
+    </profile>
+
+    <!-- Schedule configuration for automatic synchronization. -->
+    <!-- enabled: Whether scheduled synchronization is active. -->
+    <!-- interval: Interval for scheduled synchronization (if applicable, e.g., minutes). -->
+    <!-- days: Days of the week for scheduled synchronization (1=Mon, 7=Sun). -->
+    <!-- syncconfiguredtime: Time when synchronization was last configured. -->
+    <!-- time: Time of day for scheduled synchronization (HH:MM:SS). -->
+    <schedule enabled="{{ schedule_enabled | default(false) }}" 
+              interval="{{ schedule_interval | default('') }}" 
+              days="{{ schedule_days | default('1,2,3,4,5,6,7') }}" 
+              syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}" 
+              time="{{ schedule_time | default('05:00:00') }}" />
+</profile>

@@ -1,0 +1,75 @@
+# ==============================================================================
+# nmrpflash Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for nmrpflash.
+# nmrpflash is a utility for flashing firmware onto devices via the
+# Non-Master-RPC (NMRP) protocol, typically used for IoT/embedded devices.
+#
+# Each parameter below corresponds to a schema field. Defaults are applied
+# automatically if the variable is undefined or empty.
+# ==============================================================================
+
+# Command to run before (or instead of) TFTP upload
+# Overrides the standard TFTP upload behavior with a custom shell command.
+# If provided, other upload-related flags (like -f, -F) are ignored by the command logic
+# in favor of executing this custom command.
+{% if command | default('', true) %}-c {{ command | default('', true) }}
+{% endif %}# IP address to assign to target device
+# Sets the IP address that will be assigned to the target device during the NMRP process.
+# This is typically a static IP for the device on the local network segment.
+-a {{ target_ip | default('192.168.1.100') }}
+
+# IP address to assign to selected interface
+# Sets the IP address for the local network interface used to communicate with the target.
+# If left empty, nmrpflash may attempt to use the interface's current IP or a default.
+{% if interface_ip | default('', true) %}-A {{ interface_ip | default('', true) }}
+{% endif %}# Blind mode (don't wait for response packets)
+# Enables blind mode. nmrpflash will not wait for confirmation packets from the target.
+# Useful if the target is unresponsive or the network is unstable.
+{% if blind_mode | default(False) %}-B
+{% endif %}# Firmware file
+# Specifies the local firmware binary file to be uploaded via TFTP.
+-f {{ firmware_file | default('firmware.bin') }}
+
+# Remote filename to use during TFTP upload
+# Specifies the name of the file on the target device's TFTP server/storage.
+# If empty, the firmware_file name is typically used.
+{% if remote_filename | default('', true) %}-F {{ remote_filename | default('', true) }}
+{% endif %}# Network interface directly connected to device
+# Specifies the local network interface (e.g., eth0, wlan0) to bind to for NMRP/TFTP traffic.
+-i {{ interface | default('eth0') }}
+
+# MAC address of target device
+# The hardware MAC address of the target device to identify it on the network.
+# Required for targeting specific devices in broadcast environments.
+-m {{ mac_address | default('00:11:22:33:44:55') }}
+
+# Subnet mask to assign to target device
+# The subnet mask to assign to the target device's IP configuration.
+# Usually matches the local network segment's mask.
+-M {{ netmask | default('255.255.255.0') }}
+
+# Timeout (in milliseconds) for NMRP packets
+# Maximum time (in ms) to wait for NMRP protocol responses from the target.
+-t {{ timeout_nmrp | default(2000) }}
+
+# Time (seconds) to wait after successful TFTP upload
+# Delay in seconds after the TFTP upload completes before proceeding or exiting.
+# Allows time for the target to process the firmware.
+-T {{ timeout_upload | default(5) }}
+
+# Port to use for TFTP upload
+# The UDP port number on which the TFTP server listens for the firmware upload.
+# Standard TFTP port is 69.
+-p {{ tftp_port | default(69) }}
+
+# Set device region
+# Sets the geographic region code for the device, affecting regulatory constraints (e.g., Wi-Fi channels, power limits).
+# Valid codes: NA, WW, GR, PR, RU, BZ, IN, KO, JP.
+-R {{ region | default('WW') }}
+
+# Be verbose
+# Enables verbose output, printing detailed logs of the NMRP and TFTP processes.
+# Useful for debugging connection or upload issues.
+{% if verbose | default(False) %}-v
+{% endif %}

@@ -1,0 +1,69 @@
+#!/bin/sh
+
+#
+# Starts/stops the irc daemon
+#
+
+### BEGIN INIT INFO
+# Provides:          ircd-ircu
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:    $local_fs
+# Should-Stop:       $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start the ircd-ircu irc daemon
+# Description:       This script will start the undernet irc daemon
+#                    called ircd-ircu.
+### END INIT INFO
+
+# $PATH to go
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+          
+# where the irc-daemon is
+IRCD=/usr/sbin/ircd-ircu
+RUNDIR={{ run_dir }}
+PIDFILE=${{ run_dir }}/ircd.pid                   
+
+# Systemd compatibility
+. /lib/lsb/init-functions
+
+if [ ! -d ${RUNDIR} ] ; then
+	mkdir -p ${RUNDIR} || true
+	if [ -d ${RUNDIR} ] ; then
+		chown -R irc:irc ${RUNDIR}
+	fi
+fi
+
+if [ -x "$IRCD" ]; then
+  case "$1" in
+          start)
+                  echo -n "Starting irc server daemon:"
+                  echo -n " ircd-ircu"
+                  start-stop-daemon --start --quiet --pidfile ${PIDFILE} --chuid irc --exec ${IRCD}
+                  echo "."
+                  ;;
+        
+          stop)
+                  echo -n "Stopping irc server daemon:"
+                  echo -n " ircd-ircu"
+                  start-stop-daemon --stop --quiet --oknodo --pidfile ${PIDFILE} --exec ${IRCD}
+                  echo "."  
+                  ;;
+        
+          restart|force-reload)
+                  echo -n "Restarting irc server daemon:"
+                  echo -n " ircd-ircu"
+                  start-stop-daemon --stop --quiet --oknodo --pidfile ${PIDFILE} --exec ${IRCD}
+                  sleep 2
+		  start-stop-daemon --start --quiet --pidfile ${PIDFILE} --chuid irc --exec ${IRCD}
+                  echo "."
+                  ;;
+          *)
+                  echo "Usage: $0 {start|stop|restart|force-reload}"
+                  exit 1
+                  ;;
+  esac
+fi
+
+exit 0

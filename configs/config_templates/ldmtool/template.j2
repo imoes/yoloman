@@ -1,0 +1,40 @@
+# Configuration for ldmtool operations
+# This template generates a YAML configuration file for ldmtool,
+# a utility to manage Linux Dynamic Disk (LDM) metadata, typically
+# found on Windows Dynamic Disk volumes.
+
+# ------------------------------------------------------------------
+# scan_devices: List of block devices to scan for LDM metadata.
+# Corresponds to the -d/--device command-line option.
+# If empty or omitted, ldmtool may attempt to auto-discover devices.
+# ------------------------------------------------------------------
+scan_devices:
+{% for device in scan_devices | default([], true) %}
+- {{ device }}
+{% endfor %}
+
+# ------------------------------------------------------------------
+# action: The primary action to execute.
+# Supported values: scan, show, create, remove.
+# Defaults to 'scan' if not specified.
+# ------------------------------------------------------------------
+action: {{ action | default('scan') }}
+
+# ------------------------------------------------------------------
+# show_type: The entity type to show details for when action is 'show'.
+# One of: diskgroup, volume, partition, disk.
+# Empty string if not applicable or if the user omits it.
+# ------------------------------------------------------------------
+show_type: {{ show_type | default('', true) }}
+
+# ------------------------------------------------------------------
+# show_diskgroup_guid: The GUID of the disk group to show details for.
+# Required if show_type is 'diskgroup' or if inspecting a specific group.
+# ------------------------------------------------------------------
+show_diskgroup_guid: {{ show_diskgroup_guid | default('', true) }}
+
+# ------------------------------------------------------------------
+# show_object_name: The name of the volume, partition, or disk to show.
+# Used in conjunction with show_type to target specific objects.
+# ------------------------------------------------------------------
+show_object_name: {{ show_object_name | default('', true) }}

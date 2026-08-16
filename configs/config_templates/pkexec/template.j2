@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- Root element for PolicyKit configuration -->
+<policyconfig>
+ <!-- vendor_name: The name of the vendor or organization providing this action. -->
+ <vendor>{{ vendor_name | default('My Organization') }}</vendor>
+
+ <!-- vendor_url: The URL of the vendor's website. -->
+ <vendor_url>{{ vendor_url | default('https://example.com') }}</vendor_url>
+
+ <!-- action_id: The unique identifier for the PolicyKit action, typically following the org.<reverse_domain>.pkexec.<name> convention. -->
+ <action id="{{ action_id | default('org.example.pkexec.run-myservice') }}">
+
+  <!-- action_description: A short description of what the action does, used in UI dialogs. -->
+  <description>{{ action_description | default('Run my service as another user') }}</description>
+
+  <!-- auth_message: The message displayed to the user during the authentication prompt. -->
+  <message>{{ auth_message | default('Authentication is required to run my service as another user') }}</message>
+
+  <!-- icon_name: The GTK icon name to display in the authentication dialog. -->
+  <icon>{{ icon_name | default('system-run') }}</icon>
+
+  <!-- Default authorization settings for active/inactive/any users -->
+  <defaults>
+   <!-- defaults_allow_any: Default authorization for 'any' user (logged in or not). Must be one of: auth_self, auth_admin, yes, no. -->
+   <allow_any>{{ defaults_allow_any | default('no') }}</allow_any>
+
+   <!-- defaults_allow_inactive: Default authorization for 'inactive' users (logged in but not on the active seat). Must be one of: auth_self, auth_admin, yes, no. -->
+   <allow_inactive>{{ defaults_allow_inactive | default('no') }}</allow_inactive>
+
+   <!-- defaults_allow_active: Default authorization for 'active' users. Must be one of: auth_self, auth_admin, yes, no, auth_self_keep, auth_admin_keep. -->
+   <allow_active>{{ defaults_allow_active | default('auth_self_keep') }}</allow_active>
+  </defaults>
+
+  <!-- program_path: The fully qualified path to the program that pkexec will execute, bound via the exec.path annotation. -->
+  <annotate key="org.freedesktop.policykit.exec.path">{{ program_path | default('/usr/bin/my-service') }}</annotate>
+
+  <!-- argv1_annotation: Optional: The first argument that must be passed to the program to match this action. If empty, this annotation is omitted. -->
+  {% if (argv1_annotation | default('')) | length > 0 %}
+  <annotate key="org.freedesktop.policykit.exec.argv1">{{ argv1_annotation | default('') }}</annotate>
+  {% endif %}
+
+ </action>
+</policyconfig>

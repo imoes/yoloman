@@ -1,0 +1,89 @@
+#!/bin/sh
+
+# ircd-hybrid	Start/stop the Hybrid 8 IRC server.
+
+### BEGIN INIT INFO
+# Provides:          ircd-hybrid
+# Required-Start:    $syslog $remote_fs
+# Required-Stop:     $syslog $remote_fs
+# Should-Start:      $local_fs $network $named
+# Should-Stop:      $local_fs $network $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: IRCd-Hybrid daemon init.d script
+# Description:       Use to manage the IRCd-Hybrid daemon.
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/ircd-hybrid
+
+# Name of the daemon process as identified by the service manager.
+NAME={{ name | default('ircd-hybrid') }}
+
+# A human-readable description of the service.
+DESC="{{ desc | default('Hybrid 8 IRC Server') }}"
+
+. /lib/lsb/init-functions
+
+test -f $DAEMON || exit 0
+
+if [ -f $DEFAULT ]
+then
+	. $DEFAULT
+fi
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: $NAME"
+	mkdir -p -m 755 /var/run/ircd
+	# System user to run the daemon as.
+	chown {{ run_user | default('irc') }}:{{ run_group | default('irc') }} /var/run/ircd
+	start-stop-daemon --start --quiet \
+		-u {{ run_user | default('irc') }} -c {{ run_group | default('irc') }} --exec $DAEMON -- -pidfile /var/run/ircd/$NAME.pid \
+	> /dev/null
+	echo "."
+	;;
+  stop)
+	echo -n "Stopping $DESC: $NAME"
+	start-stop-daemon --oknodo --stop --quiet \
+	--pidfile /var/run/ircd/$NAME.pid \
+	--signal 15 --exec $DAEMON -- -pidfile /var/run/ircd/$NAME.pid
+	echo "."
+	;;
+  reload)
+  	if [ -f "/var/run/ircd/$NAME.pid" ]; then
+  	  echo -n "Reloading configuration files for $NAME..."
+	  kill -HUP `cat /var/run/ircd/$NAME.pid`
+	  echo "done."
+	else
+	  echo "Not reloading configuration files for $NAME - not running!"
+	fi
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: $NAME"
+	if [ -f "/var/run/ircd/$NAME.pid" ]; then
+	  start-stop-daemon --stop --quiet --pidfile \
+		/var/run/ircd/$NAME.pid --signal 15 \
+		--exec $DAEMON -- -pidfile /var/run/ircd/$NAME.pid
+	  sleep 1
+	fi
+	mkdir -p -m 755 /var/run/ircd
+	# System user/group for restarting the daemon.
+	chown {{ run_user | default('irc') }}:{{ run_group | default('irc') }} /var/run/ircd
+	start-stop-daemon --start --quiet \
+	  -u {{ run_user | default('irc') }} -c {{ run_group | default('irc') }} --exec $DAEMON -- -pidfile /var/run/ircd/$NAME.pid \
+	> /dev/null
+	echo "."
+	;;
+  status)
+    status_of_proc -p /var/run/ircd/$NAME.pid $DAEMON $NAME
+    ;;
+  *)
+	echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

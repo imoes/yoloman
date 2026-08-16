@@ -1,0 +1,84 @@
+# ==============================================================================
+# netselect configuration file (managed by Ansible)
+# netselect is a tool for selecting the fastest network server from a list of hosts.
+# This configuration controls its probe behavior and output formatting.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# verbosity
+# -----------------------------------------------------------------------------
+# Sets the verbosity level for netselect output.
+# 0 = silent (no output except results)
+# 1 = -v (verbose)
+# 2 = -vv (more verbose, default)
+# 3 = -vvv (very verbose)
+# 4 = -vvvv (extremely verbose)
+verbosity: {{ verbosity | default(2) }}
+
+# -----------------------------------------------------------------------------
+# max_hops
+# -----------------------------------------------------------------------------
+# Maximum TTL (Time To Live) / hop count to accept results for.
+# This acts as a filter to exclude hosts that are too far away in the network.
+# 0 means no limit (accept all reachable hosts).
+max_hops: {{ max_hops | default(0) }}
+
+# -----------------------------------------------------------------------------
+# servers_to_print
+# -----------------------------------------------------------------------------
+# Number of top-scoring servers to print in the final ranking.
+# 0 disables the printing of the high-score list (useful for scripting).
+# Positive N prints the top N servers.
+servers_to_print: {{ servers_to_print | default(0) }}
+
+# -----------------------------------------------------------------------------
+# test_packets
+# -----------------------------------------------------------------------------
+# Number of probe packets sent to each host to calculate the score.
+# Higher numbers yield more accurate results but increase test duration and load.
+# 10 is a balanced default for most networks.
+test_packets: {{ test_packets | default(10) }}
+
+# -----------------------------------------------------------------------------
+# use_icmp
+# -----------------------------------------------------------------------------
+# Protocol for probing: ICMP vs UDP.
+# true: Uses ICMP echo requests (ping-like). Better if the target filters UDP,
+#       but may be subject to ICMP rate-limiting or filtering.
+# false: Uses UDP probes (default). Generally more reliable for server responsiveness
+#        as it simulates actual UDP-based connections (e.g., NTP, DNS).
+use_icmp: {{ use_icmp | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# print_dns_names
+# -----------------------------------------------------------------------------
+# Display mode for the output list.
+# true: Prints DNS hostnames instead of IP addresses.
+# false: Prints IP addresses (default, faster as it avoids reverse DNS lookups).
+print_dns_names: {{ print_dns_names | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# restrict_ipv4
+# -----------------------------------------------------------------------------
+# Address family restriction.
+# true: Restrict lookups and results to IPv4 addresses only.
+# false: Include IPv4 (and IPv6 if not restricted).
+restrict_ipv4: {{ restrict_ipv4 | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# restrict_ipv6
+# -----------------------------------------------------------------------------
+# Address family restriction.
+# true: Restrict lookups and results to IPv6 addresses only.
+# false: Include IPv6 (and IPv4 if not restricted).
+# Note: If both restrict_ipv4 and restrict_ipv6 are true, behavior may vary
+#       by version; typically IPv4 is the fallback.
+restrict_ipv6: {{ restrict_ipv6 | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# hosts
+# -----------------------------------------------------------------------------
+# List of hostnames or IP addresses to test.
+# These are the candidates netselect will probe to determine the fastest one.
+# Format: space-separated list.
+hosts: {% for host in hosts | default(['ftp.us.debian.org']) %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}

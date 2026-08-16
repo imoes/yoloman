@@ -1,0 +1,125 @@
+# ==============================================================================
+# rgxg configuration template
+# ==============================================================================
+# This template generates a configuration file for 'rgxg', a tool that generates
+# regex patterns based on various commands (alternation, cidr, range, escape).
+# The active command is determined by the 'command' variable.
+# ==============================================================================
+
+# The rgxg command to execute: alternation, cidr, escape, range, help, version
+# Defaults to 'range' if not specified.
+command: {{ command | default('range') }}
+
+{% if command | default('range') == 'alternation' %}
+    # ------------------------------------------------------------------
+    # Command: alternation
+    # Generates a regex pattern matching any of the provided strings.
+    # Output format: (pattern1|pattern2|...) or pattern1|pattern2|...
+    # ------------------------------------------------------------------
+
+    # List of patterns for the 'alternation' command. Each item is a string pattern.
+    # Defaults to an empty list.
+    # Generated output: A space-separated list of patterns.
+    patterns: {{ patterns | default([]) | join(' ') }}
+
+    # Omit outer parentheses if any (-N flag).
+    # If true, outputs 'a|b' instead of '(a|b)'.
+    # Defaults to False.
+    omit_parentheses: {{ omit_parentheses | default(False) | ternary('yes', 'no') }}
+
+{% elif command | default('range') == 'cidr' %}
+    # ------------------------------------------------------------------
+    # Command: cidr
+    # Generates a regex pattern matching IP addresses within a CIDR block.
+    # ------------------------------------------------------------------
+
+    # CIDR block (IPv4 or IPv6) for the 'cidr' command.
+    # Example: '192.168.0.0/24' or '2001:db8::/32'.
+    # Defaults to '192.168.0.0/24'.
+    cidr_block: {{ cidr_block | default('192.168.0.0/24') }}
+
+    # Omit outer parentheses if any (-N flag).
+    # Defaults to False.
+    omit_parentheses: {{ omit_parentheses | default(False) | ternary('yes', 'no') }}
+
+    # Match only IPv6 addresses with lower case letters (-l flag).
+    # Only applicable for IPv6 CIDR blocks.
+    # Defaults to False.
+    lower_case_ipv6: {{ lower_case_ipv6 | default(False) | ternary('yes', 'no') }}
+
+    # Match only IPv6 addresses with upper case letters (-U flag).
+    # Only applicable for IPv6 CIDR blocks.
+    # Defaults to False.
+    upper_case_ipv6: {{ upper_case_ipv6 | default(False) | ternary('yes', 'no') }}
+
+    # Do not match IPv6 addresses with zero compression (-u flag).
+    # Only applicable for IPv6 CIDR blocks.
+    # Defaults to False.
+    uncompressed_ipv6: {{ uncompressed_ipv6 | default(False) | ternary('yes', 'no') }}
+
+    # Do not match IPv6 addresses in mixed notation (-s flag).
+    # Only applicable for IPv6 CIDR blocks.
+    # Defaults to False.
+    mixed_notation_ipv6: {{ mixed_notation_ipv6 | default(False) | ternary('yes', 'no') }}
+
+{% elif command | default('range') == 'range' %}
+    # ------------------------------------------------------------------
+    # Command: range
+    # Generates a regex pattern matching numbers within a specified range.
+    # ------------------------------------------------------------------
+
+    # The first number in the range (required for 'range' command).
+    # Defaults to '0'.
+    first: {{ first | default('0') }}
+
+    # The last number in the range (optional for 'range' command; if omitted, matches >= first).
+    # If provided, defines the upper bound of the range.
+    # Defaults to '31'.
+    last: {{ last | default('31') }}
+
+    # Number base for the 'range' command (2-32, default 10).
+    # Allows matching numbers in binary, hex, octal, etc.
+    # Defaults to 10.
+    base: {{ base | default(10) }}
+
+    # For bases > 10, match only lower case letters (-l flag in 'range').
+    # Defaults to False.
+    lower_case_letters: {{ lower_case_letters | default(False) | ternary('yes', 'no') }}
+
+    # For bases > 10, match only upper case letters (-U flag in 'range').
+    # Defaults to False.
+    upper_case_letters: {{ upper_case_letters | default(False) | ternary('yes', 'no') }}
+
+    # Only match numbers with leading zeros (-z flag in 'range').
+    # Defaults to False.
+    leading_zeros_exact: {{ leading_zeros_exact | default(False) | ternary('yes', 'no') }}
+
+    # Match numbers with a variable number of leading zeros (-Z flag in 'range').
+    # Defaults to False.
+    leading_zeros_variable: {{ leading_zeros_variable | default(False) | ternary('yes', 'no') }}
+
+    # Minimum length of matched numbers when using -z or -Z (-m flag in 'range').
+    # Defaults to 0.
+    min_length: {{ min_length | default(0) }}
+
+    # Omit outer parentheses if any (-N flag).
+    # Defaults to False.
+    omit_parentheses: {{ omit_parentheses | default(False) | ternary('yes', 'no') }}
+
+{% elif command | default('range') == 'escape' %}
+    # ------------------------------------------------------------------
+    # Command: escape
+    # Escapes special regex characters in a given string.
+    # ------------------------------------------------------------------
+
+    # String to escape for the 'escape' command.
+    # Defaults to '1+(2*(3-4))'.
+    input_string: {{ input_string | default('1+(2*(3-4))') }}
+
+{% else %}
+    # ------------------------------------------------------------------
+    # Unknown or unsupported command
+    # ------------------------------------------------------------------
+    # The command specified is not recognized or handled by this template.
+    # command: {{ command | default('range') }}
+{% endif %}

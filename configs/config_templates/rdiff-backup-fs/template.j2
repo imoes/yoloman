@@ -1,0 +1,52 @@
+# /etc/default/rdiff-backup-fs
+# Configuration file for rdiff-backup-fs.
+# Each variable below corresponds to a specific runtime option.
+# Defaults are provided inline to ensure safe rendering even if the
+# variable is undefined in the Ansible inventory.
+
+# Verbosity level for debug messages (0-4).
+# Higher values produce more detailed logging.
+# 0 = no debug output, 4 = maximum debug output.
+{{ debug_level | default(0) }}
+
+# Store information about all revisions in memory.
+# WARNING: Setting this to true can cause high memory usage,
+# especially with large repositories containing many revisions.
+{% if full_memory | default(False) | bool %}
+-f
+{% else %}
+# -f
+{% endif %}
+
+# Display files from the most recent increment as directories with versions.
+# WARNING: This option also increases memory consumption significantly.
+# It is useful for exploring recent backup states but may impact performance.
+{% if last_mode | default(False) | bool %}
+-l
+{% else %}
+# -l
+{% endif %}
+
+# Number of files retrieved from the archive to cache in RAM.
+# Increasing this value may improve read performance for frequently
+# accessed historical files at the cost of higher memory usage.
+# Set to 0 to disable caching entirely.
+{{ caching_files | default(10) }}
+
+# Number of revisions stored in memory for on-demand retrieval.
+# Allows faster access to specific historical versions without
+# re-fetching them from the repository on disk.
+{{ revisions_memory | default(10) }}
+
+# Directory used for temporary files during backup and restore operations.
+# Ensure this directory has sufficient space and is accessible by the
+# rdiff-backup-fs process.
+{{ temp_dir | default('/tmp') }}
+
+# The local directory where the rdiff-backup archive will be mounted.
+# This directory must exist and be accessible before starting the service.
+{{ mount_point | default('/mnt/rdiff-backup') }}
+
+# Path to the rdiff-backup archive repository.
+# This is the location of the source backup data that will be mounted.
+{{ repository_path | default('/var/backups/rdiff') }}

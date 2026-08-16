@@ -1,0 +1,42 @@
+# =============================================================================
+# sipcrack Configuration Template
+# =============================================================================
+# This template generates the configuration file for sipcrack, a tool used for
+# cracking SIP digest authentications by capturing credentials via sipdump and
+# subsequently bruteforcing them using a wordlist.
+#
+# Variables used:
+#   - dump_file: Path to the logins.dump file containing captured SIP credentials.
+#   - wordlist_file: Path to the dictionary file for password attempts.
+#   - verbose_interval: Number of passwords between progress output.
+#   - use_stdin: Boolean flag to read passwords from stdin instead of a file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# dump_file: The file path where sipdump writes captured SIP digest authentications
+#            and where sipcrack reads them from.
+# Default: /var/log/sipcrack/logins.dump
+# -----------------------------------------------------------------------------
+DUMP_FILE={{ dump_file | default('/var/log/sipcrack/logins.dump') }}
+
+# -----------------------------------------------------------------------------
+# wordlist_file: The path to the file containing all passwords to try for
+#                bruteforcing.
+# Default: /usr/share/dict/words
+# -----------------------------------------------------------------------------
+WORDLIST_FILE={{ wordlist_file | default('/usr/share/dict/words') }}
+
+# -----------------------------------------------------------------------------
+# verbose_interval: Print cracking process progress every n passwords. High
+#                   values improve performance; low values provide feedback but
+#                   slow down execution.
+# Default: 1000
+# -----------------------------------------------------------------------------
+VERBOSE_INTERVAL={{ verbose_interval | default(1000) }}
+
+# -----------------------------------------------------------------------------
+# use_stdin: If true, sipcrack reads passwords from standard input instead of
+#            the wordlist file. When enabled, WORDLIST_FILE is ignored.
+# Default: false
+# -----------------------------------------------------------------------------
+USE_STDIN={{ use_stdin | default(false) }}

@@ -1,0 +1,39 @@
+# ipcalc-ng configuration for batch processing or script defaults
+# This template generates a configuration file for the ipcalc-ng utility,
+# which performs calculations on IP networks and addresses.
+
+# Output format: human-readable text or JSON.
+# Set to 'json' if you need machine-parseable output for automation.
+# Default: 'text'
+output_format: {{ output_format | default('text') }}
+
+# Primary IP address or network to analyze.
+# Supports CIDR notation (e.g., '192.168.1.0/24') or IP address with netmask.
+# Default: '127.0.0.1/8'
+input_address: {{ input_address | default('127.0.0.1/8') }}
+
+# Explicitly set the IP version for calculation.
+# Options: 'ipv4', 'ipv6', or 'none' for auto-detection based on the input address.
+# Default: 'none'
+address_family: {{ address_family | default('none') }}
+
+# Enable geographic information lookup (requires GeoIP database).
+# When true, ipcalc-ng attempts to resolve location data for IP addresses.
+# Default: false
+geoinfo_enabled: {{ geoinfo_enabled | default(false) }}
+
+# List of specific fields to output in VAR=VALUE format.
+# Valid fields include: address, network, netmask, prefix, broadcast, minaddr, maxaddr, reverse_dns, hostname.
+# If this list is empty and output_format is not 'json', all available information is displayed.
+requested_fields: {{ requested_fields | default([]) | tojson }}
+
+# Prefix length for network splitting (-S option).
+# If set to a value > 0, ipcalc-ng splits the input network into subnets of this size.
+# Set to 0 to disable splitting.
+# Default: 0
+split_prefix: {{ split_prefix | default(0) }}
+
+# Silent mode: suppress error messages.
+# When true, standard error output is minimized or suppressed.
+# Default: false
+silent_mode: {{ silent_mode | default(false) }}

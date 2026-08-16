@@ -1,0 +1,84 @@
+# ==============================================================================
+# jo (JSON Output) Configuration Template
+# ==============================================================================
+# This template configures the behavior of the `jo` utility, which generates JSON
+# output from command-line arguments or stdin.
+#
+# Variables are mapped directly from the Ansible role's variables. All variables
+# include default values to ensure safe rendering even if the role is called
+# without explicit values.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# pretty_print (Boolean)
+# Description: If true, enables pretty-printing of the JSON output (jo -p).
+# Default: true
+# --------------------------------------------------------------------------
+PRETTY_PRINT: {{ pretty_print | default(true) }}
+
+# --------------------------------------------------------------------------
+# dedup_keys (Boolean)
+# Description: If true, deduplicates object keys, keeping the last occurrence (jo -D).
+# Default: false
+# --------------------------------------------------------------------------
+DEDUP_KEYS: {{ dedup_keys | default(false) }}
+
+# --------------------------------------------------------------------------
+# disable_bool_detect (Boolean)
+# Description: If true, treats 'true', 'false', 'null' as literal strings instead
+# of booleans/null (jo -B).
+# Default: false
+# --------------------------------------------------------------------------
+DISABLE_BOOL_DETECT: {{ disable_bool_detect | default(false) }}
+
+# --------------------------------------------------------------------------
+# ignore_empty_stdin (Boolean)
+# Description: If true, does not produce an error on empty stdin (jo -e).
+# Default: false
+# --------------------------------------------------------------------------
+IGNORE_EMPTY_STDIN: {{ ignore_empty_stdin | default(false) }}
+
+# --------------------------------------------------------------------------
+# skip_empty_keys (Boolean)
+# Description: If true, omits keys with empty or null values (jo -n).
+# Default: false
+# --------------------------------------------------------------------------
+SKIP_EMPTY_KEYS: {{ skip_empty_keys | default(false) }}
+
+# --------------------------------------------------------------------------
+# use_array_mode (Boolean)
+# Description: If true, generates a JSON array instead of an object (jo -a).
+# Default: false
+# --------------------------------------------------------------------------
+USE_ARRAY_MODE: {{ use_array_mode | default(false) }}
+
+# --------------------------------------------------------------------------
+# key_delimiter (String)
+# Description: Character used to separate components in object paths (jo -d).
+# Empty means literal key=value syntax.
+# Default: ''
+# --------------------------------------------------------------------------
+KEY_DELIMITER: "{{ key_delimiter | default('') }}"
+
+# --------------------------------------------------------------------------
+# pairs (List[Map])
+# Description: List of key-value pairs to include in the JSON object when not
+# in array mode. Items are flat maps with 'key' and 'value' strings.
+# Default: []
+# --------------------------------------------------------------------------
+{% for item in pairs | default([]) %}
+# Pair {{ loop.index0 }}: {{ item.key }} = {{ item.value }}
+PAIR_{{ loop.index0 }}_KEY: "{{ item.key }}"
+PAIR_{{ loop.index0 }}_VALUE: "{{ item.value }}"
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# array_values (List[String])
+# Description: List of string values to include in the JSON array when
+# use_array_mode is true.
+# Default: []
+# --------------------------------------------------------------------------
+{% for value in array_values | default([]) %}
+# Array Item {{ loop.index0 }}: {{ value }}
+ARRAY_ITEM_{{ loop.index0 }}: "{{ value }}"
+{% endfor %}

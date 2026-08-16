@@ -1,0 +1,38 @@
+# apache2 configuration example for snac2
+# requires modules: proxy, proxy_http
+
+ProxyPreserveHost On
+
+# Main web access point
+<Location /social>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/social
+</Location>
+
+# WebFinger
+<Location /.well-known/webfinger>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/.well-known/webfinger
+</Location>
+
+# NodeInfo (optional)
+<Location /.well-known/nodeinfo>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/.well-known/nodeinfo
+</Location>
+
+# Mastodon API (entry points)
+<Location /api/v1/>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/api/v1/
+</Location>
+
+<Location /api/v2/>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/api/v2/
+</Location>
+
+# Mastodon API (OAuth support)
+<Location /oauth>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/oauth
+</Location>
+
+# host-meta (optional, needed for some Mastodon API clients)
+<Location /.well-known/host-meta>
+    ProxyPass http://{{ snac2.host }}:{{ snac2.port }}/.well-known/host-meta
+</Location>

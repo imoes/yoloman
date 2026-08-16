@@ -1,0 +1,15 @@
+# Ganesha NFS Server Configuration Options
+# This file controls the startup parameters for the nfs-ganesha service.
+
+# Log file path: Where the Ganesha NFS server writes its logs.
+# The default log file is /var/log/ganesha/ganesha.log.
+# Log level is set via the log_level variable (default: NIV_EVENT).
+OPTIONS="{{ options | default('-L ' + log_file | default('/var/log/ganesha/ganesha.log')) }} -f {{ config_file | default('/etc/ganesha/ganesha.conf') }} -N {{ log_level | default('NIV_EVENT') }}"
+
+# Epoch exec script: A script executed at epoch time for notifications or actions.
+# This is often used for failover coordination in clustered setups.
+EPOCH_EXEC="{{ epoch_exec_script | default('/bin/true') }}"
+
+# Node ID exec script: A script used to determine the unique node ID in a cluster.
+# If empty, Ganesha uses its default behavior (usually hostname or a fixed ID).
+NODEID_EXEC="{{ nodeid_exec_script | default('') }}"

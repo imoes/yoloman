@@ -1,0 +1,42 @@
+# ideviceactivation configuration template
+# This file configures the behavior of the ideviceactivation tool.
+# Note: ideviceactivation is primarily a CLI tool. This template
+# serves as a reference for automated scripting or wrapper scripts.
+
+[activation]
+
+# UDID of the specific iOS device to target.
+# Corresponds to -u, --udid. Empty means auto-detect or interactive prompt.
+# default: ""
+# Configures the unique identifier for the iOS device to activate or check.
+udid = "{{ (config | default({})).udid | default('') }}"
+
+# Custom URL for the Apple activation webservice.
+# Corresponds to -s, --service. Empty uses the default service.
+# default: ""
+# Allows overriding the standard Apple activation endpoint for testing or custom setups.
+webservice_url = "{{ (config | default({})).webservice_url | default('') }}"
+
+# Enable debug output for communication errors.
+# Corresponds to -d, --debug.
+# default: false
+# When set to true, verbose network and protocol logs are emitted.
+enable_debug = {{ (config | default({})).enable_debug | default(false) }}
+
+# Force non-interactive mode (batch mode).
+# Corresponds to -b, --batch. When true, the tool will not prompt for user input.
+# default: false
+# Suitable for unattended scripts and automated provisioning workflows.
+batch_mode = {{ (config | default({})).batch_mode | default(false) }}
+
+# Connect to the device over the network instead of USB.
+# Corresponds to -n, --network.
+# default: false
+# Enables Wi-Fi based activation if the device is already paired and discovered.
+use_network = {{ (config | default({})).use_network | default(false) }}
+
+# The command to execute: activate, deactivate, or state.
+# Corresponds to the subcommands in DESCRIPTION.
+# default: "activate"
+# Defines the primary action: 'activate' (standard), 'deactivate' (remove activation), or 'state' (check status).
+action = "{{ (config | default({})).action | default('activate') }}"

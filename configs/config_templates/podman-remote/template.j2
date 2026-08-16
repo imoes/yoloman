@@ -1,0 +1,127 @@
+# =============================================================================
+# Podman Remote Client Configuration
+# =============================================================================
+# This template generates the `[engine]` and `[engine.service_destinations]`
+# sections for `containers.conf` (or `podman/containers.conf`) on the client side.
+# It configures how the `podman` CLI connects to remote Podman engines
+# (e.g., on a remote server or another container host).
+#
+# See `man 5 containers.conf` for the full specification of this file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [engine] Section
+# -----------------------------------------------------------------------------
+# Global engine settings for the Podman client/daemon interaction.
+
+[engine]
+
+# Environment variables to pass to the podman engine process.
+# Format: List of "KEY=VALUE" strings.
+# Default: Empty list (no extra variables passed).
+# Example: ["PATH=/usr/bin", "DEBUG=true"]
+env = [
+{%- for env_var in (environment_vars | default([], true)) %}
+  "{{ env_var }}",
+{%- endfor %}
+]
+
+# -----------------------------------------------------------------------------
+# [engine.service_destinations] Section
+# -----------------------------------------------------------------------------
+# Remote connection configurations.
+# Each destination defines how to reach a remote Podman socket.
+# Users can connect to a named destination using `podman --connection <name> ...`
+#
+# The structure maps a connection NAME to a block of connection parameters:
+#   - scheme: Transport protocol (ssh, tcp, unix)
+#   - host:   Address of the remote machine
+#   - port:   Port number (if using ssh/tcp)
+#   - path:   Path to the podman socket on the remote host (if using ssh/tcp)
+#   - user:   SSH username for authentication
+#   - identity: Path to the SSH private key file
+#   - proxy:  SOCKS5 proxy URI for TCP connections
+
+[engine.service_destinations]
+
+{%- for destination in (service_destinations | default([], true)) %}
+# =============================================================================
+# Remote Connection Profile: {{ (destination.name | default('unnamed')) }}
+# =============================================================================
+# This block defines the connection parameters for the remote engine identified
+# by the name "{{ (destination.name | default('unnamed')) }}".
+#
+# Use this connection with: podman --connection {{ (destination.name | default('unnamed')) }} <command>
+
+[engine.service_destinations."{{ (destination.name | default('unnamed')) }}"]
+
+{# --------------------------------------------------------------------------- #}
+{# Transport Scheme                                                           #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.scheme | default('ssh')) != '' %}
+# URL scheme defining the transport protocol.
+# Allowed values: 'ssh', 'tcp', 'unix'.
+# Default: 'ssh' (if not specified or empty).
+scheme = "{{ (destination.scheme | default('ssh')) }}"
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Remote Host Address                                                        #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.host | default('')) != '' %}
+# Remote host IP address or hostname.
+# Required if scheme is 'ssh' or 'tcp'.
+# Example: '192.168.1.100' or 'podman-server.example.com'
+host = "{{ (destination.host | default('')) }}"
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Remote Port Number                                                         #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.port | default(22)) is defined %}
+# Remote port number used for the connection.
+# Typically 22 for SSH, or a custom port for TCP.
+# Default: 22
+port = {{ (destination.port | default(22)) }}
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Remote Socket Path                                                         #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.path | default('/run/user/1000/podman/podman.sock')) != '' %}
+# Path to the Podman socket file on the REMOTE host.
+# This is the endpoint the remote Podman daemon listens on.
+# Default: /run/user/1000/podman/podman.sock
+path = "{{ (destination.path | default('/run/user/1000/podman/podman.sock')) }}"
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# SSH Authentication User                                                    #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.user | default('')) != '' %}
+# SSH username to use for authentication when connecting via 'ssh'.
+# Example: 'deploy' or 'root'
+user = "{{ (destination.user | default('')) }}"
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# SSH Identity Key                                                           #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.identity | default('')) != '' %}
+# Path to the SSH private key file (identity file) for key-based authentication.
+# Must be readable by the user running Podman.
+# Example: '~/.ssh/id_ed25519' or '/etc/podman/keys/id_rsa'
+identity = "{{ (destination.identity | default('')) }}"
+{%- endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# SOCKS Proxy URI                                                            #}
+{# --------------------------------------------------------------------------- #}
+{%- if (destination.proxy | default('')) != '' %}
+# SOCKS5 proxy URI to route TCP connections through.
+# Format: 'socks5://user:pass@proxy_host:port'
+# Only applicable if scheme is 'tcp' and a proxy is required.
+# Example: 'socks5://user:pass@10.0.0.1:1080'
+proxy = "{{ (destination.proxy | default('')) }}"
+{%- endif %}
+{%- endfor %}

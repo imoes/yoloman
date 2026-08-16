@@ -1,0 +1,67 @@
+# Selektor configuration file
+# Self-documented via Ansible Jinja2 template
+
+# Path to file for all debug output. Empty string means stdout.
+# Default: ''
+DEBUG_ALL_LOG = {{ (debug_all_log | default('', true)) | string }}
+
+# Path to file for warnings level debug output. Empty string means stderr.
+# Default: ''
+DEBUG_WARN_LOG = {{ (debug_warn_log | default('', true)) | string }}
+
+# Path to file for information level debug output. Empty string means stderr.
+# Default: ''
+DEBUG_INFO_LOG = {{ (debug_info_log | default('', true)) | string }}
+
+# Path to file for fine level debug output. Empty string means stderr.
+# Default: ''
+DEBUG_FINE_LOG = {{ (debug_fine_log | default('', true)) | string }}
+
+# Path to file for finer level debug output. Empty string means stderr.
+# Default: ''
+DEBUG_FINER_LOG = {{ (debug_finer_log | default('', true)) | string }}
+
+# Path to file for finest level debug output. Empty string means stderr.
+# Default: ''
+DEBUG_FINEST_LOG = {{ (debug_finest_log | default('', true)) | string }}
+
+# Delay startup in seconds.
+# Default: 0
+START_DELAY = {{ start_delay | default(0, true) }}
+
+# Return user settings to their safe defaults on startup.
+# Default: False
+RESET_DEFAULTS = {{ reset_defaults | default(false, true) }}
+
+# Clears the Tor cache on startup.
+# Default: False
+CLEAR_CACHE = {{ clear_cache | default(false, true) }}
+
+# Ignore desktop detection information.
+# Default: False
+IGNORE_DESKTOP = {{ ignore_desktop | default(false, true) }}
+
+# Cleans up after a bad shutdown which may have left system proxy in an unknown state.
+# Default: False
+CLEANUP = {{ cleanup | default(false, true) }}
+
+# Set system proxy back to its defaults quietly, without GUI dialog.
+# Default: False
+DEFAULT_PROXY_QUIET = {{ default_proxy_quiet | default(false, true) }}
+
+# Attempt to restore proxy to its last known settings using a previously saved backup, without GUI dialog.
+# Default: False
+RESTORE_PROXY_QUIET = {{ restore_proxy_quiet | default(false, true) }}
+
+# Disables the version update checking at startup and removes the option from preferences.
+# Default: False
+UPDATE_DISABLE = {{ update_disable | default(false, true) }}
+
+# List of proxy rules to apply.
+# Format: 'protocol:host:port' (e.g., 'http:localhost:8118')
+# Default: empty list
+PROXY_RULES = {
+{% for rule in (proxy_rules | default([], true)) %}
+    "{{ rule }}",
+{% endfor %}
+}

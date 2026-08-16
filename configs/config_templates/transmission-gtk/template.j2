@@ -1,0 +1,84 @@
+# Transmission GTK Client Configuration
+# This file is a JSON-formatted configuration for the Transmission BitTorrent client.
+# It is managed by Ansible and should not be edited manually.
+# Reference: https://github.com/transmission/transmission/blob/main/docs/Configuration-Files.md
+
+# ===========================================================================
+# General / Directory Settings
+# ===========================================================================
+
+# "config-dir": The directory where Transmission looks for configuration files.
+# Corresponds to the -g flag or TRANSMISSION_HOME environment variable.
+# The path to THIS specific config file is usually inside this directory.
+# "config-dir": "{{ config_dir | default('~/.config/transmission') }}",
+
+# ===========================================================================
+# Torrent Defaults
+# ===========================================================================
+
+# "paused": If true, all newly added torrents start in a paused state.
+# Corresponds to the -p flag.
+"paused": {{ paused | default(false) }},
+
+# "minimized": If true, the window starts minimized in the notification area.
+# Corresponds to the -m flag.
+"minimized": {{ minimized | default(false) }},
+
+# ===========================================================================
+# Download Locations
+# ===========================================================================
+
+# "download-dir": Path to the directory where completed downloads are saved.
+# Ensure this directory exists or Transmission may fail to save files.
+"download-dir": "{{ download_dir | default('~/Downloads') }}",
+
+# "incomplete-dir": Path to the directory where incomplete downloads are saved.
+# If empty, Transmission uses download-dir.
+# Useful for separating active and finished torrents on different disks.
+"incomplete-dir": "{{ incomplete_dir | default('') }}",
+
+# "incomplete-dir-enabled": If true, incomplete downloads are saved to incomplete-dir instead of download-dir.
+# Must be true for incomplete-dir to take effect.
+"incomplete-dir-enabled": {{ incomplete_dir_enabled | default(false) }},
+
+# ===========================================================================
+# Peer Limits
+# ===========================================================================
+
+# "peers-max-per-torrent": Maximum number of peers to connect to per torrent.
+# Higher values may improve download speed on well-seeded torrents but consume more resources.
+"peers-max-per-torrent": {{ peers_max_per_torrent | default(200) }},
+
+# "peers-max": Maximum number of peers to connect to globally.
+# Limits total connections across all active torrents.
+"peers-max": {{ peers_max_global | default(200) }},
+
+# ===========================================================================
+# Speed Limits
+# ===========================================================================
+
+# "speed-limit-up-enabled": If true, enforce the global upload speed limit.
+"speed-limit-up-enabled": {{ speed_limit_up_enabled | default(false) }},
+
+# "speed-limit-up": Maximum upload speed limit in KiB/s when speed-limit-up-enabled is true.
+# Set to 0 for unlimited upload speed.
+"speed-limit-up": {{ speed_limit_up_kib | default(100) }},
+
+# "speed-limit-down-enabled": If true, enforce the global download speed limit.
+"speed-limit-down-enabled": {{ speed_limit_down_enabled | default(false) }},
+
+# "speed-limit-down": Maximum download speed limit in KiB/s when speed-limit-down-enabled is true.
+# Set to 0 for unlimited download speed.
+"speed-limit-down": {{ speed_limit_down_kib | default(100) }},
+
+# ===========================================================================
+# Seeding / Ratio Limits
+# ===========================================================================
+
+# "ratio-limit": Seed torrents until they reach this ratio of uploaded to downloaded data.
+# A ratio of 1.0 means upload as much as you download. 2.0 means upload twice.
+"ratio-limit": {{ ratio_limit | default(2.0) }},
+
+# "ratio-limit-enabled": If true, enforce the seed ratio limit.
+# When enabled, torrents will stop seeding once the ratio limit is met.
+"ratio-limit-enabled": {{ ratio_limit_enabled | default(false) }}

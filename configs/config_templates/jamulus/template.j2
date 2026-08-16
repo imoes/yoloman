@@ -1,0 +1,99 @@
+# Jamulus Server Command Line Configuration
+# This file defines the arguments passed to the jamulus binary when run in server mode.
+# It serves as the primary configuration for a Jamulus audio collaboration server instance.
+
+# Start Jamulus in server mode. Mandatory for running a server instance.
+# Source: -s | --server
+start_server: {{ start_server | default(true) }}
+
+# The local UDP port Jamulus uses to communicate. Clients connect to this port.
+# Source: -p | --port number
+port: {{ port | default(22124) }}
+
+# Enable IPv6 support. If true, Jamulus listens on IPv6 addresses as well.
+# Source: -6 | --enableipv6
+enable_ipv6: {{ enable_ipv6 | default(false) }}
+
+# Enable multithreading to make better use of multi-core CPUs and support more clients.
+# Source: -T | --multithreading
+multithreading: {{ multithreading | default(false) }}
+
+# Set maximum number of channels (users) the server can handle. Max 150.
+# Source: -u | --numchannels number
+max_channels: {{ max_channels | default(10) }}
+
+# Set QoS value (iptos byte) for network traffic prioritization. Default 128.
+# Source: -Q | --qos value
+qos: {{ qos | default(128) }}
+
+# Enable 'fastupdate' mode (64 samples frame size) for lower latency if clients support it.
+# Requires faster CPU to avoid dropouts.
+# Source: -F | --fastupdate
+fast_update: {{ fast_update | default(false) }}
+
+# Enable delay panning. Distributes audio based on latency differences.
+# Source: -P | --delaypan
+delay_panning: {{ delay_panning | default(false) }}
+
+# Disable translations, forcing the use of built-in English strings.
+# Source: -t | --notranslation
+notranslation: {{ notranslation | default(false) }}
+
+# Set the welcome message shown to users upon connection. May contain HTML/CSS.
+# Source: -w | --welcomemessage message
+welcome_message: "{{ welcome_message | default('Welcome to the Jamulus Server') }}"
+
+# Require clients to accept the welcome message/licence agreement before joining.
+# Source: -L | --licence
+require_licence: {{ require_licence | default(false) }}
+
+# Disconnect all clients when the server quits.
+# Source: -d | --discononquit
+disconnect_on_quit: {{ disconnect_on_quit | default(false) }}
+
+# Start with minimised window (useful for headless/daemonized operation).
+# Source: -z | --startminimized
+start_minimized: {{ start_minimized | default(true) }}
+
+# Log output to the specified file. Leave empty to disable file logging.
+# Source: -l | --log file
+log_file: "{{ log_file | default('') }}"
+
+# Enable recording of sessions and store tracks in the specified directory.
+# Source: -R | --recording directory
+recording_directory: "{{ recording_directory | default('') }}"
+
+# Register the server with the given Directory Server hostname.
+# If set to 'localhost', the server acts as a Directory Server itself.
+# Source: -e | --directoryserver hostname
+# Source: --centralserver hostname (deprecated alias)
+directory_server: "{{ directory_server | default('') }}"
+
+# Set server location details for directory listing: name;city;locale
+# Source: -o | --serverinfo info
+server_info: "{{ server_info | default('') }}"
+
+# Configure the Legacy IPv4 address to bind to. Leave empty for all interfaces.
+# Source: --serverbindip ip
+server_bind_ip: "{{ server_bind_ip | default('') }}"
+
+# Configure public IPv4 address if server is behind NAT for directory registration.
+# Source: --serverpublicip ip
+server_public_ip: "{{ server_public_ip | default('') }}"
+
+# Enable JSON-RPC API server control. Requires jsonrpc_secret_file.
+# Source: --jsonrpcport port
+jsonrpc_port: {{ jsonrpc_port | default(0) }}
+
+# Path to a text file containing the authentication string for JSON-RPC API.
+# Source: --jsonrpcsecretfile file
+jsonrpc_secret_file: "{{ jsonrpc_secret_file | default('') }}"
+
+# Path to the INI file overriding default initialization settings.
+# Source: -i | --inifile file
+# Note: Often used for client config, but can influence server defaults.
+inifile: "{{ inifile | default('') }}"
+
+# Enable HTML status file output. Periodically writes server status and client list.
+# Source: -m | --htmlstatus file
+htmlstatus_file: "{{ htmlstatus_file | default('') }}"

@@ -1,0 +1,125 @@
+# ==============================================================================
+# Quassel Core Configuration
+# ==============================================================================
+# This file configures the Quassel Core IRC bouncer.
+# It supports General, Logging, Core (network/SSL), Ident (RFC 1413),
+# Database (PostgreSQL), and Authentication (LDAP) sections.
+#
+# All variables are sourced from Ansible variables with safe defaults
+# matching the schema provided.
+# ==============================================================================
+
+[General]
+# --configdir: Directory holding configuration files, SQLite database, and SSL certificates.
+# Used for --configdir.
+configDir={{ config_dir | default('~/.config/quassel-irc.org') }}
+
+[Logging]
+# --loglevel: Logging level. Valid values: Debug, Info, Warning, Error.
+# Corresponds to --loglevel.
+logLevel={{ log_level | default('Info') }}
+
+# --logfile: Path to log file. Leave empty to disable file logging.
+# Corresponds to --logfile.
+logFile={{ log_file | default('') }}
+
+# --syslog: Enable logging to syslog instead of console/file.
+# Corresponds to --syslog.
+syslog={{ syslog | default(false) }}
+
+[Core]
+# --listen: Address(es) for client connections.
+# Corresponds to --listen. Default listens on all interfaces (IPv6 and IPv4).
+listenAddress={{ listen_address | default('::,0.0.0.0') }}
+
+# --port: Port for client connections.
+# Set to 0 or empty to disable remote core mode.
+# Corresponds to --port.
+listenPort={{ listen_port | default(4242) }}
+
+# --require-ssl: Require SSL for remote (non-loopback) client connections.
+# Corresponds to --require-ssl.
+requireSsl={{ require_ssl | default(false) }}
+
+# --ssl-cert: Path to SSL certificate file.
+# Overrides default configDir/quasselCert.pem if specified.
+# Corresponds to --ssl-cert.
+sslCert={{ ssl_cert | default(config_dir | default('~/.config/quassel-irc.org') ~ '/quasselCert.pem') }}
+
+# --ssl-key: Path to SSL key file.
+# Only needed if not combined with the SSL certificate.
+# Corresponds to --ssl-key.
+sslKey={{ ssl_key | default('') }}
+
+[Ident]
+# --ident-daemon: Enable internal ident daemon (RFC 1413).
+# Corresponds to --ident-daemon.
+identDaemon={{ ident_daemon | default(false) }}
+
+# --ident-listen: Address(es) for ident requests.
+# Corresponds to --ident-listen.
+identListen={{ ident_listen | default('::1,127.0.0.1') }}
+
+# --ident-port: Port for ident requests.
+# Corresponds to --ident-port.
+identPort={{ ident_port | default(10113) }}
+
+[Database]
+# DB_BACKEND: Selected database backend.
+# Valid values: sqlite, postgresql.
+# Corresponds to --select-backend or DB_BACKEND env var.
+dbBackend={{ db_backend | default('sqlite') }}
+
+[Database::PostgreSQL]
+# DB_PGSQL_HOSTNAME: PostgreSQL connection hostname.
+# Corresponds to DB_PGSQL_HOSTNAME env var.
+dbPgsqlHostname={{ db_pgsql_hostname | default('localhost') }}
+
+# DB_PGSQL_PORT: PostgreSQL connection port.
+# Corresponds to DB_PGSQL_PORT env var.
+dbPgsqlPort={{ db_pgsql_port | default(5432) }}
+
+# DB_PGSQL_DATABASE: PostgreSQL connection database name.
+# Corresponds to DB_PGSQL_DATABASE env var.
+dbPgsqlDatabase={{ db_pgsql_database | default('quasselcore') }}
+
+# DB_PGSQL_USERNAME: PostgreSQL connection username.
+# Corresponds to DB_PGSQL_USERNAME env var.
+dbPgsqlUsername={{ db_pgsql_username | default('quassel') }}
+
+# DB_PGSQL_PASSWORD: PostgreSQL connection password.
+# Corresponds to DB_PGSQL_PASSWORD env var.
+dbPgsqlPassword={{ db_pgsql_password | default('') }}
+
+[Auth::Ldap]
+# AUTH_LDAP_HOSTNAME: LDAP connection hostname.
+# Corresponds to AUTH_LDAP_HOSTNAME env var.
+authLdapHostname={{ auth_ldap_hostname | default('') }}
+
+# AUTH_LDAP_PORT: LDAP connection port.
+# Corresponds to AUTH_LDAP_PORT env var.
+authLdapPort={{ auth_ldap_port | default(389) }}
+
+# AUTH_LDAP_BASE_DN: LDAP base DN.
+# Corresponds to AUTH_LDAP_BASE_DN env var.
+authLdapBaseDn={{ auth_ldap_base_dn | default('') }}
+
+# AUTH_LDAP_BIND_DN: LDAP bind DN.
+# Corresponds to AUTH_LDAP_BIND_DN env var.
+authLdapBindDn={{ auth_ldap_bind_dn | default('') }}
+
+# AUTH_LDAP_BIND_PASSWORD: LDAP bind password.
+# Corresponds to AUTH_LDAP_BIND_PASSWORD env var.
+authLdapBindPassword={{ auth_ldap_bind_password | default('') }}
+
+# AUTH_LDAP_FILTER: LDAP filter.
+# Corresponds to AUTH_LDAP_FILTER env var.
+authLdapFilter={{ auth_ldap_filter | default('') }}
+
+# AUTH_LDAP_UID_ATTRIBUTE: LDAP UID attribute.
+# Corresponds to AUTH_LDAP_UID_ATTRIBUTE env var.
+authLdapUidAttribute={{ auth_ldap_uid_attribute | default('uid') }}
+
+# AUTH_AUTHENTICATOR: Selected user authentication backend.
+# Corresponds to AUTH_AUTHENTICATOR env var or --select-authenticator.
+authBackend={{ auth_authenticator | default('Local') }}

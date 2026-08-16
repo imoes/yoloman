@@ -1,0 +1,134 @@
+# ============================================================================
+# iotop configuration wrapper / helper script generator
+# ============================================================================
+#
+# This template generates a shell one-liner (or argument list) to invoke
+# `iotop` with the specified options. It is designed to be used within an
+# Ansible role where `iotop` parameters are passed via variables.
+#
+# Self-documenting: Every directive below is prefixed with a comment
+# explaining its purpose, derived from the schema description.
+# ============================================================================
+
+{% set delay = delay | default(1) %}
+{% set iterations = iterations | default(0) %}
+{% set only_io = only_io | default(false) %}
+{% set processes_only = processes_only | default(false) %}
+{% set accumulated = accumulated | default(false) %}
+{% set kilobytes = kilobytes | default(false) %}
+{% set time = time | default(false) %}
+{% set full_cmdline = full_cmdline | default(false) %}
+{% set si_units = si_units | default(false) %}
+{% set graph_source = graph_source | default('io') %}
+{% set reverse_graph = reverse_graph | default(false) %}
+{% set quiet = quiet | default(0) %}
+{% set dead_x = dead_x | default(false) %}
+{% set hide_exited = hide_exited | default(false) %}
+{% set no_color = no_color | default(false) %}
+{% set hide_time = hide_time | default(false) %}
+{% set unit_threshold = unit_threshold | default(2) %}
+{% set ascii_chars = ascii_chars | default(false) %}
+{% set inverse_interface = inverse_interface | default(false) %}
+{% set filter_regex = filter_regex | default('') %}
+{% set pids = pids | default([]) %}
+{% set uids = uids | default([]) %}
+
+# --- Execution Command ---
+# Generates the full iotop command line with all configured options.
+iotop \
+{% if delay is not none %}
+  --delay={{ delay }} \
+{% endif %}
+{% if iterations != 0 %}
+  --iter={{ iterations }} \
+{% endif %}
+{% if only_io %}
+  --only \
+{% else %}
+  --no-only \
+{% endif %}
+{% if processes_only %}
+  --processes \
+{% else %}
+  --no-processes \
+{% endif %}
+{% if accumulated %}
+  --accumulated \
+{% else %}
+  --no-accumulated \
+{% endif %}
+{% if kilobytes %}
+  --kilobytes \
+{% else %}
+  --no-kilobytes \
+{% endif %}
+{% if time %}
+  --time \
+{% else %}
+  --no-time \
+{% endif %}
+{% if full_cmdline %}
+  --fullcmdline \
+{% else %}
+  --no-fullcmdline \
+{% endif %}
+{% if si_units %}
+  --si \
+{% else %}
+  --no-si \
+{% endif %}
+  --grtype={{ graph_source }} \
+{% if reverse_graph %}
+  --reverse-graph \
+{% else %}
+  --no-reverse-graph \
+{% endif %}
+{% if quiet > 0 %}
+  {%- for _ in range(quiet) -%}
+  -q \
+  {%- endfor -%}
+{% endif %}
+{% if dead_x %}
+  --dead-x \
+{% else %}
+  --no-dead-x \
+{% endif %}
+{% if hide_exited %}
+  --hide-exited \
+{% else %}
+  --show-exited \
+{% endif %}
+{% if no_color %}
+  --no-color \
+{% else %}
+  --color \
+{% endif %}
+{% if hide_time %}
+  --hide-time \
+{% else %}
+  --show-time \
+{% endif %}
+{% if unit_threshold is not none %}
+  --threshold={{ unit_threshold }} \
+{% endif %}
+{% if ascii_chars %}
+  --ascii \
+{% else %}
+  --unicode \
+{% endif %}
+{% if inverse_interface %}
+  --inverse \
+{% else %}
+  --no-inverse \
+{% endif %}
+{% if filter_regex is defined and filter_regex != '' %}
+  --filter={{ filter_regex }} \
+{% endif %}
+{% for pid in pids %}
+  --pid={{ pid }} \
+{% endfor %}
+{% for uid in uids %}
+  --user={{ uid }} \
+{% endfor %}
+  {{ 'true' if iterations == 0 and not pids and not uids else 'false' }}
+# End of generated iotop command

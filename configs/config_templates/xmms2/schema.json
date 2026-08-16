@@ -1,0 +1,57 @@
+{
+  "auto_unique_complete": {
+    "type": "bool",
+    "default": true,
+    "description": "Complete an abbreviation of a command and its arguments (e.g., 'serv vol 42' -> 'server volume 42')."
+  },
+  "classic_list": {
+    "type": "bool",
+    "default": false,
+    "description": "Format list output similar to the classic CLI style."
+  },
+  "classic_list_format": {
+    "type": "string",
+    "default": "${position}: ${artist} - ${title}",
+    "description": "Format string to format classic list output with."
+  },
+  "guess_pls": {
+    "type": "bool",
+    "default": false,
+    "description": "Try to guess if the URL is a playlist and add accordingly."
+  },
+  "history_file": {
+    "type": "string",
+    "default": "~/.cache/xmms2/nyxmms2_history",
+    "description": "File to save command history to."
+  },
+  "playlist_marker": {
+    "type": "string",
+    "default": ">>",
+    "description": "String to use to mark the current active entry in the playlist."
+  },
+  "prompt": {
+    "type": "string",
+    "default": "xmms2> ",
+    "description": "String to use as a prompt in interactive mode."
+  },
+  "server_autostart": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, xmms2 will attempt to start the xmms2d daemon if it is not already running."
+  },
+  "shell_start_message": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, xmms2 will display a greeting message and basic help when started in interactive mode."
+  },
+  "status_format": {
+    "type": "string",
+    "default": "${artist} - ${title} [${duration}]",
+    "description": "String to format status output with."
+  },
+  "aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Dictionary of command aliases to define in the [Alias] section. Keys are alias names, values are command strings (semicolon separated). Use items map for schema definition if needed, but here we treat as a list of key-value pairs defined via Jinja2 iteration over the dictionary keys provided in sample_values if structured as such, but since Jinja2 {{ var }} requires a scalar or list, we will use a list of objects for aliases to be safe and renderable, OR rely on the fact that gonja supports dicts if passed. However, the prompt asks for `list` type for `aliases`? No, `aliases` is a group of settings. To stick to `list` type constraint for complex items, I will define `aliases` as a list of objects with `name` and `command` fields, and iterate over them. Wait, the schema says `type` is EXACTLY one of string|number|bool|list. If I use `list`, I must provide `items`. Let's change `aliases` to be a list of objects to strictly follow the schema constraints for non-scalar non-list-of-scalar types? Actually, the prompt says `items` as a FLAT map field-name. Let's make `aliases` a list of objects {name, command}. Then in template: {% for alias in aliases %} {{ alias.name }} = {{ alias.command }} {% endfor %}. This is safer for strict typing constraints.\n\n      "
+  }
+}

@@ -1,0 +1,104 @@
+{# ==============================================================================
+   Tilemaker Execution Configuration Template
+   ==============================================================================
+   Tilemaker is a command-line tool, not a daemon with a traditional config file.
+   This template generates a structured parameter file (or wrapper script context)
+   that defines input/output paths, processing options, and build flags.
+   
+   All variables MUST have defaults to ensure safe rendering even if omitted.
+   #}
+
+{# ==============================================================================
+   Input/Output Paths
+   ==============================================================================
+   These paths define the source OSM data and the destination tile store.
+   #}
+
+# Source path and file from OpenStreetMap (.osm.pbf).
+# Corresponds to: --input input.osm.pbf
+INPUT_PATH: "{{ (input_path | default('/var/lib/tilemaker/data/planet-latest.osm.pbf')) }}"
+
+# Target path for vector tiles. Specify .mbtiles/.sqlite or a directory.
+# Corresponds to: --output output.mbtiles
+OUTPUT_PATH: "{{ (output_path | default('/var/lib/tilemaker/output/tiles.mbtiles')) }}"
+
+# ==============================================================================
+   Layer and Processing Scripts
+   ==============================================================================
+   Tilemaker relies on external JSON and Lua files for logic. These paths point
+   to the installed defaults or custom overrides.
+   #}
+
+# Path to layer and global config file (.json).
+# Corresponds to: --config config.json
+CONFIG_PATH: "{{ (config_path | default('/usr/share/tilemaker/config.json')) }}"
+
+# Path to Lua processing script for processing tags.
+# Corresponds to: --process process.lua
+PROCESS_SCRIPT_PATH: "{{ (process_script_path | default('/usr/share/tilemaker/process.lua')) }}"
+
+# ==============================================================================
+   Processing Resources and Limits
+   ==============================================================================
+   Controls memory usage, parallelism, and spatial scope of the tile creation.
+   #}
+
+# Path to the directory to use as a temporary store during processing.
+# Empty string means use RAM. If set, Tilemaker spills intermediate data to disk.
+# Corresponds to: --store store_dir
+STORE_DIR: "{{ (store_dir | default('')) }}"
+
+# Number of threads (0 for auto-detection).
+# Corresponds to: --threads 0
+THREADS: {{ (threads | default(0)) }}
+
+# Bounding box to use (minlon,minlat,maxlon,maxlat) if input file does not set one.
+# Corresponds to: --bbox -180,-90,180,90
+BBOX: "{{ (bbox | default('')) }}"
+
+# ==============================================================================
+   Operational Flags
+   ==============================================================================
+   Boolean switches that alter Tilemaker's behavior, integrity checks, and verbosity.
+   #}
+
+# Outputs any issues encountered during tile creation.
+# Corresponds to: --verbose
+VERBOSE: {{ (verbose | default(False)) }}
+
+# Reduce overall memory usage by assuming nodes are numbered sequentially.
+# Requires pre-processed OSM data compatible with this assumption.
+# Corresponds to: --compact
+COMPACT: {{ (compact | default(False)) }}
+
+# Don't enforce checks on all nodes being present in ways.
+# Faster, but risks incomplete tiles if the data is malformed.
+# Corresponds to: --skip-integrity
+SKIP_INTEGRITY: {{ (skip_integrity | default(False)) }}
+
+# Merge with existing .mbtiles/.sqlite file.
+# Useful for incremental updates.
+# Corresponds to: --merge
+MERGE: {{ (merge | default(False)) }}
+
+# ==============================================================================
+   Generated Command Invocation
+   ==============================================================================
+   This block constructs the exact CLI command using the parameters above.
+   It uses Jinja conditionals to omit flags that are not needed (empty strings or defaults).
+   #}
+
+# Command to execute
+# This is a generated command string based on the above parameters
+COMMAND: "tilemaker \
+--input {{ (input_path | default('/var/lib/tilemaker/data/planet-latest.osm.pbf')) }} \
+--output {{ (output_path | default('/var/lib/tilemaker/output/tiles.mbtiles')) }} \
+--config {{ (config_path | default('/usr/share/tilemaker/config.json')) }} \
+--process {{ (process_script_path | default('/usr/share/tilemaker/process.lua')) }} \
+{% if (store_dir | default('')) %}--store {{ (store_dir | default('')) }} {% endif %}\
+{% if (threads | default(0)) != 0 %}--threads {{ (threads | default(0)) }} {% endif %}\
+{% if (bbox | default('')) %}--bbox {{ (bbox | default('')) }} {% endif %}\
+{% if (verbose | default(False)) %}--verbose {% endif %}\
+{% if (compact | default(False)) %}--compact {% endif %}\
+{% if (skip_integrity | default(False)) %}--skip-integrity {% endif %}\
+{% if (merge | default(False)) %}--merge {% endif %}"

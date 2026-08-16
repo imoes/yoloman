@@ -1,0 +1,42 @@
+# Log rotation configuration for Swift (OpenStack object storage) logs.
+# This template manages `/var/log/swift/*.log` using logrotate.
+
+{# Define default settings for log rotation based on common Swift deployment practices. #}
+{% set log_dir = log_dir | default('/var/log/swift') %}
+{% set rotation_frequency = rotation_frequency | default('daily') %}
+{% set compress_enabled = compress_enabled | default(true) %}
+{% set missing_ok = missing_ok | default(true) %}
+{% set delay_compress = delay_compress | default(true) %}
+{% set copy_truncate = copy_truncate | default(true) %}
+
+{# Logrotate block for Swift logs #}
+{#
+    This block ensures that log files in the Swift directory are rotated
+    regularly to prevent disk space exhaustion. It uses copytruncate
+    which is suitable for Swift processes that do not support SIGHUP
+    for log reloading.
+#}
+{{ log_dir }}/*.log {
+    {# Frequency of log rotation (e.g., daily, weekly) #}
+    {{ rotation_frequency }}
+
+    {# Do not error if the log file is missing #}
+    missingok
+
+    {# Compress rotated log files to save space #}
+    {% if compress_enabled %}
+    compress
+    {% endif %}
+
+    {# Delay compression to the next rotation cycle #}
+    {# This allows running tools like logwatch on the uncompressed file #}
+    {% if delay_compress %}
+    delaycompress
+    {% endif %}
+
+    {# Copy the log file and then truncate it #}
+    {# This ensures the Swift process continues writing to the same file descriptor #}
+    {% if copy_truncate %}
+    copytruncate
+    {% endif %}
+}

@@ -1,0 +1,168 @@
+### powerstat configuration for automated monitoring
+# See powerstat(8) for all available options
+
+# Enable all statistics gathering options (-a)
+# Equivalent to -c, -f, -g, -t and -H
+{% if values.enable_all_stats %}
+ENABLE_ALL_STATS="-a"
+{% else %}
+ENABLE_ALL_STATS=""
+{% endif %}
+
+# Use RAPL interface for power readings (-R)
+# Supports recent Linux kernels and Sandybridge+ Intel processors
+{% if values.use_rapl %}
+USE_RAPL="-R"
+{% else %}
+USE_RAPL=""
+{% endif %}
+
+# Show extra RAPL domain power stats (-D)
+# Only applies if RAPL is enabled (-R)
+{% if values.show_rapl_domains %}
+SHOW_RAPL_DOMAINS="-D"
+{% else %}
+SHOW_RAPL_DOMAINS=""
+{% endif %}
+
+# Show histogram of power measurements (-H)
+# Often used with RAPL to show distribution at end of run
+{% if values.show_histogram %}
+SHOW_HISTOGRAM="-H"
+{% else %}
+SHOW_HISTOGRAM=""
+{% endif %}
+
+# Gather CPU C-state activity (-c)
+# Shows % time and count in each C-state at the end of the run
+{% if values.gather_c_states %}
+GATHER_C_STATES="-c"
+{% else %}
+GATHER_C_STATES=""
+{% endif %}
+
+# Compute geometric mean of CPU core frequencies (-f)
+# Best used with large delay to reduce overhead
+{% if values.gather_cpu_freq %}
+GATHER_CPU_FREQ="-f"
+{% else %}
+GATHER_CPU_FREQ=""
+{% endif %}
+
+# Report GPU frequency of card0 (-g)
+# Requires available GPU with accessible frequency stats
+{% if values.gather_gpu_freq %}
+GATHER_GPU_FREQ="-g"
+{% else %}
+GATHER_GPU_FREQ=""
+{% endif %}
+
+# Gather temperatures from thermal zones (-t)
+# Nothing displayed if no thermal zones available
+{% if values.gather_temps %}
+GATHER_TEMPS="-t"
+{% else %}
+GATHER_TEMPS=""
+{% endif %}
+
+# Redo sampling if system is busy (-b)
+# Busy is defined as less than 98% CPU idle by default
+{% if values.redo_if_busy %}
+REDO_IF_BUSY="-b"
+{% else %}
+REDO_IF_BUSY=""
+{% endif %}
+
+# Idle threshold for busy detection (-i threshold)
+# Forces re-sample if CPU idle % is less than this value
+# Implicitly enables -b option
+# Default is 98 (percent)
+{% if values.idle_threshold is defined %}
+IDLE_THRESHOLD="-i {{ values.idle_threshold }}"
+{% else %}
+IDLE_THRESHOLD=""
+{% endif %}
+
+# Redo if processes fork/exec/exit (-p)
+# Logs activity on completion if -s is also used
+{% if values.redo_if_fork_exit %}
+REDO_IF_FORK_EXIT="-p"
+{% else %}
+REDO_IF_FORK_EXIT=""
+{% endif %}
+
+# Redo if not idle AND fork/exec/exit activity (-r)
+# Alias for -p -b
+{% if values.redo_if_not_idle_and_fork %}
+REDO_IF_NOT_IDLE_FORK="-r"
+{% else %}
+REDO_IF_NOT_IDLE_FORK=""
+{% endif %}
+
+# Log fork/exec/exit activity on completion (-s)
+# Dumps a log of process activity at the end of the run
+{% if values.log_fork_exit %}
+LOG_FORK_EXIT="-s"
+{% else %}
+LOG_FORK_EXIT=""
+{% endif %}
+
+# Use standard averaging instead of rolling average (-S)
+# Useful if battery reports just capacity values
+{% if values.use_standard_averaging %}
+USE_STD_AVERAGING="-S"
+{% else %}
+USE_STD_AVERAGING=""
+{% endif %}
+
+# Ignore zero power rate readings (-z)
+# Useful when powerstat cannot measure power directly
+{% if values.ignore_zero_power %}
+IGNORE_ZERO_POWER="-z"
+{% else %}
+IGNORE_ZERO_POWER=""
+{% endif %}
+
+# No headings option (-n)
+# Disables repeated column headings for easier parsing
+{% if values.no_headings %}
+NO_HEADINGS="-n"
+{% else %}
+NO_HEADINGS=""
+{% endif %}
+
+# Start delay in seconds before beginning measurements (-d delay)
+# Default: 180s on battery, 0s with RAPL
+# Allows machine to settle and battery readings to stabilize
+{% if values.start_delay is defined %}
+START_DELAY="-d {{ values.start_delay }}"
+{% else %}
+START_DELAY=""
+{% endif %}
+
+# Measurement interval in seconds (positional arg)
+# Number of seconds between each sample
+# Default is 10 seconds if not specified
+{% if values.interval is defined %}
+INTERVAL="{{ values.interval }}"
+{% else %}
+INTERVAL=""
+{% endif %}
+
+# Number of samples to collect (positional arg)
+# If not specified, powerstat uses default count (10)
+{% if values.count is defined %}
+COUNT="{{ values.count }}"
+{% else %}
+COUNT=""
+{% endif %}
+
+# Construct the final powerstat command
+# Only non-empty options are included
+CMD="powerstat"
+{% for opt in [ENABLE_ALL_STATS, USE_RAPL, SHOW_RAPL_DOMAINS, SHOW_HISTOGRAM, GATHER_C_STATES, GATHER_CPU_FREQ, GATHER_GPU_FREQ, GATHER_TEMPS, REDO_IF_BUSY, IDLE_THRESHOLD, REDO_IF_FORK_EXIT, REDO_IF_NOT_IDLE_FORK, LOG_FORK_EXIT, USE_STD_AVERAGING, IGNORE_ZERO_POWER, NO_HEADINGS, START_DELAY, INTERVAL, COUNT] if opt %}
+CMD="${CMD} ${opt}"
+{% endfor %}
+
+echo "Running: ${CMD}"
+${CMD}

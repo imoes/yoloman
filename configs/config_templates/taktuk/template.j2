@@ -1,0 +1,57 @@
+# ==============================================================================
+# TakTuk Deployment Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for the TakTuk parallel
+# remote execution framework. It is designed to be self-documenting by including
+# the original schema descriptions as comments above each directive.
+# ==============================================================================
+
+# The login name used for remote connections.
+# Default: 'root'
+-l {{ login_user | default('root') }}
+
+# Timeout in seconds for connector commands.
+# Default: 30
+-t {{ timeout_seconds | default(30) }}
+
+# Initial window size for the deployment pipeline.
+# Default: 10
+-w {{ window_size | default(10) }}
+
+# Max arity for dynamic work-stealing mode. 0 = no max arity.
+# Default: 0
+-d {{ dynamic_limit | default(0) }}
+
+# If true, enables -s to propagate taktuk binary to remote hosts.
+# Default: True
+{% if self_propagate | default(true) %}-s {% endif %}
+
+# The command used to contact remote machines.
+# Default: 'ssh'
+-c {{ connector_command | default('ssh') }}
+
+# The command to use as Perl interpreter for auto-propagation.
+# Default: '' (empty)
+{% if perl_interpreter | default('') | trim != '' %}-I {{ perl_interpreter | default('') | trim }} {% endif %}
+
+# Colon-separated list of directories to set as PATH on remote hosts.
+# Default: '' (empty)
+{% if remote_path | default('') | trim != '' %}-V {{ remote_path | default('') | trim }} {% endif %}
+
+# Path to the file containing remote machine names.
+# Default: '/etc/taktuk/machines'
+-f {{ machines_file | default('/etc/taktuk/machines') }}
+
+# Output template for the 'output' stream to show hostname and line content.
+# This is a static configuration directive as described in schema, though
+# the description field was brief. It ensures structured output from TakTuk.
+-o output="\"$host > $line\"\n"
+
+# Output template for the 'status' stream to show hostname and exit code.
+-o status="\"$host status: $?\"\n"
+
+# List of TakTuk commands to execute after deployment.
+# Default: ['synchronize broadcast exec [ hostname ]']
+{% for cmd in commands | default(['synchronize broadcast exec [ hostname ]']) %}
+{{ cmd }}
+{% endfor %}

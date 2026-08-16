@@ -1,0 +1,27 @@
+# numatop command-line configuration file
+# This template generates a configuration script for the numatop utility.
+# numatop is a NUMA (Non-Uniform Memory Access) aware top tool that monitors
+# CPU and memory usage on NUMA systems.
+
+# sampling_precision: Controls the trade-off between sampling accuracy and system overhead.
+# Valid values: normal, high, low.
+# - 'normal': Balances precision and overhead.
+# - 'high': Provides detailed analysis but with higher CPU overhead.
+# - 'low': Reduces overhead for high-load systems.
+numatop -s {{ sampling_precision | default('normal') }}
+
+# log_level: Sets the verbosity of the log file.
+# Valid values: 1 (reserved/unknown), 2 (all messages).
+numatop -l {{ log_level | default(2) }}
+
+# log_file: Absolute path to the file where numatop writes its log output.
+# This file records warnings and errors encountered by the tool.
+numatop -f "{{ log_file | default('/var/log/numatop.log') }}"
+
+# dump_file: Absolute path to the file where the screen data dump is written.
+# This is primarily used for automated testing or debugging purposes.
+numatop -d "{{ dump_file | default('/tmp/numatop.dump') }}"
+
+# duration: Limits the execution time of numatop in seconds.
+# If set to 0 or omitted, numatop runs indefinitely until it is killed.
+numatop -t {{ duration | default(0) }}

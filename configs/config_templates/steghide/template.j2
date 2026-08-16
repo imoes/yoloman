@@ -1,0 +1,108 @@
+# ============================================================================
+# Steghide Batch Configuration Template
+# ============================================================================
+# This template generates a parameter file for the `steghide` utility.
+# It supports both embedding secret data into cover files and extracting it.
+#
+# SELF-DOCUMENTATION NOTES:
+# - Variables are sourced from Ansible variables mapped to schema fields.
+# - Defaults are applied inline using Jinja2 `| default(...)` to prevent
+#   rendering errors if the variable is undefined.
+# - Security: The `passphrase` should ideally be injected at runtime rather
+#   than stored in this file. Use `''` here if providing via stdin/env.
+# ============================================================================
+
+# [COMMAND SELECTION]
+# - Specifies the primary operation: 'embed' or 'extract'.
+# - Default: embed
+command: {{ command | default('embed') }}
+
+# ============================================================================
+# [EMBED COMMAND PARAMETERS]
+# ============================================================================
+# These settings apply when command='embed'.
+
+# [EMBED SOURCE FILES]
+# - cf: Cover file (the image/audio used as a container).
+#   This file must exist and be readable.
+#   Default: '' (empty string; must be specified for embed to work)
+coverfile: {{ coverfile | default('') }}
+
+# - ef: Embed file (the secret data to hide).
+#   Use '-' to read from standard input.
+#   Default: '' (empty string; must be specified for embed to work)
+embedfile: {{ embedfile | default('') }}
+
+# [EMBED OUTPUT]
+# - sf: The name of the resulting steganographic file.
+#   Default: stego_output.jpg
+stegofile: {{ stegofile | default('stego_output.jpg') }}
+
+# ============================================================================
+# [SECURITY & CRYPTOGRAPHY]
+# ============================================================================
+
+# - p: Passphrase for encryption/decryption.
+#   SECURITY WARNING: Do not hardcode strong passphrases in configuration
+#   files committed to version control. Use Ansible vault or runtime injection.
+#   Default: '' (empty; steghide will prompt if empty)
+passphrase: {{ passphrase | default('') }}
+
+# - e: Encryption algorithm and mode.
+#   Supported algorithms usually include 'rijndael-128' (AES-128), 'rijndael-256' (AES-256),
+#   'des', '3des', 'bf' (Blowfish), and 'none'.
+#   Modes are appended with a space, e.g., 'cbc', 'cfb'.
+#   Default: rijndael-128 cbc
+encryption: {{ encryption | default('rijndael-128 cbc') }}
+
+# ============================================================================
+# [COMPRESSION & INTEGRITY]
+# ============================================================================
+
+# - z: Compression level for the secret data before embedding.
+#   Range: 1 (fastest, least compression) to 9 (slowest, best compression).
+#   Default: 1
+compression_level: {{ compression_level | default(1) }}
+
+# - K: Disable CRC32 checksum embedding.
+#   If false (default), a checksum is embedded to verify data integrity upon extraction.
+#   If true, the checksum is omitted.
+#   Values are rendered as 'true' or 'false' strings for steghide compatibility.
+no_checksum: {{ no_checksum | default(false) | string }}
+
+# - N: Do not embed the original filename of the secret file.
+#   If false (default), the original filename is stored in the stego file.
+#   If true, the filename is stripped, enhancing anonymity but making extraction
+#   harder for the user (they must guess/save with arbitrary names).
+dontembedname: {{ dontembedname | default(false) | string }}
+
+# ============================================================================
+# [EXTRACT COMMAND PARAMETERS]
+# ============================================================================
+# These settings apply when command='extract'.
+
+# - xf: Extract file (output path for the recovered secret).
+#   If left empty, steghide uses the filename stored in the stego file's metadata.
+#   Default: ''
+extractfile: {{ extractfile | default('') }}
+
+# ============================================================================
+# [LOGGING & CONTROL]
+# ============================================================================
+
+# - v: Verbose mode.
+#   If true, displays detailed status information during processing.
+#   Default: false
+verbose: {{ verbose | default(false) | string }}
+
+# - f: Force mode.
+#   If true, overwrites existing output files without prompting.
+#   Default: false
+force: {{ force | default(false) | string }}
+
+# - q: Quiet mode.
+#   If true, suppresses information messages.
+#   Note: If both quiet and verbose are true, quiet typically takes precedence
+#   or results in minimal output depending on the steghide version.
+#   Default: false
+quiet: {{ quiet | default(false) | string }}

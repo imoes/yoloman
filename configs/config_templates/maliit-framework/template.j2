@@ -1,0 +1,21 @@
+# Maliit Framework Input Method Environment Configuration
+#
+# This script sets the GTK_IM_MODULE and QT_IM_MODULE environment variables
+# to enable the Maliit virtual keyboard for supported desktop sessions
+# (Ubuntu Touch, Unity 8, Lomiri).
+#
+# The variables control which input method framework is used by GTK and Qt
+# applications respectively. Setting them to 'maliit' routes input through
+# the Maliit Input Method Server.
+
+case $XDG_SESSION_DESKTOP in
+  ubuntu-touch|unity8*|lomiri)
+    # GTK_IM_MODULE: Specifies the Input Method Module for GTK applications.
+    # Default: maliit
+    export GTK_IM_MODULE={{ gtk_im_module | default('maliit') }}
+
+    # QT_IM_MODULE: Specifies the Input Method Module for Qt applications.
+    # Default: maliit
+    export QT_IM_MODULE={{ qt_im_module | default('maliit') }}
+    ;;
+esac

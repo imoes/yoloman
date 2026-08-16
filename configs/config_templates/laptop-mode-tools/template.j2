@@ -1,0 +1,293 @@
+###############################################################################
+#
+# Configuration for Laptop Mode Tools
+# -----------------------------------
+#
+# There is a "system" to the configuration setting names:
+#    CONTROL_something=0/1   Determines whether Laptop Mode Tools controls 
+#                            something
+#    LM_something=value      Value of "something" when laptop mode is active
+#    NOLM_something=value    Value of "something" when laptop mode is NOT
+#                            active
+#    AC_something=value      Value of "something" when the computer is running
+#                            on AC power
+#    BATT_something=value    Value of "something" when the computer is running
+#                            on battery power
+#
+# There can be combinations of LM_/NOLM_ and AC_/BATT_ prefixes, but the
+# available prefixes are different for each setting. The available ones are 
+# documented in the manual page, laptop-mode.conf(8). If there is no LM_/
+# NOLM_ in a setting name, then the value is used independently of laptop
+# mode state, and similarly, if there is no AC_/BATT_, then the value is used
+# independently of power state.
+#
+# Some options only work on ACPI systems. They are marked ACPI-ONLY.
+#
+# Note that this configuration file is a fragment of shell script: you
+# can use all the features of the shell scripting language to achieve your
+# desired configuration.
+#
+# 
+# Modules
+# -------
+#
+# Laptop Mode Tools modules have separate configuration files, that can be
+# found in /etc/laptop-mode/conf.d. Please look through these configuration
+# files as well, there are many useful power saving tools in there!
+#
+###############################################################################
+
+
+###############################################################################
+# Enable/Disable laptop-mode-tools execution
+# ------------------------------------------
+# Set to 1 to enable laptop-mode-tools execution, 0 to disable.
+# Set it to 0 to completely disable laptop-mode-tools from running
+###############################################################################
+ENABLE_LAPTOP_MODE_TOOLS={{ ENABLE_LAPTOP_MODE_TOOLS | default(1) }}
+
+
+###############################################################################
+# Configuration debugging
+# -----------------------
+###############################################################################
+
+# Set to 1 to see verbose information when starting/stopping laptop_mode.
+VERBOSE_OUTPUT={{ VERBOSE_OUTPUT | default(0) }}
+
+# Set to 1 to log messages to syslog.
+LOG_TO_SYSLOG={{ LOG_TO_SYSLOG | default(0) }}
+
+# Set to 1 to run in shell debug mode.
+# Warning: This will create a lot of text output
+DEBUG={{ DEBUG | default(0) }}
+
+###############################################################################
+# When to enable laptop mode
+# --------------------------
+#
+# "Laptop mode" is the mode in which laptop mode tools makes the computer
+# consume less power. This includes the kernel "laptop_mode" feature, which
+# allows your hard drives to spin down, as well as various other settings which
+# can be tweaked by laptop mode tools. You can enable or disable all of these
+# settings using the CONTROL_... options further down in this config file.
+###############################################################################
+
+
+# Enable laptop mode power saving when on battery power.
+ENABLE_LAPTOP_MODE_ON_BATTERY={{ ENABLE_LAPTOP_MODE_ON_BATTERY | default(1) }}
+
+
+# Enable laptop mode power savings even when on AC power.
+# This is useful when running as a headless machine, in low power mode
+ENABLE_LAPTOP_MODE_ON_AC={{ ENABLE_LAPTOP_MODE_ON_AC | default(0) }}
+
+
+# Enable laptop mode when the lid is closed (ACPI-ONLY).
+ENABLE_LAPTOP_MODE_WHEN_LID_CLOSED={{ ENABLE_LAPTOP_MODE_WHEN_LID_CLOSED | default(0) }}
+
+
+# Set to 1 to enable all simple zero-configuration auto modules.
+# List of modules which can be automatically enabled with this setting are:
+# ac97-powersave, cpufreq, dpms-standby, eee-superhe, ethernet, exec-commands,
+# hal-polling, hdparm, intel-hda-powersave, intel-sata-powermgmt, nmi-watchdog,
+# pcie-aspm, runtime-pm, sched-mc-power-savings, sched-smt-power-savings,
+# terminal-blanking, wireless-ipw-power, wireless-iwl-power, wireless-power
+# NOTE: You can explicitly enable/disable any of the above modules by changing their
+# values in the individual settings file
+ENABLE_AUTO_MODULES={{ ENABLE_AUTO_MODULES | default(1) }}
+
+
+
+
+###############################################################################
+# When to enable data loss sensitive features
+# -------------------------------------------
+#
+# When data loss sensitive features are disabled, laptop mode tools acts as if
+# laptop mode were disabled, for those features only.
+#
+# Data loss sensitive features include:
+# - laptop_mode (i.e., delayed writes)
+# - hard drive write cache
+#
+# All of the options that follow can be set to 0 in order to prevent laptop
+# mode tools from using them to stop data loss sensitive features. Use this
+# when you have a battery that reports the wrong information, that confuses
+# laptop mode tools.
+#
+# Disabling data loss sensitive features is ACPI-ONLY, and it only works if
+# your battery gives off frequent ACPI events to indicate a change in battery
+# level.
+#
+# NOTE: If your battery does NOT give off battery events often enough, you can
+# enable the battery-level-polling module to make this work. Look at the
+# file /etc/laptop-mode/conf.d/battery-level-polling.conf for more information.
+###############################################################################
+
+
+# Disable data loss sensitive features when battery reaches this percent.
+MINIMUM_BATTERY_CHARGE_PERCENT={{ MINIMUM_BATTERY_CHARGE_PERCENT | default(3) }}
+
+
+# Disable data loss sensitive features when battery reports critical state.
+DISABLE_LAPTOP_MODE_ON_CRITICAL_BATTERY_LEVEL={{ DISABLE_LAPTOP_MODE_ON_CRITICAL_BATTERY_LEVEL | default(1) }}
+
+
+# Ignore the alarm value reported by batteries.
+DISABLE_BATTERY_ALARM_CHECK={{ DISABLE_BATTERY_ALARM_CHECK | default(0) }}
+
+
+###############################################################################
+# Controlled hard drives and partitions
+# -------------------------------------
+#
+# For spinning down your hard drives, laptop mode will remount file systems and
+# adjust hard drive spindown timeouts. These parameters specify which
+# devices and partitions are affected by laptop mode.
+###############################################################################
+
+
+# Drives that laptop mode controls. Space separated.
+# The default is a wildcard, which will get you all your IDE and SCSI/SATA drives.
+HD="{{ HD | default('/dev/[hs]d[abcdefgh]') }}"
+
+
+# Partitions or mount points that laptop mode controls. Space separated.
+# Use "auto" to indicate all partitions on drives listed in HD.
+PARTITIONS="{{ PARTITIONS | default('auto /dev/mapper/* /dev/dm-*') }}"
+
+
+# Assume SCSI drives are SATA and use hdparm.
+# Set this to 0 if you have /dev/sd devices and you want laptop mode tools to use the "sdparm" command to control them.
+ASSUME_SCSI_IS_SATA={{ ASSUME_SCSI_IS_SATA | default(1) }}
+
+
+###############################################################################
+# Hard drive behaviour settings
+# -----------------------------
+#
+# These settings specify how laptop mode tools will adjust the various
+# parameters of your hard drives and file systems.
+###############################################################################
+
+
+# Max time in seconds of work lost when system crashes on battery.
+LM_BATT_MAX_LOST_WORK_SECONDS={{ LM_BATT_MAX_LOST_WORK_SECONDS | default(600) }}
+
+# Max time in seconds of work lost when system crashes on AC.
+LM_AC_MAX_LOST_WORK_SECONDS={{ LM_AC_MAX_LOST_WORK_SECONDS | default(360) }}
+
+
+# Should laptop mode tools control readahead?
+CONTROL_READAHEAD={{ CONTROL_READAHEAD | default(1) }}
+
+
+# Read-ahead in kilobytes when laptop mode is active.
+LM_READAHEAD={{ LM_READAHEAD | default(3072) }}
+
+# Read-ahead in kilobytes when laptop mode is NOT active.
+NOLM_READAHEAD={{ NOLM_READAHEAD | default(128) }}
+
+
+# Should laptop mode tools add noatime option to mount options?
+CONTROL_NOATIME={{ CONTROL_NOATIME | default(0) }}
+
+# Should laptop use relatime instead of noatime?
+USE_RELATIME={{ USE_RELATIME | default(1) }}
+
+
+# Should laptop mode tools control hard drive idle timeout settings?
+CONTROL_HD_IDLE_TIMEOUT={{ CONTROL_HD_IDLE_TIMEOUT | default(1) }}
+
+
+# Idle timeout seconds for AC with laptop mode on.
+LM_AC_HD_IDLE_TIMEOUT_SECONDS={{ LM_AC_HD_IDLE_TIMEOUT_SECONDS | default(20) }}
+
+# Idle timeout seconds for battery.
+LM_BATT_HD_IDLE_TIMEOUT_SECONDS={{ LM_BATT_HD_IDLE_TIMEOUT_SECONDS | default(20) }}
+
+# Idle timeout seconds for AC without laptop mode (NOLM).
+NOLM_HD_IDLE_TIMEOUT_SECONDS={{ NOLM_HD_IDLE_TIMEOUT_SECONDS | default(7200) }}
+
+
+# Should laptop mode tools control hard drive power management settings? Set to 0 to disable.
+CONTROL_HD_POWERMGMT="{{ CONTROL_HD_POWERMGMT | default('auto') }}"
+
+
+# Power management value for HD on battery (hdparm -B).
+BATT_HD_POWERMGMT={{ BATT_HD_POWERMGMT | default(1) }}
+
+# Power management value for HD on AC with laptop mode (hdparm -B).
+LM_AC_HD_POWERMGMT={{ LM_AC_HD_POWERMGMT | default(254) }}
+
+# Power management value for HD on AC without laptop mode (hdparm -B).
+NOLM_AC_HD_POWERMGMT={{ NOLM_AC_HD_POWERMGMT | default(254) }}
+
+
+# Should laptop mode tools control hard drive write cache settings?
+CONTROL_HD_WRITECACHE={{ CONTROL_HD_WRITECACHE | default(0) }}
+
+
+# Write cache setting for HD on AC without laptop mode (hdparm -W).
+NOLM_AC_HD_WRITECACHE={{ NOLM_AC_HD_WRITECACHE | default(1) }}
+
+# Write cache setting for HD on battery (hdparm -W).
+NOLM_BATT_HD_WRITECACHE={{ NOLM_BATT_HD_WRITECACHE | default(0) }}
+
+# Write cache setting for HD with laptop mode (hdparm -W).
+LM_HD_WRITECACHE={{ LM_HD_WRITECACHE | default(0) }}
+
+
+
+
+
+###############################################################################
+# Settings you probably don't want to touch
+# -----------------------------------------
+#
+# It is usually not necessary to change these parameters. They are included
+# for completeness' sake.
+###############################################################################
+
+
+# Change mount options on partitions? Don't disable if you want drives to spin down.
+CONTROL_MOUNT_OPTIONS={{ CONTROL_MOUNT_OPTIONS | default(1) }}
+
+
+# Dirty synchronous ratio percentage when laptop mode is active.
+LM_DIRTY_RATIO={{ LM_DIRTY_RATIO | default(60) }}
+
+# Dirty synchronous ratio percentage when laptop mode is NOT active.
+NOLM_DIRTY_RATIO={{ NOLM_DIRTY_RATIO | default(40) }}
+
+
+# Allowed dirty background ratio percentage when laptop mode is active.
+LM_DIRTY_BACKGROUND_RATIO={{ LM_DIRTY_BACKGROUND_RATIO | default(1) }}
+
+# Allowed dirty background ratio percentage when laptop mode is NOT active.
+NOLM_DIRTY_BACKGROUND_RATIO={{ NOLM_DIRTY_BACKGROUND_RATIO | default(10) }}
+
+
+# Kernel default setting.
+DEF_UPDATE={{ DEF_UPDATE | default(5) }}
+
+# Kernel default setting for XFS.
+DEF_XFS_AGE_BUFFER={{ DEF_XFS_AGE_BUFFER | default(15) }}
+
+# Kernel default setting for XFS.
+DEF_XFS_SYNC_INTERVAL={{ DEF_XFS_SYNC_INTERVAL | default(30) }}
+
+# Kernel default setting for XFS.
+DEF_XFS_BUFD_INTERVAL={{ DEF_XFS_BUFD_INTERVAL | default(1) }}
+
+# Kernel default setting.
+DEF_MAX_AGE={{ DEF_MAX_AGE | default(30) }}
+
+
+# Adjust manually to HZ value in running kernel on 2.4. Usually 100 for 2.6.
+XFS_HZ={{ XFS_HZ | default(100) }}
+
+
+# Seconds laptop mode waits after disk goes idle before doing a sync.
+LM_SECONDS_BEFORE_SYNC={{ LM_SECONDS_BEFORE_SYNC | default(2) }}

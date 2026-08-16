@@ -1,0 +1,30 @@
+# ==============================================================================
+# pop3browser configuration file (~/.pop3browserrc)
+# This file defines POP3/APOP mailbox accounts and display preferences.
+#
+# Format for mailbox definitions:
+#   <hostname><TAB><userid><TAB><password><TAB><protocol>
+#   Example:
+#   pop.example.com	user1	pass123	POP3
+#
+# Directives for general settings start with '@'.
+# ==============================================================================
+
+# mailboxes: List of POP3/APOP mailbox definitions to access with pop3browser.
+# Each item represents one server account configuration.
+# Expected fields per mailbox: hostname, userid, password, protocol.
+{% for mailbox in (mailboxes | default([])) %}
+# Mailbox entry: {{ mailbox.hostname | default('localhost') }}
+#   User: {{ mailbox.userid | default('anonymous') }}
+#   Protocol: {{ mailbox.protocol | default('POP3') }}
+{{ mailbox.hostname | default('localhost') }}{{ '\t' }}{{ mailbox.userid | default('anonymous') }}{{ '\t' }}{{ mailbox.password | default('') }}{{ '\t' }}{{ mailbox.protocol | default('POP3') }}
+{% endfor %}
+
+# head_patterns: List of header prefixes to include in the output of the 'show' command.
+# Matches against the start of a header line.
+# Defaults to: From:, To:, Subject:, Date:, CC
+@headpattern = {{ head_patterns | default(['From:', 'To:', 'Subject:', 'Date:', 'CC']) | join(',') }}
+
+# body_lines: Number of body lines to display for each message when using the 'show' or 'mailbox' commands.
+# Defaults to: 10
+@bodylines = {{ body_lines | default(10) }}

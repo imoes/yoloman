@@ -1,0 +1,23 @@
+# OpenID Connect UserInfo Endpoint Configuration
+#
+# This block configures the behavior of the OIDC UserInfo endpoint,
+# which is used by clients to retrieve claims about an authenticated user.
+
+userinfo {
+  # The URL path for the UserInfo endpoint.
+  # Default: /oidc/userinfo
+  path "{{ (userinfo | default({})).path | default('/oidc/userinfo') }}";
+
+  # List of claims to include in the UserInfo response by default.
+  # Default: ['sub', 'name', 'family_name', 'given_name', 'picture', 'email']
+  # These claims are emitted unless the client requests a subset or additional claims via scopes.
+  claims {{ (userinfo | default({})).claims | default(['sub', 'name', 'family_name', 'given_name', 'picture', 'email']) | join("\n  ") }};
+
+  # Whether to allow clients to request JWT format instead of JSON for UserInfo responses.
+  # Default: true
+  jwt_response {{ (userinfo | default({})).jwt_response | default(true) | lower }};
+
+  # Whether to allow clients to define custom scopes for additional claims in the UserInfo response.
+  # Default: true
+  custom_scopes {{ (userinfo | default({})).custom_scopes | default(true) | lower }};
+}

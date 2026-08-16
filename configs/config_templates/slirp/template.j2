@@ -1,0 +1,185 @@
+# Slirp configuration file (~/.slirprc)
+#
+# This file configures slirp (SLIP over IP), a user-mode networking stack
+# commonly used in QEMU/KVM to provide internet access to virtual machines
+# without requiring root privileges or TUN/TAP device permissions on the host.
+#
+# Each line corresponds to a slirp command/option. Only ONE command per line
+# is allowed. Options are processed in order; some options (like -P) reset
+# previous configuration.
+#
+# Variables used are expected to be provided via Ansible inventory or role defaults.
+# All variable references include a Jinja2 `default()` filter to ensure safe rendering
+# even if a variable is undefined.
+
+# ---------------------------------------------------------------------------
+# PPP Mode
+# ---------------------------------------------------------------------------
+# enable_ppp: Enable PPP mode. Must be specified before other PPP options.
+# When enabled, slirp operates in Point-to-Point Protocol mode, which changes
+# how the virtual network interface is configured. This clears previous options.
+{% if enable_ppp | default(False) %}
+-P
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Data Flow Control
+# ---------------------------------------------------------------------------
+# baudrate: Internal control value for data flow (e.g., 14400).
+# Does not change physical serial port speed. Used for flow control simulation.
+# Only set if explicitly provided and not None.
+{% if baudrate | default(None) is not none %}
+baudrate {{ baudrate | default(None) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Network Packet Size
+# ---------------------------------------------------------------------------
+# mtu: Size of IP packets sent across the serial link. Valid values <= 1500.
+# Controls the Maximum Transmission Unit for the virtual network interface.
+{% if mtu | default(552) is not none %}
+mtu {{ mtu | default(552) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Network Alias Addresses
+# ---------------------------------------------------------------------------
+# special_address: The network IP alias for slirp. Must end in 0.
+# Defines the network address block allocated for the guest.
+# Default is '10.0.2.0'.
+{% if special_address | default('10.0.2.0') %}
+special address {{ special_address | default('10.0.2.0') }}
+{% endif %}
+
+# dns_address: Alias for the DNS server address.
+# The IP address of the DNS resolver provided by slirp to the guest.
+# Default is '10.0.2.3'.
+{% if dns_address | default('10.0.2.3') %}
+dns {{ dns_address | default('10.0.2.3') }}
+{% endif %}
+
+# host_address: Alias for the IP address of the host slirp is running on.
+# The gateway/loopback-like address visible to the guest for host access.
+# Default is '10.0.2.2'.
+{% if host_address | default('10.0.2.2') %}
+special host {{ host_address | default('10.0.2.2') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Compression Settings
+# ---------------------------------------------------------------------------
+# compress: Force CSLIP (Compressed SLIP) mode.
+# Enables header compression for TCP/IP packets to save bandwidth.
+#
+# no_compress: Force SLIP mode (disable CSLIP).
+# Explicitly disables compression. These two options are mutually exclusive;
+# if both are false or unset, default compression behavior applies.
+{% if compress | default(False) %}
+compress
+{% elif no_compress | default(False) %}
+nocompress
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# TCP Keepalive
+# ---------------------------------------------------------------------------
+# enable_keepalive: Enable TCP keep-alive probes every minute.
+# Prevents idle connections from timing out due to NAT or firewall expiration.
+#
+# keepalive_interval: Interval in seconds for TCP keep-alive probes.
+# If specified, slirp will send probes at this interval instead of the default.
+{% if enable_keepalive | default(False) %}
+keepalive
+{% elif keepalive_interval | default(None) is not none %}
+keepalive {{ keepalive_interval | default(None) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Port Redirections (Forwarding)
+# ---------------------------------------------------------------------------
+# port_redirections: List of port redirection rules.
+# Maps host ports to local ports/addresses inside the guest using the 'redir' command.
+# Each rule is a dictionary with keys: 'type' ('tcp' or 'udp'), 'host_port',
+# 'target_address', and 'target_port'.
+# Format: redir <type> <host_port> to <target_address>:<target_port>
+{% for rule in (port_redirections | default([])) %}
+redir {{ rule.type }} {{ rule.host_port }} to {{ rule.target_address }}:{{ rule.target_port }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# X Window System Redirection
+# ---------------------------------------------------------------------------
+# enable_x_redir: Enable X Window System redirection.
+# Allows the guest to connect to the host's X server for GUI applications.
+#
+# x_server_address: The IP address of the host X server.
+#
+# x_display: The X display number (e.g., 0 for :0).
+#
+# x_screen: The X screen number.
+# Format: redir X <host>:<display>.<screen>
+{% if enable_x_redir | default(False) %}
+redir X {{ x_server_address | default('127.0.0.1') }}:{{ x_display | default(0) }}.{{ x_screen | default(0) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Exec Programs (Telnet/Exec Connections)
+# ---------------------------------------------------------------------------
+# exec_programs: List of programs to execute when a telnet/exec connection is made.
+# Each rule is a dictionary with keys: 'mode', 'program', 'address', 'port'.
+# Format: add <mode> <program>:<address>:<port>
+# If address is omitted, default is local. If port is omitted, default is 23.
+{% for exec_rule in (exec_programs | default([])) %}
+add {{ exec_rule.mode }} {{ exec_rule.program }}{% if exec_rule.address is defined %}:{{ exec_rule.address }}{% endif %}:{% if exec_rule.port is defined %}{{ exec_rule.port }}{% else %}23{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Service Emulation
+# ---------------------------------------------------------------------------
+# service_emulation: List of emulated services on local ports.
+# Allows slirp to emulate a specific service (e.g., ftp, telnet) on a guest port
+# and forward it to a remote port.
+# Format: add emu <service>{% if type_of_service is defined %}:{{ type_of_service }}{% endif %} <local_port>{% if remote_port is defined %}:{{ remote_port }}{% endif %}
+{% for emu_rule in (service_emulation | default([])) %}
+add emu {{ emu_rule.service }}{% if emu_rule.type_of_service is defined %}:{{ emu_rule.type_of_service }}{% endif %} {{ emu_rule.local_port }}{% if emu_rule.remote_port is defined %}:{{ emu_rule.remote_port }}{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Default Shell for Exec
+# ---------------------------------------------------------------------------
+# shell_program: The default shell program for exec IP telnet port.
+# Used when launching exec programs without an explicit shell.
+{% if shell_program | default('') %}
+shell {{ shell_program | default('') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# enable_logging: Log startup output to .slirp_start.
+# If true, slirp writes its initial status and configuration to the .slirp_start file.
+{% if enable_logging | default(False) %}
+log start
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Echo Control
+# ---------------------------------------------------------------------------
+# enable_echo: Enable echo on the terminal.
+#
+# disable_echo: Disable echo on the terminal.
+# Controls whether keystrokes are echoed back on the control terminal.
+{% if enable_echo | default(False) %}
+echo on
+{% elif disable_echo | default(False) %}
+echo off
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Control Address Access
+# ---------------------------------------------------------------------------
+# control_access_address: Allow access to slirp control address from specific IP.
+# Restricts or allows management access to the slirp control interface.
+{% if control_access_address | default('') %}
+special control {{ control_access_address | default('') }}
+{% endif %}

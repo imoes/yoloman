@@ -1,0 +1,91 @@
+# Webcamd configuration file
+# This configuration controls the webcamd service, which captures images from a webcam
+# and optionally uploads them to an FTP server.
+
+# ============================================================================
+# General settings
+# ============================================================================
+
+# Log level: 0=none, 1=minimal, 2=full
+# Controls the verbosity of the daemon's logging output.
+log {{ log_level | default(1) }}
+
+# ============================================================================
+# Daemon behavior
+# ============================================================================
+
+# Run as daemon (0=no, 1=yes)
+# If set to 1, the process detaches and runs in the background.
+daemon {{ daemon | default(1) }}
+
+# ============================================================================
+# Device settings
+# ============================================================================
+
+# Device node for the webcam
+# The path to the V4L2 device node to capture from.
+dev {{ dev | default('/dev/video0') }}
+
+# Width of the captured image
+# Horizontal resolution in pixels.
+width {{ width | default(640) }}
+
+# Height of the captured image
+# Vertical resolution in pixels.
+# The vertical resolution in pixels.
+height {{ height | default(480) }}
+
+# Format: jpeg or ppm
+# The image format to encode the captured frames as.
+format {{ format | default('jpeg') }}
+
+# ============================================================================
+# Capture settings
+# ============================================================================
+
+# Number of images to take per capture cycle
+# How many frames to grab in a burst at each interval.
+capture {{ capture | default(1) }}
+
+# Delay in seconds between captures
+# Time to wait between capture cycles.
+interval {{ interval | default(60) }}
+
+# Delay in seconds before the first capture
+# Initial startup delay before the first capture cycle begins.
+startdelay {{ startdelay | default(5) }}
+
+# ============================================================================
+# Upload settings
+# ============================================================================
+
+# Local directory where images are stored
+# Path to the local filesystem directory where captured images are saved
+# before being uploaded (if FTP is configured).
+localpath {{ localpath | default('/var/www/webcam') }}
+
+# FTP server hostname
+# The hostname or IP address of the FTP server to upload images to.
+# If not configured, uploads may be skipped or local-only.
+ftp_host {{ ftp_host | default('localhost') }}
+
+# FTP server port
+# The TCP port on which the FTP server is listening.
+ftp_port {{ ftp_port | default(21) }}
+
+# FTP username
+# The account name used to authenticate with the FTP server.
+ftp_user {{ ftp_user | default('webcam') }}
+
+# FTP password
+# The password used to authenticate with the FTP server.
+# Note: In production, consider securing this value via Ansible Vault.
+ftp_pass {{ ftp_pass | default('webcam') }}
+
+# Remote FTP path for uploads
+# The directory path on the FTP server where images will be stored.
+ftppath {{ ftppath | default('/webcam') }}
+
+# Use passive mode for uploads (0=no, 1=yes)
+# Passive mode is often required when behind a NAT or firewall.
+ftp_passive {{ ftp_passive | default(1) }}

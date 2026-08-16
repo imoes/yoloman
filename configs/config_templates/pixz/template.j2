@@ -1,0 +1,55 @@
+{# =============================================================================
+   # pixz Configuration Template
+   # =============================================================================
+   # This template generates a configuration file for 'pixz', a parallel, indexed
+   # xz compression tool. Each variable below uses a Jinja2 default() filter to
+   # ensure the template renders safely even if the variable is undefined in Ansible.
+   # The comments describe the corresponding command-line flag and behavior.
+   # ============================================================================= #}
+
+# -# Compression level, from 0 (lowest/speed) to 9 (highest/slowest). [Default: 6]
+#    Maps to command-line flag: --compress-level LEVEL or -# LEVEL
+compression_level: {{ compression_level | default(6) }}
+
+# -e Use "extreme" compression mode. [Default: False]
+#    Maps to command-line flag: --extreme or -e
+use_extreme: {{ use_extreme | default(False) }}
+
+# -p CPUS Number of CPU cores to use. 0 means auto-detect system cores. [Default: 0]
+#    Maps to command-line flag: --cpus CPUS or -p CPUS
+cores: {{ cores | default(0) }}
+
+# -f FRACTION Size of compression blocks relative to LZMA dictionary size (default 2.0). [Default: 2.0]
+#    Maps to command-line flag: --fraction FRACTION or -f FRACTION
+block_fraction: {{ block_fraction | default(2.0) }}
+
+# -q SIZE Number of blocks in the compression queue. 0 means default calculation. [Default: 0]
+#    Maps to command-line flag: --queue-size SIZE or -q SIZE
+queue_size: {{ queue_size | default(0) }}
+
+# -t Force non-tarball mode (no archive index created on compress). [Default: False]
+#    Maps to command-line flag: --force-non-tarball or -t
+force_non_tarball: {{ force_non_tarball | default(False) }}
+
+# -l List archive contents instead of compressing. [Default: False]
+#    Maps to command-line flag: --list or -l
+list_contents: {{ list_contents | default(False) }}
+
+# -x PATH Extract members starting with PATH from an archive. [Default: '']
+#    Maps to command-line flag: --extract-path PATH or -x PATH
+#    If empty, extraction path filtering is disabled.
+extract_path: '{{ extract_path | default("") }}'
+
+# -d Decompress instead of compress. [Default: False]
+#    Maps to command-line flag: --decompress or -d
+decompress: {{ decompress | default(False) }}
+
+# -i INPUT Input file path. [Default: '']
+#    Maps to command-line flag: --input INPUT or -i INPUT
+#    If empty, pixz reads from stdin.
+input_path: '{{ input_path | default("") }}'
+
+# -o OUTPUT Output file path. [Default: '']
+#    Maps to command-line flag: --output OUTPUT or -o OUTPUT
+#    If empty, pixz writes to stdout or auto-determines output name.
+output_path: '{{ output_path | default("") }}'

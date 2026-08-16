@@ -1,0 +1,33 @@
+# ==============================================================================
+# notmuch-git Configuration
+#
+# This template configures the Git integration for Notmuch.
+# It defines where the tag database is stored, the tag naming convention,
+# and the logging verbosity.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# git.path
+# Description: The file system path to the git repository containing the notmuch tag database.
+#              Corresponds to git.config `git.path`. Can be overridden by environment
+#              variable NOTMUCH_GIT_DIR or command-line flag --git-dir.
+# Default:     /var/lib/notmuch/git
+# ------------------------------------------------------------------------------
+git.path: {{ (git | default({})).path | default('/var/lib/notmuch/git') }}
+
+# ------------------------------------------------------------------------------
+# git.tag_prefix
+# Description: The prefix string used to filter tags in notmuch.
+#              Corresponds to git.config `git.tag_prefix`. Can be overridden by
+#              environment variable NOTMUCH_GIT_PREFIX or command-line flag --tag-prefix.
+# Default:     notmuch::
+# ------------------------------------------------------------------------------
+git.tag_prefix: "{{ (git | default({})).tag_prefix | default('notmuch::') }}"
+
+# ------------------------------------------------------------------------------
+# git.log_level
+# Description: Log verbosity level for notmuch-git.
+#              Valid levels: critical, error, warning, info, debug.
+# Default:     warning
+# ------------------------------------------------------------------------------
+git.log_level: "{{ (git | default({})).log_level | default('warning') }}"

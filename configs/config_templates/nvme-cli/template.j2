@@ -1,0 +1,40 @@
+# nvme-cli: NVMe Management CLI default parameters for discovery.
+# This file is used by nvme-cli scripts to extract default transport parameters.
+# It is not a daemon configuration file but a discovery hint file.
+
+# Transport type (e.g., rdma, tcp, fc, pci).
+# Schema field: transport
+# Description: The NVMe over Fabrics transport type to use for discovery.
+# Allowed values: rdma, tcp, fc, pci, loop
+# Default: pci (kernel default)
+transport = {{ (transport | default('pci')) }}
+
+
+# Transport Address (IP or NQN for Fabrics).
+# Schema field: traddr
+# Description: The address of the NVMe subsystem controller to discover.
+# Default: 0.0.0.0 (Wildcard/Any)
+traddr = {{ (traddr | default('0.0.0.0')) }}
+
+
+# Transport Service ID (Port for TCP/RDMA, etc.).
+# Schema field: trsvcid
+# Description: The port number or service identifier for the transport.
+# For TCP/RDMA, this is a numeric port. For FC, this is typically not used.
+# Default: 4420 (Standard NVMe over Fabrics port)
+trsvcid = {{ (trsvcid | default(4420)) }}
+
+
+# Host Transport Address (IP address of the local host interface).
+# Schema field: host_traddr
+# Description: The source IP address to use when initiating the connection.
+# Useful in multi-homed hosts to specify which interface to use.
+# Default: empty (Let kernel choose)
+host_traddr = {{ (host_traddr | default('')) }}
+
+
+# Host Interface Name (RDMA network interface name).
+# Schema field: host_iface
+# Description: The name of the RDMA network interface to use.
+# Default: empty (Let kernel choose)
+host_iface = {{ (host_iface | default('')) }}

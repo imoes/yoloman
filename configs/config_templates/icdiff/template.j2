@@ -1,0 +1,166 @@
+# =============================================================================
+# icdiff CLI Options Configuration Template
+# This template generates a command-line options string for the `icdiff` tool.
+# Each section corresponds to a specific configuration parameter defined in
+# the Ansible role schema. Variables are provided with safe defaults.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# cols: Specify the width of the screen. 0 means autodetection.
+# -----------------------------------------------------------------------------
+--cols={{ cols | default(0) }}
+
+# -----------------------------------------------------------------------------
+# encoding: Specify the file encoding.
+# -----------------------------------------------------------------------------
+--encoding={{ encoding | default('utf-8') }}
+
+# -----------------------------------------------------------------------------
+# exclude_lines: Regex patterns for lines to exclude from diffing.
+# Not compatible with line-numbers option.
+# -----------------------------------------------------------------------------
+{% for line in exclude_lines | default([]) %}
+--exclude-lines={{ line }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# head: Consider only the first N lines of each file. 0 means all lines.
+# -----------------------------------------------------------------------------
+--head={{ head | default(0) }}
+
+# -----------------------------------------------------------------------------
+# highlight: Color by changing the background color instead of the foreground color.
+# -----------------------------------------------------------------------------
+{% if highlight | default(False) %}
+--highlight
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# labels: Labels to override file names in the header. Use twice for left and right.
+# -----------------------------------------------------------------------------
+{% for label in labels | default([]) %}
+--label={{ label }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# line_numbers: Generate output with line numbers.
+# Not compatible with exclude-lines option.
+# -----------------------------------------------------------------------------
+{% if line_numbers | default(False) %}
+--line-numbers
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# no_bold: Use non-bold colors; recommended for solarized theme.
+# -----------------------------------------------------------------------------
+{% if no_bold | default(False) %}
+--no-bold
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# no_headers: Don't label the left and right sides with their file names.
+# -----------------------------------------------------------------------------
+{% if no_headers | default(False) %}
+--no-headers
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# output_encoding: Specify the output encoding.
+# -----------------------------------------------------------------------------
+--output-encoding={{ output_encoding | default('utf-8') }}
+
+# -----------------------------------------------------------------------------
+# recursive: Recursively compare subdirectories.
+# -----------------------------------------------------------------------------
+{% if recursive | default(False) %}
+-r
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# report_identical_files: Report when two files are the same.
+# -----------------------------------------------------------------------------
+{% if report_identical_files | default(False) %}
+-s
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# show_all_spaces: Color all non-matching whitespace.
+# -----------------------------------------------------------------------------
+{% if show_all_spaces | default(False) %}
+--show-all-spaces
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# show_no_spaces: Don't color whitespace-only changes.
+# -----------------------------------------------------------------------------
+{% if show_no_spaces | default(False) %}
+--show-no-spaces
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# tabsize: Tab stop spacing.
+# -----------------------------------------------------------------------------
+--tabsize={{ tabsize | default(8) }}
+
+# -----------------------------------------------------------------------------
+# truncate: Truncate long lines instead of wrapping them.
+# -----------------------------------------------------------------------------
+{% if truncate | default(False) %}
+-t
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# patch: Generate patch output.
+# -----------------------------------------------------------------------------
+{% if patch | default(False) %}
+-u
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# unified_numlines: Number of context lines to print.
+# -----------------------------------------------------------------------------
+{% if unified_numlines is defined %}
+--unified={{ unified_numlines }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# whole_file: Show the whole file instead of just changed lines and context.
+# -----------------------------------------------------------------------------
+{% if whole_file | default(False) %}
+-W
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# permissions: Compare file permissions as well as content.
+# -----------------------------------------------------------------------------
+{% if permissions | default(False) %}
+-P
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# strip_trailing_cr: Strip trailing carriage return at the end of an input line.
+# -----------------------------------------------------------------------------
+{% if strip_trailing_cr | default(False) %}
+--strip-trailing-cr
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# color_map: Choose which colors are used for which items.
+# -----------------------------------------------------------------------------
+{% if color_map is defined %}
+--color-map={{ color_map }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# is_git_diff: Show the real file name when displaying git-diff result.
+# -----------------------------------------------------------------------------
+{% if is_git_diff | default(False) %}
+--is-git-diff
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# exclude_patterns: File patterns to exclude from comparison.
+# -----------------------------------------------------------------------------
+{% for pat in exclude_patterns | default([]) %}
+-x {{ pat }}
+{% endfor %}

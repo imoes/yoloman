@@ -1,0 +1,63 @@
+# Syslogout Configuration Template
+# This template generates the syslogout shell script which handles
+# user logout hooks. It supports system-wide scripts in a config
+# directory and per-user overrides, with optional debugging output.
+
+# Enable debugging output.
+# When set to 1, the script creates temporary files and logs
+# state for troubleshooting. Set to 0 to disable all debug traces.
+# Source: SYSDEBUG (default: 0)
+SYSDEBUG={{ SYSDEBUG | default(0) }}
+
+# The temporary directory used by syslogout for debugging and
+# storing per-user state files during the logout process.
+# Ensure this directory is writable by the intended users or
+# that the script has permissions to create it.
+# Source: SYSLOGOUT_TMPDIR (default: /var/tmp/syslogout)
+SYSLOGOUT_TMPDIR={{ SYSLOGOUT_TMPDIR | default('/var/tmp/syslogout') }}
+
+# The system-wide directory containing configuration scripts (*.bash)
+# to execute during logout. These scripts run for all users unless
+# a user-specific override is present in their home directory.
+# Source: SYSLOGOUT_DIR (default: /etc/syslogout.d)
+SYSLOGOUT_DIR={{ SYSLOGOUT_DIR | default('/etc/syslogout.d') }}
+
+# Only run logout hooks if the user has not explicitly disabled them.
+# Users can create a file named ".nosyslogout" in their home directory
+# to prevent these scripts from running.
+
+if [ ! -f $HOME/.nosyslogout ]; then
+
+    # Debugging block: if SYSDEBUG is 1, ensure the temp directory exists
+    # and create a marker file for the current user.
+    if [ "$SYSDEBUG" = 1 ]; then
+        if [ ! -d {{ SYSLOGOUT_TMPDIR | default('/var/tmp/syslogout') }} ]; then
+            mkdir -m 1777 {{ SYSLOGOUT_TMPDIR | default('/var/tmp/syslogout') }}
+            touch {{ SYSLOGOUT_TMPDIR | default('/var/tmp/syslogout') }}/$USER
+            chmod 600 {{ SYSLOGOUT_TMPDIR | default('/var/tmp/syslogout') }}/$USER
+        fi
+    fi
+
+    # Phase 1: Execute system-wide scripts.
+    # Iterates over all *.bash files in the system config directory.
+    # A script is executed ONLY IF the user does not have a local
+    # override with the same filename in $HOME/.syslogout.d/.
+    if [ -d {{ SYSLOGOUT_DIR | default('/etc/syslogout.d') }} ]; then
+        for i in `cd {{ SYSLOGOUT_DIR | default('/etc/syslogout.d') }} && echo *.bash`
+        do
+            if [ ! -f $HOME/.syslogout.d/$i ]; then
+                . {{ SYSLOGOUT_DIR | default('/etc/syslogout.d') }}/$i
+            fi
+        done
+    fi
+
+    # Phase 2: Execute user-defined scripts.
+    # Iterates over all *.bash files in the user's personal syslogout
+    # directory. These take precedence and run regardless of system scripts.
+    if [ -d $HOME/.syslogout.d ]; then
+        for i in `cd $HOME/.syslogout.d && echo *.bash`
+        do
+            . $HOME/.syslogout.d/$i
+        done
+    fi
+fi

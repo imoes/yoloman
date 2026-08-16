@@ -1,0 +1,52 @@
+# /etc/rtpengine/rtpengine-recording.conf
+#
+# Configuration file for the rtpengine-recording-daemon service.
+# This service records RTP/RTCP streams and stores them on local or network storage.
+#
+# Ansible Managed: Do not edit manually.
+#
+
+# Path to this configuration file (convention for the daemon to locate itself).
+CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
+
+# Section identifier comment (informational).
+# CONFIG_SECTION=rtpengine-recording
+
+# Path to the PID file for the daemon.
+PIDFILE=/run/rtpengine-recording/rtpengine-recording-daemon.pid
+
+# Unix user to run the daemon as.
+# Default: root (if commented out or not set).
+# Note: Requires appropriate permissions for log and data directories.
+#SET_USER=root
+
+# Unix group to run the daemon as.
+# Default: inherited from SET_USER or system default.
+# Note: GROUP is only needed if USER is not set or if the user isn't in the group.
+#SET_GROUP=root
+
+#
+# NFS Storage Configuration
+#
+
+# Enable NFS storage backend for recordings.
+# If 'no', local storage is used. If 'yes', NFS parameters below must be valid.
+# This flag toggles between local filesystem and NFS network storage.
+MUST_NFS=no
+
+# IP address or hostname of the NFS server.
+# This tells the daemon which remote NFS server to connect to when MUST_NFS=yes.
+NFS_HOST={{ nfs_host | default('192.168.1.1') }}
+
+# Remote path on the NFS server where recordings are stored.
+# This is the export directory on the NFS host.
+NFS_REMOTE_PATH={{ nfs_remote_path | default('/var/recordings') }}
+
+# Local directory where the NFS share is mounted.
+# This directory on the local host will contain the files from NFS_REMOTE_PATH.
+# It must match the 'output-dir' setting in the rtpengine main config if used together.
+NFS_LOCAL_MOUNT={{ nfs_local_mount | default('/var/lib/rtpengine-recording') }}
+
+# Mount options for the NFS share (passed to mount -o).
+# Recommended: 'hard' for reliability, 'intr' to allow interrupting stuck mounts, 'tcp' for stability.
+NFS_OPTIONS={{ nfs_options | default('hard,intr,tcp') }}

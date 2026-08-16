@@ -1,0 +1,25 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          iscsiuio
+# Required-Start:    $network $local_fs
+# Required-Stop:    $network $local_fs sendsigs
+# X-Start-Before:    iscsid
+# X-Stop-After:      iscsid
+# Default-Start:     S
+# Default-Stop:      0 1 6
+# Short-Description: iSCSI userspace offloading daemon (iscsiuio)
+# Description:       Userspace daemon required for the hardware iSCSI
+#                    offloading functionality of QLogic (formerly
+#                    Broadcom) NetXtreme II cards.
+### END INIT INFO
+
+# Author: Christian Seiler <christian@iwakd.de>
+
+DESC="iSCSI userspace offloading daemon (iscsiuio)"
+DAEMON=/sbin/iscsiuio
+# pidfile_name: Base name for the PID file without extension. The full path becomes /run/{pidfile_name}.pid
+PIDFILE=/run/{{ pidfile_name | default('iscsiuio') }}.pid

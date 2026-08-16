@@ -1,0 +1,88 @@
+#!/bin/sh
+
+# Copyright (C) 2010-2019 by X2Go project, https://wiki.x2go.org
+#       Oleksandr Shneyder <o.shneyder@phoca-gmbh.de>
+#       Moritz 'Morty' Struebe <Moritz.Struebe@informatik.uni-erlangen.de>
+#       Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+
+# X2Go is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# X2Go is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+### BEGIN INIT INFO
+# Provides:          x2gothinclient-cdmanager
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start and stop the x2go CD/DVD manager daemon
+### END INIT INFO
+
+set -e
+
+# use system's locale settings for the X2Go Client in TCE mode
+if [ -r /etc/default/locale ]; then
+	. /etc/default/locale
+	export LANG LANGUAGE
+fi
+
+. /lib/lsb/init-functions
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+export HOSTNAME
+DAEMON=/usr/sbin/x2gocdmanager
+# Internal name of the daemon used for PID file and script identification.
+NAME={{ name | default('x2gothinclient-cdmanager') }}
+# Human-readable description of the service displayed in log messages.
+DESC={{ desc | default('x2gothinclient-cdmanager') }}
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+	start)
+		# only start the X2Go CD Manager if x2gothinclientd is configured as the default display manager
+		if [ -e /etc/X11/default-display-manager ] && [ "$(cat /etc/X11/default-display-manager)" = "/usr/sbin/x2gothinclientd" ]; then
+			log_daemon_msg "Starting $DESC" "x2gocdmanager"
+			start-stop-daemon --start --quiet --pidfile /run/$NAME.pid --exec $DAEMON -- $DAEMON_OPTS
+			log_end_msg $?
+		fi
+	;;
+	stop)
+		log_daemon_msg "Stopping $DESC" "x2gocdmanager"
+		start-stop-daemon --oknodo --stop --quiet --pidfile /run/$NAME.pid || true
+		log_end_msg $?
+	;;
+	status)
+		log_daemon_msg "Status of $DESC" "x2gocdmanager"
+		start-stop-daemon --oknodo --status --quiet --pidfile /run/$NAME.pid || true
+		log_end_msg $?
+	;;
+	force-reload)
+		start-stop-daemon --stop --test --quiet --pidfile /run/$NAME.pid && $0 restart || exit 0
+	;;
+	restart)
+		log_daemon_msg "Restarting $DESC" "x2gocdmanager"
+		$0 stop
+		sleep 1
+		$0 start
+		log_end_msg $?
+	;;
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop|restart|force-reload}" >&2
+		exit 1
+	;;
+esac
+
+exit 0

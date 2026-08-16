@@ -1,0 +1,43 @@
+# ==============================================================================
+# runlim Configuration Template
+# ==============================================================================
+# runlim is a tool for benchmarking and limiting resource usage of processes.
+# This template generates a configuration file for runlim based on Ansible variables.
+#
+# Variables used (from 'values' mapping):
+#   values.output_file   : Path to the log file. Empty means stderr.
+#   values.time_limit    : CPU time limit in seconds (accumulated). 0 = no limit.
+#   values.real_time_limit : Wall-clock time limit in seconds. 0 = no limit.
+#   values.space_limit   : Disk/memory space limit in MB. 0 = no limit.
+#   values.kill_signal   : If true, propagate signals to child on limit exceed.
+#   values.command       : The command to execute and benchmark.
+# ==============================================================================
+
+# Path to the file where runlim logs status information.
+# If empty or not set, output goes to stderr.
+# Default: '' (empty string)
+output_file: {{ ((values | default({})).output_file | default('', true)) | string }}
+
+# The time limit in seconds.
+# Represents accumulated CPU time for multi-threaded programs.
+# 0 means no limit.
+# Default: 0
+time_limit: {{ ((values | default({})).time_limit | default(0)) | int }}
+
+# The real time (wall clock) limit in seconds.
+# 0 means no limit.
+# Default: 0
+real_time_limit: {{ ((values | default({})).real_time_limit | default(0)) | int }}
+
+# The space limit in megabytes.
+# 0 means no limit.
+# Default: 0
+space_limit: {{ ((values | default({})).space_limit | default(0)) | int }}
+
+# If true, runlim propagates signals to the child process when limits are exceeded.
+# Default: false
+kill_signal: {{ ((values | default({})).kill_signal | default(false)) | ternary('true', 'false') }}
+
+# The command and its arguments to be executed and benchmarked by runlim.
+# Default: '' (empty string)
+command: {{ ((values | default({})).command | default('', true)) | string }}

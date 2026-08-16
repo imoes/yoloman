@@ -1,0 +1,148 @@
+# ==============================================================================
+# xfsdump Command Configuration Template
+# ==============================================================================
+# This template generates a valid `xfsdump` command line based on Ansible variables.
+# xfsdump does not use a static configuration file; it operates via command-line arguments.
+# Use this template to generate the command in a wrapper script or execute it directly.
+#
+# Self-Documenting Principle:
+# Every variable reference includes its schema default and description to ensure
+# the configuration is understandable without external documentation.
+# ==============================================================================
+
+# The XFS filesystem to dump (mount point or device path).
+# Example: /data or /dev/sda1
+# Schema default: '/data'
+# Field: filesystem
+{% set fs = (xfsdump_filesystem | default('/data')) | trim %}
+{% if fs %}
+xfsdump {{ fs }} \
+{% else %}
+xfsdump \
+{% endif %}
+
+# Dump level argument.
+# 0 for full dump, 1-9 for incremental.
+# Schema default: '-l 0'
+# Field: dump_level
+# Note: If you wish to omit the level, provide an empty string.
+{% set level = (xfsdump_dump_level | default('-l 0')) | trim %}
+{% if level %}
+  {{ level }} \
+{% endif %}
+
+# Verbosity argument.
+# Examples: '-v trace', '-v drive=debug,media=debug'.
+# Schema default: 'silent'
+# Field: verbose
+{% set verb = (xfsdump_verbose | default('silent')) | trim %}
+{% if verb %}
+  {{ verb }} \
+{% endif %}
+
+# Blocksize argument for tape.
+# '-b <bytes>'.
+# Schema default: '' (empty)
+# Field: blocksize_flag
+{% set blk = (xfsdump_blocksize_flag | default('')) | trim %}
+{% if blk %}
+  {{ blk }} \
+{% endif %}
+
+# Minimal tape protocol flag.
+# '-m' for non-scsi or remote tape.
+# Schema default: '' (empty)
+# Field: media_protocol
+{% set proto = (xfsdump_media_protocol | default('')) | trim %}
+{% if proto %}
+  {{ proto }} \
+{% endif %}
+
+# Allow files with 'no dump' attribute to be skipped.
+# '-e'.
+# Schema default: '' (empty)
+# Field: exclude_no_dump
+{% set excl = (xfsdump_exclude_no_dump | default('')) | trim %}
+{% if excl %}
+  {{ excl }} \
+{% endif %}
+
+# List of pathnames (relative to mount point) to restrict dump to.
+# Uses '-s <path>' for each entry.
+# Schema default: [] (empty list)
+# Field: subtree_flags
+{% set subtrees = xfsdump_subtree_flags | default([]) %}
+{% if subtrees is iterable and (subtrees | length) > 0 %}
+  {% for path in subtrees %}
+  -s {{ path }} \
+  {% endfor %}
+{% endif %}
+
+# Session label argument.
+# '-L <label>'.
+# Schema default: '' (empty)
+# Field: session_label_flag
+{% set sess = (xfsdump_session_label_flag | default('')) | trim %}
+{% if sess %}
+  {{ sess }} \
+{% endif %}
+
+# List of media labels for destinations.
+# Uses '-M <label>' for each entry.
+# Schema default: [] (empty list)
+# Field: media_label_flags
+{% set medialabels = xfsdump_media_label_flags | default([]) %}
+{% if medialabels is iterable and (medialabels | length) > 0 %}
+  {% for label in medialabels %}
+  -M {{ label }} \
+  {% endfor %}
+{% endif %}
+
+# Overwrite tape without reading first.
+# '-o'.
+# Schema default: False
+# Field: overwrite_tape
+{% if xfsdump_overwrite_tape | default(False) %}
+  -o \
+{% endif %}
+
+# Inhibit normal update of inventory.
+# '-J'.
+# Schema default: False
+# Field: no_inventory
+{% if xfsdump_no_inventory | default(False) %}
+  -J \
+{% endif %}
+
+# Max file size in KB to include.
+# '-z <size>'.
+# Schema default: '' (empty)
+# Field: max_file_size
+{% set maxsize = (xfsdump_max_file_size | default('')) | trim %}
+{% if maxsize %}
+  -z {{ maxsize }} \
+{% endif %}
+
+# Set dump time based on file modification time.
+# '-t <file>'.
+# Schema default: '' (empty)
+# Field: dump_time_flag
+{% set dtime = (xfsdump_dump_time_flag | default('')) | trim %}
+{% if dtime %}
+  -t {{ dtime }} \
+{% endif %}
+
+# List of dump destinations.
+# Each item has 'path' (file/device) and optional 'media_label'.
+# If media_label is provided, '-M <label>' is added.
+# Default destination is /dev/null.
+# Schema default: [{'path': '/dev/null'}]
+# Field: destinations
+{% set dests = xfsdump_destinations | default([{'path': '/dev/null'}]) %}
+{% if dests is iterable and (dests | length) > 0 %}
+  {% for dest in dests %}
+  {% set d_path = dest.path | default('/dev/null') %}
+  {% set d_label = dest.media_label | default('') %}
+  {{ d_path }}{% if d_label %} -M {{ d_label }}{% endif %} \
+  {% endfor %}
+{% endif %}

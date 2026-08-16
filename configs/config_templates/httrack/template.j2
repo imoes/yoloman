@@ -1,0 +1,610 @@
+# =============================================================================
+# httrack Web Mirroring Tool Configuration
+# =============================================================================
+# This file configures the httrack(1) web mirror utility.
+# It controls how websites are downloaded, mirrored, and organized.
+#
+# See `man httrack` or the httrack website for detailed documentation on
+# each directive.
+# =============================================================================
+
+# ----- Basic Settings -----
+
+# Root configuration object. If undefined, the template renders nothing.
+{% if config is defined %}
+
+# Path to the default mirror directory.
+# Corresponds to the '-O' option (Output path) in httrack CLI.
+# Uses HOME environment variable if specified in the value.
+# Default: /home/user/websitename
+path = {{ config.path | default('/home/user/websitename') }}
+
+# Mirror mode: Enables the mirror operation.
+# Corresponds to the '-w' (Mirror) flag. Set to 1 to enable, 0 to disable.
+# If disabled, httrack might act only as a link checker or other mode.
+# Default: 1 (Enabled)
+mirror = {{ config.mirror | default(1) }}
+
+# ----- Connection & Network -----
+
+# Local hostname or IP address to bind requests to.
+# Corresponds to the '--bind' or '-%b' option.
+# Useful for multi-homed hosts or specifying a source interface.
+# Default: Empty (System default)
+bind = {{ config.bind | default('') }}
+
+# Proxy server address.
+# Corresponds to the '--proxy' or '-P' option.
+# Format: [protocol://]host[:port] or user:pass@host:port
+# Example: http://proxy.example.com:8080
+# Default: Empty (No proxy)
+proxy = {{ config.proxy | default('') }}
+
+# Use proxy for FTP connections.
+# Corresponds to the '--httpproxy-ftp' or '-%f' option.
+# 0: Don't use proxy for FTP (use direct or FTP-specific proxy settings).
+# 1: Use HTTP proxy for FTP connections (CONNECT method).
+# Default: 0
+httpproxy_ftp = {{ config.httpproxy_ftp | default(0) }}
+
+# Internet protocol version preference.
+# Corresponds to the '--protocol' or '-@i' option.
+# 0: Both IPv4 and IPv6 (default).
+# 4: IPv4 only.
+# 6: IPv6 only.
+# Default: 0 (Both)
+protocol = {{ config.protocol | default(0) }}
+
+# ----- Limits & Throttling -----
+
+# Maximum mirror depth (recursion level).
+# Corresponds to the '--depth' or '-r' option.
+# Limits how many levels deep the spider follows links.
+# 0 = unlimited.
+# Default: 20
+default_depth = {{ config.default_depth | default(20) }}
+
+# Maximum depth for external links.
+# Corresponds to the '--ext-depth' or '-%e' option.
+# Limits recursion for links pointing to external sites.
+# 0 = unlimited.
+# Default: 0 (Unlimited)
+ext_depth = {{ config.ext_depth | default(0) }}
+
+# Maximum number of files to download.
+# Corresponds to the '--max-files' or '-m' option.
+# 0 = unlimited.
+# Default: 0 (Unlimited)
+max_files = {{ config.max_files | default(0) }}
+
+# Maximum overall size to download (in bytes).
+# Corresponds to the '--max-size' or '-M' option.
+# 0 = unlimited.
+# Default: 0 (Unlimited)
+max_size = {{ config.max_size | default(0) }}
+
+# Maximum mirror time in seconds.
+# Corresponds to the '--max-time' or '-E' option.
+# 0 = unlimited time.
+# Default: 0 (Unlimited)
+max_time = {{ config.max_time | default(0) }}
+
+# Maximum transfer rate (bytes/second).
+# Corresponds to the '--max-rate' or '-A' option.
+# Used to throttle bandwidth usage.
+# Default: 0 (No limit)
+max_rate = {{ config.max_rate | default(0) }}
+
+# Maximum number of connections per second.
+# Corresponds to the '--connection-per-second' or '-%c' option.
+# Helps avoid triggering rate-limiting on the target server.
+# Default: 0 (No limit)
+connection_per_second = {{ config.connection_per_second | default(0) }}
+
+# Number of parallel connections (sockets).
+# Corresponds to the '--sockets' or '-c' option.
+# Higher values speed up downloading but increase load on the server.
+# Default: 3
+sockets = {{ config.sockets | default(3) }}
+
+# Timeout in seconds for non-responding links.
+# Corresponds to the '--timeout' or '-T' option.
+# Default: 30
+timeout = {{ config.timeout | default(30) }}
+
+# Number of retries for timeout or connection errors.
+# Corresponds to the '--retries' or '-R' option.
+# Default: 2
+retries = {{ config.retries | default(2) }}
+
+# Minimum transfer rate tolerated (bytes/second).
+# Corresponds to the '--min-rate' or '-J' option.
+# If download speed drops below this, the connection is aborted/retried.
+# 0 = disabled.
+# Default: 0 (Disabled)
+min_rate = {{ config.min_rate | default(0) }}
+
+# Pause transfer if N bytes reached.
+# Corresponds to the '--max-pause' or '-G' option.
+# Useful for breaking up large downloads.
+# 0 = disabled.
+# Default: 0 (Disabled)
+max_pause = {{ config.max_pause | default(0) }}
+
+# Host control strategy.
+# Corresponds to the '--host-control' or '-H' option.
+# 0: Never control host (download as fast as possible).
+# 1: Timeout-based control (throttle if requests are too fast).
+# 2: Slow connection simulation.
+# 3: Timeout or slow (automatic).
+# Default: 0
+host_control = {{ config.host_control | default(0) }}
+
+# ----- Content & Parsing Options -----
+
+# Extended parsing of links.
+# Corresponds to the '--extended-parsing' or '-%P' option.
+# 0: Off.
+# 1: On (parses JavaScript, CSS, etc. for links).
+# Default: 0
+extended_parsing = {{ config.extended_parsing | default(0) }}
+
+# Get non-HTML files near HTML files.
+# Corresponds to the '--near' or '-n' option.
+# 0: Off (strict structure).
+# 1: On (group related non-HTML files with HTML files).
+# Default: 0
+near = {{ config.near | default(0) }}
+
+# Test all URLs, including forbidden ones.
+# Corresponds to the '--test' or '-t' option.
+# 0: Off.
+# 1: On (checks URLs even if they are in robots.txt or forbidden).
+# Default: 0
+test_urls = {{ config.test_urls | default(0) }}
+
+# List of URLs to add from a file.
+# Corresponds to the '--list' or '-%L' option.
+# Each line in the file should be a URL to process.
+# Default: Empty list
+{% if config.url_list_files is defined %}
+{% for f in config.url_list_files | default([]) %}
+# [URL List File] {{ f }}
+{% endfor %}
+{% endif %}
+
+# List of scan rules (URList) from a file.
+# Corresponds to the '--urllist' or '-%S' option.
+# Each line contains a rule for filtering URLs.
+# Default: Empty list
+{% if config.urllist_files is defined %}
+{% for f in config.urllist_files | default([]) %}
+# [URList File] {{ f }}
+{% endfor %}
+{% endif %}
+
+# Structure type for saved files.
+# Corresponds to the '--structure' or '-N' option.
+# 0: Original structure.
+# 1: HTML files in a 'web/' directory.
+# Default: 0
+structure = {{ config.structure | default(0) }}
+
+# Delayed type check.
+# Corresponds to the '--cached-delayed-type-check' or '-%D' / '-%N' option.
+# 0: Off.
+# 1: Check only for unknown types.
+# 2: Always check.
+# Default: 0
+delayed_type_check = {{ config.delayed_type_check | default(0) }}
+
+# Generate MIME-encapsulated full-archive (.mht).
+# Corresponds to the '--mime-html' or '-%M' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+mime_html = {{ config.mime_html | default(0) }}
+
+# Long file names mode.
+# Corresponds to the '--long-names' or '-LN' option.
+# 0: 8.3 format (DOS compatible).
+# 1: Long names (modern filesystems).
+# 2: ISO9660 (CD-ROM compatible).
+# Default: 1
+long_names = {{ config.long_names | default(1) }}
+
+# Keep original links mode.
+# Corresponds to the '--keep-links' or '-K' option.
+# 0: Relative links.
+# 1: Absolute links.
+# 3: Absolute URI.
+# 4: Original links.
+# 5: Proxy links.
+# Default: 0
+keep_links = {{ config.keep_links | default(0) }}
+
+# Replace external HTML links by error pages.
+# Corresponds to the '--replace-external' or '-x' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+replace_external = {{ config.replace_external | default(0) }}
+
+# Disable passwords in external links.
+# Corresponds to the '--disable-passwords' or '-%x' option.
+# 0: Include passwords.
+# 1: Disable/strip passwords.
+# Default: 1
+disable_passwords = {{ config.disable_passwords | default(1) }}
+
+# Include query string for local files.
+# Corresponds to the '--include-query-string' or '-%q' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+include_query_string = {{ config.include_query_string | default(0) }}
+
+# Generate output HTML file in case of error.
+# Corresponds to the '--generate-errors' or '-o' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+generate_errors = {{ config.generate_errors | default(0) }}
+
+# Purge old files after update.
+# Corresponds to the '--purge-old' or '-X' option.
+# 0: Keep old files.
+# 1: Purge (delete) files not found on the server.
+# Default: 0
+purge_old = {{ config.purge_old | default(0) }}
+
+# Preserve HTML files as is.
+# Corresponds to the '--preserve' or '-%p' option.
+# 0: Off.
+# 1: On (don't modify HTML structure/content).
+# Default: 0
+preserve = {{ config.preserve | default(0) }}
+
+# Convert links to UTF-8.
+# Corresponds to the '--utf8-conversion' or '-%T' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+utf8_conversion = {{ config.utf8_conversion | default(0) }}
+
+# Accept cookies.
+# Corresponds to the '--cookies' or '-b' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+accept_cookies = {{ config.accept_cookies | default(0) }}
+
+# Check document type for unknown types.
+# Corresponds to the '--check-type' or '-u' option.
+# 0: Off.
+# 1: Check only root /.
+# 2: Always check.
+# Default: 0
+check_type = {{ config.check_type | default(0) }}
+
+# Parse Java Classes.
+# Corresponds to the '--parse-java' or '-j' option.
+# Bitmask for parsing Java source code.
+# Default: 0
+parse_java = {{ config.parse_java | default(0) }}
+
+# Follow robots.txt and meta robots tags.
+# Corresponds to the '--robots' or '-s' option.
+# 0: Never.
+# 1: Sometimes.
+# 2: Always.
+# 3: Strict.
+# Default: 0
+follow_robots = {{ config.follow_robots | default(0) }}
+
+# Force HTTP/1.0 requests.
+# Corresponds to the '--http-10' or '-%h' option.
+# 0: Off (use HTTP/1.1).
+# 1: On (force HTTP/1.0).
+# Default: 0
+http_10 = {{ config.http_10 | default(0) }}
+
+# Use keep-alive if possible.
+# Corresponds to the '--keep-alive' or '-%k' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+keep_alive = {{ config.keep_alive | default(0) }}
+
+# Tolerant requests.
+# Corresponds to the '--tolerant' or '-%B' option.
+# 0: Off.
+# 1: On (ignore certain server errors).
+# Default: 0
+tolerant = {{ config.tolerant | default(0) }}
+
+# Update hacks.
+# Corresponds to the '--updatehack' or '-%s' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+update_hack = {{ config.update_hack | default(0) }}
+
+# URL hacks.
+# Corresponds to the '--urlhack' or '-%u' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+url_hack = {{ config.url_hack | default(0) }}
+
+# Assume mime types for specific extensions.
+# Corresponds to the '--assume' or '-%A' option.
+# List of 'ext=mime' strings.
+# Default: Empty list
+{% if config.assume_mime is defined %}
+{% for m in config.assume_mime | default([]) %}
+# [Assume Mime] {{ m }}
+{% endfor %}
+{% endif %}
+
+# Disabled external mime modules.
+# Corresponds to the '--disable-module' or '-%w' option.
+# List of module names to disable.
+# Default: Empty list
+{% if config.disable_modules is defined %}
+{% for m in config.disable_modules | default([]) %}
+# [Disabled Module] {{ m }}
+{% endfor %}
+{% endif %}
+
+# ----- Identification -----
+
+# User-Agent string.
+# Corresponds to the '--user-agent' or '-F' option.
+# Identifies the mirroring tool to the web server.
+# Default: "HtTrack Website Copier (offline browsing only)"
+user_agent = {{ config.user_agent | default('HtTrack Website Copier (offline browsing only)') }}
+
+# Default Referer string.
+# Corresponds to the '--referer' or '-%R' option.
+# Default: Empty
+referer = {{ config.referer | default('') }}
+
+# From email address.
+# Corresponds to the '--from' or '-%E' option.
+# Used in HTTP requests if required by the server.
+# Default: Empty
+from_email = {{ config.from_email | default('') }}
+
+# Footer string in HTML code.
+# Corresponds to the '--footer' or '-F' option.
+# Appended to downloaded HTML pages.
+# Default: Empty
+footer = {{ config.footer | default('') }}
+
+# Preferred language.
+# Corresponds to the '--language' or '-%l' option.
+# Sent in the 'Accept-Language' header.
+# Default: Empty
+preferred_language = {{ config.preferred_language | default('') }}
+
+# Accepted formats (Accept header).
+# Corresponds to the '--accept' or '-%a' option.
+# Default: Empty
+accepted_formats = {{ config.accepted_formats | default('') }}
+
+# Additional HTTP header lines.
+# Corresponds to the '--headers' or '-%X' option.
+# List of 'Name: Value' strings.
+# Default: Empty list
+{% if config.extra_headers is defined %}
+{% for h in config.extra_headers | default([]) %}
+# [Header] {{ h }}
+{% endfor %}
+{% endif %}
+
+# ----- Cache & Storage -----
+
+# Cache mode.
+# Corresponds to the '--cache' or '-C' option.
+# 0: No cache.
+# 1: Priority cache.
+# 2: Test update before.
+# Default: 0
+cache = {{ config.cache | default(0) }}
+
+# Store all files in cache.
+# Corresponds to the '--store-all-in-cache' or '-k' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+store_all_in_cache = {{ config.store_all_in_cache | default(0) }}
+
+# Do not re-download locally erased files.
+# Corresponds to the '--do-not-recatch' or '-%n' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+do_not_recatch = {{ config.do_not_recatch | default(0) }}
+
+# ----- Logging & Display -----
+
+# Display mode.
+# Corresponds to the '--display' or '-%v' option.
+# 0: Off (silent).
+# 1: Short summary.
+# 2: Full verbose output.
+# Default: 1
+display = {{ config.display | default(1) }}
+
+# Do not log.
+# Corresponds to the '--do-not-log' or '-Q' option.
+# 0: Off (log enabled).
+# 1: On (disable logging).
+# Default: 0
+do_not_log = {{ config.do_not_log | default(0) }}
+
+# Quiet mode (no questions).
+# Corresponds to the '--quiet' or '-q' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+quiet = {{ config.quiet | default(0) }}
+
+# Extra log info.
+# Corresponds to the '--extra-log' or '-z' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+extra_log = {{ config.extra_log | default(0) }}
+
+# Debug log.
+# Corresponds to the '--debug-log' or '-Z' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+debug_log = {{ config.debug_log | default(0) }}
+
+# Verbose (log on screen).
+# Corresponds to the '--verbose' or '-v' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+verbose = {{ config.verbose | default(0) }}
+
+# Log to file.
+# Corresponds to the '--file-log' or '-f' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+file_log = {{ config.file_log | default(0) }}
+
+# Single log file.
+# Corresponds to the '--single-log' or '-f2' option.
+# 0: Off (multiple files).
+# 1: On (single file).
+# Default: 0
+single_log = {{ config.single_log | default(0) }}
+
+# ----- Indexing -----
+
+# Make index.
+# Corresponds to the '--index' or '-I' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+make_index = {{ config.make_index | default(0) }}
+
+# Build top index.
+# Corresponds to the '--build-top-index' or '-%i' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+build_top_index = {{ config.build_top_index | default(0) }}
+
+# Search index.
+# Corresponds to the '--search-index' or '-%I' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+search_index = {{ config.search_index | default(0) }}
+
+# ----- Navigation Constraints -----
+
+# Priority mode.
+# Corresponds to the '--priority' or '-p' option.
+# 0: Scan (standard).
+# 1: HTML only.
+# 2: Non-HTML only.
+# 3: All.
+# 7: HTML then other.
+# Default: 0
+priority = {{ config.priority | default(0) }}
+
+# Stay on same directory.
+# Corresponds to the '--stay-on-same-dir' or '-S' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+stay_on_same_dir = {{ config.stay_on_same_dir | default(0) }}
+
+# Can only go down.
+# Corresponds to the '--can-go-down' or '-D' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+can_go_down = {{ config.can_go_down | default(0) }}
+
+# Can only go up.
+# Corresponds to the '--can-go-up' or '-U' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+can_go_up = {{ config.can_go_up | default(0) }}
+
+# Can go up and down.
+# Corresponds to the '--can-go-up-and-down' or '-B' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+can_go_up_and_down = {{ config.can_go_up_and_down | default(0) }}
+
+# Stay on same address (IP).
+# Corresponds to the '--stay-on-same-address' or '-a' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+stay_on_same_address = {{ config.stay_on_same_address | default(0) }}
+
+# Stay on same domain.
+# Corresponds to the '--stay-on-same-domain' or '-d' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+stay_on_same_domain = {{ config.stay_on_same_domain | default(0) }}
+
+# Stay on same TLD.
+# Corresponds to the '--stay-on-same-tld' or '-l' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+stay_on_same_tld = {{ config.stay_on_same_tld | default(0) }}
+
+# Go everywhere.
+# Corresponds to the '--go-everywhere' or '-e' option.
+# 0: Off (restricted).
+# 1: On (unrestricted).
+# Default: 0
+go_everywhere = {{ config.go_everywhere | default(0) }}
+
+# ----- Debugging & Advanced -----
+
+# Debug HTTP headers.
+# Corresponds to the '--debug-headers' or '-%H' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+debug_headers = {{ config.debug_headers | default(0) }}
+
+# Use fast engine.
+# Corresponds to the '--fast-engine' or '-#X' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+fast_engine = {{ config.fast_engine | default(0) }}
+
+# Advanced max filters.
+# Corresponds to the '--advanced-maxfilters' or '-#FN' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+advanced_max_filters = {{ config.advanced_max_filters | default(0) }}
+
+# Advanced max links.
+# Corresponds to the '--advanced-maxlinks' or '-#L' option.
+# 0: Off.
+# 1: On.
+# Default: 0
+advanced_max_links = {{ config.advanced_max_links | default(0) }}
+
+{% endif %}

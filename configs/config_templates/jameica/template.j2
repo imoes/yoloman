@@ -1,0 +1,43 @@
+# Jameica Systemd Service Unit Template
+# Generates a systemd service file for the Jameica Java application.
+# Self-documenting: every directive is commented with its schema description
+# and uses safe defaults for all variables.
+
+[Unit]
+# Description of the service as it appears in system logs and systemctl.
+Description=Jameica Runtime Environment
+# Ensure network is available before starting the application.
+After=network.target
+
+[Service]
+# Service type: simple means systemd considers the process started immediately.
+Type=simple
+# The system user account to run Jameica under.
+User={{ user | default('jameica') }}
+# The system group account to run Jameica under.
+Group={{ group | default('jameica') }}
+
+# Start mode: 'client' (with UI) or 'server' (headless). Corresponds to -c or -d flags.
+# Executes Jameica with the specified mode flag.
+ExecStart=/usr/bin/jameica --{{ start_mode | default('server') }}
+
+# Path to the JAVA_HOME directory for the Java runtime environment.
+# Passed as an environment variable to the Java process.
+Environment="JAVA_HOME={{ java_home | default('/usr/lib/jvm/java-17-openjdk-amd64') }}"
+
+# Additional Java options passed via JAVA_OPTS, e.g., memory limits or proxy settings.
+# Passed as an environment variable to the Java process.
+Environment="JAVA_OPTS={{ java_opts | default('-Xmx512m') }}"
+
+# The directory used as the user home directory for Jameica (-f option).
+# This is where Jameica stores its user data and plugins.
+WorkingDirectory={{ working_directory | default('/opt/jameica') }}
+
+# Restart policy for service stability: automatically restart if the process exits unexpectedly.
+Restart=on-failure
+# Time in seconds to wait before restarting the service after a failure.
+RestartSec=5
+
+[Install]
+# Enable the service by symlinking it into the multi-user.target runlevel.
+WantedBy=multi-user.target

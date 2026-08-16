@@ -1,0 +1,50 @@
+{# ============================================================================== #}
+{# sysv-rc-conf configuration template                                           #}
+{# This template manages the configuration for the 'sysv-rc-conf' tool, which is   #}
+{# a visual interface to manage SysV init scripts and their runlevel associations. #}
+{# ============================================================================== #}
+
+{# Cache directory for internal state storage. #}
+{# Corresponds to the --cache command-line option. #}
+{# Default: /var/lib/sysv-rc-conf #}
+cache_dir={{ cache_dir | default('/var/lib/sysv-rc-conf') }}
+
+{# Root directory prefix for path resolution. #}
+{# Useful for chroot environments or rescue disks. #}
+{# Corresponds to the --root command-line option. #}
+{# Default: / #}
+root_dir={{ root_dir | default('/') }}
+
+{# Verbosity log file path. #}
+{# Detailed operation logs are printed to this file if specified. #}
+{# Corresponds to the --verbose command-line option. #}
+{# Default: STDERR (empty string in config means stderr) #}
+verbose_file={{ verbose_file | default('STDERR') }}
+
+{# List of runlevels to affect operations on. #}
+{# Accepts numbers 0-9 and 'S'. #}
+{# Corresponds to the --level command-line option. #}
+{# Default: 2,3,4,5 #}
+runlevels={{ runlevels | default(['2', '3', '4', '5']) | join(',') }}
+
+{# ============================================================================== #}
+{# Services Configuration                                                         #}
+{# Each entry defines the start/stop priority and target runlevels for a specific  #}
+{# SysV service script.                                                           #}
+{# ============================================================================== #}
+{% for svc in services | default([]) %}
+{# Service: {{ svc.name | default('unknown') }} #}
+{# Priority for Start link (S). #}
+{# Corresponds to the SXX symlink name in rc*.d/. #}
+{# Default: 20 #}
+service={{ svc.name }}
+priority_start={{ svc.priority_start | default(20) }}
+{# Priority for Stop link (K). #}
+{# Corresponds to the KXX symlink name in rc*.d/. #}
+{# Default: 80 #}
+priority_stop={{ svc.priority_stop | default(80) }}
+{# Runlevels to enable for this service. #}
+{# Comma-separated list of runlevel identifiers (0-9, S). #}
+target_runlevels={{ svc.runlevels | default([]) | join(',') }}
+
+{% endfor %}

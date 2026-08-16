@@ -1,0 +1,66 @@
+# =============================================================================
+# UCSPI-Proxy Configuration Template
+# =============================================================================
+# This template generates the environment variables required by ucspi-proxy(1)
+# when invoked by a service supervisor (e.g. runit, supervise).
+#
+# ucspi-proxy is a small utility that copies data between two sockets.
+# It does not read a traditional config file; instead, its behavior is
+# controlled entirely by command-line arguments and environment variables
+# provided by the service manager.
+#
+# This template is designed to be dropped into an Ansible role's templates/
+# directory and rendered into a service environment file or directly into
+# a supervise/run script.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Target Server Configuration
+# ------------------------------------------------------------------------------
+
+# The hostname or IP address of the upstream UCSPI server.
+# If empty, the proxy expects an incoming client connection via FD 6.
+# If specified, ucspi-proxy connects to this host.
+TARGET_HOST={{ target_host | default('') }}
+
+# The port number of the upstream server.
+# Only used if target_host is specified.
+TARGET_PORT={{ target_port | default(0) }}
+
+# Connection Timeout
+# The maximum time in seconds ucspi-proxy waits for a connection to the
+# target host to be established.
+# Defaults to 30 seconds.
+TIMEOUT={{ timeout | default(30) }}
+
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Maximum Line Length
+# The maximum length of lines (from either server or client) to copy to the
+# log output. Lines longer than this are truncated or discarded depending
+# on the implementation's handling, but this value controls the buffer size.
+# Defaults to 64 bytes.
+MAXLINE={{ maxline | default(64) }}
+
+# Verbose Output
+# If set to 1, ucspi-proxy prints informational messages about errors and
+# byte counts to stderr.
+# If set to 0 (or empty), it runs silently.
+# Defaults to false (0).
+VERBOSE={{ verbose | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Service Invocation Helper
+# ------------------------------------------------------------------------------
+# The following variable is typically used by the service wrapper script
+# to construct the final command line. It demonstrates how the variables
+# above are consumed.
+#
+# Example command line construction:
+# /usr/bin/ucspi-proxy \
+#   -h "${TARGET_HOST}" \
+#   -p "${TARGET_PORT}" \
+#   -t "${TIMEOUT}" \
+#   -l "${MAXLINE}" \
+#   -v "${VERBOSE}"

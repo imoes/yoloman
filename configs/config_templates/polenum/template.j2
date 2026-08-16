@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# polenum execution wrapper
+# ==============================================================================
+# This script invokes the `polenum` security auditing tool against a target
+# Windows/SMB system using the parameters defined in the Ansible variables.
+#
+# polenum does not use a traditional static configuration file; instead,
+# runtime parameters are injected via this wrapper.
+#
+# Schema fields used:
+#   - target_address: The IP address or hostname of the Windows system to probe.
+#   - username:       The username to use for authentication (empty for null auth).
+#   - password:       The password to use for authentication.
+#   - protocols:      List of protocols to probe (e.g., '445/SMB', '139/SMB').
+# ==============================================================================
+
+# Target address to probe (e.g., 192.168.1.13)
+# Default: 192.168.1.1
+TARGET="{{ target_address | default('192.168.1.1') }}"
+
+# Username for authentication
+# Optional. Leave empty for null auth attempts if supported by the target.
+# Default: '' (empty)
+USERNAME="{{ username | default('') }}"
+
+# Password for authentication
+# Optional. Default: '' (empty)
+PASSWORD="{{ password | default('') }}"
+
+# Protocols to use for probing. Supported: '445/SMB', '139/SMB'.
+# Multiple protocols can be specified space-separated.
+# Default: ['445/SMB']
+# NOTE: The trailing space is intentional for shell word splitting in the final command.
+# Each protocol in the list is printed followed by a space.
+PROTOCOLS="{% for p in protocols | default(['445/SMB']) %}{{ p }} {% endfor %}"
+
+# Construct the command arguments
+ARGS=""
+
+# If a username is provided, format credentials as user:password@target
+# Otherwise, just use the target address (null auth)
+# Check if USERNAME is non-empty using shell test -n
+{% if username | default('') %}
+if -n "${USERNAME}";
+{% else %}
+if "";
+{% endif %}
+then
+    ARGS="${USERNAME}:${PASSWORD}@${TARGET}"
+else
+    ARGS="${TARGET}"
+fi
+
+# Log the execution for auditing/troubleshooting purposes
+echo "Executing polenum: polenum ${ARGS} --protocols ${PROTOCOLS}"
+
+# Execute the command with the constructed arguments and protocols
+exec polenum ${ARGS} --protocols ${PROTOCOLS}

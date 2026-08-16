@@ -1,0 +1,44 @@
+#!/bin/bash
+# Wrapper script to execute spfquery with site-specific parameters.
+# Generated configuration for spfquery (spf-tools-python)
+#
+# This script constructs the command line for the `spfquery` tool using
+# Ansible-managed variables. Each variable is guarded with a `default()`
+# filter to prevent rendering failures if the variable is undefined in
+# the Ansible playbook.
+
+EXECUTABLE="spfquery"
+
+# Client IP address to use for SPF check.
+# Schema field: ip_address (default: '192.0.2.1')
+IP_ADDRESS="{{ (ip_address | default('192.0.2.1')) | string }}"
+
+# Envelope sender (Mail From) address from which mail was received.
+# Schema field: sender_address (default: 'postmaster@example.com')
+SENDER_ADDRESS="{{ (sender_address | default('postmaster@example.com')) | string }}"
+
+# HELO/EHLO name used by the SMTP client.
+# Schema field: helo_hostname (default: 'mail.example.com')
+HELO_HOSTNAME="{{ (helo_hostname | default('mail.example.com')) | string }}"
+
+# Receipt to address, useful for logging and constructing rejection messages.
+# Schema field: rcpt_to_address (default: 'user@example.com')
+RCPT_TO_ADDRESS="{{ (rcpt_to_address | default('user@example.com')) | string }}"
+
+# Additional SPF mechanisms to be checked on the basis of local policy.
+# Schema field: local_policy (default: '')
+# Note: Local policy matches are not strictly SPF results.
+LOCAL_POLICY="{{ (local_policy | default('')) | string }}"
+
+# Default explanation string to be used if the query fails.
+# Schema field: default_explanation (default: 'SPF check failed')
+DEFAULT_EXPLANATION="{{ (default_explanation | default('SPF check failed')) | string }}"
+
+# Execute the command with the constructed parameters
+${EXECUTABLE} \
+    --ip "${IP_ADDRESS}" \
+    --sender "${SENDER_ADDRESS}" \
+    --helo "${HELO_HOSTNAME}" \
+    --rcpt-to "${RCPT_TO_ADDRESS}" \
+    --local "{{ (local_policy | default('')) | string }}" \
+    --default-explanation "{{ (default_explanation | default('SPF check failed')) | string }}"

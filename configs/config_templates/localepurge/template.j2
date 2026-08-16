@@ -1,0 +1,12 @@
+// Get rid of unneeded locale files after each package installation
+//
+// This is a dpkg configuration snippet. The 'DPkg' block ensures that
+// the localepurge utility is executed after every package installation
+// or removal, helping to save disk space by removing unneeded locale files.
+
+DPkg
+{
+    // post_invoke_cmd: The shell command executed post-invoke by dpkg to run localepurge if needed.
+    // Default is a safe wrapper that checks if localepurge is executable and if dpkg is in purge/remove mode.
+    Post-Invoke {{ post_invoke_cmd | default("if [ -x /usr/sbin/localepurge ] && [ $(ps w -p $PPID | grep -E -c '(remove|purge)') != 1 ]; then /usr/sbin/localepurge; else exit 0; fi") }};
+};

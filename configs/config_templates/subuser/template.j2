@@ -1,0 +1,46 @@
+# Subuser Configuration File
+# Global settings for the subuser application.
+# This configuration file manages Linux user namespaces within Docker/Podman
+# via the 'subuser' CLI tool.
+
+# The default tag or registry namespace for subuser images.
+# Used when resolving image references without an explicit registry/namespace.
+subuser default_registry: {{ (default_registry | default('default')) | string }}
+
+# Enable verbose logging for subuser commands globally.
+# When true, provides detailed output for debugging subuser operations.
+verbose: {{ verbose | default(false) | lower }}
+
+# Path to the Docker daemon socket.
+# Specify the Unix socket path for the container runtime communication.
+docker_socket: {{ docker_socket | default('/var/run/docker.sock') | string }}
+
+# List of subuser configurations to manage with subuser add/run commands.
+# Each item defines a specific Linux user's containerized environment.
+{% for user in subusers | default([]) %}
+
+# Configuration for subuser: {{ (user.name | default('unnamed')) | string }}
+# Creates a restricted user context linked to a specific Docker image.
+subuser {{ (user.name | default('unnamed')) | string }}:
+  # Docker image reference for the subuser (e.g., iceweasel@default, firefox@default).
+  # The format is typically 'image_name@registry_namespace'.
+  image: {{ (user.image | default('')) | string }}
+  
+  # List of file paths to whitelist for this subuser.
+  # These directories/files are accessible to the subuser inside the container.
+  whitelist:
+  {% for dir in user.whitelist | default([]) %}
+    - {{ dir | string }}
+  {% endfor %}
+  
+  # List of environment variable definitions for this subuser.
+  # Passed to the container process for this subuser.
+  environment:
+  {% for env in user.environment | default([]) %}
+    {{ env | string }}
+  {% endfor %}
+  
+  # Enable verbose output for this specific subuser.
+  # Overrides the global verbose setting for this specific user's operations.
+  verbose: {{ (user.verbose | default(false)) | lower }}
+{% endfor %}

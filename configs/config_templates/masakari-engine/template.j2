@@ -1,0 +1,323 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          {{ PROVIDES | default('masakari-engine') }}
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs
+# Should-Start:      {{ SHOULD_START | default('postgresql mysql keystone rabbitmq-server ntp') }}
+# Should-Stop:       {{ SHOULD_STOP | default('postgresql mysql keystone rabbitmq-server ntp') }}
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ SHORT_DESCRIPTION | default('Masakari Engine daemon') }}
+# Description:       {{ DESCRIPTION | default('Masakari provides Virtual Machine High Availability (VMHA) service for\n                   OpenStack clouds by automatically recovering the KVM-based Virtual\n                   Machine(VM)s from failure events such as VM process down, provisioning\n                   process down, and nova-compute host failure. It also provides API service for\n                   manage and control the automated rescue mechanism.') }}
+### END INIT INFO
+
+# Author:          {{ AUTHOR | default('Thomas Goirand <zigo@debian.org>') }}
+# DESC:            Display name for the daemon
+DESC="{{ DESC | default('OpenStack Masakari Engine (masakari-engine)') }}"
+
+# PROJECT_NAME:    Base name for project directories and files
+PROJECT_NAME="{{ PROJECT_NAME | default('masakari') }}"
+
+# NAME:            Daemon executable name
+NAME=${PROJECT_NAME}-engine
+
+# OS_OSLO_MESSAGING_RABBIT__PROCESSNAME:
+#                  Tells Oslo messaging library to identify itself as this process name.
+#                  Used for monitoring and logging in RabbitMQ.
+export OS_OSLO_MESSAGING_RABBIT__PROCESSNAME="masakari-engine"
+
+# AUTHOR_2:        Secondary author of this init script
+# Author_2:        {{ AUTHOR_2 | default('Ondřej Nový <novy@ondrej.org>') }}
+
+# PATH:            System path for execution, restricted to prevent conflicts
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+{% if uWSGI_PORT is defined and uWSGI_PORT and uWSGI_INI_PATH is defined and uWSGI_INI_PATH and uWSGI_INI_APP is defined and uWSGI_INI_APP %}
+# UWSGI Configuration Block
+# If UWSGI variables are set, we configure the daemon to use uWSGI
+# instead of the standard binary.
+
+if [ -n "${uWSGI_PORT}" ] && [ -n "${uWSGI_INI_PATH}" ] && [ -n "${uWSGI_INI_APP}" ] ; then
+    # Check if the INI file exists
+    if ! [ -f "${uWSGI_INI_APP}" ] ; then
+        exit 0
+    fi
+
+    # SSL Private Key Configuration
+    # If a private SSL directory exists, find the first .pem file
+    if [ -d /etc/${PROJECT_NAME}/ssl/private ] ; then
+        KEY_FILE=$(find /etc/${PROJECT_NAME}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
+    fi
+
+    # SSL Certificate Configuration
+    # Check for puppet cert first, then fall back to public ssl directory
+    if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
+        CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
+    else
+        if [ -d /etc/${PROJECT_NAME}/ssl/public ] ; then
+            CERT_FILE=$(find /etc/${PROJECT_NAME}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
+        fi
+    fi
+
+    # Find the appropriate uwsgi python binary version
+    # Iterates through common Python versions to find the executable
+    for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
+        if [ -x /usr/bin/uwsgi_python${i} ] ; then
+            DAEMON=/usr/bin/uwsgi_python${i}
+        fi
+    done
+
+    # Bind IP and Port Configuration via INI file
+    # If specific bind config variables are set, parse them from the config file
+    if [ -n "${uWSGI_BIND_CONFIG_FILE}" ] && [ -r "${uWSGI_BIND_CONFIG_FILE}" ] && [ -n "${uWSGI_BIND_CONFIG_SECTION}" ] && [ -n "${uWSGI_BIND_CONFIG_IP_DIRECTIVE}" ] && [ -n "${uWSGI_BIND_CONFIG_PORT_DIRECTIVE}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
+        . /usr/share/openstack-pkg-tools/pkgos_func
+        
+        # Get Bind IP
+        pkgos_inifile get ${uWSGI_BIND_CONFIG_FILE} ${uWSGI_BIND_CONFIG_SECTION} ${uWSGI_BIND_CONFIG_IP_DIRECTIVE}
+        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+            uWSGI_BIND_IP=${RET}
+        fi
+        
+        # Get Bind Port
+        pkgos_inifile get ${uWSGI_BIND_CONFIG_FILE} ${uWSGI_BIND_CONFIG_SECTION} ${uWSGI_BIND_CONFIG_PORT_DIRECTIVE}
+        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+            uWSGI_PORT=${RET}
+        fi
+        
+        # Get Number of Workers/Processes
+        # Falls back to half the number of available CPU cores if not specified
+        if [ -n "${uWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}" ] ; then
+            pkgos_inifile get ${uWSGI_BIND_CONFIG_FILE} ${uWSGI_BIND_CONFIG_SECTION} ${uWSGI_BIND_CONFIG_WORKERS_DIRECTIVE}
+            if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+                uWSGI_PROCESSES=" --processes ${RET}"
+            else
+                uWSGI_PROCESSES=" --processes "$(( $(nproc) / 2 ))
+            fi
+        fi
+        
+        # Special handling for Swift Object Server
+        # If the config is for Swift, bind to multiple ports based on device count
+        if [ "${uWSGI_BIND_CONFIG_FILE}" = "/etc/swift/object-server.conf" ] ; then
+            pkgos_inifile get ${uWSGI_BIND_CONFIG_FILE} ${uWSGI_BIND_CONFIG_SECTION} devices
+            if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+                DEVICES_PATH=${RET}
+                NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
+                COUNT=0
+                while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
+                    CUR_PORT=$(( ${uWSGI_PORT} + ${COUNT} ))
+                    BIND_PARAMS="${BIND_PARAMS} --http-socket ${uWSGI_BIND_IP}:${CUR_PORT}"
+                    COUNT=$(( ${COUNT} + 1 ))
+                done
+            fi
+        fi
+    else
+        uWSGI_BIND_IP=""
+    fi
+
+    # Construct Daemon Arguments
+    if [ -n "${BIND_PARAMS}" ] ; then
+        DAEMON_ARGS="${BIND_PARAMS}${uWSGI_PROCESSES}"
+    else
+        if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
+            DAEMON_ARGS="--https-socket ${uWSGI_BIND_IP}:${uWSGI_PORT},${CERT_FILE},${KEY_FILE}${uWSGI_PROCESSES}"
+        else
+            DAEMON_ARGS="--http-socket ${uWSGI_BIND_IP}:${uWSGI_PORT}${uWSGI_PROCESSES}"
+        fi
+    fi
+
+    # Add INI file path to arguments
+    DAEMON_ARGS="${DAEMON_ARGS} --ini ${uWSGI_INI_PATH}"
+    
+    # Disable default OpenStack config/logfile args because uWSGI handles them
+    NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
+    NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
+fi
+
+{% else %}
+# Standard Daemon Configuration
+# If UWSGI is not enabled, use the standard binary
+{% endif %}
+
+# Set default Daemon path if not already set by UWSGI block
+if [ -z "${DAEMON}" ] ; then
+    DAEMON=/usr/bin/${NAME}
+fi
+
+# PIDFILE: Location of the PID file for the daemon
+PIDFILE=/var/run/${PROJECT_NAME}/${NAME}.pid
+
+# SCRIPTNAME: Path to the init script itself
+if [ -z "${SCRIPTNAME}" ] ; then
+    SCRIPTNAME=/etc/init.d/${NAME}
+fi
+
+# SYSTEM_USER: User to run the daemon as
+if [ -z "${SYSTEM_USER}" ] ; then
+    SYSTEM_USER=${PROJECT_NAME}
+fi
+
+# SYSTEM_GROUP: Group to run the daemon as
+if [ -z "${SYSTEM_GROUP}" ] ; then
+    SYSTEM_GROUP=${PROJECT_NAME}
+fi
+
+# STARTDAEMON_CHUID: Chuid argument if not running as root
+if [ "${SYSTEM_USER}" != "root" ] ; then
+    STARTDAEMON_CHUID="--chuid ${SYSTEM_USER}:${SYSTEM_GROUP}"
+fi
+
+# CONFIG_FILE: Path to the main configuration file
+if [ -z "${CONFIG_FILE}" ] ; then
+    CONFIG_FILE=/etc/${PROJECT_NAME}/${PROJECT_NAME}.conf
+fi
+
+# LOGFILE: Path to the log file
+LOGFILE=/var/log/${PROJECT_NAME}/${NAME}.log
+
+# Add config-file argument if not disabled by UWSGI block
+if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
+    DAEMON_ARGS="--config-file=${CONFIG_FILE} ${DAEMON_ARGS}"
+fi
+
+# Exit if the package is not installed (daemon binary missing)
+[ -x $DAEMON ] || exit 0
+
+# Create runtime directories if running as root
+# Creates /var/lock, /var/run, /var/cache directories for the project
+if [ `whoami` = "root" ] ; then
+    for i in lock run cache ; do
+        mkdir -p /var/$i/${PROJECT_NAME}
+        chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
+    done
+fi
+
+# Load standard LSB functions
+. /lib/lsb/init-functions
+
+RET=0
+
+# Load environment defaults from openstack or specific daemon defaults
+[ -r /etc/default/openstack ] && . /etc/default/openstack
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Configure logging
+# Use syslog if USE_SYSLOG is yes
+[ "x$USE_SYSLOG" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
+
+# Use logfile if USE_LOGFILE is not no and not disabled by UWSGI
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+    [ "x$USE_LOGFILE" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file=$LOGFILE"
+fi
+
+# do_start: Function to start the daemon
+do_start() {
+    start-stop-daemon \
+        --start \
+        --quiet \
+        --background ${STARTDAEMON_CHUID} \
+        --make-pidfile --pidfile ${PIDFILE} \
+        --chdir /var/lib/${PROJECT_NAME} \
+        --startas $DAEMON \
+        --test > /dev/null \
+        || return 1
+        
+    if [ -n "${PYARGV}" ] ; then
+        start-stop-daemon \
+            --start \
+            --quiet \
+            --background ${STARTDAEMON_CHUID} \
+            --make-pidfile --pidfile ${PIDFILE} \
+            --chdir /var/lib/${PROJECT_NAME} \
+            --startas $DAEMON \
+            -- $DAEMON_ARGS --pyargv "${PYARGV}" \
+            || return 2
+    else
+        start-stop-daemon \
+            --start \
+            --quiet \
+            --background ${STARTDAEMON_CHUID} \
+            --make-pidfile --pidfile ${PIDFILE} \
+            --chdir /var/lib/${PROJECT_NAME} \
+            --startas $DAEMON \
+            -- $DAEMON_ARGS \
+            || return 2
+    fi
+}
+
+# do_stop: Function to stop the daemon
+do_stop() {
+    start-stop-daemon \
+        --stop \
+        --quiet \
+        --retry=TERM/30/KILL/5 \
+        --pidfile $PIDFILE
+    RETVAL=$?
+    rm -f $PIDFILE
+    return "$RETVAL"
+}
+
+# do_systemd_start: Function for systemd compatibility
+do_systemd_start() {
+    # Set umask to 0022 for proper permissions (0644 for logs)
+    umask 0022
+    if [ -n "${PYARGV}" ] ; then
+        exec $DAEMON $DAEMON_ARGS --pyargv "${PYARGV}"
+    else
+        exec $DAEMON $DAEMON_ARGS
+    fi
+}
+
+# Main case statement for init script actions
+case "$1" in
+start)
+    log_daemon_msg "Starting $DESC" "$NAME"
+    do_start
+    case $? in
+        0|1) log_end_msg 0 ; RET=$? ;;
+        2)   log_end_msg 1 ; RET=$? ;;
+    esac
+;;
+stop)
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    do_stop
+    case $? in
+        0|1) log_end_msg 0 ; RET=$? ;;
+        2)   log_end_msg 1 ; RET=$? ;;
+    esac
+;;
+status)
+    status_of_proc "$DAEMON" "$NAME"
+    RET=$?
+;;
+systemd-start)
+    do_systemd_start
+;;  
+show-args)
+    if [ -n "${PYARGV}" ] ; then
+        echo $DAEMON $DAEMON_ARGS --pyargv \"${PYARGV}\"
+    else
+        echo $DAEMON $DAEMON_ARGS
+    fi
+;;
+restart|force-reload)
+    log_daemon_msg "Restarting $DESC" "$NAME"
+    do_stop
+    case $? in
+        0|1)
+            do_start
+            case $? in
+                0) log_end_msg 0 ; RET=$? ;;
+                1) log_end_msg 1 ; RET=$? ;;
+                *) log_end_msg 1 ; RET=$? ;;
+            esac
+        ;;
+        *) log_end_msg 1 ; RET=$? ;;
+    esac
+;;
+*)
+    echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload|systemd-start}" >&2
+    RET=3
+;;
+esac
+
+exit $RET

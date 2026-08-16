@@ -1,0 +1,28 @@
+#!/bin/bash
+# mdf2iso command-line configuration script
+# Source input MDF image file
+mdf_file="{{ mdf_file | default('/var/lib/mdf2iso/input.mdf') }}"
+
+# Destination output directory
+output_dir="{{ output_dir | default('/var/lib/mdf2iso/output') }}"
+
+# Output format type: 'iso' for .iso, 'cue' for .bin/.cue, 'toc' for .dat/.toc
+format_type="{{ format_type | default('iso') }}"
+
+# Create necessary directories
+mkdir -p "{{ output_dir }}"
+
+# Determine the base name for output files
+base_name=$(basename "$mdf_file" .mdf)
+
+# Execute mdf2iso based on format_type
+{% if format_type == 'toc' %}
+# Generate .toc and .dat files
+mdf2iso --toc "{{ output_dir }}/{{ base_name }}"
+{% elif format_type == 'cue' %}
+# Generate .cue and .bin files
+mdf2iso --cue "{{ output_dir }}/{{ base_name }}"
+{% else %}
+# Generate .iso file (default)
+mdf2iso "{{ output_dir }}/{{ base_name }}.iso"
+{% endif %}

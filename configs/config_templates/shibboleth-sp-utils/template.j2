@@ -1,0 +1,15 @@
+# Options passed to shibd by the init script.
+#
+# This configuration block defines the command-line arguments used to start the
+# Shibboleth Service Provider daemon (shibd).
+#
+# Arguments explanation:
+#   -f            : Foreground mode (keeps the process in the foreground, often used for debugging or systemd).
+#   -c <path>     : Path to the main Shibboleth SP configuration file (shibboleth2.xml).
+#   -p <file>     : Path to the PID file used to track the daemon process.
+#   -w <seconds>  : Timeout value for the shibd daemon in seconds.
+#
+# Note: The variables below are populated from Ansible variables. If not provided,
+# safe defaults are applied to ensure the service starts correctly.
+
+DAEMON_OPTS="-f -c {{ shibboleth_config_path | default('/etc/shibboleth2.xml') }} -p $PIDFILE -w {{ shibd_timeout | default(30) }}"

@@ -1,0 +1,32 @@
+# ionit configuration context template
+# This file is not a config for ionit itself (which uses /etc/ionit/),
+# but serves as a canonical example of how ionit renders Jinja2 templates
+# based on the tool's documented capabilities: collecting context from YAML/JSON
+# and rendering output files.
+
+{% if templates_dir %}
+TEMPLATE_ROOT: {{ templates_dir }}
+{% endif %}
+
+{% if config_dir %}
+CONFIG_ROOT: {{ config_dir }}
+{% endif %}
+
+{% if template_extension %}
+EXTENSION: {{ template_extension }}
+{% endif %}
+
+# Context variables provided to the renderer
+{% for key, value in context.items() %}
+CONTEXT_{{ key|upper() }}: {{ value }}
+{% endfor %}
+
+# Example of iterative rendering for a list of services to manage
+{% if services %}
+[SERVICES]
+{% for service in services %}
+name={{ service.name }}
+enabled={{ service.enabled }}
+config_path={{ service.config_path }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,73 @@
+# =============================================================================
+# zoxide Environment Configuration Template
+# =============================================================================
+# This file generates the environment variables required to configure zoxide.
+# zoxide is a smarter cd command, inspired by z and autojump.
+#
+# Usage:
+#   1. Evaluate this Jinja2 template in Ansible to produce a shell script file.
+#   2. Source the resulting file in your shell profile (e.g., ~/.bashrc, ~/.zshrc).
+#   3. OR use it in a systemd service wrapper via EnvironmentFile=.
+#
+# Variables documented below correspond to _ZO_* environment variables.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Data Directory
+# -----------------------------------------------------------------------------
+# Path for zoxide data files (_ZO_DATA_DIR)
+# This is where zoxide stores its database.
+# Defaults to ~/.local/share/zoxide if unset.
+export _ZO_DATA_DIR="{{ (values | default({})).data_dir | default('~/.local/share/zoxide', true) }}"
+
+# -----------------------------------------------------------------------------
+# Echo Mode
+# -----------------------------------------------------------------------------
+# Print the matched directory before navigating to it (_ZO_ECHO)
+# Set to 1 to enable, 0 to disable.
+# Defaults to 0 (disabled).
+{% if (values | default({})).echo | default(false, true) %}
+export _ZO_ECHO="1"
+{% else %}
+export _ZO_ECHO="0"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Excluded Directories
+# -----------------------------------------------------------------------------
+# List of directory globs to be excluded from being added to the database (_ZO_EXCLUDE_DIRS)
+# Directories matching these patterns will not be indexed.
+# Defaults to common system directories: /tmp, /dev.
+# Note: zoxide expects these to be colon-separated.
+export _ZO_EXCLUDE_DIRS="{{ ((values | default({})).exclude_dirs | default(['/tmp', '/dev'])) | join(':') }}"
+
+# -----------------------------------------------------------------------------
+# Maximum Age
+# -----------------------------------------------------------------------------
+# Maximum total age in days after which entries start getting deleted (_ZO_MAXAGE)
+# zoxide automatically prunes entries older than this threshold.
+# Defaults to 180 days.
+export _ZO_MAXAGE="{{ (values | default({})).max_age | default(180, true) }}"
+
+# -----------------------------------------------------------------------------
+# Resolve Symlinks
+# -----------------------------------------------------------------------------
+# Resolve symlinks when storing paths (_ZO_RESOLVE_SYMLINKS)
+# Set to 1 to resolve symlinks, 0 to keep them as-is.
+# Defaults to 0 (disabled).
+{% if (values | default({})).resolve_symlinks | default(false, true) %}
+export _ZO_RESOLVE_SYMLINKS="1"
+{% else %}
+export _ZO_RESOLVE_SYMLINKS="0"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# FZF Options
+# -----------------------------------------------------------------------------
+# Custom flags to pass to fzf for query command (_ZO_FZF_OPTS)
+# These options are passed directly to fzf when zoxide performs a fuzzy search.
+# If left empty, default fzf behavior is used.
+# Defaults to an empty list (no custom flags).
+{% if ((values | default({})).fzf_opts | default([])) | length > 0 %}
+export _ZO_FZF_OPTS="{{ ((values | default({})).fzf_opts | default([])) | join(' ') }}"
+{% endif %}

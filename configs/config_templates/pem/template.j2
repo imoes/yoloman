@@ -1,0 +1,33 @@
+# PEM (GNU Personal Expenses Manager) Configuration
+# Note: PEM does not use a traditional configuration file for persistent settings.
+# This template generates a shell script that initializes the PEM environment
+# for the current session or a wrapper script for execution.
+
+#!/bin/sh
+# Initialize PEM Environment
+
+# pem_time: Format string for date and time display, compatible with strftime(3).
+# Default is ISO 8601 date. Example: "%F" yields 2007-05-31.
+export PEMTIME="{{ pem_time | default('%F') }}"
+
+# pem_data_dir: The home directory where PEM stores its CSV expense files.
+# Default is ~/.pem. PEM stores monthly files here.
+pem_dir="{{ pem_data_dir | default('~/.pem') }}"
+
+# Create data directory if it doesn't exist
+if [ ! -d "${pem_dir}" ]; then
+    mkdir -p "${pem_dir}"
+fi
+
+# pem_file: Base name for the expense data file used when -f is not explicitly provided in the command.
+pem_file="{{ pem_file | default('expenses') }}"
+
+# Display the configuration summary
+echo "PEM Environment Configured:"
+echo "  PEMTIME: ${PEMTIME}"
+echo "  Data Directory: ${pem_dir}"
+echo "  Default File: ${pem_file}"
+
+# Execute PEM with provided arguments
+# Arguments: <description> <amount> ... or options like -c, -e, -s, -m, etc.
+exec /usr/bin/pem -f "${pem_dir}/${pem_file}" "$@"

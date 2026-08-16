@@ -1,0 +1,38 @@
+# ==========================================================================
+# mtink configuration template
+# ==========================================================================
+# mtink is a daemon that monitors the status of Epson printers.
+# This file controls how mtink identifies and connects to the printer device.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# Field: noAutodetect
+# Description: Disable automatic detection of the printer.
+#              If set to true, the printer model must be explicitly specified.
+#              If set to false, the system will attempt to detect the printer
+#              automatically (model field may be ignored or used as hint).
+# Default: False
+# --------------------------------------------------------------------------
+noAutodetect: {{ noAutodetect | default(false) }}
+
+# --------------------------------------------------------------------------
+# Field: device
+# Description: The device file path for the printer.
+#              This is typically a USB printer device node (e.g., /dev/usb/lp0)
+#              or a parallel port device.
+#              Required if noAutodetect is true or if automatic detection fails.
+# Default: /dev/usb/lp0
+# --------------------------------------------------------------------------
+device: "{{ device | default('/dev/usb/lp0') }}"
+
+# --------------------------------------------------------------------------
+# Field: model
+# Description: The printer model identifier.
+#              If noAutodetect is true, this field is mandatory to identify
+#              the specific printer capabilities and behavior.
+#              If noAutodetect is false (autodetection enabled), this field
+#              can be left empty to allow the system to guess the model,
+#              or specified to override the guess.
+# Default: '' (empty string)
+# --------------------------------------------------------------------------
+model: "{{ model | default('') }}"

@@ -1,0 +1,55 @@
+# notmuch-mutt configuration for Mutt mail client
+# This file defines macros to integrate Notmuch search and tagging capabilities
+# into the Mutt interface. It is auto-generated from Ansible variables.
+
+# ---------------------------------------------------------
+# Global Settings
+# ---------------------------------------------------------
+
+# notmuch_mutt_command: The command to invoke for notmuch-mutt operations.
+# Default: 'notmuch-mutt'
+# Set this if you have installed notmuch-mutt in a non-standard location
+# or use a wrapper script.
+set notmuch_mutt_command="{{ notmuch_mutt_command | default('notmuch-mutt') }}"
+
+# notmuch_mutt_results_dir: The relative path to the directory where notmuch-mutt stores its results.
+# Default: 'notmuch/mutt/results'
+# This is typically used in conjunction with XDG_CACHE_HOME or $HOME/.cache.
+# Ensure the parent directories exist in your cache structure.
+set notmuch_mutt_results_dir="{{ notmuch_mutt_results_dir | default('notmuch/mutt/results') }}"
+
+# ---------------------------------------------------------
+# Macros
+# ---------------------------------------------------------
+
+# macro index <F8>: Notmuch Search
+# Binds F8 to trigger a Notmuch search. It temporarily disables pipe_decode
+# to capture the search results into a temporary folder, executes the search,
+# and then restores the previous decoding settings.
+macro index <F8> \
+  "<enter-command>set my_old_pipe_decode=\$pipe_decode my_old_wait_key=\$wait_key nopipe_decode nowait_key<enter>\
+<shell-escape>{{ notmuch_mutt_command | default('notmuch-mutt') }} --prompt search<enter>\
+<change-folder-readonly>`echo ${XDG_CACHE_HOME:-$HOME/.cache}/{{ notmuch_mutt_results_dir | default('notmuch/mutt/results') }}`<enter>\
+<enter-command>set pipe_decode=\$my_old_pipe_decode wait_key=\$my_old_wait_key<enter>" \
+  "notmuch: search mail"
+
+# macro index <F9>: Reconstruct Thread
+# Binds F9 to reconstruct the thread for the current message using Notmuch.
+# Similar to the search macro, it manages temporary state variables to ensure
+# the pipe output is handled correctly.
+macro index <F9> \
+  "<enter-command>set my_old_pipe_decode=\$pipe_decode my_old_wait_key=\$wait_key nopipe_decode nowait_key<enter>\
+<pipe-message>{{ notmuch_mutt_command | default('notmuch-mutt') }} thread<enter>\
+<change-folder-readonly>`echo ${XDG_CACHE_HOME:-$HOME/.cache}/{{ notmuch_mutt_results_dir | default('notmuch/mutt/results') }}`<enter>\
+<enter-command>set pipe_decode=\$my_old_pipe_decode wait_key=\$my_old_wait_key<enter>" \
+  "notmuch: reconstruct thread"
+
+# macro index <F6>: Remove from Inbox
+# Binds F6 to remove the 'inbox' tag from the current message using Notmuch.
+# This macro pipes the tag command to notmuch-mutt. It does not change folders,
+# so it operates on the currently viewed message directly.
+macro index <F6> \
+  "<enter-command>set my_old_pipe_decode=\$pipe_decode my_old_wait_key=\$wait_key nopipe_decode nowait_key<enter>\
+<pipe-message>{{ notmuch_mutt_command | default('notmuch-mutt') }} tag -- -inbox<enter>\
+<enter-command>set pipe_decode=\$my_old_pipe_decode wait_key=\$my_old_wait_key<enter>" \
+  "notmuch: remove message from inbox"

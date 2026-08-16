@@ -1,0 +1,34 @@
+# /etc/mysql/mariadb-backup.cnf
+#
+# Configuration file for MariaDB Backup utilities.
+# This template is self-documenting: every setting is preceded by a comment
+# derived from the schema description.
+#
+# All variables use the `| default(...)` filter to ensure the file renders
+# correctly even if an Ansible variable is undefined.
+
+[mysqld_backup]
+
+# Directory where the backup files will be stored.
+backup_dir = {{ backup_dir | default('/var/backups/mariadb') }}
+
+# Whether to perform a full backup or an incremental backup.
+full_backup = {{ full_backup | default(true) }}
+
+# Number of threads for parallel backup operations.
+threads = {{ threads | default(4) }}
+
+# Destination file path for single-file backups (if target_file is specified).
+target_file = {{ target_file | default('') }}
+
+# Compression type used for the backup stream (e.g., gzip, lz4, snappy).
+compression = {{ compression | default('gzip') }}
+
+# Enable verbose output for debugging or logging purposes.
+verbose = {{ verbose | default(false) }}
+
+# MariaDB user account used for the backup operation.
+user = {{ user | default('root') }}
+
+# Password for the MariaDB user account.
+password = {{ password | default('') }}

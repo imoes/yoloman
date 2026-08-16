@@ -1,0 +1,83 @@
+# LuckyBackup Profile Configuration
+# This file defines a backup profile for the LuckyBackup application.
+
+# === Profile Identification ===
+
+# The human-readable name of the backup profile.
+# Default: 'MainBackup'
+profile_name = {{ profile_name | default('MainBackup') }}
+
+# === Directory Definitions ===
+
+# The local directory path to source files from.
+# Default: '/home/user/data'
+source_dir = {{ source_dir | default('/home/user/data') }}
+
+# The local or network directory path to destination files.
+# Default: '/mnt/backup/data'
+dest_dir = {{ dest_dir | default('/mnt/backup/data') }}
+
+# === Operation Mode ===
+
+# The operation mode: 'sync' for synchronization, 'backup' for simple backup.
+# Default: 'sync'
+mode = {{ mode | default('sync') }}
+
+# === Logging and Behavior ===
+
+# Logging verbosity level: 0 (Quiet), 1 (Basic), 2 (Verbose), 3 (Debug).
+# Default: 1
+log_level = {{ log_level | default(1) }}
+
+# Exclude Patterns
+# List of file patterns or paths to exclude from the backup/sync operation.
+# Default: ['*.tmp', '.Trash-*', 'Thumbs.db']
+# Each pattern is emitted as a separate 'exclude' directive.
+{% for pattern in exclude_patterns | default(['*.tmp', '.Trash-*', 'Thumbs.db']) %}
+exclude = {{ pattern }}
+{% endfor %}
+
+# Dry Run
+# If true, executes the profile in simulation mode without making changes.
+# Default: False
+{% if dry_run | default(False) | bool %}
+dry_run = yes
+{% else %}
+dry_run = no
+{% endif %}
+
+# Skip Critical
+# If true, proceeds with tasks even if they trigger CRITICAL warnings.
+# Default: False
+{% if skip_critical | default(False) | bool %}
+skip_critical = yes
+{% else %}
+skip_critical = no
+{% endif %}
+
+# Silent Mode
+# If true, runs in silent mode (tray notification only).
+# Default: False
+{% if silent | default(False) | bool %}
+silent = yes
+{% else %}
+silent = no
+{% endif %}
+
+# Console Mode
+# If true, forces console mode execution instead of GUI.
+# Default: False
+{% if console_mode | default(False) | bool %}
+console_mode = yes
+{% else %}
+console_mode = no
+{% endif %}
+
+# No Questions
+# If true, skips interactive confirmation prompts.
+# Default: False
+{% if no_questions | default(False) | bool %}
+no_questions = yes
+{% else %}
+no_questions = no
+{% endif %}

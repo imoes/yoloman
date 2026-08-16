@@ -1,0 +1,259 @@
+#!/bin/bash
+# ==============================================================================
+# ttf2ufm: TrueType to Type 1 Font Converter Script
+# ==============================================================================
+#
+# This script automates the conversion of a TrueType font (or BDF) to PostScript
+# Type 1 format using the `ttf2ufm` utility. It constructs the appropriate command
+# line flags based on the provided configuration variables and executes the
+# conversion process.
+#
+# Usage:
+#   ansible-playbook site.yml  # or include this role
+#
+# Variables are sourced from Ansible inventory/vars and are documented below
+# with their default values and schema descriptions.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Input Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the input TrueType font file.
+# Supported formats: TrueType (.ttf), OpenType (.otf).
+# Default: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+INPUT_FONT="{{ input_font | default('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf') }}"
+
+# Base name for the output files (without extension).
+# If left empty, `ttf2ufm` derives the base name from the input filename.
+# Example: input='font.ttf', base='' -> outputs 'font.pfa' or 'font.pfb'.
+# Default: ''
+BASE_NAME="{{ base_name | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Glyph and Encoding Options
+# ------------------------------------------------------------------------------
+
+# Include all glyphs from the source file, ignoring standard encoding subsets.
+# Corresponds to command-line flag: -a
+# Default: false
+INCLUDE_ALL_GLYPHS="{{ include_all_glyphs | default(false) }}"
+
+# Language code for extraction from multi-language Unicode fonts.
+# Corresponds to command-line flag: -l <language>
+# Supported values include: latin1, latin2, cyrillic, greek, etc.
+# If empty, no language filter is applied.
+# Default: ''
+LANGUAGE="{{ language | default('') }}"
+
+# Map file for custom encoding extraction.
+# Corresponds to command-line flag: -L <file>
+# Use this to define custom glyph-to-character mappings.
+# Default: ''
+ENCODING_MAP="{{ encoding_map | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Hinting Options
+# ------------------------------------------------------------------------------
+
+# Maximal hint stack depth for substituted hints during the conversion.
+# Corresponds to command-line flag: -m h=<value>
+# Higher values may allow more complex hinting but consume more memory.
+# Default: 128
+MAX_HINT_STACK_DEPTH="{{ max_hint_stack_depth | default(128) }}"
+
+# Disable ForceBold guessing.
+# Corresponds to command-line flag: -Ob
+# When enabled (true), the tool will NOT guess ForceBold attributes.
+# Default: false
+DISABLE_FORCEBOLD_GUESS="{{ disable_forcebold_guess | default(false) }}"
+
+# Disable automatic generation of hints.
+# Corresponds to command-line flag: -Oh
+# When enabled (true), the output Type 1 font will have no auto-generated hints.
+# Default: false
+DISABLE_HINTS="{{ disable_hints | default(false) }}"
+
+# Disable hint substitution.
+# Corresponds to command-line flag: -Ou
+# When enabled (true), hint substitution features are turned off.
+# Default: false
+DISABLE_HINT_SUBSTITUTION="{{ disable_hint_substitution | default(false) }}"
+
+# ------------------------------------------------------------------------------
+# Outline Processing Options
+# ------------------------------------------------------------------------------
+
+# Disable space optimization of outlines.
+# Corresponds to command-line flag: -Oo
+# When enabled (true), outline paths are not optimized for space efficiency.
+# Default: false
+DISABLE_SPACE_OPTIMIZATION="{{ disable_space_optimization | default(false) }}"
+
+# Disable smoothing of outlines.
+# Corresponds to command-line flag: -Os
+# When enabled (true), anti-aliasing or smoothing of curves is disabled.
+# Default: false
+DISABLE_SMOOTHING="{{ disable_smoothing | default(false) }}"
+
+# Disable auto-scaling to the 1000x1000 Type 1 standard matrix.
+# Corresponds to command-line flag: -Ot
+# When enabled (true), the font units are not scaled to the standard matrix.
+# Default: false
+DISABLE_AUTO_SCALING="{{ disable_auto_scaling | default(false) }}"
+
+# Enable vectorization on bitmap fonts.
+# Corresponds to command-line flag: -OV
+# Converts bitmap glyphs to vector outlines if the input contains bitmaps.
+# Default: false
+ENABLE_VECTORIZATION="{{ enable_vectorization | default(false) }}"
+
+# Enable glyphs' width correction.
+# Corresponds to command-line flag: -Ow
+# Corrects the advance width of glyphs based on their metrics.
+# Default: false
+ENABLE_WIDTH_CORRECTION="{{ enable_width_correction | default(false) }}"
+
+# ------------------------------------------------------------------------------
+# Parser and Identification Options
+# ------------------------------------------------------------------------------
+
+# Select the parser engine to use for reading the font file.
+# Corresponds to command-line flag: -p <parser_name>
+# Supported values:
+#   - 'auto': Automatically detect the parser (default).
+#   - 'ttf':  Force TrueType parser.
+#   - 'bdf':  Force BDF parser.
+#   - 'ft':   Force FreeType parser.
+# Default: 'auto'
+PARSER="{{ parser | default('auto') }}"
+
+# Mark the font with a UniqueID.
+# Corresponds to command-line flag: -u <number or 'A'>
+# 'A' instructs the tool to auto-generate a hash as the UniqueID.
+# Can also be a specific numeric ID.
+# Default: 'A'
+UNIQUE_ID="{{ unique_id | default('A') }}"
+
+# Re-scale the font to get a specific size for the uppercase letter 'a'.
+# Corresponds to command-line flag: -v <size>
+# Sets the nominal size of the lowercase 'a' in font units (typically 500).
+# Set to 0 to disable this specific resizing behavior.
+# Default: 0
+RESIZE_LETTER_A="{{ resize_letter_a | default(0) }}"
+
+# ------------------------------------------------------------------------------
+# Verbosity
+# ------------------------------------------------------------------------------
+
+# Verbosity level for warnings and progress messages.
+# Corresponds to command-line flag: -W <level>
+# Levels:
+#   0: No warnings.
+#   1-4: Increasing levels of warning detail.
+#   99: Report all warnings and messages.
+# Default: 3
+VERBOSITY_LEVEL="{{ verbosity_level | default(3) }}"
+
+# ==============================================================================
+# Command Construction
+# ==============================================================================
+
+FLAGS=""
+
+# Glyph inclusion
+{% if include_all_glyphs | default(false) %}
+FLAGS="${FLAGS} -a"
+{% endif %}
+
+# Output format selection
+{% if output_pfb | default(false) %}
+FLAGS="${FLAGS} -b"
+{% endif %}
+
+# Language filter
+{% if language | default('') %}
+FLAGS="${FLAGS} -l {{ language | default('') }}"
+{% endif %}
+
+# Custom encoding map
+{% if encoding_map | default('') %}
+FLAGS="${FLAGS} -L {{ encoding_map | default('') }}"
+{% endif %}
+
+# Hint stack depth (only if non-default)
+{% if max_hint_stack_depth | default(128) != 128 %}
+FLAGS="${FLAGS} -m h={{ max_hint_stack_depth | default(128) }}"
+{% endif %}
+
+# Disable ForceBold guessing
+{% if disable_forcebold_guess | default(false) %}
+FLAGS="${FLAGS} -Ob"
+{% endif %}
+
+# Disable hint autogeneration
+{% if disable_hints | default(false) %}
+FLAGS="${FLAGS} -Oh"
+{% endif %}
+
+# Disable hint substitution
+{% if disable_hint_substitution | default(false) %}
+FLAGS="${FLAGS} -Ou"
+{% endif %}
+
+# Disable space optimization
+{% if disable_space_optimization | default(false) %}
+FLAGS="${FLAGS} -Oo"
+{% endif %}
+
+# Disable smoothing
+{% if disable_smoothing | default(false) %}
+FLAGS="${FLAGS} -Os"
+{% endif %}
+
+# Disable auto-scaling
+{% if disable_auto_scaling | default(false) %}
+FLAGS="${FLAGS} -Ot"
+{% endif %}
+
+# Enable vectorization
+{% if enable_vectorization | default(false) %}
+FLAGS="${FLAGS} -OV"
+{% endif %}
+
+# Enable width correction
+{% if enable_width_correction | default(false) %}
+FLAGS="${FLAGS} -Ow"
+{% endif %}
+
+# Parser selection (only if explicitly set to non-auto)
+{% if parser | default('auto') != 'auto' %}
+FLAGS="${FLAGS} -p {{ parser | default('auto') }}"
+{% endif %}
+
+# Unique ID (only if not 'A')
+{% if unique_id | default('A') != 'A' %}
+FLAGS="${FLAGS} -u {{ unique_id | default('A') }}"
+{% endif %}
+
+# Letter 'a' resize (only if > 0)
+{% if resize_letter_a | default(0) > 0 %}
+FLAGS="${FLAGS} -v {{ resize_letter_a | default(0) }}"
+{% endif %}
+
+# Verbosity level (only if not default 3)
+{% if verbosity_level | default(3) != 3 %}
+FLAGS="${FLAGS} -W {{ verbosity_level | default(3) }}"
+{% endif %}
+
+# ==============================================================================
+# Execution
+# ==============================================================================
+
+# Print the constructed command for debugging/logging purposes.
+# Note: ttf2ufm handles empty BASE_NAME by deriving it from INPUT_FONT.
+echo "Running: ttf2ufm${FLAGS} ${INPUT_FONT} ${BASE_NAME}"
+
+# Execute the conversion.
+# Ensure ttf2ufm is installed in the PATH of the target host.
+ttf2ufm ${FLAGS} ${INPUT_FONT} ${BASE_NAME}

@@ -1,0 +1,46 @@
+# scanmem configuration script
+# This template generates a script of commands for the scanmem tool to attach to a process and modify memory values.
+
+# Target process PID to attach to
+# desc: The target process ID (decimal) to scan and modify.
+# default: 0
+set pid {{ pid | default(0) }}
+
+# Initial scan value or range for the target variable
+# desc: The current known value of the target variable to begin the search.
+# default: 0
+set initial_value {{ initial_value | default(0) }}
+
+# Command to execute if initial_value is a range (e.g., "10..20")
+# desc: An optional range specification (e.g., '0..100') if the exact value is unknown but bounded.
+# default: ''
+{% if (initial_range | default('')) | trim != '' %}
+set initial_range {{ initial_range | default('') }}
+{% endif %}
+
+# Data type for scanning (int, float, string)
+# desc: The data type to scan for (int, float, string).
+# default: int
+set scan_type {{ scan_type | default('int') }}
+
+# Pre-defined commands to run in batch mode
+# desc: A list of scanmem commands to execute non-interactively (e.g., 'set 100', 'watch 0').
+#       Items are flat strings representing commands.
+# default: []
+{% for cmd in commands | default([]) %}
+{{ cmd }}
+{% endfor %}
+
+# Enable debug output for verbose logging
+# desc: Enable debug mode for verbose output.
+# default: False
+{% if debug | default(False) | bool %}
+set debug true
+{% endif %}
+
+# Exit immediately if initial commands fail
+# desc: Exit on initial commands error, ignored during interactive mode.
+# default: False
+{% if err_exit | default(False) | bool %}
+set errexit true
+{% endif %}

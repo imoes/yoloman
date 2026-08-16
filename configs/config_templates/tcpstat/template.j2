@@ -1,0 +1,22 @@
+# tcpstat command-line configuration
+# Managed by Ansible. Do not edit by hand.
+
+# Network interface to monitor. Use 'auto' for automatic selection.
+{% set _interface = interface | default('auto') %}
+exec tcpstat -i {{ _interface }}
+
+# Number of seconds to run when monitoring an interface.
+{% set _run_duration = run_duration | default(300) %}
+ -R {{ _run_duration }}
+
+# Packet filter expression (tcpdump syntax). Leave empty for all traffic.
+{% set _filter_expr = filter_expr | default('') %}
+ -f "{{ _filter_expr }}"
+
+# Format string for output, using % substitutions.
+{% set _output_format = output_format | default('Time:%S\\tn=%n\\tavg=%a\\tstddev=%d\\tbps=%b\\n') %}
+ -o "{{ _output_format }}"
+
+# Sample interval in seconds.
+{% set _interval = interval | default(5.0) %}
+ {{ _interval }}

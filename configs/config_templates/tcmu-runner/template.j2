@@ -1,0 +1,36 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!--
+  D-Bus Bus Configuration for TCMU (Target Core Userspace) Service.
+  This file registers the TCMU D-Bus service, allowing the specified user
+  to own the service name and restricting other entities to the defined
+  policy rules.
+
+  Managed by Ansible role. See schema fields 'user', 'service_name', 'handler_prefix'.
+-->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!--
+    Policy allowing the configured user to own the main TCMU D-Bus service name.
+    'user' is the OS user account allowed to own the service.
+  -->
+  <policy user="{{ user | default('root') }}">
+    <!-- Allow the user to own the main service name -->
+    <allow own="{{ service_name | default('org.kernel.TCMUService1') }}"/>
+  </policy>
+
+  <!--
+    Default policy applied to all other D-Bus clients/connections.
+    Restricts interaction to the specific TCMU service name and handler prefix.
+  -->
+  <policy context="default">
+    <!-- Allow sending messages to the main TCMU service destination -->
+    <allow send_destination="{{ service_name | default('org.kernel.TCMUService1') }}"/>
+    <!-- Allow owning the handler manager sub-prefixed services -->
+    <allow own_prefix="{{ handler_prefix | default('org.kernel.TCMUService1.HandlerManager1') }}"/>
+    <!-- Allow sending messages to the TCMU service interface -->
+    <allow send_interface="{{ service_name | default('org.kernel.TCMUService1') }}"/>
+  </policy>
+
+</busconfig>

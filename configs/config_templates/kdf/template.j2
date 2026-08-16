@@ -1,0 +1,39 @@
+# Configuration for openssl-kdf command execution
+# This file serves as a parameter set for the `openssl-kdf` utility.
+# Each directive corresponds to a command-line argument or environment variable
+# used by OpenSSL's Key Derivation Function implementation.
+
+# Key Derivation Function algorithm to use.
+# Supported algorithms include PBKDF2, HKDF, SCRYPT, etc.
+# Documentation: openssl-kdf(1ssl) - algorithm parameter
+algorithm: {{ algorithm | default('PBKDF2') }}
+
+# The input keying material in hexadecimal format.
+# This is the secret data from which keys are derived.
+# Documentation: openssl-kdf(1ssl) - key parameter
+key: {{ key | default('4a6576652061206c6f76656c792070617373776f7264212121') }}
+
+# The salt value in hexadecimal format.
+# Salt prevents rainbow table attacks; it should be random and unique per derivation.
+# Documentation: openssl-kdf(1ssl) - salt parameter
+salt: {{ salt | default('73616c7473616c74') }}
+
+# The iteration count for the key derivation function.
+# Higher values increase computational cost, improving security against brute force.
+# Documentation: openssl-kdf(1ssl) - iterations parameter
+iterations: {{ iterations | default(4096) }}
+
+# The desired output length in bytes.
+# This determines the size of the derived key material.
+# Documentation: openssl-kdf(1ssl) - length parameter
+output_length: {{ output_length | default(32) }}
+
+# The pseudo-random function (PRF) to use, if required by the algorithm.
+# Common choices are sha256, sha512, etc.
+# This parameter is optional and only relevant for certain KDF modes.
+# Documentation: openssl-kdf(1ssl) - prf parameter
+{% if prf is defined %}
+prf: {{ prf | default('sha256') }}
+{% else %}
+# prf is not specified; the default PRF for the chosen algorithm will be used
+{% endif %}

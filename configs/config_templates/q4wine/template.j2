@@ -1,0 +1,35 @@
+# Q4Wine Configuration Template
+# Self-documenting Ansible Jinja2 template for Q4Wine settings.
+# This file configures the Q4Wine frontend's behavior, Wine prefix locations,
+# and Winetricks plugin automation.
+
+[General]
+# The default WINEPREFIX directory path.
+# If not overridden, defaults to '/home/user/wine' or '/home/<user_name>/wine'.
+DefaultPrefix={{ (values | default({})).default_prefix | default('/home/' + (values | default({})).user_name | default('user') + '/wine') }}
+
+# If true, exports the current Qt color theme settings into Wine's color configuration.
+ExportQtTheme={{ (values | default({})).export_qt_theme | default(false) }}
+
+[UI]
+# If true, minimizes the Q4Wine main window immediately upon startup.
+MinimizeOnStartup={{ (values | default({})).minimize_on_startup | default(false) }}
+
+# The name of the Qt color theme to apply (light, dark, or system).
+QtTheme={{ (values | default({})).qt_theme | default('system') }}
+
+[Wine]
+# The default Wine version identifier to use for managing prefixes.
+DefaultWineVersion={{ (values | default({})).default_wine_version | default('wine-stable') }}
+
+# Additional command-line arguments passed to the Wine binary.
+WineArgs={{ (values | default({})).wine_args | default('--single-step') }}
+
+[Plugins]
+# List of Winetricks plugins to execute during prefix creation or management.
+# Each item is a flat object containing 'command' and 'enabled' fields.
+{% for plugin in (values | default({})).winetricks_plugins | default([]) %}
+[WinetricksPlugin_{{ loop.index }}]
+Command={{ plugin.command | default('') }}
+Enabled={{ plugin.enabled | default(false) }}
+{% endfor %}

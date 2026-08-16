@@ -1,0 +1,161 @@
+# Nordugrid ARC Nagios Plugins - EGI Configuration
+# --------------------------------------------------
+# This template configures the check_arcce_submit Nagios plugin for the EGI
+# Grid environment. It handles IGTF CA certificate checks and Storage Element
+# (SE) staging tests (HTTPS/SRM) via the BDII LDAP directory.
+
+# --- VOMS Configuration ---
+# [variable.voms]
+# The Virtual Organization (VO) name used for filtering storage element
+# information via LDAP. If empty, checks may be VO-agnostic or fail
+# depending on specific SE configurations.
+[{{ (variable | default({})).voms | default('') }}]
+method = option
+
+
+# --- IGTF CA Certificate Probe ---
+# [variable.igtf_base_url]
+# The base URL for the IGTF CA certificate release metadata files.
+# This is used to verify that installed CA certificates are current
+# and to detect obsolete ones.
+[igtf_base_url]
+# Usage: check_arcce_submit -O igtf_base_url=<url>
+# Overrides the default location of the IGTF release files.
+#
+method = option
+default = {{ (variable | default({})).igtf_base_url | default('http://repository.egi.eu/sw/production/cas/1/current/meta') }}
+
+
+# [arcce.dist-caversion]
+# Configuration block for checking IGTF CA certificate versions.
+# This test ensures the Certificate Authority certificates on the
+# Computing Element (CE) are up to date and no obsolete CAs are present.
+[arcce.dist-caversion]
+# Usage: check_arcce_submit --job-tag caversion --test caversion ...
+# Checks that all IGTF CA certificates are installed on the CE, that they
+# are up to date, and that there are no obsolete ITGF CAs installed.
+#
+jobplugin = scripted
+staged_inputs =
+    file:%(config_dir)s/60-egi.d/arcce_igtf.py
+    {{ (variable | default({})).igtf_base_url | default('http://repository.egi.eu/sw/production/cas/1/current/meta') }}/ca-policy-egi-core.release;cache=no
+    {{ (variable | default({})).igtf_base_url | default('http://repository.egi.eu/sw/production/cas/1/current/meta') }}/ca-policy-egi-core.list;cache=no
+    {{ (variable | default({})).igtf_base_url | default('http://repository.egi.eu/sw/production/cas/1/current/meta') }}/ca-policy-egi-core.obsoleted;cache=no
+output_file = caversion.out
+runtime_environments = ENV/PROXY
+script_line = PYTHON=`which python2 python python3 2>/dev/null| head -1`; $PYTHON arcce_igtf.py >caversion.out
+service_description = org.nordugrid.ARC-CE-IGTF%(service_suffix)s
+
+
+# --- BDII / Storage Element Staging Configuration ---
+
+# [variable.top_bdii]
+# The URI of the BDII (BEIRUT Directory Information) server.
+# The plugin queries this LDAP server to discover VO-specific storage
+# directory information for a given Storage Element host.
+[{{ (variable | default({})).top_bdii | default('ldap://lcg-bdii.cern.ch:2170') }}]
+method = option
+default = {{ (variable | default({})).top_bdii | default('ldap://lcg-bdii.cern.ch:2170') }}
+
+
+# [variable.se_vo_dir]
+# Configuration block for VO-specific storage directory discovery via LDAP.
+# This section defines how to query the BDII to find the valid path for
+# a specific VO on a Storage Element.
+[{{ (variable | default({})).se_vo_dir | default('') }}]
+method = ldap
+uri = {{ (variable | default({})).top_bdii | default('ldap://lcg-bdii.cern.ch:2170') }}
+basedn = mds-vo-name=local,o=grid
+# Filter looks for GlueVOInfo entries matching the SE host and the configured VO.
+filter = (&(objectClass=GlueVOInfo)(GlueChunkKey=GlueSEUniqueID=%(se_host)s)(GlueVOInfoAccessControlBaseRule=VO:%(voms)s))
+attribute = GlueVOInfoPath, GlueSAPath
+
+
+# [variable.good_ses_file]
+# Path to a local file containing a list of known good storage elements.
+# Used for staging tests. If provided, `se_host` can be randomly selected
+# from this list. If omitted, `se_host` must be explicitly provided.
+# Usage: check_arcce_submit -O good_ses_file=<local-file> ...
+# The location of a file containing a list if known good storage elements
+# which can be used for Nagios staging tests.  This is not needed if the
+# -O se_host=<host> option is provided.
+#
+[good_ses_file]
+method = option
+
+
+# [variable.se_host]
+# The host name of the storage element to use for staging tests.
+# If `good_ses_file` is provided, this can be dynamically resolved via
+# the `random_line` method, otherwise it must be set explicitly.
+# The following picks a random line from the file specified in good_ses_file,
+# but it can be overriden with -O se_host=<host>.
+#
+[{{ (variable | default({})).se_host | default('') }}]
+# The host name of the storage element to use for staging tests.  The
+# following picks a random line from the file specified in good_ses_file,
+# but it can be overriden with -O se_host=<host>.
+#
+method = random_line
+{% if (variable | default({})).good_ses_file | default('') %}
+input_file = {{ (variable | default({})).good_ses_file | default('') }}
+{% endif %}
+reputation_dist = se_host
+
+
+# [variable.se_test_dir]
+# A directory on `se_host` where test files can be written during staging
+# tests. If empty, it defaults to a path derived from the VOMS directory
+# configuration.
+# Usage: check_arcce_submit -O se_test_dir=<dir> ...
+# A directory on se_host where test files can be written.
+#
+[se_test_dir]
+method = option
+# Default derivation: uses the se_vo_dir path if available, otherwise a standard nagios dir.
+{% if (variable | default({})).se_vo_dir | default('') %}
+default = {{ (variable | default({})).se_vo_dir | default('') }}/nagios-%(local_hostname)s/arcce
+{% else %}
+default = /nagios-%(local_hostname)s/arcce
+{% endif %}
+
+
+# [variable.stage_stamp]
+# Configuration for the timestamp format used in staging test output files.
+# Ensures unique filenames for test artifacts.
+[stage_stamp]
+method = strftime
+raw_format = %Y%m%dT%H%M
+
+
+# --- HTTPS Staging Test ---
+# [arcce.dist-stage-https]
+# Configuration block for HTTPS staging tests.
+# Performs file upload and download tests over HTTPS to validate SE connectivity.
+[arcce.dist-stage-https]
+# Usage: check_arcce_submit --job-tag https --test dist-stage-https ...
+# Performs staging tests using the SRM protocol.
+#
+jobplugin = staging
+# Note: se_host and se_test_dir are interpolated here. If se_host is empty,
+# these URLs may be malformed. Ensure se_host is provided via good_ses_file or explicit config.
+upload_if_missing = https://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/https-input
+staged_inputs = https://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/https-input
+staged_outputs = https://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/https-%(stage_stamp)s-%(hostname)s
+service_description = org.nordugrid.ARC-CE-https%(service_suffix)s
+
+
+# --- SRM Staging Test ---
+# [arcce.dist-stage-srm]
+# Configuration block for SRM staging tests.
+# Performs file upload and download tests using the SRM (Storage Resource Manager) protocol.
+[arcce.dist-stage-srm]
+# Usage: check_arcce_submit --job-tag srm --test dist-stage-srm ...
+# Performs staging tests using the SRM protocol.
+#
+jobplugin = staging
+# Note: se_host and se_test_dir are interpolated here.
+upload_if_missing = srm://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/srm-input
+staged_inputs = srm://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/srm-input
+staged_outputs = srm://{{ (variable | default({})).se_host | default('') }}{{ (variable | default({})).se_test_dir | default('') }}/srm-%(stage_stamp)s-%(hostname)s
+service_description = org.nordugrid.ARC-CE-srm%(service_suffix)s

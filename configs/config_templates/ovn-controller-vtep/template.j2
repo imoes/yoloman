@@ -1,0 +1,96 @@
+# ============================================================================
+# ovn-controller-vtep Configuration Template
+# ============================================================================
+# This template generates the configuration file for the OVN Controller VTEP
+# (Virtual Tunnel Endpoint) component. VTEP enables VXLAN/NVGRE tunneling
+# for overlay networks managed by Open Virtual Network (OVN).
+#
+# Self-documenting: every directive is preceded by its schema description
+# and uses inline defaults to avoid render failures.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Runtime Control Interface
+# ---------------------------------------------------------------------------
+# Path to the Unix domain socket for runtime management commands.
+# The VTEP controller exposes a Unix socket allowing external tools to
+# send management commands. Set to 'none' to disable the control socket
+# entirely (reduces attack surface but disables remote management).
+# Schema field: unixctl_path
+unixctl={{ (unixctl_path | default('/run/ovn-controller-vtep.pid.ctl')) }}
+
+# ---------------------------------------------------------------------------
+# VTEP Database Connection
+# ---------------------------------------------------------------------------
+# OVSDB protocol connection string for the VTEP database.
+# The VTEP database stores the logical switch/port topology specific to
+# virtual tunnel endpoints.
+# Supported formats:
+#   - unix:file      (local Unix domain socket)
+#   - tcp:host:port  (TCP connection, unencrypted)
+#   - ssl:host:port  (TCP connection, TLS encrypted)
+# Schema field: vtep_db_url
+vtep_db={{ (vtep_db_url | default('unix:/var/run/openvswitch/vtep.db.sock')) }}
+
+# ---------------------------------------------------------------------------
+# OVN Southbound Database Connection
+# ---------------------------------------------------------------------------
+# OVSDB protocol connection string for the OVN Southbound database.
+# The Southbound database holds the global network state (flows, tunnel
+# endpoints, routing rules) that ovn-controller-vtep synchronizes to.
+# Supported formats:
+#   - unix:file      (local Unix domain socket)
+#   - tcp:host:port  (TCP connection, unencrypted)
+#   - ssl:host:port  (TCP connection, TLS encrypted)
+# Schema field: ovnsb_db_url
+ovnsb_db={{ (ovnsb_db_url | default('unix:/var/run/openvswitch/db.sock')) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS Identity: Private Key
+# ---------------------------------------------------------------------------
+# Path to the PEM file containing the private key for SSL/TLS identity.
+# Required if vtep_db or ovnsb_db use the 'ssl:' protocol prefix.
+# This key identifies this VTEP controller to the databases and peers.
+# Schema field: private_key_path
+private_key={{ (private_key_path | default('')) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS Identity: Certificate
+# ---------------------------------------------------------------------------
+# Path to the PEM file containing the certificate for SSL/TLS identity.
+# Required if vtep_db or ovnsb_db use the 'ssl:' protocol prefix.
+# The certificate must be signed by a trusted CA (see ca_cert below).
+# Schema field: certificate_path
+certificate={{ (certificate_path | default('')) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS: CA Certificate for Verification
+# ---------------------------------------------------------------------------
+# Path to the CA certificate file for verifying peer certificates.
+# This CA is used to validate the certificates presented by the VTEP DB
+# and OVN SB DB servers during TLS handshake.
+# Set to 'none' to disable verification (insecure; use only for testing).
+# Mutually exclusive with bootstrap_ca_cert; use one or the other.
+# Schema field: ca_cert_path
+ca_cert={{ (ca_cert_path | default('none')) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS: Bootstrap CA Certificate
+# ---------------------------------------------------------------------------
+# Path to the CA certificate file for bootstrapping trust.
+# If the specified file does not exist on disk at startup, the controller
+# will fetch the CA certificate from the peer on the first connection and
+# cache it at this path. This is useful for first-time setup or rotation.
+# Mutually exclusive with ca_cert; use one or the other.
+# Schema field: bootstrap_ca_cert_path
+bootstrap_ca_cert={{ (bootstrap_ca_cert_path | default('none')) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS: Peer CA Certificates (Extra Trust Anchors)
+# ---------------------------------------------------------------------------
+# Path to a PEM file with additional CA certificates to send to peers.
+# Useful for bootstrapping if the peer does not yet have the CA that signed
+# this controller's certificate. The file should contain one or more
+# PEM-encoded CA certificates.
+# Schema field: peer_ca_cert_path
+peer_ca_cert={{ (peer_ca_cert_path | default('none')) }}

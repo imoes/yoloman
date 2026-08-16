@@ -1,0 +1,45 @@
+# Zsync download command configuration
+# Controls the behavior of the zsync partial/differential file download client.
+
+# The URL or path to the .zsync control file. This is the primary argument to zsync.
+# Corresponds to the first positional argument of the zsync command.
+{% if (zsync_control_url | default('')) %}
+zsync {{ zsync_control_url | default('') }}
+{% endif %}
+
+# Specifies an input file to be scanned for blocks in common with the target file. Corresponds to -i.
+{% if (zsync_input_file | default('')) %}
+-i {{ zsync_input_file | default('') }}
+{% endif %}
+
+# Override the default output file name. Corresponds to -o.
+{% if (zsync_output_file | default('')) %}
+-o {{ zsync_output_file | default('') }}
+{% endif %}
+
+# Indicates that zsync should save the zsync file that it downloads with the given filename. Corresponds to -k.
+{% if (zsync_save_control_file | default('')) %}
+-k {{ zsync_save_control_file | default('') }}
+{% endif %}
+
+# Suppress the progress bar, download rate and ETA display. Corresponds to -q or -s.
+{% if (zsync_silent | default(False) | bool) %}
+-q
+{% endif %}
+
+# Specifies the referring URL. Used if the .zsync file contains relative URLs. Corresponds to -u.
+{% if (zsync_base_url | default('')) %}
+-u {{ zsync_base_url | default('') }}
+{% endif %}
+
+# List of authentication entries. Each entry is a string in the format 'hostname=username:password'. Corresponds to -A.
+{% if (zsync_auths | default([])) | length > 0 %}
+{% for auth in zsync_auths | default([]) %}
+-A {{ auth }}
+{% endfor %}
+{% endif %}
+
+# The HTTP proxy URL (hostname:port) used to access the target web server. Corresponds to the http_proxy environment variable.
+{% if (zsync_http_proxy | default('')) %}
+http_proxy={{ zsync_http_proxy | default('') }}
+{% endif %}

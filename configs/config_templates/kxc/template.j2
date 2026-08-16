@@ -1,0 +1,43 @@
+#!/bin/sh
+# kxc command-line wrapper script
+# Generated configuration for kxc Key exchange client
+#
+# This script sets environment variables for the kxc client based on
+# the Ansible variables defined in the role. It then executes kxc
+# with the appropriate command-line arguments pointing to the
+# configured certificates and server URL.
+
+# =============================================================================
+# Certificate and Key Paths
+# =============================================================================
+
+# Path to the file containing the client private key in PAM format
+# Default: /etc/kxc/client.key
+CLIENT_KEY="{{ client_key | default('/etc/kxc/client.key') }}"
+
+# Path to the file containing the client certificate in PAM format
+# Default: /etc/kxc/client.crt
+CLIENT_CERT="{{ client_cert | default('/etc/kxc/client.crt') }}"
+
+# Path to the file containing the valid server certificate in PAM format
+# Default: /etc/kxc/server.crt
+SERVER_CERT="{{ server_cert | default('/etc/kxc/server.crt') }}"
+
+# =============================================================================
+# Server Connection Details
+# =============================================================================
+
+# URL to the kxd server including host and key identifier
+# Default: kxd://localhost/host1/key1
+SERVER_URL="{{ server_url | default('kxd://localhost/host1/key1') }}"
+
+# =============================================================================
+# Execution
+# =============================================================================
+
+# Execute kxc with the configured options
+exec kxc \
+  --client_key="${CLIENT_KEY}" \
+  --client_cert="${CLIENT_CERT}" \
+  --server_cert="${SERVER_CERT}" \
+  ${SERVER_URL}

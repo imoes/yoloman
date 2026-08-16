@@ -1,0 +1,256 @@
+# =============================================================================
+# MariaDB Test Harness (mariadb-test) Configuration
+# =============================================================================
+#
+# This template generates the configuration context for the mariadb-test
+# utility (part of the MariaDB client distribution). It controls how the
+# test harness connects to the database server, handles SSL, manages
+# temporary files, and processes test suites.
+#
+# Variables used here map directly to the `mariadb-test` command-line
+# options (see `man mariadb-test`). All variables use `| default(...)`
+# to ensure the template renders safely even if a variable is undefined.
+#
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Connection Settings
+# ------------------------------------------------------------------------------
+
+# The base directory for test cases.
+# Maps to: --basedir=dir_name, -b dir_name
+# Used to locate test suite files relative to the installation.
+basedir: {{ base_dir | default('/usr/share/mariadb/test') }}
+
+# The default database to use for the connection.
+# Maps to: --database=db_name, -D db_name
+database: {{ database_name | default('test') }}
+
+# The host name or IP address of the MariaDB/MySQL server to connect to.
+# Maps to: --host=host_name, -h host_name
+host: {{ host | default('localhost') }}
+
+# The TCP/IP port number for the connection.
+# Maps to: --port=port_num, -P port_num
+port: {{ port | default(3306) }}
+
+# The Unix socket file path for local connections.
+# Maps to: --socket=path, -S path
+# Note: If using a peer-injected socket, this path should match the service config.
+socket: {{ socket | default('/run/mysqld/mysqld.sock') }}
+
+# The user name for server authentication.
+# Maps to: --user=user_name, -u user_name
+user: {{ user | default('root') }}
+
+# The password for server authentication.
+# Maps to: --password[=password], -p[password]
+# Security Warning: Ensure this value is handled securely in Ansible (e.g., vault).
+password: {{ password | default('') }}
+
+# The connection protocol to use.
+# Maps to: --protocol={TCP|SOCKET|PIPE|MEMORY}
+# TCP: Connects via TCP/IP. SOCKET: Connects via Unix domain socket.
+protocol: {{ protocol | default('TCP') }}
+
+# ------------------------------------------------------------------------------
+# SSL/TLS Settings
+# ------------------------------------------------------------------------------
+
+# Enable SSL encryption for the connection.
+# Maps to: --ssl
+ssl_enabled: {{ ssl_enabled | default(false) }}
+
+# Path to the CA certificate file in PEM format.
+# Maps to: --ssl-ca=name
+ssl_ca: {{ ssl_ca | default('') }}
+
+# Path to the directory containing CA certificates.
+# Maps to: --ssl-capath=name
+ssl_capath: {{ ssl_capath | default('') }}
+
+# Path to the client X509 certificate file in PEM format.
+# Maps to: --ssl-cert=name
+ssl_cert: {{ ssl_cert | default('') }}
+
+# Path to the client X509 private key file in PEM format.
+# Maps to: --ssl-key=name
+ssl_key: {{ ssl_key | default('') }}
+
+# SSL cipher list to use for encryption.
+# Maps to: --ssl-cipher=name
+ssl_cipher: {{ ssl_cipher | default('') }}
+
+# Verify that the server certificate's Common Name (CN) matches the host.
+# Maps to: --ssl-verify-server-cert
+ssl_verify_server_cert: {{ ssl_verify_server_cert | default(false) }}
+
+# Path to the Certificate Revocation List (CRL) file.
+# Maps to: --ssl-crl=name
+ssl_crl: {{ ssl_crl | default('') }}
+
+# Path to the directory containing CRL files.
+# Maps to: --ssl-crlpath=name
+ssl_crlpath: {{ ssl_crlpath | default('') }}
+
+# ------------------------------------------------------------------------------
+# Connection Behavior
+# ------------------------------------------------------------------------------
+
+# Connection timeout in seconds.
+# Maps to: --connect-timeout=num
+connect_timeout: {{ connect_timeout | default(10) }}
+
+# Maximum number of times to retry a connection attempt.
+# Maps to: --max-connect-retries=num
+max_connect_retries: {{ max_connect_retries | default(3) }}
+
+# Maximum number of simultaneous connections allowed per client session.
+# Maps to: --max-connections=num
+max_connections: {{ max_connections | default(128) }}
+
+# Enable compression for the client/server communication protocol.
+# Maps to: --compress, -C
+compress: {{ compress | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Output and Debugging
+# ------------------------------------------------------------------------------
+
+# Enable verbose mode for detailed output.
+# Maps to: --verbose, -v
+verbose: {{ verbose | default(false) }}
+
+# Enable silent mode; suppresses normal output (useful for scripting).
+# Maps to: --silent, -s
+silent: {{ silent | default(false) }}
+
+# Continue test execution even if errors occur.
+# Maps to: --continue-on-error
+continue_on_error: {{ continue_on_error | default(false) }}
+
+# Sleep duration in seconds between test operations.
+# Maps to: --sleep=num, -T num
+sleep_duration: {{ sleep_duration | default(0) }}
+
+# Path to the result file for expected vs actual comparison.
+# Maps to: --result-file=file_name, -R file_name
+result_file: {{ result_file | default('') }}
+
+# Record actual test results into the result file.
+# Maps to: --record, -r
+record: {{ record | default(false) }}
+
+# Directory where log files are stored.
+# Maps to: --logdir=dir_name
+logdir: {{ logdir | default('/tmp') }}
+
+# Temporary directory used for socket files and intermediate data.
+# Maps to: --tmpdir=dir_name, -t dir_name
+tmpdir: {{ tmpdir | default('/tmp') }}
+
+# ------------------------------------------------------------------------------
+# Test Suite Configuration
+# ------------------------------------------------------------------------------
+
+# Directory containing the test suite files.
+# Maps to: --suite-dir=dir_name
+suite_dir: {{ suite_dir | default('/usr/share/mariadb/test') }}
+
+# Directory containing character set definition files.
+# Maps to: --character-sets-dir=path
+character_sets_dir: {{ character_sets_dir | default('/usr/share/mariadb/charsets') }}
+
+# Directory for client-side plugins.
+# Maps to: --plugin-dir=dir_name
+plugin_dir: {{ plugin_dir | default('') }}
+
+# Directory containing overlay files for tests (overrides default test files).
+# Maps to: --overlay-dir=dir_name
+overlay_dir: {{ overlay_dir | default('') }}
+
+# Specific test file to execute (bypasses suite selection).
+# Maps to: --test-file=file_name, -x file_name
+test_file: {{ test_file | default('') }}
+
+# File used for timer/performance measurement data.
+# Maps to: --timer-file=file_name, -m file_name
+timer_file: {{ timer_file | default('') }}
+
+# Prologue file executed before test processing starts.
+# Maps to: --prologue=name
+prologue: {{ prologue | default('') }}
+
+# Number of tail lines to include in output upon failure.
+# Maps to: --tail-lines=nn
+tail_lines: {{ tail_lines | default(0) }}
+
+# Version of the result format to use.
+# Maps to: --result-format-version=#
+result_format_version: {{ result_format_version | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Protocol Extensions
+# ------------------------------------------------------------------------------
+
+# Use cursor protocol for prepared statements.
+# Maps to: --cursor-protocol
+cursor_protocol: {{ cursor_protocol | default(false) }}
+
+# Use prepared-statement protocol (PS).
+# Maps to: --ps-protocol
+ps_protocol: {{ ps_protocol | default(false) }}
+
+# Wrap SELECT statements in a view for testing.
+# Maps to: --view-protocol
+view_protocol: {{ view_protocol | default(false) }}
+
+# Use stored procedure protocol for DML operations.
+# Maps to: --sp-protocol
+sp_protocol: {{ sp_protocol | default(false) }}
+
+# Use the non-blocking API for client operations.
+# Maps to: --non-blocking-api
+non_blocking_api: {{ non_blocking_api | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Debugging and Low-Level Options
+# ------------------------------------------------------------------------------
+
+# Debug options string passed to the debug library.
+# Maps to: --debug[=debug_options], -#[debug_options]
+# Default includes trace output to a specific file.
+debug_options: {{ debug_options | default('d:t:S:i:O,/tmp/mariadb-test.trace') }}
+
+# Print debug check information on exit.
+# Maps to: --debug-check
+debug_check: {{ debug_check | default(false) }}
+
+# Print debug info and statistics on exit.
+# Maps to: --debug-info
+debug_info: {{ debug_info | default(false) }}
+
+# List of server arguments to pass to the embedded server.
+# Maps to: --server-arg=value, -A value
+# Rendered as a space-separated string if provided.
+{% if server_args is defined and server_args | length > 0 %}
+server_args: {{ server_args | join(' ') }}
+{% else %}
+server_args:
+{% endif %}
+
+# File containing server arguments for the embedded server.
+# Maps to: --server-file=file_name, -F file_name
+server_file: {{ server_file | default('') }}
+
+# Skip reading default option files from standard locations.
+# Maps to: --no-defaults
+no_defaults: {{ no_defaults | default(false) }}
+
+# Mark progress in the progress file.
+# Maps to: --mark-progress
+mark_progress: {{ mark_progress | default(false) }}
+
+# =============================================================================
+# End of mariadb-test Configuration
+# =============================================================================

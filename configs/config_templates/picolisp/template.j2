@@ -1,0 +1,49 @@
+# =============================================================================
+# PicoLisp Runtime Configuration
+# =============================================================================
+# This configuration file is sourced by the PicoLisp interpreter after startup.
+# It is typically loaded from ~/.pil/rc or a similar entry point.
+#
+# Structure:
+# 1. Load the base PicoLisp library.
+# 2. Load any additional application-specific library files.
+# 3. Execute custom initialization S-expressions.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Base Library Path
+# -----------------------------------------------------------------------------
+# Path to the base PicoLisp library file (lib.l).
+# This file contains the core functions and definitions of the PicoLisp language.
+# Default: /usr/lib/picolisp/lib.l
+# -----------------------------------------------------------------------------
+(load "{{ (lib_path | default('/usr/lib/picolisp/lib.l')) }}")
+
+# -----------------------------------------------------------------------------
+# Additional Load Files
+# -----------------------------------------------------------------------------
+# List of additional .l files to load after the base library.
+# These files typically contain application-specific code, helpers, or libraries.
+# If the list is empty, no additional files are loaded.
+# -----------------------------------------------------------------------------
+{% for file in (load_files | default([])) %}
+# (load "{{ file }}")
+(load "{{ file }}")
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Initialization Logic
+# -----------------------------------------------------------------------------
+# Arbitrary S-expressions to execute at startup.
+# Use this for setting up environment variables, opening database connections,
+# starting background processes, or other one-time initialization tasks.
+# If empty, this block is omitted from the output.
+# -----------------------------------------------------------------------------
+{% if (init_lisp | default('') | trim) %}
+# (do
+{{ init_lisp | default('') | indent(2) }}
+# )
+(do
+{{ init_lisp | default('') | indent(2) }}
+)
+{% endif %}

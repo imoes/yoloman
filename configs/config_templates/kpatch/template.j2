@@ -1,0 +1,26 @@
+# Kpatch module configuration
+# Managed by Ansible — do not edit manually
+#
+# This template generates shell commands to install and load kpatch (Kernel Patch) modules.
+# It iterates over the list of modules defined in the 'modules' variable.
+# Each module requires: name, kernel_version, and path.
+
+# Load the modules list with a safe empty default to prevent render errors if undefined.
+{% set modules_list = modules | default([], true) %}
+
+{% for module in modules_list %}
+# Module: {{ module.name | default('unnamed') | string }}
+# Target kernel version: {{ module.kernel_version | default('unknown') | string }}
+# Patch archive/module path: {{ module.path | default('') | string }}
+kpatch install -k {{ module.kernel_version | default('unknown') | string }} {{ module.path | default('') | string }}
+{% endfor %}
+
+# Configuration: auto_load (default: true)
+# When true, all previously installed kpatch modules are loaded into the running kernel immediately.
+{% if auto_load | default(true, true) %}
+# Load all installed patch modules into the running kernel
+kpatch load --all
+{% else %}
+# Auto-load is disabled; modules must be loaded manually via 'kpatch load'
+# kpatch load --all
+{% endif %}

@@ -1,0 +1,129 @@
+#!/bin/sh
+# ncdc initialization script
+# This script initializes the ncdc session database (db.sqlite3) with the provided
+# configuration values. It creates the necessary table structure and sets global
+# and hub-specific configuration entries.
+#
+# This template is self-documenting: every configuration directive is preceded by
+# a comment explaining its purpose and default value from the schema.
+
+# ============================================================
+# Global Session Directory
+# ============================================================
+# session_dir: The directory where ncdc stores its database, logs, and shared files.
+# Default: '~/.ncdc'
+SESSION_DIR="{{ session_dir | default('~/.ncdc') }}"
+mkdir -p "${SESSION_DIR}"
+cd "${SESSION_DIR}"
+
+# ============================================================
+# Database Initialization
+# ============================================================
+# Ensures the SQLite database file exists and contains the expected schema.
+if [ ! -f "db.sqlite3" ]; then
+    touch db.sqlite3
+    # Create the config table expected by ncdc if it does not already exist.
+    # Structure: key (TEXT, Primary Key), value (TEXT).
+    sqlite3 db.sqlite3 "CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);"
+fi
+
+# ============================================================
+# Global Configuration Settings
+# ============================================================
+
+# Set global variables using sqlite3 REPLACE to ensure idempotency.
+
+# nick: Your default nickname displayed in hubs.
+# Default: 'NcUser'
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('nick', '{{ nick | default('NcUser') }}');"
+
+# description: A short public description displayed in hub user lists.
+# Default: 'NcDC Client'
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('description', '{{ description | default('NcDC Client') }}');"
+
+# active: Enables active mode, allowing others to connect to you for better file sharing.
+# Default: False
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('active', '{{ active | default(false) | lower }}');"
+
+# active_port: The TCP/UDP port for incoming connections in active mode.
+# Default: 4114
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('active_port', {{ active_port | default(4114) }});"
+
+# autoconnect: Automatically connect to hubs with autoconnect enabled on startup.
+# Default: False
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('autoconnect', {{ autoconnect | default(false) | lower }}');"
+
+# connection: Indication of upload speed for other users (e.g., '50' or '2300 KiB/s').
+# Default: '10 Mbit'
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('connection', '{{ connection | default('10 Mbit') }}');"
+
+# upload_rate: Maximum combined transfer rate of all uploads (e.g., '5M').
+# Overrides connection setting if set.
+# Default: '' (empty)
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('upload_rate', '{{ upload_rate | default('') }}');"
+
+# download_rate: Maximum combined transfer rate of all downloads (e.g., '10M').
+# Default: '' (empty)
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('download_rate', '{{ download_rate | default('') }}');"
+
+# download_dir: Directory where finished downloads are moved to.
+# Defaults to session_dir/dl/ if empty.
+# Default: '' (empty)
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('download_dir', '{{ download_dir | default('') }}');"
+
+# incoming_dir: Directory where incomplete downloads are stored.
+# Defaults to session_dir/inc/ if empty.
+# Default: '' (empty)
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('incoming_dir', '{{ incoming_dir | default('') }}');"
+
+# slots: The number of upload slots available to users.
+# Default: 5
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('slots', {{ slots | default(5) }});"
+
+# minislots: Number of minislots for small files or filelist requests when regular slots are full.
+# Default: 1
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('minislots', {{ minislots | default(1) }});"
+
+# max_ul_per_user: Maximum number of simultaneous upload connections to one user.
+# Default: 1
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('max_ul_per_user', {{ max_ul_per_user | default(1) }});"
+
+# share_emptydirs: Whether to share empty directories.
+# Default: False
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('share_emptydirs', {{ share_emptydirs | default(false) | lower }}');"
+
+# share_hidden: Whether to share hidden files and directories (starting with dot).
+# Default: False
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('share_hidden', {{ share_hidden | default(false) | lower }}');"
+
+# tls_policy: Policy for secure client-to-client connections: disabled, allow, prefer, or force.
+# Default: 'disabled'
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('tls_policy', '{{ tls_policy | default('disabled') }}');"
+
+# geoip_cc: Path to GeoIP database or 'disabled'.
+# Default: 'disabled'
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('geoip_cc', '{{ geoip_cc | default('disabled') }}');"
+
+# ============================================================
+# Hub Configuration
+# ============================================================
+# Iterate through the list of hubs to pre-configure connections.
+# Each hub entry configures its own address, autoconnect status, nick, password,
+# and active mode settings.
+{% for hub in hubs | default([], true) %}
+# Configure hub: {{ hub.name | default('unnamed') }}
+# Hub address for this connection.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.address', '{{ hub.address | default('') }}');"
+# Automatically connect to this hub on startup.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.autoconnect', {{ hub.autoconnect | default(false) | lower }});"
+# Nickname to use when connecting to this specific hub.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.nick', '{{ hub.nick | default(nick, true) }}');"
+# Password required for this hub, if any.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.password', '{{ hub.password | default('') }}');"
+# Enable active mode for this specific hub connection.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.active', {{ hub.active | default(active, true) | lower }});"
+# Active port for this specific hub connection.
+sqlite3 db.sqlite3 "REPLACE INTO config VALUES ('hub.{{ hub.name }}.active_port', {{ hub.active_port | default(active_port, true) }});"
+{% endfor %}
+
+echo "ncdc configuration applied to ${SESSION_DIR}/db.sqlite3"

@@ -1,0 +1,80 @@
+# ==============================================================================
+# pick(1) Configuration Template
+# ==============================================================================
+#
+# This template configures the 'pick' interactive selection utility.
+# It expects 'config' to be a list containing a single dictionary of options.
+#
+# Schema Field: config
+# Description: A list containing a single map of configuration options for pick(1).
+#              Each key maps to a specific command-line flag or environment behavior.
+# Default: [{'ifs': ' | ', 'output_description': False, 'sort_enabled': True,
+#            'alternate_screen': True, 'initial_query': ''}]
+# ==============================================================================
+
+{% set _config = config | default([{'ifs': ' | ', 'output_description': False, 'sort_enabled': True, 'alternate_screen': True, 'initial_query': ''}]) %}
+
+{# Ensure we are iterating over a list with exactly one map element, as per schema #}
+{% if _config is iterable and _config is not string %}
+    {% for _cfg_map in _config %}
+        {# If the map is not a dict, skip or handle gracefully (though schema says it is) #}
+        {% if _cfg_map is mapping %}
+
+# ------------------------------------------------------------------------------
+# Separator Configuration
+# Field: ifs
+# Description: The internal field separator used to split descriptions.
+#              Corresponds to the IFS environment variable logic.
+# Default: ' | '
+# ------------------------------------------------------------------------------
+IFS={{ _cfg_map.ifs | default(' | ') }}
+
+# ------------------------------------------------------------------------------
+# Output Description Configuration
+# Field: output_description
+# Description: Enable or disable the output of the description of the selected choice.
+#              If true, outputs the description.
+#              Corresponds to the -o flag.
+# Default: false
+# ------------------------------------------------------------------------------
+output_description={{ _cfg_map.output_description | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Sorting Configuration
+# Field: sort_enabled
+# Description: Enable or disable the sorting of choices.
+#              If false, only filters choices without sorting by score.
+#              Corresponds to the -S flag.
+# Default: true
+# ------------------------------------------------------------------------------
+sort_enabled={{ _cfg_map.sort_enabled | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Alternate Screen Configuration
+# Field: alternate_screen
+# Description: Use the terminal's alternate screen feature.
+#              If false, disables the alternate screen (useful for nested terminals).
+#              Corresponds to the -X flag.
+# Default: true
+# ------------------------------------------------------------------------------
+alternate_screen={{ _cfg_map.alternate_screen | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Initial Query Configuration
+# Field: initial_query
+# Description: The initial search query string.
+#              Pre-fills the search input field.
+#              Corresponds to the -q flag.
+# Default: ''
+# ------------------------------------------------------------------------------
+initial_query={{ _cfg_map.initial_query | default('') }}
+
+        {% else %}
+            {# Fallback for non-map items in the list #}
+            {# This case should ideally not be reached with valid schema data #}
+        {% endif %}
+    {% endfor %}
+{% else %}
+    {# Fallback if config is not iterable (e.g. null or malformed) #}
+    {# Output empty or minimal valid config to prevent breakage #}
+{% endif %}

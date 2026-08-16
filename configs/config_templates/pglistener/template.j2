@@ -1,0 +1,109 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          pglistener
+# Required-Start:    $local_fs
+# Required-Stop:    $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: PGListener
+# Description:       PostgreSQL listener
+### END INIT INFO
+
+# Author: Dafydd Harries <daf@debian.org>
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="PostgreSQL listener"
+# Service/daemon name used for PID file, script name, and default config path.
+NAME={{ name | default('pglistener') }}
+DAEMON=/usr/bin/pglistener
+DAEMON_ARGS="/etc/pglistener/pglistener.cfg /etc/pglistener/conf.d"
+# Directory name for the PID file (used in /var/run/ and /run/ paths).
+PIDFILE=/var/run/{{ pidfile_dir | default('pglistener') }}/{{ name | default('pglistener') }}.pid
+SCRIPTNAME=/etc/init.d/{{ name | default('pglistener') }}
+
+# Exit if the package is not installed
+[ -e "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/{{ name | default('pglistener') }} ] && . /etc/default/{{ name | default('pglistener') }}
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+
+	# Directory name for the PID file (used in /var/run/ and /run/ paths).
+	mkdir -p /run/{{ pidfile_dir | default('pglistener') }}
+	# System user under which the pglistener daemon runs.
+	chown {{ user | default('pglisten') }}:{{ user | default('pglisten') }} /run/{{ pidfile_dir | default('pglistener') }}
+
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --chuid {{ user | default('pglisten') }} \
+		--exec $DAEMON --test > /dev/null \
+		|| return 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --chuid {{ user | default('pglisten') }} \
+		--exec $DAEMON -- $DAEMON_ARGS \
+		|| return 2
+}
+
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	# Many daemons don't delete their pidfiles when they exit.
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:

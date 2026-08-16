@@ -1,0 +1,57 @@
+# ==============================================================================
+# Command line configuration for wixl
+# This template generates a single-line command invocation for the wixl tool.
+# wixl is a command-line utility used to create MSI installers from WiX source files.
+# See wixl(1) man page for full details.
+#
+# Self-documenting: Every option is commented with its CLI flag and schema description.
+# Default values are applied via Jinja2 `default()` filters to ensure safe rendering
+# even when Ansible variables are undefined.
+# ==============================================================================
+
+# -v, --verbose: Activate verbose output (default: false)
+# When true, wixl prints detailed progress and debugging information to stderr.
+{% if verbose | default(false) %}
+--verbose
+{% endif %}
+
+# -o, --output <file>: Output filename (default: empty)
+# If omitted or empty, the compiled MSI binary is written to stdout.
+# Provide a path to save the output to a specific file.
+{% set _output = output_file | default('') %}
+{% if _output %}
+--output {{ _output }}
+{% endif %}
+
+# -a, --arch <arch>: Target architecture (default: 'X64')
+# Specifies the CPU architecture for which the installer is built.
+# Valid values: X86, INTEL, IA64, INTEL64, X64.
+# If omitted, wixl may attempt auto-detection or default to platform architecture.
+--arch {{ arch | default('X64') }}
+
+# -I, --includedir <directory>: User include directory (default: [])
+# Adds a directory to the search path for #include directives in .wxs files.
+# This flag can be specified multiple times.
+{% for dir in includedir | default([]) %}
+-I {{ dir }}
+{% endfor %}
+
+# --wxidir <directory>: WiX system include directory (default: [])
+# Adds a system-level directory to the include search path, typically for WiX headers.
+# This flag can be specified multiple times.
+{% for dir in wxidir | default([]) %}
+--wxidir {{ dir }}
+{% endfor %}
+
+# -D, --define <variable>=<value>: Define a preprocessor variable (default: [])
+# Passes a key=value pair to the WiX preprocessor.
+# Format: "KEY=VALUE" string.
+# This flag can be specified multiple times.
+{% for var in define | default([]) %}
+-D {{ var }}
+{% endfor %}
+
+# <MSI descriptor>: Input descriptor file (default: 'package.wxs')
+# The primary .wxs source file that defines the product, components, and features.
+# This is usually the last argument.
+{{ descriptor | default('package.wxs') }}

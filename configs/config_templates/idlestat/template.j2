@@ -1,0 +1,129 @@
+# ==========================================================================
+# idlestat Configuration Template
+#
+# This template generates the command-line invocation for idlestat.
+# idlestat is a tool for tracing CPU idle (C-states) and frequency (P-states)
+# events, as well as wakeup/IRQ statistics.
+#
+# Configuration variables map directly to command-line flags.
+# All variables use schema defaults to ensure valid output even when
+# optional parameters are omitted in the playbook/role.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# mode: Operation mode.
+#   'trace' - Record new trace data.
+#   'import' - Analyze existing trace data.
+# --------------------------------------------------------------------------
+idlestat {{ "--trace" if (mode | default('trace')) == "trace" else "--import" }} \
+
+# --------------------------------------------------------------------------
+# trace_file: Path to the trace file.
+#   In 'trace' mode: Output file for generated trace data.
+#   In 'import' mode: Input file containing existing trace data.
+# --------------------------------------------------------------------------
+  -f {{ trace_file | default('/var/log/idlestat/trace.log') }} \
+
+# --------------------------------------------------------------------------
+# duration: Capture duration in seconds.
+#   Only relevant in 'trace' mode. Determines how long data is collected.
+# --------------------------------------------------------------------------
+{% if (duration | default(10)) is defined %}
+  -t {{ duration | default(10) }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# command: Child command to execute during tracing.
+#   If provided, idlestat runs this command while collecting stats.
+#   If empty/absent, idlestat runs standalone.
+# --------------------------------------------------------------------------
+{% if (command | default('')) is defined and (command | default('')) is not none and (command | default('')) != "" %}
+  -- {{ command | default('') }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# baseline_trace: Path to a baseline trace file.
+#   Used in 'comparison' report mode to compare current stats against history.
+# --------------------------------------------------------------------------
+{% if (baseline_trace | default('')) is defined and (baseline_trace | default('')) is not none and (baseline_trace | default('')) != "" %}
+  -b {{ baseline_trace | default('') }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# report_format: Format of the final report output.
+#   Options: default, boxless, csv, comparison.
+# --------------------------------------------------------------------------
+{% if (report_format | default('default')) is defined and (report_format | default('default')) != "default" %}
+  -r {{ report_format | default('default') }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# output_file: File path to write the final report.
+#   If empty/absent, the report is printed to stdout.
+# --------------------------------------------------------------------------
+{% if (output_file | default('')) is defined and (output_file | default('')) != "" %}
+  -o {{ output_file | default('') }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# show_idle: Enable C-state (idle) statistics.
+#   True: Include idle state breakdowns (-c flag).
+#   False: Omit idle stats.
+# --------------------------------------------------------------------------
+{% if (show_idle | default(True)) is defined and (show_idle | default(True)) %}
+  -c \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# show_freq: Enable P-state (frequency) statistics.
+#   True: Include frequency breakdowns (-p flag).
+#   False: Omit frequency stats.
+# --------------------------------------------------------------------------
+{% if (show_freq | default(False)) is defined and (show_freq | default(False)) %}
+  -p \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# show_wakeup: Enable wakeup/IRQ statistics.
+#   True: Include wakeup source and IRQ stats (-w flag).
+#   False: Omit wakeup stats.
+# --------------------------------------------------------------------------
+{% if (show_wakeup | default(False)) is defined and (show_wakeup | default(False)) %}
+  -w \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# verbose: Verbosity level (0-2).
+#   0: Normal output.
+#   1: Verbose (-v).
+#   2: Very verbose (-vv).
+# --------------------------------------------------------------------------
+{% if (verbose | default(0)) is defined and (verbose | default(0)) > 0 %}
+  -v{{ "v" if (verbose | default(0)) == 2 else "" }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# energy_model: Path to energy model file.
+#   Enables power consumption calculations based on CPU energy models.
+# --------------------------------------------------------------------------
+{% if (energy_model | default('')) is defined and (energy_model | default('')) is not none and (energy_model | default('')) != "" %}
+  -e {{ energy_model | default('') }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# buffer_size: Kernel FTRACE buffer size in KB.
+#   0: Use kernel default.
+#   >0: Set specific buffer size (e.g., 1024).
+# --------------------------------------------------------------------------
+{% if (buffer_size | default(0)) is defined and (buffer_size | default(0)) != 0 %}
+  -S {{ buffer_size | default(0) }} \
+{% endif %}
+
+# --------------------------------------------------------------------------
+# poll_interval: Kernel polling interval in microseconds.
+#   0: Use kernel default.
+#   >0: Set specific polling interval (e.g., 1000).
+# --------------------------------------------------------------------------
+{% if (poll_interval | default(0)) is defined and (poll_interval | default(0)) != 0 %}
+  -I {{ poll_interval | default(0) }} \
+{% endif %}

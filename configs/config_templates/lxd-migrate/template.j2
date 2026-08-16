@@ -1,0 +1,45 @@
+# /etc/lxd-migrate/config.json
+# Configuration file for lxd-migrate tool
+# This tool performs physical to instance migration
+
+{
+  # Extra arguments to pass to rsync during migration. Array of strings.
+  # Default: ['-avz', '--delete', '--exclude=/proc/*', '--exclude=/sys/*', '--exclude=/dev/*']
+  "rsync_args": {{ (values | default({})).rsync_args | default(['-avz', '--delete', '--exclude=/proc/*', '--exclude=/sys/*', '--exclude=/dev/*']) | tojson }},
+  
+  # Verbose mode.
+  # Default: False
+  "verbose": {{ (values | default({})).verbose | default(False) | ternary('true', 'false') }},
+  
+  # Target LXD remote.
+  # Default: 'local'
+  "target_remote": {{ (values | default({})).target_remote | default('local') | tojson }},
+  
+  # Target instance name.
+  # Default: 'migrated-host'
+  "target_name": {{ (values | default({})).target_name | default('migrated-host') | tojson }},
+  
+  # Mount points to transfer. Structure: path (source), target (dest).
+  # Default: [{'path': '/', 'target': '/'}]
+  "source_mounts": [
+    {% for mount in (values | default({})).source_mounts | default([{'path': '/', 'target': '/'}, {'path': '/', 'target': '/'}]) %}
+    {
+      "path": {{ mount.path | default('/') | tojson }},
+      "target": {{ mount.target | default('/') | tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  
+  # Network config for lxc launch equivalent options. Structure: type, address, netmask.
+  # Default: None
+  "network": {% if (values | default({})).network is not none %}
+  {
+    "type": {{ ((values | default({})).network | default({})).type | default(None) | tojson }},
+    "address": {{ ((values | default({})).network | default({})).address | default(None) | tojson }},
+    "netmask": {{ ((values | default({})).network | default({})).netmask | default(None) | tojson }}
+  }{% else %}null{% endif %},
+  
+  # Start instance after migration.
+  # Default: True
+  "start_on_create": {{ (values | default({})).start_on_create | default(True) | ternary('true', 'false') }}
+}

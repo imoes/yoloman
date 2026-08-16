@@ -1,0 +1,55 @@
+# ==============================================================================
+# iw Command-Line Tool Configuration Wrapper
+# ==============================================================================
+#
+# NOTE: The 'iw' utility (userspace wireless configuration) is a stateless
+# command-line tool. It does not read a persistent configuration file from
+# disk (like /etc/iw.conf) to determine its behavior. All settings are
+# passed via command-line flags or arguments at execution time.
+#
+# This template provides a structured environment/configuration wrapper
+# often used by service managers (like systemd or wrapper scripts) to
+# standardize how 'iw' is invoked. It translates Ansible variables into
+# environment variables or flags that a wrapper script would consume.
+#
+# Variables used:
+#   debug_enabled   - Boolean. If true, enables netlink debugging (--debug).
+#   regulatory_domain - String. ISO/IEC 3166-1 alpha-2 code for Wi-Fi regulatory
+#                     domain (e.g., 'US', 'DE', '00'). Applied via 'iw reg set'.
+#   interface       - String. Default network interface name (e.g., 'wlan0').
+#                     Used as the target for 'iw dev <interface> ...' commands.
+#
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Debugging Settings
+# --------------------------------------------------------------------------
+# Enables netlink message debugging when iw is executed.
+# Corresponds to the '--debug' flag. Useful for troubleshooting Wi-Fi
+# communication issues with the kernel.
+# Default: False (Disabled)
+{% if (debug_enabled | default(False) | bool) %}
+DEBUG=1
+{% else %}
+DEBUG=0
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Regulatory Domain Configuration
+# --------------------------------------------------------------------------
+# Sets the ISO/IEC 3166-1 alpha-2 code for the regulatory domain to enforce.
+# This restricts the available Wi-Fi channels and transmit power levels
+# according to local laws. '00' is a world-wide roaming domain that usually
+# allows all channels (subject to kernel/CRDA policies).
+# Applied via: iw reg set <DOMAIN>
+# Default: '00'
+REGULATORY_DOMAIN={{ (regulatory_domain | default('00')) | string | trim }}
+
+# --------------------------------------------------------------------------
+# Default Interface Target
+# --------------------------------------------------------------------------
+# The network interface name to target by default when executing iw commands
+# that require a specific device object.
+# Corresponds to: iw dev <interface> ...
+# Default: 'wlan0'
+INTERFACE={{ (interface | default('wlan0')) | string | trim }}

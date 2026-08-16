@@ -1,0 +1,237 @@
+{
+  "install_dir": {
+    "type": "string",
+    "default": "/opt/testssl.sh",
+    "description": "Base directory where testssl.sh is installed."
+  },
+  "openssl_path": {
+    "type": "string",
+    "default": "/usr/bin/openssl",
+    "description": "Path to the OpenSSL binary used for SSL/TLS checks."
+  },
+  "openssl_2_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional second OpenSSL binary for TLS 1.3 support if the primary one lacks it."
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory where output files (log, json, csv, html) will be stored. If empty, uses current working directory."
+  },
+  "output_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix prepended to output filenames (e.g., 'prod-', 'staging-')."
+  },
+  "wide_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable wide output mode to display full cipher suite names."
+  },
+  "color_output": {
+    "type": "number",
+    "default": 2,
+    "description": "Color output mode: 0=no color, 1=markup, 2=ansi color, 3=color rated."
+  },
+  "nodns": {
+    "type": "string",
+    "default": "min",
+    "description": "DNS lookup behavior: 'min' (A/AAAA only) or 'none' (no DNS lookups).",
+    "enum": [
+      "min",
+      "none"
+    ]
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Connect timeout for TCP sockets in seconds."
+  },
+  "openssl_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "OpenSSL connect timeout in seconds."
+  },
+  "phone_out": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable checks for revoked certificates via OCSP/CRL. Must be 'true' or 'false'.",
+    "enum": [
+      "true",
+      "false"
+    ]
+  },
+  "additional_ca_files": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of CA files or directories for trust chain validation."
+  },
+  "assume_http": {
+    "type": "bool",
+    "default": false,
+    "description": "Force HTTP detection to enable HTTP header checks and client simulation."
+  },
+  "basicauth": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP Basic Auth credentials in 'user:pass' format for header checks."
+  },
+  "reqheaders": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional HTTP request headers in 'HeaderName: HeaderValue' format."
+  },
+  "user_agent": {
+    "type": "string",
+    "default": "Mozilla/5.0 (compatible; testssl.sh/3.2)",
+    "description": "User-Agent string for HTTP header checks."
+  },
+  "days2warn1": {
+    "type": "number",
+    "default": 60,
+    "description": "First certificate expiration warning threshold in days."
+  },
+  "days2warn2": {
+    "type": "number",
+    "default": 30,
+    "description": "Second certificate expiration warning threshold in days."
+  },
+  "hsts_min": {
+    "type": "number",
+    "default": 179,
+    "description": "HSTS minimum validity period in days for warning."
+  },
+  "hpkp_min": {
+    "type": "number",
+    "default": 30,
+    "description": "HPKP minimum validity period in days for warning."
+  },
+  "severity_threshold": {
+    "type": "string",
+    "default": "",
+    "description": "Severity threshold for file output (LOW, MEDIUM, HIGH, CRITICAL).",
+    "enum": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL"
+    ]
+  },
+  "overwrite": {
+    "type": "bool",
+    "default": false,
+    "description": "Overwrite existing output files without prompting."
+  },
+  "append": {
+    "type": "bool",
+    "default": false,
+    "description": "Append to existing output files."
+  },
+  "max_parallel": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of parallel tests in mass testing mode."
+  },
+  "max_wait_test": {
+    "type": "number",
+    "default": 1200,
+    "description": "Maximum wait time for a single test in parallel mass testing in seconds."
+  },
+  "disable_rating": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable rating calculation."
+  },
+  "ssl_native": {
+    "type": "bool",
+    "default": false,
+    "description": "Use native OpenSSL checks only (faster, less accurate)."
+  },
+  "proxy": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy settings in 'host:port' format."
+  },
+  "dns_via_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Run DNS lookups via proxy."
+  },
+  "ign_ocsp_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Ignore OCSP proxy restrictions and check OCSP directly."
+  },
+  "ca_bundles_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to custom CA bundles directory, overriding builtin paths."
+  },
+  "max_socket_fail": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum socket failures before giving up."
+  },
+  "max_ossl_fail": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum OpenSSL failures before giving up."
+  },
+  "max_header_fail": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum HTTP header failures before giving up."
+  },
+  "all_clients": {
+    "type": "bool",
+    "default": false,
+    "description": "Run all clients (126+) in client simulation."
+  },
+  "show_each": {
+    "type": "bool",
+    "default": false,
+    "description": "Show each cipher tested in wide modes."
+  },
+  "mapping": {
+    "type": "string",
+    "default": "openssl",
+    "description": "Cipher suite name mapping: openssl, iana, no-openssl, no-iana.",
+    "enum": [
+      "openssl",
+      "iana",
+      "no-openssl",
+      "no-iana"
+    ]
+  },
+  "colorblind": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable colorblind mode (swaps green and blue)."
+  },
+  "debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level (0-6)."
+  },
+  "ids_friendly": {
+    "type": "bool",
+    "default": false,
+    "description": "IDS-friendly mode (skips Heartbleed, CCS, Ticketbleed, ROBOT)."
+  },
+  "hints": {
+    "type": "bool",
+    "default": false,
+    "description": "Provide hints for fixing findings."
+  },
+  "sneaky": {
+    "type": "bool",
+    "default": false,
+    "description": "Use sneaky Firefox-like user agent for HTTP header checks."
+  },
+  "quiet": {
+    "type": "bool",
+    "default": false,
+    "description": "Suppress banner output."
+  }
+}

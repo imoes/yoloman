@@ -1,0 +1,28 @@
+# /etc/default/whichman configuration
+# This file configures the whichman utility, which finds manual pages
+# and displays them. Settings here control matching behavior and search paths.
+
+# Fault tolerance level (0-255). Controls approximate matching errors permitted.
+# See whichman(1) man page.
+# Default: 0 (strict matching)
+WHICHMAN_TOLERANCE={{ tolerance_level | default(0) }}
+
+# Enable exact matching, disabling wildcards '*' and '?'.
+# Corresponds to the -e flag.
+# Default: false (wildcards enabled)
+WHICHMAN_EXACT={{ exact_mode | default(False) | ternary('true', 'false') }}
+
+# Enable case-sensitive search.
+# Corresponds to the -I flag.
+# Default: false (case-insensitive)
+WHICHMAN_CASE_SENSITIVE={{ case_sensitive | default(False) | ternary('true', 'false') }}
+
+# Print the actual tolerance level in front of the man page name.
+# Corresponds to the -p flag.
+# Default: false
+WHICHMAN_PRINT_TOLERANCE={{ print_tolerance | default(False) | ternary('true', 'false') }}
+
+# Comma-separated list of directories to search for man pages.
+# Overrides the default MANPATH. If empty, the system default is used.
+# Default: [] (empty, uses system default)
+WHICHMAN_MANPATH={{ manpath | default([]) | join(':') }}

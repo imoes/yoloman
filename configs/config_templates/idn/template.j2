@@ -1,0 +1,81 @@
+# Configuration for idn (Internationalized Domain Names)
+# This file defines default command-line arguments for the idn utility.
+# See https://www.gnu.org/software/libidn/manual/html_node/idn.html for details.
+
+# --profile: Stringprep profile to use.
+# Valid values: Nameprep, iSCSI, Nodeprep, Resourceprep, trace, SASLprep.
+# This determines how input strings are normalized and validated according to
+# various Internet standards. Nameprep is the standard profile for domain names.
+profile = {{ (idn | default({})).profile | default('Nameprep') }}
+
+# --nfkc: Normalize string according to Unicode v3.2 NFKC.
+# When enabled, forces the use of NFKC normalization (Compatibility Decomposition
+# followed by Canonical Composition). This is often required for compatibility
+# with older systems or specific protocol definitions.
+normalize_nfkc = {{ (idn | default({})).normalize_nfkc | default(false) }}
+
+# --allow-unassigned: Toggle IDNA AllowUnassigned flag.
+# By default, libidn rejects unassigned code points (reserved for future use).
+# Setting this to true allows these characters to pass through, which may be
+# necessary for handling certain legacy or experimental identifiers.
+allow_unassigned = {{ (idn | default({})).allow_unassigned | default(false) }}
+
+# --usestd3asciirules: Toggle IDNA UseSTD3ASCIIRules flag.
+# Enforces STD3 ASCII rules, which restrict the use of hyphens (e.g., no
+# hyphens in the third and fourth positions) and other formatting constraints.
+# This helps prevent ambiguity and potential look-alike attacks.
+use_std3_ascii_rules = {{ (idn | default({})).use_std3_ascii_rules | default(false) }}
+
+# --no-tld: Don't check string for TLD specific rules.
+# Disables validation against Top-Level Domain (TLD) specific rules. Use this
+# if you want to process strings that might not conform to specific TLD policies
+# or during initial processing stages where strict validation is deferred.
+no_tld = {{ (idn | default({})).no_tld | default(false) }}
+
+# --debug: Print debugging information.
+# When true, enables verbose debugging output to stderr. Useful for troubleshooting
+# why a specific string failed validation or processing. Do not use in production.
+debug = {{ (idn | default({})).debug | default(false) }}
+
+# --quiet: Silent operation.
+# Suppresses all non-error output. When combined with other flags, it ensures
+# that only critical errors or the final processed result is emitted.
+quiet = {{ (idn | default({})).quiet | default(false) }}
+
+# --punycode-encode: Encode Punycode.
+# Converts an Internationalized Domain Name (IDN) to its ASCII-compatible
+# encoding (ACE) Punycode representation (e.g., 'müller.de' -> 'xn--mller-kva.de').
+encode_punycode = {{ (idn | default({})).encode_punycode | default(false) }}
+
+# --punycode-decode: Decode Punycode.
+# Converts an ASCII-compatible Punycode string back to the original Unicode
+# Internationalized Domain Name (e.g., 'xn--mller-kva.de' -> 'müller.de').
+decode_punycode = {{ (idn | default({})).decode_punycode | default(false) }}
+
+# --stringprep: Prepare string according to nameprep profile.
+# This flag forces the use of the stringprep algorithm (RFC 3454) for
+# preparation. It is effectively an alias for --profile=Nameprep but explicitly
+# invokes the preparation step regardless of other profile settings.
+stringprep = {{ (idn | default({})).stringprep | default(false) }}
+
+# --idna-to-ascii: Convert to ACE according to IDNA.
+# This is the primary mode for domain name validation. It performs the full
+# IDNA processing pipeline: mapping, normalization, and conversion to ACE.
+# It ensures the resulting string is a valid ASCII domain name.
+idna_to_ascii = {{ (idn | default({})).idna_to_ascii | default(false) }}
+
+# --idna-to-unicode: Convert from ACE according to IDNA.
+# Reverses the IDNA process. It takes an ASCII-compatible encoding (ACE)
+# string and converts it back to a Unicode string for human readability.
+# Validates that the ACE string was valid before conversion.
+idna_to_unicode = {{ (idn | default({})).idna_to_unicode | default(false) }}
+
+# strings: List of domain strings to process.
+# If this list is empty, idn reads domain strings from standard input (stdin).
+# Each string in the list is processed according to the flags defined above.
+# Example: 'müller.de'
+{% if (idn | default({})).strings is defined and (idn | default({})).strings | length > 0 %}
+strings = {{ (idn | default({})).strings | join(', ') }}
+{% else %}
+# strings = # Input will be read from stdin
+{% endif %}

@@ -1,0 +1,97 @@
+# MRTG Configuration for Ping Probing
+# ==========================================
+# This template generates an MRTG configuration file specifically tuned for
+# ICMP latency probes using the mrtg-ping-probe utility.
+#
+# Global settings configure the daemon behavior and data storage.
+# The targets block iterates over a list of hosts to monitor, generating
+# specific target definitions, environment variables, and graph legends
+# for each.
+
+# General MRTG settings
+
+# RunAsDaemon: If set to yes, MRTG runs as a daemon, looping through
+# all configuration files and targets every interval seconds.
+# Default: no (but here explicitly enabled for continuous monitoring)
+RunAsDaemon: yes
+
+# WorkDir: The directory where MRTG stores its log files, cfgbackup,
+# and generated images. This path must be writable by the MRTG user.
+# Schema default: /var/lib/mrtg
+# Schema description: The directory where MRTG stores its log files and generated images.
+WorkDir: {{ work_dir | default('/var/lib/mrtg') }}
+
+# Options[_]: Global options for all targets.
+# _nolabels: Do not add labels to the graph (labels are configured per-target).
+# gauge: Treat the data values as gauge values (independent measurements,
+#        not cumulative counters). This is essential for RTT (Round Trip Time)
+#        where values fluctuate up and down rather than just increasing.
+Options[_]: _nolabels, gauge
+
+# List of targets to monitor
+# Iterates over the 'targets' list provided by the schema.
+# Each target represents a single host/IP to ping.
+# Schema description: A list of target definitions to be monitored via mrtg-ping-probe. Each item is an object with the following fields: name, host, description,
+{% for target in (targets | default([])) %}
+
+# Target definition line
+# Specifies the command to run to get data for this target.
+# mrtg-ping-probe takes the hostname or IP address as an argument.
+# The command is executed inside backticks `` to capture its output.
+Target[{{ target.name | default('target_' + loop.index) }}]: `/usr/bin/mrtg-ping-probe {{ target.host | default('localhost') }}`
+
+# Environment variables passed to the probe script.
+# MRTG_INT_IP: The IP address or hostname of the target, used for
+# internal MRTG identification and logging.
+# MRTG_INT_DESCR: A human-readable description of the target, used
+# in graph legends and MRTG reports.
+SetEnv[{{ target.name | default('target_' + loop.index) }}]: MRTG_INT_IP="{{ target.host | default('localhost') }}" MRTG_INT_DESCR="{{ target.description | default('') }}"
+
+# MaxBytes: The maximum expected value for the data source.
+# This is used for scaling the Y-axis on the graph.
+# For ping latency, this represents the maximum expected Round Trip Time (RTT) in ms.
+# If the schema does not provide this, we default to a generous 1000ms to prevent clipping.
+MaxBytes[{{ target.name | default('target_' + loop.index) }}]: {{ target.max_bytes | default(1000) }}
+
+# AbsMax: The absolute maximum value to display on the Y-axis.
+# MRTG will not graph values higher than this. Useful for capping the
+# vertical scale to maintain consistency across graphs even if a single
+# probe spikes wildly. Defaults to 2000ms if not specified.
+AbsMax[{{ target.name | default('target_' + loop.index) }}]: {{ target.abs_max | default(2000) }}
+
+# Options[<target>]: Target-specific options.
+# gauge: Data points are independent measurements (RTT).
+# growright: New data is appended to the right side of the graph.
+Options[{{ target.name | default('target_' + loop.index) }}]: gauge, growright
+
+# YLegend[<target>]: The legend for the Y-axis (left side of the graph).
+# Describes the unit of measurement, typically "ms" for milliseconds.
+YLegend[{{ target.name | default('target_' + loop.index) }}]: {{ target.y_legend | default('ms') }}
+
+# ShortLegend[<target>]: A short unit label placed below the Y-axis legend.
+# "ms" is standard for ping latency.
+ShortLegend[{{ target.name | default('target_' + loop.index) }}]: {{ target.short_legend | default('ms') }}
+
+# Legend1[<target>]: The text for the first legend entry (usually Max RTT).
+Legend1[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_1 | default('Max RTT (ms)') }}
+
+# Legend2[<target>]: The text for the second legend entry (usually Min RTT).
+Legend2[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_2 | default('Min RTT (ms)') }}
+
+# Legend3[<target>]: The text for the third legend entry (Max 5-min Max RTT).
+Legend3[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_3 | default('5min Max RTT (ms)') }}
+
+# Legend4[<target>]: The text for the fourth legend entry (Min 5-min Max RTT).
+Legend4[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_4 | default('5min Min RTT (ms)') }}
+
+# LegendI[<target>]: The text for the "In" data stream legend.
+# In the context of ping probes, this often maps to the measured input
+# or average metric.
+LegendI[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_i | default('Input Metric') }}
+
+# LegendO[<target>]: The text for the "Out" data stream legend.
+# In the context of ping probes, this often maps to the output metric
+# or a secondary measurement.
+LegendO[{{ target.name | default('target_' + loop.index) }}]: {{ target.legend_o | default('Output Metric') }}
+
+{% endfor %}

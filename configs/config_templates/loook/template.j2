@@ -1,0 +1,32 @@
+# Configuration file for loook (Search in OpenOffice/LibreOffice files)
+# This file defines how the loook indexer scans the filesystem for office documents.
+
+# List of directory paths to search for OpenOffice/LibreOffice documents.
+# These directories will be recursively scanned based on the max_depth setting.
+search_paths:
+{%- for path in search_paths | default(['/home/user/Documents', '/var/lib/office-files']) %}
+  - {{ path }}
+{%- endfor %}
+
+# List of file extensions to treat as Office documents for indexing.
+# Only files matching these extensions will be added to the search index.
+file_extensions:
+{%- for ext in file_extensions | default(['.odt', '.ods', '.odp', '.sxw', '.stw']) %}
+  - {{ ext }}
+{%- endfor %}
+
+# Minimum character length for search terms to be valid.
+# Terms shorter than this value are ignored to reduce noise.
+min_term_length: {{ min_term_length | default(2) }}
+
+# Whether search terms should be case-insensitive.
+# If true, 'Test' and 'test' are considered equivalent.
+case_insensitive: {{ case_insensitive | default(true) }}
+
+# Maximum directory depth to recurse into when searching.
+# Limiting this prevents excessive resource usage on deep directory trees.
+max_depth: {{ max_depth | default(10) }}
+
+# Whether to ignore files and directories starting with a dot.
+# Commonly used to skip hidden system files (e.g., .git, .svn).
+ignore_hidden: {{ ignore_hidden | default(true) }}

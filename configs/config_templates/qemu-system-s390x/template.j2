@@ -1,0 +1,495 @@
+# QEMU System for s390x Configuration
+# Generated via Jinja2/Gonja
+#
+# This template generates the command-line arguments for qemu-system-s390x.
+# Each section corresponds to a specific QEMU subsystem or option group.
+# Variables default to safe values derived from the schema to prevent render failures.
+
+{# Drives: List of block devices to attach to the VM. Each item is a map with filename, format, cache, index, and description. #}
+{% for drive in drives | default([], true) %}
+{# Drive {{ drive.index | default(0) }}: {{ drive.description | default('Disk ' ~ drive.index|string) }} #}
+-drive file={{ drive.filename | default('') }},if=virtio,format={{ drive.format | default('raw') }},cache={{ drive.cache | default('writeback') }}
+{% endfor %}
+
+# Machine Type: s390-ccw-virtio
+# Accelerator: {{ accel | default('tcg') }}
+# Memory Configuration: {{ memory | default('1G') }} with {{ mem_slots | default(4) }} slots, max {{ max_memory | default('2G') }}
+-m {{ memory | default('1G') }},slots={{ mem_slots | default(4) }},maxmem={{ max_memory | default('2G') }}
+
+# CPU Configuration: {{ cpus | default(1) }} virtual CPUs
+-smp cpus={{ cpus | default(1) }},maxcpus={{ cpus | default(1) }}
+
+# Network: {{ nic_model | default('virtio') }} with MAC {{ mac | default('52:54:00:12:34:56') }}
+# NIC Type: {{ nic_type | default('user') }}
+-nic {{ nic_type | default('user') }},model={{ nic_model | default('virtio') }},mac={{ mac | default('52:54:00:12:34:56') }}
+
+{# Kernel Boot Configuration #}
+{# kernel: Path to the kernel image to boot directly. #}
+{# initrd: Path to the initial ramdisk image. #}
+{# kernel_params: Kernel command line arguments. #}
+{% if kernel | default('') is not none and kernel | default('') != '' %}
+-kernel {{ kernel | default('') }}
+-append {{ kernel_params | default('console=hvc0') }}
+{% if initrd | default('') is not none and initrd | default('') != '' %}
+-initrd {{ initrd | default('') }}
+{% endif %}
+{% endif %}
+
+{# UUID: System UUID. If empty, a random one is generated. #}
+{% if uuid | default('') is not none and uuid | default('') != '' %}
+-uuid {{ uuid | default('') }}
+{% endif %}
+
+{# Audio Configuration #}
+{# audio_model: Audio device model. 'none' disables audio. #}
+{# audio_backend: Audio backend driver (e.g., pa for PulseAudio, alsa). #}
+{% if audio_model | default('none') is not none and audio_model | default('none') != 'none' %}
+-audiodev {{ audio_backend | default('pa') }},id=audio0
+-device {{ audio_model | default('none') }},audiodev=audio0
+{% else %}
+-audiodev none,id=audio0
+-device spapr-vio-spkr,audiodev=audio0
+{% endif %}
+
+{# Serial Console: Serial port redirection target (e.g., stdio, vc, tcp::4444,server=on). #}
+-serial {{ serial_dev | default('stdio') }}
+
+{# Monitor: Monitor redirection target (e.g., vc, stdio, none). #}
+-monitor {{ monitor_dev | default('vc') }}
+
+{# Logging: Log file path. If empty, logs to stderr. #}
+{% if logfile | default('') is not none and logfile | default('') != '' %}
+-D {{ logfile | default('') }}
+{% endif %}
+
+{# Debug: Debug logging flags (e.g., int,cpu,guest_errors). #}
+{% if debug_flags | default('') is not none and debug_flags | default('') != '' %}
+-d {{ debug_flags | default('') }}
+{% endif %}
+
+{# Snapshot Mode: Write to temporary files instead of disk images. #}
+{% if snapshot | default(false) is sameas true %}
+-snapshot
+{% endif %}
+
+{# Daemonize: Daemonize the QEMU process after initialization. #}
+{% if daemonize | default(false) is sameas true %}
+-daemonize
+{% endif %}
+
+{# Preconfig: Pause QEMU for interactive configuration before machine creation. #}
+{% if preconfig | default(false) is sameas true %}
+--preconfig
+{% endif %}
+
+{# Exit on reboot: Exit instead of rebooting. #}
+{% if no_reboot | default(false) is sameas true %}
+-no-reboot
+{% endif %}
+
+{# Exit on shutdown: Don't exit QEMU on guest shutdown. #}
+{% if no_shutdown | default(false) is sameas true %}
+-no-shutdown
+{% endif %}
+
+{# Stop CPU at startup: Do not start CPU at startup (pause until 'c' in monitor). #}
+{% if pause_at_start | default(false) is sameas true %}
+-S
+{% endif %}
+
+{# KVM Acceleration: Enable KVM full virtualization support. #}
+{% if enable_kvm | default(false) is sameas true %}
+-enable-kvm
+{% endif %}
+
+{# TPM Passthrough: Enable TPM passthrough to host's TPM. #}
+{% if tpm_passthrough | default(false) is sameas true %}
+-tpmdev passthrough,id=tpm0 -device tpm-tis,tpmdev=tpm0
+{% endif %}
+
+{# Firmware Configuration Entry #}
+{# fw_cfg_name: Name for a firmware configuration entry. #}
+{# fw_cfg_value: Value/String for a firmware configuration entry. #}
+{% if fw_cfg_name | default('') is not none and fw_cfg_name | default('') != '' and fw_cfg_value | default('') is not none and fw_cfg_value | default('') != '' %}
+-fw_cfg name={{ fw_cfg_name | default('') }},string={{ fw_cfg_value | default('') }}
+{% endif %}
+
+{# VNC Display: VNC display specification (e.g., :0, 0.0.0.0:5900). #}
+{% if vnc_display | default('') is not none and vnc_display | default('') != '' %}
+-vnc {{ vnc_display | default('') }}
+{% endif %}
+
+{# SPICE Display #}
+{# spice_enable: Enable SPICE remote desktop protocol. #}
+{# spice_port: SPICE TCP port. #}
+{% if spice_enable | default(false) is sameas true %}
+-spice port={{ spice_port | default(5900) }},addr=0.0.0.0,disable-ticketing=on
+{% endif %}
+
+{# Display Type: Display type (e.g., sdl, gtk, curses). Used if VNC/SPICE not active. #}
+{% if display_type | default('') is not none and display_type | default('') != '' and spice_enable | default(false) is not sameas true and vnc_display | default('') is not none and vnc_display | default('') == '' %}
+-display {{ display_type | default('') }}
+{% endif %}
+
+{# Device Tree Binary: Path to Device Tree Binary file. #}
+{% if dtb | default('') is not none and dtb | default('') != '' %}
+-dtb {{ dtb | default('') }}
+{% endif %}
+
+{# BIOS File: Path to BIOS file. #}
+{% if bios_file | default('') is not none and bios_file | default('') != '' %}
+-bios {{ bios_file | default('') }}
+{% endif %}
+
+{# Parallel Flash: Path to Parallel Flash image. #}
+{% if pflash_file | default('') is not none and pflash_file | default('') != '' %}
+-pflash {{ pflash_file | default('') }}
+{% endif %}
+
+{# Random Number Generator #}
+{# rng_backend: RNG backend type (builtin, random, egd). #}
+{% if rng_backend | default('builtin') is not none and rng_backend | default('builtin') != 'builtin' %}
+-object rng-{{ rng_backend | default('builtin') }},id=rng0
+-device virtio-rng-pci,rng=rng0
+{% endif %}
+
+{# IOThread: ID of an IOThread to create. #}
+{% if iothread_id | default('') is not none and iothread_id | default('') != '' %}
+-object iothread,id={{ iothread_id | default('') }}
+{% endif %}
+
+{# NUMA Configuration #}
+{# numanodes: List of NUMA nodes. #}
+{% for node in numanodes | default([], true) %}
+-numa node,nodeid={{ node.nodeid | default(0) }},mem={{ node.memory | default('') }}
+{% endfor %}
+
+{# NUMA CPU Assignment #}
+{# numa_cpu_assigns: List of CPU assignments for NUMA. #}
+{% for cpu_assign in numa_cpu_assigns | default([], true) %}
+-numa cpu,node-id={{ cpu_assign.nodeid | default(0) }},socket-id={{ cpu_assign.socket_id | default(0) }},core-id={{ cpu_assign.core_id | default(0) }},thread-id={{ cpu_assign.thread_id | default(0) }}
+{% endfor %}
+
+{# Global Driver Property #}
+{# global_driver: Global driver property setting (e.g., ide-hd.physical_block_size=4096). #}
+{% if global_driver | default('') is not none and global_driver | default('') != '' %}
+-global {{ global_driver | default('') }}
+{% endif %}
+
+{# Set Object Property #}
+{# set_obj: Set parameter for an object (e.g., machine.x-foo=bar). #}
+{% if set_obj | default('') is not none and set_obj | default('') != '' %}
+-set {{ set_obj | default('') }}
+{% endif %}
+
+{# Boot Order: Boot order string (e.g., cd, nc, cdn). #}
+-boot order={{ boot_order | default('c') }}
+
+{# Keyboard Layout: Keyboard layout language. #}
+-k {{ keyboard_layout | default('en-us') }}
+
+{# Name: Name of the guest. #}
+-name {{ name | default('s390x-vm') }}
+
+{# PID File: Path to PID file. #}
+{% if pidfile | default('') is not none and pidfile | default('') != '' %}
+-pidfile {{ pidfile | default('') }}
+{% endif %}
+
+{# Watchdog Action: Action on watchdog timeout (reset, shutdown, poweroff, inject-nmi, pause, debug, none). #}
+{% if watchdog_action | default('reset') is not none and watchdog_action | default('reset') != 'reset' %}
+-device i6300esb -watchdog-action {{ watchdog_action | default('reset') }}
+{% endif %}
+
+{# Sandbox (Seccomp): Seccomp sandbox settings (e.g., on, obsolete=on). #}
+{% if sandbox | default('') is not none and sandbox | default('') != '' %}
+-sandbox {{ sandbox | default('') }}
+{% endif %}
+
+{# Trace: Tracing pattern to enable. #}
+{% if trace_pattern | default('') is not none and trace_pattern | default('') != '' %}
+-trace enable={{ trace_pattern | default('') }}
+{% endif %}
+
+{# Plugin: Path to plugin shared library. #}
+{% if plugin_file | default('') is not none and plugin_file | default('') != '' %}
+-plugin file={{ plugin_file | default('') }}
+{% endif %}
+
+{# Semihosting: Enable Semihosting mode. #}
+{% if semihosting | default(false) is sameas true %}
+-semihosting-config enable=on,target=auto
+{% endif %}
+
+{# Run With (User/Chroot) #}
+{# run_with_user: User to drop privileges to (username or uid:gid). #}
+{# run_with_chroot: Directory to chroot into. #}
+{% if run_with_user | default('') is not none and run_with_user | default('') != '' %}
+-run-with user={{ run_with_user | default('') }}
+{% endif %}
+{% if run_with_chroot | default('') is not none and run_with_chroot | default('') != '' %}
+-run-with chroot={{ run_with_chroot | default('') }}
+{% endif %}
+
+{# Load VM State: Path to VM state file to load. #}
+{% if loadvm | default('') is not none and loadvm | default('') != '' %}
+-loadvm {{ loadvm | default('') }}
+{% endif %}
+
+{# Option ROM #}
+{# option_roms: List of option ROM files to load. #}
+{% for rom in option_roms | default([], true) %}
+-option-rom {{ rom }}
+{% endfor %}
+
+{# RTC #}
+{# rtc_base: RTC base time (utc, localtime, datetime). #}
+{# rtc_clock: RTC clock source (host, rt, vm). #}
+{% if rtc_base | default('utc') is not none and rtc_base | default('utc') != '' %}
+-rtc base={{ rtc_base | default('utc') }},clock={{ rtc_clock | default('host') }}
+{% endif %}
+
+{# Icount #}
+{# icount_shift: Instruction counter shift value. #}
+{% if icount_shift | default('') is not none and icount_shift | default('') != '' %}
+-icount shift={{ icount_shift | default('') }}
+{% endif %}
+
+{# Seed: Random seed for deterministic behavior. #}
+{% if seed | default(0) is not none and seed | default(0) != 0 %}
+-seed {{ seed | default(0) }}
+{% endif %}
+
+{# L Path: Path to BIOS, VGA BIOS, and keymaps directory. #}
+{% if l_path | default('') is not none and l_path | default('') != '' %}
+-L {{ l_path | default('') }}
+{% endif %}
+
+{# Xen #}
+{# xen_domid: Xen guest domain ID. #}
+{# xen_attach: Attach to existing Xen domain. #}
+{% if xen_domid | default(0) is not none and xen_domid | default(0) != 0 %}
+-xen-domid={{ xen_domid | default(0) }}
+{% endif %}
+{% if xen_attach | default(false) is sameas true %}
+-xen-attach
+{% endif %}
+
+{# Overcommit #}
+{# overcommit_mem_lock: Memory overcommit lock setting (off, on, on-fault). #}
+{# overcommit_cpu_pm: CPU power management overcommit setting (off, on). #}
+{% if overcommit_mem_lock | default('') is not none and overcommit_mem_lock | default('') != '' %}
+-overcommit mem-lock={{ overcommit_mem_lock | default('') }}
+{% endif %}
+{% if overcommit_cpu_pm | default('') is not none and overcommit_cpu_pm | default('') != '' %}
+-overcommit cpu-pm={{ overcommit_cpu_pm | default('') }}
+{% endif %}
+
+{# GDB #}
+{# gdb_dev: GDB connection device (e.g., tcp::1234). #}
+{% if gdb_dev | default('') is not none and gdb_dev | default('') != '' %}
+-gdb {{ gdb_dev | default('') }}
+{% endif %}
+
+{# Dump VM State: File to dump VM state to. #}
+{% if dump_vmstate | default('') is not none and dump_vmstate | default('') != '' %}
+-dump-vmstate {{ dump_vmstate | default('') }}
+{% endif %}
+
+{# Enable Sync Profile: Enable synchronization profiling. #}
+{% if enable_sync_profile | default(false) is sameas true %}
+-enable-sync-profile
+{% endif %}
+
+{# Perfmap: Generate perf map file. #}
+{% if perfmap | default(false) is sameas true %}
+-perfmap
+{% endif %}
+
+{# JITdump: Generate JIT dump file. #}
+{% if jitdump | default(false) is sameas true %}
+-jitdump
+{% endif %}
+
+{# Message Format #}
+{# msg_timestamp: Enable message timestamps (on, off). #}
+{# msg_guest_name: Include guest name in messages (on, off). #}
+{% if msg_timestamp | default('') is not none and msg_timestamp | default('') != '' %}
+-msg timestamp={{ msg_timestamp | default('') }}
+{% endif %}
+{% if msg_guest_name | default('') is not none and msg_guest_name | default('') != '' %}
+-msg guest-name={{ msg_guest_name | default('') }}
+{% endif %}
+
+{# Compatibility Policies #}
+{# compat_deprecated_input: Policy for deprecated input (accept, reject, crash). #}
+{# compat_unstable_input: Policy for unstable input (accept, reject, crash). #}
+{% if compat_deprecated_input | default('') is not none and compat_deprecated_input | default('') != '' %}
+-compat deprecated-input={{ compat_deprecated_input | default('') }}
+{% endif %}
+{% if compat_unstable_input | default('') is not none and compat_unstable_input | default('') != '' %}
+-compat unstable-input={{ compat_unstable_input | default('') }}
+{% endif %}
+
+{# TPM Device #}
+{# tpm_device_type: TPM device model type (e.g., tpm-tis). #}
+{% if tpm_device_type | default('') is not none and tpm_device_type | default('') != '' %}
+-device {{ tpm_device_type | default('') }},tpmdev=tpm0
+{% endif %}
+
+{# Chardev #}
+{# chardevs: List of character devices. #}
+{% for chardev in chardevs | default([], true) %}
+-chardev {{ chardev.backend | default('') }},id={{ chardev.id | default('') }}{% for key, value in chardev.options | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+{% endfor %}
+
+{# Netdev #}
+{# netdevs: List of network devices. #}
+{% for netdev in netdevs | default([], true) %}
+-netdev {{ netdev.type | default('') }},id={{ netdev.id | default('') }}{% for key, value in netdev.options | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+{% endfor %}
+
+{# Device #}
+{# devices: List of additional devices. #}
+{% for device in devices | default([], true) %}
+-device {{ device.driver | default('') }},id={{ device.id | default('') }}{% for key, value in device.properties | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+{% endfor %}
+
+{# Blockdev (Advanced Block Devices) #}
+{# blockdevs: List of advanced block devices. #}
+{% for blockdev in blockdevs | default([], true) %}
+-blockdev driver={{ blockdev.driver | default('') }},node-name={{ blockdev.node_name | default('') }}{% for key, value in blockdev.options | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+{% endfor %}
+
+{# FSDev (9p Filesystem) #}
+{# fsdevs: List of 9p filesystem devices. #}
+{% for fsdev in fsdevs | default([], true) %}
+-fsdev {{ fsdev.type | default('') }},id={{ fsdev.id | default('') }}{% for key, value in fsdev.options | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+-device virtio-9p-{{ fsdev.device_type | default('') }},fsdev={{ fsdev.id | default('') }},mount_tag={{ fsdev.mount_tag | default('') }}
+{% endfor %}
+
+{# Object #}
+{# objects: List of generic objects. #}
+{% for obj in objects | default([], true) %}
+-object {{ obj.type | default('') }},id={{ obj.id | default('') }}{% for key, value in obj.properties | default({}) | dict2items %},{{ key.value }}={{ value.value }}{% endfor %}
+{% endfor %}
+
+{# Global #}
+{# globals: List of global driver settings. #}
+{% for global in globals | default([], true) %}
+-global {{ global }}
+{% endfor %}
+
+{# Set #}
+{# sets: List of set commands. #}
+{% for set_item in sets | default([], true) %}
+-set {{ set_item }}
+{% endfor %}
+
+{# Add FD #}
+{# add_fds: List of file descriptors to add. #}
+{% for add_fd in add_fds | default([], true) %}
+-add-fd fd={{ add_fd.fd | default(0) }},set={{ add_fd.set | default(0) }}{% if add_fd.opaque | default('') is not none and add_fd.opaque | default('') != '' %},opaque={{ add_fd.opaque | default('') }}{% endif %}
+{% endfor %}
+
+{# SMBIOS #}
+{# smbios_entries: List of SMBIOS entries. #}
+{% for smbios in smbios_entries | default([], true) %}
+-smbios {{ smbios }}
+{% endfor %}
+
+{# ACPI Table #}
+{# acpi_table_sig: ACPI table signature. #}
+{# acpi_table_data: ACPI table data file. #}
+{% if acpi_table_sig | default('') is not none and acpi_table_sig | default('') != '' %}
+-acpitable sig={{ acpi_table_sig | default('') }}{% if acpi_table_data | default('') is not none and acpi_table_data | default('') != '' %},data={{ acpi_table_data | default('') }}{% endif %}
+{% endif %}
+
+{# Shim #}
+{# shim_file: Path to shim.efi. #}
+{% if shim_file | default('') is not none and shim_file | default('') != '' %}
+-shim {{ shim_file | default('') }}
+{% endif %}
+
+{# Only Migratable #}
+{# only_migratable: Only allow migratable devices. #}
+{% if only_migratable | default(false) is sameas true %}
+-only-migratable
+{% endif %}
+
+{# Nodefaults #}
+{# nodefaults: Don't create default devices. #}
+{% if nodefaults | default(false) is sameas true %}
+-nodefaults
+{% endif %}
+
+{# User Config #}
+{# no_user_config: Don't load user-provided config files. #}
+{% if no_user_config | default(false) is sameas true %}
+-no-user-config
+{% endif %}
+
+{# Readconfig #}
+{# readconfig_file: Path to read configuration from. #}
+{% if readconfig_file | default('') is not none and readconfig_file | default('') != '' %}
+-readconfig {{ readconfig_file | default('') }}
+{% endif %}
+
+{# Migration Incoming #}
+{# incoming_tcp: Incoming migration TCP host:port. #}
+{# incoming_unix: Incoming migration Unix socket path. #}
+{# incoming_fd: Incoming migration file descriptor. #}
+{# incoming_file: Incoming migration file path. #}
+{# incoming_offset: Offset for incoming migration file. #}
+{# incoming_exec: Incoming migration exec command. #}
+{# incoming_defer: Defer incoming migration. #}
+{% if incoming_tcp | default('') is not none and incoming_tcp | default('') != '' %}
+-incoming tcp:{{ incoming_tcp | default('') }}
+{% endif %}
+{% if incoming_unix | default('') is not none and incoming_unix | default('') != '' %}
+-incoming unix:{{ incoming_unix | default('') }}
+{% endif %}
+{% if incoming_fd | default(0) is not none and incoming_fd | default(0) != 0 %}
+-incoming fd:{{ incoming_fd | default(0) }}
+{% endif %}
+{% if incoming_file | default('') is not none and incoming_file | default('') != '' %}
+-incoming file:{{ incoming_file | default('') }}{% if incoming_offset | default('') is not none and incoming_offset | default('') != '' %},offset={{ incoming_offset | default('') }}{% endif %}
+{% endif %}
+{% if incoming_exec | default('') is not none and incoming_exec | default('') != '' %}
+-incoming exec:{{ incoming_exec | default('') }}
+{% endif %}
+{% if incoming_defer | default(false) is sameas true %}
+-incoming defer
+{% endif %}
+
+{# Action #}
+{# action_panic: Action on guest panic (none, shutdown, reset, pause, debug). #}
+{# action_reboot: Action on guest reboot (none, shutdown, pause, debug, reset). #}
+{# action_shutdown: Action on guest shutdown (none, pause, debug, reset). #}
+{% if action_panic | default('') is not none and action_panic | default('') != '' %}
+-action panic={{ action_panic | default('') }}
+{% endif %}
+{% if action_reboot | default('') is not none and action_reboot | default('') != '' %}
+-action reboot={{ action_reboot | default('') }}
+{% endif %}
+{% if action_shutdown | default('') is not none and action_shutdown | default('') != '' %}
+-action shutdown={{ action_shutdown | default('') }}
+{% endif %}
+
+{# Debug Console #}
+{# debugcon_dev: Debug console redirection target. #}
+{% if debugcon_dev | default('') is not none and debugcon_dev | default('') != '' %}
+-debugcon {{ debugcon_dev | default('') }}
+{% endif %}
+
+{# Semihosting Arg #}
+{# semihosting_args: List of arguments for semihosting. #}
+{% for arg in semihosting_args | default([], true) %}
+-semihosting-config arg={{ arg }}
+{% endfor %}
+
+{# ECHR #}
+{# echr: Escape character for monitor switch (numeric ascii value). #}
+{% if echr | default('') is not none and echr | default('') != '' %}
+-echr {{ echr | default('') }}
+{% endif %}

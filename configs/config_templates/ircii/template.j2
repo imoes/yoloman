@@ -1,0 +1,62 @@
+# =============================================================================
+# ircII User Initialization File (Configuration Template)
+# =============================================================================
+# This file is sourced by ircII upon startup to configure the client.
+#
+# This template is self-documenting. Each directive is preceded by a comment
+# derived from the schema definition. All variables use .default() to ensure
+# safe rendering even if the variable is undefined in the Ansible context.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# nickname: The default nickname to use if IRNICK is not set in the environment.
+# -----------------------------------------------------------------------------
+set nick {{ nickname | default('ircuser') }}
+
+# -----------------------------------------------------------------------------
+# realname: The real name (GECOS) associated with the nickname.
+# -----------------------------------------------------------------------------
+set realname {{ realname | default('irc user') }}
+
+# -----------------------------------------------------------------------------
+# auto_join_channels: A list of channel names to automatically join after
+# connecting to a server. Items must start with '#' or '&'.
+# -----------------------------------------------------------------------------
+{% if auto_join_channels | default([]) %}
+# Automatically join specified channels upon connection.
+{% for channel in auto_join_channels | default([]) %}
+join {{ channel }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# servers: A list of server entries in host[:port][:password] format.
+# -----------------------------------------------------------------------------
+{% if servers | default([]) %}
+# List of IRC servers to connect to.
+# Format: host[:port][:password]
+{% for server in servers | default([]) %}
+/server {{ server }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# ssl_check: Default SSL verification level for IRC connections.
+# Values: check, nocheck, off.
+# -----------------------------------------------------------------------------
+set irc ssl {{ ssl_check | default('check') }}
+
+# -----------------------------------------------------------------------------
+# command_char: The character that prefixes ircII commands.
+# -----------------------------------------------------------------------------
+set cmdchar {{ command_char | default('/') }}
+
+# -----------------------------------------------------------------------------
+# full_screen: If false, indicates a preference for dumb terminal mode
+# (non-full-screen). Note: ircII often handles this via CLI flag -d,
+# but this setting may influence internal behavior or logging.
+# -----------------------------------------------------------------------------
+{% if not (full_screen | default(true)) %}
+# Disable full-screen mode (dumb mode).
+set term dumb
+{% endif %}

@@ -1,0 +1,173 @@
+# Rsyncrypto configuration variables
+# This template generates a set of environment variables and a command invocation structure
+# for the rsyncrypto tool. rsyncrypto is a CLI tool for encrypting/decrypting files
+# while maintaining a directory structure suitable for rsync.
+
+# ==========================================
+# Directory and Key Configuration
+# ==========================================
+
+# The source directory or file path containing plaintext data to be encrypted.
+# These files will be read and processed according to the 'mode' setting.
+SOURCE_DIR = {{ source_dir | default('/var/lib/rsyncrypto/source') }}
+
+# The destination directory or file path where encrypted data will be stored.
+# The directory structure here mirrors the source, adjusted by trim_level and ne_nesting.
+DEST_DIR = {{ dest_dir | default('/var/lib/rsyncrypto/encrypted') }}
+
+# The directory where symmetric key files for each encrypted file are stored.
+# These key files are necessary to decrypt the data and should be backed up securely.
+KEYS_DIR = {{ keys_dir | default('/var/lib/rsyncrypto/keys') }}
+
+# Path to the X509 certificate or PEM private key file used to encrypt the symmetric file keys.
+# This public-facing key allows anyone with the corresponding private key to decrypt the data.
+PUBLIC_KEY = {{ public_key_path | default('/etc/rsyncrypto/backup.crt') }}
+
+# ==========================================
+# Path Manipulation Settings
+# ==========================================
+
+# Number of leading directory components from the source path to trim when creating the destination path.
+# Example: If source is /var/data/backup/file.txt and trim_level is 1, dest path becomes /var/lib/rsyncrypto/encrypted/data/backup/file.txt.enc
+TRIM_LEVEL = {{ trim_level | default(1) }}
+
+# Path to the translation file for encrypted file names.
+# If empty, file names are not encrypted (only content is encrypted).
+# If set, a hash-based mapping is used to obscure original filenames.
+NAME_ENCRYPT_MAP = {{ name_encrypt_map | default('') }}
+
+# Number of subdirectory levels to nest encrypted file names into.
+# This helps avoid filesystem limits on the number of files in a single directory.
+# Only used if name_encrypt_map is set (non-empty).
+NE_NESTING = {{ ne_nesting | default(0) }}
+
+# ==========================================
+# Operational Flags
+# ==========================================
+
+# Whether to recursively encrypt/decrypt the entire source directory.
+# If true, the tool processes all files in the source tree.
+RECURSE = {{ recurse | default(true) }}
+
+# Whether to check source and destination modification times before processing.
+# If true and the destination is newer or equal, the file is skipped (useful for incremental updates).
+CHECK_CHANGED = {{ check_changed | default(false) }}
+
+# Time difference in seconds considered 'equal' for modification times.
+# Used with check_changed to handle clock skew or filesystem granularity.
+MODIFY_WINDOW = {{ modify_window | default(0) }}
+
+# Do not preserve timestamps on the destination files.
+# Incompatible with check_changed if preservation is needed for time comparison logic.
+NO_ARCHIVE = {{ no_archive | default(false) }}
+
+# Path to a gzip binary that supports --rsyncable.
+# Empty uses system default. If set, rsyncrypto may compress data to improve rsync efficiency.
+GZIP_PATH = {{ gzip_path | default('') }}
+
+# ==========================================
+# Cleanup and Integrity
+# ==========================================
+
+# Delete files in the destination that do not exist in the source.
+# This keeps the destination directory synchronized with the source.
+DELETE = {{ delete | default(false) }}
+
+# Also delete symmetric key files when deleting source files.
+# Implies delete if not explicitly set (but here we respect the variable).
+# Ensures no orphaned key files remain in the keys directory.
+DELETE_KEYS = {{ delete_keys | default(true) }}
+
+# ==========================================
+# Cryptographic and Performance Settings
+# ==========================================
+
+# Block cipher key size in bits (128, 192, or 256 for AES).
+# Higher values are more secure but may have slight performance impacts.
+KEY_BITS = {{ key_bits | default(256) }}
+
+# O_NOATIME behavior: 0=never use, 1=auto, 2=always use.
+# 2 is recommended for backup daemons running as root/backup user to reduce disk I/O overhead.
+NO_ATIME = {{ no_atime | default(2) }}
+
+# Verbosity level. 0 is quiet, increase this number for more verbose output.
+# In the command structure below, this generates multiple -v flags.
+VERBOSE_COUNT = {{ verbose_count | default(0) }}
+
+# Path to a log file where changed filenames are written for use with rsync.
+# If empty, no logging is performed. Useful for integrating rsyncrypto with external sync tools.
+EXPORT_CHANGES_LOG = {{ export_changes_log | default('') }}
+
+# ==========================================
+# Command Construction
+# ==========================================
+
+COMMAND = rsyncrypto
+ARGS = []
+
+# If in recursive mode, pass the -r flag to process directories.
+{% if recurse | default(true) %}
+ARGS += ['-r']
+{% endif %}
+
+# If name encryption is enabled, pass the mapping file path.
+{% if name_encrypt_map | default('') %}
+ARGS += ['--name-encrypt=' ~ name_encrypt_map | default('')]
+{% endif %}
+
+# If name nesting is specified, pass the nesting level.
+{% if ne_nesting | default(0) > 0 %}
+ARGS += ['--ne-nesting=' ~ ne_nesting | default(0)]
+{% endif %}
+
+# Always set the trim level for path reconstruction.
+ARGS += ['--trim=' ~ trim_level | default(1)]
+
+# Handle deletion flags.
+{% if delete | default(false) %}
+ARGS += ['--delete']
+{% if delete_keys | default(true) %}
+ARGS += ['--delete-keys']
+{% endif %}
+{% endif %}
+
+# Handle change checking and time window.
+{% if check_changed | default(false) %}
+ARGS += ['-c']
+{% if modify_window | default(0) > 0 %}
+ARGS += ['--modify-window=' ~ modify_window | default(0)]
+{% endif %}
+{% endif %}
+
+# Handle archive mode toggle.
+{% if no_archive | default(false) %}
+ARGS += ['--no-archive-mode']
+{% endif %}
+
+# Handle gzip path if specified.
+{% if gzip_path | default('') %}
+ARGS += ['--gzip=' ~ gzip_path | default('')]
+{% endif %}
+
+# Set the encryption key bits.
+ARGS += ['--keybits=' ~ key_bits | default(256)]
+
+# Set the noatime behavior. Note: rsyncrypto typically accepts '0', '1', '2'.
+# We always pass it for explicitness, or omit if default behavior is desired.
+# Here we pass it unconditionally as rsyncrypto expects these arguments if configured.
+ARGS += ['--noatime=' ~ no_atime | default(2)]
+
+# Add verbosity flags based on the count.
+# We iterate from 0 up to the verbose count using a safe range generator.
+{% for _ in range((verbose_count | default(0)) | int) %}
+ARGS += ['-v']
+{% endfor %}
+
+# If a changes log is specified, pass it for rsync integration.
+{% if export_changes_log | default('') %}
+ARGS += ['--export-changes=' ~ export_changes_log | default('')]
+{% endif %}
+
+# Append the required positional arguments: Source, Dest, KeysDir, PublicKey.
+# Order matters for rsyncrypto CLI.
+ARGS += [source_dir | default('/var/lib/rsyncrypto/source'), dest_dir | default('/var/lib/rsyncrypto/encrypted'), keys_dir | default('/var/lib/rsyncrypto/keys'), public_key_path | default('/etc/rsyncrypto/backup.crt')]

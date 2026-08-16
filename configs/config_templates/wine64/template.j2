@@ -1,0 +1,45 @@
+# Wine64 Environment Configuration
+# This template generates an environment configuration file for Wine64.
+# It is designed to be used as a systemd EnvironmentFile or a wrapper script source.
+# All variables are self-documenting with their schema descriptions and defaults.
+
+# WINEPREFIX: Directory where Wine stores its data (registry, apps, etc.).
+# Default: /home/user/.wine
+export WINEPREFIX="{{ wine_prefix | default('/home/user/.wine') }}"
+
+# WINEDEBUG: Debugging flags. Syntax: [class][+|-]channel
+# Classes: err, warn, fixme, trace
+# Example: "warn+all" or "err+all,fixme-all"
+# Default: warn+all
+export WINEDEBUG="{{ wine_debug | default('warn+all') }}"
+
+# WINEARCH: Windows architecture to support.
+# 'win32' for 32-bit only, 'win64' for 64-bit with WoW64 support.
+# Default: win64
+export WINEARCH="{{ wine_arch | default('win64') }}"
+
+# WINEDLLOVERRIDES: DLL load order/override configuration.
+# Format: 'dll1=n,b;dll2=n,b' where n=native, b=builtin.
+# Items in the list are joined by semicolons.
+# Default: empty list (no overrides)
+{% if win_dll_overrides | default([]) | length > 0 %}
+export WINEDLLOVERRIDES="{{ win_dll_overrides | default([]) | join(';') }}"
+{% endif %}
+
+# WINE_D3D_CONFIG: Direct3D configuration key-value pairs.
+# Format: 'key1=val1;key2=val2'.
+# Default: empty list
+{% if wine_d3d_config | default([]) | length > 0 %}
+export WINE_D3D_CONFIG="{{ wine_d3d_config | default([]) | join(';') }}"
+{% endif %}
+
+# WINEDISABLED3D: (Optional) If present in schema, could be used to disable D3D.
+# Not currently in schema, but placeholder for future extensibility if needed.
+
+# PATH_EXTRA: Additional Windows-style paths to prepend to the Windows PATH.
+# Note: This usually affects the Windows-side PATH, not the Linux PATH.
+# However, in an environment file, this might be used to set WINEPATH.
+# Default: empty list
+{% if wine_path_extra | default([]) | length > 0 %}
+export WINEPATH="{{ wine_path_extra | default([]) | join(':') }}"
+{% endif %}

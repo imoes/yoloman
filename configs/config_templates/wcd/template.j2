@@ -1,0 +1,74 @@
+# =============================================================================
+# Configuration for WCD (Wherever Change Directory)
+# =============================================================================
+# This file is a Jinja2 template rendered by Ansible. It generates the
+# environment configuration for the `wcd` utility.
+#
+# @see https://linux.die.net/man/1/wcd
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Base directory for wcd data files (treedata, stack, alias, ban).
+# Overrides HOME for these specific files.
+# ------------------------------------------------------------------------------
+# If wcdhome is not defined, defaults to /home/user/.wcd
+WCDHOME: "{{ wcdhome | default('/home/user/.wcd') }}"
+
+# ------------------------------------------------------------------------------
+# Colon-separated list of directories to scan for the default treedata file.
+# If empty, defaults to $HOME or / root depending on platform.
+# ------------------------------------------------------------------------------
+# Default: ['/home/user', '/home/user/projects']
+WCDSCAN: "{{ wcdscan | default(['/home/user', '/home/user/projects']) | join(':') }}"
+
+# ------------------------------------------------------------------------------
+# Colon-separated list of patterns. Only directories matching these patterns
+# are considered matches.
+# ------------------------------------------------------------------------------
+# Default: [] (empty, no filtering)
+WCDFILTER: "{{ wcdfilter | default([]) | join(':') }}"
+
+# ------------------------------------------------------------------------------
+# Colon-separated list of absolute paths to ban (ignore) in search results.
+# ------------------------------------------------------------------------------
+# Default: [] (empty, no banned paths)
+WCDBAN: "{{ wcdban | default([]) | join(':') }}"
+
+# ------------------------------------------------------------------------------
+# Colon-separated list of paths to exclude from scanning entirely.
+# ------------------------------------------------------------------------------
+# Default: ['/dev', '/tmp', '*CVS']
+WCDEXCLUDE: "{{ wcexclude | default(['/dev', '/tmp', '*CVS']) | join(':') }}"
+
+# ------------------------------------------------------------------------------
+# Path to the stack file. If empty, uses default $WCDHOME/.stack.wcd or
+# $HOME/.stack.wcd.
+# ------------------------------------------------------------------------------
+# If wcdstackfile is not defined, the utility uses its internal default.
+WCDSTACKFILE: "{{ wcdstackfile | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Path to the locale directory for translations. If empty, uses compile-time
+# default.
+# ------------------------------------------------------------------------------
+# If wcdlocaledir is not defined, the utility uses its internal default.
+WCDLOCALEDIR: "{{ wcdlocaledir | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Primary language/locale for wcd messages and sorting (e.g., en_US.UTF-8, C).
+# ------------------------------------------------------------------------------
+# Default: 'C'
+LANG: "{{ lang | default('C') }}"
+
+# ------------------------------------------------------------------------------
+# Collation locale for sorting matches (e.g., C for byte order, en_US.UTF-8
+# for dictionary sort).
+# ------------------------------------------------------------------------------
+# Default: 'C'
+LC_COLLATE: "{{ lc_collate | default('C') }}"
+
+# ------------------------------------------------------------------------------
+# Maximum size of the directory stack (0 to disable stack).
+# ------------------------------------------------------------------------------
+# Default: 10
+WCD_STACK_SIZE: "{{ wcd_stack_size | default(10) }}"

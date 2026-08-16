@@ -1,0 +1,39 @@
+# utfout configuration
+# Set the default escape prefix character (default: '\')
+# Corresponds to: -p, --prefix=<prefix>
+PREFIX={{ prefix | default('\') }}
+
+# Set the default intra-character separator inserted between output characters
+# Corresponds to: -a, --intra-char=<char>
+INTRA_CHAR={{ intra_char | default('') }}
+
+# Set the pause/delay between writing each character (e.g., '100ms', '1s')
+# Corresponds to: -b, --intra-pause=<delay>
+INTRA_PAUSE={{ intra_pause | default('0ms') }}
+
+# List of strings to output
+# Each item can contain escape sequences if INTERPRET is true
+OUTPUT_STRINGS={% for s in output_strings %}{{ s }}{% endfor %}
+
+# Whether to interpret escape sequences (e.g., \n, \t, \x00)
+# Corresponds to: -i, --interpret / -l, --literal
+INTERPRET={{ interpret | default(true) }}
+
+# Output target: stdout, stderr, or terminal
+# Corresponds to: -o, --stdout / -e, --stderr / -t, --terminal
+OUTPUT_TARGET={{ output_target | default('stdout') }}
+
+# Repeat count for the previous output string (-1 for infinite)
+# Corresponds to: -r, --repeat=<repeat>
+REPEAT={{ repeat | default(1) }}
+
+# Sleep delay between processing output strings (if multiple are defined)
+# Corresponds to: -s, --sleep=<delay>
+SLEEP_DELAY={{ sleep_delay | default('0ms') }}
+
+# Exit code to return upon completion
+# Corresponds to: -x, --exit=<num>
+EXIT_CODE={{ exit_code | default(0) }}
+
+# Command line invocation
+CMD=usr/bin/utfout{% if not interpret %} -l{% endif %}{% if output_target == 'stderr' %} -e{% endif %}{% if output_target == 'terminal' %} -t{% endif %} -p "{{ PREFIX }}"{% if intra_char %} -a "{{ intra_char }}"{% endif %} -b {{ intra_pause }} -r {{ REPEAT }}{% if sleep_delay %} -s {{ sleep_delay }}{% endif %} -x {{ EXIT_CODE }} {{ OUTPUT_STRINGS | join(' ') }}

@@ -1,0 +1,56 @@
+# ==============================================================================
+# pcapfix configuration template
+# Self-documenting: every field includes its schema description and a safe default.
+# ==============================================================================
+
+# Base command used to invoke pcapfix
+command: pcapfix
+
+# ==============================================================================
+# input_file: The path to the corrupted pcap/pcapng file to repair.
+# Default: '/var/lib/pcapfix/damaged.pcap'
+# ==============================================================================
+input_file: {{ input_file | default('/var/lib/pcapfix/damaged.pcap') }}
+
+# ==============================================================================
+# output_file: The path for the fixed output file. If omitted or null,
+# defaults to 'fixed_' prepended to the input filename.
+# Note: When undefined/null, pcapfix auto-generates the output path;
+# this template renders the key only if explicitly provided.
+# ==============================================================================
+{# Only emit the output_file line if the variable is explicitly defined and not null #}
+{% if output_file is defined and output_file is not none %}
+output_file: {{ output_file }}
+{% endif %}
+
+# ==============================================================================
+# force_pcapng: If true, forces pcapfix to repair the input file as PCAPNG format.
+# Default: False
+# ==============================================================================
+force_pcapng: {{ force_pcapng | default(False) | lower }}
+
+# ==============================================================================
+# data_link_type: The Data Link Type number to select/override (0-255).
+# Default is 1 (LINKTYPE_ETHERNET).
+# Default: 1
+# ==============================================================================
+data_link_type: {{ data_link_type | default(1) }}
+
+# ==============================================================================
+# enable_deep_scan: If true, forces deep scan mode to search for packets
+# beyond the initial snaplen limit.
+# Default: False
+# ==============================================================================
+enable_deep_scan: {{ enable_deep_scan | default(False) | lower }}
+
+# ==============================================================================
+# enable_soft_mode: If true, switches to soft mode for more tolerant packet detection.
+# Default: False
+# ==============================================================================
+enable_soft_mode: {{ enable_soft_mode | default(False) | lower }}
+
+# ==============================================================================
+# verbosity: Verbosity level. 0 for normal, higher for more output (e.g., 2 for verbose).
+# Default: 0
+# ==============================================================================
+verbosity: {{ verbosity | default(0) }}

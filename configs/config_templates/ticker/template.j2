@@ -1,0 +1,42 @@
+# Configuration for ticker(1)
+# This template generates the environment/configuration file for the `ticker` utility.
+# `ticker` displays a scrolling message on the terminal, optionally reading from
+# SysV shared memory for inter-process communication.
+
+# Message to display. Required unless shared memory (SHM_ID) is used.
+# If SHM_ID is set, this value is ignored by the ticker process itself,
+# but may serve as a fallback or default for configuration generators.
+MESSAGE={{ (message | default('Welcome to the system')) | string }}
+
+# Scroll position: 'top' for the top line, 'bottom' for the bottom line.
+# Corresponds to the -u (upper) and -l (lower) command-line flags.
+POSITION={{ (position | default('top')) | string }}
+
+# Foreground text color.
+# Valid values: black, gray, red, brightred, green, brightgreen, brown,
+# yellow, blue, brightblue, magenta, brightmagenta, cyan, brightcyan,
+# lightgray, white.
+FOREGROUND_COLOR={{ (foreground_color | default('green')) | string }}
+
+# Background text color.
+# Valid values: black, gray, red, brightred, green, brightgreen, brown,
+# yellow, blue, brightblue, magenta, brightmagenta, cyan, brightcyan,
+# lightgray, white.
+BACKGROUND_COLOR={{ (background_color | default('black')) | string }}
+
+# Delay in seconds between display updates. Controls the scroll speed.
+# Decimal values are allowed (e.g., 0.1, 0.05).
+DELAY={{ (delay | default('0.1')) | string }}
+
+# SysV shared memory segment ID (numeric string) to read messages from.
+# If this is empty or unset, the ticker reads the MESSAGE variable directly.
+# Use this to allow other processes to update the ticker display via shared memory.
+SHM_ID={{ (shm_id | default('')) | string }}
+
+# Size of the shared memory segment in characters, when using SHM_ID.
+# Defines the maximum length of messages that can be stored and retrieved.
+SHM_SIZE={{ (shm_size | default(80)) | int }}
+
+# Minimum time in seconds between checks of the shared memory segment for a new message.
+# Reduces CPU usage when polling SHM_ID for updates.
+CHECK_INTERVAL={{ (check_interval | default(1)) | int }}

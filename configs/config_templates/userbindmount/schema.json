@@ -1,0 +1,27 @@
+{
+  "mounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of bind mount definitions. Each item is a map with source, target, and optional content (for stdin or string content). Use '-' as source to read from stdin, or a literal string to mount content directly. Use a path for standard bind mounts if supported by the wrapper, though userbindmount typically handles stdin/string content or requires explicit args. For this template, we simulate the 'source content' feature described in manpage: if source is '-', read stdin. If source is a quoted string, use that string as file content. For simple path-to-path, this template assumes the caller handles the args list directly or we treat 'content' as the file content to be mounted on 'target' via stdin mechanism described in manpage examples. Note: userbindmount CLI takes source/target pairs. If 'content' is provided, it implies the source is effectively the content itself (stdin or literal). If neither content nor a specific stdin flag is needed for a simple path bind, this template structure is slightly abstract for the CLI tool which is stateless. However, to adhere to 'reusable config for a service', we assume a wrapper script or a specific config-driven invocation where 'source'='-' and 'content' provides the body, OR 'source' is a path and 'content' is ignored. Given the manpage, the most config-friendly approach is defining mounts where content can be injected or sourced. For standard bind mounts of existing files, this config model is less direct than CLI args. We will adapt: 'source' is the target path, 'content' is the content string (overriding source), or if 'content' is not set, it implies a bind of a pre-configured source path which isn't explicitly in the schema. To strictly follow the manpage's 'source' can be a double quoted string or '-', we will map 'source' to the target path in the example logic? No, manpage says 'source target'. Let's map: 'target' is the mount point. 'content' is the data to mount (if source='-' or literal). If 'content' is not provided, we assume a standard bind mount source is needed. But userbindmount doesn't have a config file format itself. This is a *template* for generating a config/script. Let's assume a wrapper that reads this. \n\nRefining schema for strict compliance: The manpage describes CLI args. A 'service config' usually implies a static file. userbindmount itself is a one-shot utility. It does not have a persistent config file. Therefore, generating a 'config file' for userbindmount is semantically odd unless it's a wrapper script config. I will generate a template for a wrapper configuration that generates the command line arguments. \n\nVariables:\n- mounts: list of {target, content (optional), source (optional)}. If content is provided, it's used as stdin. If source is provided and content is not, it's a bind mount.\n- newns: bool, create new namespace.\n- sysadm: bool, add CAP_SYS_ADMIN.\n- verbose: bool, print debugging.\n- command: string, command to run.\n\nActually, the prompt asks for a 'Class-B configuration template'. userbindmount is a tool, not a daemon with a config file. I will produce a template that represents a 'session' or 'batch' configuration for a wrapper script, or simply the arguments. \n\nLet's stick to the prompt's constraint: 'Base every variable on a real documented setting'. The documented settings are CLI flags. I will create a template that generates the CLI command line. But the output format is a 'config'. I will provide a JSON-like config that a hypothetical systemd service or script would consume to invoke userbindmount. \n\nTemplate: A shell script snippet or a structured config? The prompt asks for 'template'. I will provide a template that renders the arguments for userbindmount. \n\nWait, 'template' usually renders a file. If I render a shell command, it's a bit meta. Let's provide a template for a `userbindmount.conf` equivalent if it existed, or more likely, a template for a script that wraps it. \n\nLet's try to map the CLI options directly. \n\nSchema:\n- mounts: list of {source, target, content}. \n  - source: string. The source path or '-' for stdin or a quoted string for content.\n  - target: string. The target mount point.\n  - content: string. Optional. If provided and source is '-', it's piped. If source is a literal string, content might be ignored? Manpage says: "
+  },
+  "command": {
+    "type": "string",
+    "default": "",
+    "description": "Command to run inside the namespace after mounts. Defaults to $SHELL if omitted."
+  },
+  "newns": {
+    "type": "bool",
+    "default": false,
+    "description": "Create a new user-namespace (-n / --newns)."
+  },
+  "sysadm": {
+    "type": "bool",
+    "default": false,
+    "description": "Add CAP_SYS_ADMIN ambient capability (-s / --sysadm)."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Verbose mode, print debugging info (-v / --verbose)."
+  }
+}

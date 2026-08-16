@@ -1,0 +1,78 @@
+# AppArmor profile for onioncircuits (Tor circuit visualizer).
+#
+# This profile restricts the onioncircuits binary's access to the filesystem,
+# network, and other system resources. It is designed to be robust, allowing
+# the application to function correctly while minimizing potential security risks.
+#
+# Variables:
+#   - No dynamic variables are used in this static profile.
+#   - The profile relies on AppArmor macros like @{PROC}, @{PID}, and @{HOME}
+#     which are expanded by the kernel at runtime.
+
+#include <tunables/global>
+
+/usr/bin/onioncircuits {
+  # Include standard base abstractions for common system paths and utilities.
+  #include <abstractions/base>
+
+  # Include GNOME desktop environment abstractions.
+  #include <abstractions/gnome>
+
+  # Include iBus input method framework abstractions.
+  #include <abstractions/ibus>
+
+  # Include nameservice abstractions (NSS, LDAP, etc.).
+  #include <abstractions/nameservice>
+
+  # Include Python abstractions.
+  #include <abstractions/python>
+
+  # Explicitly allow read/write access to Python cache directories.
+  # These paths are often excluded from standard abstractions or require
+  # specific globbing patterns to cover various Python versions and architectures.
+  # The pattern /usr/lib{,32,64}/python{2,3}.[0-9]/ covers 32-bit and 64-bit
+  # libraries for Python 2.x and 3.x.
+  /usr/lib{,32,64}/python{2,3}.[0-9]/__pycache__/ rw,
+  /usr/lib{,32,64}/python{2,3}.[0-9]/__pycache__/* rw,
+  /usr/lib{,32,64}/python{2,3}.[0-9]/**/__pycache__/ rw,
+  /usr/lib{,32,64}/python{2,3}.[0-9]/**/__pycache__/* rw,
+  /usr/lib{,32,64}/python{2,3}/**/__pycache__/ rw,
+  /usr/lib{,32,64}/python{2,3}/**/__pycache__/* rw,
+
+  # Allow reading the onioncircuits binary itself and its location in /usr/bin.
+  /usr/bin/ r,
+  /usr/bin/onioncircuits r,
+
+  # Allow reading GTK/Glib schema compiled files for proper UI rendering.
+  /usr/share/glib-2.0/schemas/gschemas.compiled r,
+
+  # Allow reading ISO code JSON data for language/country representations.
+  /usr/share/iso-codes/json/** r,
+  /usr/share/xml/iso-codes/** r,
+
+  # Allow reading process status information for the current process.
+  # @{PROC} is the path to /proc, @{PID} is the current process ID.
+  owner @{PROC}/@{pid}/status r,
+
+  # Deny reading the machine-id file.
+  # This prevents the application from identifying the specific machine instance.
+  deny /etc/machine-id r,
+
+  # Accessibility support: Allow access to At-SPI2 bus directories.
+  # These are typically located in /run/user/<uid>/at-spi2-*.
+  owner /{,var/}run/user/*/at-spi2-*/ rw,
+  owner /{,var/}run/user/*/at-spi2-*/** rw,
+
+  # Allow reading the Tor control authentication cookie.
+  # This is required to connect to the local Tor daemon for circuit visualization.
+  /run/tor/control.authcookie r,
+
+  # Silence noisy dconf/dbus logs related to user configuration.
+  # These denies prevent clutter in logs when the app queries dconf settings.
+  deny /run/user/[0-9]*/dconf/user rwk,
+  deny @{HOME}/.config/dconf/user r,
+
+  # Include local overrides for this specific binary.
+  # Administrators can place additional rules in /etc/apparmor.d/local/usr.bin.onioncircuits.
+  #include <local/usr.bin.onioncircuits>
+}

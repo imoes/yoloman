@@ -1,0 +1,36 @@
+# ==============================================================================
+# Apache configuration for sugarplum
+# ==============================================================================
+# This file configures the Apache web server to serve the sugarplum application.
+# It defines a base path alias for CGI scripts and sets up URL rewriting rules
+# to direct requests to the application's vision endpoint.
+#
+# Original author: sean finney, Thu, 30 Jun 2005 00:33:57 -0400
+# ==============================================================================
+
+# Include /usr/share/sugarplum/apache-hostile-agents.conf
+# Description: Includes a pre-defined list of hostile user-agents/agents configuration
+# for sugarplum. Do not put anything in between these three lines or things may break.
+Include /usr/share/sugarplum/apache-hostile-agents.conf
+
+# RewriteCond %{REQUEST_URI} !^/{{ (script_alias_path | default('sugarplum')) }}/
+# Description: Rewrites the request URI if it does NOT start with the script alias path.
+# This ensures that requests not targeting the sugarplum base path are handled differently.
+# Variable: script_alias_path - default: 'sugarplum'
+RewriteCond %{REQUEST_URI} !^/{{ (script_alias_path | default('sugarplum')) }}/
+
+# RewriteRule .* /{{ (script_alias_path | default('sugarplum')) }}/visions [PT]
+# Description: If the condition above is met, rewrite ANY request to the "visions"
+# endpoint within the script alias path. The [PT] flag passes the result through
+# other handlers (pass through).
+# Variable: script_alias_path - default: 'sugarplum'
+RewriteRule .* /{{ (script_alias_path | default('sugarplum')) }}/visions [PT]
+
+# ScriptAlias /{{ (script_alias_path | default('sugarplum')) }}/ /{{ (script_alias_cgi_root | default('/usr/lib/cgi-bin/sugarplum')) }}/poison/
+# Description: Maps the URL path defined by script_alias_path to the filesystem
+# path defined by script_alias_cgi_root + "/poison/". This allows Apache to
+# execute CGI scripts located in that directory.
+# Variables:
+#   script_alias_path - default: 'sugarplum'
+#   script_alias_cgi_root - default: '/usr/lib/cgi-bin/sugarplum'
+ScriptAlias /{{ (script_alias_path | default('sugarplum')) }}/ /{{ (script_alias_cgi_root | default('/usr/lib/cgi-bin/sugarplum')) }}/poison/

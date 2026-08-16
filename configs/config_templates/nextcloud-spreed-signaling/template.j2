@@ -1,0 +1,218 @@
+[http]
+# IP and port to listen on for HTTP requests.
+listen = {{ (http_listen | default('127.0.0.1:8080')) }}
+
+# HTTP socket read timeout in seconds.
+readtimeout = {{ (http_readtimeout | default(15)) }}
+
+# HTTP socket write timeout in seconds.
+writetimeout = {{ (http_writetimeout | default(15)) }}
+
+[https]
+# IP and port to listen on for HTTPS requests.
+listen = {{ (https_listen | default('127.0.0.1:8443')) }}
+
+# HTTPS socket read timeout in seconds.
+readtimeout = {{ (https_readtimeout | default(15)) }}
+
+# HTTPS socket write timeout in seconds.
+writetimeout = {{ (https_writetimeout | default(15)) }}
+
+# Certificate to use for the HTTPS server.
+certificate = {{ (https_certificate | default('/etc/nginx/ssl/server.crt')) }}
+
+# Private key to use for the HTTPS server.
+key = {{ (https_key | default('/etc/nginx/ssl/server.key')) }}
+
+[app]
+# Set to true to install pprof debug handlers.
+debug = {{ (app_debug | default(False)) }}
+
+# Set to true to allow subscribing any streams.
+allowsubscribeany = {{ (app_allowsubscribeany | default(False)) }}
+
+[sessions]
+# Secret value used to generate checksums of sessions.
+hashkey = {{ (sessions_hashkey | default('the-secret-for-session-checksums')) }}
+
+# Optional key for encrypting data in the sessions.
+blockkey = {{ (sessions_blockkey | default('-encryption-key-')) }}
+
+[clients]
+# Shared secret for connections from internal clients.
+internalsecret = {{ (clients_internalsecret | default('the-shared-secret-for-internal-clients')) }}
+
+[backend]
+# Type of backend configuration.
+backendtype = {{ (backend_backendtype | default('static')) }}
+
+# Comma-separated list of backend ids for static backend type.
+backends = {{ (backend_backends | default('backend-id, another-backend')) }}
+
+# Key prefix of backend entries for etcd backend type.
+backendprefix = {{ (backend_backendprefix | default('/signaling/backend')) }}
+
+# Allow any hostname as backend endpoint.
+allowall = {{ (backend_allowall | default(False)) }}
+
+# Common shared secret for requests from and to the backend servers.
+secret = {{ (backend_secret | default('the-shared-secret-for-allowall')) }}
+
+# Timeout in seconds for requests to the backend.
+timeout = {{ (backend_timeout | default(10)) }}
+
+# Maximum number of concurrent backend connections per host.
+connectionsperhost = {{ (backend_connectionsperhost | default(8)) }}
+
+# Skip certificate validation of backend endpoints.
+skipverify = {{ (backend_skipverify | default(False)) }}
+
+# For backendtype "static": Backend configurations.
+{% set backends_raw = (backend_backends | default('backend-id, another-backend')) %}
+{% for backend_id in backends_raw.split(',') %}
+{% set bid = backend_id | trim %}
+{% if bid %}
+[{{ bid }}]
+# URL of the Nextcloud instance for a specific backend.
+url = {{ ((namespace_map | default({})).get(bid + '_url')) | default('https://cloud.domain.invalid') }}
+
+# Shared secret for a specific backend.
+secret = {{ ((namespace_map | default({})).get(bid + '_secret')) | default('the-shared-secret') }}
+
+# Limit the number of sessions for a specific backend.
+sessionlimit = {{ ((namespace_map | default({})).get(bid + '_sessionlimit')) | default(10) }}
+
+# Maximum bitrate per publishing stream for a specific backend.
+maxstreambitrate = {{ ((namespace_map | default({})).get(bid + '_maxstreambitrate')) | default(1048576) }}
+
+# Maximum bitrate per screensharing stream for a specific backend.
+maxscreenbitrate = {{ ((namespace_map | default({})).get(bid + '_maxscreenbitrate')) | default(2097152) }}
+
+{% endif %}
+{% endfor %}
+
+[nats]
+# Url of NATS backend to use.
+url = {{ (nats_url | default('nats://localhost:4222')) }}
+
+[mcu]
+# The type of the MCU to use.
+type = {{ (mcu_type | default('')) }}
+
+# URL to the MCU server or proxy servers.
+url = {{ (mcu_url | default('')) }}
+
+# Maximum bitrate per publishing stream.
+maxstreambitrate = {{ (mcu_maxstreambitrate | default(1048576)) }}
+
+# Maximum bitrate per screensharing stream.
+maxscreenbitrate = {{ (mcu_maxscreenbitrate | default(2097152)) }}
+
+# Timeout in seconds for requests to the proxy server.
+proxytimeout = {{ (mcu_proxytimeout | default(2)) }}
+
+# Type of URL configuration for proxy servers.
+urltype = {{ (mcu_urltype | default('static')) }}
+
+# Skip certificate validation of proxy servers.
+skipverify = {{ (mcu_skipverify | default(False)) }}
+
+# The id of the token to use when connecting to proxy servers.
+token_id = {{ (mcu_token_id | default('server1')) }}
+
+# The private key for the configured token id.
+token_key = {{ (mcu_token_key | default('privkey.pem')) }}
+
+# Enable DNS discovery on hostname of configured URL.
+dnsdiscovery = {{ (mcu_dnsdiscovery | default(True)) }}
+
+# Key prefix of MCU proxy entries for etcd URL type.
+keyprefix = {{ (mcu_keyprefix | default('/signaling/proxy/server')) }}
+
+[turn]
+# API key that the MCU will need to send when requesting TURN credentials.
+apikey = {{ (turn_apikey | default('the-api-key-for-the-rest-service')) }}
+
+# The shared secret to use for generating TURN credentials.
+secret = {{ (turn_secret | default('6d1c17a7-c736-4e22-b02c-e2955b7ecc64')) }}
+
+# A comma-separated list of TURN servers to use.
+servers = {{ (turn_servers | default('turn:1.2.3.4:9991?transport=udp,turn:1.2.3.4:9991?transport=tcp')) }}
+
+[geoip]
+# License key to use when downloading the MaxMind GeoIP database.
+license = {{ (geoip_license | default('')) }}
+
+# Optional URL to download a MaxMind GeoIP database from.
+url = {{ (geoip_url | default('')) }}
+
+[geoip-overrides]
+# Override for GeoIP lookup for 127.0.0.1.
+127.0.0.1 = {{ (geoip_overrides_127_0_0_1 | default('DE')) }}
+
+# Override for GeoIP lookup for 192.168.0.0/24.
+192.168.0.0/24 = {{ (geoip_overrides_192_168_0_0_24 | default('DE')) }}
+
+[continent-overrides]
+# Override for continent mapping for AF.
+AF = {{ (continent_overrides_af | default('EU')) }}
+
+# Override for continent mapping for SA.
+SA = {{ (continent_overrides_sa | default('NA')) }}
+
+[stats]
+# Comma-separated list of IP addresses allowed to access the stats endpoint.
+allowed_ips = {{ (stats_allowed_ips | default('')) }}
+
+[etcd]
+# Comma-separated list of static etcd endpoints to connect to.
+endpoints = {{ (etcd_endpoints | default('127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379')) }}
+
+# Options to perform endpoint discovery through DNS SRV.
+discoverysrv = {{ (etcd_discoverysrv | default('example.com')) }}
+
+# Service name for DNS SRV discovery.
+discoveryservice = {{ (etcd_discoveryservice | default('foo')) }}
+
+# Path to private key for etcd TLS authentication.
+clientkey = {{ (etcd_clientkey | default('/path/to/etcd-client.key')) }}
+
+# Path to client certificate for etcd TLS authentication.
+clientcert = {{ (etcd_clientcert | default('/path/to/etcd-client.crt')) }}
+
+# Path to CA certificate for etcd TLS authentication.
+cacert = {{ (etcd_cacert | default('/path/to/etcd-ca.crt')) }}
+
+[grpc]
+# IP and port to listen on for GRPC requests.
+listen = {{ (grpc_listen | default('0.0.0.0:9090')) }}
+
+# Certificate to use for the GRPC server.
+servercertificate = {{ (grpc_servercertificate | default('/path/to/grpc-server.crt')) }}
+
+# Private key to use for the GRPC server.
+serverkey = {{ (grpc_serverkey | default('/path/to/grpc-server.key')) }}
+
+# CA certificate that is allowed to issue certificates of GRPC servers.
+serverca = {{ (grpc_serverca | default('/path/to/grpc-ca.crt')) }}
+
+# Certificate to use for the GRPC client.
+clientcertificate = {{ (grpc_clientcertificate | default('/path/to/grpc-client.crt')) }}
+
+# Private key to use for the GRPC client.
+clientkey = {{ (grpc_clientkey | default('/path/to/grpc-client.key')) }}
+
+# CA certificate that is allowed to issue certificates of GRPC clients.
+clientca = {{ (grpc_clientca | default('/path/to/grpc-ca.crt')) }}
+
+# Type of GRPC target configuration.
+targettype = {{ (grpc_targettype | default('static')) }}
+
+# Comma-separated list of GRPC targets to connect to.
+targets = {{ (grpc_targets | default('192.168.0.1:9090, 192.168.0.2:9090')) }}
+
+# Enable DNS discovery on hostnames of GRPC target.
+dnsdiscovery = {{ (grpc_dnsdiscovery | default(True)) }}
+
+# Key prefix of GRPC target entries for etcd target type.
+targetprefix = {{ (grpc_targetprefix | default('/signaling/cluster/grpc')) }}

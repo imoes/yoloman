@@ -1,0 +1,31 @@
+# ==============================================================================
+# unhide.rb Systemd Service Definition
+# ==============================================================================
+# unhide.rb is a security tool that scans /proc for hidden processes (rootkits,
+# chroot jails, process hiding). It takes no command-line options itself;
+# configuration is handled by the invoking service (e.g., systemd) and this
+# template generates the service definition file.
+
+[Unit]
+Description=unhide.rb - Finder of hidden processes
+# Start after the network stack is available, ensuring filesystem scans are
+# accurate across all mounts.
+After=network.target
+
+[Service]
+Type=oneshot
+# The absolute path to the unhide.rb executable.
+ExecStart={{ unhide_exec_path | default('/usr/bin/unhide.rb') }}
+
+# Redirects stdout (progress messages) to /dev/null as per man page recommendation.
+# If true, suppresses standard output. If false, logs to journal for debugging.
+{% if unhide_output_redirect | default(True) %}
+StandardOutput=null
+{% else %}
+StandardOutput=journal
+{% endif %}
+# Always log errors to the journal to aid in troubleshooting.
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

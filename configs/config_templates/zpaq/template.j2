@@ -1,0 +1,155 @@
+#!/bin/sh
+# ==============================================================================
+# Auto-generated zpaq job script
+#
+# This shell script encapsulates the zpaq command-line utility with parameters
+# defined in the Ansible role. zpaq is a command-line utility and does not use
+# a traditional configuration file. This wrapper ensures consistent execution
+# of backup, restore, and listing tasks.
+#
+# Variables are populated from the Ansible schema with safe defaults.
+# ==============================================================================
+
+# Path to the zpaq archive file.
+# Used as the primary archive argument for 'add' and 'extract'.
+ARCHIVE_PATH="{{ (archive_path | default('/var/backups/backup.zpaq')) | string }}"
+
+# The zpaq command to run: 'add', 'extract', or 'list'.
+COMMAND="{{ (command | default('add')) | string }}"
+
+# List of file or directory names to add/extract/list.
+SOURCES="{{ (sources | default(['/etc', '/home'])) | join(' ') }}"
+
+# Destination path.
+# For 'add': used as the -index file for incremental backups.
+# For 'extract': used as the -repack archive or -to prefix.
+DEST_PATH="{{ (dest_path | default('')) | string }}"
+
+# Password for encryption/decryption.
+# If empty, no -key option is added.
+PASSWORD="{{ (password | default('')) | string }}"
+
+# Compression method string (e.g., '1', '2', 'x6.3ci1').
+METHOD="{{ (method | default('1')) | string }}"
+
+# Number of threads to use. 0 uses default (number of cores).
+THREADS="{{ (threads | default(0)) | int }}"
+
+# Flag: If true, add -noattributes flag to skip storing file attributes.
+IGNORE_ATTRIBUTES="{{ (noattributes | default(False)) | lower }}"
+
+# Flag: If true, add -force flag to overwrite existing archives.
+USE_FORCE="{{ (force | default(False)) | lower }}"
+
+# Patterns to exclude. Each pattern gets --not prepended.
+# Joined with ' --not ' for readability in the variable, but handled individually in logic if needed.
+# Here we just store the raw list logic in the block below.
+# EXCLUDE_PATTERNS variable is not strictly needed as a single string if we loop or handle carefully,
+# but we will handle them in the build section below.
+
+# Patterns to include. Each pattern gets --only prepended.
+# INCLUDE_PATTERNS variable is handled in the build section below.
+
+# Timestamp for -until option (e.g., '2014/04/30 11:30' or '3').
+TIMESTAMP="{{ (timestamp | default('')) | string }}"
+
+# Summary count for -s option. Empty disables -s.
+SUMMARY_COUNT="{{ (summary_count | default('')) | string }}"
+
+# Flag: If true and command is extract, add -test flag to test archive integrity.
+TEST_MODE="{{ (test | default(False)) | lower }}"
+
+# ==============================================================================
+# Build Command
+# ==============================================================================
+
+# Base command: zpaq <command> <archive> <sources>
+CMD="zpaq {{ command | default('add') }} {{ archive_path | default('/var/backups/backup.zpaq') }} {{ sources | default(['/etc', '/home']) | join(' ') }}"
+
+# --- Options ---
+
+# Add encryption key if password is provided and not empty
+{% if (password | default('')) != '' %}
+CMD="${CMD} -key '{{ password | default('') }}'"
+{% endif %}
+
+# Add compression method if specified (usually default is fine, but allows override)
+{% if (method | default('1')) != '' %}
+CMD="${CMD} -method {{ method | default('1') }}"
+{% endif %}
+
+# Add threads if specified (0 is often default, but explicit is safe)
+{% if (threads | default(0)) != '' %}
+CMD="${CMD} -t{{ threads | default(0) }}"
+{% endif %}
+
+# Add -noattributes flag if noattributes is true
+{% if noattributes | default(False) %}
+CMD="${CMD} -noattributes"
+{% endif %}
+
+# Add -force flag if force is true
+{% if force | default(False) %}
+CMD="${CMD} -force"
+{% endif %}
+
+# Add exclude patterns (--not <pattern>)
+# Note: zpaq expects --not for each pattern.
+{% if exclude_patterns | default([]) %}
+{% for pattern in exclude_patterns | default([]) %}
+CMD="${CMD} --not '{{ pattern }}'"
+{% endfor %}
+{% endif %}
+
+# Add include patterns (--only <pattern>)
+# Note: zpaq expects --only for each pattern.
+{% if include_patterns | default([]) %}
+{% for pattern in include_patterns | default([]) %}
+CMD="${CMD} --only '{{ pattern }}'"
+{% endfor %}
+{% endif %}
+
+# Add timestamp/until option
+{% if (timestamp | default('')) != '' %}
+CMD="${CMD} -until {{ timestamp | default('') }}"
+{% endif %}
+
+# Add summary count option
+{% if (summary_count | default('')) != '' %}
+CMD="${CMD} -s{{ summary_count | default('') }}"
+{% endif %}
+
+# Add -test flag for extract commands
+{% if test | default(False) and command | default('add') == 'extract' %}
+CMD="${CMD} -test"
+{% endif %}
+
+# Add -to (destination) for extract commands
+{% if command | default('add') == 'extract' and (dest_path | default('')) != '' %}
+CMD="${CMD} -to {{ dest_path | default('') }}"
+{% endif %}
+
+# Add -index file for add commands
+{% if command | default('add') == 'add' and (dest_path | default('')) != '' %}
+# For 'add', dest_path is interpreted as the index file for incremental remote backups
+CMD="${CMD} -index {{ dest_path | default('') }}"
+{% endif %}
+
+# Add -repack archive for extract commands if dest_path looks like an archive name
+# This is a specific use-case: repacking an archive to a new file
+{% if command | default('add') == 'extract' and (dest_path | default('')) != '' %}
+# Note: Depending on specific zpaq version and intent, -to and -repack might conflict.
+# The previous block added -to. If dest_path is intended as a NEW archive name for repacking,
+# we might need -repack instead of or in addition to -to depending on semantics.
+# Standard zpaq extract: zpaq extract archive -to /dest/dir
+# zpaq extract archive -repack new_archive
+# Given the schema description: "For 'extract', this is used as the -repack archive or -to prefix."
+# We prioritize -to for directory extraction. If the user wants repack, they might need specific handling.
+# However, to be safe and consistent with standard usage, we stick to -to for extract unless specified otherwise.
+# If the intent was -repack, the schema might need a specific flag. 
+# For now, we assume dest_path for extract is the target directory/path via -to.
+{% endif %}
+
+# --- Execute ---
+echo "Running: ${CMD}"
+${CMD}

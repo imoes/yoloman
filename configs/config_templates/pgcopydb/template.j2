@@ -1,0 +1,43 @@
+# pgcopydb configuration file
+# Managed by configuration template engine
+
+# Work directory for pgcopydb state files, logs, and intermediate dumps.
+# pgcopydb creates a specific directory structure here for each operation.
+workdir: {{ workdir | default('/var/lib/pgcopydb/work') }}
+
+# Postgres URI for the source database.
+# Must be a valid postgres:// connection string.
+# Example: postgres://user:password@host:port/dbname
+source: {{ source | default('postgres://copyuser:secretpass@source-host:5432/source_db') }}
+
+# Postgres URI for the target database.
+# Must be a valid postgres:// connection string.
+# Example: postgres://user:password@host:port/dbname
+target: {{ target | default('postgres://copyuser:secretpass@target-host:5432/target_db') }}
+
+# Number of parallel processes for copying table data.
+# Higher values speed up copy but increase load on source and target.
+parallel_jobs: {{ parallel_jobs | default(4) }}
+
+# Number of parallel processes for creating indexes in the target.
+# Should generally be less than parallel_jobs to avoid overwhelming the target.
+parallel_index_jobs: {{ parallel_index_jobs | default(2) }}
+
+# Name of the Postgres extension output plugin to use for logical decoding.
+# Supported: test_decoding, wal2json.
+test_decoding_plugin: {{ test_decoding_plugin | default('test_decoding') }}
+
+# If true, pgcopydb will skip copying the database roles from source to target.
+# Useful if roles are managed externally or already exist on the target.
+skip_roles: {{ skip_roles | default(false) }}
+
+# List of schemas to exclude from copying.
+# If empty, all schemas are copied (except pg_catalog and information_schema usually).
+excluded_schemas: {{ excluded_schemas | default([]) }}
+
+# List of tables to exclude from copying.
+# Tables are specified as 'schema.table_name'.
+excluded_tables: {{ excluded_tables | default([]) }}
+
+# Log level: info, debug, trace.
+log_level: {{ log_level | default('info') }}

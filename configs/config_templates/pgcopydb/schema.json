@@ -1,0 +1,56 @@
+{
+  "workdir": {
+    "type": "string",
+    "default": "/var/lib/pgcopydb/work",
+    "description": "Directory where pgcopydb stores its state, logs, and temporary files."
+  },
+  "source": {
+    "type": "string",
+    "default": "postgres://copyuser:secretpass@source-host:5432/source_db",
+    "description": "PostgreSQL connection URI for the source database."
+  },
+  "target": {
+    "type": "string",
+    "default": "postgres://copyuser:secretpass@target-host:5432/target_db",
+    "description": "PostgreSQL connection URI for the target database."
+  },
+  "parallel_jobs": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel jobs to copy table data."
+  },
+  "parallel_index_jobs": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of parallel jobs to create indexes after data copy."
+  },
+  "test_decoding_plugin": {
+    "type": "string",
+    "default": "test_decoding",
+    "description": "The logical decoding output plugin to use for streaming changes (test_decoding or wal2json).",
+    "enum": [
+      "test_decoding",
+      "wal2json"
+    ]
+  },
+  "skip_roles": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip copying database roles from source to target."
+  },
+  "excluded_schemas": {
+    "type": "list",
+    "default": [],
+    "description": "List of schema names to exclude from the copy operation."
+  },
+  "excluded_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of table names (schema.table) to exclude from the copy operation."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity level: info, debug, or trace."
+  }
+}

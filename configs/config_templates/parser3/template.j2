@@ -1,0 +1,43 @@
+# ==============================================================================
+# /etc/parser3/auto.p
+# ==============================================================================
+# Parser3 configuration file.
+# This template is self-documenting: every directive is preceded by a comment
+# explaining its purpose, derived from the schema description.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Log file location (set via CGI_PARSER_LOG env var or -c config)
+# Implicitly parser3.log in CGI script dir if not set here or in env
+# CGI_PARSER_LOG directive in environment or passed via redirection
+# We parametrize the log path for explicit configuration
+# --------------------------------------------------------------------------
+LOG_FILE {{ log_file | default('/var/log/parser3/parser3.log') }}
+
+# --------------------------------------------------------------------------
+# Enable/disable verbose error logging to stderr
+# If log_file is unwritable, errors go to stderr
+# --------------------------------------------------------------------------
+VERBOSE_ERRORS {{ verbose_errors | default(false) }}
+
+# --------------------------------------------------------------------------
+# CGI Mode Settings
+# These are primarily environment variables (CGI_PARSER_CONFIG, CGI_PARSER_LOG)
+# but can be influenced by this config file's location and content.
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# Debug mode: 0 or 1. Enables detailed parsing debug output.
+# --------------------------------------------------------------------------
+DEBUG_MODE {{ debug_mode | default(0) }}
+
+# --------------------------------------------------------------------------
+# Timeout for CGI execution in seconds
+# --------------------------------------------------------------------------
+CGI_TIMEOUT {{ cgi_timeout | default(30) }}
+
+# --------------------------------------------------------------------------
+# Allowed MIME types for output
+# Comma-separated list
+# --------------------------------------------------------------------------
+ALLOWED_MIME_TYPES {{ allowed_mime_types | default(['text/html']) | join(',') }}

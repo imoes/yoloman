@@ -1,0 +1,149 @@
+#!/bin/sh
+# ==============================================================================
+# spacenavd Init Script
+# ==============================================================================
+# This script manages the spacenavd daemon, a userspace driver for 3Dconnexion
+# 3D input devices (SpaceNavigator, SpaceMouse, etc.).
+#
+# Self-Documenting Template Notes:
+# - Variables are sourced from Ansible variables with safe defaults provided.
+# - LSB Header fields are populated to satisfy system init compatibility.
+# - No network capabilities are exposed; this is a local hardware daemon.
+# ==============================================================================
+
+### BEGIN INIT INFO
+# Provides:          {{ provides | default('spacenavd') }}
+# Required-Start:    {{ required_start | default('$remote_fs') }}
+# Required-Stop:     {{ required_stop | default('$remote_fs') }}
+# Default-Start:     {{ default_start | default('2 3 4 5') }}
+# Default-Stop:      {{ default_stop | default('0 1 6') }}
+# Short-Description: {{ short_description | default('3Dconnexion Input Devices Userspace Driver') }}
+# Description:       {{ description | default('A free user space driver for 3Dconnexion input devices,\t                 compatible with the proprietary 3dxsrv daemon.') }}
+### END INIT INFO
+
+# Author: {{ author_name | default('Rodolphe PELLOUX-PRAYER') }} <{{ author_email | default('rodolphe@damsy.net') }}>
+
+# Standard path for system binaries
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# Description of the service, used for logging messages
+DESC="{{ desc | default('3Dconnexion Input Devices Userspace Driver') }}"
+
+# Service name, used for PID file lookup and process matching
+NAME={{ name | default('spacenavd') }}
+
+# Full path to the daemon executable
+DAEMON={{ daemon_path | default('/usr/bin/spacenavd') }}
+
+# Arguments passed to the daemon when starting
+DAEMON_ARGS="{{ daemon_args | default('-v') }}"
+
+# Path to the PID file created by the daemon
+PIDFILE={{ pidfile_path | default('/run/spnavd.pid') }}
+
+# Script name, derived from service name, used for usage messages
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+. /lib/init/vars.sh
+
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+		|| return 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+		$DAEMON_ARGS \
+		|| return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	# Wait for children to finish too if this is a daemon that forks
+	# and if the daemon is only ever run from this initscript.
+	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
+	[ "$?" = 2 ] && return 2
+	# Many daemons don't delete their pidfiles when they exit.
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	return 0
+}
+
+case "$1" in
+  start)
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
+    do_start
+    case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+  ;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       ;;
+  reload|force-reload)
+	log_daemon_msg "Reloading $DESC" "$NAME"
+	do_reload
+	log_end_msg $?
+	;;
+  restart)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:

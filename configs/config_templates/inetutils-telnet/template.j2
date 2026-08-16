@@ -1,0 +1,110 @@
+# =============================================================================
+# inetutils-telnet Client Configuration Template
+# =============================================================================
+# This template generates a configuration file for the inetutils-telnet client.
+# It controls connection parameters, protocol flags, login behavior, and
+# environment variable exportation.
+#
+# Variables are sourced from the Ansible inventory/vars and populated with
+# schema-defined defaults if not explicitly provided.
+# =============================================================================
+
+# --- Connection Parameters ---
+
+# escape_char
+# Description: The escape character to enter telnet command mode.
+# Default: '^]'
+# Syntax: escape_char = <char>
+escape_char = {{ escape_char | default('^]') }}
+
+# host
+# Description: Remote host.
+# Default: 'localhost'
+# Syntax: host = <hostname>
+host = {{ host | default('localhost') }}
+
+# port
+# Description: Remote port.
+# Default: 23
+# Syntax: port = <port_number>
+port = {{ port | default(23) }}
+
+# --- Protocol and Connection Settings ---
+
+# ipv4
+# Description: Use IPv4. If true, IPv4 only is enforced.
+# Default: false
+# Syntax: ipv4_only = yes|no
+ipv4_only = {% if ipv4 | default(false) %}yes{% else %}no{% endif %}
+
+# ipv6
+# Description: Use IPv6. If true, IPv6 only is enforced.
+# Default: false
+# Syntax: ipv6_only = yes|no
+ipv6_only = {% if ipv6 | default(false) %}yes{% else %}no{% endif %}
+
+# binary_output
+# Description: 8-bit data path on output. Enables binary transmission mode.
+# Default: false
+# Syntax: binary_output = yes|no
+binary_output = {% if binary_output | default(false) %}yes{% else %}no{% endif %}
+
+# --- Login Behavior ---
+
+# automatic_login
+# Description: Attempt automatic login. If true, skips the login prompt.
+# Default: false
+# Syntax: automatic_login = yes|no
+automatic_login = {% if automatic_login | default(false) %}yes{% else %}no{% endif %}
+
+# remote_user
+# Description: User to send to remote. Used in automatic login mode.
+# Default: ''
+# Syntax: remote_user = <username>
+remote_user = {{ remote_user | default('') }}
+
+# --- Interface Mode ---
+
+# rlogin_mode
+# Description: rlogin interface. Mimics the behavior of the rlogin command.
+# Default: false
+# Syntax: rlogin_mode = yes|no
+rlogin_mode = {% if rlogin_mode | default(false) %}yes{% else %}no{% endif %}
+
+# --- Debugging and Tracing ---
+
+# debug_enabled
+# Description: Debug toggle. Enables verbose debugging output to stderr.
+# Default: false
+# Syntax: debug_enabled = yes|no
+debug_enabled = {% if debug_enabled | default(false) %}yes{% else %}no{% endif %}
+
+# trace_file
+# Description: Trace output file. Path to write detailed session traces.
+# Default: '-' (stdout)
+# Syntax: trace_file = <filepath>
+trace_file = {{ trace_file | default('-') }}
+
+# --- Authentication and Security ---
+
+# encrypt_enabled
+# Description: Enable encryption. Requires a supported encryption method.
+# Default: false
+# Syntax: encrypt_enabled = yes|no
+encrypt_enabled = {% if encrypt_enabled | default(false) %}yes{% else %}no{% endif %}
+
+# kerberos_realm
+# Description: Kerberos realm. Specifies the realm for Kerberos authentication.
+# Default: ''
+# Syntax: kerberos_realm = <realm_name>
+kerberos_realm = {{ kerberos_realm | default('') }}
+
+# --- Environment Variables ---
+
+# env_vars
+# Description: Environment variables to define/export to the remote session.
+# Expects a list of dictionaries with 'key' and 'value' keys.
+# Syntax: environ <KEY>=<VALUE>
+{% for env_var in env_vars | default([]) %}
+environ {{ env_var.key }}={{ env_var.value }}
+{% endfor %}

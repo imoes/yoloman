@@ -1,0 +1,47 @@
+// Auto-generated configuration for lomiri-terminal-app
+// This template maps schema fields to Lomiri Terminal QML properties.
+// Self-documenting: each property is prefixed with its schema description.
+
+import QtQuick 2.15
+import Lomiri.Terminal 1.0
+
+ApplicationWindow {
+    id: root
+
+    // Width of the window in pixels. Default is 360 for phone-sized windows.
+    width: {{ window_width | default(360) }}
+
+    // Height of the window in pixels. Default is 640 for phone-sized windows.
+    height: {{ window_height | default(640) }}
+
+    // If true, starts in a tablet sized window (--tablet flag). If false, uses phone size (--phone flag or default).
+    tabletMode: {{ tablet_mode | default(false) | lower }}
+
+    // The working directory to start the terminal in (--workdir flag).
+    workingDirectory: "{{ workdir | default('/home') }}"
+
+    // Force authentication on or off (--forceAuth flag).
+    forceAuthentication: {{ force_auth | default(false) | lower }}
+
+    // Additional QML import directories (-I flag). May be used multiple times.
+    // Renders as a JSON array of strings.
+    importPaths: [
+        {% for path in import_paths | default([]) %}
+        "{{ path }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]
+
+    // Main Terminal Component
+    Terminal {
+        id: terminal
+        anchors.fill: parent
+
+        // The shell command to execute. If empty, uses the default system shell.
+        shell: "{{ shell | default('') }}"
+    }
+
+    // Helper to determine effective window flags based on --phone/--tablet
+    Component.onCompleted: {
+        // Logic handled by tabletMode property above.
+    }
+}

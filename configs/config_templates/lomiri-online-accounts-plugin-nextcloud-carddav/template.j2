@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lomiri Nextcloud CardDAV Plugin Profile Configuration
+  ================================================
+  This template generates an XML profile for the Lomiri Online Accounts plugin
+  to synchronize contacts with a Nextcloud CardDAV server.
+
+  Variables expected:
+  - enabled: Boolean string ('true'/'false'). Whether the profile is active.
+  - hidden:  Boolean string ('true'/'false'). Whether to hide this profile from UI.
+  - use_accounts: Boolean string ('true'/'false'). Use system accounts for auth.
+  - schedule_enabled: Boolean string ('true'/'false'). Enable background syncing.
+  - schedule_interval: String. Interval for sync (e.g., '15m', '1h'). Empty for default.
+  - schedule_days: String. Comma-separated day numbers (1-7).
+  - schedule_time: String. Time of day for sync trigger (HH:MM:SS).
+-->
+<profile name="lomiri-nextcloud-carddav" type="sync">
+    <!-- Category: Identifies the type of data being synchronized -->
+    <key value="contacts" name="category"/>
+
+    <!-- Remote Service Name: Identifier for the remote service -->
+    <key value="lomiri-nextcloud-carddav" name="remote_service_name"/>
+
+    <!-- Destination Type: Specifies where data is stored/synchronized -->
+    <key name="destinationtype" value="online"/>
+
+    <!--
+      Enabled: Controls whether this profile is active.
+      Defaults to 'false' if not specified.
+    -->
+    <key name="enabled" value="{{ enabled | default('false') }}"/>
+
+    <!--
+      Hidden: Controls visibility in the user interface.
+      Defaults to 'false' if not specified.
+    -->
+    <key name="hidden" value="{{ hidden | default('false') }}"/>
+
+    <!--
+      Use Accounts: Determines if existing system accounts are used for authentication.
+      Defaults to 'true' if not specified.
+    -->
+    <key name="use_accounts" value="{{ use_accounts | default('true') }}"/>
+
+    <!-- CardDAV Client Profile: Specific settings for the CardDAV synchronization -->
+    <profile type="client" name="carddav">
+        <!-- Sync Direction: Defines how changes are propagated -->
+        <key value="two-way" name="Sync Direction"/>
+
+        <!-- Sync Protocol: The protocol used for synchronization -->
+        <key value="carddav" name="Sync Protocol"/>
+
+        <!-- Sync Transport: The transport layer protocol -->
+        <key value="HTTP" name="Sync Transport"/>
+
+        <!-- Conflict Policy: Strategy for resolving conflicts between local and remote -->
+        <key value="prefer remote" name="conflictpolicy" />
+    </profile>
+
+    <!--
+      Schedule Configuration: Defines when background synchronization occurs.
+      - enabled: Turn the schedule on or off.
+      - interval: Time interval between syncs.
+      - days: Days of the week to sync (1=Mon, ..., 7=Sun).
+      - time: Time of day to trigger the sync.
+      - syncconfiguredtime: Placeholder, usually ignored or handled internally.
+    -->
+    <schedule
+        enabled="{{ schedule_enabled | default('false') }}"
+        interval="{{ schedule_interval | default('') }}"
+        days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
+        syncconfiguredtime=""
+        time="{{ schedule_time | default('05:00:00') }}"
+    />
+</profile>

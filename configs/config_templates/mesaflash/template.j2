@@ -1,0 +1,64 @@
+#!/bin/bash
+# Script to configure and flash Mesa Electronics FPGA cards using mesaflash.
+# This script generates the command line for mesaflash based on provided configuration.
+
+# Configuration variables
+DEVICE_NAME="{{ device_name }}"
+INTERFACE_TYPE="{{ interface_type }}"
+ADDRESS="{{ address }}"
+BITFILE_PATH="{{ bitfile_path }}"
+ENABLE_VERIFY="{{ enable_verify | lower }}"
+VERBOSE_MODE="{{ verbose_mode | lower }}"
+USE_FALLBACK="{{ use_fallback | lower }}"
+SET_IP_ADDRESS="{{ set_ip_address }}"
+
+# Determine command arguments
+ARGS=""
+
+{% if interface_type == 'ETHER' %}
+ARGS="--ether"
+{% elif interface_type == 'SPI' %}
+ARGS="{{ ARGS }} --spi"
+{% elif interface_type == 'USB' %}
+ARGS="{{ ARGS }} --usb"
+{% elif interface_type == 'SERIAL' %}
+ARGS="{{ ARGS }} --serial"
+{% elif interface_type == 'EPP' %}
+ARGS="{{ ARGS }} --epp"
+{% else %}
+ARGS="--auto"
+{% endif %}
+
+{% if device_name %}
+ARGS="{{ ARGS }} --device {{ device_name }}"
+{% endif %}
+
+{% if address %}
+ARGS="{{ ARGS }} --addr {{ address }}"
+{% endif %}
+
+{% if verbose_mode == 'true' %}
+ARGS="{{ ARGS }} --verbose"
+{% endif %}
+
+{% if use_fallback == 'true' %}
+ARGS="{{ ARGS }} --fallback"
+{% endif %}
+
+# Main execution logic
+{% if set_ip_address %}
+# Set IP address command
+mesaflash {{ ARGS }} --setip="{{ set_ip_address }}"
+{% elif bitfile_path %}
+# Flash/Write command
+{% if enable_verify == 'true' %}
+# Write and verify
+mesaflash {{ ARGS }} --write {{ bitfile_path }} --verify {{ bitfile_path }}
+{% else %}
+# Write only
+mesaflash {{ ARGS }} --write {{ bitfile_path }} --no-auto-verify
+{% endif %}
+{% else %}
+# Info/Read command
+mesaflash {{ ARGS }} --info {{ bitfile_path | default('/dev/null', true) }}
+{% endif %}

@@ -1,0 +1,77 @@
+# ==============================================================================
+# pr3287: IBM 3287 Printer Emulator / TN3270 Terminal Emulator Configuration
+#
+# This template generates a command-line invocation (or configuration snippet)
+# for the pr3287 utility, which emulates an IBM 3287 printer or terminal
+# over TN3270 protocol to connect to an IBM Mainframe host.
+#
+# Variables are sourced from Ansible facts/vars. Every variable has a safe
+# default derived from the schema to prevent render failures and ensure
+# sensible out-of-the-box behavior.
+# ==============================================================================
+
+# ==============================================================================
+# [Connection]
+# ==============================================================================
+
+# Hostname or IP address of the IBM host to emulate the 3287 printer for.
+# This is the primary target for the connection.
+# pr3287 [options] hostname
+# Schema default: 'ibm-mainframe.example.com'
+{{ host | default('ibm-mainframe.example.com') }}
+
+# ==============================================================================
+# [Protocol & Terminal Options]
+# ==============================================================================
+
+# TN3270 terminal type to emulate.
+# Supported values: tn3270, tn3270e, tn3270t.
+# Controls the protocol version and features used during the session.
+# Schema default: 'tn3270e'
+{% if terminal_type is not none %}
+-t {{ terminal_type | default('tn3270e') }}
+{% endif %}
+
+# ==============================================================================
+# [Feature Flags]
+# ==============================================================================
+
+# Enable LU name selection as per RFC 1646.
+# When enabled, the local terminal can request a specific Logical Unit (LU)
+# name during the connection handshake.
+# Schema default: False
+{% if lu_name_selection is not none and lu_name_selection | default(False) | bool %}
+-l
+{% endif %}
+
+# Skip authentication/login prompts if the host allows direct connection.
+# Use this when connecting to hosts that do not require a login sequence
+# or when credentials are managed externally.
+# Schema default: False
+{% if no_auth is not none and no_auth | default(False) | bool %}
+-n
+{% endif %}
+
+# ==============================================================================
+# [Data Stream]
+# ==============================================================================
+
+# Character set for the data stream.
+# Defines how text is encoded/decoded between the terminal and the host.
+# Common values: ascii, ebcdic.
+# Schema default: 'ascii'
+{% if charset is not none %}
+-c {{ charset | default('ascii') }}
+{% endif %}
+
+# ==============================================================================
+# [Troubleshooting]
+# ==============================================================================
+
+# Enable debug output.
+# When enabled, pr3287 writes verbose diagnostic information to stderr,
+# useful for troubleshooting connection or protocol issues.
+# Schema default: False
+{% if debug is not none and debug | default(False) | bool %}
+-d
+{% endif %}

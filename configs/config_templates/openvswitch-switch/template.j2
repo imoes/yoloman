@@ -1,0 +1,31 @@
+# Open vSwitch (OVS) Switch Daemon Configuration Fragment
+# -------------------------------------------------------
+# This POSIX shell fragment configures runtime behaviour of the
+# openvswitch-switch package on Debian/Ubuntu systems.
+# Variables are drawn from the Ansible role schema and rendered
+# with safe defaults to prevent empty or missing values.
+
+# FORCE_COREFILES: Enable generation of core dumps for OVS
+# daemon processes if a crash occurs. Set to 'yes' for debugging,
+# otherwise leave empty (default) to disable core files.
+# See: man ovs-vswitchd.conf.db for core dump implications.
+FORCE_COREFILES="{{ force_corefiles | default('') }}"
+
+# OVS_CTL_OPTS: Extra command-line options passed to the
+# ovs-ctl control script. Use this to wrap daemons in debuggers
+# (e.g. valgrind) or pass arbitrary flags supported by ovs-ctl.
+# Example: '--ovs-vswitchd-wrapper=valgrind'
+# See: /usr/share/doc/openvswitch-common/INSTALL.DPDK-ADVANCED.md.gz
+OVS_CTL_OPTS="{{ ovs_ctl_opts | default('') }}"
+
+# NOTE on DPDK Configuration:
+# DPDK-related options are NO LONGER configured via this shell
+# fragment. They are now managed through ovs-vsctl and ovsdb,
+# following the upstream design shift. For details, consult:
+#   - /usr/share/doc/openvswitch-common/INSTALL.DPDK.md.gz
+#   - /usr/share/doc/openvswitch-common/INSTALL.DPDK-ADVANCED.md.gz
+#
+# If you previously set e.g. '--vhost-owner libvirt-qemu:kvm
+# --vhost-perm 0664' here, those must be migrated to the
+# appropriate ovsdb fields or the new ovs-vsctl commands.
+# The legacy variable DPDK_OPTS is deprecated and not supported.

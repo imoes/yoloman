@@ -1,0 +1,59 @@
+#!/bin/bash
+# tkey-ssh-agent startup script
+# Generates a valid command line for tkey-ssh-agent based on provided configuration.
+# Self-documenting: every variable and flag is described and defaults to the schema value.
+
+# SSH_AUTH_SOCK: The path to the SSH agent socket. ssh(1) and ssh-add(1) use this variable to find the agent.
+# Default: ${XDG_RUNTIME_DIR}/tkey-ssh-agent/sock
+export SSH_AUTH_SOCK="{{ (values | default({})).ssh_auth_sock | default('${XDG_RUNTIME_DIR}/tkey-ssh-agent/sock') }}"
+
+# AGENT_PORT: --port flag. Specify serial port device path to use with the TKey. If empty, auto-detection is attempted.
+# Default: '' (empty, triggers auto-detection)
+{% if (values | default({})).port | default('') %}
+AGENT_PORT="--port {{ (values | default({})).port | default('') }}"
+{% else %}
+AGENT_PORT=""
+{% endif %}
+
+# AGENT_SPEED: --speed flag. Serial port speed in bits per second. Default is 62500. If empty, the default is used by the agent.
+# Default: '' (empty, uses agent default 62500)
+{% if (values | default({})).speed | default('') %}
+AGENT_SPEED="--speed {{ (values | default({})).speed | default('') }}"
+{% else %}
+AGENT_SPEED=""
+{% endif %}
+
+# AGENT_PATH: --agent-path / -a flag. The path to the UNIX-domain socket for the agent. Overrides the default derived from SSH_AUTH_SOCK.
+# Default: '' (empty, uses default derived from SSH_AUTH_SOCK)
+{% if (values | default({})).agent_path | default('') %}
+AGENT_PATH="-a {{ (values | default({})).agent_path | default('') }}"
+{% else %}
+AGENT_PATH=""
+{% endif %}
+
+# AGENT_USS: --uss flag. If true, interactively ask for a User Supplied Secret (USS) to hash with the TKey identity.
+# Default: False
+{% if (values | default({})).uss | default(false) | bool %}
+AGENT_USS="--uss"
+{% else %}
+AGENT_USS=""
+{% endif %}
+
+# AGENT_USS_FILE: --uss-file flag. File path to read the User Supplied Secret from. Use '-' for stdin. Cannot be used with --uss.
+# Default: '' (empty)
+{% if (values | default({})).uss_file | default('') %}
+AGENT_USS_FILE="--uss-file {{ (values | default({})).uss_file | default('') }}"
+{% else %}
+AGENT_USS_FILE=""
+{% endif %}
+
+# AGENT_PINENTRY: --pinentry flag. Command to use for pinentry prompts when using USS. Defaults to gpg-agent.conf lookup or 'pinentry'.
+# Default: '' (empty, uses automatic resolution)
+{% if (values | default({})).pinentry | default('') %}
+AGENT_PINENTRY="--pinentry {{ (values | default({})).pinentry | default('') }}"
+{% else %}
+AGENT_PINENTRY=""
+{% endif %}
+
+# Construct and execute the command
+tkey-ssh-agent $AGENT_PORT $AGENT_SPEED $AGENT_PATH $AGENT_USS $AGENT_USS_FILE $AGENT_PINENTRY

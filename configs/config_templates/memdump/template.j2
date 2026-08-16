@@ -1,0 +1,99 @@
+{#
+  memdump configuration template
+  ------------------------------
+  This Jinja2 template generates a shell script wrapper for the `memdump` utility.
+  It translates structured Ansible variable values into command-line arguments.
+
+  Usage in Ansible:
+    template:
+      src: memdump.conf.j2
+      dest: /usr/local/bin/memdump-wrapper.sh
+      mode: '0755'
+#}
+
+#!/bin/bash
+# memdump configuration script
+# Executable script to run memdump with specified parameters.
+# Generated automatically by Ansible. Do not edit manually.
+
+# --- Parameter Mapping ---
+# These variables are populated from Ansible facts/vars, with safe defaults
+# to prevent syntax errors if variables are undefined.
+
+# dump_kernel: Attempt to dump kernel memory (/dev/kmem) rather than physical
+# memory (/dev/mem). Warning: can lock up system.
+# Default: False (dump physical memory /dev/mem)
+# The variable dump_kernel is converted to a shell-friendly string "yes" or "no"
+# for consistent handling in the script logic, though the conditional below
+# uses the boolean flag directly from the Jinja context.
+KERNEL_DUMP={{ dump_kernel | default(false) }}
+
+# verbose: Enable verbose logging for debugging purposes.
+# Default: False (silent mode)
+VERBOSE={{ verbose | default(false) }}
+
+# buffer_size: Number of bytes per memory read operation.
+# Suffixes k, m, g are supported. Default 0 uses page_size.
+# Default: "0"
+BUFFER_SIZE={{ buffer_size | default("0") }}
+
+# dump_size: Number of memory bytes to dump.
+# Suffixes k, m, g are supported. Default 0 dumps until EOF.
+# Default: "0"
+DUMP_SIZE={{ dump_size | default("0") }}
+
+# page_size: Use page_size as the memory page size.
+# Suffixes k, m, g are supported. Default 0 uses system page size.
+# Default: "0"
+PAGE_SIZE={{ page_size | default("0") }}
+
+# map_file: Write the memory map to this file.
+# Specify '-' for stderr. Empty string means no map file.
+# Default: "" (empty)
+MAP_FILE={{ map_file | default("") }}
+
+# --- Command Construction ---
+
+CMD_ARGS=""
+
+# Add -k flag if kernel memory dump is requested
+# Note: KERNEL_DUMP is a boolean here. The `| bool` filter ensures strict boolean evaluation.
+{% if dump_kernel | default(false) | bool %}
+CMD_ARGS="${CMD_ARGS} -k"
+{% endif %}
+
+# Add -v flag if verbose mode is enabled
+# Note: VERBOSE is a boolean here.
+{% if verbose | default(false) | bool %}
+CMD_ARGS="${CMD_ARGS} -v"
+{% endif %}
+
+# Add -b flag if buffer size is explicitly set to non-zero
+# Note: BUFFER_SIZE is a string. We check if it is not "0" and is defined.
+{% if buffer_size | default("0") != "0" and (buffer_size | default("0")) is not none %}
+CMD_ARGS="${CMD_ARGS} -b {{ buffer_size | default("0") }}"
+{% endif %}
+
+# Add -s flag if dump size is explicitly set to non-zero
+# Note: DUMP_SIZE is a string.
+{% if dump_size | default("0") != "0" and (dump_size | default("0")) is not none %}
+CMD_ARGS="${CMD_ARGS} -s {{ dump_size | default("0") }}"
+{% endif %}
+
+# Add -p flag if page size is explicitly set to non-zero
+# Note: PAGE_SIZE is a string.
+{% if page_size | default("0") != "0" and (page_size | default("0")) is not none %}
+CMD_ARGS="${CMD_ARGS} -p {{ page_size | default("0") }}"
+{% endif %}
+
+# Add -m flag if a map file path is provided
+# Note: MAP_FILE is a string.
+{% if map_file | default("") is not none and map_file | default("") != "" %}
+CMD_ARGS="${CMD_ARGS} -m {{ map_file | default("") }}"
+{% endif %}
+
+# --- Execution ---
+
+# Execute memdump with constructed arguments
+# Output is sent to stdout; redirect or pipe as needed by operator.
+memdump ${CMD_ARGS}

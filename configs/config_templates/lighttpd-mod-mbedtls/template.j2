@@ -1,0 +1,24 @@
+# Lighttpd mTLS/SSL Configuration Template
+# Manages the mod_mbedtls module for Lighttpd SSL/TLS encryption.
+
+# Load the mTLS module for Lighttpd.
+# Schema field: mod_name
+# Default: mod_mbedtls
+server.modules += ( "{{ mod_name | default('mod_mbedtls') }}" )
+
+# Path to the SSL PEM file containing the server certificate and private key.
+# Schema field: ssl_pemfile
+# Default: /etc/lighttpd/server.pem
+# This file must be readable by the lighttpd process user.
+ssl.pemfile = "{{ ssl_pemfile | default('/etc/lighttpd/server.pem') }}"
+
+# Configure the SSL listener socket.
+# Schema fields: ssl_listen_addr (0.0.0.0), ssl_listen_port (443)
+# Binds the SSL engine to the specified address and port.
+$SERVER["socket"] == "{{ ssl_listen_addr | default('0.0.0.0') }}:{{ ssl_listen_port | default(443) }}" {
+	# Enable the SSL engine for this socket.
+	ssl.engine = "enable"
+}
+
+# Attempt to automatically configure IPv6 support via the helper script.
+include_shell "/usr/share/lighttpd/use-ipv6.pl {{ ssl_listen_port | default(443) }}"

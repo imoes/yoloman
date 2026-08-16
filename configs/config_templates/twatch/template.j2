@@ -1,0 +1,36 @@
+# Twatch Configuration File
+# Path: /etc/twatch.conf
+#
+# This configuration file controls the runtime behavior of the Twatch torrent watcher.
+# It manages verbosity, debug levels, post-download execution, and tracked torrent sources.
+
+# Enable verbose output (-v)
+# If true, the application will output additional logging information to stderr or logs.
+# Default: False
+verbose = {{ verbose | default(false) }}
+
+# Enable debug mode (-d)
+# If true, enables deep diagnostic logging. Usually implies verbose mode as well.
+# Default: False
+debug = {{ debug | default(false) }}
+
+# File to execute after download (-e)
+# Specifies a command or script to run automatically once a torrent download completes.
+# Default: '' (empty string, no action)
+execute = "{{ execute | default('') }}"
+
+# List of torrent tracker URLs to watch
+# These are UDP/HTTP/HTTPS tracker servers that help discover peers for torrents.
+# Each entry is emitted as a 'tracker = <url>' directive.
+# Default: [] (empty list)
+{% for tracker in trackers | default([]) %}
+tracker = {{ tracker }}
+{% endfor %}
+
+# List of directories to watch for new torrents (if supported by config)
+# Directories that Twatch monitors for incoming .torrent files or magnet links.
+# Each entry is emitted as a 'watch_dir = <path>' directive.
+# Default: [] (empty list)
+{% for watch_dir in watch_dirs | default([]) %}
+watch_dir = {{ watch_dir }}
+{% endfor %}

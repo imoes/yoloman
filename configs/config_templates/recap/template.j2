@@ -1,0 +1,47 @@
+# recap cron job configuration template
+# This file is intended for /etc/cron.d/ to schedule the 'recap' utility.
+# It defines when recap runs and where its binary is located.
+
+# Directory where the recap binary is located.
+# Default: /usr/sbin
+BINDIR={{ bindir | default('/usr/sbin') }}
+
+# --- Backup on Reboot ---
+# runs at boot, backup the last set of reports generated prior to a reboot
+# This line ensures that if the system crashes or is rebooted unexpectedly,
+# the last set of reports is preserved for diagnosis.
+@reboot root timeout 5m "${BINDIR}"/recap -B
+
+# --- Scheduled Recaps ---
+# The following sections provide examples of various cron schedules.
+# Uncomment ONE active line per installation to define when the main recap process runs.
+# The primary schedule is defined below by the `recap_cron_schedule` variable.
+
+# Example: At 2am every day
+# 0 2 * * * root timeout 5m "${BINDIR}"/recap
+
+# Example: At 2am and 2pm every day
+# 0 2,14 * * * root timeout 5m "${BINDIR}"/recap
+
+# Example: At 2am, 8am, 2pm, 8pm every day
+# 0 2,8,14,20 * * * root timeout 5m "${BINDIR}"/recap
+
+# Example: Every hour
+# 0 * * * * root timeout 5m "${BINDIR}"/recap
+
+# Example: Every 30 minutes
+# */30 * * * * root timeout 5m "${BINDIR}"/recap
+
+# Primary Schedule: Every 10 minutes (Default configuration)
+# This line is generated from the recap_cron_schedule variable.
+# Must be a single cron line starting with the time specification.
+# Default: '*/10 * * * * root timeout 5m "/usr/sbin"/recap'
+{{ recap_cron_schedule | default('*/10 * * * * root timeout 5m "' + (bindir | default('/usr/sbin')) + '"/recap') }}
+
+# Example: Every 5 minutes
+# */5 * * * * root timeout 4m "${BINDIR}"/recap
+
+# --- Log Management ---
+# Pack and clear log files
+# This job runs daily at 1:00 AM to archive and clear recap's log files.
+0 1 * * * root "${BINDIR}"/recaplog

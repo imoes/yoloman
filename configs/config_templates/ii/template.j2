@@ -1,0 +1,47 @@
+# ii (IRC Improved) Configuration Template
+# Note: 'ii' is primarily a command-line client that manages state via a directory tree.
+# This template generates the initial 'ii.conf' style configuration or a wrapper script
+# that defines default connection parameters and directory structure.
+
+# Hostname or IP address of the IRC server to connect to.
+server = {{ (server_host | default('irc.libera.chat')) | string }}
+
+# Port number for the IRC server connection. Ignored if unix_socket is set.
+port = {{ (server_port | default(6667)) | int }}
+
+# Path to a Unix domain socket. If set, connection is made via this socket instead of TCP.
+unix_socket = {{ (unix_socket | default('')) | string }}
+
+# Base directory where ii creates the tree of FIFO and output files.
+irc_dir = {{ (irc_dir | default('~/.irc')) | string }}
+
+# Nickname to use on the IRC network. Defaults to $USER if not specified.
+nickname = {{ (nickname | default('user')) | string }}
+
+# Real name (display name) associated with the nickname.
+real_name = {{ (real_name | default('ii user')) | string }}
+
+# List of channel names to join. Each item is a string containing the channel name (e.g., '#linux').
+# Channels are joined by echoing /j #channel into the server's 'in' FIFO.
+# This variable defines the default channels to configure.
+{% for channel in (channels | default(['#general'])) %}
+channel_{{ loop.index0 }} = {{ channel | string }}
+{% endfor %}
+
+# Auto-join channels on startup (simulated by generating initial commands)
+# ii does not read a config file for auto-joining in the same way as other clients;
+# it relies on the directory structure and initial 'in' file content.
+# However, we can define a list here to be used by a wrapper or init script.
+initial_channels = [
+{% for ch in (channels | default(['#general'])) %}
+  "{{ ch | string }}",
+{% endfor %}
+]
+
+# Boolean flag to indicate whether to connect via a local SSL tunnel (e.g., stunnel/socat) instead of a direct connection.
+# ii itself does not handle SSL directly; it requires a tunnel (stunnel/socat).
+# Enable use of a local tunnel socket instead of plain connection.
+use_ssl_tunnel = {{ use_ssl_tunnel | default(false) | ternary('true', 'false') }}
+
+# Path to the local Unix socket created by the SSL tunnel tool (e.g., stunnel) when use_ssl_tunnel is true.
+ssl_tunnel_socket = {{ (ssl_tunnel_socket | default('/tmp/ii_tunnel.sock')) | string }}

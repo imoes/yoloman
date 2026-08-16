@@ -1,0 +1,92 @@
+# =============================================================================
+# Veyon Service Configuration Template
+# =============================================================================
+# This template generates the configuration file for the Veyon Service.
+# Veyon is a classroom management system. The service runs on student/workstation
+# computers and communicates with a Veyon Master server.
+#
+# This template is self-documenting: every configuration directive is preceded
+# by a comment derived from the schema description. All variables use safe
+# defaults to prevent render failures if values are not provided by Ansible.
+# =============================================================================
+
+[General]
+# Whether the Veyon service is enabled to run.
+Enabled={{ veyon_service_enabled | default(true) }}
+
+# Absolute path to the veyon-service binary.
+ServicePath={{ veyon_service_path | default('/usr/bin/veyon-service') }}
+
+[Authentication]
+# Path to the RSA private key file for authentication.
+PrivateKey={{ veyon_private_key_path | default('/etc/veyon/key.pem') }}
+
+# Path to the RSA public key certificate file.
+PublicKey={{ veyon_public_key_path | default('/etc/veyon/cert.pem') }}
+
+[Network]
+# TCP port number for the Veyon service listener.
+Port={{ veyon_port | default(14600) }}
+
+# Network interface address to bind the service to.
+BindAddress={{ veyon_bind_address | default('0.0.0.0') }}
+
+# Maximum number of simultaneous client connections.
+MaxConnections={{ veyon_max_connections | default(100) }}
+
+[Logging]
+# Logging severity level.
+LogLevel={{ veyon_log_level | default(2) }}
+
+# File path for the service log.
+LogPath={{ veyon_log_path | default('/var/log/veyon-service.log') }}
+
+# Whether to log to the system syslog.
+Syslog={{ veyon_syslog | default(false) }}
+
+# Syslog facility to use when logging to syslog.
+SyslogFacility={{ veyon_syslog_facility | default('user') }}
+
+[Features]
+# Allow remote users to view the local screen.
+AllowRemoteView={{ veyon_allow_remote_view | default(true) }}
+
+# Allow remote users to control the local input devices.
+AllowRemoteControl={{ veyon_allow_remote_control | default(false) }}
+
+# Allow the service to act as a target for screen broadcasting.
+AllowDemoMode={{ veyon_allow_demo_mode | default(true) }}
+
+# Allow remote locking of the local display.
+AllowLockScreen={{ veyon_allow_lock_screen | default(true) }}
+
+# Allow launching remote applications on the local machine.
+AllowRemoteApps={{ veyon_allow_remote_apps | default(false) }}
+
+# Allow file transfer operations.
+AllowFileTransfer={{ veyon_allow_file_transfer | default(true) }}
+
+# Allow text chat functionality.
+AllowChat={{ veyon_allow_chat | default(true) }}
+
+# Allow taking screenshots of the local screen.
+AllowScreenshot={{ veyon_allow_screenshot | default(true) }}
+
+# Allow remote user login and logout management.
+AllowUserManagement={{ veyon_allow_user_management | default(true) }}
+
+# Allow remote shutdown and reboot commands.
+AllowPowerManagement={{ veyon_allow_power_management | default(false) }}
+
+# Allow Wake-on-LAN commands.
+AllowWakeOnLan={{ veyon_allow_wake_on_lan | default(false) }}
+
+[Location]
+# Identifier for this computer in the Veyon network.
+ComputerName={{ veyon_computer_name | default('localhost') }}
+
+# Location ID for grouping computers.
+LocationId={{ veyon_location_id | default('default') }}
+
+# List of tags for the computer.
+Tags={{ veyon_tags | default([]) | join(', ') }}

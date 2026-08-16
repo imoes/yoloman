@@ -1,0 +1,154 @@
+# ==============================================================================
+# xorriso ISO 9660 Image Creation/Manipulation Configuration
+# ==============================================================================
+# This template generates a command-line argument list for xorriso.
+# It is designed to be rendered by Ansible using the 'xorriso' variable namespace.
+#
+# Variables used:
+#   xorriso.indev         - Input drive path (e.g., /dev/sr0)
+#   xorriso.outdev        - Output drive path or file path (e.g., /tmp/image.iso)
+#   xorriso.volid         - Volume ID label for the ISO image
+#   xorriso.joliet        - Boolean to enable Joliet extensions (Windows compat)
+#   xorriso.out_charset   - Character set for filenames (e.g., UTF-8)
+#   xorriso.volume_date   - Timestamp for volume metadata
+#   xorriso.speed         - Burn speed (e.g., max, 4x)
+#   xorriso.padding       - Padding to append (e.g., 0, 300k)
+#   xorriso.fs_mb         - FIFO buffer size in MiB
+#   xorriso.source_files  - List of local file/directory paths to add
+#   xorriso.directories   - List of ISO 9660 directory paths to create
+#   xorriso.permissions   - List of dicts with 'mode' and 'path' for chmod
+# ==============================================================================
+
+# Enable automatic sorting of arguments to make configuration order-independent
+# This ensures that xorriso processes arguments consistently regardless of order.
+-x
+
+# ------------------------------------------------------------------------------
+# Input Drive Configuration
+# ------------------------------------------------------------------------------
+# Set the input drive. Empty string starts a new image creation.
+# If xorriso.indev is empty, xorriso will not read from a physical drive.
+# Default: '' (empty string)
+# -dev {{ (xorriso | default({})).indev | default('', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Output Drive Configuration
+# ------------------------------------------------------------------------------
+# Set the output drive (target media or file) where the ISO image will be written.
+# Examples: /dev/sr1 (physical drive), /path/to/output.iso (file).
+# Default: '/tmp/image.iso'
+# -outdev {{ (xorriso | default({})).outdev | default('/tmp/image.iso', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Volume ID Configuration
+# ------------------------------------------------------------------------------
+# Set the volume ID (label) of the resulting ISO 9660 image.
+# This label is visible when mounting the ISO or checking volume info.
+# Default: 'ISOIMAGE'
+# -volid {{ (xorriso | default({})).volid | default('ISOIMAGE', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Rock Ridge Extensions
+# ------------------------------------------------------------------------------
+# Enable Rock Ridge extensions for POSIX compatibility (recommended).
+# This preserves Unix file permissions, ownership, and long filenames.
+-rockridge on
+
+# ------------------------------------------------------------------------------
+# Joliet Extensions
+# ------------------------------------------------------------------------------
+# Enable Joliet extensions for better Windows compatibility.
+# Joliet allows long filenames and Unicode support on Windows systems.
+# Default: True
+{% if (xorriso | default({})).joliet | default(True, true) | bool %}
+-joliet on
+{% else %}
+-joliet off
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Output Character Set
+# ------------------------------------------------------------------------------
+# Set the output character set used for encoding filenames in the ISO image.
+# Common values: UTF-8, ISO-8899-1.
+# Default: 'UTF-8'
+# -out_charset {{ (xorriso | default({})).out_charset | default('UTF-8', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Volume Date/Time
+# ------------------------------------------------------------------------------
+# Set the timestamp for the volume creation/modification metadata.
+# 'default' uses the current system time. Specific dates can be formatted
+# according to xorriso's date format specifications.
+# Default: 'default'
+# -volume_date m {{ (xorriso | default({})).volume_date | default('default', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Burn Speed
+# ------------------------------------------------------------------------------
+# Set the burn speed for optical media.
+# 'max' uses the drive's maximum supported speed. Other values can be specific
+# speeds like '4x', '16x', etc.
+# Default: 'max'
+# -speed {{ (xorriso | default({})).speed | default('max', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Padding
+# ------------------------------------------------------------------------------
+# Set padding to append to the image stream.
+# Useful for TAO mode CDs where a lead-out gap is required.
+# 0 disables padding. 300k is a common value for CDs.
+# Default: '0'
+# -padding {{ (xorriso | default({})).padding | default('0', true) | string }}
+
+# ------------------------------------------------------------------------------
+# Filesystem Buffer Size
+# ------------------------------------------------------------------------------
+# Set the size of the FIFO buffer in MiB for smoothing data streams.
+# Larger buffers may help with slower storage devices.
+# Default: 4
+# -fs {{ (xorriso | default({})).fs_mb | default(4, true) | int }}m
+
+# ------------------------------------------------------------------------------
+# Source Files to Add
+# ------------------------------------------------------------------------------
+# Add files or directories from the local filesystem to the ISO image.
+# Iterates over the list provided in xorriso.source_files.
+# Each item is a local path string.
+{% for item in (xorriso | default({})).source_files | default([], true) %}
+# -add {{ item | string }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Directories to Create
+# ------------------------------------------------------------------------------
+# Create directories in the ISO image if they do not already exist.
+# Iterates over the list provided in xorriso.directories.
+# Each item is an ISO 9660 path string (e.g., '/mydir').
+{% for dir in (xorriso | default({})).directories | default([], true) %}
+# -mkdir {{ dir | string }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Permissions (chmod)
+# ------------------------------------------------------------------------------
+# Set permissions for files or directories within the ISO image.
+# Iterates over the list provided in xorriso.permissions.
+# Each item is a dictionary with 'mode' (octal string, e.g., '0755') and
+# 'path' (ISO 9660 path).
+{% for perm in (xorriso | default({})).permissions | default([], true) %}
+# -chmod {{ perm.mode | string }} {{ perm.path | string }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Finalize and Write
+# ------------------------------------------------------------------------------
+# Finalize the ISO image and commit changes to the output device.
+# Without this, the image is not closed and may be unusable by readers.
+-commit
+
+# ------------------------------------------------------------------------------
+# Exit
+# ------------------------------------------------------------------------------
+# End the xorriso program.
+-end

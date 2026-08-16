@@ -1,0 +1,73 @@
+# ============================================================================
+# Wrk HTTP Benchmarking Configuration Template
+# ============================================================================
+# This template generates a configuration file for 'wrk', a modern HTTP
+# benchmarking tool. It defines the target URL, concurrency parameters,
+# duration, and optional extensions like Lua scripts or custom headers.
+#
+# All variables are provided with safe defaults based on the schema.
+# See the field descriptions below for details on each directive.
+# ============================================================================
+
+# --- Target URL ---
+# The URL to benchmark. This is the endpoint that wrk will hammer with
+# requests.
+# Schema: target_url (string) | Default: 'http://127.0.0.1:8080/index.html'
+TargetURL: {{ target_url | default('http://127.0.0.1:8080/index.html') }}
+
+# --- Concurrency: Threads ---
+# Number of threads to use for generating load. Each thread runs an
+# independent event loop. Higher values increase CPU usage but may improve
+# throughput on multi-core systems.
+# Schema: threads (int) | Default: 12
+Threads: {{ threads | default(12) }}
+
+# --- Concurrency: Connections ---
+# Total number of HTTP connections to keep open during the test. This
+# determines the level of concurrency per thread.
+# Schema: connections (int) | Default: 400
+Connections: {{ connections | default(400) }}
+
+# --- Duration ---
+# Duration of the test, including SI time unit (e.g., 10s, 2m, 1h).
+# Schema: duration (string) | Default: '30s'
+Duration: {{ duration | default('30s') }}
+
+# --- Timeout (Optional) ---
+# Socket/request timeout, including SI time unit. If not specified, wrk
+# uses its internal default.
+# Schema: timeout (string) | Default: ''
+{% if timeout | default('') | length > 0 %}
+# Schema: timeout | Value: {{ timeout | default('') }}
+Timeout: {{ timeout | default('') }}
+{% endif %}
+
+# --- Latency Statistics (Optional) ---
+# If enabled, prints detailed latency statistics (mean, stddev, min, max,
+# percentiles) to stdout at the end of the test.
+# Schema: print_latency (bool) | Default: False
+{% if print_latency | default(False) %}
+# Schema: print_latency | Value: true
+LatencyStatistics: true
+{% endif %}
+
+# --- LuaJIT Script (Optional) ---
+# Path to a LuaJIT script for custom request/response handling. Allows
+# fine-grained control over headers, body, and request scheduling.
+# Schema: lua_script (string) | Default: ''
+{% if lua_script | default('') | length > 0 %}
+# Schema: lua_script | Value: {{ lua_script | default('') }}
+LuaScript: {{ lua_script | default('') }}
+{% endif %}
+
+# --- HTTP Headers (Optional) ---
+# List of HTTP headers to add to requests. Each item should be a string
+# in the format "Header-Name: Header-Value".
+# Schema: headers (list) | Default: []
+{% if headers | default([]) | length > 0 %}
+# Schema: headers | Count: {{ headers | default([]) | length }}
+{% for header in headers | default([]) %}
+# Header Item: {{ header }}
+Header: {{ header }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,117 @@
+#!/bin/sh
+# ==============================================================================
+# IRKERC Init Script / SysV Service
+# ==============================================================================
+# This template generates an SysV init script for the `irkerd` daemon.
+# Irkerd is a specialized IRC client/daemon that accepts JSON notifications
+# via a Unix socket, allowing other programs to ship IRC messages.
+#
+# Self-documenting: All configuration variables are explicitly named and
+# sourced from the Ansible role schema. Defaults are provided inline to
+# ensure the script remains valid even if a variable is undefined.
+# ==============================================================================
+
+# [daemon_path] Path to the irkerd daemon binary.
+PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+DAEMON="{{ daemon_path | default('/usr/bin/irkerd') }}"
+
+# Check if the daemon binary exists and is executable.
+# If not, the script exits gracefully.
+test -x "${DAEMON}" || exit 0
+
+# [service_name] The name of the service process.
+NAME="{{ service_name | default('irkerd') }}"
+
+# [service_description] Human-readable description of the service.
+DESC="{{ service_description | default('IRC notifications') }}"
+
+# [pidfile_path] Path to the PID file for the daemon.
+PIDFILE="{{ pidfile_path | default('/var/run/irker.pid') }}"
+
+# Configuration defaults file.
+DEFAULTS="/etc/default/irker"
+
+# Source additional configuration from /etc/default/irker.d/ if it exists.
+# This allows modular overrides of environment variables (e.g., IRKER_OPTIONS).
+for _FILE in "${DEFAULTS}" "${DEFAULTS}".d/*
+do
+	# Check if the file exists before sourcing.
+	if [ -e "${_FILE}" ]
+	then
+		. "${_FILE}"
+	fi
+done
+
+set -e
+
+. /lib/lsb/init-functions
+
+# ------------------------------------------------------------------------------
+# Function: do_start
+# Description: Starts the irkerd daemon in the background.
+# Arguments: None (uses globals DAEMON, run_user, log_file_path)
+# ------------------------------------------------------------------------------
+do_start()
+{
+	# [run_user] System user account under which the daemon runs.
+	# [log_file_path] Path to the log file for the daemon.
+	# ${IRKER_OPTIONS} is sourced from the defaults files above.
+	start-stop-daemon --start --background --quiet --oknodo --exec ${DAEMON} --chuid {{ run_user | default('irker') }} -- -l {{ log_file_path | default('/var/log/irker/irker.log') }} ${IRKER_OPTIONS}
+}
+
+# ------------------------------------------------------------------------------
+# Function: do_stop
+# Description: Stops the irkerd daemon.
+# Arguments: None (uses globals NAME)
+# ------------------------------------------------------------------------------
+do_stop ()
+{
+	start-stop-daemon --stop --quiet --oknodo --name ${NAME}
+}
+
+# ------------------------------------------------------------------------------
+# Function: do_reload
+# Description: Reloads configuration by sending SIGHUP to the daemon.
+# Arguments: None
+# ------------------------------------------------------------------------------
+do_reload ()
+{
+	start-stop-daemon --stop --quiet --oknodo --name ${NAME} --signal 1
+}
+
+# ------------------------------------------------------------------------------
+# Main Case Statement
+# Handles start, stop, restart, force-reload, and status commands.
+# ------------------------------------------------------------------------------
+case "${1}" in
+	start)
+		log_daemon_msg "Starting ${DESC}" "${NAME}"
+		do_start
+		log_end_msg ${?}
+		;;
+
+	stop)
+		log_daemon_msg "Stopping ${DESC}" "${NAME}"
+		do_stop
+		log_end_msg ${?}
+		;;
+
+	restart|force-reload)
+		log_daemon_msg "Restarting ${DESC}" "${NAME}"
+		do_stop
+		sleep 1
+		do_start
+		log_end_msg ${?}
+		;;
+
+	status)
+		status_of_proc ${DAEMON} ${NAME}
+		;;
+
+	*)
+		echo "Usage: ${0} {start|stop|restart|force-reload|status}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

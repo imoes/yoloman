@@ -1,0 +1,52 @@
+# nadoka configuration file
+# Global settings
+
+# Network interface address to listen on for client connections.
+# Default is 0.0.0.0 (all interfaces).
+listen {{ (config | default({})).listen | default('0.0.0.0') }}
+
+# Port number for client connections.
+# Default is 6667.
+port {{ (config | default({})).port | default(6667) }}
+
+# Password for client authentication. An empty string disables authentication.
+# Default is empty.
+password {{ (config | default({})).password | default('') }}
+
+# IRC server connection settings
+
+# Hostname of the IRC server to connect to.
+# Default is irc.libera.chat.
+server_host {{ (config | default({})).server | default({}) | attr('host') | default('irc.libera.chat') }}
+
+# Port number of the IRC server.
+# Default is 6667.
+server_port {{ (config | default({})).server | default({}) | attr('port') | default(6667) }}
+
+# Whether to use SSL/TLS for the IRC connection.
+# Default is false.
+server_ssl {{ (config | default({})).server | default({}) | attr('ssl') | default(false) | lower }}
+
+# Nickname to use on IRC.
+# Default is nadoka.
+nick {{ (config | default({})).nick | default('nadoka') }}
+
+# Real name / user info for the IRC bot.
+# Default is nadoka.
+realname {{ (config | default({})).realname | default('nadoka') }}
+
+# Whether to attempt identification with Nickserv.
+# Default is false.
+identify {{ (config | default({})).identify | default(false) | lower }}
+
+# Username for Nickserv identification.
+# Default is empty.
+username {{ (config | default({})).username | default('') }}
+
+# Password for Nickserv identification.
+# Default is empty.
+identify_password {{ (config | default({})).password | default('') }}
+
+# List of channels to join upon connecting to IRC.
+# Default is an empty list.
+channels {{ (config | default({})).channels | default([]) | join(', ') }}

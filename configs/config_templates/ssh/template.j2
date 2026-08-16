@@ -1,0 +1,180 @@
+# System-wide SSH client configuration template
+# This template generates an ssh_config file (OpenSSH client configuration).
+# It provides global defaults for all connections and supports host-specific overrides.
+#
+# SELF-DOCUMENTING: Every directive is preceded by a comment explaining its purpose
+# and allowed values based on the OpenSSH specification.
+
+Host *
+    # AddressFamily: Specify which address family to use when connecting (any, inet, inet6).
+    AddressFamily {{ address_family | default('any') }}
+
+    # AddKeysToAgent: Specify whether keys should be automatically added to a running ssh-agent.
+    # Options: no, yes, ask, confirm, or a time interval (e.g., '5m').
+    AddKeysToAgent {{ add_keys_to_agent | default('no') }}
+
+    # BatchMode: If set to yes, user interaction such as password prompts will be disabled.
+    # Useful for scripts and automated tasks.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    BatchMode {{ batch_mode | default(false) | ternary('yes', 'no') }}
+
+    # CanonicalizeHostname: Controls whether explicit hostname canonicalization is performed.
+    # Options: no, yes, always.
+    CanonicalizeHostname {{ canonicalize_hostname | default('no') }}
+
+    # CASignatureAlgorithms: Specifies which algorithms are allowed for signing of certificates by CAs.
+    # Comma-separated list of supported key types/algorithms.
+    CASignatureAlgorithms {{ ca_signature_algorithms | default('ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256') }}
+
+    # Ciphers: Specifies the ciphers allowed and their order of preference.
+    # Comma-separated list. Strongest ciphers listed first.
+    Ciphers {{ ciphers | default('chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com') }}
+
+    # CheckHostIP: If set to yes, ssh will additionally check the host IP address in the known_hosts file.
+    # Helps prevent IP spoofing attacks.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    CheckHostIP {{ check_host_ip | default(false) | ternary('yes', 'no') }}
+
+    # ControlMaster: Enables the sharing of multiple sessions over a single network connection.
+    # Options: no, yes, ask, auto, autoask.
+    ControlMaster {{ control_master | default('no') }}
+
+    # ControlPath: Specify the path to the control socket used for connection sharing.
+    # Must be unique per host/port.
+    ControlPath {{ control_path | default('/tmp/ssh-%r@%h:%p') }}
+
+    # ControlPersist: Specifies that the master connection should remain open in the background.
+    # Options: no, yes, or a timeout duration (e.g., '10m').
+    ControlPersist {{ control_persist | default('no') }}
+
+    # FingerprintHash: Specifies the hash algorithm used when displaying key fingerprints.
+    # Options: md5, sha256.
+    FingerprintHash {{ fingerprint_hash | default('sha256') }}
+
+    # ForwardAgent: Specifies whether the connection to the authentication agent will be forwarded.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    ForwardAgent {{ forward_agent | default(false) | ternary('yes', 'no') }}
+
+    # ForwardX11: Specifies whether X11 connections will be automatically redirected over the secure channel.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    ForwardX11 {{ forward_x11 | default(false) | ternary('yes', 'no') }}
+
+    # GSSAPIAuthentication: Specifies whether user authentication based on GSSAPI is allowed.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    GSSAPIAuthentication {{ gssapi_authentication | default(false) | ternary('yes', 'no') }}
+
+    # HashKnownHosts: Indicates that ssh should hash host names and addresses when they are added.
+    # Protects sensitive hostnames in the known_hosts file.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    HashKnownHosts {{ hash_known_hosts | default(false) | ternary('yes', 'no') }}
+
+    # HostKeyAlgorithms: Specifies the host key signature algorithms that the client wants to use.
+    # Comma-separated list. Order matters; first match wins.
+    HostKeyAlgorithms {{ host_key_algorithms | default('ssh-ed25519-cert-v01@openssh.com,ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256') }}
+
+    # Hostname: Specifies the real host name to log into as a global default.
+    # Usually overridden per Host block or command line argument. Empty string means use the Host name.
+    Hostname {{ hostname_default | default('') }}
+
+    # IdentityFile: Specifies files from which the user's authentication identity is read.
+    # List of file paths (e.g., ~/.ssh/id_ed25519). Order matters; first match wins.
+    {% for identity_file in identity_files | default([]) %}
+    IdentityFile {{ identity_file }}
+    {% endfor %}
+
+    # KbdInteractiveAuthentication: Specifies whether to use keyboard-interactive authentication.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    KbdInteractiveAuthentication {{ kbd_interactive_authentication | default(true) | ternary('yes', 'no') }}
+
+    # KexAlgorithms: Specifies the available KEX (Key Exchange) algorithms.
+    # Comma-separated list. Defines which key exchange methods are permitted.
+    KexAlgorithms {{ kex_algorithms | default('sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha256') }}
+
+    # LogLevel: Gives the verbosity level that is used when logging messages.
+    # Options: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3.
+    LogLevel {{ log_level | default('INFO') }}
+
+    # MACs: Specifies the MAC (message authentication code) algorithms in order of preference.
+    # Comma-separated list. Ensures message integrity.
+    MACs {{ macs | default('umac-64-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha1-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512,hmac-sha1') }}
+
+    # NumberOfPasswordPrompts: Specifies the number of password prompts before giving up.
+    NumberOfPasswordPrompts {{ number_of_password_prompts | default(3) }}
+
+    # PasswordAuthentication: Specifies whether to use password authentication.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    PasswordAuthentication {{ password_authentication | default(true) | ternary('yes', 'no') }}
+
+    # Port: Specifies the port number to connect on the remote host.
+    Port {{ port | default(22) }}
+
+    # PreferredAuthentications: Specifies the order in which the client should try authentication methods.
+    # Comma-separated list. Defines priority: gssapi-with-mic, hostbased, publickey, keyboard-interactive, password.
+    PreferredAuthentications {{ preferred_authentications | default('gssapi-with-mic,hostbased,publickey,keyboard-interactive,password') }}
+
+    # PubkeyAuthentication: Specifies whether to try public key authentication.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    PubkeyAuthentication {{ pubkey_authentication | default(true) | ternary('yes', 'no') }}
+
+    # ServerAliveCountMax: Sets the number of server alive messages which may be sent without receiving any back.
+    # If no response is received after these messages, the connection is considered dead.
+    ServerAliveCountMax {{ server_alive_count_max | default(3) }}
+
+    # ServerAliveInterval: Sets a timeout interval in seconds after which if no data has been received,
+    # ssh will send a message through the encrypted channel to request a response.
+    ServerAliveInterval {{ server_alive_interval | default(0) }}
+
+    # StrictHostKeyChecking: If set to yes, ssh will never automatically add host keys to the known_hosts file.
+    # Options: yes, no, ask, accept-new. 'ask' is default; it prompts for new keys.
+    StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}
+
+    # SyslogFacility: Gives the facility code that is used when logging messages.
+    # Options: DAEMON, USER, AUTH, LOCAL0-LOCAL7.
+    SyslogFacility {{ syslog_facility | default('USER') }}
+
+    # TCPKeepAlive: Specifies whether the system should send TCP keepalive messages to the other side.
+    # Map boolean True/False to OpenSSH 'yes'/'no'.
+    TCPKeepAlive {{ tcp_keepalive | default(true) | ternary('yes', 'no') }}
+
+    # User: Specifies the user to log in as.
+    User {{ user | default('') }}
+
+{% for host in host_blocks | default([]) %}
+# Host block for {{ host.name }}
+Host {{ host.name }}
+    # Hostname: The real host name to log into for this specific host.
+    {% if host.hostname %}
+    Hostname {{ host.hostname }}
+    {% endif %}
+
+    # User: The user to log in as for this host.
+    {% if host.user %}
+    User {{ host.user }}
+    {% endif %}
+
+    # Port: The port number to connect on the remote host for this specific host.
+    {% if host.port %}
+    Port {{ host.port }}
+    {% endif %}
+
+    # IdentityFile: The identity file for this host.
+    {% if host.identity_file %}
+    IdentityFile {{ host.identity_file }}
+    {% endif %}
+
+    # ProxyJump: Specifies one or more jump proxies.
+    # Comma-separated list of hosts to jump through.
+    {% if host.proxy_jump %}
+    ProxyJump {{ host.proxy_jump }}
+    {% endif %}
+
+    # ForwardAgent: Forward agent to this host.
+    {% if host.forward_agent | default(false) %}
+    ForwardAgent yes
+    {% endif %}
+
+    # ForwardX11: Forward X11 to this host.
+    {% if host.forward_x11 | default(false) %}
+    ForwardX11 yes
+    {% endif %}
+{% endfor %}

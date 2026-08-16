@@ -1,0 +1,47 @@
+#!/bin/bash
+# Wrapper script for iselect to apply configured default flags and title
+# This script reads the input_data list, pipes it to the iselect utility,
+# and applies various options defined in the template variables.
+
+# Get the selected line from iselect. The input data is joined by newlines.
+# Default to empty list if input_data is undefined.
+SELECTED_LINE=$(echo "{{ input_data | default([]) | join('\n') }}" | \
+  iselect \
+  # Discard input lines starting with '#' (-c).
+  {% if strip_comments | default(False) %}-c {% endif %}
+  # Open the full-screen browser even if input contains less than 2 lines (-f).
+  {% if force_browse | default(False) %}-f {% endif %}
+  # Force all lines to be selectable, '<s>' tags are still removed (-a).
+  {% if allow_all_select | default(False) %}-a {% endif %}
+  # Exit immediately if no lines are selectable (-e).
+  {% if exit_no_select | default(False) %}-e {% endif %}
+  # Allow selecting more than one line with Space (-m).
+  {% if multi_line | default(False) %}-m {% endif %}
+  # Strip all leading and trailing whitespace from the result string (-S).
+  {% if strip_result | default(False) %}-S {% endif %}
+  # Prefix each result with the key used to confirm the selection (-K).
+  {% if key_result | default(False) %}-K {% endif %}
+  # Prefix each result with its 1-based line number in the buffer (-P).
+  {% if position_result | default(False) %}-P {% endif %}
+  # Sets the title displayed centered at the bottom of the browser window (-t).
+  # Only set if title is defined and not empty.
+  {% if title is defined and title != '' %}-t "{{ title }}" {% endif %}
+  # Changes the string displayed flush left at the bottom of the browser window (-n).
+  # Only set if name is defined and not empty.
+  {% if name is defined and name != '' %}-n "{{ name }}" {% endif %}
+  # Write fallback to the standard output stream when quitting (-Q).
+  # Only set if quit_result is defined and not empty.
+  {% if quit_result is defined and quit_result != '' %}-Q "{{ quit_result }}" {% endif %}
+  # Beginning delimiter for selection tags (part of -d).
+  # Default delimiter_beg is '<'. Ending delimiter is '>'.
+  # Only set if delimiter_beg is defined and not empty.
+  {% if delimiter_beg is defined and delimiter_beg != '' %}-d "{{ delimiter_beg }},{{ delimiter_end | default('>') }}" {% endif %}
+  # Sets the cursor position to 1-based linenumber (-p). 0 means default.
+  # Only set if position is defined and greater than 0.
+  {% if position is defined and position > 0 %}-p {{ position }} {% endif %}
+  # List of key mappings to apply via -k flag.
+  # Each item is a flat map with 'key' and optionally 'output_key'.
+  # If output_key is empty, it is omitted.
+  {% for key_mapping in key_mappings | default([]) %}
+  -k "{{ key_mapping.key }}{% if key_mapping.output_key is defined and key_mapping.output_key != '' %}:{{ key_mapping.output_key }}{% endif %}" {% endfor %}
+  )

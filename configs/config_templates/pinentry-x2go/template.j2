@@ -1,0 +1,40 @@
+# Pinentry-x2go configuration template
+# This file generates command-line flags for the pinentry-x2go program.
+# All variables use explicit defaults to ensure safe rendering even if
+# the Ansible variables are undefined.
+
+# debug_enabled: Turn on debugging output. May reveal sensitive information like entered pass phrase.
+{% if debug_enabled | default(False) | bool %}--debug
+{% endif %}
+
+# enhanced_mode: Ask for timeouts and insurance, too. Currently not fully supported.
+{% if enhanced_mode | default(False) | bool %}--enhanced
+{% endif %}
+
+# no_global_grab: Grab the keyboard only when the window is focused. Use if debugging software using pinentry-x2go.
+{% if no_global_grab | default(False) | bool %}--no-global-grab
+{% endif %}
+
+# parent_wid: Use window ID N as the parent window for positioning the window.
+{% if parent_wid | default('') | string | trim | length > 0 %}--parent-wid {{ parent_wid | default('') | string | trim }}
+{% endif %}
+
+# display: Display string passed to pinentry-qt for localization.
+{% if display | default('') | string | trim | length > 0 %}--display {{ display | default('') | string | trim }}
+{% endif %}
+
+# ttyname: TTY name passed to pinentry-qt for localization.
+{% if ttyname | default('') | string | trim | length > 0 %}--ttyname {{ ttyname | default('') | string | trim }}
+{% endif %}
+
+# ttytype: TTY type passed to pinentry-qt for localization.
+{% if ttytype | default('') | string | trim | length > 0 %}--ttytype {{ ttytype | default('') | string | trim }}
+{% endif %}
+
+# lc_type: LC_TYPE passed to pinentry-qt for localization.
+{% if lc_type | default('') | string | trim | length > 0 %}--lc-type {{ lc_type | default('') | string | trim }}
+{% endif %}
+
+# lc_messages: LC_MESSAGES passed to pinentry-qt for localization.
+{% if lc_messages | default('') | string | trim | length > 0 %}--lc-messages {{ lc_messages | default('') | string | trim }}
+{% endif %}

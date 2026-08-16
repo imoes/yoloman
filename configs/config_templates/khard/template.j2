@@ -1,0 +1,44 @@
+# khard configuration template
+# Manages vCard address book settings for the khard CLI tool.
+# Fields:
+#   default_addressbook: The default address book to use for new entries if not specified.
+#   default_sort_key: The field used to sort contacts by default.
+#   default_sort_reverse: Whether to sort contacts in reverse order by default.
+#   addressbooks: List of address book definitions. Items is a map of fields: name, path, type, primary, default, search_template, edit_template.
+#   contact_defaults_addressbook: Default addressbook for new contacts.
+
+[DEFAULT]
+# The default address book to use for new entries if not specified.
+default_addressbook: {{ default_addressbook|default('Local') }}
+# The field used to sort contacts by default.
+default_sort_key: {{ default_sort_key|default('formatted_name') }}
+# Whether to sort contacts in reverse order by default.
+default_sort_reverse: {{ default_sort_reverse|default(false) }}
+
+[ADDRESSBOOKS]
+# List of address book definitions.
+{% for ab in addressbooks | default([{'name': 'Local', 'path': '~/.khard/addressbooks', 'type': 'files', 'primary': True, 'default': True, 'search_template': '', 'edit_template': ''}]) %}
+# --- Address Book Entry ---
+# Name: The display name for this address book.
+[[[{{ ab.name|default('AddressBook_' ~ loop.index) }}}]]
+# Path: Filesystem path or URL to the address book data.
+path: {{ ab.path|default('~/.khard/addressbooks') }}
+# Type: Backend type (e.g., 'files', 'carddav').
+type: {{ ab.type|default('files') }}
+# Primary: Mark this as the primary address book.
+primary: {{ ab.primary|default(false) }}
+# Default: Use this book for default operations.
+default: {{ ab.default|default(false) }}
+{% if ab.search_template is defined and ab.search_template %}
+# Search Template: Custom template for search queries.
+search_template: {{ ab.search_template }}
+{% endif %}
+{% if ab.edit_template is defined and ab.edit_template %}
+# Edit Template: Custom template for editing contacts.
+edit_template: {{ ab.edit_template }}
+{% endif %}
+{% endfor %}
+
+[CONTACT_DEFAULTS]
+# Default addressbook for new contacts.
+addressbook: {{ contact_defaults_addressbook|default('Local') }}

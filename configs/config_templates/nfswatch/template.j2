@@ -1,0 +1,90 @@
+# nfswatch configuration script
+# This template configures the nfswatch NFS traffic monitor.
+# nfswatch captures NFS packets on a network interface and displays
+# statistics about NFS operations (calls, bytes, users, etc.).
+
+# --- Interface and Device Selection ---
+
+# The network interface to monitor (e.g., eth0, ens33).
+# If `device` is specified, `iface` is ignored for packet capture.
+# If `all_interfaces` is true, `iface` and `device` are ignored.
+INTERFACE={{ iface | default('eth0') }}
+
+# Specific network device to read packets from.
+# Overrides `iface` if both are set. Empty string disables device-specific filtering.
+DEVICE={{ device | default('') }}
+
+# Read packets from all configured network interfaces.
+# When true, `iface` and `device` are ignored.
+ALL_INTERFACES={{ all_interfaces | default(false) | lower }}
+
+# --- File Paths ---
+
+# Path to the log file where nfswatch writes interval entries.
+LOG_FILE={{ log_file | default('/var/log/nfswatch.log') }}
+
+# Path to the file where snapshots are saved.
+SNAP_FILE={{ snap_file | default('/var/log/nfswatch.snap') }}
+
+# Path to a file containing a list of files to monitor individually.
+FILE_LIST={{ file_list | default('') }}
+
+# Path to a mapfile for translating device names to filesystem names.
+MAP_FILE={{ map_file | default('') }}
+
+# --- Network Scopes ---
+
+# Monitor packets destined for this specific host instead of the local host.
+# Useful when monitoring traffic for a different server on the same wire.
+DEST_HOST={{ dest_host | default('') }}
+
+# Restrict counting to packets sent by this specific source host.
+SOURCE_HOST={{ source_host | default('') }}
+
+# Restrict counting to traffic to or from this specific NFS server.
+SERVER_HOST={{ server_host | default('') }}
+
+# Monitor all NFS traffic on the network (use with -all).
+# Overrides specific server/host restrictions if set.
+ALL_TRAFFIC={{ all_traffic | default(false) | lower }}
+
+# --- Timing and Behavior ---
+
+# Terminate execution after this many seconds (0 means no limit).
+MAX_TIME={{ max_time | default(0) }}
+
+# Cycle time (interval length) in seconds between updates.
+INTERVAL={{ interval | default(10) }}
+
+# Display filesystem NFS monitoring data instead of individual file data.
+SHOW_FS={{ show_fs | default(false) | lower }}
+
+# Display individual file NFS monitoring data instead of filesystem data.
+SHOW_IF={{ show_if | default(false) | lower }}
+
+# Display statistics on authentication packets (by user).
+AUTH_STATS={{ auth_stats | default(false) | lower }}
+
+# Display statistics on NFS procedures (RPC calls).
+PROCS_STATS={{ procs_stats | default(false) | lower }}
+
+# Display statistics on NFS v3 procedures (RPC calls).
+PROCS3_STATS={{ procs3_stats | default(false) | lower }}
+
+# Display statistics on NFS client operation rates.
+CLIENT_STATS={{ client_stats | default(false) | lower }}
+
+# Sort display in declining order of percent usage.
+USAGE_SORT={{ usage_sort | default(false) | lower }}
+
+# Turn logging on at startup time.
+START_LOG={{ start_log | default(false) | lower }}
+
+# Start as a daemon running in the background.
+BACKGROUND={{ background | default(false) | lower }}
+
+# --- Extra Flags ---
+
+# List of additional command-line flags not covered by specific variables.
+# These are joined with spaces and appended to the command.
+EXTRA_FLAGS={{ extra_flags | default([]) | join(' ') }}

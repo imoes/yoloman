@@ -1,0 +1,51 @@
+# NextEPC PCRF Configuration Template
+# This template generates the configuration for the PCRF (Policy and Charging Rules Function)
+# component of the NextEPC LTE/EPC core network.
+# It manages database connectivity, logging verbosity, and Diameter protocol integration.
+
+# -----------------------------------------------------------------------------
+# Database Connectivity
+# -----------------------------------------------------------------------------
+
+# MongoDB connection URI for NextEPC data.
+# Controls where the PCRF stores and retrieves subscriber policy data.
+# This URI can be dynamically constructed by connecting a MongoDB database service
+# via peer injection, overriding the default local connection.
+db_uri: {{ db_uri | default('mongodb://localhost/nextepc') }}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+logger:
+    # Path to the PCRF log file.
+    # Determines the local file where operational logs are written.
+    file: {{ logger_file | default('/var/log/nextepc/pcrf.log') }}
+    
+    trace: 
+        # Enable application tracing.
+        # 1 = on (verbose logging for application logic), 0 = off.
+        app: {{ logger_trace_app | default(1) }}
+        
+        # Enable Diameter protocol tracing.
+        # 1 = on (verbose logging for Diameter messages), 0 = off.
+        # Useful for debugging S6a/Sx interface issues.
+        diameter: {{ logger_trace_diameter | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Parameter Definitions
+# -----------------------------------------------------------------------------
+
+# Placeholder for global parameters if required by future extensions.
+# Currently empty but reserved for consistency with nextepc.conf structure.
+parameter:
+
+# -----------------------------------------------------------------------------
+# PCRF Specific Settings
+# -----------------------------------------------------------------------------
+
+pcrf:
+    # Path to the freeDiameter configuration file for PCRF.
+    # freeDiameter is the open-source Diameter stack used by NextEPC for signaling.
+    # This file defines the Diameter Identity, Host IPs, and peer connections (e.g., to HSS/PCSCF).
+    freeDiameter: {{ pcrf_freeDiameter | default('/etc/nextepc/freeDiameter/pcrf.conf') }}

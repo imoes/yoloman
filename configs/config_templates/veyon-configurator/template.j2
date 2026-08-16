@@ -1,0 +1,58 @@
+# =============================================================================
+# Veyon Configurator Configuration Template
+# =============================================================================
+# This template generates a veyon.conf file (Qt INI format) for the Veyon
+# classroom management system. It configures LDAP integration, service behavior,
+# and access control features.
+#
+# Self-Documenting Principle:
+# - Every configuration directive is preceded by a comment derived from the
+#   schema description.
+# - Every variable uses an inline default (| default(...)) to prevent
+#   rendering errors if the variable is undefined.
+# =============================================================================
+
+[ldap]
+# Hostname or IP of the LDAP server.
+host = {{ ldap_host | default('localhost') }}
+
+# Port number of the LDAP server.
+port = {{ ldap_port | default(389) }}
+
+# Base Distinguished Name for LDAP searches.
+base_dn = {{ ldap_base_dn | default('dc=example,dc=com') }}
+
+# Distinguished Name used to bind to the LDAP server.
+bind_dn = {{ ldap_bind_dn | default('cn=admin,dc=example,dc=com') }}
+
+# Password for the LDAP bind DN.
+bind_password = {{ ldap_bind_password | default('secret') }}
+
+# LDAP filter for finding user accounts.
+user_filter = {{ ldap_user_filter | default('(uid=%s)') }}
+
+# LDAP filter for finding computer accounts.
+computer_filter = {{ ldap_computer_filter | default('(objectClass=computer)') }}
+
+[service]
+# Whether the Veyon service is enabled on the host.
+enabled = {{ service_enabled | default(true) }}
+
+# Directory containing RSA keys for authentication.
+key_dir = {{ key_dir | default('/etc/veyon') }}
+
+# TCP port used by the Veyon service.
+port = {{ service_port | default(14240) }}
+
+# Maximum number of simultaneous connections.
+max_connections = {{ max_connections | default(50) }}
+
+[access]
+# Enable remote control capabilities.
+allow_remote_control = {{ allow_remote_control | default(true) }}
+
+# Enable screen broadcasting (Demo) mode.
+demo_enabled = {{ demo_enabled | default(true) }}
+
+# Enable remote screen locking.
+screen_lock_enabled = {{ screen_lock_enabled | default(true) }}

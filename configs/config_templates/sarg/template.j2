@@ -1,0 +1,99 @@
+# SARG (Squid Analysis Report Generator) Configuration Template
+# This template generates the main sarg.conf file.
+# It is self-documenting: every directive is preceded by a comment
+# derived from the schema field description (implied here as generic
+# SARG directives).
+
+# =============================================================
+# Basic Settings
+# =============================================================
+
+# Directory where SARG will write the HTML reports.
+# Default: /var/www/squid-reports
+# Schema field: report_dir
+# The variable 'sarg' is expected to be a dictionary provided by the Ansible role.
+# If 'sarg' is undefined, we default to an empty dict to avoid rendering errors.
+output_dir {{ (sarg | default({})).report_dir | default('/var/www/squid-reports') }}
+
+# Title of the HTML report.
+# Default: SQUID REPORT
+# Schema field: title
+title {{ (sarg | default({})).title | default('SQUID REPORT') }}
+
+# Date format for the report headers.
+# Options: us, eu, dmy
+# Default: eu
+# Schema field: date_format
+date_format {{ (sarg | default({})).date_format | default('eu') }}
+
+# Use long user names in the report.
+# Default: yes
+# Schema field: longuser_names
+longuser_names {{ (sarg | default({})).longuser_names | default('yes') }}
+
+# =============================================================
+# Input Settings
+# =============================================================
+
+# Path to the Squid access.log file.
+# Default: /var/log/squid/access.log
+# Schema field: log_file
+log_file {{ (sarg | default({})).log_file | default('/var/log/squid/access.log') }}
+
+# Type of log file.
+# Default: squid
+# Schema field: log_type
+log_type {{ (sarg | default({})).log_type | default('squid') }}
+
+# =============================================================
+# Output Settings
+# =============================================================
+
+# Index file name for the report.
+# Default: index.html
+# Schema field: index_file
+index_file {{ (sarg | default({})).index_file | default('index.html') }}
+
+# Exclude files from the report (e.g., image formats to reduce size).
+# Default: [none]
+# Schema field: exclude
+# Note: If empty or undefined, this line is omitted.
+{% if (sarg | default({})).exclude | default([]) | length > 0 %}
+exclude {{ (sarg | default({})).exclude | default([]) | join(' ') }}
+{% endif %}
+
+# =============================================================
+# User/ACL Settings
+# =============================================================
+
+# Map users to real names.
+# Default: /etc/squid/ident
+# Schema field: user_map
+user_map {{ (sarg | default({})).user_map | default('/etc/squid/ident') }}
+
+# =============================================================
+# Report Options
+# =============================================================
+
+# Date range for the report.
+# Default: 0
+# Schema field: date_range
+date_range {{ (sarg | default({})).date_range | default('0') }}
+
+# Number of days to keep reports.
+# Default: 0 (keep forever)
+# Schema field: retention_days
+retention_days {{ (sarg | default({})).retention_days | default('0') }}
+
+# =============================================================
+# Advanced Settings
+# =============================================================
+
+# Compress the HTML output.
+# Default: yes
+# Schema field: compress_report
+compress_report {{ (sarg | default({})).compress_report | default('yes') }}
+
+# =============================================================
+# End of Configuration
+# =============================================================

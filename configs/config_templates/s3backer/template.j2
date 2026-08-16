@@ -1,0 +1,632 @@
+# /etc/s3backer.conf
+# =============================================================================
+# s3backer Configuration File
+# =============================================================================
+# This file serves as the source of truth for s3backer settings. It is consumed
+# by Ansible to generate the runtime command-line invocation or by a wrapper
+# script that parses these key=value pairs.
+#
+# All variables MUST have a default value to ensure idempotency and safety
+# when this template is rendered by Ansible.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Storage Backend: S3 Bucket & Endpoint
+# -----------------------------------------------------------------------------
+
+# The S3 bucket name to use for storing blocks.
+# This is the logical container for the virtual disk images.
+# Schema: bucket (default='')
+bucket={{ (bucket | default('', true)) | string }}
+
+# The base URL for the S3 service.
+# Change this for S3-compatible storage (e.g., MinIO, Ceph RGW).
+# Schema: base_url (default='http://s3.amazonaws.com/')
+base_url={{ (base_url | default('http://s3.amazonaws.com/', true)) | string }}
+
+# AWS region name.
+# Automatically sets vhost style requests and may influence the base URL.
+# Schema: region (default='')
+region={{ (region | default('', true)) | string }}
+
+# -----------------------------------------------------------------------------
+# Authentication & Credentials
+# -----------------------------------------------------------------------------
+
+# Path to the file containing accessID:accessKey pairs (one per line).
+# If set, access_id and access_key are typically ignored if access_ec2_iam is also empty.
+# Schema: access_file (default='/home/s3backer/.s3backer_passwd')
+access_file={{ (access_file | default('/home/s3backer/.s3backer_passwd', true)) | string }}
+
+# AWS IAM role name for automatic credential retrieval via EC2 Instance Metadata.
+# If set, explicit access_id and access_key are ignored.
+# Schema: access_ec2_iam (default='')
+access_ec2_iam={{ (access_ec2_iam | default('', true)) | string }}
+
+# AWS access ID (public key).
+# Used only if access_ec2_iam is not set.
+# Schema: access_id (default='')
+access_id={{ (access_id | default('', true)) | string }}
+
+# AWS access key (secret key).
+# Used only if access_ec2_iam is not set.
+# Schema: access_key (default='')
+access_key={{ (access_key | default('', true)) | string }}
+
+# Authentication version to use: 'aws2' (legacy) or 'aws4' (recommended).
+# Schema: auth_version (default='aws4')
+auth_version={{ (auth_version | default('aws4', true)) | string }}
+
+# -----------------------------------------------------------------------------
+# Security & Encryption
+# -----------------------------------------------------------------------------
+
+# Use SSL for connections.
+# Recommended for production; implies HTTPS if base_url is default AWS.
+# Schema: ssl (default=False)
+ssl={{ ssl | default(False) }}
+
+# Do not verify the remote server's SSL certificate.
+# DANGEROUS: Only for debugging or self-signed certs in private clouds.
+# Schema: insecure (default=False)
+insecure={{ insecure | default(False) }}
+
+# Path to custom CA certificate file for SSL verification.
+# Schema: cacert (default='')
+cacert={{ (cacert | default('', true)) | string }}
+
+# Enable server-side encryption (SSE) for objects stored in S3.
+# Supported values: 'AES256' or specific KMS key ID.
+# Schema: sse (default='')
+sse={{ (sse | default('', true)) | string }}
+
+# Enable client-side encryption.
+# Data is encrypted before upload. Requires 'password' or 'password_file'.
+# Schema: encrypt (default='')
+encrypt={{ (encrypt | default('', true)) | string }}
+
+# Password for client-side encryption.
+# Prefer using password_file to avoid exposing secrets in logs/config.
+# Schema: password (default='')
+password={{ (password | default('', true)) | string }}
+
+# Path to a file containing the client-side encryption password.
+# Schema: password_file (default='')
+password_file={{ (password_file | default('', true)) | string }}
+
+# Override the length of the generated block encryption key.
+# Typically needed for compatibility with older s3backer versions.
+# Schema: key_length (default=0)
+key_length={{ key_length | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Mount Point & Filesystem Behavior
+# -----------------------------------------------------------------------------
+
+# The local mount point for the s3backer filesystem.
+# Schema: mount_point (default='/mnt/s3backer')
+mount_point={{ (mount_point | default('/mnt/s3backer', true)) | string }}
+
+# The name of the file exported by the s3backer filesystem (virtual disk).
+# Schema: filename (default='file')
+filename={{ (filename | default('file', true)) | string }}
+
+# The local size of the virtual disk file (if using a local cache/dir not applicable here,
+# but s3backer uses this to initialize the image in S3).
+# Schema: size (default='')
+size={{ (size | default('', true)) | string }}
+
+# UNIX permission mode for the backed file.
+# Schema: file_mode (default='0600')
+file_mode={{ (file_mode | default('0600', true)) | string }}
+
+# The local user ID (UID) to own the mounted filesystem contents.
+# Schema: uid (default='')
+uid={{ (uid | default('', true)) | string }}
+
+# The local group ID (GID) to own the mounted filesystem contents.
+# Schema: gid (default='')
+gid={{ (gid | default('', true)) | string }}
+
+# Enable read-only access to the filesystem.
+# Disables write operations and MD5 cache.
+# Schema: read_only (default=False)
+read_only={{ read_only | default(False) }}
+
+# Direct I/O: Disable kernel caching of the backed file.
+# Ensures data is written directly to S3 without buffering in OS page cache.
+# Schema: direct_io (default=False)
+direct_io={{ direct_io | default(False) }}
+
+# Synchronous reads: Read data directly from S3 instead of using block cache.
+# Schema: sync_read (default=False)
+sync_read={{ sync_read | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Block Storage Configuration
+# -----------------------------------------------------------------------------
+
+# The block size for the virtual disk (in bytes).
+# Must be a power of two. Default 4096.
+# Schema: block_size (default=4096)
+block_size={{ block_size | default(4096) }}
+
+# The prefix to prepend to S3 object names for blocks.
+# Allows multiple s3backer disks in the same bucket without collision.
+# Schema: prefix (default='')
+prefix={{ (prefix | default('', true)) | string }}
+
+# S3 storage class for the stored blocks (e.g., STANDARD, STANDARD_IA, GLACIER).
+# Schema: storage_class (default='STANDARD')
+storage_class={{ (storage_class | default('STANDARD', true)) | string }}
+
+# Enable block compression.
+# Optional numeric level 1-9. Enabled automatically if encrypt is set.
+# Schema: compress (default='false')
+compress={{ (compress | default('false', true)) | string }}
+
+# -----------------------------------------------------------------------------
+# Block Cache Configuration
+# -----------------------------------------------------------------------------
+
+# Size of the block cache (number of blocks).
+# 0 disables the cache. Default 1000.
+# Schema: block_cache_size (default=1000)
+block_cache_size={{ block_cache_size | default(1000) }}
+
+# Path to a file for storing persistent block cache data.
+# If set, cache survives restarts.
+# Schema: block_cache_file (default='')
+block_cache_file={{ (block_cache_file | default('', true)) | string }}
+
+# Maximum number of dirty blocks allowed in the cache.
+# 0 means no limit. Limits data loss risk on crash.
+# Schema: block_cache_max_dirty (default=0)
+block_cache_max_dirty={{ block_cache_max_dirty | default(0) }}
+
+# Number of worker threads for block cache writes.
+# Schema: block_cache_threads (default=20)
+block_cache_threads={{ block_cache_threads | default(20) }}
+
+# Timeout in milliseconds for clean block cache entries before eviction.
+# 0 means no timeout.
+# Schema: block_cache_timeout (default=0)
+block_cache_timeout={{ block_cache_timeout | default(0) }}
+
+# Maximum time a dirty block stays in cache before forced write-out (ms).
+# 0 is write-through (no caching of dirty blocks).
+# Schema: block_cache_write_delay (default=250)
+block_cache_write_delay={{ block_cache_write_delay | default(250) }}
+
+# Enable synchronous writes in block cache layer.
+# Requires block_cache_write_delay=0.
+# Schema: block_cache_sync (default=False)
+block_cache_sync={{ block_cache_sync | default(False) }}
+
+# Recover dirty blocks from block_cache_file on startup.
+# Requires block_cache_file to be set.
+# Schema: block_cache_recover_dirty_blocks (default=False)
+block_cache_recover_dirty_blocks={{ block_cache_recover_dirty_blocks | default(False) }}
+
+# Disable MD5 verification of blocks loaded from block_cache_file.
+# Dangerous; only if cache file integrity is guaranteed.
+# Schema: block_cache_no_verify (default=False)
+block_cache_no_verify={{ block_cache_no_verify | default(False) }}
+
+# Size of the MD5 checksum cache (number of blocks).
+# Used to detect stale data from S3 eventual consistency.
+# Schema: md5_cache_size (default=1000)
+md5_cache_size={{ md5_cache_size | default(1000) }}
+
+# Time in milliseconds to keep MD5 checksums in cache.
+# 0 means infinite.
+# Schema: md5_cache_time (default=10000)
+md5_cache_time={{ md5_cache_time | default(10000) }}
+
+# Minimum delay in milliseconds between writes to the same block.
+# Helps S3 handle writes correctly.
+# Schema: min_write_delay (default=500)
+min_write_delay={{ min_write_delay | default(500) }}
+
+# -----------------------------------------------------------------------------
+# Network & Performance Tuning
+# -----------------------------------------------------------------------------
+
+# Number of blocks to read ahead into the block cache.
+# 0 disables read ahead.
+# Schema: read_ahead (default=4)
+read_ahead={{ read_ahead | default(4) }}
+
+# Number of consecutive blocks read before triggering read ahead.
+# Schema: read_ahead_trigger (default=2)
+read_ahead_trigger={{ read_ahead_trigger | default(2) }}
+
+# Force virtual hosted style requests (bucket.s3.amazonaws.com).
+# Required for some S3-compatible providers or specific regions.
+# Schema: vhost (default=False)
+vhost={{ vhost | default(False) }}
+
+# HTTP operation timeout in seconds.
+# Schema: timeout (default=30)
+timeout={{ timeout | default(30) }}
+
+# Initial retry pause time in milliseconds for failed HTTP operations.
+# Schema: initial_retry_pause (default=200)
+initial_retry_pause={{ initial_retry_pause | default(200) }}
+
+# Maximum total retry pause time in milliseconds before giving up.
+# Schema: max_retry_pause (default=30000)
+max_retry_pause={{ max_retry_pause | default(30000) }}
+
+# Max upload speed in bits per second (e.g., '256k', '1m').
+# Schema: max_upload_speed (default='')
+max_upload_speed={{ (max_upload_speed | default('', true)) | string }}
+
+# Max download speed in bits per second (e.g., '256k', '1m').
+# Schema: max_download_speed (default='')
+max_download_speed={{ (max_download_speed | default('', true)) | string }}
+
+# -----------------------------------------------------------------------------
+# Operational & Debugging Options
+# -----------------------------------------------------------------------------
+
+# Enable debug logging.
+# Schema: debug (default=False)
+debug={{ debug | default(False) }}
+
+# Enable debug HTTP output (shows request/response headers).
+# Schema: debug_http (default=False)
+debug_http={{ debug_http | default(False) }}
+
+# Run in foreground (do not fork to background).
+# Implies logging to stderr.
+# Schema: foreground (default=False)
+foreground={{ foreground | default(False) }}
+
+# Enable FUSE debug mode.
+# Implies foreground mode.
+# Schema: fuse_debug (default=False)
+fuse_debug={{ fuse_debug | default(False) }}
+
+# Run in single-threaded mode.
+# Useful for debugging or systems with limited CPU.
+# Schema: single_thread (default=False)
+single_thread={{ single_thread | default(False) }}
+
+# Disable block and file size auto-detection.
+# Schema: no_auto_detect (default=False)
+no_auto_detect={{ no_auto_detect | default(False) }}
+
+# List existing blocks at startup.
+# Useful for new filesystems to optimize zeroed block handling.
+# Schema: list_blocks (default=False)
+list_blocks={{ list_blocks | default(False) }}
+
+# Erase the entire filesystem (delete all non-zero blocks).
+# Destructive operation. Implies list_blocks.
+# Schema: erase (default=False)
+erase={{ erase | default(False) }}
+
+# Force operations even if errors are detected (e.g., block size mismatch).
+# Dangerous; can lead to data corruption.
+# Schema: force (default=False)
+force={{ force | default(False) }}
+
+# Reset the 'already mounted' flag in S3.
+# Use if s3backer crashed and left the flag set, preventing remount.
+# Schema: reset_mounted_flag (default=False)
+reset_mounted_flag={{ reset_mounted_flag | default(False) }}
+
+# The name of the human-readable statistics file in the mounted filesystem.
+# Schema: stats_filename (default='stats')
+stats_filename={{ (stats_filename | default('stats', true)) | string }}
+
+# Default Content-Encoding header value if missing in S3 response.
+# Schema: default_content_encoding (default='')
+default_content_encoding={{ (default_content_encoding | default('', true)) | string }}
+
+# Quiet mode: suppress progress output during startup.
+# Schema: quiet (default=False)
+quiet={{ quiet | default(False) }}
+
+# Prepend random prefixes to block object names to spread S3 API load.
+# Schema: block_hash_prefix (default=False)
+block_hash_prefix={{ block_hash_prefix | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Runtime Command Generation
+# -----------------------------------------------------------------------------
+# The following section generates the actual command line used to start s3backer.
+# It dynamically includes only non-default or explicitly set parameters.
+
+{% if (access_ec2_iam | default('', true)) == '' and (access_id | default('', true)) == '' and (access_key | default('', true)) == '' %}
+# [WARNING] No explicit AWS credentials found in configuration.
+# s3backer will rely on:
+# 1. The file specified in access_file
+# 2. EC2 Instance Metadata (if running on EC2)
+# 3. Prompting for a password (if encrypt is enabled)
+{% endif %}
+
+# Construct the s3backer command line
+# This block is intended for use in an init script or systemd ExecStart
+echo "Executing s3backer with the following parameters:"
+echo "s3backer \"
+
+# Access Credentials
+{% if (access_file | default('', true)) != '' %}
+  --accessFile={{ (access_file | default('', true)) | string }} \"
+{% endif %}
+
+{% if (access_ec2_iam | default('', true)) != '' %}
+  --accessEC2IAM={{ (access_ec2_iam | default('', true)) | string }} \"
+{% endif %}
+
+{% if (access_id | default('', true)) != '' %}
+  --accessId={{ (access_id | default('', true)) | string }} \"
+{% endif %}
+
+{% if (access_key | default('', true)) != '' %}
+  --accessKey={{ (access_key | default('', true)) | string }} \"
+{% endif %}
+
+# Authentication & Endpoint
+{% if (auth_version | default('aws4', true)) != 'aws4' %}
+  --authVersion={{ (auth_version | default('aws4', true)) | string }} \"
+{% endif %}
+
+{% if (base_url | default('http://s3.amazonaws.com/', true)) != 'http://s3.amazonaws.com/' %}
+  --baseURL={{ (base_url | default('http://s3.amazonaws.com/', true)) | string }} \"
+{% endif %}
+
+# Block Cache Persistence & Limits
+{% if (block_cache_file | default('', true)) != '' %}
+  --blockCacheFile={{ (block_cache_file | default('', true)) | string }} \"
+{% endif %}
+
+{% if (block_cache_max_dirty | default(0)) != 0 %}
+  --blockCacheMaxDirty={{ block_cache_max_dirty | default(0) }} \"
+{% endif %}
+
+{% if (block_cache_no_verify | default(False)) %}
+  --blockCacheNoVerify \"
+{% endif %}
+
+{% if (block_cache_size | default(1000)) != 1000 %}
+  --blockCacheSize={{ block_cache_size | default(1000) }} \"
+{% endif %}
+
+{% if (block_cache_threads | default(20)) != 20 %}
+  --blockCacheThreads={{ block_cache_threads | default(20) }} \"
+{% endif %}
+
+{% if (block_cache_timeout | default(0)) != 0 %}
+  --blockCacheTimeout={{ block_cache_timeout | default(0) }} \"
+{% endif %}
+
+{% if (block_cache_write_delay | default(250)) != 250 %}
+  --blockCacheWriteDelay={{ block_cache_write_delay | default(250) }} \"
+{% endif %}
+
+{% if (block_cache_sync | default(False)) %}
+  --blockCacheSync \"
+{% endif %}
+
+{% if (block_cache_recover_dirty_blocks | default(False)) %}
+  --blockCacheRecoverDirtyBlocks \"
+{% endif %}
+
+# Hashing & Block Size
+{% if (block_hash_prefix | default(False)) %}
+  --blockHashPrefix \"
+{% endif %}
+
+{% if (block_size | default(4096)) != 4096 %}
+  --blockSize={{ block_size | default(4096) }} \"
+{% endif %}
+
+# SSL/TLS
+{% if (cacert | default('', true)) != '' %}
+  --cacert={{ (cacert | default('', true)) | string }} \"
+{% endif %}
+
+# Compression
+# Note: s3backer uses --compress without value to enable, or --compress=N for level
+{% if (compress | default('false', true)) != 'false' %}
+  --compress={{ (compress | default('false', true)) | string }} \"
+{% endif %}
+
+# I/O Mode
+{% if (direct_io | default(False)) %}
+  --directIO \"
+{% endif %}
+
+# Debugging
+{% if (debug | default(False)) %}
+  --debug \"
+{% endif %}
+
+{% if (debug_http | default(False)) %}
+  --debug-http \"
+{% endif %}
+
+{% if (default_content_encoding | default('', true)) != '' %}
+  --defaultContentEncoding={{ (default_content_encoding | default('', true)) | string }} \"
+{% endif %}
+
+# Encryption
+{% if (encrypt | default('', true)) != '' %}
+  --encrypt={{ (encrypt | default('', true)) | string }} \"
+{% endif %}
+
+{% if (erase | default(False)) %}
+  --erase \"
+{% endif %}
+
+# File System Parameters
+{% if (filename | default('file', true)) != 'file' %}
+  --filename={{ (filename | default('file', true)) | string }} \"
+{% endif %}
+
+{% if (file_mode | default('0600', true)) != '0600' %}
+  --fileMode={{ (file_mode | default('0600', true)) | string }} \"
+{% endif %}
+
+{% if (force | default(False)) %}
+  --force \"
+{% endif %}
+
+# Retry Policy
+{% if (initial_retry_pause | default(200)) != 200 %}
+  --initialRetryPause={{ initial_retry_pause | default(200) }} \"
+{% endif %}
+
+{% if (insecure | default(False)) %}
+  --insecure \"
+{% endif %}
+
+# Key Length
+{% if (key_length | default(0)) != 0 %}
+  --keyLength={{ key_length | default(0) }} \"
+{% endif %}
+
+# Initialization
+{% if (list_blocks | default(False)) %}
+  --listBlocks \"
+{% endif %}
+
+# Speed Limits
+{% if (max_upload_speed | default('', true)) != '' %}
+  --maxUploadSpeed={{ (max_upload_speed | default('', true)) | string }} \"
+{% endif %}
+
+{% if (max_download_speed | default('', true)) != '' %}
+  --maxDownloadSpeed={{ (max_download_speed | default('', true)) | string }} \"
+{% endif %}
+
+{% if (max_retry_pause | default(30000)) != 30000 %}
+  --maxRetryPause={{ max_retry_pause | default(30000) }} \"
+{% endif %}
+
+# Write Delay
+{% if (min_write_delay | default(500)) != 500 %}
+  --minWriteDelay={{ min_write_delay | default(500) }} \"
+{% endif %}
+
+# MD5 Cache
+{% if (md5_cache_size | default(1000)) != 1000 %}
+  --md5CacheSize={{ md5_cache_size | default(1000) }} \"
+{% endif %}
+
+{% if (md5_cache_time | default(10000)) != 10000 %}
+  --md5CacheTime={{ md5_cache_time | default(10000) }} \"
+{% endif %}
+
+# Auto-Detect
+{% if (no_auto_detect | default(False)) %}
+  --noAutoDetect \"
+{% endif %}
+
+# Password
+{% if (password | default('', true)) != '' %}
+  --password={{ (password | default('', true)) | string }} \"
+{% endif %}
+
+{% if (password_file | default('', true)) != '' %}
+  --passwordFile={{ (password_file | default('', true)) | string }} \"
+{% endif %}
+
+# Prefix
+{% if (prefix | default('', true)) != '' %}
+  --prefix={{ (prefix | default('', true)) | string }} \"
+{% endif %}
+
+# Quiet Mode
+{% if (quiet | default(False)) %}
+  --quiet \"
+{% endif %}
+
+# Read Ahead
+{% if (read_ahead | default(4)) != 4 %}
+  --readAhead={{ read_ahead | default(4) }} \"
+{% endif %}
+
+{% if (read_ahead_trigger | default(2)) != 2 %}
+  --readAheadTrigger={{ read_ahead_trigger | default(2) }} \"
+{% endif %}
+
+# Read Only
+{% if (read_only | default(False)) %}
+  --readOnly \"
+{% endif %}
+
+# Region
+{% if (region | default('', true)) != '' %}
+  --region={{ (region | default('', true)) | string }} \"
+{% endif %}
+
+# Reset Flag
+{% if (reset_mounted_flag | default(False)) %}
+  --reset-mounted-flag \"
+{% endif %}
+
+# Disk Size
+{% if (size | default('', true)) != '' %}
+  --size={{ (size | default('', true)) | string }} \"
+{% endif %}
+
+# Server-Side Encryption
+{% if (sse | default('', true)) != '' %}
+  --sse={{ (sse | default('', true)) | string }} \"
+{% endif %}
+
+# SSL
+{% if (ssl | default(False)) %}
+  --ssl \"
+{% endif %}
+
+# Stats Filename
+{% if (stats_filename | default('stats', true)) != 'stats' %}
+  --statsFilename={{ (stats_filename | default('stats', true)) | string }} \"
+{% endif %}
+
+# Storage Class
+{% if (storage_class | default('STANDARD', true)) != 'STANDARD' %}
+  --storageClass={{ (storage_class | default('STANDARD', true)) | string }} \"
+{% endif %}
+
+# Timeout
+{% if (timeout | default(30)) != 30 %}
+  --timeout={{ timeout | default(30) }} \"
+{% endif %}
+
+# Virtual Hosted Style
+{% if (vhost | default(False)) %}
+  --vhost \"
+{% endif %}
+
+# FUSE Options (uid, gid, sync)
+{% if (uid | default('', true)) != '' %}
+  -o uid={{ (uid | default('', true)) | string }} \"
+{% endif %}
+
+{% if (gid | default('', true)) != '' %}
+  -o gid={{ (gid | default('', true)) | string }} \"
+{% endif %}
+
+{% if (sync_read | default(False)) %}
+  -o sync_read \"
+{% endif %}
+
+# Process Mode (Foreground/Debug/Single-Thread)
+{% if (fuse_debug | default(False)) %}
+  -d \"
+{% elif (foreground | default(False)) %}
+  -f \"
+{% endif %}
+
+{% if (single_thread | default(False)) %}
+  -s \"
+{% endif %}
+
+# Target Bucket and Mount Point
+{{ (bucket | default('', true)) | string }} {{ (mount_point | default('/mnt/s3backer', true)) | string }}"

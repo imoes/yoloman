@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Cron.daily script for slrnpull.
+# Written By Joey Hess <joeyh@debian.org>
+#
+# Self-documenting enrichment:
+# - spool_path: The spool directory where slrnpull stores its data.
+
+# Check if slrnpull binary exists and is executable
+[ -x /usr/bin/slrnpull ] || exit 0
+
+# Source default configuration if it exists
+if [ -f /etc/default/slrnpull ]; then
+	. /etc/default/slrnpull
+fi
+
+# Change to the spool directory
+# spool_path: The spool directory where slrnpull stores its data.
+cd /{{ spool_path | default('/var/spool/slrnpull') }}
+
+# Perform expiration, even if we aren't fetching articles right now.
+# Runs the expiration process as the 'news' user to ensure proper permissions
+su news -s /bin/sh -c 'slrnpull --expire >/dev/null'
+
+# Only fetch new articles if explicitly configured to run from cron
+if  [ "$RUNFROM" = "cron job" ] ; then
+	# Get new articles.
+	# Fetches articles from the server specified in /etc/news/server
+	su news -s /bin/sh -c 'slrnpull -h `head -n 1 /etc/news/server`' >/dev/null
+fi

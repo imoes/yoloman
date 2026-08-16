@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Syncthing daemon configuration (config.xml)
+  Managed by Syncthing-GTK role.
+  
+  This template generates the canonical configuration file for the Syncthing daemon.
+  Syncthing-GTK is the GUI frontend, but the actual synchronization logic is handled
+  by the `syncthing` binary which reads this XML structure.
+-->
+<configuration version="35" fqdn="false">
+    <!--
+      GUI Configuration Section
+      Controls the web interface listening address and authentication.
+    -->
+    <gui enabled="true">
+        <!--
+          gui_address: The IP address and port the Syncthing GUI listens on.
+          Default: 127.0.0.1:8384
+        -->
+        <address>{{ gui_address | default('127.0.0.1:8384') }}</address>
+        
+        <!--
+          gui_tls: Whether to use HTTPS for the GUI.
+          Note: Syncthing generates self-signed certs if TLS is enabled and no cert exists.
+          Default: false
+        -->
+        <tls>{{ gui_tls | default(false) | lower }}</tls>
+        
+        <!--
+          gui_user: The username for the Syncthing GUI authentication.
+          Default: admin
+        -->
+        <user>{{ gui_user | default('admin') }}</user>
+        
+        <!--
+          gui_password: The password for the Syncthing GUI authentication.
+          Default: syncthing
+        -->
+        <password>{{ gui_password | default('syncthing') }}</password>
+    </gui>
+    
+    <!--
+      Options Configuration Section
+      General behavior settings for the Syncthing daemon.
+    -->
+    <options>
+        <!--
+          Default folder type
+          Placeholder for default folder path structure.
+        -->
+        <defaultFolderPath>~</defaultFolderPath>
+        
+        <!--
+          Max folder count
+          Placeholder for maximum number of folders.
+        -->
+        <maxFolderCount>10</maxFolderCount>
+        
+        <!--
+          local_discovery_enabled: Whether to announce this device to local LAN.
+          Uses local announcement packets for discovery on the same subnet.
+          Default: true
+        -->
+        <localAnnounceEnabled>{{ local_discovery_enabled | default(true) | lower }}</localAnnounceEnabled>
+        
+        <!--
+          global_discovery_enabled: Whether to announce this device to the global discovery server.
+          Uses the public discovery service to find devices on different networks.
+          Default: true
+        -->
+        <globalAnnounceEnabled>{{ global_discovery_enabled | default(true) | lower }}</globalAnnounceEnabled>
+    </options>
+</configuration>

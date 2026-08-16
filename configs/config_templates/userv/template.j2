@@ -1,0 +1,65 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		userv
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	userv services daemon uservd
+# Description:          User services (security boundary) daemon
+### END INIT INFO
+
+test -f /usr/sbin/uservd || exit 0
+
+. /lib/lsb/init-functions
+
+ensure_var_dir () {
+    # var_dir: The runtime directory for the userv daemon.
+    var_dir={{ var_dir | default('/var/run/userv') }}
+    test -d "$var_dir" || mkdir -m700 "$var_dir"
+}
+
+case "$1" in
+start)
+    echo -n "Starting user services daemon: uservd"
+    ensure_var_dir
+    start-stop-daemon --start --quiet --exec /usr/sbin/uservd -- -daemon
+    echo "."
+    ;;
+
+stop)
+    echo -n "Stopping user services daemon: uservd"
+    start-stop-daemon --stop --quiet --user root --exec /usr/sbin/uservd
+    echo "."
+    ;;
+
+restart)
+    echo -n "Restarting user services daemon: uservd"
+    ensure_var_dir
+    start-stop-daemon --stop --oknodo --quiet --user root \
+        --exec /usr/sbin/uservd
+    sleep 1
+    start-stop-daemon --start --quiet --exec /usr/sbin/uservd -- -daemon
+    echo "."
+    ;;
+
+reload | force-reload)
+    ;;
+
+# draft implementation of status support
+# commented out pending inclusion into policy of firm specification
+#status)
+#	userv -B version >/dev/null 2>/dev/null
+#	case $? in
+#	0)		echo 'uservd running ok'; exit 0;;
+#	*)		echo 'uservd not running'; exit 3;;
+#	esac
+#	;;
+
+*)
+    echo "Usage: /etc/init.d/userv {start|stop|restart|reload|force-reload}"
+    exit 1
+esac
+
+exit 0

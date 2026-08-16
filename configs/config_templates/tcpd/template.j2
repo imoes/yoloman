@@ -1,0 +1,27 @@
+# /etc/hosts.allow
+# Access Control List: hosts.allow
+# This file grants permission to services. Entries here are processed before /etc/hosts.deny.
+# Each line follows the format: daemon : client [ : option ]
+# - daemon: service name or ALL
+# - client: client specification (IP, hostname, network) or ALL
+# - option: optional actions (e.g., spawn, twist, deny)
+
+{% for rule in (hosts_allow | default([])) %}
+# Schema description: List of access control rules granting permission in /etc/hosts.allow.
+# Each item is a flat map of daemon, client, and optional option fields.
+{{ rule.daemon | default('ALL') }} : {{ rule.client | default('ALL') }}{% if rule.option is defined and rule.option %} : {{ rule.option }}{% endif %}
+{% endfor %}
+
+# /etc/hosts.deny
+# Access Control List: hosts.deny
+# This file denies permission to services if no matching allow rule is found.
+# Each line follows the format: daemon : client [ : option ]
+# - daemon: service name or ALL
+# - client: client specification (IP, hostname, network) or ALL
+# - option: optional actions (e.g., spawn, twist, deny)
+
+{% for rule in (hosts_deny | default([{'daemon': 'ALL', 'client': 'ALL'}])) %}
+# Schema description: List of access control rules denying permission in /etc/hosts.deny.
+# Same structure as hosts_allow. Default is to deny all services from all clients if hosts_allow is empty.
+{{ rule.daemon | default('ALL') }} : {{ rule.client | default('ALL') }}{% if rule.option is defined and rule.option %} : {{ rule.option }}{% endif %}
+{% endfor %}

@@ -1,0 +1,115 @@
+#!/bin/bash
+# Auto-generated tcptraceroute wrapper
+# This script provides persistent defaults for tcptraceroute by wrapping
+# the binary with pre-configured command-line arguments derived from Ansible variables.
+#
+# Self-documenting: each variable below is commented with its source schema description
+# and default value. To override at runtime, simply pass arguments to this script
+# (e.g., ./tcptraceroute-wrapper.sh 192.168.1.1).
+
+# ==============================================================================
+# Configuration Defaults
+# ==============================================================================
+
+# The default destination TCP port to use for traceroute probes.
+TCPPTRACEROUTE_DEST_PORT={{ default_dest_port | default(80) }}
+
+# The local TCP port to use for outgoing packets. Use 'auto' for kernel-assigned.
+TCPPTRACEROUTE_SOURCE_PORT={{ source_port | default('auto') }}
+
+# The network interface to use for outgoing packets. Use 'auto' for default route.
+TCPPTRACEROUTE_INTERFACE={{ interface | default('auto') }}
+
+# The number of probes to send to each hop.
+TCPPTRACEROUTE_PROBES={{ probes | default(3) }}
+
+# The timeout in seconds to wait for a response for each probe.
+TCPPTRACEROUTE_TIMEOUT={{ timeout | default(3) }}
+
+# The maximum TTL used in outgoing packets.
+TCPPTRACEROUTE_MAX_TTL={{ max_ttl | default(30) }}
+
+# The initial TTL used in the first outgoing packet.
+TCPPTRACEROUTE_INITIAL_TTL={{ initial_ttl | default(1) }}
+
+# The IP TOS (type of service) to be used in outgoing packets.
+TCPPTRACEROUTE_TOS={{ tos | default('') }}
+
+# The total packet length to be used in outgoing packets.
+TCPPTRACEROUTE_PACKET_LENGTH={{ packet_length | default('') }}
+
+# The TCP flag to set. 'S' for SYN, 'A' for ACK, 'E' for ECN SYN.
+TCPPTRACEROUTE_FLAGS={{ flags | default('S') }}
+
+# ==============================================================================
+# Wrapper Logic
+# ==============================================================================
+
+# Construct arguments
+cmd="tcptraceroute"
+
+# Determine TCP flag based on configuration
+# tcptraceroute uses -S for SYN (default), -A for ACK, -E for ECN SYN
+if [ "{{ flags | default('S') }}" == "A" ]; then
+    cmd="$cmd -A"
+elif [ "{{ flags | default('S') }}" == "E" ]; then
+    cmd="$cmd -E"
+else
+    cmd="$cmd -S"
+fi
+
+# Append source port if not set to 'auto' (kernel assigns it)
+if [ "{{ source_port | default('auto') }}" != "auto" ]; then
+    cmd="$cmd -p {{ source_port | default('auto') }}"
+fi
+
+# Append network interface if not set to 'auto' (uses default route)
+if [ "{{ interface | default('auto') }}" != "auto" ]; then
+    cmd="$cmd -i {{ interface | default('auto') }}"
+fi
+
+# Append number of probes if different from default (3)
+# tcptraceroute uses -q for quiet mode / number of probes
+if [ {{ probes | default(3) }} -ne 3 ]; then
+    cmd="$cmd -q {{ probes | default(3) }}"
+fi
+
+# Append timeout if different from default (3)
+# tcptraceroute uses -w for wait time
+if [ {{ timeout | default(3) }} -ne 3 ]; then
+    cmd="$cmd -w {{ timeout | default(3) }}"
+fi
+
+# Append max TTL if different from default (30)
+# tcptraceroute uses -m for max TTL
+if [ {{ max_ttl | default(30) }} -ne 30 ]; then
+    cmd="$cmd -m {{ max_ttl | default(30) }}"
+fi
+
+# Append initial TTL if different from default (1)
+# tcptraceroute uses -f for first TTL
+if [ {{ initial_ttl | default(1) }} -ne 1 ]; then
+    cmd="$cmd -f {{ initial_ttl | default(1) }}"
+fi
+
+# Append TOS if specified (non-empty)
+# tcptraceroute uses -t for TOS
+if [ "{{ tos | default('') }}" != "" ]; then
+    cmd="$cmd -t {{ tos | default('') }}"
+fi
+
+# Append packet length if specified (non-empty)
+# tcptraceroute uses -l for length
+if [ "{{ packet_length | default('') }}" != "" ]; then
+    cmd="$cmd -l {{ packet_length | default('') }}"
+fi
+
+# Append destination port if different from default (80)
+# This is the port we are tracing TO
+if [ {{ default_dest_port | default(80) }} -ne 80 ]; then
+    cmd="$cmd {{ default_dest_port | default(80) }}"
+fi
+
+# Pass all script arguments (destinations) to tcptraceroute
+# This allows running: ./wrapper.sh <host_or_ip>
+exec $cmd "$@"

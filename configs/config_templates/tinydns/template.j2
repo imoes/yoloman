@@ -1,0 +1,52 @@
+#!/usr/bin/env /lib/init/init-d-script
+### BEGIN INIT INFO
+# Provides:          {{ package_name | default('tinydns') }}
+# Provides:          TinyDNS - Authoritative DNS server
+# Should-Start:      $syslog
+# Required-Start:    $time $local_fs
+# Required-Stop:     $time $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: DNS server - tool for publishing addresses of Internet hosts
+# Description:       TinyDNS is part of the djbdns suite, providing a fast,
+#                    secure, and authoritative DNS server using a flat file format.
+### END INIT INFO
+
+# Service name variable used for path construction, daemon invocation, and service directory.
+# Schema default: 'tinydns'.
+NAME='{{ name | default('tinydns') }}'
+
+# Human-readable description of the service displayed by init scripts and status tools.
+DESC='DNS server - tool for publishing addresses of Internet hosts'
+
+# Path to the TinyDNS binary executable.
+DAEMON='/usr/sbin/{{ name | default('tinydns') }}'
+
+# Pre-flight check: Ensure the 'daemon' helper from daemontools is installed.
+# TinyDNS is typically run under daemontools' 'daemon' controller in runit environments.
+if ! test -x '/usr/bin/daemon' ; then
+	log_failure_msg "install \`daemon' package to use ${NAME} script"
+	exit 1
+fi
+
+# Pre-flight check: Ensure 'chpst' (change process state) from daemontools is installed.
+# chpst is required to set up the environment and privilege context for the TinyDNS process.
+if ! test -x '/usr/bin/chpst' ; then
+	log_failure_msg "install \`runit' package to use ${NAME} script"
+	exit 1
+fi
+
+# Helper function to invoke the 'daemon' controller for managing the TinyDNS service instance.
+# Runs the service under the directory /etc/sv/${NAME}, which is the standard runit service directory.
+daemon_ () { /usr/bin/daemon -D "/etc/sv/${NAME}" --noconfig --name "${NAME}" "$@"; }
+
+# Override for the start command: launches TinyDNS with chpst, using the environment directory 'conf'.
+# The 'run' script inside the service directory contains the actual exec command for TinyDNS.
+do_start_cmd_override () { daemon_ -- /usr/bin/chpst -e conf /bin/sh ./run; }
+
+# Override for the stop command: checks if the service is currently running before stopping.
+do_stop_cmd_override () {
+	if daemon_ --running ; then
+		daemon_ --stop
+	fi
+}

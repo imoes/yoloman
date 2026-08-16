@@ -1,0 +1,60 @@
+# ==============================================================================
+# U2F Server Configuration Template
+# ==============================================================================
+# This template generates a configuration file for the u2f-server/libu2f-server package.
+# Note: The primary tool `libu2f-server` (often symlinked or used as `u2f-server` in some contexts) is a CLI tool
+# that does not have a persistent configuration file in the traditional daemon sense.
+# However, for wrapper scripts or systemd service invocations that rely on defaults,
+# we can provide a configuration snippet or environment file structure if the wrapper supports it.
+# Given the man page describes CLI options, a direct config file is not standard.
+# Instead, this template represents a hypothetical service configuration file
+# that might be consumed by a wrapper or used to generate the CLI command line.
+#
+# Self-Documenting Fields:
+# Every variable is provided with a default value from the schema to ensure the template
+# renders correctly even if the variable is not passed from Ansible.
+# ==============================================================================
+
+[server]
+
+# Origin URL to use. Corresponds to --origin
+# This is the origin string that will be included in the U2F registration/authentication request.
+origin = {{ origin | default('https://localhost') }}
+
+# Application ID to use. Corresponds to --appid
+# This is the AppID string that will be included in the U2F registration/authentication request.
+# Often the same as origin, but can be distinct depending on U2F spec version (FIDO U2F vs CTAP2).
+appid = {{ appid | default('https://localhost') }}
+
+# Action to take. Corresponds to --action (register or authenticate)
+# Determines whether the tool performs a new registration or an existing authentication.
+action = {{ action | default('register') }}
+
+# Debug mode. Corresponds to --debug
+# If true, print debug information to standard error.
+# Jinja2 booleans should be lowercase true/false for config files.
+debug = {{ debug | default(false) | lower }}
+
+{% if key_handle is defined and key_handle | trim != '' %}
+# File containing a key-handle. Corresponds to --key-handle
+# Leave empty if not using.
+key_handle = {{ key_handle }}
+{% endif %}
+
+{% if user_key is defined and user_key | trim != '' %}
+# File containing the public user-key. Corresponds to --user-key
+# Leave empty if not using.
+user_key = {{ user_key }}
+{% endif %}
+
+{% if x509cert is defined and x509cert | trim != '' %}
+# File to write the registration attestation certificate to. Corresponds to --x509cert
+# Leave empty if not using.
+x509cert = {{ x509cert }}
+{% endif %}
+
+{% if challenge is defined and challenge | trim != '' %}
+# Challenge (Base64-URL encoded) string to use. Corresponds to --challenge
+# Note: Usually generated dynamically, but can be specified here for static testing
+challenge = {{ challenge }}
+{% endif %}

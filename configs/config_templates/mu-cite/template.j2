@@ -1,0 +1,25 @@
+;;; 51mu-cite.el --- Debian mu-cite startup file  -*-mode: emacs-lisp;-*-
+
+;;; Code:
+
+;;; Default Emacs flavor: determines which Emacs variant (e.g., 'emacs', 'xemacs')
+;;; the installation scripts should target. Defaults to 'emacs' if debian-emacs-flavor
+;;; is not bound.
+(let* ((pkg "mu-cite")
+       (flavor-name (if (boundp 'debian-emacs-flavor)
+			(symbol-name debian-emacs-flavor)
+		      "{{ emacs_flavor_default | default('emacs') }}"))
+       (pkg-inst (concat "/usr/lib/emacsen-common/packages/install/" pkg))
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/" pkg)))
+  (when (and (file-exists-p elc-dir)
+	     (file-exists-p pkg-inst))
+    (if (fboundp 'debian-pkg-add-load-path-item)
+	(debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+    ;;
+    (autoload 'mu-cite-original "mu-cite" nil t)
+    (autoload 'latex-math-decode-buffer "latex-math-symbol" nil t)
+    ;;
+    ))
+
+;;; 51mu-cite.el ends here

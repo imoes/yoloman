@@ -1,0 +1,80 @@
+# pwget configuration file
+#
+# This file configures `pwget` (a parallel wget-like tool). It defines global variables for
+# local cache directories (`lcd`) and hierarchical tag structures for organizing download
+# jobs. Each tag contains levels, which contain entries (URLs) with specific directives.
+#
+# Key structure:
+# - `variables`: Key-value pairs for environment/path overrides.
+# - `tags`: A dictionary of tag groups. Each tag has `levels`.
+# - `levels`: Hierarchical classification within a tag.
+# - `entries`: Download jobs (URLs) associated with a level.
+# - `directives`: Parameters for the download job (e.g., output file, login, lcd path).
+
+{# -------------------------------------------------------------------------- #}
+{# GLOBAL VARIABLES                                                           #}
+{# `variables` is a list of strings like "VARIABLE = /path".                    #}
+{# The schema describes it as a list, so we iterate it directly.                #}
+{# -------------------------------------------------------------------------- #}
+{% for var_def in (variables | default([])) %}
+# Variable definition (e.g., lcd path)
+{{ var_def }}
+{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# TAGS & HIERARCHY                                                           #}
+{# `tags` is a list of tag groups. Each item can be a simple list of levels   #}
+{# OR a mapping with a `levels` key containing a list of level objects.        #}
+{# We handle both structures to be robust against schema variations.           #}
+{# -------------------------------------------------------------------------- #}
+{% for tag_item in (tags | default([])) %}
+
+{# Case A: tag_item is a mapping with a 'levels' key (common nested structure) #}
+{% if tag_item is mapping and 'levels' in tag_item %}
+# Tag Group: {{ tag_item | first }}
+{% for level in tag_item.levels %}
+  {# level is an object with tag, name, print, entries keys #}
+  {# Determine the tag/level name context from level fields or schema defaults #}
+  {{ (level | default({})).tag | default('default_tag') }} {{ (level | default({})).name | default((level | default({})).tag | default('default_tag')) }}
+  {% if (level | default({})).print %}
+  print: {{ (level | default({})).print }}
+  {% endif %}
+  {% for entry in ((level | default({})).entries | default([])) %}
+    {# entry can be a string (url) or a mapping { url: [directives] } #}
+    {% if entry is mapping %}
+      {% for k, v in entry | dict2items %}
+{{ k }}{% for directive in v %} {{ directive }}{% endfor %}
+      {% endfor %}
+    {% else %}
+      {# Simple string URL entry #}
+{{ entry }}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{# Case B: tag_item is a simple string or list item representing a tag name #}
+{% elif tag_item is string %}
+# Tag: {{ tag_item }}
+{% for level in ((tag_item | default([])) | reject('equalto', '')) %}
+  {# If the tag is just a name, we might not have levels in the schema unless
+     `tags` is a list of strings AND `level_item` defines the structure separately.
+     Based on schema: `tags` is list of tag groups. `level_item` is None default.
+     If `tags` contains just names, there are no entries here.
+     We assume if it's a string, it's a tag name, but without levels, it's empty. #}
+{% endfor %}
+
+{# Case C: tag_item is a mapping but not the nested 'levels' structure (e.g. flat) #}
+{% elif tag_item is mapping %}
+# Tag Group: {{ tag_item | first }}
+{% for k, v in tag_item | dict2items %}
+  {# Handle flat key-value tags if any #}
+  {{ k }} {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# DIRECTIVES TEMPLATE (if any standalone directives are needed)               #}
+{# The schema mentions `directive_item` default 'new'.                        #}
+{# This is likely used within entries, handled above.                         #}
+{# -------------------------------------------------------------------------- #}

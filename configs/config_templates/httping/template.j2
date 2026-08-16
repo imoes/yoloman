@@ -1,0 +1,281 @@
+# Configuration for httping monitoring checks
+# This template generates command-line arguments for httping based on monitored targets.
+
+# Base URL or hostname to probe (e.g., http://localhost/ or -h localhost)
+# Corresponds to: -g url or -h hostname
+probe_target: {{ target.url if target.url else 'http://' + target.hostname }}
+
+# Target hostname for -h flag if probe_target is just a path or if -h is preferred
+# Corresponds to: -h hostname
+target_hostname: {{ target.hostname }}
+
+# Port number to probe
+# Corresponds to: -p portnumber
+target_port: {{ target.port }}
+
+# Protocol scheme: http or https
+# Corresponds to: -l (if https) or default
+protocol: {{ target.protocol }}
+
+# Number of probes to send
+# Corresponds to: -c count
+probe_count: {{ settings.count }}
+
+# Interval in seconds between probes
+# Corresponds to: -i interval
+interval: {{ settings.interval }}
+
+# Timeout in seconds for each probe
+# Corresponds to: -t timeout
+timeout: {{ settings.timeout }}
+
+# HTTP path to request (e.g., /health)
+# Corresponds to: -g url (path portion)
+path: {{ target.path }}
+
+# User-Agent string
+# Corresponds to: -I str
+user_agent: {{ settings.user_agent }}
+
+# Referer string
+# Corresponds to: -R str
+referer: {{ settings.referer }}
+
+# Enable SSL connection
+# Corresponds to: -l
+ssl_enabled: {{ settings.ssl_enabled }}
+
+# Enable Nagios plugin mode 1 (warning/critical thresholds)
+# Corresponds to: -n warn,crit
+nagios_mode1_enabled: {{ settings.nagios_mode1_enabled }}
+
+# Warning threshold for average response time (ms) in Nagios mode 1
+# Corresponds to: -n warn,crit (warn part)
+nagios_warn_threshold: {{ settings.nagios_warn_threshold }}
+
+# Critical threshold for average response time (ms) in Nagios mode 1
+# Corresponds to: -n warn,crit (crit part)
+nagios_crit_threshold: {{ settings.nagios_crit_threshold }}
+
+# Enable Nagios plugin mode 2 (exit code on any failure)
+# Corresponds to: -N x
+nagios_mode2_enabled: {{ settings.nagios_mode2_enabled }}
+
+# Exit code for Nagios mode 2 when failure occurs
+# Corresponds to: -N x (value x)
+nagios_mode2_exit_code: {{ settings.nagios_mode2_exit_code }}
+
+# HTTP status codes considered OK in machine readable mode
+# Corresponds to: -o x,x,...
+ok_status_codes: {{ settings.ok_status_codes | join(',') }}
+
+# Enable machine readable output
+# Corresponds to: -m
+machine_readable: {{ settings.machine_readable }}
+
+# Use GET request instead of HEAD
+# Corresponds to: -G
+do_get_request: {{ settings.do_get_request }}
+
+# Limit transferred data size for GET requests
+# Corresponds to: -L x
+transfer_limit: {{ settings.transfer_limit }}
+
+# Proxy host and port
+# Corresponds to: -x proxyhost:port
+proxy_address: {{ settings.proxy_address }}
+
+# Use SOCKS5 proxy
+# Corresponds to: -5
+socks5_proxy: {{ settings.socks5_proxy }}
+
+# Use IPv6 mode
+# Corresponds to: -6
+ipv6_enabled: {{ settings.ipv6_enabled }}
+
+# Enable audible ping
+# Corresponds to: -a
+audible_ping: {{ settings.audible_ping }}
+
+# Show HTTP status code on success
+# Corresponds to: -s
+show_status_code: {{ settings.show_status_code }}
+
+# Display certificate fingerprint in SSL
+# Corresponds to: -z
+show_cert_fingerprint: {{ settings.show_cert_fingerprint }}
+
+# Persistent connection
+# Corresponds to: -Q
+persistent_connection: {{ settings.persistent_connection }}
+
+# Resolve hostname only once
+# Corresponds to: -r
+resolve_once: {{ settings.resolve_once }}
+
+# Split latency times
+# Corresponds to: -S
+split_latency: {{ settings.split_latency }}
+
+# Threshold for red color in graph (if colors enabled)
+# Corresponds to: --threshold-red
+threshold_red: {{ settings.threshold_red }}
+
+# Threshold for yellow color in graph (if colors enabled)
+# Corresponds to: --threshold-yellow
+threshold_yellow: {{ settings.threshold_yellow }}
+
+# Show timestamp before result lines
+# Corresponds to: --timestamp
+show_timestamp: {{ settings.show_timestamp }}
+
+# Show aggregates every x seconds
+# Corresponds to: --aggregates x
+aggregate_interval: {{ settings.aggregate_interval }}
+
+# Slow log threshold (seconds)
+# Corresponds to: --slow-log x
+slow_log_threshold: {{ settings.slow_log_threshold }}
+
+# Authentication username
+# Corresponds to: -U
+auth_username: {{ settings.auth_username }}
+
+# Authentication password (if not using file)
+# Corresponds to: -P
+auth_password: {{ settings.auth_password }}
+
+# File containing password
+# Corresponds to: -T x
+auth_password_file: {{ settings.auth_password_file }}
+
+# Proxy authentication username
+# Corresponds to: --proxy-user
+proxy_auth_username: {{ settings.proxy_auth_username }}
+
+# Proxy authentication password
+# Corresponds to: --proxy-password
+proxy_auth_password: {{ settings.proxy_auth_password }}
+
+# File containing proxy password
+# Corresponds to: --proxy-password-file
+proxy_auth_password_file: {{ settings.proxy_auth_password_file }}
+
+# Receive buffer size in bytes
+# Corresponds to: --recv-buffer x
+recv_buffer_size: {{ settings.recv_buffer_size }}
+
+# Transmit buffer size in bytes
+# Corresponds to: --tx-buffer x
+tx_buffer_size: {{ settings.tx_buffer_size }}
+
+# Maximum MTU
+# Corresponds to: --max-mtu x
+max_mtu: {{ settings.max_mtu }}
+
+# Type of service
+# Corresponds to: --tos x
+tos: {{ settings.tos }}
+
+# Packet priority
+# Corresponds to: --priority x
+priority: {{ settings.priority }}
+
+# TCP Fast Open
+# Corresponds to: -F
+tcp_fast_open: {{ settings.tcp_fast_open }}
+
+# No Nagle algorithm
+# Corresponds to: --no-tcp-nodelay
+no_tcp_nodelay: {{ settings.no_tcp_nodelay }}
+
+# No Host header
+# Corresponds to: --no-host-header
+no_host_header: {{ settings.no_host_header }}
+
+# Keep cookies
+# Corresponds to: --keep-cookies
+keep_cookies: {{ settings.keep_cookies }}
+
+# Divert connect to specific IP/Host
+# Corresponds to: --divert-connect x
+divert_connect: {{ settings.divert_connect }}
+
+# Header to add
+# Corresponds to: --header x
+additional_header: {{ settings.additional_header }}
+
+# Error string for non-OK status
+# Corresponds to: -e str
+error_string: {{ settings.error_string }}
+
+# Quiet mode
+# Corresponds to: -q
+quiet_mode: {{ settings.quiet_mode }}
+
+# Verbosity
+# Corresponds to: -v
+verbose: {{ settings.verbose }}
+
+# Adaptive interval
+# Corresponds to: --adaptive-interval
+adaptive_interval: {{ settings.adaptive_interval }}
+
+# Graph limit
+# Corresponds to: --graph-limit x
+graph_limit: {{ settings.graph_limit }}
+
+# Draw phase
+# Corresponds to: --draw-phase
+draw_phase: {{ settings.draw_phase }}
+
+# Calculate median
+# Corresponds to: --median
+calculate_median: {{ settings.calculate_median }}
+
+# Show amount of data transferred
+# Corresponds to: -X
+show_transfer_size: {{ settings.show_transfer_size }}
+
+# Show transfer speed
+# Corresponds to: -b
+show_transfer_speed: {{ settings.show_transfer_speed }}
+
+# Ask server to compress
+# Corresponds to: -B
+server_compress: {{ settings.server_compress }}
+
+# Flood ping
+# Corresponds to: -f
+flood_ping: {{ settings.flood_ping }}
+
+# Do not abort on resolving failure
+# Corresponds to: -W
+no_abort_on_resolve: {{ settings.no_abort_on_resolve }}
+
+# Abbreviate values
+# Corresponds to: --abbreviate
+abbreviate_values: {{ settings.abbreviate_values }}
+
+# Enable colors
+# Corresponds to: -Y
+enable_colors: {{ settings.enable_colors }}
+
+# Threshold show
+# Corresponds to: --threshold-show x
+threshold_show: {{ settings.threshold_show }}
+
+# Proxy settings from environment
+# Corresponds to: -E
+env_proxy: {{ settings.env_proxy }}
+
+# Host to divert connect (if not using divert_connect string)
+# This is redundant with divert_connect but kept for clarity if needed elsewhere
+# Note: --divert-connect is the primary flag
+
+# Additional options list
+# Corresponds to: any other flags not explicitly covered above
+additional_options: {{ settings.additional_options | join(' ') }}
+
+# Construct the full command
+command: httping {{ '-g ' + target.url if target.url and not target.hostname else '' }} {{ '-h ' + target.hostname if target.hostname else '' }} {{ '-p ' + target.port|string if target.port else '' }} {{ '-l' if ssl_enabled else '' }} {{ '-c ' + probe_count|string if probe_count else '' }} {{ '-i ' + interval|string if interval else '' }} {{ '-t ' + timeout|string if timeout else '' }} {{ '-I ' + user_agent if user_agent else '' }} {{ '-R ' + referer if referer else '' }} {{ '-n ' + nagios_warn_threshold|string + ',' + nagios_crit_threshold|string if nagios_mode1_enabled else '' }} {{ '-N ' + nagios_mode2_exit_code|string if nagios_mode2_enabled else '' }} {{ '-o ' + ok_status_codes if ok_status_codes else '' }} {{ '-m' if machine_readable else '' }} {{ '-G' if do_get_request else '' }} {{ '-L ' + transfer_limit|string if transfer_limit else '' }} {{ '-x ' + proxy_address if proxy_address else '' }} {{ '-5' if socks5_proxy else '' }} {{ '-6' if ipv6_enabled else '' }} {{ '-a' if audible_ping else '' }} {{ '-s' if show_status_code else '' }} {{ '-z' if show_cert_fingerprint else '' }} {{ '-Q' if persistent_connection else '' }} {{ '-r' if resolve_once else '' }} {{ '-S' if split_latency else '' }} {{ '--threshold-red ' + threshold_red|string if threshold_red else '' }} {{ '--threshold-yellow ' + threshold_yellow|string if threshold_yellow else '' }} {{ '--timestamp' if show_timestamp else '' }} {{ '--aggregates ' + aggregate_interval|string if aggregate_interval else '' }} {{ '--slow-log ' + slow_log_threshold|string if slow_log_threshold else '' }} {{ '-U ' + auth_username if auth_username else '' }} {{ '-P ' + auth_password if auth_password else '' }} {{ '-T ' + auth_password_file if auth_password_file else '' }} {{ '--proxy-user ' + proxy_auth_username if proxy_auth_username else '' }} {{ '--proxy-password ' + proxy_auth_password if proxy_auth_password else '' }} {{ '--proxy-password-file ' + proxy_auth_password_file if proxy_auth_password_file else '' }} {{ '--recv-buffer ' + recv_buffer_size|string if recv_buffer_size else '' }} {{ '--tx-buffer ' + tx_buffer_size|string if tx_buffer_size else '' }} {{ '--max-mtu ' + max_mtu|string if max_mtu else '' }} {{ '--tos ' + tos|string if tos else '' }} {{ '--priority ' + priority|string if priority else '' }} {{ '-F' if tcp_fast_open else '' }} {{ '--no-tcp-nodelay' if no_tcp_nodelay else '' }} {{ '--no-host-header' if no_host_header else '' }} {{ '--keep-cookies' if keep_cookies else '' }} {{ '--divert-connect ' + divert_connect if divert_connect else '' }} {{ '--header ' + additional_header if additional_header else '' }} {{ '-e ' + error_string if error_string else '' }} {{ '-q' if quiet_mode else '' }} {{ '-v' if verbose else '' }} {{ '--adaptive-interval' if adaptive_interval else '' }} {{ '--graph-limit ' + graph_limit|string if graph_limit else '' }} {{ '--draw-phase' if draw_phase else '' }} {{ '--median' if calculate_median else '' }} {{ '-X' if show_transfer_size else '' }} {{ '-b' if show_transfer_speed else '' }} {{ '-B' if server_compress else '' }} {{ '-f' if flood_ping else '' }} {{ '-W' if no_abort_on_resolve else '' }} {{ '--abbreviate' if abbreviate_values else '' }} {{ '-Y' if enable_colors else '' }} {{ '--threshold-show ' + threshold_show|string if threshold_show else '' }} {{ '-E' if env_proxy else '' }} {{ additional_options if additional_options else '' }}

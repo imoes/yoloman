@@ -1,0 +1,277 @@
+{# ============================================================================ #}
+{# msort configuration wrapper                                                    #}
+{# This template generates a configuration block that defines the parameters for #}
+{# an msort invocation. It uses KEY: VALUE pairs to map schema fields to msort   #}
+{# command-line flags.                                                            #}
+{#                                                                                #}
+{# Self-documenting: Every variable reference includes its default value from the #}
+{# schema. Every configuration directive is preceded by a comment explaining its  #}
+{# purpose and the corresponding msort flag.                                      #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Input/Output Definitions                                                     #}
+{# ---------------------------------------------------------------------------- #}
+
+# Path to the input file. Uses -1 or --in flag.
+# Default: /dev/stdin
+INPUT_FILE: {{ input_file | default('/dev/stdin') }}
+
+# Path to the output file. Uses -2 or --out flag.
+# Default: /dev/stdout
+OUTPUT_FILE: {{ output_file | default('/dev/stdout') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Record Definition                                                            #}
+{# ---------------------------------------------------------------------------- #}
+
+# Type of record delimitation: line (-l), block (-b), record-separator (-r),
+# or fixed-size-record (-O).
+# Default: line
+RECORD_TYPE: {{ record_type | default('line') }}
+
+{# If record_type is 'record-separator', define the character separating records. #}
+{# Used with -r flag.                                                           #}
+{% if (record_type | default('line')) == 'record-separator' %}
+# Record separator character for -r option.
+# Default: \n
+RECORD_SEPARATOR: "{{ record_separator | default('\n') }}"
+{% endif %}
+
+{# If record_type is 'fixed-size-record', define the size in bytes. #}
+{# Used with -O flag.                                                            #}
+{% if (record_type | default('line')) == 'fixed-size-record' %}
+# Fixed record size in bytes for -O option.
+# Default: 0
+RECORD_SIZE: {{ record_size | default(0) }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Field Separators                                                             #}
+{# ---------------------------------------------------------------------------- #}
+
+# Character(s) delimiting fields. Used with -d flag.
+# Used only if keys rely on fields.
+# Default: ,
+FIELD_SEPARATORS: "{{ field_separators | default(',') }}"
+
+{# ---------------------------------------------------------------------------- #}
+{# Sort Keys                                                                    #}
+{# ---------------------------------------------------------------------------- #}
+
+# List of sort key configurations. Each item is a map of key-specific options.
+# Each key defines a sorting criterion with various modifiers (case folding,
+# numeric sort, date format, etc.).
+KEYS:
+{% for key in keys | default([]) | list %}
+  # ======================================================================== #
+  # Key {{ loop.index }} Configuration                                         #
+  # ======================================================================== #
+
+  {# Description of this specific key #}
+  # Description of this key's purpose or comment.
+  # Default: (empty)
+  {% if key.description is defined %}
+  # DESCRIPTION: {{ key.description | default('') }}
+  {% endif %}
+
+  {# Position: Field character/number to sort on #}
+  # Position (field char) for this sort key.
+  # Default: (empty)
+  {% if key.position is defined %}
+  # POSITION: {{ key.position | default('') }}
+  {% endif %}
+
+  {# Comparison Type: l (locale), d (dictionary), n (numeric), etc. #}
+  # Comparison type for this key. Default is usually 'l' (locale).
+  # Default: l
+  {% if key.comparison_type is defined %}
+  # COMPARISON_TYPE: {{ key.comparison_type | default('l') }}
+  {% endif %}
+
+  {# Flag: -C (Case Fold) #}
+  # If true, ignores case during comparison. Maps to -C flag.
+  {% if key.case_fold | default(false) %}
+  -C
+  {% endif %}
+
+  {# Flag: -z (Case Fold Turkic) #}
+  # If true, handles Turkish i/I special case. Maps to -z flag.
+  {% if key.case_fold_turkic | default(false) %}
+  -z
+  {% endif %}
+
+  {# Flag: -i (Invert Locally) #}
+  # If true, inverts sense of comparisons for this key only. Maps to -i flag.
+  {% if key.invert_locally | default(false) %}
+  -i
+  {% endif %}
+
+  {# Flag: -R (Reverse Key) #}
+  # If true, reverses the order of this key. Maps to -R flag.
+  {% if key.reverse_key | default(false) %}
+  -R
+  {% endif %}
+
+  {# Flag: -A (First Character Only) #}
+  # If true, only uses the first character of the field for comparison.
+  # Maps to -A flag.
+  {% if key.first_character_only | default(false) %}
+  -A
+  {% endif %}
+
+  {# Flag: -o (Optional Comparison) #}
+  # Specifies optional comparison details.
+  # Maps to -o flag.
+  {% if key.optional_comparison is defined %}
+  -o {{ key.optional_comparison }}
+  {% endif %}
+
+  {# Flag: -y (Number System) #}
+  # Specifies the number system (e.g., hex, binary).
+  # Maps to -y flag.
+  {% if key.number_system is defined %}
+  -y {{ key.number_system }}
+  {% endif %}
+
+  {# Flag: -f (Date Format) #}
+  # Specifies the date format string for date sorting.
+  # Maps to -f flag.
+  {% if key.date_format is defined %}
+  -f "{{ key.date_format }}"
+  {% endif %}
+
+  {# Flag: -s (Sort Order) #}
+  # Specifies a custom sort order string.
+  # Maps to -s flag.
+  {% if key.sort_order is defined %}
+  -s "{{ key.sort_order }}"
+  {% endif %}
+
+  {# Flag: -t (Tag) #}
+  # Assigns a tag to this key for identification.
+  # Maps to -t flag.
+  {% if key.tag is defined %}
+  -t "{{ key.tag }}"
+  {% endif %}
+
+  {# Flag: -e (Character Range) #}
+  # Defines a character range for selection.
+  # Maps to -e flag.
+  {% if key.character_range is defined %}
+  -e "{{ key.character_range }}"
+  {% endif %}
+
+  {# Flag: -T (Transformations) #}
+  # Specifies transformations to apply to fields.
+  # Maps to -T flag.
+  {% if key.transformations is defined %}
+  -T "{{ key.transformations }}"
+  {% endif %}
+
+  {# Flag: -S (Substitutions) #}
+  # Specifies substitution pairs.
+  # Maps to -S flag.
+  {% if key.substitutions is defined %}
+  -S "{{ key.substitutions }}"
+  {% endif %}
+
+  {# Flag: -W (Sort Order File Separators) #}
+  # Specifies separators for sort order files.
+  # Maps to -W flag.
+  {% if key.sort_order_file_separators is defined %}
+  -W "{{ key.sort_order_file_separators }}"
+  {% endif %}
+
+  {# Flag: -x (Exclusion File) #}
+  # Path to a file containing characters/lines to exclude.
+  # Maps to -x flag.
+  {% if key.exclusion_file is defined %}
+  -x "{{ key.exclusion_file }}"
+  {% endif %}
+
+  {# Flag: -X (Exclude Characters) #}
+  # List of characters to exclude from the field.
+  # Maps to -X flag.
+  {% if key.exclude_characters is defined %}
+  -X "{{ key.exclude_characters }}"
+  {% endif %}
+
+  # Command snippet for key {{ loop.index }} assembled above.
+{% endfor %}
+
+{# ---------------------------------------------------------------------------- #}
+{# General Options                                                              #}
+{# ---------------------------------------------------------------------------- #}
+
+# Algorithm to use for sorting.
+# Options: i (InsertionSort), m (MergeSort), q (QuickSort), s (ShellSort).
+# Maps to -a flag.
+# Default: q
+ALGORITHM: "{{ algorithm | default('q') }}"
+
+# Unicode normalization mode.
+# Options: c (NFC), d (NFD), C (NFKC), D (NFKD), n (no normalization).
+# Maps to -u flag.
+# Default: c
+UNICODE_NORMALIZATION: "{{ unicode_normalization | default('c') }}"
+
+# Invert sense of comparisons globally.
+# Maps to -I flag.
+# Default: false
+INVERT_GLOBALLY: {{ invert_globally | default(false) }}
+
+# Copy first record to output without sorting.
+# Maps to -Z flag.
+# Default: false
+SKIP_FIRST_RECORD: {{ skip_first_record | default(false) }}
+
+# Be quiet. Suppresses most output.
+# Maps to -q flag.
+# Default: false
+QUIET: {{ quiet | default(false) }}
+
+# Suppress output to log.
+# Maps to -j flag.
+# Default: false
+SUPPRESS_LOG: {{ suppress_log | default(false) }}
+
+# Seed for random number generator (for random sort keys).
+# 0 means time-based.
+# Maps to -P flag.
+# Default: 0
+RANDOM_SEED: {{ random_seed | default(0) }}
+
+# Check if input is already sorted without producing output.
+# Maps to -Q flag.
+# Default: false
+CHECK_ONLY: {{ check_only | default(false) }}
+
+# Use Carriage Return as line ending.
+# Maps to -m flag.
+# Default: false
+USE_CR: {{ use_cr | default(false) }}
+
+# Restrict to Basic Multilingual Plane (no chars > 0xFFFF).
+# Maps to -B flag.
+# Default: false
+BMP_ONLY: {{ bmp_only | default(false) }}
+
+# Do not use Private Use areas internally.
+# Maps to -p flag.
+# Default: false
+RESERVE_PRIVATE_USE_AREA: {{ reserve_private_use_area | default(false) }}
+
+# Initial maximum number of records for memory allocation.
+# Maps to -M flag.
+# Default: 0
+INITIAL_MAX_RECORDS: {{ initial_max_records | default(0) }}
+
+{# Final command construction note: #}
+{# The parameters above define the configuration. To execute msort, assemble #}
+{# these into a command line: #}
+{# msort [general_opts] [key_opts_per_key] <input> <output> #}
+{# #}
+{# Example: #}
+{# msort -a q -c c -q -1 /dev/stdin -2 /dev/stdout #}
+{# ============================================================================ #}

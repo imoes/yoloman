@@ -1,0 +1,65 @@
+# snid configuration file
+# --- Global Settings ---
+
+# Mode of operation: unix, tcp, or nat46
+# Supported modes determine which additional configuration blocks are required.
+mode: {{ mode | default('tcp') }}
+
+# --- Listener Configuration ---
+
+# Socket(s) to listen on (repeatable). Example: "0.0.0.0:443", "/var/run/snids.sock"
+# This defines the entry points for incoming client connections.
+{% for listen_addr in listen | default([]) %}
+# Socket to listen on: {{ listen_addr }}
+listen: {{ listen_addr }}
+{% endfor %}
+
+# --- Backend Configuration ---
+
+# CIDR of allowed backends (repeatable). Required in tcp/nat46 modes.
+# Only backends with addresses falling within these subnets will be accepted.
+{% for cidr in backend_cidr | default(['10.0.0.0/8']) %}
+# Allowed backend CIDR block: {{ cidr }}
+backend-cidr: {{ cidr }}
+{% endfor %}
+
+# Port number of backend (defaults to same port as listener if omitted)
+# If not specified, snid infers the backend port from the listener port.
+{% set bp = backend_port | default(None) %}
+{% if bp is not none %}
+# Backend port number (inherited from listener if omitted)
+backend-port: {{ bp }}
+{% endif %}
+
+# Default hostname if client does not provide SNI
+# Used when the client TLS handshake lacks an SNI extension.
+{% set dh = default_hostname | default(None) %}
+{% if dh is not none %}
+# Default SNI hostname for clients providing none
+default-hostname: {{ dh }}
+{% endif %}
+
+# Use PROXY protocol when talking to backend (tcp, unix modes)
+# If enabled, snid sends the PROXY header to the backend.
+{% if proxy_proto | default(false) | bool %}
+# Enable PROXY protocol support for backend communication
+proxy-proto
+{% endif %}
+
+# --- Mode-Specific Settings ---
+
+# Path to directory containing backend UNIX sockets (unix mode)
+# Required when mode is 'unix'. Points to the filesystem directory.
+{% set ud = unix_directory | default(None) %}
+{% if ud is not none %}
+# Directory containing backend UNIX sockets (required in unix mode)
+unix-directory: {{ ud }}
+{% endif %}
+
+# IPv6 prefix for NAT46 source address (nat46 mode)
+# Used to translate IPv4 client addresses into IPv6 for backends in nat46 mode.
+{% set np = nat46_prefix | default(None) %}
+{% if np is not none %}
+# IPv6 prefix for NAT46 source address translation
+nat46-prefix: {{ np }}
+{% endif %}

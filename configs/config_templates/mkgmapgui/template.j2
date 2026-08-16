@@ -1,0 +1,40 @@
+# =============================================================================
+# mkgmapgui configuration template
+# =============================================================================
+# This file configures the mkgmapgui wrapper/service. It defines where the
+# mkgmap binary lives, where OSM data is read from, where Garmin .img files
+# are written, and optional tuning arguments.
+# =============================================================================
+
+# Absolute path to the mkgmap binary.
+# Default: /usr/bin/mkgmap
+mkgmap_path: {{ mkgmap_path | default('/usr/bin/mkgmap') }}
+
+# Directory where source OpenStreetMap data files (.osm, .pbf) are stored.
+# Default: /home/user/osm_maps
+input_dir: {{ input_dir | default('/home/user/osm_maps') }}
+
+# Directory where generated Garmin .img files will be saved.
+# Default: /home/user/garmin_maps
+output_dir: {{ output_dir | default('/home/user/garmin_maps') }}
+
+# Path to the mkgmap style directory.
+# Leave empty ('') if using defaults or specifying style via args.
+# Default: '' (empty string)
+map_style: {{ map_style | default('') }}
+
+# Additional command-line arguments to pass to mkgmap.
+# Provided as a list in the schema; rendered here as YAML list items.
+# Default: [] (empty list)
+mkgmap_args:
+{%- if mkgmap_args | default([]) | length > 0 %}
+{%- for arg in mkgmap_args | default([]) %}
+  - {{ arg }}
+{%- endfor %}
+{%- else %}
+  []
+{%- endif %}
+
+# If true, enables verbose output from mkgmap.
+# Default: False
+verbose: {{ verbose | default(False) | lower }}

@@ -1,0 +1,46 @@
+# /etc/logrotate.d/suck
+# Log rotation configuration for the 'suck' package (Usenet news reader).
+# This file defines how suck's log files are rotated, compressed, and archived.
+
+# Pattern: All log files under the designated log directory ending in 'log'.
+# `log_directory`: The subdirectory name within /var/log for suck log files.
+# `log_rotate_count`: Number of rotated log files to keep.
+# `log_user` / `log_group`: User and group to switch to for log rotation.
+/var/log/suck/{{ log_directory | default('log') }}/*log {
+    # Number of rotated log files to keep.
+    rotate {{ log_rotate_count | default(2) }}
+
+    # Rotate logs weekly.
+    weekly
+
+    # Compress rotated log files to save space.
+    compress
+
+    # Do not error if the log file is missing.
+    missingok
+
+    # Switch to this user/group for rotation operations.
+    su {{ log_user | default('news') }} {{ log_group | default('news') }}
+}
+
+# Specific log file: suck error logs.
+# `log_rotate_count`: Number of rotated log files to keep.
+# `log_user` / `log_group`: User and group to switch to for log rotation.
+/var/log/suck/suck-err {
+    rotate {{ log_rotate_count | default(2) }}
+    weekly
+    compress
+    missingok
+    su {{ log_user | default('news') }} {{ log_group | default('news') }}
+}
+
+# Specific log file: suck status logs.
+# `log_rotate_count`: Number of rotated log files to keep.
+# `log_user` / `log_group`: User and group to switch to for log rotation.
+/var/log/suck/suck-status {
+    rotate {{ log_rotate_count | default(2) }}
+    weekly
+    compress
+    missingok
+    su {{ log_user | default('news') }} {{ log_group | default('news') }}
+}

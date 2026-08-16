@@ -1,0 +1,149 @@
+# =============================================================================
+# SA-Exim Configuration Template
+# =============================================================================
+# This file configures SA-Exim, which integrates SpamAssassin into Exim's
+# local_scan interface. It handles scanning, greylisting, and saving of
+# messages based on spam scores and conditions.
+# =============================================================================
+
+# Enable basic verbose output by default. Watch your logs!
+SAEximDebug: {{ SAEximDebug | default(1) }}
+
+# Default path is /usr/bin/spamc, but you can change it here
+SAspamcpath: {{ SAspamcpath | default('/usr/bin/spamc') }}
+
+# Exim configuration string to run before running SA against the message
+# This decides whether SA gets run against the message or not.
+SAEximRunCond: {{ SAEximRunCond | default('${if and {{def:sender_host_address} {!eq {$sender_host_address}{127.0.0.1}} {!eq {$sender_host_address}{::1}}}}') }}
+
+#----------------------------------------------------------------------
+# Remove or comment out the following line to enable sa-exim
+# Default: 0 (disabled unless overridden by SAEximRunCond)
+SAEximRunCond: {{ SAEximRunCondOverride | default(0) }}
+#----------------------------------------------------------------------
+
+# How much of the body we feed to spamassassin (in bytes)
+# Default is 250KB
+SAmaxbody: {{ SAmaxbody | default(256000) }}
+
+# Do you want to feed SAmaxbody's worth of the message body if it is too big?
+# Either, you skip messages that are too big and not scan them, or you can
+# truncate the body and feed that to SA.
+# Default is 0: do not scan messages that are too big
+SATruncBodyCond: {{ SATruncBodyCond | default(0) }}
+
+# If you want SA to report_safe you need sa-exim to rewrite the body of
+# the message since SA encapsulates the spam as a mime attachment.
+SARewriteBody: {{ SARewriteBody | default(0) }}
+
+# Prepend saved messages with an fake From-header to make the file look like a
+# valid mbox file
+SAPrependArchiveWithFrom: {{ SAPrependArchiveWithFrom | default(1) }}
+
+# If you are archiving messages that are rejected, how much do you want
+# to archive? Default is 20MB.
+SAmaxarchivebody: {{ SAmaxarchivebody | default(20971520) }}
+
+# On errors, if you are saving messages, you probably want the entire message
+# Default size saved (if you are saving errors) is 1GB
+SAerrmaxarchivebody: {{ SAerrmaxarchivebody | default(1073741824) }}
+
+# You can have SA-Exim add a X-SA-Exim-Rcpt-To header, which will list all
+# the recipients for the Email, unless the list gets bigger than
+# SAmaxrcptlistlength bytes.
+# The default value of 0 disables the header for privacy reasons
+SAmaxrcptlistlength: {{ SAmaxrcptlistlength | default(0) }}
+
+# Add X-SA-Exim-Rcpt-To and X-SA-Exim-Mail-From headers before SA scans
+# the message.
+SAaddSAEheaderBeforeSA: {{ SAaddSAEheaderBeforeSA | default(1) }}
+
+# Directory to save mails that were accepted because spamc timed out.
+SAtimeoutsave: {{ SAtimeoutsave | default('/var/spool/sa-exim/SAtimeoutsave') }}
+
+# Condition to optionally save or not save messages that matched the timeout rule.
+SAtimeoutSavCond: {{ SAtimeoutSavCond | default(1) }}
+
+# Directory for local_scan to save messages that created an error.
+SAerrorsave: {{ SAerrorsave | default('/var/spool/sa-exim/SAerrorsave') }}
+
+# Condition to optionally save or not save messages that matched the error rule.
+SAerrorSavCond: {{ SAerrorSavCond | default(1) }}
+
+# If set to 1, SA will temporarily reject messages that generated an error
+# while they were processed. Otherwise, messages are just accepted.
+SAtemprejectonerror: {{ SAtemprejectonerror | default(0) }}
+
+# How long do you want to stall the sender (in seconds).
+SAteergrubetime: {{ SAteergrubetime | default(900) }}
+
+# Condition to optionally save or not save messages that matched the teergrube rule.
+SAteergrubeSavCond: {{ SAteergrubeSavCond | default(1) }}
+
+# Directory to save mails that you stalled for later analysis.
+SAteergrubesave: {{ SAteergrubesave | default('/var/spool/sa-exim/SAteergrube') }}
+
+# When you stall the sender, by default we'll only save messages by message ID
+# so that we don't save multiple copies every time the sender tries again.
+SAteergrubeoverwrite: {{ SAteergrubeoverwrite | default(1) }}
+
+# Condition to optionally save or not save messages that matched the devnull rule.
+SAdevnullSavCond: {{ SAdevnullSavCond | default(1) }}
+
+# Directory to save mails that are tossed (devnull).
+SAdevnullsave: {{ SAdevnullsave | default('/var/spool/sa-exim/SAdevnull') }}
+
+# SA score when you start rejecting Emails.
+# This is better than the above as it can notify the sender in case you reject non-spam by mistake.
+SApermreject: {{ SApermreject | default('12.0') }}
+
+# Condition to optionally save or not save messages that matched the permreject rule.
+SApermrejectSavCond: {{ SApermrejectSavCond | default(1) }}
+
+# Directory to save mails that are rejected.
+SApermrejectsave: {{ SApermrejectsave | default('/var/spool/sa-exim/SApermreject') }}
+
+# Condition to optionally save or not save messages that matched the tempreject rule.
+SAtemprejectSavCond: {{ SAtemprejectSavCond | default(1) }}
+
+# Directory to save mails that are temporarily rejected.
+SAtemprejectsave: {{ SAtemprejectsave | default('/var/spool/sa-exim/SAtempreject') }}
+
+# When you send back a temp reject code, by default we'll only save messages by message ID
+# so that we don't save multiple copies every time the sender tries again.
+SAtemprejectoverwrite: {{ SAtemprejectoverwrite | default(1) }}
+
+# The string that SpamAssassin adds if the message is whitelisted.
+SAgreylistiswhitestr: {{ SAgreylistiswhitestr | default('GREYLIST_ISWHITE') }}
+
+# By how much do we temporarly raise tempreject to allow a mail in when it
+# would otherwise have been temp rejected.
+SAgreylistraisetempreject: {{ SAgreylistraisetempreject | default('3.0') }}
+
+# Directory to save mails that are flagged as spam by SA, but not rejected by
+# any of the above thresholds.
+SAspamacceptsave: {{ SAspamacceptsave | default('/var/spool/sa-exim/SAspamaccept') }}
+
+# Condition to control which messages you want saved if you only want a subset of spam accepted.
+SAspamacceptSavCond: {{ SAspamacceptSavCond | default(0) }}
+
+# Directory to save mails that are not flagged as spam by SA.
+SAnotspamsave: {{ SAnotspamsave | default('/var/spool/sa-exim/SAnotspam') }}
+
+# Condition to control which messages you want saved if you only want a subset of non-spam.
+SAnotspamSavCond: {{ SAnotspamSavCond | default(0) }}
+
+# Message string for teergrube wait.
+SAmsgteergrubewait: {{ SAmsgteergrubewait | default('Wait for more output') }}
+
+# Message string for teergrube rejection.
+SAmsgteergruberej: {{ SAmsgteergruberej | default('Please try again later') }}
+
+# Message string for permanent rejection.
+SAmsgpermrej: {{ SAmsgpermrej | default('Rejected') }}
+
+# Message string for temporary rejection.
+SAmsgtemprej: {{ SAmsgtemprej | default('Please try again later') }}
+
+# Static string for error message.
+SAmsgerror: {{ SAmsgerror | default('Temporary local error while processing message, please contact postmaster.') }}

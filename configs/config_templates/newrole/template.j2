@@ -1,0 +1,23 @@
+# PAM configuration for the 'newrole' command.
+# This configuration defines how the PAM stack handles authentication, account management,
+# and session setup for users executing the newrole utility.
+
+# Include common authentication modules (e.g., pam_unix, pam_sss, pam_ldap).
+# This line allows the system-wide authentication policy to apply.
+@include common-auth
+
+# Include common account management modules.
+# This checks if the user account is valid (e.g., not expired, not locked).
+@include common-account
+
+# Include common session setup modules.
+# This handles tasks like mounting home directories or setting limits.
+@include common-session
+
+# Configure the PAM namespace module for session handling.
+# This ensures that if a namespace is mounted, it is unmounted when the session closes.
+# Parameters:
+# - unmnt_remnt: Unmount and remount namespaces if needed during cleanup.
+# - no_unmount_on_close: Do NOT automatically unmount on close (if needed, but here we likely want cleanup).
+# Note: The specific behavior depends on the PAM stack and system namespaces support.
+session  required pam_namespace.so unmnt_remnt no_unmount_on_close

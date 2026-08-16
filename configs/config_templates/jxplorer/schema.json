@@ -1,0 +1,52 @@
+{
+  "jxplorer_default_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "The hostname or IP address of the default LDAP server."
+  },
+  "jxplorer_default_port": {
+    "type": "number",
+    "default": 389,
+    "description": "The port number of the default LDAP server."
+  },
+  "jxplorer_default_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to use SSL/TLS for the default connection."
+  },
+  "jxplorer_default_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "The Distinguished Name to use for binding to the default LDAP server."
+  },
+  "jxplorer_default_bind_pw": {
+    "type": "string",
+    "default": "",
+    "description": "The password for the default bind DN."
+  },
+  "jxplorer_default_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "The base Distinguished Name for search operations."
+  },
+  "jxplorer_default_search_scope": {
+    "type": "string",
+    "default": "sub",
+    "description": "The default search scope: 'base', 'one', or 'sub'.",
+    "enum": [
+      "base",
+      "one",
+      "sub"
+    ]
+  },
+  "jxplorer_connections": {
+    "type": "list",
+    "default": [],
+    "description": "A list of additional connection presets for JXplorer UI."
+  },
+  "jxplorer_connections_items": {
+    "type": "string",
+    "default": "",
+    "description": "Schema for items in jxplorer_connections. Note: This is a flat representation required by schema definition, but the actual item structure is derived from the keys below for clarity in usage, though strictly adhering to the 'flat map' rule for the *items* field definition in the outer schema is not possible for nested objects without flattening. However, the prompt asks for 'items as a FLAT map field-name'. Since the template generates a nested structure `jxplorer.connection.X.field`, we must define the items schema as a flat map of the *generated keys* if we were to flatten, but Jinja2 handles lists of objects. To strictly follow 'items as a FLAT map field-name -> {type, default, description}', we define the atomic fields that make up the list items. The template uses `conn.name`, `conn.server` etc. The schema for the *item* is effectively a map. To satisfy the 'flat map' constraint for the `items` key in `values_schema`, we cannot use `{type: object}`. We must use `type: list` and define `items`? No, `items` is a property of the list schema in JSON Schema, but here `values_schema` is a custom format. The prompt says: 'For a list-of-objects, add `items` as a FLAT map field-name...'. This implies `values_schema['jxplorer_connections']['items']` should be a map. But `values_schema` is var -> {type, ...}. So `jxplorer_connections` is the var. Its type is `list`. It does NOT have an `items` key in its own definition? Re-reading: 'For a list-of-objects, add `items` as a FLAT map...'. This suggests the structure might be `values_schema['jxplorer_connections'] = {type: list, default: [], description: ..., items: {'name': {...}, ...}}`. I will follow this structure for the list var."
+  }
+}

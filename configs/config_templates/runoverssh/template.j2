@@ -1,0 +1,97 @@
+# ==============================================================================
+# Configuration template for runoverssh
+#
+# This tool executes commands on multiple remote hosts via SSH.
+# It supports batch execution, scripting, and various SSH customization options.
+# ==============================================================================
+
+# --- Global Options ---
+
+# Prompt a global password for all connections (-g)
+# If True, the tool will prompt once for a password to use for all specified hosts.
+{%- if globalpw | default(False) %}
+-g
+{%- endif %}
+
+# --- Script & Args ---
+
+# Read commands from a script file (-s), disables default COMMAND
+# If a script file is provided, the 'command' and 'hosts' arguments are ignored
+# in favor of reading from this file and the hostsfile.
+{%- if script_file | default('') %}
+-s {{ script_file | default('') | quote }}
+{%- endif %}
+
+# Read the list of hosts from a file (-r), disables default HOSTS
+# If a hosts file is provided, the 'hosts' list is ignored.
+{%- if hostsfile | default('') %}
+-r {{ hostsfile | default('') | quote }}
+{%- endif %}
+
+# Arguments to be passed to the script file (-a)
+# These arguments are passed to the remote script specified by script_file.
+{%- if args | default('') %}
+-a {{ args | default('') | quote }}
+{%- endif %}
+
+# --- Verbosity & Output ---
+
+# Disable all screen output, except for password prompts (-q)
+# If True, suppresses normal progress output.
+{%- if quiet | default(False) %}
+-q
+{%- endif %}
+
+# Print verbose messages (-v)
+# If True, enables verbose logging/debugging output.
+{%- if verbose | default(False) %}
+-v
+{%- endif %}
+
+# --- SSH & Shell Configuration ---
+
+# Remote shell to be used. Supported values: sh, bash.
+# Determines the shell environment on the remote hosts for command execution.
+--shell {{ shell | default('bash') }}
+
+# Remote shell flags.
+# Additional flags passed to the remote shell invocation.
+{%- if shellflags | default('') %}
+--shellflags {{ shellflags | default('') | quote }}
+{%- endif %}
+
+# Local SSH flags.
+# Default flags enforce a short connect timeout, disable strict host key checking,
+# and ignore known hosts to facilitate automated, non-interactive runs.
+--sshflags "{{ sshflags | default('-o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null') }}"
+
+# Log file to append SSH output to (--logfile)
+# If specified, SSH stdout/stderr is appended to this file.
+{%- if logfile | default('') %}
+--logfile {{ logfile | default('') | quote }}
+{%- endif %}
+
+# --- Execution Context ---
+
+# Username for SSH connection
+# The user account to use for SSH authentication on remote hosts.
+{{ username | default('admin') }}
+
+# Command to execute on remote hosts
+# The command to run on each host. Disabled if script_file is set.
+{%- if script_file | default('') %}
+{# Command is disabled when using a script file #}
+{%- else %}
+{{ command | default('uptime') }}
+{%- endif %}
+
+# List of target hosts
+# The list of remote hosts to execute against. Disabled if hostsfile is set.
+# Each item is a string hostname or IP address.
+{%- if hostsfile | default('') %}
+{# Hosts are read from the hostsfile #}
+{%- else %}
+{%- for host in hosts | default(['localhost']) %}
+{{ host }}
+{%- endfor %}
+{%- endif %}

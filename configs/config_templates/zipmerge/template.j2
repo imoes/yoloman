@@ -1,0 +1,57 @@
+# =============================================================================
+# zipmerge Configuration Template
+# =============================================================================
+# This template generates a configuration file for the `zipmerge` utility.
+# `zipmerge` is a tool used to merge multiple ZIP archives into a single target archive.
+# All variables are sourced from Ansible host/group variables or defaults defined herein.
+# =============================================================================
+
+# [target_zip]
+# Path to the target zip archive that will receive the merged content.
+# If the target file exists, it will be overwritten unless other options prevent it.
+# Default: /var/lib/zipmerge/merged.zip
+target_zip: {{ target_zip | default('/var/lib/zipmerge/merged.zip') }}
+
+# [sources]
+# List of source zip archive paths to merge into the target archive.
+# Multiple sources can be specified as a list; they will be joined by commas
+# in the rendered configuration (assuming the config format accepts comma-separated lists).
+# Default: ['/var/lib/zipmerge/source.zip']
+sources: {{ sources | default(['/var/lib/zipmerge/source.zip']) | join(', ') }}
+
+# [ignore_directories]
+# If true, passes -D to zipmerge to ignore directory components in file name comparisons.
+# This allows merging files from different directory structures within the ZIPs based solely on filename.
+# Default: False
+ignore_directories: {{ ignore_directories | default(false) | ternary('yes', 'no') }}
+
+# [ignore_case]
+# If true, passes -I to zipmerge to ignore case in file name comparisons.
+# Useful when merging archives created on case-insensitive file systems (e.g., Windows/DOS).
+# Default: False
+ignore_case: {{ ignore_case | default(false) | ternary('yes', 'no') }}
+
+# [ask_before_overwrite]
+# If true, passes -i to zipmerge to ask before overwriting files.
+# In non-interactive contexts (automation), this usually results in a prompt hanging or a default 'no'.
+# Ensure your execution environment handles this or sets this to false.
+# Default: False
+ask_before_overwrite: {{ ask_before_overwrite | default(false) | ternary('yes', 'no') }}
+
+# [keep_uncompressed]
+# If true, passes -k to zipmerge to do not compress files that were uncompressed in source-zip.
+# Preserves the compression state of entries from the source archives.
+# Default: False
+keep_uncompressed: {{ keep_uncompressed | default(false) | ternary('yes', 'no') }}
+
+# [skip_identical]
+# If true, passes -S to zipmerge to do not overwrite files that have the same name, size, and CRC32.
+# Prevents redundant writes for files that are already present and identical.
+# Default: False
+skip_identical: {{ skip_identical | default(false) | ternary('yes', 'no') }}
+
+# [skip_identical_quiet]
+# If true, passes -s to zipmerge to not ask before overwriting files that have the same name, size, and CRC32 when -i is given.
+# This silences the prompt for identical files even if interactive mode (-i) is enabled.
+# Default: False
+skip_identical_quiet: {{ skip_identical_quiet | default(false) | ternary('yes', 'no') }}

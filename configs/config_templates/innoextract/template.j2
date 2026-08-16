@@ -1,0 +1,183 @@
+#!/bin/sh
+# innoextract wrapper script to apply configuration settings
+# This script generates the command line for innoextract based on the provided configuration.
+
+set -e
+
+ACTION="${ACTION:-extract}"
+
+# Construct the base command
+CMD="innoextract"
+
+{% if action == 'list' %}
+# Action: List files contained in the installer
+CMD="${CMD} --list"
+{% elif action == 'test' %}
+# Action: Test archive integrity but don't write output files
+CMD="${CMD} --test"
+{% elif action == 'extract' %}
+# Action: Extract all files to the output directory (default)
+CMD="${CMD} --extract"
+{% endif %}
+
+{% if quiet %}
+# Display option: Output less information
+CMD="${CMD} --quiet"
+{% endif %}
+
+{% if silent %}
+# Display option: Output only error/warning information (machine-readable)
+CMD="${CMD} --silent"
+{% endif %}
+
+{% if color_enabled %}
+# Display option: Enable color output
+CMD="${CMD} --color=true"
+{% elif color_disabled %}
+# Display option: Disable color output
+CMD="${CMD} --color=false"
+{% endif %}
+
+{% if progress_enabled %}
+# Display option: Enable progress bar output
+CMD="${CMD} --progress=true"
+{% elif progress_disabled %}
+# Display option: Disable progress bar output
+CMD="${CMD} --progress=false"
+{% endif %}
+
+{% if lowercase_filenames %}
+# Modifier: Convert extracted filenames to lower-case
+CMD="${CMD} --lowercase"
+{% endif %}
+
+{% if codepage is not none %}
+# Modifier: Specify encoding for ANSI strings (Windows codepage number)
+CMD="${CMD} --codepage {{ codepage }}"
+{% endif %}
+
+{% if collisions_action != 'overwrite' %}
+# Modifier: How to handle duplicate files (overwrite, rename, rename-all, error)
+CMD="${CMD} --collisions {{ collisions_action }}"
+{% endif %}
+
+{% if default_language is not none %}
+# Modifier: Set the default language for renaming/collision resolution
+CMD="${CMD} --default-language {{ default_language }}"
+{% endif %}
+
+{% if output_dir is not none %}
+# Modifier: Extract files into the given directory
+CMD="${CMD} --output-dir {{ output_dir }}"
+{% endif %}
+
+{% if password is not none %}
+# Modifier: Specify the password for encrypted files
+CMD="${CMD} --password '{{ password }}'"
+{% elif password_file is not none %}
+# Modifier: Load a password from the specified file
+CMD="${CMD} --password-file {{ password_file }}"
+{% endif %}
+
+{% if check_password %}
+# Modifier: Abort if the password provided does not match the checksum
+CMD="${CMD} --check-password"
+{% endif %}
+
+{% if timestamps == 'none' %}
+# Modifier: Don't preserve file times for extracted files
+CMD="${CMD} --timestamps none"
+{% elif timestamps == 'local' %}
+# Modifier: Use the system timezone for 'local' timestamps
+CMD="${CMD} --timestamps local"
+{% elif timestamps is not none %}
+# Modifier: Specify timezone for file times (e.g., UTC, CET, GMT+1)
+CMD="${CMD} --timestamps {{ timestamps }}"
+{% endif %}
+
+{% if gog %}
+# Modifier: Try to process additional .bin files (GOG.com installers)
+CMD="${CMD} --gog"
+{% endif %}
+
+{% if no_gog_galaxy %}
+# Modifier: Don't re-assemble GOG Galaxy file parts
+CMD="${CMD} --no-gog-galaxy"
+{% endif %}
+
+{% if no_extract_unknown %}
+# Modifier: Abort if the Inno Setup data version is unknown
+CMD="${CMD} --no-extract-unknown"
+{% endif %}
+
+{% if exclude_temp %}
+# Filter: Don't extract temporary files
+CMD="${CMD} --exclude-temp"
+{% endif %}
+
+{% if language is not none %}
+# Filter: Extract only files for the given language
+CMD="${CMD} --language {{ language }}"
+{% endif %}
+
+{% if language_only %}
+# Filter: Only extract language-specific files
+CMD="${CMD} --language-only"
+{% endif %}
+
+{% if include_patterns is defined %}
+{% for pattern in include_patterns %}
+# Filter: Extract only files that match this path pattern
+CMD="${CMD} --include '{{ pattern }}'"
+{% endfor %}
+{% endif %}
+
+{% if dump %}
+# Modifier: Don't convert Windows paths to UNIX paths or substitute constants
+CMD="${CMD} --dump"
+{% endif %}
+
+{% if show_password %}
+# Display option: Show password check information
+CMD="${CMD} --show-password"
+{% endif %}
+
+{% if list_checksums %}
+# Display option: List file checksums
+CMD="${CMD} --list-checksums"
+{% endif %}
+
+{% if list_sizes %}
+# Display option: List uncompressed sizes for files
+CMD="${CMD} --list-sizes"
+{% endif %}
+
+{% if list_languages %}
+# Display option: List languages supported by the installer
+CMD="${CMD} --list-languages"
+{% endif %}
+
+{% if gog_game_id %}
+# Display option: Determine the GOG.com game ID
+CMD="${CMD} --gog-game-id"
+{% if silent %}
+CMD="${CMD} --silent"
+{% endif %}
+{% endif %}
+
+{% if no_warn_unused %}
+# Display option: Don't warn on unused .bin files
+CMD="${CMD} --no-warn-unused"
+{% endif %}
+
+# Add the input installer file(s)
+{% if input_files is defined %}
+{% for file in input_files %}
+CMD="${CMD} -- {{ file }}"
+{% endfor %}
+{% else %}
+CMD="${CMD} -- ${INPUT_FILE:-installer.exe}"
+{% endif %}
+
+# Execute the command
+exec ${CMD}

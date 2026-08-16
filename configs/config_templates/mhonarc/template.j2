@@ -1,0 +1,139 @@
+#!/usr/bin/env mhonarc
+# ===========================================================================
+# mhonarc Configuration File
+# ===========================================================================
+# This file configures the MHonArc web-based mailing list archiver.
+# Each directive controls a specific aspect of archive generation, from
+# storage paths to HTML styling and message filtering.
+#
+# Directives use the syntax: $DIRECTIVE = value;
+# See mhonarc(1) man page for detailed documentation on each option.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# General Archive Identity & Paths
+# ---------------------------------------------------------------------------
+
+# The name of the mailing list or archive source.
+# Defines the identity of the archive in generated HTML pages.
+$LISTNAME = {{ list_name | default('My Mailing List') }};
+
+# The directory where the archive resides.
+# Absolute or relative path to the root of the HTML archive files.
+$HOME = {{ archive_home | default('/var/www/html/archive') }};
+
+# The URL for the home page of the archive.
+# Used for links pointing back to the main archive index.
+$HOMEURL = {{ archive_home_url | default('http://example.com/archive') }};
+
+# The URL for the main index file.
+# Specifically points to the 'index.html' file within $HOMEURL.
+$INDEXURL = {{ archive_index_url | default('http://example.com/archive/index.html') }};
+
+# The subject of the main index file.
+# Text displayed in the <title> tag of the generated index page.
+$INDEXSUBJECT = {{ index_subject | default('Mailing List Archive Index') }};
+
+# ---------------------------------------------------------------------------
+# Network & Resource Fetching Behavior
+# ---------------------------------------------------------------------------
+
+# The user agent string to send when fetching external resources.
+# Identifies the archiver to remote servers (e.g., when fetching RSS feeds).
+$USERAGENT = {{ user_agent | default('Mailing List Archiver') }};
+
+# ---------------------------------------------------------------------------
+# Date & Time Formatting
+# ---------------------------------------------------------------------------
+
+# The date format for displayed dates.
+# strftime-compatible format string (e.g., %Y-%m-%d, %b %d, %Y).
+$DATEFMT = {{ date_format | default('%Y-%m-%d') }};
+
+# The time zone for displayed dates.
+# Timezone identifier (e.g., UTC, America/New_York) used for date conversion.
+$TIMEZONE = {{ timezone | default('UTC') }};
+
+# ---------------------------------------------------------------------------
+# Administrative & Author Information
+# ---------------------------------------------------------------------------
+
+# The email address for the list owner/admin.
+# Used in the 'mailto' link for feedback on the index page.
+$ADMIN = {{ admin_email | default('admin@example.com') }};
+
+# The name of the person or entity responsible for the archive.
+# Displayed in the footer of the generated pages.
+$AUTHOR = {{ author_name | default('List Administrator') }};
+
+# ---------------------------------------------------------------------------
+# Index Display Options
+# ---------------------------------------------------------------------------
+
+# Whether to include the 'From' field in the index.
+# If true, shows who posted the message; if false, only the subject is shown.
+$SHOWFROM = {{ show_from | default(true) }};
+
+# Whether to include the 'Subject' field in the index.
+# Standard behavior for most archives; usually true.
+$SHOWSUBJECT = {{ show_subject | default(true) }};
+
+# The number of messages to display per page in the index.
+# Pagination limit for the main archive index.
+$NUMPERPAGE = {{ num_per_page | default(100) }};
+
+# ---------------------------------------------------------------------------
+# HTML Styling & Structure
+# ---------------------------------------------------------------------------
+
+# The style sheet to use for the archive.
+# CSS file path or URL used to style the generated HTML.
+$STYLESHEET = {{ stylesheet | default('mhonarc.css') }};
+
+# The header file to include.
+# HTML file to include at the top of every generated page.
+$HEADER = {{ header_file | default('header.html') }};
+
+# The footer file to include.
+# HTML file to include at the bottom of every generated page.
+$FOOTER = {{ footer_file | default('footer.html') }};
+
+# The name of the resource directory for custom resources.
+# Directory containing custom HTML resources (icons, styles, macros).
+$RESOURCE = {{ resource_dir | default('.mhonarc-res') }};
+
+# ---------------------------------------------------------------------------
+# Linking & Encoding Options
+# ---------------------------------------------------------------------------
+
+# Whether to link messages by subject.
+# If true, creates a thread-like view in the index by linking same subjects.
+$SUBJECTLINK = {{ subject_link | default(true) }};
+
+# The encoding for the archive.
+# Character set for the generated HTML files (e.g., UTF-8, ISO-8859-1).
+$CHARSET = {{ charset | default('UTF-8') }};
+
+# ---------------------------------------------------------------------------
+# Compression Options
+# ---------------------------------------------------------------------------
+
+# Whether to compress the index files.
+# If true, generates .html.gz files instead of plain .html to save space.
+$COMPRESSINDEX = {{ compress_index | default(false) }};
+
+# ---------------------------------------------------------------------------
+# Message Filtering Patterns
+# ---------------------------------------------------------------------------
+
+# The list of regular expressions for messages to ignore.
+# Messages matching these patterns are skipped and not archived.
+{% for pattern in ignore_patterns | default([]) %}
+$IGNORE = /{{ pattern }}/
+{% endfor %}
+
+# The list of regular expressions for messages to include.
+# If $IGNORE is set, $INCLUDE can further filter to only keep matching messages.
+{% for pattern in include_patterns | default([]) %}
+$INCLUDE = /{{ pattern }}/
+{% endfor %}

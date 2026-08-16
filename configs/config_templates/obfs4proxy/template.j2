@@ -1,0 +1,31 @@
+# obfs4proxy configuration
+# Managed by infrastructure automation
+
+# Enable logging to DataDirectory/pt_state/obfs4proxy.log
+# Default: false
+{% if (enable_logging | default(False)) | bool %}
+--enableLogging
+{% endif %}
+
+# Maximum log severity: ERROR, WARN, INFO, DEBUG
+# Default: 'WARN'
+--logLevel={{ log_level | default('WARN') }}
+
+# Disable IP address scrubber in logs (store PII)
+# Default: false
+{% if (unsafe_logging | default(False)) | bool %}
+--unsafeLogging
+{% endif %}
+
+# Generate biased distributions for obfs4 length/timing obfuscation (similar to ScrambleSuit)
+# Default: false
+{% if (obfs4_dist_bias | default(False)) | bool %}
+--obfs4-distBias
+{% endif %}
+
+# List of torrc directives to inject into the main Tor configuration.
+# These define the Client/Server transport plugins and bridge parameters.
+# Default: []
+{% for item in (torrc_directives | default([])) %}
+{{ item }}
+{% endfor %}

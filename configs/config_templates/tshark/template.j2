@@ -1,0 +1,63 @@
+# ==============================================================================
+# TShark Command Configuration Template
+# Generates a command line string for tshark based on provided parameters.
+# This template is self-documenting: every variable has a default and a comment.
+# ==============================================================================
+
+tshark \
+{# interface: The network interface to capture on. 'any' selects the first non-loopback interface. #}
+  -i {{ interface | default('any') }} \
+
+{% if (capture_filter | default('')) %}
+{# capture_filter: The capture filter expression (pcap filter syntax). Leave empty to disable. #}
+  -f "{{ capture_filter | default('') }}" \
+{% endif %}
+
+{% if (display_filter | default('')) %}
+{# display_filter: The display filter expression (Wireshark filter syntax). Leave empty to disable. #}
+  -Y "{{ display_filter | default('') }}" \
+{% endif %}
+
+{# output_format: The output format for decoded packets. Options include: text, json, fields, ek, pdml, etc. #}
+  -T {{ output_format | default('text') }} \
+
+{% if (output_fields | default([])) %}
+{# output_fields: List of field names to extract when using -T fields. Example: ['frame.number', 'ip.src'] #}
+  {% for field in output_fields | default([]) %}
+  -e "{{ field }}" \
+  {% endfor %}
+{% endif %}
+
+{% if (output_file | default('')) %}
+{# output_file: The output file path for raw packet data. Leave empty to output to stdout. #}
+  -w "{{ output_file | default('') }}" \
+{% endif %}
+
+{% if (read_file | default('')) %}
+{# read_file: The input capture file to read. Leave empty to perform a live capture. #}
+  -r "{{ read_file | default('') }}" \
+{% endif %}
+
+{% if (statistics | default([])) %}
+{# statistics: List of statistics collection arguments. Example: ['io,phs', 'endpoints,ip'] #}
+  {% for stat in statistics | default([]) %}
+  -z "{{ stat }}" \
+  {% endfor %}
+{% endif %}
+
+{# quiet: If true, use -q to suppress continuous packet counts and info messages. #}
+{% if quiet | default(False) %}
+  -q \
+{% endif %}
+
+{# promiscuous: If false, use -p to disable promiscuous mode on the interface. #}
+{% if promiscuous | default(True) == false %}
+  -p \
+{% endif %}
+
+{# snapshot_length: The snapshot length in bytes. 0 means capture the entire packet. #}
+{% if snapshot_length | default(0) != 0 %}
+  -s {{ snapshot_length | default(0) }} \
+{% endif %}
+
+;

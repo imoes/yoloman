@@ -1,0 +1,94 @@
+# lbzip2 configuration template
+#
+# This template generates environment variables and command-line arguments
+# for the lbzip2 utility. lbzip2 is a high-performance, parallel bzip2
+# compressor/decompressor.
+#
+# Variables generated:
+#   LBZIP2, LBZIP2_ARGS: Prepend/append arguments to the command invocation.
+#   LBZIP2_THREADS, LBZIP2_COMPRESSION_LEVEL, etc.: Individual settings for
+#   specific flags.
+#
+# Note on boolean flags: The template uses individual variables (e.g.,
+# LBZIP2_FORCE) to track the state of specific options, and accumulates
+# corresponding CLI flags (e.g., -f) into LBZIP2_ARGS.
+
+# List of string arguments to prepend via LBZIP2/BZIP2 environment variables.
+# These are joined into a single space-separated string for the LBZIP2 env var.
+LBZIP2="{{ lbzip2_env_args | default([], true) | join(' ') }}"
+
+# List of string arguments to append directly to the command line.
+# This variable accumulates flags derived from other settings below.
+LBZIP2_ARGS="{{ lbzip2_args | default([], true) | join(' ') }}"
+
+# Number of threads to use. 0 means auto-detect. Corresponds to -n.
+# If greater than 0, the -n flag is appended to LBZIP2_ARGS.
+LBZIP2_THREADS={{ lbzip2_threads | default(0, true) }}
+{% if lbzip2_threads | default(0, true) > 0 %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -n {{ lbzip2_threads | default(0, true) }}"
+{% endif %}
+
+# Compression level from 1 to 9. Corresponds to -1 through -9.
+# Default is 9 (best compression). If not 9, the -N flag is appended.
+LBZIP2_COMPRESSION_LEVEL={{ lbzip2_compression_level | default(9, true) }}
+{% if lbzip2_compression_level | default(9, true) != 9 %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -{{ lbzip2_compression_level | default(9, true) }}"
+{% endif %}
+
+# Reduce memory usage at cost of performance. Corresponds to -s.
+LBZIP2_SMALL={{ lbzip2_small | default(false, true) }}
+{% if lbzip2_small | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -s"
+{% endif %}
+
+# Perform splitting input blocks sequentially. Corresponds to -u.
+LBZIP2_SEQUENTIAL={{ lbzip2_sequential | default(false, true) }}
+{% if lbzip2_sequential | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -u"
+{% endif %}
+
+# Be more verbose. Corresponds to -v.
+LBZIP2_VERBOSE={{ lbzip2_verbose | default(false, true) }}
+{% if lbzip2_verbose | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -v"
+{% endif %}
+
+# Force mode, overwrite existing files. Corresponds to -f.
+LBZIP2_FORCE={{ lbzip2_force | default(false, true) }}
+{% if lbzip2_force | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -f"
+{% endif %}
+
+# Don't remove input files after compression/decompression. Corresponds to -k.
+LBZIP2_KEEP={{ lbzip2_keep | default(false, true) }}
+{% if lbzip2_keep | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -k"
+{% endif %}
+
+# Write output to standard output. Corresponds to -c.
+LBZIP2_STDOUT={{ lbzip2_stdout | default(false, true) }}
+{% if lbzip2_stdout | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -c"
+{% endif %}
+
+# Test decompression; discard output. Corresponds to -t.
+LBZIP2_TEST={{ lbzip2_test | default(false, true) }}
+{% if lbzip2_test | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -t"
+{% endif %}
+
+# Force decompression. Corresponds to -d.
+LBZIP2_DECOMPRESS={{ lbzip2_decompress | default(false, true) }}
+{% if lbzip2_decompress | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -d"
+{% endif %}
+
+# Force compression. Corresponds to -z.
+LBZIP2_COMPRESS={{ lbzip2_compress | default(false, true) }}
+{% if lbzip2_compress | default(false, true) %}
+LBZIP2_ARGS="${LBZIP2_ARGS} -z"
+{% endif %}
+
+# List of file operands to compress or decompress.
+# If empty, lbzip2 works as a filter on stdin/stdout.
+LBZIP2_FILES="{{ lbzip2_files | default([], true) | join(' ') }}"

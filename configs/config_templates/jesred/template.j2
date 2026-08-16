@@ -1,0 +1,34 @@
+# ============================================================================
+# Package: jesred
+# Description: Configuration for jesred, a Squid extension for URL rewriting
+#              based on ACLs and rules files.
+# ============================================================================
+
+# Path to the ACL file containing IP addresses for which URL rewriting is
+# allowed or denied.
+# Default: /etc/jesred.acl
+allow = {{ allow_acl_path | default('/etc/jesred.acl') }}
+
+# Path to the main rules file for URL rewriting.
+# Default: /etc/jesred.rules
+rules = {{ rules_path | default('/etc/jesred.rules') }}
+#rules = /usr/share/doc/jesred/jesred.bofh.rules
+
+# Path to the log file for general, error, and debug messages.
+# Setting this to an empty value or commenting it out disables logging.
+# Depending on your Squid variant, you may want to change the directory to
+# /var/log/squid3 instead.
+# Default: /var/log/squid/jesred-redirect.log
+redirect_log = {{ redirect_log_path | default('/var/log/squid/jesred-redirect.log') }}
+
+# Log file for URL rewrites.
+# Format: Timestamp Client/Ident URL RURL NO
+# Setting this to an empty value or commenting it out disables logging of URL rewrites.
+# rewrite_log = /var/log/squid/jesred-rewrite.log
+
+# Debug mode: if set to yes and DEBUG option was compiled in, this enables
+# debug logging to redirect_log.
+# Default: false
+{% if debug_mode | default(false) %}
+debug = {{ debug_mode | default(false) }}
+{% endif %}

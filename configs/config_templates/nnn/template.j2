@@ -1,0 +1,98 @@
+### Environment configuration for nnn terminal file manager.
+# This template configures the nnn terminal file manager via environment variables.
+# It is designed to be self-documenting; every variable is annotated with its schema description
+# and a safe default value derived from that description.
+
+# NNN_OPTS: Binary options passed to nnn at startup. Common flags: -c (cli-only opener), -n (type-to-nav), -e (open text files in editor), -x (show notifications), etc.
+# See the nnn man page for a full list of supported flags.
+export NNN_OPTS="{{ nnn_opts | default('') }}"
+
+# NNN_OPENER: Custom command or plugin to open files.
+# If empty, nnn falls back to the system default opener (xdg-open on Linux, open on macOS).
+export NNN_OPENER="{{ nnn_opener | default('') }}"
+
+# NNN_BMS: Bookmarks list in 'key:location' format.
+# These are joined with a semicolon separator for the environment variable.
+# Example input list: ['d:$HOME/Docs', 'D:$HOME/Downloads']
+# Resulting value: "d:$HOME/Docs;D:$HOME/Downloads"
+export NNN_BMS="{{ nnn_bms | default([]) | join(';') }}"
+
+# NNN_PLUG: Plugin definitions in 'key:command' format.
+# Commands can be prefixed with '!' for shell execution or '!&' for background GUI apps.
+# These are joined with a semicolon separator.
+export NNN_PLUG="{{ nnn_plug | default([]) | join(';') }}"
+
+# NNN_ORDER: Sort order overrides for specific directories.
+# Format is 'key:directory' where key is a single char (a/d/e/r/s/t/v) and directory is absolute.
+# The semicolon-separated list allows per-directory sorting rules.
+export NNN_ORDER="{{ nnn_order | default([]) | join(';') }}"
+
+# NNN_COLORS: Color scheme for contexts.
+# Accepts an 8-color string (e.g., '1234') or an xterm 256-color hex string (e.g., '#0a1b2c3d').
+# Leave empty to use the default color scheme.
+export NNN_COLORS="{{ nnn_colors | default('') }}"
+
+# NNN_FCOLORS: File-type specific colors as an xterm 256 hex string.
+# Consists of 12 pairs of hex digits (24 chars total) corresponding to specific file types:
+# Block, Char, Directory, Executable, Regular, Hard link, Symlink, Missing/Details, Orphaned, FIFO, Socket, Unknown.
+# Leave empty to use default file colors.
+export NNN_FCOLORS="{{ nnn_fcolors | default('') }}"
+
+# NNN_ARCHIVE: Regex pattern for archive extensions to handle silently.
+# When matched, nnn will attempt to open or mount the archive automatically.
+# Defaults to common compression formats like .7z, .bz2, .gz, .tar, .tgz, .zip.
+export NNN_ARCHIVE="{{ nnn_archive | default('\\.(7z|bz2|gz|tar|tgz|zip)$') }}"
+
+# NNN_ARCHMNT: Utility used to mount archives.
+# This command is invoked by nnn when handling archive files defined in NNN_ARCHIVE.
+export NNN_ARCHMNT="{{ nnn_archmnt | default('archivemount') }}"
+
+# NNN_SSHFS: Custom sshfs command with comma-separated options.
+# Use this to provide specific mount flags for remote file systems via SSH.
+# Do not include spaces in the options string. Leave empty to use the system default.
+export NNN_SSHFS="{{ nnn_sshfs | default('') }}"
+
+# NNN_RCLONE: Additional options for the rclone mount command.
+# Must be preceded by 'rclone' if this string contains the binary name, otherwise nnn handles it.
+# Leave empty to use default rclone behavior.
+export NNN_RCLONE="{{ nnn_rclone | default('') }}"
+
+# NNN_TRASH: Trash implementation behavior.
+# 0 = disable trash (immediate deletion).
+# 1 = use trash-cli.
+# 2 = use gio trash.
+export NNN_TRASH="{{ nnn_trash | default(0) }}"
+
+# NNN_SEL: Absolute path to a custom selection file.
+# Used to persist or share file selections between nnn instances.
+# Leave empty to use the default .selection file in the config directory.
+export NNN_SEL="{{ nnn_sel | default('') }}"
+
+# NNN_FIFO: Path to a named pipe (FIFO) for writing the hovered file path.
+# Other processes can read this pipe to react to the user's current file selection.
+# '1' uses a default temporary location; an empty string disables this feature.
+export NNN_FIFO="{{ nnn_fifo | default('1') }}"
+
+# NNN_LOCKER: Command to run as a terminal locker when nnn is suspended.
+# Useful for security in shared environments. Examples: 'cmatrix', 'ssmtp'.
+# Leave empty to disable locking.
+export NNN_LOCKER="{{ nnn_locker | default('') }}"
+
+# NNN_TMPFILE: Path to a file where the last working directory (cd) command is written on quit.
+# Can be sourced by a shell script to restore the directory in subsequent sessions.
+# Leave empty to disable this feature.
+export NNN_TMPFILE="{{ nnn_tmpfile | default('') }}"
+
+# NNN_HELP: Command to run and display output on the help screen overlay.
+# Useful for dynamic help text, such as 'fortune' or a custom script.
+# Leave empty to disable custom help content.
+export NNN_HELP="{{ nnn_help | default('') }}"
+
+# NNN_MCLICK: Key sequence emulated by a middle mouse click.
+# Allows binding a mouse action to a specific key sequence for convenience.
+# Leave empty to use the default behavior.
+export NNN_MCLICK="{{ nnn_mclick | default('') }}"
+
+# NO_COLOR: Disables ANSI color output if set to a non-empty value (typically 1).
+# Respects the NO_COLOR environmental standard.
+export NO_COLOR="{{ nnn_no_color | default(False) }}"

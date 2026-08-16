@@ -1,0 +1,27 @@
+# Puppet Hiera ENC (External Nodes Classifier) configuration template.
+# This file defines how Puppet uses Hiera to look up node-specific data.
+# The structure mirrors the standard YAML-based Hiera configuration.
+
+# The list of backend engines Hiera should use for data lookup.
+# 'yaml' is the most common and default backend.
+:backends:
+  - {{ backends_type | default('yaml') }}
+
+# Configuration specific to the 'yaml' backend.
+:yaml:
+  # The directory where Hiera looks for YAML data files.
+  # This is the base path; actual files are looked up based on the hierarchy.
+  :datadir: {{ datadir | default('/etc/puppet/hiera-enc/nodes') }}
+
+# The hierarchy of levels used to resolve configuration data.
+# Hiera searches these levels in order; the first match wins.
+# Variables like %{clientcert} are resolved by Puppet at runtime.
+:hierarchy:
+  # 1. Node-specific data identified by the client's certificate name.
+  - "%{clientcert}"
+  # 2. Node-specific data identified by the Fully Qualified Domain Name.
+  - "%{fqdn}"
+  # 3. Node-specific data identified by the short hostname.
+  - "%{hostname}"
+  # 4. The final fallback level for default values.
+  - {{ default_hierarchy_name | default('"default"') }}

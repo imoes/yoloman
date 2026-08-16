@@ -1,0 +1,39 @@
+# =============================================================================
+# rlfe configuration template
+# =============================================================================
+# rlfe is a lightweight wrapper that enables readline (command-line editing/history)
+# for programs that do not support it natively.
+# This template generates the command-line arguments passed to the rlfe binary.
+# =============================================================================
+
+# --- Core Application ---
+
+# The target application command and any initial arguments to be wrapped by rlfe.
+# Corresponds to the positional argument in rlfe(1).
+# Default: ftp
+{% set _command = command|default('ftp') %}
+{{ _command }}
+
+# --- Logging Options ---
+
+# Path to the log file for rlfe session logging.
+# If this value is empty or undefined, logging is disabled.
+# Corresponds to the -l filename option.
+{% if log_file is defined and log_file|trim|length > 0 %}
+-l {{ log_file|trim }}
+{% endif %}
+
+# If true, append to the log file instead of overwriting it on each session.
+# Corresponds to the -a flag.
+{% if append_log|default(false)|bool %}
+-a
+{% endif %}
+
+# --- Application Identification ---
+
+# Name to use for the readline application instance.
+# This can be useful for identifying the wrapped process in system tools.
+# Corresponds to the -n appname option.
+{% if app_name is defined and app_name|trim|length > 0 %}
+-n {{ app_name|trim }}
+{% endif %}

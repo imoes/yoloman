@@ -1,0 +1,33 @@
+# RANCID CGI logrotate configuration
+# This template generates a logrotate stanza for the RANCID CGI service.
+# It manages the rotation of the CGI log file, ensuring proper permissions,
+# ownership, and retention policies are applied.
+
+/var/log/rancid/{{ log_file_name | default('lg.log') }} {
+    # Create new log files with the specified octal permission mode (prefix '0'),
+    # owned by the specified user and group.
+    # log_file_name: The name of the RANCID CGI log file. Default: 'lg.log'
+    # log_file_mode: The octal permission mode for the log file (without the leading 0). Default: '640'
+    # log_file_user: The owner user of the log file. Default: 'www-data'
+    # log_file_group: The owner group of the log file. Default: 'www-data'
+    create 0{{ log_file_mode | default('640') }} {{ log_file_user | default('www-data') }} {{ log_file_group | default('www-data') }}
+
+    # If the log file is missing, do not raise an error.
+    missingok
+
+    # Rotate the log file once a week.
+    weekly
+
+    # Rotate {{ log_rotate_count | default(7) }} log files before removing the oldest.
+    # log_rotate_count: The number of rotated log files to keep. Default: 7
+    rotate {{ log_rotate_count | default(7) }}
+
+    # Compress rotated log files to save disk space.
+    compress
+
+    # Delay compression of the most recently rotated log file until the next rotation cycle.
+    delaycompress
+
+    # Do not rotate the log file if it is empty.
+    notifempty
+}

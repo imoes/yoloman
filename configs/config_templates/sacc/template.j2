@@ -1,0 +1,35 @@
+# ==============================================================================
+# Sacc Configuration Template
+# ==============================================================================
+# This template configures the 'sacc' Gopher browser.
+# It is self-documenting: every directive is preceded by its schema description.
+# Variables are safely defaulted to match the schema definition.
+
+# --------------------------------------------------------------------------
+# Pager command used to display textual content.
+# Description: The pager command used to display textual content.
+#              Defaults to 'more' if PAGER environment variable is not set.
+# --------------------------------------------------------------------------
+pager: "{{ pager | default('more') }}"
+
+# --------------------------------------------------------------------------
+# Directory for local TLS certificates (gophers:// support).
+# Description: Directory searched for local TLS certificates when using the gophers:// scheme.
+# --------------------------------------------------------------------------
+sacc_cert_dir: "{{ sacc_cert_dir | default('~/.share/sacc/cert') }}"
+
+# --------------------------------------------------------------------------
+# Plumber command executed for files sacc cannot open natively.
+# Description: External program to run when opening files sacc cannot display natively.
+# --------------------------------------------------------------------------
+plumber: "{{ plumber | default('xdg-open') }}"
+
+# --------------------------------------------------------------------------
+# List of keybindings for navigation and actions.
+# Description: List of keybinding objects mapping a key string to an action description or internal command.
+# --------------------------------------------------------------------------
+shortcuts:
+{% for binding in shortcuts | default([{'key': 'j', 'action': 'Move one line down'}, {'key': 'k', 'action': 'Move one line up'}, {'key': 'h', 'action': 'View previous item'}, {'key': 'l', 'action': 'View highlighted item'}, {'key': 'q', 'action': 'Exit sacc'}]) %}
+  # Shortcut key and its corresponding action.
+  {{ binding.key | default('') }}: "{{ binding.action | default('') }}"
+{% endfor %}

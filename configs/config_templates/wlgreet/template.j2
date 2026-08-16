@@ -1,0 +1,30 @@
+# wlgreet configuration template
+#
+# This file is part of the greetd / Sway login greeter configuration.
+# It defines the command to launch the greeter, the default background color,
+# and the shutdown/reboot confirmation dialog.
+
+# The command to execute for the login greeter.
+# The variable wlgreet_command should point to the actual greeter binary (e.g., /usr/sbin/wlgreet).
+# This line executes the configured greeter command, then sends a command to sway to exit the greeter
+# session once the greeter process terminates.
+exec "{{ (wlgreet_command | default('/usr/sbin/wlgreet')) | trim }}" swaymsg exit
+
+# Keybinding to trigger the logout/reboot/poweroff dialog.
+# When pressed, it launches swaynag with a warning message and two buttons.
+bindsym Mod4+shift+e exec swaynag \
+	-t warning \
+	-m 'What do you want to do?' \
+	-b 'Poweroff' 'systemctl poweroff -i' \
+	-b 'Reboot' 'systemctl reboot -i'
+
+# The default background color for outputs without a specific wallpaper.
+# The variable default_wallpaper_color defines the solid color to use as the background for outputs
+# that do not have a specific wallpaper configured.
+output * bg "{{ (default_wallpaper_color | default('#333333')) | trim }}" solid_color
+
+# Include additional Sway configuration fragments from the system directory.
+include /etc/sway/config.d/*
+
+# Include additional Sway configuration fragments from the greetd-specific directory.
+include /etc/greetd/sway-config.d/*

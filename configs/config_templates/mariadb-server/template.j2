@@ -1,0 +1,133 @@
+# ===========================================================================
+# MariaDB Server Configuration
+# ===========================================================================
+# This template configures the [mysqld] section of the MariaDB/MySQL
+# configuration file (e.g. 50-server.cnf, mariadb.cnf).
+#
+# Self-documenting: every directive is preceded by a comment describing
+# its purpose and source schema field.
+# ===========================================================================
+
+[mysqld]
+
+# -----------------------------------------------------------------------
+# Network Binding
+# -----------------------------------------------------------------------
+
+# IP address to bind the MariaDB server to. Use 0.0.0.0 for all interfaces.
+# Schema field: bind_address (default: '127.0.0.1')
+bind-address = {{ bind_address | default('127.0.0.1') }}
+
+# TCP port on which MariaDB listens.
+# Schema field: port (default: 3306)
+port = {{ port | default(3306) }}
+
+# -----------------------------------------------------------------------
+# Storage & Data
+# -----------------------------------------------------------------------
+
+# Directory where MariaDB stores database files.
+# Schema field: datadir (default: '/var/lib/mysql')
+datadir = {{ datadir | default('/var/lib/mysql') }}
+
+# Unix socket file path for local client connections.
+# Schema field: socket (default: '/var/lib/mysql/mysql.sock')
+socket = {{ socket | default('/var/lib/mysql/mysql.sock') }}
+
+# -----------------------------------------------------------------------
+# Character Set & Collation
+# -----------------------------------------------------------------------
+
+# Default character set for the server and new databases.
+# Schema field: charset (default: 'utf8mb4')
+character-set-server = {{ charset | default('utf8mb4') }}
+
+# Default collation for the server.
+# Schema field: collation (default: 'utf8mb4_general_ci')
+collation-server = {{ collation | default('utf8mb4_general_ci') }}
+
+# -----------------------------------------------------------------------
+# Limits & Resources
+# -----------------------------------------------------------------------
+
+# Maximum size of one packet or internal buffer.
+# Schema field: max_allowed_packet (default: '64M')
+max_allowed_packet = {{ max_allowed_packet | default('64M') }}
+
+# Maximum number of simultaneous client connections.
+# Schema field: max_connections (default: 151)
+max_connections = {{ max_connections | default(151) }}
+
+# -----------------------------------------------------------------------
+# Logging: General
+# -----------------------------------------------------------------------
+
+# Enable general query logging (true/false).
+# Schema field: general_log (default: False)
+general_log = {{ general_log | default(0) }}
+
+# Path to the general query log file.
+# Schema field: general_log_file (default: '/var/log/mysql/mysql.log')
+general_log_file = {{ general_log_file | default('/var/log/mysql/mysql.log') }}
+
+# -----------------------------------------------------------------------
+# Time Zone
+# -----------------------------------------------------------------------
+
+# System time zone for the server.
+# Schema field: time_zone (default: 'SYSTEM')
+time_zone = {{ time_zone | default('SYSTEM') }}
+
+# -----------------------------------------------------------------------
+# Storage Engine
+# -----------------------------------------------------------------------
+
+# Default storage engine for new tables.
+# Schema field: default_storage_engine (default: 'InnoDB')
+default_storage_engine = {{ default_storage_engine | default('InnoDB') }}
+
+# -----------------------------------------------------------------------
+# Logging: Binary & Replication
+# -----------------------------------------------------------------------
+
+# Enable binary logging for replication (true/false).
+# Schema field: log_bin (default: True)
+log_bin = {{ log_bin | default(1) }}
+
+# Unique server ID for replication.
+# Schema field: server_id (default: 1)
+server-id = {{ server_id | default(1) }}
+
+# -----------------------------------------------------------------------
+# Logging: Error
+# -----------------------------------------------------------------------
+
+# Path to the error log file.
+# Schema field: log_error (default: '/var/log/mysql/error.log')
+log_error = {{ log_error | default('/var/log/mysql/error.log') }}
+
+# -----------------------------------------------------------------------
+# Logging: Slow Query
+# -----------------------------------------------------------------------
+
+# Enable slow query logging (true/false).
+# Schema field: slow_query_log (default: False)
+slow_query_log = {{ slow_query_log | default(0) }}
+
+# Path to the slow query log file.
+# Schema field: slow_query_log_file (default: '/var/log/mysql/slow.log')
+slow_query_log_file = {{ slow_query_log_file | default('/var/log/mysql/slow.log') }}
+
+# Query execution time in seconds above which the query is logged as slow.
+# Schema field: long_query_time (default: 2)
+long_query_time = {{ long_query_time | default(2) }}
+
+# -----------------------------------------------------------------------
+# Custom Extra Options
+# -----------------------------------------------------------------------
+# List of additional key-value pairs for custom MariaDB configuration
+# directives. Each item is a map with 'key' and 'value'.
+# Schema field: extra_options (default: [])
+{% for option in extra_options | default([]) %}
+{{ option.key }} = {{ option.value }}
+{% endfor %}

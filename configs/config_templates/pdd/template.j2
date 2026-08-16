@@ -1,0 +1,40 @@
+# /etc/default/pdd
+# Default configuration for the `pdd` (Perl Date/Time Difference) utility.
+# This file provides command-line argument defaults passed to the `pdd` binary.
+# It allows system-wide or user-level configuration without modifying scripts.
+
+{#
+  Operational mode: 'info' (default), 'timer' (countdown), 'stopwatch',
+  'date_diff'/'time_diff' (calculations).
+#}
+MODE="{{ mode | default('', true) }}"
+
+{#
+  Primary date, time, or duration argument.
+  Examples: '2024 Jan 15' for date diff, '00:05:00' for timer.
+#}
+TARGET="{{ target | default('', true) }}"
+
+{#
+  Secondary date, time, or duration argument used for comparisons or arithmetic.
+  Examples: 'today', '1983 Jul 3'.
+#}
+SECOND_TARGET="{{ second_target | default('', true) }}"
+
+{#
+  Arithmetic operation: 'add' (add duration), 'sub' (subtract duration),
+  'day' (show weekday of result). Empty implies difference calculation.
+#}
+OPERATION="{{ operation | default('', true) }}"
+
+{#
+  Quiet mode: 'true' suppresses stdout output (useful for background timers),
+  'false' (default) enables normal output.
+#}
+QUIET="{{ quiet | default(False) | ternary('true', 'false') }}"
+
+{#
+  Shell command to run when a countdown timer reaches zero.
+  Only relevant if MODE is 'timer'.
+#}
+RUN_COMMAND="{{ run_command | default('', true) }}"

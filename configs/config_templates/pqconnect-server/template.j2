@@ -1,0 +1,36 @@
+# ==============================================================================
+# pqconnect-server Configuration
+# This template generates the configuration for the PQConnect server.
+# PQConnect appears to be a UDP-based tunneling/decryption service.
+# ==============================================================================
+
+# Local IPv4 address to bind the server to.
+ADDR={{ (addr | default('127.0.0.1')) | string }}
+
+# UDP listening port for the PQConnect server.
+PORT={{ (port | default(4500)) | int }}
+
+# Directory containing the long-term cryptographic keys.
+KEYDIR={{ (keydir | default('/etc/pqconnect/keys')) | string }}
+
+# UDP listening port for the key server component.
+KEYPORT={{ (keyport | default(4501)) | int }}
+
+# Netmask for the private network in CIDR format (8-24).
+MASK={{ (mask | default(24)) | int }}
+
+# Name of the network interface created/used by PQConnect.
+IFACE={{ (interface_name | default('pqconnect0')) | string }}
+
+# IP address where decrypted traffic should be delivered (required for VMs).
+HOST_IP={{ (host_ip | default('127.0.0.1')) | string }}
+
+# Enable verbose logging.
+# Note: The schema default is boolean False. The original template implied
+# a numeric output (1/0). We output the string representation to match the
+# likely expectation of the application while keeping it valid for Ansible booleans.
+VERBOSE={{ (verbose | default(False)) | ternary('1', '0') }}
+
+# Enable even more verbose logging.
+# Similar to VERBOSE, outputs 1 for true, 0 for false.
+VERY_VERBOSE={{ (very_verbose | default(False)) | ternary('1', '0') }}

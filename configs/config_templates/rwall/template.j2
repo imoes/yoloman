@@ -1,0 +1,30 @@
+# Configuration for rwall / rpc.rwalld (xinetd service definition)
+# This file configures the xinetd super-server to manage the rwall RPC service.
+# rwall is a legacy RPC-based wall service. Proper configuration requires
+# the portmapper (rpcbind) to be active, as the actual port is registered
+# dynamically via /etc/rpc.
+service rwall {
+    # Whether to disable the rwall server service. If true, the service will not accept connections.
+    disable = {{ disable | default(true) | lower }}
+
+    # Socket type for xinetd. rwall is RPC-based, so UNLISTED is appropriate
+    # to avoid binding a specific static port in xinetd, letting portmapper handle it.
+    type = UNLISTED
+
+    # User to run the service as. rwall/rpc.rwalld typically runs as root.
+    user = root
+
+    # Group to run the service as.
+    group = root
+
+    # A comma-separated list of networks or hostnames allowed to connect to the rwall service.
+    # If empty, the service is typically disabled for security reasons (see 'disable' above).
+    # Example: 192.168.1.0/24, 10.0.0.1
+    only_from = {{ only_from | default('') }}
+
+    # Security check: If no hosts are allowed, explicitly disable the service in the log
+    # or config comment to indicate intentional restriction.
+    {% if only_from is string and only_from | trim == '' %}
+    # DISABLED: no hosts allowed in 'only_from'; service is effectively disabled.
+    {% endif %}
+}

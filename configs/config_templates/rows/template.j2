@@ -1,0 +1,115 @@
+# ==============================================================================
+# rows(1) Configuration File
+# ==============================================================================
+# This file configures the `rows` utility for data manipulation tasks including
+# conversion, joining, sorting, and summing of CSV/XLS files.
+#
+# The `mode` directive determines which sub-configuration section is active.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Settings
+# --------------------------------------------------------------------------
+
+# Input file character encoding (e.g., utf-8, latin-1).
+# Used when reading source data files.
+# Schema: input_encoding
+input_encoding: {{ (rows_config | default({})).input_encoding | default('utf-8') }}
+
+# Output file character encoding (e.g., utf-8, latin-1).
+# Used when writing destination data files.
+# Schema: output_encoding
+output_encoding: {{ (rows_config | default({})).output_encoding | default('utf-8') }}
+
+# Input locale for parsing data (e.g., numbers, dates).
+# Determines how input data is interpreted.
+# Schema: input_locale
+input_locale: {{ (rows_config | default({})).input_locale | default('en_US.UTF-8') }}
+
+# Output locale for formatting data (e.g., numbers, dates).
+# Determines how output data is displayed.
+# Schema: output_locale
+output_locale: {{ (rows_config | default({})).output_locale | default('en_US.UTF-8') }}
+
+# Primary operation mode for `rows`.
+# Supported values: convert, join, sort, sum.
+# Only the configuration block corresponding to this mode is active.
+# Schema: mode
+mode: {{ (rows_config | default({})).mode | default('convert') }}
+
+# --------------------------------------------------------------------------
+# Convert Mode Configuration
+# --------------------------------------------------------------------------
+# Used when mode='convert'.
+# Transforms data from one format/file to another.
+
+# Source URI or file path for the 'convert' command.
+# Example: /var/lib/rows/input/data.csv
+# Schema: convert_source
+convert_source: {{ (rows_config | default({})).convert_source | default('/var/lib/rows/input/data.csv') }}
+
+# Destination URI or file path for the 'convert' command.
+# Example: /var/lib/rows/output/data.xls
+# Schema: convert_destination
+convert_destination: {{ (rows_config | default({})).convert_destination | default('/var/lib/rows/output/data.xls') }}
+
+# --------------------------------------------------------------------------
+# Join Mode Configuration
+# --------------------------------------------------------------------------
+# Used when mode='join'.
+# Merges multiple tables based on common keys.
+
+# List of column names to join on.
+# Items are comma-separated in the config.
+# Example: id,timestamp
+# Schema: join_keys
+join_keys: {{ (rows_config | default({})).join_keys | default(['id']) | join(', ') }}
+
+# List of source file paths to join.
+# Items are space-separated in the config.
+# Example: /var/lib/rows/input/table1.csv /var/lib/rows/input/table2.csv
+# Schema: join_sources
+join_sources: {{ (rows_config | default({})).join_sources | default(['/var/lib/rows/input/table1.csv', '/var/lib/rows/input/table2.csv']) | join(' ') }}
+
+# Destination URI or file path for the joined output.
+# Example: /var/lib/rows/output/joined.csv
+# Schema: join_destination
+join_destination: {{ (rows_config | default({})).join_destination | default('/var/lib/rows/output/joined.csv') }}
+
+# --------------------------------------------------------------------------
+# Sort Mode Configuration
+# --------------------------------------------------------------------------
+# Used when mode='sort'.
+# Sorts data by a specific key.
+
+# Column name to sort by for the 'sort' command.
+# Example: date
+# Schema: sort_key
+sort_key: {{ (rows_config | default({})).sort_key | default('date') }}
+
+# Source URI or file path for the 'sort' command.
+# Example: /var/lib/rows/input/data.csv
+# Schema: sort_source
+sort_source: {{ (rows_config | default({})).sort_source | default('/var/lib/rows/input/data.csv') }}
+
+# Destination URI or file path for the 'sort' command.
+# Example: /var/lib/rows/output/sorted.csv
+# Schema: sort_destination
+sort_destination: {{ (rows_config | default({})).sort_destination | default('/var/lib/rows/output/sorted.csv') }}
+
+# --------------------------------------------------------------------------
+# Sum Mode Configuration
+# --------------------------------------------------------------------------
+# Used when mode='sum'.
+# Aggregates values across multiple files.
+
+# List of source file paths to sum.
+# Items are space-separated in the config.
+# Example: /var/lib/rows/input/week1.csv /var/lib/rows/input/week2.csv
+# Schema: sum_sources
+sum_sources: {{ (rows_config | default({})).sum_sources | default(['/var/lib/rows/input/week1.csv', '/var/lib/rows/input/week2.csv']) | join(' ') }}
+
+# Destination URI or file path for the summed output.
+# Example: /var/lib/rows/output/total.csv
+# Schema: sum_destination
+sum_destination: {{ (rows_config | default({})).sum_destination | default('/var/lib/rows/output/total.csv') }}

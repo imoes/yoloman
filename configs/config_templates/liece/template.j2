@@ -1,0 +1,56 @@
+;; -*-emacs-lisp-;
+;;
+;; ============================================================================
+;; Liece Configuration Template
+;; ============================================================================
+;; This template configures the Liece Emacs IRC client. It sets standard
+;; directories for resources and specifies programs for DCC (Direct Client-to-Client)
+;; and TCP connections.
+;;
+;; Variables are populated from the Ansible inventory. Defaults are provided
+;; from the schema to ensure a valid configuration even if a variable is undefined.
+;; ============================================================================
+
+;; Check if the Liece package files exist before attempting to configure them.
+(if (not (file-exists-p "/usr/share/emacs/site-lisp/liece"))
+    (message "Package liece removed but not purged.  Skipping setup.")
+  (debian-pkg-add-load-path-item
+   (concat "/usr/share/" (symbol-name debian-emacs-flavor)
+	   "/site-lisp/liece"))
+
+  (autoload 'liece "liece" nil t)
+
+  ;; --------------------------------------------------------------------------
+  ;; Internationalization (i18n)
+  ;; --------------------------------------------------------------------------
+
+  ;; Directory containing internationalization message catalogs for Liece.
+  (setq liece-intl-catalogue-directory "{{ liece_intl_catalogue_directory | default('/usr/share/locale') }}")
+
+  ;; --------------------------------------------------------------------------
+  ;; Window Styles
+  ;; --------------------------------------------------------------------------
+
+  ;; Directory containing window style files for Liece.
+  (setq liece-window-style-directory "{{ liece_window_style_directory | default('/usr/share/emacs/site-lisp/liece/styles') }}")
+
+  ;; Path to the default window style file for Liece.
+  (setq liece-window-default-style "{{ liece_window_default_style | default('/usr/share/emacs/site-lisp/liece/styles/top') }}")
+
+  ;; --------------------------------------------------------------------------
+  ;; Icons
+  ;; --------------------------------------------------------------------------
+
+  ;; Directory containing icon images for Liece.
+  (setq liece-icon-directory "{{ liece_icon_directory | default('/usr/share/pixmaps/liece') }}")
+
+  ;; --------------------------------------------------------------------------
+  ;; Network / DCC Programs
+  ;; --------------------------------------------------------------------------
+
+  ;; Path to the Liece DCC (Direct Client-to-Client) program.
+  (setq liece-dcc-program "{{ liece_dcc_program | default('/usr/lib/liece-dcc/ldcc') }}")
+
+  ;; Path to the Liece TCP program for network connections.
+  (setq liece-tcp-program "{{ liece_tcp_program | default('/usr/lib/liece-dcc/ltcp') }}")
+)

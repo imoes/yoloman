@@ -1,0 +1,91 @@
+# ==============================================================================
+# unbound-anchor Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for the `unbound-anchor` utility.
+# `unbound-anchor` is used to automatically update the DNSSEC root trust anchors.
+# It connects to a remote server over HTTPS to download the signed XML root anchor file.
+#
+# Self-documenting: Each directive below is commented with its schema description
+# and uses the corresponding variable with a safe default.
+# ==============================================================================
+
+# -a <path>
+# The root anchor key file, that is read in and written out.
+# Default: /usr/share/dns/root.key
+-a {{ anchor_file | default('/usr/share/dns/root.key') }}
+
+# -c <path>
+# The root update certificate file, that is read in.
+# Default: /etc/unbound/icannbundle.pem
+-c {{ cert_file | default('/etc/unbound/icannbundle.pem') }}
+
+# -u <host>
+# The server name for the HTTPS connection.
+# Default: data.iana.org
+-u {{ server_host | default('data.iana.org') }}
+
+# -P <port>
+# The port number to use for the https connection.
+# Default: 443
+-P {{ server_port | default(443) }}
+
+# -x <path>
+# The pathname to the root-anchors.xml file on the server.
+# Default: /root-anchors/root-anchors.xml
+-x {{ xml_path | default('/root-anchors/root-anchors.xml') }}
+
+# -s <path>
+# The pathname to the root-anchors.p7s file on the server.
+# Default: /root-anchors/root-anchors.p7s
+-s {{ p7s_path | default('/root-anchors/root-anchors.p7s') }}
+
+# -n <email>
+# The emailAddress for the Subject of the signer's certificate from the p7s signature file.
+# Default: dnssec@iana.org
+-n {{ signer_email | default('dnssec@iana.org') }}
+
+# -b <addr>
+# The source address to bind to for domain resolution and contacting the server.
+# Empty string means let the OS choose.
+-b {{ bind_address | default('') }}
+
+# -4
+# Use IPv4 for domain resolution and contacting the server on https.
+# If True, this flag is emitted. If False, it is omitted.
+{% if use_ipv4_only | default(False) | bool %}-4{% endif %}
+
+# -6
+# Use IPv6 for domain resolution and contacting the server on https.
+# If True, this flag is emitted. If False, it is omitted.
+{% if use_ipv6_only | default(False) | bool %}-6{% endif %}
+
+# -S
+# Do not use SNI (Server Name Indication) for the HTTPS connection.
+# If True, this flag is emitted. If False, it is omitted.
+{% if disable_sni | default(False) | bool %}-S{% endif %}
+
+# -f <path>
+# The resolv.conf file to use for resolution.
+# Default: '' (empty, use system default)
+-f {{ resolv_conf | default('') }}
+
+# -r <path>
+# The root.hints file to use to bootstrap domain resolution.
+# Default: '' (empty, use system default or none)
+-r {{ root_hints | default('') }}
+
+# -R
+# Allow fallback from -f resolv.conf file to direct root servers query.
+# If True, this flag is emitted. If False, it is omitted.
+{% if allow_fallback | default(False) | bool %}-R{% endif %}
+
+# -v
+# More verbose output.
+# If True, this flag is emitted. If False, it is omitted.
+{% if verbose | default(False) | bool %}-v{% endif %}
+
+# -F
+# Force update of the root anchor through downloading the xml file.
+# Normally unbound-anchor checks timestamps; this flag forces a download regardless.
+# If True, this flag is emitted. If False, it is omitted.
+{% if force_update | default(False) | bool %}-F{% endif %}

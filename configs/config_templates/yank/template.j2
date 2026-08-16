@@ -1,0 +1,29 @@
+# ============================================================================
+# yank configuration file (managed by Ansible)
+# ============================================================================
+# This file configures the `yank` tool, which extracts sequences from a
+# reference file based on identifiers.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# -sequence <path|id>
+# Path to the input sequence file or sequence identifier.
+# yank will read sequences from this FASTA/FASTQ file or use the identifier
+# to look up sequences in a pre-built index.
+# ---------------------------------------------------------------------------
+-sequence {{ (values | default({})).sequence | default('/path/to/input.fasta') }}
+
+# ---------------------------------------------------------------------------
+# -newfile <boolean>
+# Whether to create a new output file (overwriting if exists).
+# If true, yank will overwrite the outfile if it already exists.
+# If false, yank will refuse to overwrite an existing outfile.
+# ---------------------------------------------------------------------------
+-newfile {{ ((values | default({})).newfile | default(false)) | lower }}
+
+# ---------------------------------------------------------------------------
+# -outfile <path>
+# Path to the output file for the sequence reference list.
+# This is where yank writes the extracted sequences.
+# ---------------------------------------------------------------------------
+-outfile {{ (values | default({})).outfile | default('/path/to/output.txt') }}

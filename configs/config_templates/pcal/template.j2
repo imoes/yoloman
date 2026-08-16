@@ -1,0 +1,71 @@
+# ==============================================================================
+# pcal Configuration Template
+# ==============================================================================
+# This template generates a `pcal` date file (configuration file).
+# `pcal` is a utility that creates ASCII calendars. This file defines
+# global options, specific events to appear on the calendar, and
+# footnotes/notes associated with the calendar.
+#
+# Self-documenting: Every directive is preceded by a comment explaining
+# its source, purpose, and default value derived from the Ansible schema.
+# ==============================================================================
+
+# --- Global Options ---
+
+# input_language: Input language for interpreting date/event specifications in this file.
+# Schema default: 'en'
+# Supported values depend on pcal's locale support (e.g., en, de, fr).
+input-language {{ input_language | default('en') }}
+
+# output_language: Output language for month/day names on the calendar.
+# Schema default: 'en'
+# Controls the language in which the generated calendar text appears.
+opt -a {{ output_language | default('en') }}
+
+# paper_size: Paper size option (-P).
+# Schema default: 'letter'
+# Supported values: letter, legal, a4, tabloid.
+opt -P {{ paper_size | default('letter') }}
+
+# first_day_of_week: First day of the week option (-F).
+# Schema default: 'monday'
+# Can be a name (mon, tue, ...) or a number (0=Sunday, 1=Monday, etc.).
+opt -F {{ first_day_of_week | default('monday') }}
+
+# title: Footer string (-L) to print as left-justified footer/title text.
+# Schema default: 'Calendar'
+# This text appears at the bottom of the generated calendar page.
+opt -L {{ title | default('Calendar') }}
+
+# notes_heading: Notes box heading (-N).
+# Schema default: '' (empty string)
+# If empty, no notes box heading is printed. If set, this string
+# is used as the header for the notes section.
+opt -N {{ notes_heading | default('') }}
+
+# use_american_dates: Use American date formats (-A) if true, European (-E) if false.
+# Schema default: True
+# Toggles between MM/DD/YYYY (American) and DD/MM/YYYY (European) interpretation.
+opt -{{ 'A' if use_american_dates | default(True) else 'E' }}
+
+# --- Events ---
+
+# events: List of event entries to be placed on the calendar.
+# Each item has a date_spec (pcal-compatible date expression) and text (description).
+# Schema default: []
+{% for event in events | default([]) %}
+# Event: {{ event.text | default('') }}
+# Date Specification: {{ event.date_spec | default('') }}
+{{ event.date_spec | default('') }}* {{ event.text | default('') }}
+{% endfor %}
+
+# --- Notes ---
+
+# notes: List of note entries. Each item has text and an optional box_number.
+# Schema default: []
+# Notes are appended to the calendar output, optionally grouped by box_number.
+{% for note in notes | default([]) %}
+# Note: {{ note.text | default('') }}
+# Box Number: {{ note.box_number | default('') }}
+note{{ '/' ~ note.box_number if note.box_number is defined and note.box_number | default('') | trim != '' else '' }} {{ note.text | default('') }}
+{% endfor %}

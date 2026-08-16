@@ -1,0 +1,69 @@
+# Regripper forensic analysis configuration
+# ============================================
+# This template generates a configuration file for the `regripper` tool,
+# a Perl-based framework for parsing Windows Registry hive files.
+# The output is a set of environment-style variable definitions or
+# a simple key-value config consumed by an Ansible task wrapper.
+
+# ---------------------------------------------------------------------------
+# Source Data
+# ---------------------------------------------------------------------------
+
+# Path to the Windows Registry hive file (e.g., SYSTEM, SAM, NTUSER.DAT) to parse.
+# Defaults to '/mnt/SYSTEM' if not specified in the playbook variables.
+REGRIPPER_HIVE_FILE: {{ hive_file | default('/mnt/SYSTEM') }}
+
+# The hive type/profile to use.
+# Valid values: sam, security, software, system, ntuser.
+# If GUESS_TYPE is enabled, Regripper may override this or use it as a hint.
+REGRIPPER_HIVE_TYPE: {{ hive_type | default('system') }}
+
+# Specific plugin to run (e.g., 'run', 'recentdocs_tln').
+# Leave empty ('') for automatic plugin selection based on hive type.
+# Use 'list' to view available plugins if debugging.
+REGRIPPER_PLUGIN: {{ plugin | default('') }}
+
+# ---------------------------------------------------------------------------
+# Analysis Options
+# ---------------------------------------------------------------------------
+
+# Check to see if the hive is dirty (unflushed changes).
+# Converts the boolean value to lowercase string ('true' or 'false') for the config.
+REGRIPPER_CHECK_DIRTY: {{ check_dirty | default(false) | lower }}
+
+# Guess the hive file type automatically if HIVE_TYPE is ambiguous.
+REGRIPPER_GUESS_TYPE: {{ guess_type | default(false) | lower }}
+
+# Automatically run hive-specific plugins upon detection.
+# If PLUGN is set, this might be ignored depending on regripper version logic.
+REGRIPPER_AUTO_RUN_PLUGINS: {{ auto_run_plugins | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# Timelining (TLN) Support
+# ---------------------------------------------------------------------------
+
+# Automatically run hive-specific timelining (TLN) plugins.
+# Requires specific plugins and potentially system/username context.
+REGRIPPER_AUTO_RUN_TLN: {{ auto_run_tln | default(false) | lower }}
+
+# System name for TLN Support.
+# Used to tag timeline entries with the source machine name.
+REGRIPPER_SYSTEM_NAME: {{ system_name | default('') }}
+
+# Username for TLN Support.
+# Used to tag timeline entries with the relevant user context.
+REGRIPPER_USERNAME: {{ username | default('') }}
+
+# ---------------------------------------------------------------------------
+# Extensions & Output
+# ---------------------------------------------------------------------------
+
+# List of additional plugin names to append to the command line.
+# Accepts a list of strings; rendered as a comma-separated string.
+# Example: ['plugin_a', 'plugin_b'] -> 'plugin_a, plugin_b'
+REGRIPPER_EXTRA_PLUGINS: {{ extra_plugins | default([]) | join(', ') }}
+
+# Path to redirect output to.
+# If empty, output goes to STDOUT.
+# Defaults to '/tmp/regripper_report.txt' for safety in automated runs.
+REGRIPPER_OUTPUT_FILE: {{ output_file | default('/tmp/regripper_report.txt') }}

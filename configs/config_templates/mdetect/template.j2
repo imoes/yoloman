@@ -1,0 +1,65 @@
+# ==============================================================================
+# mdetect configuration template
+# ==============================================================================
+# mdetect is a utility for detecting mice. It does not use a traditional
+# configuration file; instead, it is invoked with command-line flags.
+# This template generates the appropriate flags based on the provided variables.
+#
+# Variables mapping:
+#   verbose_level : Verbosity level. 0 = quiet, 1+ = verbose (repeats -v).
+#   no_pnp        : Boolean. If true, disables Plug 'n Play mouse detection (-n).
+#   xf86_v3       : Boolean. If true, outputs XFree86 3.x format (-o).
+#   xf86_v4       : Boolean. If true, outputs XFree86 4.x format (-x).
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Verbosity settings
+# --------------------------------------------------------------------------
+# verbose_level: Verbosity level. 0 for quiet, 1 for verbose. Corresponds to
+#                the number of -v flags used.
+# Default: {{ verbose_level | default(0) }}
+{% set vlevel = verbose_level | default(0) %}
+{% if vlevel is number and vlevel > 0 %}
+# Repeat -v flag for each level of verbosity
+{% for _ in range(vlevel) %}
+-v
+{% endfor %}
+{% else %}
+# No verbose flags (level is 0 or invalid)
+{% endif %}
+
+# --------------------------------------------------------------------------
+# PnP Mouse Detection
+# --------------------------------------------------------------------------
+# no_pnp: If true, do not search for Plug 'n Play mice. Corresponds to the -n flag.
+# Default: {{ no_pnp | default(False) }}
+{% if no_pnp | default(False) %}
+# Disable PnP mouse detection
+-n
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Output Format
+# --------------------------------------------------------------------------
+# xf86_v3: If true, produce output appropriate for XFree86 3.x configuration.
+#          Corresponds to the -o flag.
+# Default: {{ xf86_v3 | default(False) }}
+{% if xf86_v3 | default(False) %}
+# Output in XFree86 3.x format
+-o
+{% endif %}
+
+# xf86_v4: If true, produce output appropriate for XFree86 4.x configuration.
+#          Corresponds to the -x flag.
+# Default: {{ xf86_v4 | default(False) }}
+{% if xf86_v4 | default(False) %}
+# Output in XFree86 4.x format
+-x
+{% endif %}
+
+# Default behavior: If neither -o nor -x is specified, mdetect defaults to
+# gpm-compatible output format. No flag is required for the default.
+
+# Note: The -r option is marked as '[not yet implemented]' in the man page,
+# so it is excluded from this template.
+# Note: mdetect takes no positional arguments (device paths are auto-detected).

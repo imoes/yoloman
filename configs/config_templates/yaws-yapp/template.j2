@@ -1,0 +1,52 @@
+# Configuration file for yaws-yapp
+# This file defines the behavior of the yapp application within the Yaws web server context.
+# It controls where the application code is loaded from, which module is initialized,
+# and the properties of the virtual server that serves the web-GUI.
+
+# Path to the directory where yapp beam code is placed.
+# The daemon will add this directory to its search path.
+ebin_dir = {{ ebin_dir | default('/usr/lib/yapp/ebin') }}
+
+# Module to start yapp at startup.
+# This is the Erlang module name (without the .beam suffix) that Yaws will call
+# to initialize the application when the server starts.
+runmod = {{ runmod | default('yapp') }}
+
+# Edit the following virtual server definition to
+# enable web-GUI to list/add/remove Yaws applications.
+# This block defines a Yaws virtual server named "yapp".
+<server yapp>
+
+    # Port for the yapp virtual server.
+    # The TCP port number on which the web-GUI will listen for HTTP connections.
+    port = {{ port | default(8080) }}
+
+    # IP address to listen on for the yapp virtual server.
+    # The bind address. Use '0.0.0.0' for all interfaces, or a specific IP.
+    listen = {{ listen | default('0.0.0.0') }}
+
+    # Document root for the yapp virtual server.
+    # The filesystem path from which static web content (HTML, CSS, JS) is served.
+    docroot = {{ docroot | default('/usr/share/yaws-yapp/www') }}
+
+    # Enable directory listings for the yapp virtual server.
+    # If true, Yaws will display a list of files if no index file is found in a directory.
+    # Dir_listings should be lowercase 'true' or 'false' in Yaws config.
+    dir_listings = {{ dir_listings | default(true) | lower }}
+
+    # Module for argument rewriting in the yapp virtual server.
+    # An Erlang module used to process/rewrite arguments before they reach the application.
+    arg_rewrite_mod = {{ arg_rewrite_mod | default('yapp') }}
+
+    # Opaque configuration block for internal yapp settings.
+    <opaque>
+        # Server ID for the yapp instance.
+        # A unique identifier for this specific yapp server instance, used for clustering or logging.
+        yapp_server_id = {{ yapp_server_id | default('yappexample') }}
+
+        # Yapps to bootstrap when the server starts.
+        # A comma-separated list or single module name of applications to initialize.
+        bootstrap_yapps = {{ bootstrap_yapps | default('yapp') }}
+    </opaque>
+
+</server>

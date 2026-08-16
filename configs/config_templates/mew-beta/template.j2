@@ -1,0 +1,91 @@
+;;; 50mew-beta.el --- Debian mew-beta startup file -*-mode: emacs-lisp; -*-
+;;
+;; This file configures the MEW (Mule External Widget) Emacs package for the
+;; mew-beta distribution. It sets paths for icons, SSL/TLS settings, GPG
+;; programs, and other operational parameters.
+;;
+;; Variables are sourced from Ansible variables, which map directly to the
+;; schema fields defined for this package.
+
+(let* ((pkg "mew-beta")
+       (pkg-sname "mew")
+       (flavor-name (if (boundp 'debian-emacs-flavor)
+			(symbol-name debian-emacs-flavor)
+		      "emacs"))
+       (pkg-inst (concat "/usr/lib/emacsen-common/packages/install/" pkg))
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/" pkg-sname)))
+  (when (and (file-exists-p elc-dir)
+	     (file-exists-p pkg-inst))
+    (if (fboundp 'debian-pkg-add-load-path-item)
+	(debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+    ;;
+    (autoload 'mew-user-agent-compose "mew" nil t)
+    (if (fboundp 'define-mail-user-agent)
+	(define-mail-user-agent
+	  'mew-user-agent
+	  'mew-user-agent-compose
+	  'mew-draft-send-message
+	  'mew-draft-kill
+	  'mew-send-hook))
+    (autoload 'mew "mew" nil t)
+    (autoload 'mew-send "mew" nil t)
+
+    ;; Directory containing mew icons.
+    ;; Default: /usr/share/pixmaps/mew
+    (setq mew-icon-directory "{{ mew_icon_directory | default('/usr/share/pixmaps/mew') }}")
+
+    ;; Program used for SSL tunneling.
+    ;; Default: mewstunnel
+    (setq mew-prog-ssl "{{ mew_prog_ssl | default('mewstunnel') }}")
+
+    ;; Directory containing SSL certificates.
+    ;; Default: /etc/ssl/certs
+    (setq mew-ssl-cert-directory "{{ mew_ssl_cert_directory | default('/etc/ssl/certs') }}")
+
+    ;; SSL certificate verification level.
+    ;; Default: 2
+    (setq mew-ssl-verify-level {{ mew_ssl_verify_level | default(2) }})
+
+    ;; Unix browser used by mew.
+    ;; Default: /usr/bin/sensible-browser
+    (setq mew-unix-browser "{{ mew_unix_browser | default('/usr/bin/sensible-browser') }}")
+
+    (setq mew-unix-browser-arg nil)
+
+    ;; Whether to delete temporary files.
+    ;; Default: false
+    (setq mew-delete-temp-file {{ mew_delete_temp_file | default(false) }})
+
+    ;; Program used for GPG operations (version 1).
+    ;; Default: gpg1
+    (setq mew-prog-gpg "{{ mew_prog_gpg | default('gpg1') }}")
+
+    ;; Program used for GPG operations (version 2).
+    ;; Default: gpg
+    (setq mew-prog-gpg2 "{{ mew_prog_gpg2 | default('gpg') }}")
+
+    (setq mew-prog-pgp mew-prog-gpg2)
+    (setq mew-prog-passwd mew-prog-gpg2)
+    (setq mew-field-comment "") ;; workaround for Gmail, cf. [mew-ja] on 2020-11-12
+    (or (executable-find "pngtopam") ;; Netpbm 10.44 or later
+	(setq mew-image-alist ;; Netpbm 10.0
+	      '((jpeg mew-jpeg-size "jpegtopnm" "pnmtojpeg")
+		(png  mew-png-size  "pngtopnm"  "pnmtopng")
+		(gif  mew-gif-size  "giftopnm"  "ppmtogif")
+		(tiff mew-tiff-size "tifftopnm" "pnmtotiff")
+		(xwd  nil           "xwdtopnm"  "pnmtoxwd")
+		(xbm  nil           "xbmtopbm"  "pbmtoxbm")
+		(xpm  nil           "xpmtoppm"  "ppmtoxpm")
+		(bmp  mew-bmp-size  "bmptopnm"  "ppmtobmp")
+		(PCX  nil           "pcxtoppm"  "ppmtopcx")
+		(TGA  nil           "tgatoppm"  "ppmtotga")
+		(ICO  nil           "winicontoppm" "ppmtowinicon")
+		(pbm  mew-pbm-size  nil         nil)
+		(PAM  mew-pbm-size  nil         nil)))))
+    ;;(setq mew-ssl-default 'native) ;; GnuTLS
+    ;;(setq mew-ssl-default 'tunnel) ;; stunnel
+    ;;
+    )
+
+;;; 50mew-beta.el ends here

@@ -1,0 +1,34 @@
+# QJoyPad Service Configuration
+# This template generates a service wrapper script or command-line invocation
+# based on the documented CLI options of qjoypad.
+
+# The input device path for joystick detection
+# See --device in qjoypad(1)
+DEVICE="{{ device | default('/dev/input/js0') }}"
+
+# Whether to hide the system tray icon
+# Corresponds to --notray flag
+# See --notray in qjoypad(1)
+{% if notray | default(false) %}
+TRAY_FLAG="--notray"
+{% else %}
+TRAY_FLAG=""
+{% endif %}
+
+# The layout name to load
+# Passed as an argument to qjoypad
+# See "layout name" in qjoypad(1)
+LAYOUT="{{ layout_name | default('default') }}"
+
+# Construct the full command string
+# Executable: /usr/bin/qjoypad (standard location)
+COMMAND="/usr/bin/qjoypad {{ TRAY_FLAG }} --device {{ DEVICE }} {{ LAYOUT }}"
+
+# Output the command for use in a wrapper or systemd ExecStart
+{% if command_only | default(true) %}
+{{ COMMAND }}
+{% else %}
+# Service metadata
+gamepad_service=true
+command={{ COMMAND }}
+{% endif %}

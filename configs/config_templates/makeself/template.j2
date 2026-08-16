@@ -1,0 +1,187 @@
+# ============================================================================
+# Makeself Self-Extracting Archive Configuration Template
+# ============================================================================
+# This template generates a configuration block compatible with Makeself
+# or custom build scripts that manage self-extracting archives.
+#
+# All variables use `default()` to ensure safe rendering even if undefined.
+# String values are quoted; boolean/numeric values are not.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# General Archive Metadata
+# ----------------------------------------------------------------------------
+
+# Label displayed in the archive header and xterm title
+# --label
+# Default: My Self-Extracting Archive
+Label = "{{ (package | default({})).label | default('My Self-Extracting Archive') }}"
+
+# Startup script executed after extraction
+# [startup_script]
+# Default: ./run.sh
+StartupScript = "{{ (package | default({})).startup_script | default('./run.sh') }}"
+
+# ----------------------------------------------------------------------------
+# Compression Settings
+# ----------------------------------------------------------------------------
+
+# Compression method: gzip, bzip2, xz, zstd, lzo, lz4, pbzip2, pigz, base64, nocomp
+# --gzip, --bzip2, --xz, etc.
+# Default: gzip
+CompressionMethod = "{{ (package | default({})).compression_method | default('gzip') }}"
+
+# Compression level (1-9 or 1-22 depending on algorithm)
+# --complevel
+# Default: 9
+CompressionLevel = {{ (package | default({})).compression_level | default(9) }}
+
+# Number of threads for parallel compressors
+# --threads
+# Default: 1
+Threads = {{ (package | default({})).threads | default(1) }}
+
+# ----------------------------------------------------------------------------
+# Extraction Behavior
+# ----------------------------------------------------------------------------
+
+# Target directory for extraction (relative or absolute)
+# --target
+# If empty, a temporary directory is used.
+# Default: ''
+TargetDir = "{{ (package | default({})).target_dir | default('') }}"
+
+# Do not show progress bar during decompression
+# --noprogress
+# Default: false
+Noprogress = {{ (package | default({})).noprogress | default(false) | ternary('true', 'false') }}
+
+# Do not overwrite if target directory already exists
+# --nooverwrite
+# Default: false
+Nooverwrite = {{ (package | default({})).nooverwrite | default(false) | ternary('true', 'false') }}
+
+# Use current directory as extraction base
+# --current (implies --notemp)
+# Default: false
+CurrentDir = {{ (package | default({})).current_dir | default(false) | ternary('true', 'false') }}
+
+# Follow symlinks when archiving
+# --follow
+# Default: false
+FollowSymlinks = {{ (package | default({})).follow_symlinks | default(false) | ternary('true', 'false') }}
+
+# ----------------------------------------------------------------------------
+# Integrity & Checksums
+# ----------------------------------------------------------------------------
+
+# Generate SHA256 checksum for integrity validation
+# --sha256
+# Default: true
+EnableSha256 = {{ (package | default({})).enable_sha256 | default(true) | ternary('true', 'false') }}
+
+# Do not generate MD5 checksum
+# --nomd5
+# Default: false
+DisableMd5 = {{ (package | default({})).disable_md5 | default(false) | ternary('true', 'false') }}
+
+# Do not generate CRC32 checksum
+# --nocrc
+# Default: false
+DisableCrc = {{ (package | default({})).disable_crc | default(false) | ternary('true', 'false') }}
+
+# ----------------------------------------------------------------------------
+# Additional Files
+# ----------------------------------------------------------------------------
+
+# LSM file describing the package (for header info)
+# --lsm
+# Default: ''
+LsmFile = "{{ (package | default({})).lsm_file | default('') }}"
+
+# License file to append to the archive
+# --license
+# Default: ''
+LicenseFile = "{{ (package | default({})).license_file | default('') }}"
+
+# Packaging date override (default is current date)
+# --packaging-date
+# Default: ''
+PackagingDate = "{{ (package | default({})).packaging_date | default('') }}"
+
+# Header script file for custom startup behavior
+# --header
+# Default: ''
+HeaderFile = "{{ (package | default({})).header_file | default('') }}"
+
+# Cleanup script executed on interrupt or success
+# --cleanup
+# Default: ''
+CleanupFile = "{{ (package | default({})).cleanup_file | default('') }}"
+
+# ----------------------------------------------------------------------------
+# Archive Management Options
+# ----------------------------------------------------------------------------
+
+# Append files to an existing archive
+# --append
+# Default: false
+AppendMode = {{ (package | default({})).append_mode | default(false) | ternary('true', 'false') }}
+
+# Suppress verbose output from tar
+# --tar-quietly
+# Default: false
+TarQuietly = {{ (package | default({})).tar_quietly | default(false) | ternary('true', 'false') }}
+
+# Keep umask from shell default
+# --keep-umask
+# Default: false
+KeepUmask = {{ (package | default({})).keep_umask | default(false) | ternary('true', 'false') }}
+
+# Disable automatic xterm spawn in X11
+# --nox11
+# Default: false
+Nox11 = {{ (package | default({})).nox11 | default(false) | ternary('true', 'false') }}
+
+# Do not wait for user input after xterm execution
+# --nowait
+# Default: false
+Nowait = {{ (package | default({})).nowait | default(false) | ternary('true', 'false') }}
+
+# Extra options to pass to tar command
+# --tar-extra
+# Default: ''
+TarExtraOptions = "{{ (package | default({})).tar_extra_options | default('') }}"
+
+# Tar archive format (ustar, posix, v7, etc)
+# --tar-format
+# Default: ustar
+TarFormat = "{{ (package | default({})).tar_format | default('ustar') }}"
+
+# ----------------------------------------------------------------------------
+# Append Mode Files
+# ----------------------------------------------------------------------------
+# If AppendMode is enabled, list files to append to the archive.
+{% if (package | default({})).append_mode | default(false) %}
+# List of files to include in the archive (if not using archive_dir)
+# If AppendMode is true, these are the files to add.
+AppendFiles = [
+{% for file in (package | default({})).append_files | default([]) %}
+    "{{ file }}",
+{% endfor %}
+]
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Output Configuration
+# ----------------------------------------------------------------------------
+
+# Output filename for the self-extracting archive
+# [file_name]
+# Default: archive.sh
+OutputFile = "{{ (archive | default({})).output_file | default('archive.sh') }}"
+
+# Source directory to archive
+# [archive_dir]
+# Default: ./package_contents
+SourceDir = "{{ (archive | default({})).source_dir | default('./package_contents') }}"

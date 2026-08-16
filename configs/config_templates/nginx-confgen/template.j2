@@ -1,0 +1,69 @@
+# Nginx Configuration Template for nginx-confgen
+# This template generates Nginx server blocks (vhosts) based on the provided schema.
+# It supports global variables, SSL configuration, and multiple server definitions.
+
+# Global variables for nginx-confgen
+# These 'pre_set' directives are placeholders for the configuration generator's internal variable system.
+pre_set $server_root {{ server_root | default('/var/www/html') }};
+pre_set $server_name {{ server_name | default('example.com') }};
+
+{% if ssl_enabled | default(False) %}
+# SSL/TLS Configuration
+# Define the directory containing SSL certificates if SSL is enabled.
+pre_set $crtdir {{ cert_directory | default('/etc/ssl/certs') }};
+{% endif %}
+
+# Macro definitions
+# Macro 'vhost' defines a standard Nginx server block structure.
+# Arguments:
+#   $primary_name: The primary domain name for this server block.
+#   @aliases: A list of alias domains, prefixed with '@'.
+macro vhost $primary_name @aliases {
+    server {
+        # Listen on the specified port
+        listen {{ listen_port | default(80) }};
+
+        {% if ssl_enabled | default(False) %}
+        # Listen on the specified port with SSL/TLS enabled
+        listen {{ listen_port | default(80) }} ssl;
+
+        # Path to the full chain SSL certificate
+        # Constructed using the certificate directory and primary server name
+        ssl_certificate $crtdir/$primary_name/fullchain.pem;
+
+        # Path to the private key for the SSL certificate
+        ssl_certificate_key $crtdir/$primary_name/privkey.pem;
+        {% endif %}
+
+        # Define the server name and its aliases
+        server_name $primary_name @aliases;
+
+        # Document root for this server block
+        root $server_root;
+
+        # Default index files to serve
+        index index.html;
+
+        # Location block for handling requests
+        location / {
+            # Try to serve the requested URI as a file, then as a directory, then return 404
+            try_files $uri $uri/ =404;
+        }
+    }
+}
+
+# Include files if specified
+# Iterates over the list of include paths and generates 'pre_include' directives.
+{% for include_path in included_paths | default([]) %}
+pre_include {{ include_path }};
+{% endfor %}
+
+# Define servers based on configuration
+# Iterates over the 'servers' list to generate individual vhost blocks using the 'vhost' macro.
+{% for server in servers | default([]) %}
+vhost {{ server.name }} @{{ server.aliases | join(' @') }} {
+    # Set the root directory for this specific server.
+    # Uses the server-specific 'root' if defined, otherwise falls back to the global 'server_root'.
+    root {{ server.root | default(server_root) }};
+}
+{% endfor %}

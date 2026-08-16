@@ -1,0 +1,26 @@
+;;; 51semi.el --- Debian semi startup file  -*-mode: emacs-lisp;-*-
+;
+; This template configures the 'semi' Emacs package integration on Debian systems.
+; It sets up the load path and ensures the package is installed via emacsen-common.
+;
+; Self-documenting: all variables map directly to schema fields.
+
+(let* ((pkg "semi")
+       ; flavor_name_default: Default Emacs flavor name used when debian-emacs-flavor is not bound. Usually 'emacs' or 'emacs24'.
+       (flavor-name (if (boundp 'debian-emacs-flavor)
+                        (symbol-name debian-emacs-flavor)
+                      "{{ flavor_name_default | default('emacs') }}"))
+       (pkg-inst (concat "/usr/lib/emacsen-common/packages/install/" pkg))
+       ; elc-dir: Directory containing the compiled Emacs Lisp files for this package.
+       (elc-dir (concat "/usr/share/" flavor-name "/site-lisp/" pkg)))
+  ; Check if the package installation directory and install script exist before proceeding.
+  (when (and (file-exists-p elc-dir)
+             (file-exists-p pkg-inst))
+    ; If the helper function is available, use it to manage the load path; otherwise append manually.
+    (if (fboundp 'debian-pkg-add-load-path-item)
+        (debian-pkg-add-load-path-item elc-dir)
+      (setq load-path (cons elc-dir load-path)))
+    ;;
+    ))
+
+;;; 51semi.el ends here

@@ -1,0 +1,55 @@
+# Configuration for sqv signature verification
+# This template generates a shell wrapper script to enforce default verification parameters.
+# The generated script wraps the `sqv` CLI tool with pre-configured arguments.
+
+#!/bin/bash
+# Wrapper script to verify OpenPGP signatures using sqv
+
+# The path to the OpenPGP keyring containing trusted certificates
+# Corresponds to: --keyring=FILE
+KEYRING="{{ keyring | default('/etc/sequoia/trustdb.kbx') }}"
+
+# The number of valid signatures required to consider verification a success
+# Corresponds to: --signatures=N [default: 1]
+# Counts certificates, not raw signatures
+REQUIRED_SIGNATURES={{ required_signatures | default(1) }}
+
+# Path to the detached signature file
+# Corresponds to: --signature-file=SIG
+SIGNATURE_FILE="{{ signature_file | default('/var/lib/sqv/signature.asc') }}"
+
+# Path to the data file to be verified
+DATA_FILE="{{ data_file | default('/var/lib/sqv/document.bin') }}"
+
+# Consider signatures created after this timestamp as invalid (ISO 8601)
+# Corresponds to: --not-after=TIMESTAMP [default: now]
+# If empty, no upper time constraint is applied
+NOT_AFTER="{{ not_after | default('') }}"
+
+# Consider signatures created before this timestamp as invalid (ISO 8601)
+# Corresponds to: --not-before=TIMESTAMP [default: no constraint]
+# If empty, no lower time constraint is applied
+NOT_BEFORE="{{ not_before | default('') }}"
+
+# Enable verbose output
+# Corresponds to: --verbose
+VERBOSE={{ verbose | default(false) | lower }}
+
+# Build the command arguments
+# Note: ${VAR} is literal bash syntax, handled by {% raw %} to avoid Jinja parsing
+{% raw %}ARGS="--keyring=${KEYRING} --signatures=${REQUIRED_SIGNATURES} --signature-file=${SIGNATURE_FILE} ${DATA_FILE}"{% endraw %}
+
+{% if not_after | default('') != '' %}
+{% raw %}ARGS="${ARGS} --not-after=${NOT_AFTER}"{% endraw %}
+{% endif %}
+
+{% if not_before | default('') != '' %}
+{% raw %}ARGS="${ARGS} --not-before=${NOT_BEFORE}"{% endraw %}
+{% endif %}
+
+{% if verbose | default(false) | lower == "true" %}
+{% raw %}ARGS="${ARGS} --verbose"{% endraw %}
+{% endif %}
+
+# Execute sqv with the constructed arguments
+{% raw %}exec sqv ${ARGS}{% endraw %}

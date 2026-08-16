@@ -1,0 +1,92 @@
+# ===========================================================================
+# timekpr-next configuration file
+# ===========================================================================
+# This is the main configuration file for timekpr-next.
+# If this file cannot be read properly, it will be overwritten with defaults.
+# All variables are self-documented with their defaults and schema descriptions.
+# ===========================================================================
+
+[DOCUMENTATION]
+# Main configuration section for timekpr-next.
+
+[GENERAL]
+# ---------------------------------------------------------------------------
+# General runtime settings
+# ---------------------------------------------------------------------------
+
+# Logging level of the timekpr daemon: 1 = normal, 2 = debug, 3 = extra debug
+TIMEKPR_LOGLEVEL = {{ TIMEKPR_LOGLEVEL | default(1) }}
+
+# Polling interval (in memory updates) in seconds
+TIMEKPR_POLLTIME = {{ TIMEKPR_POLLTIME | default(3) }}
+
+# Time interval in seconds for persisting user time-control state to disk
+# (in-memory checks happen more frequently, but this controls disk writes)
+TIMEKPR_SAVE_TIME = {{ TIMEKPR_SAVE_TIME | default(30) }}
+
+# Whether to account sessions that are inactive (locked screen, user switched away from desktop, etc.).
+# New users inherit this value when they are created.
+# Accepts boolean: true or false
+TIMEKPR_TRACK_INACTIVE = {{ TIMEKPR_TRACK_INACTIVE | default(False) | lower }}
+
+# Time interval in seconds prior to assigning a user a termination sequence.
+# When this threshold is reached (e.g., 15 seconds before time expires),
+# no user action can prevent the session kill. This also triggers termination
+# if a user logs in during an inappropriate time window.
+TIMEKPR_TERMINATION_TIME = {{ TIMEKPR_TERMINATION_TIME | default(15) }}
+
+# Time interval in seconds prior to termination of user sessions when timekpr
+# will send continuous final warnings (a countdown) until actual termination.
+TIMEKPR_FINAL_WARNING_TIME = {{ TIMEKPR_FINAL_WARNING_TIME | default(10) }}
+
+# Time interval in seconds prior to termination of user sessions when timekpr
+# will send ONE final warning notification about remaining time.
+TIMEKPR_FINAL_NOTIFICATION_TIME = {{ TIMEKPR_FINAL_NOTIFICATION_TIME | default(60) }}
+
+[SESSION]
+# ---------------------------------------------------------------------------
+# Session tracking and exclusion filters
+# ---------------------------------------------------------------------------
+
+# Semicolon-separated list of session types that timekpr WILL track.
+# Examples: x11, wayland, mir
+TIMEKPR_SESSION_TYPES_CTRL = {{ TIMEKPR_SESSION_TYPES_CTRL | default('x11;wayland;mir') }}
+
+# Semicolon-separated list of session types that timekpr will EXPLICITLY IGNORE.
+# Examples: tty, unspecified
+TIMEKPR_SESSION_TYPES_EXCL = {{ TIMEKPR_SESSION_TYPES_EXCL | default('tty;unspecified') }}
+
+# Semicolon-separated list of usernames that timekpr will EXPLICITLY IGNORE.
+# These users are exempt from time control (e.g. display managers, test accounts).
+TIMEKPR_USERS_EXCL = {{ TIMEKPR_USERS_EXCL | default('testtimekpr;gdm;kdm;lightdm;mdm;lxdm;xdm;sddm;cdm') }}
+
+[DIRECTORIES]
+# ---------------------------------------------------------------------------
+# Directory paths for runtime, work, shared, and log data
+# ---------------------------------------------------------------------------
+
+# Runtime directory for timekpr user configuration files
+TIMEKPR_CONFIG_DIR = {{ TIMEKPR_CONFIG_DIR | default('/var/lib/timekpr/config') }}
+
+# Runtime directory for timekpr time-control state files
+TIMEKPR_WORK_DIR = {{ TIMEKPR_WORK_DIR | default('/var/lib/timekpr/work') }}
+
+# Directory for shared static files (images, GUI definitions, etc.)
+TIMEKPR_SHARED_DIR = {{ TIMEKPR_SHARED_DIR | default('/usr/share/timekpr') }}
+
+# Directory where log files are written
+TIMEKPR_LOGFILE_DIR = {{ TIMEKPR_LOGFILE_DIR | default('/var/log') }}
+
+[PLAYTIME]
+# ---------------------------------------------------------------------------
+# PlayTime activity monitoring settings
+# ---------------------------------------------------------------------------
+
+# Whether PlayTime tracking is enabled globally across all users
+# Accepts boolean: true or false
+TIMEKPR_PLAYTIME_ENABLED = {{ TIMEKPR_PLAYTIME_ENABLED | default(False) | lower }}
+
+# Whether PlayTime activity monitor uses the full process command line (including arguments)
+# for identifying monitored processes. When disabled, only the process name is used.
+# Accepts boolean: true or false
+TIMEKPR_PLAYTIME_ENHANCED_ACTIVITY_MONITOR_ENABLED = {{ TIMEKPR_PLAYTIME_ENHANCED_ACTIVITY_MONITOR_ENABLED | default(False) | lower }}

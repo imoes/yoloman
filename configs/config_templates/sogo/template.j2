@@ -1,0 +1,35 @@
+# ============================================================================
+# Sogo Cronjobs Configuration
+# ============================================================================
+# This template generates a crontab entry file for SOGo. It automates session
+# cleanup, alarm notifications, and backups.
+# ============================================================================
+
+# --- Session Cleanup ---------------------------------------------------------
+# Runs every minute to drop inactive sessions.
+# The `session_cleanup_nbMinutes` variable defines the inactivity threshold.
+# Example: With the default of 60, sessions without activity for 60 minutes are dropped.
+# Format: * * * * * <user> <command>
+* * * * *     sogo    /usr/sbin/sogo-tool expire-sessions {{ session_cleanup_nbMinutes | default(60) }} > /dev/null 2>&1
+
+# --- Email Alarms Notification -----------------------------------------------
+# Runs every minute to process and send email alarms.
+# No configuration parameters are currently exposed for this job.
+# If SMTP AUTH is required for outgoing mail, credentials should be specified
+# via `-p /path/to/credentialsFile` in the command if the tool supports it
+# in this version, though standard usage does not require modification here.
+* * * * *     sogo    /usr/sbin/sogo-ealarms-notify > /dev/null 2>&1
+
+# --- Daily Backups -----------------------------------------------------------
+# Runs once a day at 00:30 to perform a backup.
+# The `backup_retention_days` variable controls how many days of backup history are kept.
+# Backups are typically written to /var/backups/sogo/.
+# Format: 30 0 * * * <user> <command>
+30 0 * * *    sogo    /usr/sbin/sogo-backup > /dev/null 2>&1
+
+# --- Vacation Messages Expiration (Optional/Commented) -----------------------
+# Uncomment and adjust the schedule if you need to automate vacation message expiration.
+# This job requires a sieve credentials file at `/etc/sogo/sieve.creds`.
+# The credentials file format is: username:passwd
+# Example:
+# */5 * * * *   sogo    /usr/sbin/sogo-tool update-autoreply -p /etc/sogo/sieve.creds

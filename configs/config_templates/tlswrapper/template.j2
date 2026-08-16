@@ -1,0 +1,175 @@
+# ==============================================================================
+# tlswrapper Configuration Template
+# ==============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# tlswrapper is a TLS wrapper/proxy that can multiplex ports by detecting
+# the protocol (SSLv2/v3, TLS, SSH, HTTP, etc.) and forwarding to the
+# appropriate backend service.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Target Program
+# ------------------------------------------------------------------------------
+# The local program to run behind the TLS wrapper.
+# Corresponds to the --prog command-line argument.
+prog: {{ prog | default('/usr/bin/sslh') }}
+
+# ------------------------------------------------------------------------------
+# Verbosity / Debug Level
+# ------------------------------------------------------------------------------
+# Sets the verbosity of tlswrapper logging.
+# -q: quiet
+# -Q (default): normal
+# -v: verbose
+# -vv: debug
+# -vvv: trace
+# Empty string uses default behavior.
+{% if (verbose | default('')) | length > 0 %}
+verbosity: {{ verbose | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Certificate Configuration
+# ------------------------------------------------------------------------------
+
+# List of file paths containing PEM certificates and keys.
+# Corresponds to the -f argument. Each file can contain a certificate and its key.
+cert_files:
+{% for cert in cert_files | default([]) %}
+- {{ cert }}
+{% endfor %}
+
+# List of directories containing SNI-based certificate files.
+# Corresponds to the -d argument. If a directory is specified, tlswrapper
+# will look for certificate files inside based on the SNI hostname requested.
+# If this list is empty or undefined, SNI directory lookup is disabled.
+{% if cert_dirs | default(None) is not none %}
+cert_dirs:
+{% for d in cert_dirs | default([]) %}
+- {{ d }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Client Certificate Authentication (mTLS)
+# ------------------------------------------------------------------------------
+
+# Path to the CA trust anchor file for client certificate authentication.
+# Corresponds to the -a argument. If set, tlswrapper will verify client
+# certificates against this CA. If null/undefined, client auth is disabled.
+{% if client_auth_anchor | default(None) is not none %}
+client_auth_anchor: {{ client_auth_anchor | default('') }}
+{% endif %}
+
+# ASN.1 object name to extract the user identity from the client certificate.
+# Corresponds to the -U argument.
+# Valid values: 'commonName' (CN) or 'emailAddress' (email).
+# If null/undefined, no user extraction occurs.
+{% if extract_user_from_cert | default(None) is not none %}
+extract_user_from_cert: {{ extract_user_from_cert | default('commonName') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Cipher Suites
+# ------------------------------------------------------------------------------
+
+# List of symmetric encryption ciphers to enable, in preference order.
+# Corresponds to the -c argument.
+ciphers:
+{% for c in ciphers | default(['CHACHA20_POLY1305_SHA256', 'AES_256_GCM_SHA384', 'AES_126_GCM_SHA256']) %}
+- {{ c }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Ephemeral Key Exchange Algorithms
+# ------------------------------------------------------------------------------
+
+# List of ephemeral key exchange algorithms to enable.
+# Corresponds to the -e argument.
+ephemeral_algorithms:
+{% for e in ephemeral_algorithms | default(['x25519', 'secp256r1']) %}
+- {{ e }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# TLS Version Constraints
+# ------------------------------------------------------------------------------
+
+# Minimum TLS version to allow.
+# Corresponds to the -m argument.
+# Valid values: tls10, tls11, tls12, tls13.
+min_tls_version: {{ min_tls_version | default('tls12') }}
+
+# Maximum TLS version to allow.
+# Corresponds to the -M argument.
+# Valid values: tls10, tls11, tls12, tls13.
+max_tls_version: {{ max_tls_version | default('tls12') }}
+
+# ------------------------------------------------------------------------------
+# Timeouts
+# ------------------------------------------------------------------------------
+
+# Network timeout in seconds for data transfer.
+# Corresponds to the -t argument.
+network_timeout: {{ network_timeout | default(60) }}
+
+# TLS handshake timeout in seconds.
+# Corresponds to the -T argument.
+tls_handshake_timeout: {{ tls_handshake_timeout | default(30) }}
+
+# ------------------------------------------------------------------------------
+# Execution Context: User
+# ------------------------------------------------------------------------------
+
+# Username to run the target program (prog) under.
+# Corresponds to the -u argument.
+# If null/undefined, the program runs as the invoking user.
+{% if run_user | default(None) is not none %}
+run_user: {{ run_user | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Execution Context: Jailing (Chroot)
+# ------------------------------------------------------------------------------
+
+# Chroot jail directory for the target program.
+# Corresponds to the -J argument.
+jail_directory: {{ jail_directory | default('/var/lib/tlswrapper/empty') }}
+
+# Username to run network/key processes under INSIDE the jail.
+# Corresponds to the -j argument.
+# If null/undefined, tlswrapper uses a random uid/gid for security isolation.
+{% if jail_user | default(None) is not none %}
+jail_user: {{ jail_user | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# TLS Protocol Options
+# ------------------------------------------------------------------------------
+
+# If true, enforces the server's cipher preference order.
+# Corresponds to the -s argument.
+# If false, the client's cipher preference is used.
+enforce_server_preferences: {{ enforce_server_preferences | default(true) }}
+
+# Explicitly disable server preference enforcement.
+# Corresponds to the -S argument.
+# Note: Conflicts with enforce_server_preferences in practice; use one or the other.
+don_t_enforce_server_preferences: {{ don_t_enforce_server_preferences | default(false) }}
+
+# Enable delayed encryption for STARTTLS-like protocols.
+# Corresponds to the -n argument.
+# Requires the child process to write to file descriptor 5.
+enable_delayed_encryption: {{ enable_delayed_encryption | default(false) }}
+
+# Explicitly disable delayed encryption.
+# Corresponds to the -N argument.
+# Note: Conflicts with enable_delayed_encryption in practice; use one or the other.
+don_t_disable_delayed_encryption: {{ don_t_disable_delayed_encryption | default(true) }}
+
+# Enable Proxy Protocol version string.
+# Corresponds to the -p argument.
+# Valid values: '1', '2'. If null/undefined, Proxy Protocol is disabled.
+{% if proxy_protocol_version | default(None) is not none %}
+proxy_protocol_version: {{ proxy_protocol_version | default('') }}
+{% endif %}

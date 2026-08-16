@@ -1,0 +1,84 @@
+# ==============================================================================
+# readpe Configuration Template
+# ==============================================================================
+# This template generates an argument manifest for the `readpe` CLI tool.
+# `readpe` is used to analyze Portable Executable (PE) files (EXE, DLL, etc.).
+#
+# Self-documentation guide:
+# - Each section corresponds to a specific command-line flag.
+# - Variables are sourced from the top-level scope (Ansible variables), NOT nested.
+# - All variables use `default(...)` to ensure safe rendering even if undefined.
+# - Boolean flags are rendered as 'true' or 'false' strings for the manifest.
+# - List fields (headers) are joined with commas.
+
+# ==============================================================================
+# Target File
+# ==============================================================================
+# Path to the PE file (PE32/PE32+ executable or DLL) to analyze.
+# Corresponds to the positional argument or implicit target file.
+PE_FILE: "{{ pe_file | default('/tmp/sample.exe') }}"
+
+# ==============================================================================
+# Output Format
+# ==============================================================================
+# Output format. One of: text, csv, xml, html.
+# Corresponds to: -f, --format <text|csv|xml|html>
+OUTPUT_FORMAT: "{{ output_format | default('text') }}"
+
+# ==============================================================================
+# Specific Headers
+# ==============================================================================
+# List of specific headers to display. Valid items: dos, coff, optional.
+# If empty, uses default full output behavior if other flags not set.
+# Corresponds to: -h, --header <dos|coff|optional>
+# Note: Multiple -h flags may be needed for multiple headers, or they may be comma-separated.
+# Here we render them as a comma-separated list for the manifest value.
+HEADERS: "{% if headers | default([]) | length > 0 %}{{ headers | default([]) | join(',') }}{% endif %}"
+
+# ==============================================================================
+# Import Analysis
+# ==============================================================================
+# If true, add -i/--imports flag to show imported functions.
+# Corresponds to: -i, --imports
+# Rendered as 'true' or 'false' in the manifest.
+SHOW_IMPORTS: {{ show_imports | default(False) | lower }}
+
+# ==============================================================================
+# Export Analysis
+# ==============================================================================
+# If true, add -e/--exports flag to show exported functions.
+# Corresponds to: -e, --exports
+# Rendered as 'true' or 'false' in the manifest.
+SHOW_EXPORTS: {{ show_exports | default(False) | lower }}
+
+# ==============================================================================
+# Data Directories
+# ==============================================================================
+# If true, add -d/--dirs flag to show data directories.
+# Corresponds to: -d, --dirs
+# Rendered as 'true' or 'false' in the manifest.
+SHOW_DIRS: {{ show_dirs | default(False) | lower }}
+
+# ==============================================================================
+# All Headers
+# ==============================================================================
+# If true, add -H/--all-headers flag to show all PE headers.
+# Corresponds to: -H, --all-headers
+# Rendered as 'true' or 'false' in the manifest.
+SHOW_ALL_HEADERS: {{ show_all_headers | default(False) | lower }}
+
+# ==============================================================================
+# All Sections
+# ==============================================================================
+# If true, add -S/--all-sections flag to show PE section headers.
+# Corresponds to: -S, --all-sections
+# Rendered as 'true' or 'false' in the manifest.
+SHOW_ALL_SECTIONS: {{ show_all_sections | default(False) | lower }}
+
+# ==============================================================================
+# Full Output
+# ==============================================================================
+# If true, add -A/--all flag for full output.
+# Corresponds to: -A, --all
+# Rendered as 'true' or 'false' in the manifest.
+FULL_OUTPUT: {{ full_output | default(True) | lower }}

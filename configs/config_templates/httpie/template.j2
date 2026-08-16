@@ -1,0 +1,70 @@
+{#
+    HTTPie Configuration File Template
+    ==================================
+    This template generates a valid JSON configuration file for HTTPie (httpie.org).
+    It manages settings for update checks, display colors, default HTTP headers,
+    CLI flags, proxy settings, and SSL verification.
+
+    All variables must be provided by the Ansible role playing this template.
+    If a variable is missing, the schema defaults are used automatically.
+#}
+
+{# The root object starts here. #}
+{
+{#
+    check_update: Whether to check for updates when starting HTTPie.
+    Default: true (boolean).
+#}
+  "check_update": {{ check_update | default(true) }},
+{#
+    color_scheme: The color scheme to use for output.
+    Options: auto, base16-eighties.dark, base16-eighties.light, base16-mocha.dark, base16-mocha.light, base16-mocha.light, base16-ocean.dark, base16-ocean.light, solarized-dark, solarized-light.
+    Default: 'auto'.
+#}
+  "color_scheme": "{{ color_scheme | default('auto') }}",
+{#
+    default_http_headers: A list of default HTTP headers to send with every request.
+    Each item is a map with 'name' and 'value' keys.
+    Default: empty list [].
+#}
+  "default_http_headers": [
+    {%- for header in (default_http_headers | default([])) %}
+    {
+      "name": "{{ header.name | string }}",
+      "value": "{{ header.value | string }}"
+    }
+    {%- if not loop.last %},{%- endif %}
+    {%- endfor %}
+  ],
+{#
+    default_options: A list of default options (flags) to apply to every httpie invocation.
+    Default: empty list [].
+#}
+  "default_options": {{ default_options | default([]) | tojson }},
+{#
+    proxy: Proxy configuration section.
+#}
+  "proxy": {
+{#
+    proxy_http: URL of the HTTP proxy.
+    Default: empty string.
+#}
+    "http": "{{ proxy_http | default('') }}",
+{#
+    proxy_https: URL of the HTTPS proxy.
+    Default: empty string.
+#}
+    "https": "{{ proxy_https | default('') }}",
+{#
+    proxy_no_proxy: Comma-separated list of hosts that should not use a proxy.
+    Default: empty string.
+#}
+    "no_proxy": "{{ proxy_no_proxy | default('') }}"
+  },
+{#
+    verify: Whether to verify SSL certificates.
+    Options: yes, no, /path/to/cert/file.
+    Default: 'yes'.
+#}
+  "verify": "{{ verify | default('yes') }}"
+}

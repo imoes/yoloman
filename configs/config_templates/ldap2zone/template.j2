@@ -1,0 +1,20 @@
+# ldap2zone configuration file
+#
+# This is a cron-based synchronization tool that converts LDAP directory entries
+# into DNS zone files managed by BIND.
+#
+# It runs under the 'bind' user (or configured user) to ensure proper permissions.
+#
+# The PATH is set to ensure cron can find necessary binaries.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# Cron jobs to run ldap2bind periodically.
+# @reboot ensures sync happens after server boot if BIND was down.
+# @hourly ensures periodic synchronization.
+#
+# cron_user: The system user under whom the cron jobs should execute.
+# ldap2bind_path: The absolute path to the ldap2bind executable.
+
+{% for schedule in ['@reboot', '@hourly'] %}
+{{ schedule }}   {{ cron_user | default('bind') | trim }}  test -x {{ ldap2bind_path | default('/usr/sbin/ldap2bind') | trim }} && {{ ldap2bind_path | default('/usr/sbin/ldap2bind') | trim }}
+{% endfor %}

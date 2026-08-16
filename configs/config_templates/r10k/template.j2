@@ -1,0 +1,47 @@
+# r10k configuration file
+# Main configuration file for r10k, specifying remote sources and deployment targets
+
+# Specify the remote Git repositories for Puppet modules and environments
+# Each remote defines a Git source from which r10k will fetch Puppet modules or environments.
+# The 'name' key becomes the section header, 'remote' is the Git URL, and 'basedir'
+# defines the local subdirectory where fetched content is stored.
+{% for remote in remotes | default([], true) %}
+# Remote {{ loop.index }}: {{ remote.name | default('unnamed') }}
+# Description: Git source configuration for {{ remote.name | default('unnamed') }}
+{{ remote.name | default('unnamed') }}:
+  # The Git remote URL for this source
+  # This URL is passed to 'git clone' or 'git fetch'. Supports standard Git URLs
+  # (https://, git@, file://, etc.)
+  remote: {{ remote.remote | default('') }}
+  # The directory name to store these modules/environments in (relative to targets)
+  # r10k will clone/fetch into <target_path>/<basedir>/<environment_name>
+  basedir: {{ remote.basedir | default('') }}
+{% endfor %}
+
+# Specify the local directories where r10k will deploy environments and modules
+# Each target defines a root directory on the local filesystem where r10k will
+# write the deployed Puppet code (environments and modules).
+{% for target in targets | default([], true) %}
+# Target {{ loop.index }}: {{ target.name | default('unnamed') }}
+# Description: Deployment target configuration for {{ target.name | default('unnamed') }}
+{{ target.name | default('unnamed') }}:
+  # The absolute path to the target directory
+  # r10k must have write permissions to this directory and its subdirectories.
+  path: {{ target.path | default('') }}
+{% endfor %}
+
+# Global deployment options
+
+# Whether to delete modules/environments that are not in the Puppetfile/Puppetfile repository
+# If set to true, r10k will remove any environment or module directory that does not
+# correspond to a branch/tag defined in the current Puppetfile. Use with caution.
+purge: {{ purge | default(false) }}
+
+# The user to chown deployed files to
+# All files and directories created or modified by r10k will be owned by this user.
+# Typically set to the Puppet agent user.
+owner: {{ owner | default('puppet') }}
+
+# The group to chown deployed files to
+# All files and directories created or modified by r10k will be group-owned by this group.
+group: {{ group | default('puppet') }}

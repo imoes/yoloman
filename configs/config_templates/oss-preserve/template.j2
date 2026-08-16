@@ -1,0 +1,95 @@
+#!/bin/sh
+# ============================================================================
+# INIT SCRIPT: oss-preserve
+#
+# This script manages the preservation and restoration of OSS (Open Sound
+# System) mixer settings. It uses the `ossctl` utility to save the current
+# audio mixer state to a file and restore it from a previous state.
+#
+# Self-Documenting Notes:
+# - ossctl_path: Path to the ossctl binary. Defaults to '/usr/lib/oss-preserve/ossctl'.
+# - fixed_settings_path: Path to the preferred fixed settings file. Defaults to '/etc/default/oss-preserve'.
+# - previous_settings_path: Path to the fallback/previous settings file. Defaults to '/var/lib/oss-preserve/settings'.
+#
+# Usage: /etc/init.d/oss-preserve {start|stop|restart|force-reload|status}
+# ============================================================================
+
+### BEGIN INIT INFO
+# Provides:          oss-preserve
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+
+# $Id: init.d 2966 2006-08-15 05:11:48Z cph $
+#
+# Copyright (c) 2001 Hewlett-Packard Company
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+# USA.
+
+set -e
+
+# Path to the ossctl binary used to save/restore OSS mixer settings.
+OSSCTL="{{ ossctl_path | default('/usr/lib/oss-preserve/ossctl') }}"
+
+# Path to the fixed settings file for OSS mixer configuration.
+FIXED="{{ fixed_settings_path | default('/etc/default/oss-preserve') }}"
+
+# Path to the previous settings file where OSS mixer state is stored.
+PREVIOUS="{{ previous_settings_path | default('/var/lib/oss-preserve/settings') }}"
+
+[ -x "${OSSCTL}" ] || exit 0
+
+case "$1" in
+start)
+    SETTINGS=""
+    # Prefer the fixed settings file if it exists and is non-empty.
+    if [ -s "${FIXED}" ]; then
+        SETTINGS="${FIXED}"
+    # Fallback to the previous settings file if the fixed one is missing/empty.
+    elif [ -s "${PREVIOUS}" ]; then
+        SETTINGS="${PREVIOUS}"
+    fi
+    # Only attempt restore if a settings file was identified.
+    if [ -n "${SETTINGS}" ]; then
+        echo -n "Restoring OSS mixer settings..."
+        "${OSSCTL}" restore < "${SETTINGS}"
+        echo "done."
+    fi
+    ;;
+stop)
+    echo -n "Saving OSS mixer settings..."
+    # Save the current mixer state to the previous settings file.
+    "${OSSCTL}" save > "${PREVIOUS}"
+    echo "done."
+    ;;
+restart|force-reload)
+    $0 stop
+    $0 start
+    ;;
+status)
+    # http://refspecs.freestandards.org/LSB_2.1.0/LSB-generic/LSB-generic/iniscrptact.html
+    # does not really specify an exit code:
+    exit 4
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac
+
+exit 0

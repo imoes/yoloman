@@ -1,0 +1,49 @@
+# ==============================================================================
+# MangoApp Wrapper Script Template
+# ==============================================================================
+# This template generates a shell wrapper script to launch mangoapp with
+# gamescope. It handles resolution settings and environment variable injection.
+#
+# Schema fields used:
+#   - app_command: The command to run the target application that will be monitored by MangoHud via mangoapp.
+#   - width: Target internal resolution width for gamescope.
+#   - height: Target internal resolution height for gamescope.
+#   - refresh_rate: Target refresh rate in Hz for gamescope.
+#   - env_vars: List of environment variables to set for the MangoHud overlay and application.
+# ==============================================================================
+
+#!/bin/sh
+# Application to run inside gamescope
+# Source: app_command
+# Default: 'vkcube'
+# Description: The command to run the target application that will be monitored by MangoHud via mangoapp.
+{{ (app_command | default('vkcube')) | string }}&
+
+# Launch mangoapp with gamescope to enable the overlay
+# MangoHud settings are typically configured in /etc/mangohud.conf or via env vars,
+# but mangoapp itself is launched here as specified in the man page.
+
+# Environment variables for MangoHud (often managed separately, but can be injected here)
+# Source: env_vars
+# Default: None
+# Description: List of environment variables to set for the MangoHud overlay and application.
+# Note: This is a list of maps with 'name' and 'value' keys.
+{% if env_vars is defined %}
+{% for item in env_vars %}
+export {{ item.name }}={{ item.value }}
+{% endfor %}
+{% endif %}
+
+# Run gamescope with the specified resolution and refresh rate settings
+# These are critical for mangoapp to capture the frame buffer correctly
+#
+# Gamescope parameters:
+#   --width: Target internal resolution width for gamescope.
+#   --height: Target internal resolution height for gamescope.
+#   --refresh: Target refresh rate in Hz for gamescope.
+exec gamescope \
+    --width {{ (width | default(1920)) | int }} \
+    --height {{ (height | default(1080)) | int }} \
+    --refresh {{ (refresh_rate | default(60)) | int }} \
+    -- \
+    ./run.sh

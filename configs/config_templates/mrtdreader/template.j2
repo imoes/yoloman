@@ -1,0 +1,39 @@
+# MRtdReader Configuration File
+# This file controls the behavior of the MRTD (Machine Readable Travel Document) reader tool.
+# It handles BAC (Basic Access Control) key derivation, chip data group selection, and output settings.
+
+# output_dir
+# Directory where extracted facial images and data files are dumped.
+output_dir: {{ output_dir | default('/var/lib/mrtdreader/output') }}
+
+# passport_number
+# Passport number for Basic Access Control (BAC). Max 9 ASCII letters or digits.
+# Used alone with date_of_birth and expiration_date to derive the BAC key.
+passport_number: {{ passport_number | default('') }}
+
+# date_of_birth
+# Date of birth for BAC key derivation. Format YYMMDD.
+# Used alone with passport_number and expiration_date to derive the BAC key.
+date_of_birth: {{ date_of_birth | default('') }}
+
+# expiration_date
+# Expiration date for BAC key derivation. Format YYMMDD.
+# Used alone with passport_number and date_of_birth to derive the BAC key.
+expiration_date: {{ expiration_date | default('') }}
+
+# mrz
+# Full Machine-readable zone (MRZ) string.
+# If provided, overrides passport_number, date_of_birth, and expiration_date for BAC key derivation.
+mrz: {{ mrz | default('') }}
+
+# data_groups
+# List of Data Groups (DG1-DG16, CA, SOD, COM) to read from the chip.
+# DG1 is MRZ, DG2 is Facial Image.
+data_groups:
+{% for dg in data_groups | default(['DG1', 'DG2']) %}
+  - {{ dg }}
+{% endfor %}
+
+# verbose
+# If true, enables verbose logging.
+verbose: {{ verbose | default(False) | lower }}

@@ -1,0 +1,74 @@
+# =============================================================================
+# randmac - Random MAC Address Generator Configuration Template
+# =============================================================================
+# This template generates command-line flags for the `randmac` utility.
+# It supports generating locally administered or globally unique MAC addresses,
+# controlling unicast/multicast bits, output casing, EUI-64 compliance, and
+# specific OUI (Organizationally Unique Identifier) sources.
+# =============================================================================
+
+# --local: Generate a locally administered MAC address (sets the local bit).
+# When set to true, the second-least significant bit of the first octet is set to 1.
+{% if local | default(False) %}
+--local
+{% endif %}
+
+# --global: Generate a globally unique MAC address (clears the local bit).
+# When set to true, the second-least significant bit of the first octet is cleared to 0.
+# Note: Usually mutually exclusive with --local in practice, though both flags
+# may be present in the configuration object.
+{% if global | default(False) %}
+--global
+{% endif %}
+
+# --unicast: Generate a unicast MAC address (clears the multicast bit).
+# When set to true, the least significant bit of the first octet is cleared to 0.
+{% if unicast | default(False) %}
+--unicast
+{% endif %}
+
+# --multicast: Generate a multicast MAC address (sets the multicast bit).
+# When set to true, the least significant bit of the first octet is set to 1.
+# Note: Usually mutually exclusive with --unicast.
+{% if multicast | default(False) %}
+--multicast
+{% endif %}
+
+# --uppercase: Print uppercase hex digits.
+# When set to true, the output MAC address hex digits will be in uppercase (e.g., AA:BB:CC...).
+# Default is lowercase.
+{% if uppercase | default(False) %}
+--uppercase
+{% endif %}
+
+# --eui64: Generate an EUI-64 compliant address.
+# When set to true, the generator will produce an address compliant with EUI-64 standards.
+{% if eui64 | default(False) %}
+--eui64
+{% endif %}
+
+# --oui: Explicitly set the Organizationally Unique Identifier (OUI).
+# Accepts hex format, e.g., '00:11:22:33:44:55' or '001122334455'.
+# Only set if vendor/qemu/xen options are not used or if an explicit OUI is required.
+{% if oui_addr | default('') %}
+--oui {{ oui_addr | default('') }}
+{% endif %}
+
+# --vendor: Set the OUI of a specific vendor by name or ID.
+# The randmac utility will look up the vendor's registered OUI.
+# Only set if other OUI options are not used.
+{% if vendor | default('') %}
+--vendor {{ vendor | default('') }}
+{% endif %}
+
+# --qemu: Set the standard OUI of QEMU/KVM.
+# When set to true, the generator uses the reserved QEMU/KVM OUI (52:54:00...).
+{% if qemu | default(False) %}
+--qemu
+{% endif %}
+
+# --xen: Set the standard OUI of Xen.
+# When set to true, the generator uses the reserved Xen OUI (00:16:3E...).
+{% if xen | default(False) %}
+--xen
+{% endif %}

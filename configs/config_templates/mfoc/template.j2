@@ -1,0 +1,26 @@
+# mfoc configuration
+# This package configures mfoc (Mifare Classic Offline Cracker), a tool for extracting
+# encrypted data from Mifare Classic smart cards using known or guessed keys.
+# It is primarily a security auditing and research tool.
+
+# --- mfoc_default_keys ---
+# Comma-separated list of 16-character hex keys to try initially in addition to the default keys.
+# These keys are passed to mfoc via the -k option.
+# If the list is empty, only the built-in default keys are used.
+mfoc_default_keys = {{ (default_keys | default(['0000000000000000', 'a0a1a2a3a4a5', 'b0b1b2b3b4b5'])) | join(',') }}
+
+# --- output_file ---
+# File path where the cracked card contents and keys will be dumped.
+# This corresponds to the -O option. Ensure the target directory exists and is writable.
+output_file = "{{ output_file | default('/var/lib/mfoc/card_dump.bin') }}"
+
+# --- probe_limit ---
+# Number of times to probe each sector.
+# Corresponds to the -P option. Higher values may improve success rates for difficult reads
+# but increase execution time.
+probe_limit = {{ probe_limit | default(20) }}
+
+# --- tolerance ---
+# Half the range for a possible distance tolerance.
+# Corresponds to the -T option. The total probing range is 2*T.
+tolerance = {{ tolerance | default(20) }}

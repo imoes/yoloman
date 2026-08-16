@@ -1,0 +1,33 @@
+# =============================================================================
+# StoryMaps Configuration Template
+# =============================================================================
+# This template generates the configuration file for the StoryMaps application.
+# All variables are sourced from Ansible host/group variables or defaults defined
+# in the role's defaults/main.yml.
+# =============================================================================
+
+# theme: The default visual theme applied to story cards.
+# Valid values are drawn from the 'themes' list.
+theme: {{ theme | default('classic') }}
+
+# app_title: The title displayed in the application window toolbar.
+app_title: {{ app_title | default('My Story Maps') }}
+
+# auto_save: Whether to automatically save the story map as the user works.
+# Accepted values: true, false, yes, no.
+auto_save_enabled: {{ auto_save | default(true) }}
+
+# stories_dir: The directory path where story maps are automatically saved.
+# Ensure this directory exists and is writable by the application user.
+stories_directory: {{ stories_dir | default('/home/user/StoryMaps') }}
+
+# language: The default language code for the interface and story cards.
+# Typically an ISO 639-1 code (e.g., 'en', 'fr', 'de').
+language: {{ language | default('en') }}
+
+# themes: List of theme identifiers available for selection.
+# Each item is rendered as a list entry under the 'available_themes' key.
+available_themes:
+{% for theme_item in themes | default(['classic', 'modern', 'simple']) %}
+  - {{ theme_item }}
+{% endfor %}

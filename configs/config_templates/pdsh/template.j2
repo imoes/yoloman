@@ -1,0 +1,88 @@
+# =============================================================================
+# PDSH (Parallel Distributed Shell) Configuration
+# This file configures pdsh, a tool for executing commands on multiple remote
+# hosts in parallel. It mirrors the environment variables and command-line
+# options defined in the pdsh man page.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# RcmdType
+# Description: The remote connection module to use (e.g., ssh, rsh, exec).
+# Env Var:     PDSH_RCMD_TYPE
+# CLI Option:  -R
+# Default:     ssh
+# -----------------------------------------------------------------------------
+RcmdType={{ rcmd_type | default('ssh') }}
+
+# -----------------------------------------------------------------------------
+# Fanout
+# Description: Maximum number of simultaneous remote commands. Controls
+#              the level of parallelism.
+# Env Var:     FANOUT
+# CLI Option:  -f
+# Default:     32
+# -----------------------------------------------------------------------------
+Fanout={{ fanout | default(32) }}
+
+# -----------------------------------------------------------------------------
+# ConnectTimeout
+# Description: Timeout in seconds for establishing a connection to a remote host.
+# Env Var:     PDSH_CONNECT_TIMEOUT
+# CLI Option:  -t
+# Default:     10
+# -----------------------------------------------------------------------------
+ConnectTimeout={{ connect_timeout | default(10) }}
+
+# -----------------------------------------------------------------------------
+# CommandTimeout
+# Description: Timeout in seconds for remote command execution.
+#              A value of 0 means no limit (wait indefinitely).
+# Env Var:     PDSH_COMMAND_TIMEOUT
+# CLI Option:  -u
+# Default:     0
+# -----------------------------------------------------------------------------
+CommandTimeout={{ command_timeout | default(0) }}
+
+# -----------------------------------------------------------------------------
+# RemoteUser
+# Description: Username to use for remote connections. If empty, the current
+#              user is used.
+# Env Var:     (None specific, usually handled via SSH config or -l)
+# CLI Option:  -l (implied in SshArgs)
+# Default:     '' (empty)
+# -----------------------------------------------------------------------------
+RemoteUser={{ remote_user | default('') }}
+
+# -----------------------------------------------------------------------------
+# SshArgs
+# Description: Arguments passed to the ssh command. Defaults include
+#              protocol version 2, authentication agent forwarding, X11
+#              forwarding disabled, and user/host placeholders.
+# Env Var:     PDSH_SSH_ARGS
+# CLI Option:  (part of -o or direct ssh args)
+# Default:     -2 -a -x -l%u %h
+# -----------------------------------------------------------------------------
+SshArgs={{ ssh_args | default('-2 -a -x -l%u %h') }}
+
+# -----------------------------------------------------------------------------
+# SshArgsAppend
+# Description: Additional arguments to append to the ssh command.
+# Env Var:     PDSH_SSH_ARGS_APPEND
+# CLI Option:  (appended to ssh args)
+# Default:     '' (empty)
+# -----------------------------------------------------------------------------
+SshArgsAppend={{ ssh_args_append | default('') }}
+
+# -----------------------------------------------------------------------------
+# Targets
+# Description: List of target hosts or hostlist expressions. These are the
+#              remote systems that pdsh will manage.
+# Env Var:     (Defined via WCOLL files or -w option)
+# CLI Option:  -w
+# Default:     [] (empty list)
+# -----------------------------------------------------------------------------
+{% if targets | default([]) %}
+{% for target in targets | default([]) %}
+{{ target }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,66 @@
+# Medusa Parallel Network Login Auditor Configuration
+# This template generates a shell script wrapper to execute Medusa,
+# a parallel network login auditor, with the parameters defined in the Ansible variables.
+#
+# All variables below MUST be defined in your Ansible inventory or playbook,
+# as they are critical for the tool's operation and security.
+
+#!/bin/sh
+# Medusa audit execution script
+# Generated configuration for medusa service
+
+medusa \
+    # Target hostname or IP address to audit. (-h)
+    -h {{ medusa_target_host | default('localhost') }} \
+    # Target username for login attempts. (-u)
+    -u {{ medusa_target_user | default('admin') }} \
+    # Target password for login attempts. (-p)
+    -p {{ medusa_target_password | default('password') }} \
+    # Name of the module to execute (without .mod extension). (-M)
+    -M {{ medusa_module | default('ssh') }} \
+    # Verbose level [0 - 6]. 0=Exit, 6=General Message. (-v)
+    -v {{ medusa_verbose | default(5) }} \
+    # Total number of logins to be tested concurrently. (-t)
+    -t {{ medusa_concurrent_logins | default(16) }} \
+    # Total number of hosts to be tested concurrently. (-T)
+    -T {{ medusa_concurrent_hosts | default(1) }} \
+    # Additional password checks: 'n' for No Password, 's' for Password=Username. (-e)
+    {% if medusa_extra_checks | default('') | length > 0 %}-e "{{ medusa_extra_checks | default('') }}" \
+    {% endif %}
+    # Custom parameters to pass to the module using -m flags. (-m)
+    {% for param in medusa_module_params | default([]) %}-m "{{ param }}" \
+    {% endfor %}
+    # Stop scanning host after first valid username/password found. (-f)
+    {% if medusa_stop_on_first_match | default(False) %}-f \
+    {% endif %}
+    # Error debug level [0 - 10]. 0=Fatal, 10=Debug-Module. (-w)
+    -w {{ medusa_error_debug_level | default(5) }} \
+    # Suppress startup banner. (-b)
+    -b \
+    # File to append log information to. (-O)
+    -O "{{ medusa_log_file | default('/var/log/medusa/results.log') }}" \
+    # Use for non-default TCP port number. 0 means use default. (-n)
+    {% if medusa_port | default(0) != 0 %}-n {{ medusa_port | default(0) }} \
+    {% endif %}
+    # Enable SSL. (-s)
+    {% if medusa_ssl | default(False) %}-s \
+    {% endif %}
+    # Give up after trying to connect for NUM seconds. (-g)
+    -g {{ medusa_connect_timeout | default(3) }} \
+    # Sleep NUM seconds between retry attempts. (-r)
+    -r {{ medusa_retry_sleep | default(3) }} \
+    # Attempt NUM retries before giving up. Total attempts = NUM + 1. (-R)
+    -R {{ medusa_retries | default(0) }} \
+    # Set the number of usec waited during socket test. (-c)
+    -c {{ medusa_socket_check_usec | default(1) }} \
+    # Parallelize logins using one username per thread. (-L)
+    {% if medusa_parallelize_logins | default(False) %}-L \
+    {% endif %}
+    # Stop audit after first valid username/password found on any host. (-F)
+    {% if medusa_stop_audit_on_first_match | default(False) %}-F \
+    {% endif %}
+    # Allows basic resuming of a previous scan. (-Z)
+    {% if medusa_resume_map | default('') | length > 0 %}-Z "{{ medusa_resume_map | default('') }}" \
+    {% endif %}
+    # Display version. (-V)
+    -V

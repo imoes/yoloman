@@ -1,0 +1,33 @@
+# Configuration for metar
+#
+# This file configures the metar utility to fetch aviation weather reports
+# (METAR) from a specified remote source.
+#
+# Variables used:
+#   metar_url : Base URL for METAR files. The station ID and .TXT extension are appended automatically.
+#   stations  : List of ICAO station identifiers for which to retrieve weather reports.
+#   decode    : If true, pass the -d flag to decode reports into human-readable format.
+#   verbose   : If true, pass the -v flag to be verbose during retrieval.
+
+# Source of METAR reports (overrides default NOAA)
+# Base URL for METAR files. The station ID and .TXT extension are appended automatically.
+# Default: http://weather.noaa.gov/pub/data/observations/metar/stations/
+METARURL={{ (metar_url | default('http://weather.noaa.gov/pub/data/observations/metar/stations/')) | string }}
+
+# List of ICAO station identifiers to query
+# List of ICAO station identifiers for which to retrieve weather reports.
+# Default: ['KJFK', 'EHAM']
+{% set _stations = stations | default(['KJFK', 'EHAM']) %}
+STATIONS={% for _station in _stations %}{{ _station }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Decode the retrieved weather reports into a human-readable format
+# If true, pass the -d flag to decode reports into human-readable format.
+# Default: false
+{% set _decode = decode | default(false) | bool %}
+DECODE={{ _decode | ternary('true', 'false') }}
+
+# Be verbose while retrieving a report
+# If true, pass the -v flag to be verbose during retrieval.
+# Default: false
+{% set _verbose = verbose | default(false) | bool %}
+VERBOSE={{ _verbose | ternary('true', 'false') }}

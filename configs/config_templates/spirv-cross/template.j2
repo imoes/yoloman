@@ -1,0 +1,412 @@
+# ============================================================================
+# spirv-cross Configuration Template
+# ============================================================================
+# This template generates a self-documenting configuration for the spirv-cross
+# SPIR-V compiler/converter. It maps schema fields to command-line flags.
+#
+# spirv-cross converts SPIR-V binaries into readable GLSL, HLSL, Metal, etc.
+# See: https://github.com/KhronosGroup/SPIRV-Cross
+# ============================================================================
+
+# [SPIR-V file] input file
+# Path to the input SPIR-V binary file. Use '-' for stdin.
+input: {{ input_file | default('/usr/share/shaders/spirv/input.spv') }}
+
+# [--output <output path>] output file path
+# Path to the output file. If omitted, output goes to stdout.
+output: {{ output_file | default('/usr/share/shaders/spirv/output.glsl') }}
+
+# ============================================================================
+# Backend Selection
+# ============================================================================
+# Select the target language/backend for the output shader code.
+# Only one backend flag should typically be active at a time,
+# though Vulkan semantics implies GLSL target.
+
+# --vulkan-semantics: Emit Vulkan GLSL instead of plain GLSL.
+# When enabled, the output GLSL code assumes Vulkan memory model and semantics.
+vulkan_semantics: {{ vulkan_semantics | default(False) }}
+
+# --msl: Emit Metal Shading Language (MSL).
+# Targets Apple's Metal GPU shading language.
+msl_backend: {{ msl_backend | default(False) }}
+
+# --hlsl: Emit HLSL.
+# Targets Microsoft's High-Level Shading Language for Direct3D.
+hlsl_backend: {{ hlsl_backend | default(False) }}
+
+# --reflect: Emit JSON reflection instead of shader code.
+# Outputs a JSON structure describing the shader interface, bindings, and types.
+reflect_mode: {{ reflect_mode | default(False) }}
+
+# ============================================================================
+# Common Options
+# ============================================================================
+
+# --entry name: Use a specific entry point.
+# Name of the specific entry point to use in the SPIR-V module.
+entry_point: {{ entry_point | default('main') }}
+
+# --stage <stage>: Forces use of a certain shader stage.
+# Force a specific shader stage (vert, frag, geom, tesc, tese, comp).
+# This helps spirv-cross understand the context if the entry point name is ambiguous.
+stage: {{ stage | default('frag') }}
+
+# --emit-line-directives: Emit OpLine directives accurately.
+# Aim to emit OpLine directives accurately in output code for debugging/profiling.
+emit_line_directives: {{ emit_line_directives | default(False) }}
+
+# --force-zero-initialized-variables: Force temporaries to zero.
+# Force temporary variables to be initialized to zero to avoid undefined behavior warnings.
+force_zero_initialized: {{ force_zero_initialized | default(False) }}
+
+# --fixup-clipspace: Fixup Z clip-space.
+# Fixup Z clip-space at the end of a vertex shader (D3D/Vulkan/HLSL compatibility).
+fixup_clipspace: {{ fixup_clipspace | default(False) }}
+
+# --flip-vert-y: Invert gl_Position.y.
+# Invert gl_Position.y (or equivalent) at the end of a vertex shader for OpenGL compatibility.
+flip_vert_y: {{ flip_vert_y | default(False) }}
+
+# ============================================================================
+# GLSL Options
+# ============================================================================
+
+# --es: Force ESSL.
+# Force ESSL (Embedded System Shading Language) output for mobile/WebGL.
+force_essl: {{ force_essl | default(False) }}
+
+# --no-es: Force desktop GLSL.
+# Force desktop GLSL output instead of ESSL, even if --es might be implied.
+force_desktop_glsl: {{ force_desktop_glsl | default(False) }}
+
+# --version <GLSL version>: E.g. --version 450.
+# GLSL version to emit (e.g. 450 for GLSL 4.5).
+glsl_version: {{ glsl_version | default(450) }}
+
+# --flatten-ubo: Emit UBOs as plain uniform arrays.
+# Emit UBOs as plain uniform arrays instead of structs for better compatibility.
+flatten_ubo: {{ flatten_ubo | default(False) }}
+
+# --extension ext: Add #extension string.
+# List of extension strings to add to GLSL output.
+# Each extension is emitted as a separate --extension flag.
+extensions: {{ extensions | default([]) }}
+{% for ext in extensions | default([]) %}
+# Extension flag {{ loop.index }}: {{ ext }}
+extension_flag_{{ loop.index }}: --extension {{ ext }}
+{% endfor %}
+
+# --remove-unused-variables: Do not emit unused interface variables.
+# Do not emit interface variables which are not statically accessed.
+remove_unused_variables: {{ remove_unused_variables | default(False) }}
+
+# --separate-shader-objects: Redeclare gl_PerVertex blocks.
+# Redeclare gl_PerVertex blocks for desktop GL separate shader objects.
+separate_shader_objects: {{ separate_shader_objects | default(False) }}
+
+# --glsl-emit-push-constant-as-ubo: Emit push constants as UBO.
+# Emit push constants as a UBO block instead of a dedicated push_constant block.
+emit_push_constant_as_ubo: {{ emit_push_constant_as_ubo | default(False) }}
+
+# --glsl-emit-ubo-as-plain-uniforms: Emit UBOs as plain uniform structs.
+# Emit UBOs as plain uniform structs (not packed) in the output GLSL.
+emit_ubo_as_plain_uniforms: {{ emit_ubo_as_plain_uniforms | default(False) }}
+
+# --vulkan-glsl-disable-ext-samplerless-texture-functions: Disable extensions.
+# Disable GL_EXT_samplerless_texture_functions in Vulkan GLSL output.
+disable_ext_samplerless: {{ disable_ext_samplerless | default(False) }}
+
+# --combined-samplers-inherit-bindings: Inherit binding info.
+# Inherit binding info from textures for combined image samplers.
+combined_samplers_inherit: {{ combined_samplers_inherit | default(False) }}
+
+# --no-support-nonzero-baseinstance: Assume base instance is 0.
+# Assume base instance is always 0 for desktop GL (optimization).
+no_nonzero_baseinstance: {{ no_nonzero_baseinstance | default(False) }}
+
+# --pls-in format input-name: Remap subpass input to PLS.
+# List of PLS input remaps. Items: {format: string, name: string}. Requires ESSL.
+pls_in_inputs: {{ pls_in_inputs | default([]) }}
+{% for pls in pls_in_inputs | default([]) %}
+# PLS Input Remap {{ loop.index }}: format={{ pls.format }}, name={{ pls.name }}
+pls_in_flag_{{ loop.index }}: --pls-in {{ pls.format }} {{ pls.name }}
+{% endfor %}
+
+# --pls-out format output-name: Remap color output to PLS.
+# List of PLS output remaps. Items: {format: string, name: string}. Requires ESSL.
+pls_out_outputs: {{ pls_out_outputs | default([]) }}
+{% for pls in pls_out_outputs | default([]) %}
+# PLS Output Remap {{ loop.index }}: format={{ pls.format }}, name={{ pls.name }}
+pls_out_flag_{{ loop.index }}: --pls-out {{ pls.format }} {{ pls.name }}
+{% endfor %}
+
+# --remap source_name target_name components: Remap variable.
+# List of variable remaps. Items: {source: string, target: string, components: number}.
+remaps: {{ remaps | default([]) }}
+{% for remap in remaps | default([]) %}
+# Variable Remap {{ loop.index }}: {{ remap.source }} -> {{ remap.target }} (components: {{ remap.components }})
+remap_flag_{{ loop.index }}: --remap {{ remap.source }} {{ remap.target }} {{ remap.components }}
+{% endfor %}
+
+# --no-420pack-extension: Do not use GL_ARB_shading_language_420pack.
+# Do not use GL_ARB_shading_language_420pack in older GL targets.
+no_420pack_extension: {{ no_420pack_extension | default(False) }}
+
+# --remap-variable-type <variable_name> <new_variable_type>: Remap variable type.
+# List of variable type remaps. Items: {variable_name: string, new_type: string}.
+remap_variable_types: {{ remap_variable_types | default([]) }}
+{% for type_remap in remap_variable_types | default([]) %}
+# Type Remap {{ loop.index }}: {{ type_remap.variable_name }} as {{ type_remap.new_type }}
+remap_var_type_flag_{{ loop.index }}: --remap-variable-type {{ type_remap.variable_name }} {{ type_remap.new_type }}
+{% endfor %}
+
+# --glsl-force-flattened-io-blocks: Always flatten I/O blocks.
+# Always flatten I/O blocks and structs in the output GLSL.
+force_flattened_io: {{ force_flattened_io | default(False) }}
+
+# ============================================================================
+# MSL (Metal Shading Language) Options
+# ============================================================================
+
+# --msl-version <MMmmpp>: Specific MSL version.
+# MSL version to target (e.g. 20000 for MSL 2.0, 20100 for MSL 2.1).
+msl_version: {{ msl_version | default(20000) }}
+
+# --msl-capture-output: Write varyings to buffer.
+# Write geometry varyings to a buffer instead of stage-outputs.
+msl_capture_output: {{ msl_capture_output | default(False) }}
+
+# --msl-swizzle-texture-samples: Workaround for VkImageView swizzles.
+# Work around lack of support for VkImageView component swizzles by inserting swizzle instructions.
+msl_swizzle: {{ msl_swizzle | default(False) }}
+
+# --msl-ios: Target iOS Metal.
+# Target iOS Metal instead of macOS Metal (enables iOS-specific features).
+msl_ios: {{ msl_ios | default(False) }}
+
+# --msl-pad-fragment-output: Emit color outputs as 4-component.
+# Always emit color outputs as 4-component variables (RGBA) in fragment shaders.
+msl_pad_fragment: {{ msl_pad_fragment | default(False) }}
+
+# --msl-domain-lower-left: Use lower-left tessellation domain.
+# Use a lower-left tessellation domain (OpenGL style) instead of upper-left (DirectX style).
+msl_domain_lower_left: {{ msl_domain_lower_left | default(False) }}
+
+# --msl-argument-buffers: Emit Indirect Argument buffers.
+# Emit Indirect Argument buffers (MSL 2.0+ feature) instead of plain bindings.
+msl_argument_buffers: {{ msl_argument_buffers | default(False) }}
+
+# --msl-texture-buffer-native: Enable native texel buffers.
+# Enable native support for texel buffers (MTLTextureTypeBuffer) in MSL.
+msl_texbuf_native: {{ msl_texbuf_native | default(False) }}
+
+# --msl-framebuffer-fetch: Implement subpass inputs with frame buffer fetch.
+# Implement subpass inputs with frame buffer fetch (MSL 2.3+ feature).
+msl_framebuffer_fetch: {{ msl_framebuffer_fetch | default(False) }}
+
+# --msl-emulate-cube-array: Emulate cube arrays.
+# Emulate cube arrays with 2D array and manual math for older Metal versions.
+msl_emulate_cube: {{ msl_emulate_cube | default(False) }}
+
+# --msl-discrete-descriptor-set <index>: Force descriptor set without arg buffers.
+# List of descriptor set indices to implement without argument buffers.
+msl_discrete_descriptor_sets: {{ msl_discrete_descriptor_sets | default([]) }}
+{% for idx in msl_discrete_descriptor_sets | default([]) %}
+# Discrete Descriptor Set {{ loop.index }}: {{ idx }}
+msl_discrete_flag_{{ loop.index }}: --msl-discrete-descriptor-set {{ idx }}
+{% endfor %}
+
+# --msl-device-argument-buffer <descriptor set index>: Use device address space.
+# List of descriptor set indices to use device address space for arg buffers.
+msl_device_arg_buffers: {{ msl_device_arg_buffers | default([]) }}
+{% for idx in msl_device_arg_buffers | default([]) %}
+# Device Arg Buffer Set {{ loop.index }}: {{ idx }}
+msl_dev_arg_flag_{{ loop.index }}: --msl-device-argument-buffer {{ idx }}
+{% endfor %}
+
+# --msl-multiview: Enable SPV_KHR_multiview emulation.
+# Enable SPV_KHR_multiview emulation for multi-view rendering.
+msl_multiview: {{ msl_multiview | default(False) }}
+
+# --msl-multiview-no-layered-rendering: Don't set render_target_array_index.
+# Don't set [[render_target_array_index]] in multiview shaders (use manual indexing).
+msl_multiview_no_layered: {{ msl_multiview_no_layered | default(False) }}
+
+# --msl-view-index-from-device-index: Treat view index as device index.
+# Treat the view index as the device index for multi-view rendering.
+msl_view_from_device: {{ msl_view_from_device | default(False) }}
+
+# --msl-dispatch-base: Add support for vkCmdDispatchBase.
+# Add support for vkCmdDispatchBase() offsets in compute shaders.
+msl_dispatch_base: {{ msl_dispatch_base | default(False) }}
+
+# --msl-dynamic-buffer <set index> <binding>: Mark buffer as dynamic.
+# List of dynamic buffers. Items: {set_index: number, binding: number}.
+msl_dynamic_buffers: {{ msl_dynamic_buffers | default([]) }}
+{% for buf in msl_dynamic_buffers | default([]) %}
+# Dynamic Buffer {{ loop.index }}: set={{ buf.set_index }}, binding={{ buf.binding }}
+msl_dyn_buf_flag_{{ loop.index }}: --msl-dynamic-buffer {{ buf.set_index }} {{ buf.binding }}
+{% endfor %}
+
+# --msl-inline-uniform-block <set index> <binding>: Mark UBO as inline.
+# List of inline uniform blocks. Items: {set_index: number, binding: number}.
+msl_inline_uniform_blocks: {{ msl_inline_uniform_blocks | default([]) }}
+{% for buf in msl_inline_uniform_blocks | default([]) %}
+# Inline Uniform Block {{ loop.index }}: set={{ buf.set_index }}, binding={{ buf.binding }}
+msl_inline_ub_flag_{{ loop.index }}: --msl-inline-uniform-block {{ buf.set_index }} {{ buf.binding }}
+{% endfor %}
+
+# --msl-decoration-binding: Use SPIR-V bindings directly.
+# Use SPIR-V bindings directly as MSL bindings (ignore resource ordering).
+msl_decoration_binding: {{ msl_decoration_binding | default(False) }}
+
+# --msl-force-active-argument-buffer-resources: Always emit resources in arg buffers.
+# Always emit resources which are part of argument buffers, even if unused.
+msl_force_active_argbuf: {{ msl_force_active_argbuf | default(False) }}
+
+# --msl-force-native-arrays: Use plain native arrays.
+# Use plain native arrays instead of std::array for MSL arrays.
+msl_force_native_arrays: {{ msl_force_native_arrays | default(False) }}
+
+# --msl-disable-frag-depth-builtin: Disables FragDepth output.
+# Disables FragDepth output in fragment shaders.
+msl_disable_frag_depth: {{ msl_disable_frag_depth | default(False) }}
+
+# --msl-disable-frag-stencil-ref-builtin: Disable FragStencilRef output.
+# Disable FragStencilRef output in fragment shaders.
+msl_disable_frag_stencil: {{ msl_disable_frag_stencil | default(False) }}
+
+# --msl-enable-frag-output-mask <mask>: Selectively enable fragment outputs.
+# Mask to selectively enable fragment outputs. 0 means all enabled.
+msl_frag_output_mask: {{ msl_frag_output_mask | default(0) }}
+
+# --msl-no-clip-distance-user-varying: Do not emit user varyings for gl_ClipDistance.
+# Do not emit user varyings to emulate gl_ClipDistance in fragment shaders.
+msl_no_clip_dist_user_var: {{ msl_no_clip_dist_user_var | default(False) }}
+
+# --msl-shader-input <index> <format> <size>: Specify format of shader input.
+# List of shader input formats. Items: {index: number, format: string, size: number}.
+msl_shader_inputs: {{ msl_shader_inputs | default([]) }}
+{% for inp in msl_shader_inputs | default([]) %}
+# Shader Input {{ loop.index }}: index={{ inp.index }}, format={{ inp.format }}, size={{ inp.size }}
+msl_shader_input_flag_{{ loop.index }}: --msl-shader-input {{ inp.index }} {{ inp.format }} {{ inp.size }}
+{% endfor %}
+
+# --msl-multi-patch-workgroup: Use new style tessellation control processing.
+# Use new style tessellation control processing (MSL 2.3+).
+msl_multi_patch_workgroup: {{ msl_multi_patch_workgroup | default(False) }}
+
+# --msl-vertex-for-tessellation: Mark vertex shader for new-style tessellation.
+# Mark vertex shader as one used with new-style tessellation.
+msl_vertex_for_tess: {{ msl_vertex_for_tess | default(False) }}
+
+# --msl-additional-fixed-sample-mask <mask>: Set additional fixed sample mask.
+# Additional fixed sample mask for multisample rendering.
+msl_add_sample_mask: {{ msl_add_sample_mask | default(0) }}
+
+# --msl-arrayed-subpass-input: Assume SubpassData images have multiple layers.
+# Assume images of dimension SubpassData have multiple layers.
+msl_arrayed_subpass: {{ msl_arrayed_subpass | default(False) }}
+
+# --msl-r32ui-linear-texture-align <alignment>: Alignment for R32Uint linear textures.
+# Required alignment of linear textures of format MTLPixelFormatR32Uint.
+msl_r32ui_align: {{ msl_r32ui_align | default(4) }}
+
+# --msl-r32ui-linear-texture-align-constant-id <id>: Function constant ID for alignment.
+# Function constant ID for linear texture alignment.
+msl_r32ui_align_const_id: {{ msl_r32ui_align_const_id | default(0) }}
+
+# --msl-texture-1d-as-2d: Emit 1D textures as texture2d.
+# Emit Image variables of dimension Dim1D as texture2d for compatibility.
+msl_tex_1d_as_2d: {{ msl_tex_1d_as_2d | default(False) }}
+
+# --msl-ios-use-simdgroup-functions: Use simd_*() for subgroup ops.
+# Use simd_*() functions for subgroup operations on iOS.
+msl_ios_simdgroup: {{ msl_ios_simdgroup | default(False) }}
+
+# --msl-emulate-subgroups: Assume subgroups of size 1.
+# Assume subgroups of size 1 (disables SIMD group optimizations).
+msl_emulate_subgroups: {{ msl_emulate_subgroups | default(False) }}
+
+# --msl-fixed-subgroup-size <size>: Assign constant SubgroupSize.
+# Assign a constant size to the SubgroupSize builtin.
+msl_fixed_subgroup_size: {{ msl_fixed_subgroup_size | default(0) }}
+
+# --msl-force-sample-rate-shading: Force fragment shaders to run per sample.
+# Force fragment shaders to run per sample (multisample antialiasing).
+msl_force_sample_rate: {{ msl_force_sample_rate | default(False) }}
+
+# ============================================================================
+# HLSL (High-Level Shading Language) Options
+# ============================================================================
+
+# --shader-model <SM>: Enables specific shader model.
+# Shader model version (e.g. 50 for SM 5.0, 51 for SM 5.1).
+hlsl_shader_model: {{ hlsl_shader_model | default(50) }}
+
+# --hlsl-enable-compat: Allow point size/coord usage.
+# Allow point size and point coord to be used in HLSL (DirectX 9 compatibility).
+hlsl_enable_compat: {{ hlsl_enable_compat | default(False) }}
+
+# --hlsl-support-nonzero-basevertex-baseinstance: Support base vertex/instance.
+# Support base vertex and base instance in HLSL (DirectX 11+).
+hlsl_support_basevertex: {{ hlsl_support_basevertex | default(False) }}
+
+# --hlsl-auto-binding (push, cbv, srv, uav, sampler, all): No register bindings.
+# List of resource types to auto-bind in HLSL (push, cbv, srv, uav, sampler, all).
+hlsl_auto_bindings: {{ hlsl_auto_bindings | default([]) }}
+{% for res_type in hlsl_auto_bindings | default([]) %}
+# HLSL Auto Binding {{ loop.index }}: {{ res_type }}
+hlsl_auto_bind_flag_{{ loop.index }}: --hlsl-auto-binding {{ res_type }}
+{% endfor %}
+
+# --hlsl-force-storage-buffer-as-uav: Always emit SSBOs as UAVs.
+# Always emit SSBOs as UAVs (Unordered Access Views) in HLSL.
+hlsl_force_storage_as_uav: {{ hlsl_force_storage_as_uav | default(False) }}
+
+# --hlsl-nonwritable-uav-texture-as-srv: Emit NonWritable storage images as SRV.
+# Emit NonWritable storage images as SRV (Shader Resource Views) textures in HLSL.
+hlsl_nonwritable_as_srv: {{ hlsl_nonwritable_as_srv | default(False) }}
+
+# --set-hlsl-vertex-input-semantic <location> <semantic>: Emits specific semantic.
+# List of vertex input semantic overrides. Items: {location: number, semantic: string}.
+hlsl_vertex_semantics: {{ hlsl_vertex_semantics | default([]) }}
+{% for sem in hlsl_vertex_semantics | default([]) %}
+# HLSL Vertex Semantic {{ loop.index }}: location={{ sem.location }}, semantic={{ sem.semantic }}
+hlsl_sem_flag_{{ loop.index }}: --set-hlsl-vertex-input-semantic {{ sem.location }} {{ sem.semantic }}
+{% endfor %}
+
+# --hlsl-enable-16bit-types: Enables native use of half/int16_t/uint16_t.
+# Enables native use of half/int16_t/uint16_t in HLSL output.
+hlsl_enable_16bit: {{ hlsl_enable_16bit | default(False) }}
+
+# --hlsl-flatten-matrix-vertex-input-semantics: Emits matrix inputs as independent vectors.
+# Emits matrix vertex inputs with input semantics as independent vectors.
+hlsl_flatten_matrix_semantics: {{ hlsl_flatten_matrix_semantics | default(False) }}
+
+# ============================================================================
+# Obscure / Advanced Options
+# ============================================================================
+
+# --force-temporary: Aggressively emit temporary expressions.
+# Aggressively emit temporary expressions to simplify the shader logic.
+force_temporary: {{ force_temporary | default(False) }}
+
+# --disable-storage-image-qualifier-deduction: Do not analyze usage for storage images.
+# Do not analyze usage for storage images without qualifiers (use explicit qualifiers).
+disable_storage_qualifier_deduction: {{ disable_storage_qualifier_deduction | default(False) }}
+
+# --flatten-multidimensional-arrays: Flatten multi-dimensional arrays to one dimension.
+# Flatten multi-dimensional arrays to one dimension for better compatibility.
+flatten_multidim_arrays: {{ flatten_multidim_arrays | default(False) }}
+
+# --cpp-interface-name <name>: Emit specific class name in C++ codegen.
+# Class name to emit in C++ codegen (--cpp is deprecated, but interface name is specific to C++ output).
+cpp_interface_name: {{ cpp_interface_name | default('SPIRV_Cross') }}
+
+# ============================================================================
+# Summary of the generated command line
+# ============================================================================
+# This block reconstructs the full command line based on all enabled options.
+command_line: spirv-cross {{ input_file | default('/usr/share/shaders/spirv/input.spv') }} {% if output_file | default('/usr/share/shaders/spirv/output.glsl') != '' %}--output {{ output_file | default('/usr/share/shaders/spirv/output.glsl') }} {% endif %}{% if vulkan_semantics | default(False) %}-V {% endif %}{% if msl_backend | default(False) %}--msl {% endif %}{% if hlsl_backend | default(False) %}--hlsl {% endif %}{% if reflect_mode | default(False) %}--reflect {% endif %}{% if entry_point | default('main') != '' %}--entry {{ entry_point | default('main') }} {% endif %}{% if stage | default('frag') != '' %}--stage {{ stage | default('frag') }} {% endif %}{% if emit_line_directives | default(False) %}--emit-line-directives {% endif %}{% if force_zero_initialized | default(False) %}--force-zero-initialized-variables {% endif %}{% if fixup_clipspace | default(False) %}--fixup-clipspace {% endif %}{% if flip_vert_y | default(False) %}--flip-vert-y {% endif %}{% if force_essl | default(False) %}--es {% endif %}{% if force_desktop_glsl | default(False) %}--no-es {% endif %}{% if glsl_version | default(450) != '' %}--version {{ glsl_version | default(450) }} {% endif %}{% if flatten_ubo | default(False) %}--flatten-ubo {% endif %}{% for ext in extensions | default([]) %}--extension {{ ext }} {% endfor %}{% if remove_unused_variables | default(False) %}--remove-unused-variables {% endif %}{% if separate_shader_objects | default(False) %}--separate-shader-objects {% endif %}{% if emit_push_constant_as_ubo | default(False) %}--glsl-emit-push-constant-as-ubo {% endif %}{% if emit_ubo_as_plain_uniforms | default(False) %}--glsl-emit-ubo-as-plain-uniforms {% endif %}{% if disable_ext_samplerless | default(False) %}--vulkan-glsl-disable-ext-samplerless-texture-functions {% endif %}{% if combined_samplers_inherit | default(False) %}--combined-samplers-inherit-bindings {% endif %}{% if no_nonzero_baseinstance | default(False) %}--no-support-nonzero-baseinstance {% endif %}{% for pls in pls_in_inputs | default([]) %}--pls-in {{ pls.format }} {{ pls.name }} {% endfor %}{% for pls in pls_out_outputs | default([]) %}--pls-out {{ pls.format }} {{ pls.name }} {% endfor %}{% for remap in remaps | default([]) %}--remap {{ remap.source }} {{ remap.target }} {{ remap.components }} {% endfor %}{% if no_420pack_extension | default(False) %}--no-420pack-extension {% endif %}{% for type_remap in remap_variable_types | default([]) %}--remap-variable-type {{ type_remap.variable_name }} {{ type_remap.new_type }} {% endfor %}{% if force_flattened_io | default(False) %}--glsl-force-flattened-io-blocks {% endif %}{% if msl_version | default(20000) != '' %}--msl-version {{ msl_version | default(20000) }} {% endif %}{% if msl_capture_output | default(False) %}--msl-capture-output {% endif %}{% if msl_swizzle | default(False) %}--msl-swizzle-texture-samples {% endif %}{% if msl_ios | default(False) %}--msl-ios {% endif %}{% if msl_pad_fragment | default(False) %}--msl-pad-fragment-output {% endif %}{% if msl_domain_lower_left | default(False) %}--msl-domain-lower-left {% endif %}{% if msl_argument_buffers | default(False) %}--msl-argument-buffers {% endif %}{% if msl_texbuf_native | default(False) %}--msl-texture-buffer-native {% endif %}{% if msl_framebuffer_fetch | default(False) %}--msl-framebuffer-fetch {% endif %}{% if msl_emulate_cube | default(False) %}--msl-emulate-cube-array {% endif %}{% for idx in msl_discrete_descriptor_sets | default([]) %}--msl-discrete-descriptor-set {{ idx }} {% endfor %}{% for idx in msl_device_arg_buffers | default([]) %}--msl-device-argument-buffer {{ idx }} {% endfor %}{% if msl_multiview | default(False) %}--msl-multiview {% endif %}{% if msl_multiview_no_layered | default(False) %}--msl-multiview-no-layered-rendering {% endif %}{% if msl_view_from_device | default(False) %}--msl-view-index-from-device-index {% endif %}{% if msl_dispatch_base | default(False) %}--msl-dispatch-base {% endif %}{% for buf in msl_dynamic_buffers | default([]) %}--msl-dynamic-buffer {{ buf.set_index }} {{ buf.binding }} {% endfor %}{% for buf in msl_inline_uniform_blocks | default([]) %}--msl-inline-uniform-block {{ buf.set_index }} {{ buf.binding }} {% endfor %}{% if msl_decoration_binding | default(False) %}--msl-decoration-binding {% endif %}{% if msl_force_active_argbuf | default(False) %}--msl-force-active-argument-buffer-resources {% endif %}{% if msl_force_native_arrays | default(False) %}--msl-force-native-arrays {% endif %}{% if msl_disable_frag_depth | default(False) %}--msl-disable-frag-depth-builtin {% endif %}{% if msl_disable_frag_stencil | default(False) %}--msl-disable-frag-stencil-ref-builtin {% endif %}{% if msl_frag_output_mask | default(0) != '' %}--msl-enable-frag-output-mask {{ msl_frag_output_mask | default(0) }} {% endif %}{% if msl_no_clip_dist_user_var | default(False) %}--msl-no-clip-distance-user-varying {% endif %}{% for inp in msl_shader_inputs | default([]) %}--msl-shader-input {{ inp.index }} {{ inp.format }} {{ inp.size }} {% endfor %}{% if msl_multi_patch_workgroup | default(False) %}--msl-multi-patch-workgroup {% endif %}{% if msl_vertex_for_tess | default(False) %}--msl-vertex-for-tessellation {% endif %}{% if msl_add_sample_mask | default(0) != '' %}--msl-additional-fixed-sample-mask {{ msl_add_sample_mask | default(0) }} {% endif %}{% if msl_arrayed_subpass | default(False) %}--msl-arrayed-subpass-input {% endif %}{% if msl_r32ui_align | default(4) != '' %}--msl-r32ui-linear-texture-align {{ msl_r32ui_align | default(4) }} {% endif %}{% if msl_r32ui_align_const_id | default(0) != '' %}--msl-r32ui-linear-texture-align-constant-id {{ msl_r32ui_align_const_id | default(0) }} {% endif %}{% if msl_tex_1d_as_2d | default(False) %}--msl-texture-1d-as-2d {% endif %}{% if msl_ios_simdgroup | default(False) %}--msl-ios-use-simdgroup-functions {% endif %}{% if msl_emulate_subgroups | default(False) %}--msl-emulate-subgroups {% endif %}{% if msl_fixed_subgroup_size | default(0) != '' %}--msl-fixed-subgroup-size {{ msl_fixed_subgroup_size | default(0) }} {% endif %}{% if msl_force_sample_rate | default(False) %}--msl-force-sample-rate-shading {% endif %}{% if hlsl_shader_model | default(50) != '' %}--shader-model {{ hlsl_shader_model | default(50) }} {% endif %}{% if hlsl_enable_compat | default(False) %}--hlsl-enable-compat {% endif %}{% if hlsl_support_basevertex | default(False) %}--hlsl-support-nonzero-basevertex-baseinstance {% endif %}{% for res_type in hlsl_auto_bindings | default([]) %}--hlsl-auto-binding {{ res_type }} {% endfor %}{% if hlsl_force_storage_as_uav | default(False) %}--hlsl-force-storage-buffer-as-uav {% endif %}{% if hlsl_nonwritable_as_srv | default(False) %}--hlsl-nonwritable-uav-texture-as-srv {% endif %}{% for sem in hlsl_vertex_semantics | default([]) %}--set-hlsl-vertex-input-semantic {{ sem.location }} {{ sem.semantic }} {% endfor %}{% if hlsl_enable_16bit | default(False) %}--hlsl-enable-16bit-types {% endif %}{% if hlsl_flatten_matrix_semantics | default(False) %}--hlsl-flatten-matrix-vertex-input-semantics {% endif %}{% if force_temporary | default(False) %}--force-temporary {% endif %}{% if disable_storage_qualifier_deduction | default(False) %}--disable-storage-image-qualifier-deduction {% endif %}{% if flatten_multidim_arrays | default(False) %}--flatten-multidimensional-arrays {% endif %}{% if cpp_interface_name | default('SPIRV_Cross') != '' %}--cpp-interface-name {{ cpp_interface_name | default('SPIRV_Cross') }} {% endif %}

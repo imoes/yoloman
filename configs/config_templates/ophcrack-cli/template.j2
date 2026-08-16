@@ -1,0 +1,225 @@
+# ==============================================================================
+# Ophcrack CLI Configuration Template
+# ==============================================================================
+#
+# This template generates the configuration for the ophcrack-cli tool.
+# Ophcrack is a free Windows Password Cracker based on rainbow tables.
+#
+# The configuration consists of a single-line command invocation or a set of
+# key-value pairs depending on the consuming role's execution method.
+# This template outputs a structured KEY: VALUE format that can be consumed
+# to build the final CLI command.
+#
+# All variables use defaults derived from the schema to ensure safe rendering.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# TABLES_DIR
+# ------------------------------------------------------------------------------
+# Base directory containing the rainbow tables.
+# Corresponds to the -d option.
+# Default: /usr/share/ophcrack
+TABLES_DIR: {{ tables_dir | default('/usr/share/ophcrack') }}
+
+# ------------------------------------------------------------------------------
+# TABLES
+# ------------------------------------------------------------------------------
+# List of table names and indices to use.
+# Corresponds to the -t option.
+#
+# Format: Comma-separated table names/indices for a single table set,
+# colon-separated table sets.
+# Example Input: ['xp_free_fast', '0', '3']
+# Example Output: xp_free_fast,0,3
+# Default: ['xp_free_fast', '0', '3']
+TABLES: {{ tables | default(['xp_free_fast', '0', '3']) | join(',') }}
+
+# ------------------------------------------------------------------------------
+# INPUT_FILE
+# ------------------------------------------------------------------------------
+# Path to the file containing hashes in pwdump or session format.
+# Corresponds to the -f option.
+# Default: /etc/ophcrack/hashes.pwdump
+INPUT_FILE: {{ input_file | default('/etc/ophcrack/hashes.pwdump') }}
+
+# ------------------------------------------------------------------------------
+# OUTPUT_FILE
+# ------------------------------------------------------------------------------
+# Path to write the cracking output in pwdump format.
+# Corresponds to the -o option.
+# Default: /var/log/ophcrack/results.pwdump
+OUTPUT_FILE: {{ output_file | default('/var/log/ophcrack/results.pwdump') }}
+
+# ------------------------------------------------------------------------------
+# LOG_FILE
+# ------------------------------------------------------------------------------
+# Path to log all output.
+# Corresponds to the -l option.
+# Default: /var/log/ophcrack/ophcrack.log
+LOG_FILE: {{ log_file | default('/var/log/ophcrack/ophcrack.log') }}
+
+# ------------------------------------------------------------------------------
+# THREADS
+# ------------------------------------------------------------------------------
+# Number of threads to use for cracking.
+# Corresponds to the -n option.
+# Default: 1
+THREADS: {{ threads | default(1) }}
+
+# ------------------------------------------------------------------------------
+# DISABLE_BRUTEFORCE
+# ------------------------------------------------------------------------------
+# If true, disables bruteforce mode (-b).
+# If false, enables it (-B, which is the default behavior of ophcrack).
+# Corresponds to -b (disable) / -B (enable).
+# Default: False
+DISABLE_BRUTEFORCE: {{ disable_bruteforce | default(false) }}
+
+# ------------------------------------------------------------------------------
+# HIDE_USERNAMES
+# ------------------------------------------------------------------------------
+# If true, hides usernames (-i).
+# If false, shows them (-I, which is the default behavior).
+# Corresponds to -i (hide) / -I (show).
+# Default: False
+HIDE_USERNAMES: {{ hide_usernames | default(false) }}
+
+# ------------------------------------------------------------------------------
+# NO_EMPTY_PASSWORDS
+# ------------------------------------------------------------------------------
+# If true, does not display empty passwords (-e).
+# Corresponds to -e option.
+# Default: False
+NO_EMPTY_PASSWORDS: {{ no_empty_passwords | default(false) }}
+
+# ------------------------------------------------------------------------------
+# QUIET
+# ------------------------------------------------------------------------------
+# If true, enables quiet mode (-q).
+# Suppresses most output.
+# Corresponds to -q option.
+# Default: False
+QUIET: {{ quiet | default(false) }}
+
+# ------------------------------------------------------------------------------
+# VERBOSE
+# ------------------------------------------------------------------------------
+# If true, enables verbose mode (-v).
+# Displays extra information during cracking.
+# Corresponds to -v option.
+# Default: False
+VERBOSE: {{ verbose | default(false) }}
+
+# ------------------------------------------------------------------------------
+# DEBUG
+# ------------------------------------------------------------------------------
+# If true, displays debugging information (-D).
+# Corresponds to -D option.
+# Default: False
+DEBUG: {{ debug | default(false) }}
+
+# ------------------------------------------------------------------------------
+# DISABLE_AUDIT_MODE
+# ------------------------------------------------------------------------------
+# If true, disables audit mode (-a).
+# If false, enables audit mode (-A).
+# Corresponds to -a (disable) / -A (enable).
+# Default: True
+DISABLE_AUDIT_MODE: {{ disable_audit_mode | default(true) }}
+
+# ------------------------------------------------------------------------------
+# DISABLE_SESSION_SAVING
+# ------------------------------------------------------------------------------
+# If true, disables session auto-saving (-s).
+# Corresponds to -s option.
+# Default: False
+DISABLE_SESSION_SAVING: {{ disable_session_saving | default(false) }}
+
+# ------------------------------------------------------------------------------
+# SESSION_FILE
+# ------------------------------------------------------------------------------
+# Path to the session file for automatically saving search progress.
+# Corresponds to the -S option.
+# Default: /var/lib/ophcrack/session.oph
+SESSION_FILE: {{ session_file | default('/var/lib/ophcrack/session.oph') }}
+
+# ------------------------------------------------------------------------------
+# SHOW_STATISTICS
+# ------------------------------------------------------------------------------
+# If true, displays statistics when cracking ends (-u).
+# Corresponds to -u option.
+# Default: False
+SHOW_STATISTICS: {{ show_statistics | default(false) }}
+
+# ------------------------------------------------------------------------------
+# EXPORT_CSV
+# ------------------------------------------------------------------------------
+# If true, exports data in CSV format to the file specified by -o (-x).
+# Corresponds to -x option.
+# Default: False
+EXPORT_CSV: {{ export_csv | default(false) }}
+
+# ==============================================================================
+# COMMAND CONSTRUCTION HELPER (Optional)
+# ==============================================================================
+# The following block can be used in an Ansible task to construct the final
+# command line string. It is commented out by default to prevent cluttering
+# the configuration file output, but serves as documentation for the consumer.
+#
+# {% set ophcrack_args = [] %}
+# {% if disable_bruteforce | default(false) %}
+#   {% set _ = ophcrack_args.append('-b') %}
+# {% else %}
+#   {% set _ = ophcrack_args.append('-B') %}
+# {% endif %}
+#
+# {% if hide_usernames | default(false) %}
+#   {% set _ = ophcrack_args.append('-i') %}
+# {% else %}
+#   {% set _ = ophcrack_args.append('-I') %}
+# {% endif %}
+#
+# {% if no_empty_passwords | default(false) %}
+#   {% set _ = ophcrack_args.append('-e') %}
+# {% endif %}
+#
+# {% if quiet | default(false) %}
+#   {% set _ = ophcrack_args.append('-q') %}
+# {% endif %}
+#
+# {% if verbose | default(false) %}
+#   {% set _ = ophcrack_args.append('-v') %}
+# {% endif %}
+#
+# {% if debug | default(false) %}
+#   {% set _ = ophcrack_args.append('-D') %}
+# {% endif %}
+#
+# {% if disable_audit_mode | default(true) %}
+#   {% set _ = ophcrack_args.append('-a') %}
+# {% else %}
+#   {% set _ = ophcrack_args.append('-A') %}
+# {% endif %}
+#
+# {% if disable_session_saving | default(false) %}
+#   {% set _ = ophcrack_args.append('-s') %}
+# {% endif %}
+#
+# {% if export_csv | default(false) %}
+#   {% set _ = ophcrack_args.append('-x') %}
+# {% endif %}
+#
+# {% if show_statistics | default(false) %}
+#   {% set _ = ophcrack_args.append('-u') %}
+# {% endif %}
+#
+# Final Command:
+# ophcrack -d {{ tables_dir | default('/usr/share/ophcrack') }} \
+#          -t {{ tables | default(['xp_free_fast', '0', '3']) | join(',') }} \
+#          -f {{ input_file | default('/etc/ophcrack/hashes.pwdump') }} \
+#          -o {{ output_file | default('/var/log/ophcrack/results.pwdump') }} \
+#          -n {{ threads | default(1) }} \
+#          -l {{ log_file | default('/var/log/ophcrack/ophcrack.log') }} \
+#          {% if session_file is defined and session_file %}-S {{ session_file }}{% endif %} \
+#          {{ ophcrack_args | join(' ') }}
+# ==============================================================================

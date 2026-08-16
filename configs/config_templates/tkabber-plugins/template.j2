@@ -1,0 +1,22 @@
+# Configuration for Tkabber Plugins
+# This template generates a shell script snippet that ensures the desired plugins are enabled.
+# Tkabber uses a filesystem-based plugin mechanism: enabled plugins are symlinks from
+# the user's plugin directory (~/.tkabber/plugins) to the system plugin directory
+# (/usr/share/tkabber-plugins).
+
+# Ensure the Tkabber configuration directory exists
+# This command creates the directory structure required for Tkabber to load plugins.
+# home_dir: The home directory of the user running Tkabber
+mkdir -p {{ home_dir | default('/home/user') }}/.tkabber/plugins
+
+# Install Plugins
+# Iterate over the list of plugins defined in the 'plugins' schema field.
+# For each plugin, create a symbolic link from the system directory to the user directory.
+# This ensures the plugin is active for the user.
+# plugins: List of plugin names to install from /usr/share/tkabber-plugins. Available plugins include: aniemoticons, attline, battleship, bc, browser,
+{% for plugin_name in plugins | default([]) %}
+# Symlink plugin: {{ plugin_name }}
+# Source: /usr/share/tkabber-plugins/{{ plugin_name }}
+# Target: {{ home_dir | default('/home/user') }}/.tkabber/plugins/{{ plugin_name }}
+ln -sf /usr/share/tkabber-plugins/{{ plugin_name }} {{ home_dir | default('/home/user') }}/.tkabber/plugins/{{ plugin_name }}
+{% endfor %}

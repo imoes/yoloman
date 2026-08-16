@@ -1,0 +1,165 @@
+# ==============================================================================
+# Parsec Service Configuration
+# ==============================================================================
+# This configuration file uses the TOML format.
+# It controls the behavior of the Parsec service, including core settings,
+# IPC listeners, authentication, key management, and cryptographic providers.
+# ==============================================================================
+
+# (Required) Core settings apply to the service as a whole rather than to individual components within it.
+[core_settings]
+
+# Whether or not to allow the service to run as the root user.
+# If this is false, the service will refuse to start if it is run as root.
+# If this is true, the safety check is disabled and the service will be allowed to
+# start even if it is being run as root. The recommended (and default) setting is FALSE;
+# allowing Parsec to run as root violates the principle of least privilege.
+allow_root = {{ allow_root | default('false') | lower }}
+
+# Size of the thread pool used for processing requests.
+# Defaults to the number of processors on the machine.
+# A higher value may improve throughput for I/O-bound workloads but increases memory usage.
+thread_pool_size = {{ thread_pool_size | default('8') | int }}
+
+# Duration of sleep when the connection pool is empty.
+# This can limit the response times for requests and so should be set to a low number.
+# Specified in milliseconds.
+idle_listener_sleep_duration = {{ idle_listener_sleep_duration | default('10') | int }}
+
+# Log level to be applied across the service.
+# Possible values: "debug", "info", "warn", "error", "trace".
+# WARNING: This option will not be updated if the configuration is reloaded with a different one.
+log_level = "{{ log_level | default('warn') }}"
+
+# Control whether log entries contain a timestamp.
+# Enabling this helps in correlating logs with system time.
+log_timestamp = {{ log_timestamp | default(false) | lower }}
+
+# Decide how large (in bytes) request bodies can be before they get rejected automatically.
+# Defaults to 1MB (1048576 bytes).
+# Requests exceeding this limit will be rejected to prevent resource exhaustion.
+body_len_limit = {{ body_len_limit | default('1048576') | int }}
+
+# Decide whether detailed information about errors occurring should be included in log messages.
+# WARNING: The details might include sensitive information about the keys used by Parsec clients,
+# such as key names or policies. Disable in production if security is a concern.
+log_error_details = {{ log_error_details | default(false) | lower }}
+
+# Decide how large (in bytes) buffers inside responses from this provider can be.
+# Requests that ask for buffers larger than this threshold will be rejected.
+# Defaults to 1MB (1048576 bytes).
+buffer_size_limit = {{ buffer_size_limit | default('1048576') | int }}
+
+# Decide whether deprecated algorithms and key types are allowed when generating keys or not.
+# Note: While importing a deprecated key, only a warning log is generated.
+# The default behaviour is to reject the deprecated primitives. Hence, the default value is false.
+allow_deprecated = {{ allow_deprecated | default(false) | lower }}
+
+# (Required) Configuration for the service IPC listener component.
+[listener]
+
+# (Required) Type of IPC that the service will support.
+# Supported values typically include 'DomainSocket' (Unix domain socket) or 'Tcp' (TCP/IP).
+listener_type = "{{ listener_type | default('DomainSocket') }}"
+
+# (Required) Timeout of the read and write operations on the IPC channel.
+# After the timeout expires, the connection is dropped.
+# Specified in milliseconds.
+timeout = {{ timeout | default('200') | int }}
+
+# Specify the Unix Domain Socket path.
+# The path is fixed and should always be the default one for clients to connect.
+# However, it is useful to change it for tests.
+# WARNING: If a file already exists at that path, the service will remove it before creating the socket file.
+socket_path = "{{ socket_path | default('/run/parsec/parsec.sock') }}"
+
+# (Required) Authenticator configuration.
+# WARNING: The authenticator MUST NOT be changed if there are existing keys stored in Parsec.
+# In a future version, Parsec might support multiple authenticators.
+[authenticator]
+
+# (Required) Type of authenticator that will be used to authenticate clients' authentication payloads.
+# Possible values: "Direct", "UnixPeerCredentials", and "JwtSvid".
+# WARNING: The "Direct" authenticator is only secure under specific requirements.
+# Please make sure to read the Recommendations on a Secure Parsec Deployment:
+# https://parallaxsecond.github.io/parsec-book/parsec_security/secure_deployment.html
+auth_type = "{{ auth_type | default('UnixPeerCredentials') }}"
+
+# List of admins to be identified by the authenticator.
+# The "name" field of each entry in the list must contain the application name (as required by the
+# identifier in `auth_type`). For example, for `UnixPeerCredentials`, the names should be UIDs of
+# the admin users.
+# WARNING: Admins have special privileges and access to operations that are not permitted for normal
+# users of the service. Only enable this feature with some list of admins if you are confident
+# about the need for those permissions.
+# Read more here: https://parallaxsecond.github.io/parsec-book/parsec_client/operations/index.html#core-operations
+{% if admins is defined and admins %}
+admins = [
+{% for admin in admins %}
+  { name = "{{ admin.name }}" },
+{% endfor %}
+]
+{% endif %}
+
+# (Required only for JwtSvid) Location of the Workload API endpoint.
+# This is used when `auth_type` is set to `JwtSvid`.
+# WARNING: Only use this authenticator if the Workload API socket is TRUSTED.
+# A malicious entity owning that socket would have access to all the keys owned by clients using this
+# authentication method. This path *must* be trusted for as long as Parsec is running.
+{% if auth_type | default('UnixPeerCredentials') == 'JwtSvid' %}
+workload_endpoint = "{{ workload_endpoint | default('unix:///run/spire/sockets/agent.sock') }}"
+{% endif %}
+
+# (Required) Configuration for the components managing key info for providers.
+# Defined as an array of tables: https://github.com/toml-lang/toml#user-content-array-of-tables
+[[key_manager]]
+
+# (Required) Name of the key info manager.
+# Used to tie providers to the manager supporting them.
+name = "{{ key_manager_name | default('sqlite-manager') }}"
+
+# (Required) Type of key info manager to be used.
+# Possible values: "SQLite", "OnDisk".
+# NOTE: The SQLite KIM is now the recommended type, with the OnDisk KIM to be deprecated at some
+# point in the future.
+manager_type = "{{ key_manager_type | default('SQLite') }}"
+
+# Path to the location where the database will be persisted.
+# This path must be writable by the service user and persistent across reboots.
+store_path = "{{ key_manager_store_path | default('/var/lib/parsec/kim-mappings/sqlite/sqlite-key-info-manager.sqlite3') }}"
+
+# (Optional) Example of OnDisk Key Info Manager configuration.
+# Uncomment to use OnDisk instead of SQLite.
+# [[key_manager]]
+# name = "on-disk-manager"
+# manager_type = "OnDisk"
+# store_path = "/var/lib/parsec/mappings"
+
+# (Required) Provider configurations.
+# Defined as an array of tables: https://github.com/toml-lang/toml#user-content-array-of-tables
+# IMPORTANT: The order in which providers below are declared matters: providers should be listed
+# in terms of priority, the highest priority provider being declared first in this file.
+# The first provider will be used as default provider by the Parsec clients.
+
+# Example of an Mbed Crypto provider configuration.
+[[provider]]
+
+# (Optional) The name of the provider.
+# ⚠ WARNING: Provider name cannot change.
+# ⚠ WARNING: Choose a suitable naming scheme for your providers now.
+# ⚠ WARNING: Provider name defaults to "mbed-crypto-provider" if not provided, you will not be able to change
+# ⚠ the provider's name from this if you decide to use the default.
+# ⚠ WARNING: Changing provider name after use will lead to loss of existing keys.
+name = "{{ provider_mbed_name | default('mbed-crypto-provider') }}"
+
+# (Required) Type of provider.
+# Specifies the cryptographic backend to use.
+provider_type = "{{ provider_mbed_type | default('MbedCrypto') }}"
+
+# (Required) Name of key info manager that will support this provider.
+# NOTE: The key info manager only holds mappings between Parsec key name and Mbed Crypto ID, along
+# with other metadata associated with the key. The keys themselves, however, are stored by the Mbed
+# Crypto library by default within the working directory of the service, NOT in the same location
+# as the mappings mentioned previously. If you want the keys to be persisted across reboots, ensure
+# that the working directory is not temporary.
+key_info_manager = "{{ provider_mbed_key_info_manager | default('sqlite-manager') }}"

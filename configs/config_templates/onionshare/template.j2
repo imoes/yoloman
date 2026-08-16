@@ -1,0 +1,84 @@
+# Onionshare Wrapper Configuration
+#
+# This template generates a wrapper script (environment + command line)
+# for Onionshare. Since Onionshare is a CLI/GUI tool without a native
+# static configuration file (like /etc/onionshare.conf), this template
+# creates an executable shell script or environment block suitable for
+# use with systemd (ExecStart=), cron, or Docker entrypoints.
+#
+# Generated fields:
+#   - ONIONSSHARE_VERBOSE: Boolean flag for verbose logging (-v)
+#   - ONIONSSHARE_LOCAL_ONLY: Boolean flag to disable Tor (--local-only)
+#   - ONIONSSHARE_MODE: Operating mode (share, receive, public, website)
+#   - ONIONSSHARE_FILES: Space-separated list of files to share
+#   - FINAL_COMMAND: The complete command line to execute Onionshare
+
+# Enable verbose logging to stdout.
+# Corresponds to the -v / --verbose flag.
+# Default: false
+ONIONSSHARE_VERBOSE={{ verbose | default(false) }}
+
+# Disable Tor usage. Only for development or testing in isolated environments.
+# Corresponds to the --local-only flag.
+# Default: false
+ONIONSSHARE_LOCAL_ONLY={{ local_only | default(false) }}
+
+# Operating mode of the Onionshare session.
+# Allowed values: share, receive, public, website
+# Corresponds to the mode selection in the description.
+# Default: share
+ONIONSSHARE_MODE={{ mode | default('share') }}
+
+# List of file paths to share or serve.
+# Corresponds to the --filenames argument.
+# Default: [] (empty list)
+# Note: In shell environments, this is rendered as a space-separated string.
+{% set filenames_list = filenames | default([]) %}
+{% if filenames_list is iterable and filenames_list | length > 0 %}
+ONIONSSHARE_FILES={{ filenames_list | join(' ') }}
+{% else %}
+# No files specified. Please set 'filenames' in values.
+ONIONSSHARE_FILES=
+{% endif %}
+
+# Command execution wrapper
+# Generates a complete command line suitable for a systemd ExecStart directive,
+# a cron job, or a Docker CMD/ENTRYPOINT.
+{% set EXEC_CMD = 'onionshare' %}
+
+# Append verbose flag if enabled
+{% if verbose | default(false) %}
+{% set EXEC_CMD = EXEC_CMD + ' -v' %}
+{% endif %}
+
+# Append local-only flag if enabled
+{% if local_only | default(false) %}
+{% set EXEC_CMD = EXEC_CMD + ' --local-only' %}
+{% endif %}
+
+# Append mode-specific flags if the mode is not the default 'share'
+# or if specific flags are required for other modes.
+# Note: 'share' is the default behavior of onionshare, so no flag is needed for it
+# in most versions, but we handle explicit modes below.
+{% set current_mode = mode | default('share') %}
+{% if current_mode == 'public' %}
+# Public mode enabled: prevents auto-shutdown on multiple connections.
+# Note: OnionShare handles 'public mode' internally via GUI or specific args in newer versions.
+# For CLI, we assume the user sets the mode flag if supported.
+{% set EXEC_CMD = EXEC_CMD + ' --mode=public' %}
+{% elif current_mode == 'website' %}
+# Website mode enabled: hosts a temporary website.
+{% set EXEC_CMD = EXEC_CMD + ' --mode=website' %}
+{% elif current_mode == 'receive' %}
+# Receive mode enabled: accepts incoming shares.
+{% set EXEC_CMD = EXEC_CMD + ' --mode=receive' %}
+{% endif %}
+
+# Append filenames argument if files are provided
+# Ensures proper spacing between flags and arguments.
+{% if filenames_list is iterable and filenames_list | length > 0 %}
+{% set EXEC_CMD = EXEC_CMD + ' --filenames ' + (filenames_list | join(' ')) %}
+{% endif %}
+
+# Final assembled command string
+FINAL_COMMAND={{ EXEC_CMD }}

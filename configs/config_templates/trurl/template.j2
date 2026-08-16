@@ -1,0 +1,113 @@
+{# ============================================================================= #}
+{# trurl CLI command builder template                                            #}
+{# ============================================================================= #}
+{# This template assembles a single `trurl` invocation line from provided        #}
+{# configuration variables. It is self-documenting: every flag is preceded by    #}
+{# a comment describing the underlying schema field.                             #}
+{#                                                                               #}
+{# Usage in Ansible:                                                             #}
+#   shell: >-
+#     trurl {{ url | default('') }} \
+#           {{ output_mode | default('get') }} \
+#           ... # see generated flags below
+#   or use the rendered output directly in a script.                            #}
+
+{# --url: The base URL to process. If empty and --url-file is not used,          #}
+{# components in 'components' must form a valid URL.                             #}
+{% if url | default('') != '' %}--url {{ url | default('') }}{% endif %}
+
+{# --url-file: Filename to read URLs from. Use '-' for stdin. If empty, URLs     #}
+{# are provided via --url or components.                                         #}
+{% if url_file | default('') != '' %}
+--url-file {{ url_file | default('') }}
+{% endif %}
+
+{# --get or --json: Primary output mode. 'json' for JSON output, 'get' for      #}
+{# formatted text extraction.                                                    #}
+{# output_format: Format string for --get or empty for --json.                   #}
+--{{ output_mode | default('get') }}{% if output_format | default('{url}') != '' %} {{ output_format | default('{url}') }}{% endif %}
+
+{# --urlencode: If true, output URL encoded components in --get or --json mode.  #}
+{% if urlencode | default(False) %}--urlencode{% endif %}
+
+{# --idn-mode: International Domain Name handling.                               #}
+{# idn_mode: 'idn' for Unicode output, 'punycode' for ASCII output,              #}
+{# 'none' for no change.                                                         #}
+{% if idn_mode | default('none') == 'idn' %}--as-idn{% endif %}
+{% if idn_mode | default('none') == 'punycode' %}--punycode{% endif %}
+
+{# --keep-port: If true, retain default port numbers in the output.              #}
+{% if keep_port | default(False) %}--keep-port{% endif %}
+
+{# --default-port: If true, use scheme's default port if not specified in URL.   #}
+{% if default_port | default(False) %}--default-port{% endif %}
+
+{# --no-guess-scheme: If true, disable libcurl's scheme guessing for URLs        #}
+{# without a scheme.                                                             #}
+{% if no_guess_scheme | default(False) %}--no-guess-scheme{% endif %}
+
+{# --sort-query: If true, sort query parameter pairs alphabetically.             #}
+{% if sort_query | default(False) %}--sort-query{% endif %}
+
+{# --accept-space: If true, accept spaces in URL and encode them as %20.         #}
+{% if accept_space | default(False) %}--accept-space{% endif %}
+
+{# --quiet: If true, suppress warnings and notes.                                #}
+{% if quiet | default(False) %}--quiet{% endif %}
+
+{# --verify: If true, return error if URL cannot parse.                          #}
+{% if verify | default(False) %}--verify{% endif %}
+
+{# --set: List of URL components to set using --set.                             #}
+{# Keys are component names (scheme, user, password, host, port, path, query,    #}
+{# fragment, zoneid). Values are the component strings.                          #}
+{# Note: 'components' is a list of dicts mapping component name to value.        #}
+{% for component in components | default([]) %}
+--set {{ component.component }}={{ component.value }}
+{% endfor %}
+
+{# --append: List of data to append using --append.                              #}
+{# Keys are 'path' or 'query'. Value is the data to append.                      #}
+{# Note: 'appends' is a list of dicts mapping target to data.                    #}
+{% for append in appends | default([]) %}
+--append {{ append.target }}={{ append.value }}
+{% endfor %}
+
+{# --qtrim: List of query keys or prefixes (with trailing *) to remove from      #}
+{# query string using --qtrim.                                                   #}
+{# Note: 'qtrims' is a simple list of strings.                                   #}
+{% for trim in qtrims | default([]) %}
+--qtrim "{{ trim }}"
+{% endfor %}
+
+{# --replace: List of query key/value pairs to replace using --replace.          #}
+{# Key is query key, Value is new value.                                         #}
+{# Note: 'replaces' is a list of dicts mapping key to new value.                 #}
+{% for replace in replaces | default([]) %}
+--replace {{ replace.key }}={{ replace.value }}
+{% endfor %}
+
+{# --replace-append: List of query key/value pairs to replace or append using    #}
+{# --replace-append. Key is query key, Value is new value.                       #}
+{# Note: 'replace_appends' is a list of dicts mapping key to new value.          #}
+{% for replace_append in replace_appends | default([]) %}
+--replace-append {{ replace_append.key }}={{ replace_append.value }}
+{% endfor %}
+
+{# --iterate: List of iterations to generate multiple URLs.                      #}
+{# Key is component name, Values is a list of space-separated items.             #}
+{# Note: 'iterations' is a list of dicts mapping component name to list of       #}
+{# items to iterate.                                                             #}
+{% for iteration in iterations | default([]) %}
+--iterate "{{ iteration.component }}={{ iteration.values | join(' ') }}"
+{% endfor %}
+
+{# --query-separator: Character used to separate query pairs. Default is '&'.    #}
+{% if query_separator | default('&') != '&' %}
+--query-separator "{{ query_separator | default('&') }}"
+{% endif %}
+
+{# --redirect: URL or path to redirect to. If empty, no redirection is performed.#}
+{% if redirect | default('') != '' %}
+--redirect "{{ redirect | default('') }}"
+{% endif %}

@@ -1,0 +1,33 @@
+#/etc/default/multiwatch
+# Configuration for multiwatch daemon
+# This file defines environment variables for the multiwatch service.
+# multiwatch is a simple process watcher that forks children and restarts them
+# if they exit unexpectedly.
+
+# Number of children to fork and watch.
+# Description: Number of children to fork and watch. Default is 1.
+FORKS={{ forks | default(1) }}
+
+# Number of retries to fork a single child.
+# Description: Number of retries to fork a single child. Default is 3.
+RETRIES={{ retries | default(3) }}
+
+# Retry timeout in milliseconds.
+# Description: Retry timeout in milliseconds. If the child dies after this timeout, the retry counter is reset. Default is 10000 ms (10s).
+TIMEOUT_MS={{ timeout_ms | default(10000) }}
+
+# Signal to send to children for graceful termination.
+# Description: Signal to send to children to signal 'graceful' termination (HUP, INT, QUIT, TERM, USR1, USR2). Default is USR1.
+SIGNAL={{ signal | default('USR1') }}
+
+# Command to execute.
+# Description: The application executable to watch.
+COMMAND="{{ command | default('/usr/bin/true') }}"
+
+# Command arguments.
+# Description: Arguments for the application executable. Items: flat map of argument strings.
+# Note: We join with spaces to form a valid shell command line string.
+COMMAND_ARGS="{{ command_args | default([]) | join(' ') }}"
+
+# Example usage in a wrapper script or systemd unit:
+# multiwatch -f $FORKS -r $RETRIES -t $TIMEOUT_MS -s $SIGNAL -- $COMMAND $COMMAND_ARGS

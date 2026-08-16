@@ -1,0 +1,26 @@
+# MSI Keyboard Configuration
+# This template configures the global and per-region lighting modes for an MSI keyboard.
+
+# The global lighting mode for the keyboard.
+# Valid values: normal, gaming, breathe, demo, wave.
+# Default: normal
+mode: {{ mode | default('normal') }}
+
+# List of region-specific color configurations.
+# Each item defines the left, middle, or right section's color and intensity.
+# Items are passed as flat strings: "region,color,intensity".
+#
+# Note: The schema defines 'regions' as a list of strings.
+# The original template attempted to use .split(), which is a Python method
+# and not available in standard Jinja2. Therefore, the entire string
+# is emitted as-is, preserving the "region,color,intensity" format
+# expected by the MSI keyboard control software.
+{% for region_config in regions | default([]) %}
+# Region configuration entry.
+# Format: region,color,intensity (e.g., left,off,medium)
+# Parsed components (for reference only, emitted as single string below):
+#   region     = left, middle, or right
+#   color      = on, off, or specific color code
+#   intensity  = low, medium, high, or custom value
+{{ region_config | default('left,off,medium') }}
+{% endfor %}

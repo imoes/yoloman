@@ -1,0 +1,39 @@
+# Nabi X Input Method Configuration
+# This template generates the environment variables and the exec line to start the Nabi daemon.
+# Nabi is an X Input Method (XIM) server for Korean Hangul input.
+# Most settings here control how the daemon starts and identifies itself to the X session.
+
+# XIM service name for Nabi
+# Corresponds to --xim-name=NAME
+# The name of nabi's XIM service. Useful for debugging or distinguishing multiple instances.
+NABI_XIM_NAME="{{ xim_name|default('nabi') }}"
+
+# Debugging verbosity level (0-3)
+# Corresponds to -d LEVEL
+# Set the debugging verbosity level. Higher values produce more verbose output.
+NABI_DEBUG_LEVEL="{{ debug_level|default(0) }}"
+
+# Run in status-only mode
+# Corresponds to -s / --status-only
+# If true, nabi does not act as an input method but just displays the Hangul input status in the system tray.
+NABI_STATUS_ONLY="{{ status_only|default(false)|lower }}"
+
+# Session management client ID
+# Corresponds to --sm-client-id=ID
+# Specifies the session management ID. This option is for session manager software, not for user typing.
+# Usually empty unless required by a specific session manager.
+NABI_SM_CLIENT_ID="{{ sm_client_id|default('') }}"
+
+# Execute nabi with the configured parameters
+exec nabi \
+  --xim-name="{{ xim_name|default('nabi') }}" \
+{% if (debug_level|default(0))|int > 0 %}
+  -d {{ debug_level|default(0) }} \
+{% endif %}
+{% if status_only|default(false) %}
+  -s \
+{% endif %}
+{% if sm_client_id|default('')|length > 0 %}
+  --sm-client-id="{{ sm_client_id|default('') }}" \
+{% endif %}
+  "${@}"

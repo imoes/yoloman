@@ -1,0 +1,72 @@
+# ==============================================================================
+# nik4 — Mapnik-based tile rendering configuration
+# ==============================================================================
+# This file is self-documenting. Every directive is preceded by a comment
+# explaining its purpose and accepted values. Variables use the exact schema
+# field names and provide safe defaults via Jinja2 `default` filter.
+# ==============================================================================
+
+# Base path for style files, in case it's piped to STDIN or for relative resolution.
+# Type: string
+base: {{ base | default('/etc/nik4/styles') }}
+
+# Target zoom level for the map tile.
+# Type: integer
+zoom: {{ zoom | default(12) }}
+
+# Pixels per inch (resolution) for the output image.
+# Type: integer
+ppi: {{ ppi | default(96) }}
+
+# Scale factor affecting ppi (default=1).
+# Type: integer
+factor: {{ factor | default(1) }}
+
+# Target dimensions in pixels. Can contain one 0 for auto-calculation.
+# Example: "800 0" for width 800, auto-height.
+# Type: list of integers
+size_px: {{ size_px | default([800, 600]) | join(' ') }}
+
+# Bounding box coordinates: xmin ymin xmax ymax in degrees.
+# Type: list of numbers
+bbox: {{ bbox | default([-180, -90, 180, 90]) | join(' ') }}
+
+# Paper format for output (e.g., A4, letter, +4, -4).
+# Type: string
+paper: {{ paper | default('A4') }}
+
+# Target file format (e.g., png, jpg). Defaults to extension.
+# Type: string
+fmt: {{ fmt | default('png') }}
+
+# Display calculated values (verbose mode).
+# Type: boolean
+debug: {{ debug | default(false) }}
+
+# Map layers to render. Comma-separated list in CLI, space-separated here for template expansion.
+# Type: list of strings
+layers: {{ layers | default([]) | join(' ') }}
+
+# Map layers to include in addition to default.
+# Type: list of strings
+add_layers: {{ add_layers | default([]) | join(' ') }}
+
+# Map layers to hide.
+# Type: list of strings
+hide_layers: {{ hide_layers | default([]) | join(' ') }}
+
+# List of variables (name=value) to substitute in the style file.
+# Type: list of strings
+vars: {{ vars | default([]) | join(' ') }}
+
+# List of full paths to directories containing fonts.
+# Type: list of strings
+fonts: {{ fonts | default([]) | join(' ') }}
+
+# Path to the Mapnik style file.
+# Type: string
+style: {{ style | default('/etc/nik4/styles/style.xml') }}
+
+# Resulting image file path.
+# Type: string
+output: {{ output | default('/var/www/tiles/output.png') }}

@@ -1,0 +1,162 @@
+# =============================================================================
+# tuigreet Configuration Template
+# =============================================================================
+# This file configures `tuigreet`, a TUI graphical greeter for systemd-logind.
+# It supports Wayland and X11 sessions, offers various UI customization options,
+# and provides power management shortcuts.
+#
+# For detailed documentation, refer to the tuigreet(1) man page or the project README.
+# All variables listed here MUST be defined in the Ansible inventory or role vars
+# to ensure correct rendering. Where a variable is not explicitly set, the
+# defaults provided in the Jinja2 filters will be used.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Logging and Debugging
+# -----------------------------------------------------------------------------
+
+# Path to the file for debug logging. If empty or default, uses /tmp/tuigreet.log.
+# Corresponds to: -d, --debug [FILE]
+debug_log: {{ debug_log | default('/tmp/tuigreet.log') }}
+
+# -----------------------------------------------------------------------------
+# Session and Authentication Behavior
+# -----------------------------------------------------------------------------
+
+# Command to run on successful authentication.
+# Examples: 'weston', 'sway', 'startx'.
+# Leave empty to use the default session selection mechanism.
+# Corresponds to: -c, --cmd CMD
+session_cmd: {{ session_cmd | default('') }}
+
+# Colon-separated list of directories containing Wayland session desktop files.
+# Corresponds to: -s, --sessions DIR1[:DIR2]...
+wayland_sessions_dir: {{ wayland_sessions_dir | default('/usr/share/wayland-sessions') }}
+
+# Wrapper command for non-X11 (Wayland) sessions.
+# Empty string uses default behavior.
+# Corresponds to: --session-wrapper 'CMD [ARGS]...'
+wayland_session_wrapper: {{ wayland_session_wrapper | default('') }}
+
+# Colon-separated list of directories containing X11 session desktop files.
+# Corresponds to: -x, --xsessions DIR1[:DIR2]...
+x11_sessions_dir: {{ x11_sessions_dir | default('/usr/share/xsessions') }}
+
+# Wrapper command for X11 sessions.
+# Corresponds to: --xsession-wrapper 'CMD [ARGS]...'
+x11_session_wrapper: {{ x11_session_wrapper | default('startx /usr/bin/env') }}
+
+# If true, do not wrap commands for X11 sessions.
+# Corresponds to: --no-xsession-wrapper
+no_x11_session_wrapper: {{ no_x11_session_wrapper | default(false) }}
+
+# -----------------------------------------------------------------------------
+# UI Layout and Prompt Configuration
+# -----------------------------------------------------------------------------
+
+# Number of columns the main prompt area should take.
+# Corresponds to: -w, --width COLS
+prompt_width: {{ prompt_width | default(80) }}
+
+# Print the content of /etc/issue at the top of the prompt area.
+# Corresponds to: -i, --issue
+show_issue: {{ show_issue | default(true) }}
+
+# Custom greeting text displayed at the top of the prompt area.
+# Mutually exclusive with show_issue if both are set (template logic prefers one,
+# but tuigreet itself handles precedence; setting both is generally discouraged).
+# Corresponds to: -g, --greeting GREETING
+greeting_text: {{ greeting_text | default('') }}
+
+# Print the current date and time at the top of the screen.
+# Corresponds to: -t, --time
+show_time: {{ show_time | default(true) }}
+
+# Strftime-compliant format string for the time display.
+# Corresponds to: --time-format FORMAT
+time_format: {{ time_format | default('%Y-%m-%d %H:%M:%S') }}
+
+# Allow selecting a user from a graphical menu.
+# Corresponds to: --user-menu
+enable_user_menu: {{ enable_user_menu | default(false) }}
+
+# Minimum UID of users to display in the selection menu.
+# Corresponds to: --user-menu-min-UID
+user_menu_min_uid: {{ user_menu_min_uid | default(1000) }}
+
+# Maximum UID of users to display in the selection menu.
+# Corresponds to: --user-menu-max-uid
+user_menu_max_uid: {{ user_menu_max_uid | default(60000) }}
+
+# Remember the username of the last successfully opened session.
+# Corresponds to: -r, --remember
+remember_username: {{ remember_username | default(true) }}
+
+# Remember the last selected session.
+# Corresponds to: --remember-session
+remember_session: {{ remember_session | default(false) }}
+
+# Remember the last opened session per user.
+# Corresponds to: --remember-user-session
+remember_user_session: {{ remember_user_session | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Visual Theming and Feedback
+# -----------------------------------------------------------------------------
+
+# Theme specification string for UI colors.
+# See project README for syntax details.
+# Corresponds to: --theme SPEC
+theme_spec: {{ theme_spec | default('') }}
+
+# Add visual feedback (asterisks) when typing secrets (passwords).
+# Corresponds to: --asterisks
+show_asterisks: {{ show_asterisks | default(false) }}
+
+# Character(s) used for password feedback.
+# Corresponds to: --asterisks-char CHARS
+asterisks_char: {{ asterisks_char | default('*') }}
+
+# Spacing between the edge of the screen and the drawing area in columns.
+# Corresponds to: --window-padding COLS
+window_padding: {{ window_padding | default(0) }}
+
+# Spacing between the border of the prompt area and its contents in columns.
+# Corresponds to: --container-padding COLS
+container_padding: {{ container_padding | default(2) }}
+
+# Spacing between form fields in rows.
+# Corresponds to: --prompt-padding ROWS
+prompt_padding: {{ prompt_padding | default(1) }}
+
+# Alignment of the greeting text: left, center, or right.
+# Corresponds to: --greet-align [left|center|right]
+greet_align: {{ greet_align | default('center') }}
+
+# -----------------------------------------------------------------------------
+# Power Management and Keyboard Shortcuts
+# -----------------------------------------------------------------------------
+
+# Command to run when instructed to shut down.
+# Corresponds to: --power-shutdown CMD [ARGS]...
+power_shutdown_cmd: {{ power_shutdown_cmd | default('systemctl poweroff') }}
+
+# Command to run when instructed to reboot.
+# Corresponds to: --power-reboot CMD [ARGS]...
+power_reboot_cmd: {{ power_reboot_cmd | default('systemctl reboot') }}
+
+# Do not prefix power commands with setsid.
+# Corresponds to: --power-no-setsid
+power_no_setsid: {{ power_no_setsid | default(false) }}
+
+# F-key to access power menu (1-12).
+# Corresponds to: --kb-power [1-12]
+power_keybind: {{ power_keybind | default('1') }}
+
+# F-key to access sessions menu (1-12).
+# Corresponds to: --kb-sessions [1-12]
+sessions_keybind: {{ sessions_keybind | default('2') }}
+
+# F-key to access command menu (1-12).
+# Corresponds to: --kb-command [1-12]
+command_keybind: {{ command_keybind | default('3') }}

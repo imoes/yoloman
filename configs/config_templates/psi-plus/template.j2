@@ -1,0 +1,46 @@
+# Psi+ IM client configuration
+# See psi-plus(1) and Psi+ documentation for details.
+
+[General]
+# The XMPP server hostname to connect to.
+server = {{ server | default('xmpp.example.com') }}
+
+# The port number for the XMPP connection (typically 5222 for XMPP, 5223 for SSL).
+port = {{ port | default(5222) }}
+
+# The username (JID local part) for authentication.
+username = {{ username | default('user') }}
+
+# The password for authentication. In a real scenario, this might be handled by a keyring or secure store.
+password = {{ password | default('') }}
+
+# Enable SSL/TLS encryption for the connection.
+use_ssl = {{ use_ssl | default(true) }}
+
+[Appearance]
+# The theme name to use for the interface (e.g., 'Default', 'Classic').
+theme = {{ theme | default('Default') }}
+
+# Enable or disable animated emoticons if using the WebKit version.
+animated_emoticons = {{ animated_emoticons | default(true) }}
+
+[Security]
+# Enable GnuPG for message encryption.
+enable_gnupg = {{ enable_gnupg | default(false) }}
+
+# Enable OTR (Off-the-Record) messaging.
+enable_otr = {{ enable_otr | default(false) }}
+
+# Enable OMEMO encryption.
+enable_omemo = {{ enable_omemo | default(false) }}
+
+[Contacts]
+# Cache contacts offline to improve performance and availability.
+cache_contacts = {{ cache_contacts | default(true) }}
+
+# List of custom nicknames for contacts.
+# Each item must have 'jid' and 'nickname' fields.
+{% for contact in contacts %}
+contact_{{ loop.index }}_jid = {{ contact.jid }}
+contact_{{ loop.index }}_nickname = {{ contact.nickname }}
+{% endfor %}

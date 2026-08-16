@@ -1,0 +1,61 @@
+# =============================================================================
+# Location Service Configuration Template
+#
+# This file configures the 'location' database service, which manages geolocation
+# data (IP/Country/ASN) for network filtering and lookup.
+#
+# Self-Documenting: Every directive is preceded by its schema description.
+# Safe Defaults: All variables use `| default(...)` to prevent render failures.
+# =============================================================================
+
+# --- Core Database Settings ---
+
+# The path of the database which is being opened.
+# Default: /var/lib/location/database
+database={{ database | default('/var/lib/location/database') }}
+
+# --- Update Settings ---
+
+# Frequency of database updates: daily, weekly, monthly, or disabled.
+# Default: weekly
+update_schedule={{ update_schedule | default('weekly') }}
+
+# --- Logging & Output Settings ---
+
+# Enable quiet mode to suppress output.
+# Default: True
+quiet={{ quiet | default(True) }}
+
+# Enable debugging mode.
+# Default: False
+debug={{ debug | default(False) }}
+
+# --- Export & Filtering Settings ---
+
+# Output format for commands supporting it: list, ipset, nftables, xt_geoip.
+# Default: list
+export_format={{ export_format | default('list') }}
+
+# Address family filter for export/queries: ipv4, ipv6, or all.
+# Default: all
+address_family={{ address_family | default('all') }}
+
+# List of ISO3166 Alpha-2 country codes to include in exports.
+# Default: [] (empty list means all countries)
+# Rendered as space-separated values.
+export_countries={% for cc in (export_countries | default([])) %}{{ cc }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# List of Autonomous System numbers to include in exports.
+# Default: [] (empty list means all ASNs)
+# Rendered as space-separated values.
+export_asns={% for asn in (export_asns | default([])) %}{{ asn }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# List of flags to filter networks: anonymous-proxy, satellite-provider, anycast, drop.
+# Default: [] (empty list means no specific flags)
+# Rendered as space-separated values.
+export_flags={% for flag in (export_flags | default([])) %}{{ flag }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# List of IP addresses to perform lookups on.
+# Default: [] (empty list means no specific lookups)
+# Rendered as space-separated values.
+lookup_addresses={% for addr in (lookup_addresses | default([])) %}{{ addr }}{% if not loop.last %} {% endif %}{% endfor %}

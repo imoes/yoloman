@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+#
+# ncal Wrapper Script
+#
+# This script generates a wrapper around `ncal` (an ANSI calendar program)
+# based on the provided configuration options.
+#
+# ncal does not have a dedicated configuration file; options are passed
+# via command-line arguments. This wrapper persists those options.
+#
+# Usage:
+#   ./ncal-wrapper.sh [month [year]]
+#
+# If no arguments are provided, it displays the default calendar view
+# as configured by `NCAL_FLAGS`.
+#
+# ------------------------------------------------------------------
+# Configuration: ncal Options
+# ------------------------------------------------------------------
+# Collects flags based on the 'options' list provided in the schema.
+# Each option in the list is a map with 'name' and 'value'.
+#
+# Schema:
+# - options (list): List of configuration options to apply to ncal. Each item is a flat map of option name and value.
+# - items (string): Not used directly, defines structure of list items in schema.
+# - _comment_items_structure (none): Each item in the 'options' list should be a map with 'name' (string) and 'value' (string/number/bool).
+# - options.name (string): Name of the ncal option (e.g., 'show_julian', 'start_day', 'months_ahead').
+# - options.value (string): Value for the option. For bool options, use 'true'/'false'. For others, use the specific value.
+# ------------------------------------------------------------------
+{% if options is defined and options is iterable %}
+{% for opt in options %}
+# ------------------------------------------------------------------
+# Option: {{ opt.name | default('') }}
+# Description: {{ opt.description | default('No description provided.') }}
+# Value: {{ opt.value | default('') }}
+# ------------------------------------------------------------------
+{% if opt.name | default('') == 'start_day' %}
+# Sets the first day of the week.
+# True implies Monday (-M), False implies Sunday (-S).
+{% if opt.value | default(false) | bool %}
+NCAL_START_DAY_OPT="-M"
+{% else %}
+NCAL_START_DAY_OPT="-S"
+{% endif %}
+
+{% elif opt.name | default('') == 'show_julian' %}
+# Displays Julian days (1-based from Jan 1).
+# True enables -j, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_JULIAN_OPT="-j"
+{% else %}
+NCAL_JULIAN_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'show_easter' %}
+# Displays the date of Easter.
+# True enables -e, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_EASTER_OPT="-e"
+{% else %}
+NCAL_EASTER_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'show_orthodox_easter' %}
+# Displays date of Orthodox Easter.
+# True enables -o, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_ORTHODOX_EASTER_OPT="-o"
+{% else %}
+NCAL_ORTHODOX_EASTER_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'show_week_numbers' %}
+# Prints the week number below each week column.
+# True enables -w, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_WEEK_NUM_OPT="-w"
+{% else %}
+NCAL_WEEK_NUM_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'highlight_today' %}
+# Controls highlighting of today.
+# Note: The schema name 'highlight_today' with value 'true' maps to -h (no highlight).
+# This matches the historical convention where -h turns off the default tty highlighting.
+# True disables highlighting (-h), False leaves it enabled (empty).
+{% if opt.value | default(false) | bool %}
+NCAL_NO_HIGHLIGHT_OPT="-h"
+{% else %}
+NCAL_NO_HIGHLIGHT_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'show_previous_next_month' %}
+# Displays previous, current, and next month.
+# True enables -3, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_3MONTH_OPT="-3"
+{% else %}
+NCAL_3MONTH_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'show_year' %}
+# Displays a calendar for the specified year.
+# True enables -y, False disables it.
+{% if opt.value | default(false) | bool %}
+NCAL_YEAR_OPT="-y"
+{% else %}
+NCAL_YEAR_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'months_ahead' %}
+# Months to add after the current display.
+# Requires a numeric value.
+{% if opt.value is defined and opt.value != '' %}
+NCAL_AHEAD_OPT="-A {{ opt.value }}"
+{% else %}
+NCAL_AHEAD_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'months_behind' %}
+# Months to add before the current display.
+# Requires a numeric value.
+{% if opt.value is defined and opt.value != '' %}
+NCAL_BEHIND_OPT="-B {{ opt.value }}"
+{% else %}
+NCAL_BEHIND_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'week_start_days' %}
+# First week of the year has at least this many days (ISO 8601 style).
+# Requires a numeric value (usually 1-7).
+{% if opt.value is defined and opt.value != '' %}
+NCAL_WEEK_DAYS_OPT="-W {{ opt.value }}"
+{% else %}
+NCAL_WEEK_DAYS_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'country_code' %}
+# Sets the calendar reform date based on a country code (e.g., GB, DE).
+# Used for historical calendar accuracy.
+{% if opt.value is defined and opt.value != '' %}
+NCAL_COUNTRY_CODE_OPT="-s {{ opt.value }}"
+{% else %}
+NCAL_COUNTRY_CODE_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'debug_date' %}
+# Sets a debug date (yyyy-mm) for testing.
+{% if opt.value is defined and opt.value != '' %}
+NCAL_DEBUG_DATE_OPT="-d {{ opt.value }}"
+{% else %}
+NCAL_DEBUG_DATE_OPT=""
+{% endif %}
+
+{% elif opt.name | default('') == 'highlight_date' %}
+# Sets a specific date to highlight (yyyy-mm-dd) for testing.
+{% if opt.value is defined and opt.value != '' %}
+NCAL_HIGHLIGHT_DATE_OPT="-H {{ opt.value }}"
+{% else %}
+NCAL_HIGHLIGHT_DATE_OPT=""
+{% endif %}
+
+{% else %}
+# Unknown option: {{ opt.name | default('') }}. Ignored.
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------
+# Construct the final command flags
+# ------------------------------------------------------------------
+# Combines all individual option flags into a single string for execution.
+# Empty variables are safely ignored by the shell.
+NCAL_FLAGS="${NCAL_AHEAD_OPT} ${NCAL_BEHIND_OPT} ${NCAL_START_DAY_OPT} ${NCAL_EASTER_OPT} ${NCAL_ORTHODOX_EASTER_OPT} ${NCAL_JULIAN_OPT} ${NCAL_NO_HIGHLIGHT_OPT} ${NCAL_WEEK_NUM_OPT} ${NCAL_3MONTH_OPT} ${NCAL_YEAR_OPT} ${NCAL_WEEK_DAYS_OPT} ${NCAL_COUNTRY_CODE_OPT} ${NCAL_DEBUG_DATE_OPT} ${NCAL_HIGHLIGHT_DATE_OPT}"
+
+# ------------------------------------------------------------------
+# Function to run ncal with configured options
+# ------------------------------------------------------------------
+# If specific month/year are passed as arguments, they override defaults.
+run_ncal() {
+    if [ $# -eq 0 ]; then
+        eval ncal $NCAL_FLAGS
+    else
+        eval ncal $NCAL_FLAGS "$@"
+    fi
+}
+
+# ------------------------------------------------------------------
+# Alias definition
+# ------------------------------------------------------------------
+alias mycal="run_ncal"
+
+# ------------------------------------------------------------------
+# Fallback execution
+# ------------------------------------------------------------------
+# If options list was empty or undefined, run ncal with default system behavior.
+ncal

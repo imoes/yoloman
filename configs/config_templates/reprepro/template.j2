@@ -1,0 +1,104 @@
+# Reprepro Configuration Template
+# This template generates the main configuration file for reprepro.
+# reprepro is a tool to manage Debian package repositories.
+# It typically manages two files: conf/distributions and conf/updates.
+# Run with: reprepro -b {{ basedir | default('/srv/reprepro') | string }} export
+
+# === Global Options ===
+# The base directory where the repository structure (conf, db, pool, dists) is stored.
+# All relative paths in this configuration are relative to this directory.
+--basedir: {{ (basedir | default('/srv/reprepro')) | string }}
+
+# === Distributions Configuration ===
+# This section defines the distributions (releases) managed by reprepro.
+# Each distribution gets its own section named by its 'codename'.
+{% for dist in (distributions | default([])) %}
+
+{{ dist.codename | default('unnamed') }}
+{# Unique identifier for this distribution. It becomes the directory name in dists/ and is used in Release files. #}
+Codename: {{ dist.codename | default('unnamed') }}
+
+{# Suite name (e.g., stable, testing, oldstable). Optional but recommended for clarity. Defaults to codename if not specified. #}
+Suite: {{ dist.suite | default(dist.codename | default('')) }}
+
+{# Origin string copied to Release files. Identifies the source of the packages. #}
+Origin: {{ dist.origin | default("Local Repository") }}
+
+{# Label copied to Release files. A human-readable description of the repository. #}
+Label: {{ dist.label | default("Local Repository") }}
+
+{# Architectures supported by this distribution (e.g., 'amd64 i386'). #}
+Architectures: {{ (dist.architectures | default([])) | join(' ') }}
+
+{# Components defined in this distribution (e.g., 'main contrib non-free'). #}
+Components: {{ (dist.components | default([])) | join(' ') }}
+
+{# Enable GPG signing of Release files if a key fingerprint/ID is provided. #}
+{% if dist.signwith is defined and dist.signwith is not none %}
+SignWith: {{ dist.signwith | string }}
+{% endif %}
+
+{# Override file for .deb package metadata. Allows manual override of control fields. #}
+{% if dist.deboverride is defined and dist.deboverride is not none %}
+DebOverride: {{ dist.deboverride | string }}
+{% endif %}
+
+{# Override file for .dsc source package metadata. #}
+{% if dist.dscoverride is defined and dist.dscoverride is not none %}
+DscOverride: {{ dist.dscoverride | string }}
+{% endif %}
+
+{# Index files to generate (e.g., 'Packages Sources Release'). #}
+{% if dist.debindices is defined and dist.debindices is not none %}
+DebIndices: {{ dist.debindices | join(' ') }}
+{% endif %}
+
+{# Update rules to apply to this distribution automatically. #}
+{% if dist.update is defined and dist.update is not none %}
+Update: {{ dist.update | string }}
+{% endif %}
+
+{# Pull rules to import packages from another distribution within this repo. #}
+{% if dist.pull is defined and dist.pull is not none %}
+Pull: {{ dist.pull | string }}
+{% endif %}
+
+{# Tracking source packages (experimental feature for automatic updates). #}
+{% if dist.tracking is defined and dist.tracking is not none %}
+Tracking: {{ dist.tracking | string }}
+{% endif %}
+
+{# Validity period for Release files (e.g., '1y', '3m', '7d'). #}
+{% if dist.validfor is defined and dist.validfor is not none %}
+ValidFor: {{ dist.validfor | string }}
+{% endif %}
+
+{% endfor %}
+
+# === Updates Configuration ===
+# These rules define how to sync with external repositories.
+# Note: The original template referenced an 'updates' list. If not defined in the schema, this loop will be skipped.
+{% for update in (updates | default([])) %}
+
+{{ update.name | default('unnamed') }}
+{# Name of the update rule. Used as the section header. #}
+Name: {{ update.name | default('unnamed') }}
+
+{# Method/URI of the external repository (e.g., 'http://deb.debian.org/debian/'). #}
+Method: {{ update.method | default('') }}
+
+{# Suite to pull from in the external repository. Defaults to an empty string if not specified. #}
+Suite: {{ update.suite | default('') }}
+
+{# Components to synchronize from the external repo (e.g., 'main'). #}
+Components: {{ (update.components | default([])) | join(' ') }}
+
+{# Architectures to synchronize from the external repo. #}
+Architectures: {{ (update.architectures | default([])) | join(' ') }}
+
+{# Verify Release.gpg signatures against these key fingerprints. #}
+{% if update.verifyrelease is defined and update.verifyrelease is not none %}
+VerifyRelease: {{ update.verifyrelease | string }}
+{% endif %}
+
+{% endfor %}

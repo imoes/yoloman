@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# This script manages the msktutil auto-update service.
+# Configuration is primarily handled via /etc/default/msktutil.
+# The variables defined here serve as fallback defaults if /etc/default/msktutil is missing or incomplete.
+# See schema fields 'autoupdate_enabled' and 'autoupdate_options' for configuration details.
+
+# Check if running in a systemd environment; if not, this service wrapper is irrelevant.
+[ -d /run/systemd/system ] || exit 0
+
+# Verify msktutil is installed and executable before proceeding.
+test -x /usr/sbin/msktutil || exit 0
+
+# Default: Whether the auto-update feature is enabled.
+# Schema: autoupdate_enabled (bool-like string, default 'false')
+AUTOUPDATE_ENABLED="{{ autoupdate_enabled | default('false') }}"
+
+# Default: Additional options passed to msktutil in auto-update mode.
+# Schema: autoupdate_options (string, default '')
+AUTOUPDATE_OPTIONS="{{ autoupdate_options | default('') }}"
+
+# Load persistent overrides from the default configuration file.
+# If /etc/default/msktutil exists, its variables will override the defaults defined above.
+[ -r /etc/default/msktutil ] && . /etc/default/msktutil
+
+# If auto-update is not enabled (strictly checking for "true"), exit silently.
+[ "${AUTOUPDATE_ENABLED}" = "true" ] || exit 0
+
+# Construct the command to execute msktutil with auto-update mode and any custom options.
+cmd="/usr/sbin/msktutil --auto-update ${AUTOUPDATE_OPTIONS}"
+
+# Replace the shell process with the msktutil command.
+exec ${cmd}

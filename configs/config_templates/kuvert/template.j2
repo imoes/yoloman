@@ -1,0 +1,189 @@
+# Kuvert Configuration File
+# Self-documented via Jinja2 enrichment
+#
+# This configuration file controls the behavior of the Kuvert MTA wrapper.
+# It manages logging, SMTP relay settings (outbound and inbound), GnuPG
+# integration for encryption/signing, and queue processing rules.
+#
+# Variables are safely defaulted using Jinja2 `default` filter to prevent
+# rendering errors when variables are omitted in the Ansible host_vars.
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# syslog <facility>
+# Syslog facility name (e.g., mail, local0). If empty, syslog is disabled.
+{% if (syslog_facility | default('') | trim) %}syslog {{ syslog_facility | default('') | trim }}
+{% endif %}
+
+# logfile <path>
+# Path to log file. If empty, logfile logging is disabled.
+{% if (logfile | default('') | trim) %}logfile {{ logfile | default('') | trim }}
+{% endif %}
+
+# mail-on-error <address>
+# Email address to notify on fatal errors. If empty, disabled.
+{% if (mail_on_error | default('') | trim) %}mail-on-error {{ mail_on_error | default('') | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Queue and Temporary Directories
+# -----------------------------------------------------------------------------
+
+# queuedir <path>
+# Directory where kuvert stores emails to be processed.
+{% if (queuedir | default('') | trim) %}queuedir {{ queuedir | default('~/.kuvert_queue') }}
+{% endif %}
+
+# tempdir <path>
+# Directory for temporary files. If empty, uses $TMPDIR/kuvert.<user>.
+{% if (tempdir | default('') | trim) %}tempdir {{ tempdir | default('') | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# General Behavior Options
+# -----------------------------------------------------------------------------
+
+# identify <boolean>
+# Whether to add X-Mailer header to outbound emails.
+{% if identify | default(False) %}identify true
+{% endif %}
+
+# preamble <boolean>
+# Whether to include explanatory preamble in generated MIME mail.
+{% if preamble | default(True) %}preamble true
+{% endif %}
+
+# interval <number>
+# Queue checking interval in seconds.
+{% if (interval | default(60) | int) > 0 %}interval {{ interval | default(60) | int }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Outbound SMTP (Mail Submission Server) Configuration
+# -----------------------------------------------------------------------------
+
+# msserver <hostname>
+# Mail Submission Server hostname for outbound email. If empty, uses local MTA.
+{% if (msserver | default('') | trim) %}msserver {{ msserver | default('') | trim }}
+{% endif %}
+
+# msport <port>
+# TCP port for Mail Submission Server.
+{% if (msport | default(587) | int) > 0 %}msport {{ msport | default(587) | int }}
+{% endif %}
+
+# ssl <string>
+# SSL mode for outbound SMTP. Values: 'starttls' or 'ssl'. If empty, no SSL.
+{% if (ssl | default('') | trim) %}ssl {{ ssl | default('') | trim }}
+{% endif %}
+
+# ssl-cert <path>
+# Path to client SSL certificate PEM file.
+{% if (ssl_cert | default('') | trim) %}ssl-cert {{ ssl_cert | default('') | trim }}
+{% endif %}
+
+# ssl-key <path>
+# Path to client SSL key PEM file.
+{% if (ssl_key | default('') | trim) %}ssl-key {{ ssl_key | default('') | trim }}
+{% endif %}
+
+# ssl-ca <path>
+# Path to CA certificate PEM file.
+{% if (ssl_ca | default('') | trim) %}ssl-ca {{ ssl_ca | default('') | trim }}
+{% endif %}
+
+# msuser <username>
+# Username for SMTP authentication. If empty, auth disabled.
+{% if (msuser | default('') | trim) %}msuser {{ msuser | default('') | trim }}
+{% endif %}
+
+# mspass <password>
+# Password for SMTP authentication. If empty, auth disabled.
+{% if (mspass | default('') | trim) %}mspass {{ mspass | default('') | trim }}
+{% endif %}
+
+# mspass-from-query-secret <boolean>
+# Whether to retrieve mspass via query-secret program.
+{% if mspass_from_query_secret | default(False) %}mspass-from-query-secret true
+{% endif %}
+
+# msp <program>
+# Program to deliver email via local MTA. Ignored if msserver is set.
+{% if (msp | default('') | trim) %}msp {{ msp | default('/usr/sbin/sendmail -om -oi -oem') | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# GnuPG Integration
+# -----------------------------------------------------------------------------
+
+# gpg <path>
+# Custom GnuPG executable path.
+{% if (gpg | default('') | trim) %}gpg {{ gpg | default('gpg') | trim }}
+{% endif %}
+
+# can-detach <boolean>
+# Whether kuvert can background itself on startup.
+{% if can_detach | default(False) %}can-detach true
+{% endif %}
+
+# defaultkey <hexkeyid>
+# Default signing key ID (hex). If empty, GnuPG chooses.
+{% if (default_key | default('') | trim) %}defaultkey {{ default_key | default('') | trim }}
+{% endif %}
+
+# defaultaction <action>
+# Default action for recipients if no overrides. Values: none, signonly, fallback, fallback-all, mustencrypt.
+{% if (default_action | default('none') | trim) %}defaultaction {{ default_action | default('none') | trim }}
+{% endif %}
+
+# alwaystrust <boolean>
+# Whether to tell GPG to trust all keys for encryption.
+{% if always_trust | default(False) %}alwaystrust true
+{% endif %}
+
+# use-agent <boolean>
+# Whether to delegate passphrase handling to gpg-agent.
+{% if use_agent | default(False) %}use-agent true
+{% endif %}
+
+# query-secret <program>
+# Program to run for passphrase retrieval. %s is replaced with key ID.
+{% if (query_secret | default('') | trim) %}query-secret {{ query_secret | default('/bin/sh -c \'stty -echo; read -p "Passphrase %s: " X; stty echo; echo $X\'') | trim }}
+{% endif %}
+
+# flush-secret <program>
+# Program to run to invalidate passphrase cache. %s is replaced with key ID.
+{% if (flush_secret | default('') | trim) %}flush-secret {{ flush_secret | default('') | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Inbound SMTP Configuration
+# -----------------------------------------------------------------------------
+
+# maport <port>
+# TCP port kuvert listens on for inbound SMTP submissions.
+{% if (maport | default(2587) | int) > 0 %}maport {{ maport | default(2587) | int }}
+{% endif %}
+
+# ma-user <username>
+# Username for inbound SMTP authentication. If empty, inbound SMTP disabled.
+{% if (ma_user | default('') | trim) %}ma-user {{ ma_user | default('') | trim }}
+{% endif %}
+
+# ma-pass <password>
+# Password for inbound SMTP authentication. If empty, inbound SMTP disabled.
+{% if (ma_pass | default('') | trim) %}ma-pass {{ ma_pass | default('') | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Address Action Rules
+# -----------------------------------------------------------------------------
+# Format: <whitespace><regexp> <whitespace><action> [,<keyid>]
+# First matching directive wins. Rules are applied in the order defined below.
+# Each rule is a dictionary with keys: address, action, key (optional).
+
+{% for rule in rules | default([]) %}
+    {{ rule.address }} {{ rule.action }}{% if rule.key is defined and rule.key %},{{ rule.key }}{% endif %}
+{% endfor %}

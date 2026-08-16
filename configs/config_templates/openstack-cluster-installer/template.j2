@@ -1,0 +1,42 @@
+# Configuration for the OpenStack Cluster Installer web interface access.
+# This file defines Apache aliases and directory permissions for the OCI web interface
+# and the main OpenStack Cluster Installer application.
+
+# =============================================================================
+# OCI (OpenStack Cluster Installer) Web Interface Configuration
+# =============================================================================
+
+# Alias for the OCI web interface at /oci.
+# Maps the URL path /oci to the document root directory.
+# Source schema: oci_document_root (default: '/usr/share/openstack-cluster-installer')
+Alias /oci {{ oci_document_root | default('/usr/share/openstack-cluster-installer') }}
+
+# Directory configuration for the OCI document root.
+# Grants access to all clients for the web interface files.
+# Source schema: oci_document_root (default: '/usr/share/openstack-cluster-installer')
+<Directory {{ oci_document_root | default('/usr/share/openstack-cluster-installer') }}>
+    Require all granted
+</Directory>
+
+# Directory configuration for the OCI internal/include directory.
+# Denies access to all clients to prevent exposure of internal source files.
+# Source schema: oci_inc_dir (default: '/usr/share/openstack-cluster-installer/inc')
+<Directory {{ oci_inc_dir | default('/usr/share/openstack-cluster-installer/inc') }}>
+    Require all denied
+</Directory>
+
+# =============================================================================
+# OpenStack Cluster Installer Web Application Configuration
+# =============================================================================
+
+# Alias for the OpenStack Cluster Installer web application at /openstack-cluster-installer.
+# Maps the URL path /openstack-cluster-installer to the application data directory.
+# Source schema: webapp_data_dir (default: '/var/lib/openstack-cluster-installer')
+Alias /openstack-cluster-installer {{ webapp_data_dir | default('/var/lib/openstack-cluster-installer') }}
+
+# Directory configuration for the web application data directory.
+# Grants access to all clients for the application files.
+# Source schema: webapp_data_dir (default: '/var/lib/openstack-cluster-installer')
+<Directory {{ webapp_data_dir | default('/var/lib/openstack-cluster-installer') }}>
+    Require all granted
+</Directory>

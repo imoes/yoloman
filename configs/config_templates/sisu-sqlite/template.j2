@@ -1,0 +1,74 @@
+{#
+  SiSU-SQLite Configuration Template
+  ==================================
+  NOTE: sisu-sqlite is primarily a command-line tool, not a long-running daemon.
+  It does not typically use a persistent configuration file like a server.
+  However, if a wrapper script or specific deployment requires a config,
+  this template provides the structure for database and processing parameters.
+
+  Variables are expected to be provided by the Ansible role that manages sisu-sqlite.
+  If 'sisu_sqlite' is not defined, this template will render with defaults or empty
+  depending on the specific variables used.
+#}
+
+{#
+  Configuration block for sisu-sqlite service/directives.
+  Note: sisu-sqlite is primarily a command-line tool, not a daemon with a config file.
+#}
+{% if sisu_sqlite is defined %}
+{% set cfg = sisu_sqlite %}
+{% else %}
+{% set cfg = {} %}
+{% endif %}
+
+{#
+  Path to the SQLite database file for SiSU search index.
+  This is the primary storage for SiSU search results.
+#}
+database_path: {{ cfg.database_path | default('/var/lib/sisu/db.sq3') }}
+
+{#
+  Compression level for SQLite journal (0=off, 1=fast, 2=full).
+  Validated against SiSU documentation for database optimization.
+  0: Off, 1: Fast, 2: Full
+#}
+journal_mode: {{ cfg.journal_mode | default('WAL') }}
+
+{#
+  Enable synchronous mode for data safety (0=OFF, 1=NORMAL, 2=FULL).
+  Recommended 2 for production search indices to prevent data loss on crash.
+#}
+synchronous: {{ cfg.synchronous | default('NORMAL') }}
+
+{#
+  Maximum number of open database connections (per process).
+  SiSU is single-threaded per document but may handle collections.
+  Setting this too high may exhaust file descriptors.
+#}
+max_open_connections: {{ cfg.max_open_connections | default(1) }}
+
+{#
+  List of file extensions to consider as valid SiSU source documents.
+  Only files with these extensions are processed for DB population.
+  Defaults to common SiSU source extensions if not specified.
+#}
+allowed_extensions:
+{% for ext in cfg.allowed_extensions | default(['sst', 'ssm', 'ssx', 'ssz']) %}
+  - {{ ext }}
+{% endfor %}
+
+{#
+  Sample values for the SiSU global configuration (sisu.conf), which influences sisu-sqlite behavior
+  when invoked as part of a SiSU workflow.
+  This section is informational or for external config generation if needed.
+#}
+{% if sample_values is defined and sample_values %}
+# --- Sample Values for SiSU Global Configuration ---
+{% for key, value in sample_values | dict2items %}
+# {{ key }}: {{ value | tojson }}
+{% endfor %}
+{% endif %}
+
+{#
+  actual_template: default=None desc='This variable is not applicable because sisu-sqlite has no configuration file. It is a command-line utility.'
+#}

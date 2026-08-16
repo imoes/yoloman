@@ -1,0 +1,45 @@
+# =============================================================================
+# LQA Configuration Template
+# =============================================================================
+# This template generates the main configuration file for LQA (LAVA Quality Assurance).
+# It manages job submission parameters, logging, and profile handling.
+# All variables are sourced from the Ansible role's defaults or vars, with
+# explicit defaults defined inline to ensure idempotent and safe rendering.
+# =============================================================================
+
+# Path to the LQA configuration file
+# Specifies the absolute path to the main LQA config file used when invoking LQA with -c.
+# Default: /etc/lqa/config.yaml
+config_file: {{ config_path | default('/etc/lqa/config.yaml') }}
+
+# Path to the log file for LQA operations
+# Specifies the absolute path to the log file used with --log-file.
+# Default: /var/log/lqa/lqa.log
+log_file: {{ log_path | default('/var/log/lqa/lqa.log') }}
+
+# Default timeout in seconds for waiting on jobs
+# Defines the maximum time (in seconds) LQA waits for submitted jobs to complete.
+# Default is 3 hours (10800 seconds).
+# Default: 10800
+wait_timeout: {{ wait_timeout | default(10800) }}
+
+# List of LAVA profiles to use when submitting jobs
+# A list of profile names or paths. If empty, defaults may be determined by the job definition or server.
+# Default: []
+profiles:
+{% if profiles | default([]) | length > 0 %}
+{% for profile in profiles | default([]) %}
+  - {{ profile | string }}
+{% endfor %}
+{% endif %}
+
+# Priority for submitted jobs
+# Sets the default priority level for jobs submitted to the queue.
+# Allowed values: high, medium, low.
+# Default: medium
+priority: {{ job_priority | default('medium') }}
+
+# Check if job images exist before submitting
+# When enabled, LQA validates the existence of image URLs before job submission.
+# Default: false
+check_image_url: {{ check_image_url | default(false) }}

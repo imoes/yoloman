@@ -1,0 +1,50 @@
+#
+# /etc/pam.d/xscreensaver - PAM configuration for xscreensaver
+#
+# This file defines the PAM (Pluggable Authentication Modules) stack used by the
+# X Screen Saver application. It controls how user authentication is verified
+# before the screensaver locks the session or prompts for credentials.
+#
+# The 'common-auth', 'common-account', etc. files are typically included and
+# reference global PAM configurations (usually located in /etc/pam.d/common-auth).
+# Modifications should primarily be made in those included files unless
+# xscreensaver requires a specific, isolated authentication chain.
+#
+
+#
+# Auth Section: Verify the user's identity.
+#
+# @include common-auth
+# This directive includes the system's standard authentication stack.
+# It typically checks password files (shadow), LDAP, PAM modules, etc.
+# Required for verifying the user can unlock the screen.
+#
+@include common-auth
+
+#
+# Account Section: Check if the account is valid and allowed access.
+#
+# @include common-account
+# This directive includes the system's standard account management stack.
+# It checks for account expiration, root restrictions, time-based access, etc.
+#
+@include common-account
+
+#
+# Password Section: Not strictly required for xscreensaver unlock, but
+# included here for completeness if password updates are ever supported
+# or if specific PAM hierarchies demand it.
+#
+# @include common-password
+# Includes the system's standard password update stack.
+#
+# @include common-password
+
+#
+# Session Section: Not typically used by xscreensaver for authentication,
+# but included if session resources need to be managed.
+#
+# @include common-session
+# Includes the system's standard session management stack (mounts, etc.).
+#
+# @include common-session

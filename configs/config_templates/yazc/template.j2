@@ -1,0 +1,87 @@
+# Yazc Configuration Template
+# Controls the behavior of the Yazc zip-cracking utility.
+# See the schema for allowed values and defaults for each field.
+
+# attack_method: The attack method to use: 'bruteforce', 'dictionary', or 'plaintext'.
+# Valid values: bruteforce, dictionary, plaintext.
+attack_method: {{ attack_method | default('bruteforce') }}
+
+# target_file: The path to the password-protected zip file to crack.
+# This is a required field for all attack methods.
+target_file: {{ target_file | default('archive.zip') }}
+
+{% if attack_method | default('bruteforce') == 'bruteforce' %}
+
+# --- Brute-force Attack Configuration ---
+
+# bruteforce_charset_type: Type of character set for bruteforce: 'alpha' (a-z),
+# 'alpha-caps' (A-Z), 'numeric' (0-9), 'special' (!:$%&/()=?{[]}+-*~#@|),
+# or 'custom' (use bruteforce_charset_custom).
+# Valid values: alpha, alpha-caps, numeric, special, custom.
+bruteforce_charset_type: {{ bruteforce_charset_type | default('alpha') }}
+
+# bruteforce_charset_custom: Custom character set string if bruteforce_charset_type is 'custom'.
+# Leave empty if not using a custom charset.
+bruteforce_charset_custom: {{ bruteforce_charset_custom | default('') }}
+
+# bruteforce_initial: Initial password string to start bruteforce from.
+# Empty string means start from the beginning of the charset combinations (random start).
+bruteforce_initial: {{ bruteforce_initial | default('') }}
+
+# bruteforce_max_length: Maximum password length to test in characters.
+# Limits the search space to prevent excessive runtime.
+bruteforce_max_length: {{ bruteforce_max_length | default(8) }}
+
+# bruteforce_threads: Number of threads to distribute bruteforce load.
+# Higher values speed up cracking but increase CPU usage.
+bruteforce_threads: {{ bruteforce_threads | default(1) }}
+
+{% elif attack_method | default('bruteforce') == 'dictionary' %}
+
+# --- Dictionary Attack Configuration ---
+
+# dictionary_file: Path to the dictionary file for dictionary attacks.
+# The file should contain one password candidate per line.
+dictionary_file: {{ dictionary_file | default('rockyou.txt') }}
+
+{% elif attack_method | default('bruteforce') == 'plaintext' %}
+
+# --- Plaintext Attack Configuration ---
+
+# plaintext_use_offsets: Whether to use raw byte offsets (-o) for plaintext attack
+# instead of entry names.
+# true = use offsets; false = use entry names.
+plaintext_use_offsets: {{ plaintext_use_offsets | default(true) }}
+
+# plaintext_source_file: File containing the known plaintext bytes.
+# This file provides the clear-text reference needed to recover the key.
+plaintext_source_file: {{ plaintext_source_file | default('plain.bin') }}
+
+# plaintext_source_start_offset: Start offset in the plaintext source file.
+# The byte index in plaintext_source_file where the known bytes begin.
+plaintext_source_start_offset: {{ plaintext_source_start_offset | default(100) }}
+
+# plaintext_source_end_offset: End offset (exclusive) in the plaintext source file.
+# The byte index in plaintext_source_file where the known bytes end.
+# The length of known bytes is (plaintext_source_end_offset - plaintext_source_start_offset).
+plaintext_source_end_offset: {{ plaintext_source_end_offset | default(650) }}
+
+# plaintext_ciphertext_start_offset: Start offset in the encrypted archive corresponding
+# to the known plaintext.
+# The byte index in the target zip file (encrypted) that matches plaintext_source_start_offset.
+plaintext_ciphertext_start_offset: {{ plaintext_ciphertext_start_offset | default(112) }}
+
+# plaintext_ciphertext_end_offset: End offset (exclusive) in the encrypted archive corresponding
+# to the known plaintext.
+# The byte index in the target zip file (encrypted) that matches plaintext_source_end_offset.
+plaintext_ciphertext_end_offset: {{ plaintext_ciphertext_end_offset | default(662) }}
+
+# plaintext_decrypt_start_offset: Offset in the archive where decryption begins after key recovery.
+# The byte index in the target zip file where the actual encrypted stream starts.
+plaintext_decrypt_start_offset: {{ plaintext_decrypt_start_offset | default(64) }}
+
+# plaintext_threads: Number of threads to distribute plaintext attack load.
+# Useful if the plaintext attack involves parallelizing key recovery steps.
+plaintext_threads: {{ plaintext_threads | default(1) }}
+
+{% endif %}

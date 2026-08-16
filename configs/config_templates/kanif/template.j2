@@ -1,0 +1,23 @@
+# /etc/kanif.conf - kanif cluster configuration
+# Format: C3-style cluster definitions
+#
+# This file defines cluster groupings for kanif.
+# Each cluster is a section containing a list of nodes.
+# The 'default' cluster is used when no specific cluster is selected.
+
+{% for cluster_name, cluster in (clusters | default([])) %}
+[{{ cluster_name }}]
+# Cluster {{ cluster_name }} definition
+# Contains the list of nodes belonging to this cluster.
+{% for node in (cluster.nodes | default([])) %}
+{{ node }}
+{% endfor %}
+{% endfor %}
+
+[default]
+# Default cluster (used if no cluster specified)
+# Contains the list of nodes in the default cluster.
+# Note: In the schema, default_cluster is a list of strings directly.
+{% for node in (default_cluster | default([])) %}
+{{ node }}
+{% endfor %}

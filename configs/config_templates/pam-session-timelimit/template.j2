@@ -1,0 +1,57 @@
+# ==============================================================================
+# pam-session-timelimit: Per-user login session time limits
+# ==============================================================================
+# This file defines time limits for specific users' login sessions. It is consumed
+# by PAM (Pluggable Authentication Modules) and passed to systemd, enforcing
+# session duration limits.
+#
+# Format:
+#   username<TAB>time_limit
+#
+# - username: The login account name to restrict.
+# - time_limit: A duration string compatible with systemd.time(7) syntax
+#   (e.g., '5h30s', 'infinity', '30' for seconds).
+#
+# Scanning rules:
+#   - Lines starting with '#' are ignored (comments).
+#   - Entries are processed in order; the LAST matching entry for a user takes
+#     precedence.
+#   - Ensure strict indentation: no leading spaces before the '#' comment marker,
+#     and a TAB character between the username and the time limit value.
+# ==============================================================================
+
+# --- User: {{ user1_name | default('vorlon') }} ---
+# Description: The first username to apply a time limit to.
+# Value: {{ user1_name | default('vorlon') }}
+#
+# --- Time Limit: {{ user1_time_limit | default('5h30s') }} ---
+# Description: The time limit for the first user, in systemd.time(7) syntax.
+# Value: {{ user1_time_limit | default('5h30s') }}
+#
+# Action: Apply a session time limit of {{ user1_time_limit | default('5h30s') }}
+# to user {{ user1_name | default('vorlon') }}.
+{{ user1_name | default('vorlon') }}	{{ user1_time_limit | default('5h30s') }}
+
+# --- User: {{ user2_name | default('shane') }} ---
+# Description: The second username to apply a time limit to.
+# Value: {{ user2_name | default('shane') }}
+#
+# --- Time Limit: {{ user2_time_limit | default('infinity') }} ---
+# Description: The time limit for the second user.
+# Value: {{ user2_time_limit | default('infinity') }}
+#
+# Action: Apply a session time limit of {{ user2_time_limit | default('infinity') }}
+# to user {{ user2_name | default('shane') }}.
+{{ user2_name | default('shane') }}	{{ user2_time_limit | default('infinity') }}
+
+# --- User: {{ user3_name | default('lynn') }} ---
+# Description: The third username to apply a time limit to.
+# Value: {{ user3_name | default('lynn') }}
+#
+# --- Time Limit: {{ user3_time_limit | default('30') }} ---
+# Description: The time limit for the third user, in seconds.
+# Value: {{ user3_time_limit | default('30') }}
+#
+# Action: Apply a session time limit of {{ user3_time_limit | default('30') }} (seconds)
+# to user {{ user3_name | default('lynn') }}.
+{{ user3_name | default('lynn') }}	{{ user3_time_limit | default('30') }}

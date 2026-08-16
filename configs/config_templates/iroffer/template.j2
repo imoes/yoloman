@@ -1,0 +1,92 @@
+# =============================================================================
+# iroffer Configuration Template
+# =============================================================================
+# This file configures iroffer, an IRC-based DCC file server bot.
+# It handles IRC connection details, authentication for file downloads,
+# file serving paths, logging, and access control.
+#
+# Variables are sourced from Ansible variables with schema defaults applied.
+# See the comments above each directive for schema descriptions.
+# =============================================================================
+
+# --- Global Bot Identification ---
+
+# The nickname the bot uses on IRC. Must be unique within the network.
+# Schema: bot.nickname
+nick = {{ (bot | default({})).nickname | default('iroffer_bot') }}
+
+# The real name (user info) of the bot displayed to other users.
+# Schema: bot.realname
+realname = {{ (bot | default({})).realname | default('IROFFER DCC File Server') }}
+
+# --- IRC Connection Settings ---
+
+# Hostname or IP of the IRC server to connect to.
+# Schema: irc.server
+server = {{ (irc | default({})).server | default('irc.libera.chat') }}
+
+# Port number for the IRC connection.
+# Schema: irc.port
+port = {{ (irc | default({})).port | default(6667) }}
+
+# Whether to use SSL/TLS for the IRC connection.
+# Schema: irc.ssl
+ssl = {{ (irc | default({})).ssl | default(false) }}
+
+# List of channels the bot should join.
+# Schema: irc.channels
+channels = {{ (irc | default({})).channels | default(['#iroffer']) | join(' ') }}
+
+# Password for protected channels (topic/key).
+# Schema: irc.channel_key
+channel_key = {{ (irc | default({})).channel_key | default('') }}
+
+# Password for server authentication (e.g., NickServ identification).
+# Schema: irc.server_password
+server_password = {{ (irc | default({})).server_password | default('') }}
+
+# --- Authentication for DCC Access ---
+
+# Username required for DCC access.
+# Schema: auth.username
+username = {{ (auth | default({})).username | default('user') }}
+
+# Password required for DCC access. Should be encrypted.
+# Schema: auth.password
+password = {{ (auth | default({})).password | default('password') }}
+
+# --- File Serving Configuration ---
+
+# List of directories to serve files from.
+# Schema: files.paths
+path = {{ (files | default({})).paths | default(['/srv/iroffer/public']) | join(' ') }}
+
+# Maximum file size in bytes to serve (default 1GB).
+# Schema: files.max_size
+max_size = {{ (files | default({})).max_size | default(1073741824) }}
+
+# --- Logging Configuration ---
+
+# Enable verbose logging output.
+# Schema: logging.verbose
+verbose = {{ (logging | default({})).verbose | default(false) }}
+
+# Path to the log file.
+# Schema: logging.file
+logfile = {{ (logging | default({})).file | default('iroffer.log') }}
+
+# --- Daemon/Background Process Settings ---
+
+# Run in background mode.
+# Schema: daemon.background
+background = {{ (daemon | default({})).background | default(false) }}
+
+# Path to the PID file.
+# Schema: daemon.pidfile
+pidfile = {{ (daemon | default({})).pidfile | default('/var/run/iroffer.pid') }}
+
+# --- Access Control List (ACL) ---
+
+# List of ACL rules (e.g., 'allow *!*@example.com').
+# Schema: acl.rules
+acl = {{ (acl | default({})).rules | default(['allow *!*@*']) | join('\n') }}

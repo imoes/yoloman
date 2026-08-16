@@ -1,0 +1,109 @@
+# =============================================================================
+# RESTFULDB APACHE CONFIGURATION TEMPLATE
+# =============================================================================
+# This template generates an Apache VirtualHost or Directory configuration
+# block for the restfuldb application. It handles document root aliasing,
+# URL rewriting for CGI scripts, SSL renegotiation settings, and conditional
+# access control based on SSL client verification status.
+# =============================================================================
+
+# document_root: The document root directory for the restfuldb application.
+# Default: /usr/share/restfuldb
+Alias /restfuldb {{ document_root | default('/usr/share/restfuldb') }}
+
+# <Directory>: Configuration block for the document root.
+<Directory {{ document_root | default('/usr/share/restfuldb') }}>
+    
+    # Enable the rewrite engine for URL manipulation.
+    RewriteEngine On
+
+    # RewriteRule: Preserve CSS files directly to avoid unnecessary CGI processing.
+    # Matches: styles/default/<filename>.css
+    RewriteRule ^(styles/default/.*.css)$  $1  [L]
+
+    # RewriteRule: Serve index.html for 'index' requests.
+    RewriteRule ^index$                             index.html          [QSA,L]
+    
+    # RewriteRule: Serve index.html for 'index.html' requests explicitly.
+    RewriteRule ^index.html$                        index.html          [QSA,L]
+
+    # RewriteRule: Route single-path segments to the tables CGI script.
+    # Matches: /<table_name>
+    RewriteRule ^([^\/]+)$                          /cgi-bin/restfuldb-tables.pl   [QSA,L]
+
+    # RewriteRule: Route two-path segments to the database query CGI script.
+    # Matches: /<table_name>/<db_name>
+    RewriteRule ^([^\/]+)/([^\/\.]+)$               /cgi-bin/restfuldb-db.pl       [QSA,L]
+
+    # RewriteRule: Route three-path segments to the modify CGI script.
+    # Matches: /<table_name>/<db_name>/<record_id>
+    RewriteRule ^([^\/]+)/([^\/\.]+)/([^\/]+)$      /cgi-bin/restfuldb-modify.pl   [QSA,L]
+
+    # RewriteRule: Route four-path segments to the image CGI script.
+    # Matches: /<table_name>/<db_name>/<record_id>/<image_id>
+    RewriteRule ^([^\/]+)/([^\/\.]+)/([^\/]+)/([^\/]+)$ /cgi-bin/restfuldb-image.pl    [QSA,L]
+
+    # RewriteRule: Fallback for deep paths (5+ segments) to a not-found handler.
+    # Captures the suffix and sets starting_level to 4.
+    # Matches: /<l1>/<l2>/<l3>/<l4>/<rest...>
+    RewriteRule ^([^\/]+)/([^\/\.]+)/([^\/]+)/([^\/]+)/(.*)$ /cgi-bin/restfuldb-notfound.pl?suffix=$5&starting_level=4  [L]
+
+    # ssl_reneg_buffer_size: The buffer size for SSL renegotiation to allow large file uploads.
+    # This is required for Apache Bugzilla #39243 to handle large POST data during SSL renegotiation.
+    # Default: 13107200
+    SSLRenegBufferSize {{ ssl_reneg_buffer_size | default(13107200) }}
+
+    # Enforce SSL for all connections in this directory.
+    SSLRequireSSL
+
+    # Require SSL Client Certificate, but mark verification as optional at the handshake level
+    # so that basic auth can serve as a fallback for GET requests.
+    SSLVerifyClient optional
+    
+    # Maximum depth of the certificate chain to verify.
+    SSLVerifyDepth 3
+    
+    # Conditional logic for access control based on SSL client certificate verification.
+
+    # Case 1: SSL Client Certificate Verification SUCCEEDED.
+    # If the client presented a valid certificate, allow access via SSL identity.
+    <If "%{SSL:SSL_CLIENT_VERIFY} == 'SUCCESS'" >
+        # Set the username to the Common Name (CN) from the SSL client certificate DN.
+        SSLUserName SSL_CLIENT_S_DN_CN
+        
+        # Require that the user passed the SSL verification check.
+        Require ssl-verify-client 
+    </If>
+
+    # Case 2: SSL Client Certificate Verification FAILED (or missing) AND the request is a GET.
+    # Allow access using any authentication method defined later (Satisfy any).
+    <ElseIf "%{SSL:SSL_CLIENT_VERIFY} != 'SUCCESS' && %{REQUEST_METHOD} == 'GET'" >
+        # 'any': Allow access if ANY of the authentication/authorization directives pass.
+        # In this context, it allows unauthenticated GETs if SSL verify failed,
+        # or basic auth if provided.
+        Satisfy any
+    </ElseIf>
+
+    # Case 3: Default / Fallback.
+    # Applies to POST/PUT/DELETE requests or when SSL verify failed on non-GET.
+    <Else>
+        # Use Basic Authentication for file-based user verification.
+        AuthType basic
+        
+        # The realm string displayed in the password prompt.
+        AuthName "Editing a database requires authentication"
+        
+        # Provider for authentication: file-based htpasswd.
+        AuthBasicProvider file
+        
+        # auth_user_file: The path to the htpasswd file used for basic authentication.
+        # Default: /etc/restfuldb/htpasswd
+        AuthUserFile "{{ auth_user_file | default('/etc/restfuldb/htpasswd') }}"
+        
+        # Enable Apache's FakeBasicAuth feature to simulate Basic Auth over SSL.
+        SSLOptions +FakeBasicAuth
+
+        # Require that the user is authenticated as a valid user defined in the AuthUserFile.
+        Require valid-user
+    </Else>
+</Directory>

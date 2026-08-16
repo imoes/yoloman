@@ -1,0 +1,70 @@
+# ProcDump configuration template.
+# This template generates the command-line arguments for the procdump utility.
+# Each argument corresponds to a schema field with its description as a comment above.
+
+# Number of dumps to write before exiting. Default: 1
+-n {{ count | default(1) }}
+
+# Consecutive seconds before dump is written (default is 10).
+-s {{ poll_interval | default(10) }}
+
+# CPU threshold above which to create a dump of the process.
+{% if cpu_threshold is not none %}
+-c {{ cpu_threshold | default(None) }}
+{% if cpu_relative_single_core | default(false) %}
+-u
+{% endif %}
+{% endif %}
+
+# Memory commit threshold in MB at which to create a dump.
+{% if memory_threshold is not none %}
+-m {{ memory_threshold | default(None) }}
+{% endif %}
+
+# Dump file type: mini, full, triage, or miniplus.
+{% if dump_type | default('mini') == 'full' %}
+-ma
+{% elif dump_type | default('mini') == 'triage' %}
+-mt
+{% elif dump_type | default('mini') == 'miniplus' %}
+-mp
+{% elif dump_type | default('mini') == 'mini' %}
+{% if not default_mini | default(false) %}
+-mm
+{% endif %}
+{% endif %}
+
+# Overwrite an existing dump file.
+{% if overwrite_existing | default(false) %}
+-o
+{% endif %}
+
+# Writes extended ProcDump tracing to syslog.
+{% if log_traces | default(false) %}
+-log
+{% endif %}
+
+# Wait for the specified process to launch if it's not running.
+{% if wait_for_process | default(false) %}
+-w
+{% endif %}
+
+# Comma-separated exception name/message filters (include). Supports wildcards.
+{% if filters | default([]) | length > 0 %}
+-f {{ filters | default([]) | join(',') }}
+{% endif %}
+
+# Write a dump when the process encounters an unhandled exception.
+{% if exception_handling | default(false) %}
+-e
+{% endif %}
+
+# Target process name, service name, or PID to monitor.
+{% if dump_target is not none %}
+{{ dump_target | default(None) }}
+{% endif %}
+
+# Dump file name or folder path.
+{% if dump_path is not none %}
+{{ dump_path | default(None) }}
+{% endif %}

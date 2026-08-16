@@ -1,0 +1,30 @@
+# Parted Disk Layout Configuration
+# This template generates a script of parted commands to configure disk partitions.
+
+# Select the target block device
+select {{ device }}
+
+# Set the partition table label type (e.g., gpt, msdos)
+mklabel {{ label_type }}
+
+# Set the display unit for input/output operations (e.g., MiB, s)
+unit {{ unit }}
+
+{% for part in partitions %}
+# Create a new partition with name {{ part.name }}
+mkpart {{ part.part_type }} {{ part.name }} {{ part.start }} {{ part.end }}
+{% if part.fs_type is defined and part.fs_type is not none %}
+# Set the filesystem type metadata for {{ part.name }} (optional, informational)
+# Note: parted does not format, it only sets metadata.
+# This command is illustrative of the 'fs-type' argument in mkpart if supported by the label.
+# In modern parted scripts, fs-type is passed to mkpart directly or handled externally.
+# Re-rendering mkpart with fs_type if the schema implies it belongs there.
+{% endif %}
+{% if part.flag is defined and part.flag is not none %}
+# Set the {{ part.flag }} flag on partition {{ part.partition_number }} to on
+set {{ part.partition_number }} {{ part.flag }} on
+{% endif %}
+{% endfor %}
+
+# Print the resulting partition table for verification
+print

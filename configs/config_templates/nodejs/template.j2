@@ -1,0 +1,49 @@
+# Node.js Runtime Configuration
+# This template generates environment variable exports for the Node.js runtime.
+# It handles internationalization, module resolution, performance tuning, and security settings.
+
+# --- Internationalization ---
+# Path to the directory containing ICU data files for internationalization support.
+# If empty or unset, Node.js uses its bundled ICU data.
+# Set this to '/usr/share/nodejs/icu' (Debian/Ubuntu) or similar for system-wide ICU data.
+export NODE_ICU_DATA="{{ node_icu_data | default('/usr/share/nodejs/icu') }}"
+
+# --- Module Resolution ---
+# Colon-separated list of directories where Node.js will look for modules.
+# Useful for installing local/shared packages outside the standard node_modules hierarchy.
+export NODE_PATH="{{ node_path | default('/usr/local/lib/node_modules') }}"
+
+# --- General Options ---
+# Space-separated list of command-line options to pass to Node.js on startup.
+# Common options include '--max-old-space-size', '--trace-warnings', etc.
+# Note: This is passed as the NODE_OPTIONS environment variable.
+export NODE_OPTIONS="{{ node_options | default('') }}"
+
+# --- Performance ---
+# Number of threads in the libuv thread pool.
+# This affects asynchronous file system and network I/O operations.
+# The default is usually 4, but can be tuned based on workload and CPU cores.
+export UV_THREADPOOL_SIZE="{{ uv_threadpool_size | default(4) }}"
+
+# --- Output Formatting ---
+# Forces color output in the Node.js REPL and some built-in tools.
+# Values: '' (default), '1' (16 colors), '2' (256 colors), '3' (16M colors).
+# An empty string or '1' is typically sufficient; '0' disables color.
+export FORCE_COLOR="{{ force_color | default('1') }}"
+
+# --- Security: TLS/Certificates ---
+# Path to a PEM file containing additional trusted CA certificates.
+# These certificates are appended to the system's default certificate store.
+# Use this for internal PKI environments or custom root CAs.
+export NODE_EXTRA_CA_CERTS="{{ node_extra_ca_certs | default('') }}"
+
+# --- Security: TLS Verification ---
+# Set to '0' to disable TLS certificate verification entirely.
+# WARNING: Disabling verification makes connections vulnerable to MITM attacks.
+# Leave empty (default) to enforce standard system CA validation.
+export NODE_TLS_REJECT_UNAUTHORIZED="{{ node_tls_reject_unauthorized | default('') }}"
+
+# --- Timezone ---
+# Timezone identifier for the Node.js process.
+# Defaults to 'UTC'. Change to e.g. 'America/New_York' for local time processing.
+export TZ="{{ tz | default('UTC') }}"

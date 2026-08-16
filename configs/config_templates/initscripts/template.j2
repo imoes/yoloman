@@ -1,0 +1,46 @@
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# Note: This is a legacy sysvinit-style hook. For systemd systems,
+# consider using systemd services or drop-in units instead.
+# Variables provided by the Ansible role context (if any) can be
+# injected here using Jinja2 conditionals.
+#
+# Configuration Variables:
+# - rc_local_enable (boolean): Enable rc.local execution (default: true).
+# - rc_local_boot_dir (string): Directory for legacy boot scripts (default: /etc/boot.d).
+# - rc_local_commands (list): List of custom commands to execute (default: []).
+# - rc_local_user (string): User to run custom commands as (default: root).
+
+{% if rc_local_enable | default(true) | bool %}
+{# Conditionally include legacy boot scripts if the directory exists. #}
+{% set boot_dir = rc_local_boot_dir | default('/etc/boot.d') %}
+if test -d {{ boot_dir | trim }} ; then
+    run-parts {{ boot_dir | trim }}
+fi
+{% endif %}
+
+{#
+# Custom commands can be added below.
+# These are executed as the user specified by rc_local_user.
+# Ensure all commands exit cleanly to maintain runlevel success.
+# Always end with a clean exit to signal success to the init system.
+#
+# Example usage in Ansible host_vars/group_vars:
+#   rc_local_commands:
+#     - echo "Custom task executed"
+#     - /opt/scripts/backup.sh
+#}
+{% for cmd in rc_local_commands | default([]) %}
+{{ rc_local_user | default('root') }} -c "{{ cmd }}"
+{% endfor %}
+
+exit 0

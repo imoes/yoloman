@@ -1,0 +1,66 @@
+<?php
+// Roundcube HTML5 Notifier Plugin Configuration
+// This plugin provides desktop push notifications (Web Push) for Roundcube.
+// It requires a working Web Push infrastructure (e.g., a separate notification service or
+// a configured PHP library like 'web-push'). This config defines how Roundcube talks to
+// that backend.
+
+// [vapid]
+// VAPID (Voluntary Application Server Identification) keys are used to authorize
+// the notification server to send messages to browser push services (Google, Apple, etc.).
+// These keys MUST be generated and kept secret. The public key is exposed in the
+// client-side JS, but the private key must remain server-side.
+
+// VAPID private key (Base64 encoded).
+// If left empty or default, notifications will fail. Generate with:
+// openssl ecparam -genkey -name prime256v1 -noout -out ec.pem
+// openssl ec -in ec.pem -pubout -out ec_pub.pem
+$config['html5_notifier']['vapid_private_key'] = '';
+
+// VAPID public key (Base64 encoded). This is safe to expose.
+// Matches the private key above.
+$config['html5_notifier']['vapid_public_key'] = '';
+
+// Subject URI for VAPID. An email or URL identifying the key owner.
+// Required by many push service providers for abuse reporting.
+$config['html5_notifier']['vapid_subject'] = 'mailto:admin@example.com';
+
+// [webpush]
+// General Web Push settings.
+
+// Enable HTML5 push notifications.
+$config['html5_notifier']['enabled'] = true;
+
+// Path to the service worker file.
+// Roundcube will register this worker to handle push events in the background.
+// The file must be accessible via the web server relative to Roundcube's root.
+$config['html5_notifier']['service_worker'] = '/service-worker.js';
+
+// Icon used in push notifications when no specific icon is provided by the content.
+$config['html5_notifier']['icon'] = '/skins/default/images/logo.png';
+
+// [backend]
+// Configuration for the underlying push backend/library.
+// This plugin typically relies on the 'web-push' PHP library or a similar implementation.
+
+// Backend library type. Options might include 'php-webpush', 'symfony', etc.
+// Check the specific plugin version documentation for supported backends.
+$config['html5_notifier']['backend'] = 'php-webpush';
+
+// Extra options passed to the backend library.
+// Refer to your chosen library's documentation for specific keys.
+$config['html5_notifier']['backend_options'] = array();
+
+// [logging]
+// Logging settings for the plugin.
+
+// Enable debug logging. Not recommended for production as it may log sensitive subscription data.
+$config['html5_notifier']['debug'] = false;
+
+// Log level: 'debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'.
+$config['html5_notifier']['log_level'] = 'info';
+
+// Log file path. If empty, uses Roundcube's default log destination.
+$config['html5_notifier']['log_file'] = '';
+
+?>

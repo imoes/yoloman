@@ -1,0 +1,63 @@
+# =============================================================================
+# slbackup-php Apache VirtualHost/Directory Configuration
+# =============================================================================
+# This template generates Apache configuration directives to serve the
+# slbackup-php web interface. It handles HTTPS redirection and sets up
+# the document root with appropriate permissions.
+
+# ----------------------------------------------------------------------------
+# HTTPS Redirection
+# ----------------------------------------------------------------------------
+# If the Apache mod_rewrite and mod_ssl modules are available, enforce
+# HTTPS for the slbackup-php location.
+
+<IfModule mod_rewrite.c>
+  <IfModule mod_ssl.c>
+    # Redirect HTTP requests for the slbackup-php prefix to HTTPS
+    # Variable: slbackup_php_location_prefix
+    # Default: '/slbackup-php'
+    # Description: The URL path prefix where slbackup-php is served.
+    <Location {{ slbackup_php_location_prefix | default('/slbackup-php') }}>
+      RewriteEngine on
+      # Check if HTTPS is not already 'on'
+      RewriteCond %{HTTPS} !^on$ [NC]
+      # Redirect to the same URI over HTTPS
+      RewriteRule . https://%{HTTP_HOST}%{REQUEST_URI}  [L]
+    </Location>
+  </IfModule>
+</IfModule>
+
+# ----------------------------------------------------------------------------
+# Document Root Alias
+# ----------------------------------------------------------------------------
+# Map the URL prefix to the actual file system location of the application.
+
+# Variable: slbackup_php_location_prefix
+# Default: '/slbackup-php'
+# Description: The URL path prefix where slbackup-php is served.
+# Variable: slbackup_php_web_root
+# Default: '/usr/share/slbackup-php/web'
+# Description: The absolute file system path to the slbackup-php web directory.
+Alias {{ slbackup_php_location_prefix | default('/slbackup-php') }} "{{ slbackup_php_web_root | default('/usr/share/slbackup-php/web') }}"
+
+# ----------------------------------------------------------------------------
+# Directory Access Configuration
+# ----------------------------------------------------------------------------
+# Configure access controls and index settings for the web root directory.
+
+<Directory "{{ slbackup_php_web_root | default('/usr/share/slbackup-php/web') }}">
+    # Serve index.php as the default page
+    DirectoryIndex index.php
+
+    # Allow directory listing if index is missing (Indexes) and follow symlinks (FollowSymLinks)
+    # Note: 'Indexes' might be a security risk; consider removing if directory listing is not needed.
+    Options Indexes FollowSymLinks
+
+    # Do not allow .htaccess overrides for security hardening
+    AllowOverride None
+
+    # Access Control
+    # Allow access only from the local machine by default.
+    # Modify this block to allow remote access if required (e.g., Require all granted).
+    Require local
+</Directory>

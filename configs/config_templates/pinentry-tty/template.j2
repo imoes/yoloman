@@ -1,0 +1,76 @@
+# ==============================================================================
+# pinentry-tty Configuration Template
+# ==============================================================================
+# This configuration file is read by pinentry-tty, the TUI (text user interface)
+# backend for GnuPG pinentry.
+#
+# IMPORTANT: In standard GnuPG setups, pinentry is invoked by gpg-agent via the
+# Assuan protocol, meaning command-line arguments or environment variables are
+# typically used rather than this file. However, if pinentry-tty is invoked
+# directly (e.g., via `pinentry-tty --config /path/to/this/file`) or if the
+# caller does not pass specific flags, these settings apply.
+#
+# Format: Key: Value
+# See `man pinentry-tty` for details.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Debugging Output
+# ------------------------------------------------------------------------------
+# Description: Turn on debugging output.
+# Warning: This may reveal sensitive information like entered passphrases in logs
+#          or terminal output. Disable in production.
+# Flag: --debug, -d
+debug: {{ debug|default(false) }}
+
+# ------------------------------------------------------------------------------
+# Enhanced Mode (Timeouts and Insurance)
+# ------------------------------------------------------------------------------
+# Description: Ask for timeouts and insurance.
+# Note: This feature is currently not fully supported by pinentry-tty. It is
+#       retained for compatibility with future versions or other pinentry backends.
+# Flag: --enhanced, -e
+enhanced: {{ enhanced|default(false) }}
+
+# ------------------------------------------------------------------------------
+# Keyboard Grabbing
+# ------------------------------------------------------------------------------
+# Description: Grab the keyboard only when the window is focused.
+# Use Case: Useful for debugging or when running in environments where global
+#           keyboard grabbing is undesirable or problematic.
+# Flag: --no-global-grab, -g
+no_global_grab: {{ no_global_grab|default(false) }}
+
+# ------------------------------------------------------------------------------
+# Localization: Character Classification
+# ------------------------------------------------------------------------------
+# Description: Locale category for character classification.
+# Examples: 'en_US.UTF-8', 'C'
+# Flag: --lc-ctype
+lc_ctype: "{{ lc_ctype|default('C') }}"
+
+# ------------------------------------------------------------------------------
+# Localization: Messages
+# ------------------------------------------------------------------------------
+# Description: Locale category for messages.
+# Examples: 'en_US.UTF-8', 'C'
+# Flag: --lc-messages
+lc_messages: "{{ lc_messages|default('C') }}"
+
+# ------------------------------------------------------------------------------
+# Terminal Device
+# ------------------------------------------------------------------------------
+# Description: Name of the terminal device to use.
+# Note: This is usually passed automatically by gpg-agent. If empty, pinentry-tty
+#       attempts to determine the controlling terminal.
+# Flag: --ttyname
+ttyname: "{{ ttyname|default('') }}"
+
+# ------------------------------------------------------------------------------
+# Parent Window ID
+# ------------------------------------------------------------------------------
+# Description: Window ID of the parent window for positioning.
+# Note: This is primarily relevant for graphical pinentry backends. For tty, it
+#       may be ignored or used for heuristic positioning in hybrid TTY/X environments.
+# Flag: --parent-wid
+parent_wid: "{{ parent_wid|default(0) }}"

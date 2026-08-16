@@ -1,0 +1,40 @@
+# =============================================================================
+# s3dosm - Configuration Template
+# =============================================================================
+# This template configures the s3dosm service, a GPS card application used
+# for processing OpenStreetMap (OSM) data and interacting with the S3D
+# environment.
+#
+# Variables used:
+#   - osm_bbox: Bounding box for OSM data loading (MINLAT,MINLON,MAXLAT,MAXLON).
+#   - s3d_url:  Direct URL to the S3D environment, bypassing auto-detection.
+#   - input_files: List of input files to process.
+# =============================================================================
+
+# -------------------------------------------------------------------------
+# Bounding box for OpenStreetMap data loading
+# -------------------------------------------------------------------------
+# Specifies the geographic area (MINLAT,MINLON,MAXLAT,MAXLON) to download
+# or filter OpenStreetMap data.
+# Corresponds to the CLI option: -o/--osm MINLAT,MINLON,MAXLAT,MAXLON
+# If empty, the default local XML file handling is used.
+OSM_BBOX={{ osm_bbox | default('', true) }}
+
+# -------------------------------------------------------------------------
+# S3D Environment URL
+# -------------------------------------------------------------------------
+# Direct URL to connect to the S3D server.
+# Setting this skips the automatic S3D environment detection phase.
+# Corresponds to the CLI option: --s3d-url url
+S3D_URL={{ s3d_url | default('', true) }}
+
+# -------------------------------------------------------------------------
+# Input Files
+# -------------------------------------------------------------------------
+# List of input files to process by the application.
+# Corresponds to the [files] positional argument.
+# If OSM_BBOX is set, this list is typically empty as data is fetched via bbox.
+INPUT_FILES=
+{% for file in input_files | default([], true) %}
+{{ file }}
+{% endfor %}

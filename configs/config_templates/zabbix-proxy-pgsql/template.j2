@@ -1,0 +1,41 @@
+# Zabbix Proxy (PostgreSQL) log rotation configuration
+# Managed by Ansible — do not edit manually
+
+# Path to the Zabbix Proxy log file
+# Schema: log_file_path (string, default: '/var/log/zabbix-proxy/zabbix_proxy.log')
+# Description: Path to the Zabbix Proxy log file.
+{{ log_file_path | default('/var/log/zabbix-proxy/zabbix_proxy.log') }} {
+    # Rotate logs weekly
+    weekly
+
+    # Number of rotated log files to keep
+    # Schema: log_rotate_count (int, default: 7)
+    # Description: Number of rotated log files to keep.
+    rotate {{ log_rotate_count | default(7) }}
+
+    # Compress rotated log files using gzip
+    compress
+
+    # Delay compression until the next rotation cycle
+    # This ensures that the most recently rotated log file is not compressed immediately,
+    # allowing for continued writing without interruption.
+    delaycompress
+
+    # Do not produce an error if the log file is missing
+    missingok
+
+    # Do not rotate the log file if it is empty
+    notifempty
+
+    # Create new log files with the specified permissions and ownership
+    # Schema: log_create_mode (string, default: '0640')
+    # Description: Permissions for newly created log files.
+    # Schema: log_user (string, default: 'zabbix')
+    # Description: User owner of newly created log files.
+    # Schema: log_group (string, default: 'zabbix')
+    # Description: Group owner of newly created log files.
+    create {{ log_create_mode | default('0640') }} {{ log_user | default('zabbix') }} {{ log_group | default('zabbix') }}
+
+    # Run the postrotate script only once for the whole batch of rotated files
+    sharedscripts
+}

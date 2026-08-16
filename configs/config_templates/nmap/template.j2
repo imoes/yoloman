@@ -1,0 +1,50 @@
+# Nmap Command-Line Configuration Template
+# Generates the argument list for executing 'nmap'.
+# Nmap does not use a persistent config file for scan parameters;
+# this output is intended to be passed as arguments to the nmap binary.
+
+{% for target in targets | default(['127.0.0.1']) %}
+# Target: {{ target }}
+# This line represents a single host or subnet to be scanned.
+# Scan Type: {{ scan_type | default('sS') }}
+{% endfor %}
+
+nmap \
+{# --script: Specifies the NSE scripts to run. Default is 'default'. #}
+  --script={{ scripts | default('default') }} \
+
+{# --ports: Specifies the port range to scan. #}
+  --ports={{ ports | default('1-65535') }} \
+
+{# --osscan: Enable OS detection. #}
+  --osscan \
+
+{# --version-detect: Enable service/version detection. #}
+  --version-detect \
+
+{# --timing-template: Timing template 0-5 (Paranoid to Insane). #}
+  --timing-template={{ timing | default('3') }} \
+
+{# --dns-servers: Use these DNS servers for reverse resolution. #}
+{% if dns_servers | default([]) | length > 0 %}
+  --dns-servers={{ dns_servers | default([]) | join(',') }} \
+{% endif %}
+
+{# -<scan_type>: The specific scan technique (e.g., -sS for SYN). #}
+  -{{ scan_type | default('sS') }} \
+
+{# -T<timing>: Timing template short form. #}
+  -T{{ timing | default('3') }} \
+
+{# -oN: Normal output file. #}
+  -oN {{ output_file | default('scan_results.nmap') }} \
+
+{# -oX: XML output file. #}
+  -oX {{ xml_output_file | default('scan_results.xml') }} \
+
+{# Targets: List of hosts to scan. #}
+{% for target in targets | default(['127.0.0.1']) %}
+  {{ target }} \
+{% endfor %}
+
+# End of Nmap arguments.

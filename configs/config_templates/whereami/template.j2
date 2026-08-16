@@ -1,0 +1,43 @@
+#!/bin/sh
+# $Id: whereami.apm,v 1.6 2004/01/09 12:05:50 andrew Exp $
+# This script will run whereami on suspend and resume of the machine.
+# If you have logger installed, whereami output will be sent to syslog.
+#
+# On suspend/resume, whereami will change to the location specified in
+# the config file for SUSPEND_LOCATION and RESUME_LOCATION.
+# If the location is 'auto', whereami performs location detection.
+#
+# For example:
+# SUSPEND_LOCATION=disconnected
+# RESUME_LOCATION=auto
+
+# Path to the whereami binary.
+WHEREAMI={{ whereami_path | default('/usr/sbin/whereami') }}
+
+# Path to the whereami configuration file.
+CONFIG={{ config_path | default('/etc/whereami/apm.conf') }}
+
+[ -r $CONFIG ] || exit 0
+[ -x $WHEREAMI ] || exit 0
+
+. $CONFIG
+
+case "$1,$2" in
+suspend,*|standby,*)
+	LOCATION=$SUSPEND_LOCATION
+	;;
+resume,suspend|resume,standby)
+	LOCATION=$RESUME_LOCATION
+	;;
+esac
+
+[ -n "$LOCATION" ] || exit 0
+
+[ "$LOCATION" = "auto" ] && LOCATION=
+
+if [ -x /usr/bin/logger ] ; then
+  logger -t whereami "APM event $1 $2 whereami $LOCATION"
+  $WHEREAMI --run_from apm --syslog $LOCATION | logger -t whereami
+else
+  $WHEREAMI --run_from apm --syslog $LOCATION
+fi

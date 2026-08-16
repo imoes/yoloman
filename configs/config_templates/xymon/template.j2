@@ -1,0 +1,194 @@
+# ===========================================================================
+# Xymon (formerly Hobbit) Apache Configuration Template
+# ===========================================================================
+# This configuration fragment is intended to be included in an Apache HTTPD
+# server configuration file (e.g., inside httpd.conf, a virtual host block,
+# or a conf.d include). It exposes the Xymon monitoring web interface and
+# CGI scripts via URL aliases.
+#
+# Self-Documenting: All variables are sourced from the role schema with
+# explicit defaults to ensure idempotent and safe rendering.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# DocumentRoot / Web Root Configuration
+# ---------------------------------------------------------------------------
+# xymon_document_root: The DocumentRoot when Xymon webfiles are served as
+# the root URL. If you serve Xymon at the web server root (e.g., /), set
+# this to the web_root path and use the DocumentRoot directive instead of
+# the Alias directive below.
+#
+# NB: The "Alias" line below must NOT be used if you have the Xymon webfiles
+#     as the root URL. In that case, you should instead set:
+#     DocumentRoot {{ xymon_document_root | default('/var/lib/xymon/www') }}
+
+# xymon_web_root: The filesystem path for the Xymon web interface files.
+# This path is aliased to the /xymon URL.
+Alias /xymon "{{ xymon_web_root | default('/var/lib/xymon/www') }}"
+
+# Directory block for the main Xymon web interface
+<Directory "{{ xymon_web_root | default('/var/lib/xymon/www') }}">
+    # Enable directory listing, symbolic links, server-side includes,
+    # and multi-view content negotiation.
+    Options Indexes FollowSymLinks Includes MultiViews
+
+    # Access Control: Apache 2.4+ (mod_authz_core)
+    <IfModule mod_authz_core.c>
+        # Require local access only. Restricts the web interface to
+        # localhost and IPv6 loopback by default.
+        Require local
+    </IfModule>
+
+    # Access Control: Legacy Apache 2.2 (mod_access_compat)
+    <IfModule !mod_authz_core.c>
+        # Legacy deny/allow order.
+        Order deny,allow
+        Allow from localhost ::1/128
+    </IfModule>
+</Directory>
+
+
+# ---------------------------------------------------------------------------
+# CGI Scripts Configuration (Standard)
+# ---------------------------------------------------------------------------
+# xymon_cgi_root: The filesystem path for the standard Xymon CGI scripts.
+# These scripts are aliased to the /xymon-cgi/ URL.
+ScriptAlias /xymon-cgi/ "{{ xymon_cgi_root | default('/usr/lib/xymon/cgi-bin/') }}"
+
+# Directory block for standard Xymon CGI scripts
+<Directory "{{ xymon_cgi_root | default('/usr/lib/xymon/cgi-bin/') }}">
+    # Prevent .htaccess files from overriding these settings.
+    AllowOverride None
+
+    # Enable CGI execution and Server-Side Includes.
+    Options ExecCGI Includes
+
+    # Access Control: Apache 2.4+ (mod_authz_core)
+    <IfModule mod_authz_core.c>
+        Require local
+    </IfModule>
+
+    # Access Control: Legacy Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Allow from localhost ::1/128
+    </IfModule>
+</Directory>
+
+
+# ---------------------------------------------------------------------------
+# Secure CGI Scripts Configuration (Admin)
+# ---------------------------------------------------------------------------
+# xymon_seccgi_root: The filesystem path for the secure/admin Xymon CGI scripts.
+# These scripts are aliased to the /xymon-seccgi/ URL and require authentication.
+ScriptAlias /xymon-seccgi/ "{{ xymon_seccgi_root | default('/usr/lib/xymon/cgi-secure/') }}"
+
+# Directory block for secure/admin Xymon CGI scripts
+<Directory "{{ xymon_seccgi_root | default('/usr/lib/xymon/cgi-secure/') }}">
+    # Prevent .htaccess files from overriding these settings.
+    AllowOverride None
+
+    # Enable CGI execution and Server-Side Includes.
+    Options ExecCGI Includes
+
+    # Access Control: Apache 2.4+ (mod_authz_core)
+    <IfModule mod_authz_core.c>
+        Require local
+    </IfModule>
+
+    # Access Control: Legacy Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Allow from localhost ::1/128
+    </IfModule>
+
+    # Authentication Configuration
+    # -----------------------------------------------------------------------
+    # xymon_auth_passwd_file: The path to the htpasswd file for secure CGI
+    # access authentication. This file stores usernames and encrypted passwords.
+    #
+    # Although expected in $XYMONHOME/etc/ by the useradm and chpasswd scripts,
+    # files here can be read with the "config" message type, which allows
+    # status-privileged clients to read arbitrary regular files from the directory.
+    #
+    # This file should be owned and readable only by the apache server user,
+    # and ideally merely a symlink to a location outside of $XYMONHOME/etc/.
+    #
+    # Create it with:
+    #   htpasswd -c {{ xymon_auth_passwd_file | default('/etc/xymon/xymonpasswd') }} USERNAME
+    #   chown apache:apache {{ xymon_auth_passwd_file | default('/etc/xymon/xymonpasswd') }}
+    #   chmod 640 {{ xymon_auth_passwd_file | default('/etc/xymon/xymonpasswd') }}
+    # Add more users / change passwords with: "htpasswd {{ xymon_auth_passwd_file | default('/etc/xymon/xymonpasswd') }} USERNAME"
+    AuthUserFile {{ xymon_auth_passwd_file | default('/etc/xymon/xymonpasswd') }}
+
+    # xymon_auth_group_file: The path to the group file for restricting admin
+    # access by group membership. This file maps group names to users.
+    #
+    # You can also use a group file to restrict admin access to members of a
+    # group, instead of anyone who is logged in. In that case you must setup
+    # the "xymongroups" file, and change the "Require" settings to require
+    # a specific group membership. See the Apache docs for more details.
+    # You may also need to explicitly load the mod_authz_groupfile module.
+    # AuthGroupFile {{ xymon_auth_group_file | default('/etc/xymon/xymongroups') }}
+
+    # Authentication Type: Basic HTTP Authentication
+    AuthType Basic
+    AuthName "Xymon Administration"
+
+    # Access Policy
+    <RequireAll>
+        # "valid-user" restricts access to anyone who has valid credentials.
+        # This is the default requirement if no specific group is mandated.
+        Require valid-user
+
+        # To restrict access to a specific group (e.g., "admins"), uncomment
+        # the line below. This requires AuthGroupFile and mod_authz_groupfile.
+        # Require group admins
+    </RequireAll>
+</Directory>
+
+
+# ---------------------------------------------------------------------------
+# Legacy URL Rewrite Rules (Hobbit to Xymon Migration)
+# ---------------------------------------------------------------------------
+# Enable mod_rewrite to handle legacy Hobbit URLs and redirect them to
+# their Xymon equivalents.
+RewriteEngine On
+
+# Web Interface Redirects
+RewriteRule ^/xymon/bb.html /xymon/xymon.html [R=permanent,L]
+RewriteRule ^/xymon/bb2.html /xymon/nongreen.html [R=permanent,L]
+RewriteRule ^/xymon/bbnk.html /xymon/critical.html [R=permanent,L]
+
+# CGI Script Redirects
+RewriteRule ^/xymon-cgi/bb-hist.sh /xymon-cgi/history.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-eventlog.sh /xymon-cgi/eventlog.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-rep.sh /xymon-cgi/report.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-replog.sh /xymon-cgi/reportlog.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-snapshot.sh /xymon-cgi/snapshot.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-findhost.sh /xymon-cgi/findhost.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-csvinfo.sh /xymon-cgi/csvinfo.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbitcolumn.sh /xymon-cgi/columndoc.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-datepage.sh /xymon-cgi/datepage.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbitgraph.sh /xymon-cgi/showgraph.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-hostsvc.sh /xymon-cgi/svcstatus.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/bb-histlog.sh /xymon-cgi/historylog.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-confreport.sh /xymon-cgi/confreport.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-confreport-critical.sh /xymon-cgi/confreport-critical.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-nkview.sh /xymon-cgi/criticalview.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-certreport.sh /xymon-cgi/certreport.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-nongreen.sh /xymon-cgi/nongreen.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-hostgraphs.sh /xymon-cgi/hostgraphs.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-ghosts.sh /xymon-cgi/ghostlist.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-notifylog.sh /xymon-cgi/notifications.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-hostlist.sh /xymon-cgi/hostlist.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-perfdata.sh /xymon-cgi/perfdata.sh [R=permanent,L]
+RewriteRule ^/xymon-cgi/hobbit-topchanges.sh /xymon-cgi/topchanges.sh [R=permanent,L]
+
+# Secure CGI Redirects
+RewriteRule ^/xymon-seccgi/bb-ack.sh /xymon-seccgi/acknowledge.sh [R=permanent,L]
+RewriteRule ^/xymon-seccgi/hobbit-enadis.sh /xymon-seccgi/enadis.sh [R=permanent,L]
+RewriteRule ^/xymon-seccgi/hobbit-nkedit.sh /xymon-seccgi/criticaleditor.sh [R=permanent,L]
+RewriteRule ^/xymon-seccgi/hobbit-ackinfo.sh /xymon-seccgi/ackinfo.sh [R=permanent,L]
+RewriteRule ^/xymon-seccgi/hobbit-useradm.sh /xymon-seccgi/useradm.sh [R=permanent,L]

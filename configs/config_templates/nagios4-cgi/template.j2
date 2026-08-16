@@ -1,0 +1,83 @@
+# Apache configuration for Nagios 4.x
+# This template configures the web server (Apache) to serve the Nagios4 CGI interface.
+# It sets up script aliases, static file aliases, and security directives for the
+# CGI binaries and HTML frontend.
+
+# nagios_cgi_bin_path: The script alias path for the Nagios4 CGI binaries.
+# Defines where the executable CGI scripts reside on the filesystem.
+# Defaults to '/usr/lib/cgi-bin/nagios4'.
+ScriptAlias /cgi-bin/nagios4 {{ nagios_cgi_bin_path | default('/usr/lib/cgi-bin/nagios4') }}
+ScriptAlias /nagios4/cgi-bin {{ nagios_cgi_bin_path | default('/usr/lib/cgi-bin/nagios4') }}
+
+# nagios_stylesheets_path: The directory containing the Nagios4 stylesheets/config files.
+# Alias for static CSS/style assets used by the Nagios web interface.
+# Defaults to '/etc/nagios4/stylesheets'.
+Alias /nagios4/stylesheets {{ nagios_stylesheets_path | default('/etc/nagios4/stylesheets') }}
+
+# nagios_htdocs_path: The directory where the Nagios4 HTML pages reside.
+# Main static content directory for the Nagios web frontend.
+# Defaults to '/usr/share/nagios4/htdocs'.
+Alias /nagios4 {{ nagios_htdocs_path | default('/usr/share/nagios4/htdocs') }}
+
+# DirectoryMatch: Security and access control block for all Nagios 4 related paths.
+# This block applies to the CGI bin, stylesheets, and htdocs directories.
+# It restricts access to localhost and private network ranges by default
+# and configures digest authentication for command execution files.
+<DirectoryMatch (/usr/share/nagios4/htdocs|/usr/lib/cgi-bin/nagios4|/etc/nagios4/stylesheets)>
+    # Options: Enable symlink following and specify default index files.
+    Options FollowSymLinks
+    DirectoryIndex index.php index.html
+
+    # AllowOverride: Permit .htaccess files to override AuthConfig settings if needed.
+    AllowOverride AuthConfig
+
+    #
+    # SECURITY NOTE:
+    # The default Debian/Ubuntu nagios4 install sets use_authentication=0 in
+    # /etc/nagios4/cgi.cfg, which disables Nagios's internal authentication.
+    # Relying solely on web-server-level auth (as done here) is a security
+    # boundary. The configuration below allows only private IP addresses
+    # to access the interface by default.
+    #
+
+    # Require ip: Restrict access to local and private network ranges.
+    # This prevents unauthorized access from public IP addresses.
+    Require ip	::1/128 fc00::/7 fe80::/10 10.0.0.0/8 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16
+
+    # Files "cmd.cgi": Specific configuration for the command execution CGI.
+    # This file allows sending commands to the Nagios daemon (e.g., acknowledge alerts).
+    <Files "cmd.cgi">
+        # AuthDigestDomain: Identifies the protection domain for the digest auth.
+        AuthDigestDomain "Nagios4"
+
+        # AuthDigestProvider: Specifies that authentication is handled via a file.
+        AuthDigestProvider file
+
+        # AuthUserFile: Path to the htdigest file containing user credentials.
+        # nagios_htdigest_users_path: The path to the htdigest users file for authentication.
+        # Defaults to '/etc/nagios4/htdigest.users'.
+        AuthUserFile	"{{ nagios_htdigest_users_path | default('/etc/nagios4/htdigest.users') }}"
+
+        # AuthGroupFile: Path to the system group file for group-based access control.
+        AuthGroupFile	"/etc/group"
+
+        # AuthName: The realm name presented to the user during authentication.
+        AuthName	"Nagios4"
+
+        # AuthType: Specify HTTP Digest Authentication.
+        AuthType	Digest
+
+        # Require all granted: By default, grants access. To enforce auth, uncomment
+        # the line below and comment out this one. This ensures only authenticated
+        # users can send commands via cmd.cgi.
+        Require all	granted
+        #Require	valid-user
+    </Files>
+</DirectoryMatch>
+
+# Directory /usr/share/nagios4/htdocs: Specific configuration for the HTML frontend.
+# Enables CGI execution capabilities within this directory if required by custom PHP/HTML pages.
+<Directory /usr/share/nagios4/htdocs>
+    # Options: Enable CGI execution (+ExecCGI).
+    Options	+ExecCGI
+</Directory>

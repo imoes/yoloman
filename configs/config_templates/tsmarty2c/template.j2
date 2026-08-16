@@ -1,0 +1,35 @@
+# ==============================================================================
+# tsmarty2c Configuration Template
+# ==============================================================================
+# This template generates a configuration script (typically sourced by a Makefile
+# or CMakeLists.txt) to automate the extraction of gettext strings from Smarty
+# templates into a C source file using the tsmarty2c tool and xgettext.
+#
+# This is NOT a persistent daemon configuration. It is a build-time configuration.
+# ==============================================================================
+
+# Command to execute tsmarty2c
+# Description: The path or name of the tsmarty2c executable.
+# Default: 'tsmarty2c'
+cmd = "{{ cmd | default('tsmarty2c') }}"
+
+# Output C file to generate
+# Description: The target C source file where the riped strings will be written.
+# Default: 'gettext_c_strings.c'
+c_output = "{{ c_output | default('gettext_c_strings.c') }}"
+
+# List of input Smarty template files or directories to parse
+# Description: A list of file paths or directories containing Smarty templates to process.
+# Default: ['templates']
+template_sources = [
+{% for src in template_sources | default(['templates']) %}
+    "{{ src }}",
+{% endfor %}
+]
+
+# Additional flags for xgettext integration if applicable
+# Description: List of additional flags to be used when invoking xgettext on the resulting C file.
+# Note: tsmarty2c itself outputs C code; xgettext is typically invoked afterwards.
+# Default: ['--add-comments']
+# The trailing space ensures flags are separated correctly when joined.
+extra_xgettext_flags = "{% for flag in extra_xgettext_flags | default(['--add-comments']) %}{{ flag }} {% endfor %}"

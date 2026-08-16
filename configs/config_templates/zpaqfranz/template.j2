@@ -1,0 +1,32 @@
+# Zpaqfranz Backup Configuration
+# This file defines the parameters for a zpaqfranz backup job.
+# It serves as a manifest for automation scripts (e.g., cron, systemd path units)
+# to generate the command line or pass structured configuration to an executor.
+
+# Absolute path to the zpaqfranz binary.
+# Ensures the correct executable is invoked, especially when PATH is not guaranteed.
+command: {{ command | default('/usr/bin/zpaqfranz') }}
+
+# The command to execute.
+# Common actions: 'a' (add/archive), 't' (test integrity), 'i' (info), 'l' (list), 'x' (extract).
+# Default is 'a' for creating or updating an archive.
+action: {{ action | default('a') }}
+
+# Path to the destination .zpaq archive file.
+# The location where the compressed backup will be stored.
+archive_path: {{ archive_path | default('/var/backups/mybackup.zpaq') }}
+
+# List of source files or directories to include in the backup.
+# Each entry is a path on the local filesystem to be archived.
+sources:
+{% for source in sources | default(['/etc']) %}
+  - {{ source }}
+{% endfor %}
+
+# List of additional command-line switches to pass to zpaqfranz.
+# Examples: "-find *.txt", "-until 2d", "-hash sha256", "-space".
+# These are appended directly to the command execution.
+switches:
+{% for switch in switches | default([]) %}
+  - {{ switch }}
+{% endfor %}

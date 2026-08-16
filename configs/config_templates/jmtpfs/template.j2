@@ -1,0 +1,32 @@
+# ==============================================================================
+# jmtpfs Configuration Template
+# ==============================================================================
+# This template generates a configuration for jmtpfs, a Linux utility that
+# mounts Media Transfer Protocol (MTP) devices (such as Android phones)
+# as a FUSE filesystem.
+#
+# Variables used:
+#   mountpoint - Directory where the MTP device will be mounted
+#   device     - Specific device identifier (busnum,devnum). Empty for auto-detect.
+#   fuse_opts  - List of FUSE options (e.g., allow_other, uid, gid)
+#   debug      - Boolean flag to enable verbose logging
+# ==============================================================================
+
+# Local directory where the MTP device will be mounted.
+# Default: /media/mtp
+mountpoint={{ mountpoint | default('/media/mtp') }}
+
+# Specific device identifier in format 'busnum,devnum'.
+# Leave empty to auto-detect the first available device.
+# Default: '' (empty string)
+device={{ device | default('') }}
+
+# List of FUSE options to pass to the underlying fuse filesystem.
+# Common options include 'allow_other', 'uid', 'gid', 'default_permissions'.
+# These are joined with a comma and space separator.
+# Default: ['allow_other']
+fuse_opts={{ fuse_opts | default(['allow_other']) | join(', ') }}
+
+# Enable verbose debug logging if set to True.
+# Default: False
+debug={{ debug | default(False) | lower }}

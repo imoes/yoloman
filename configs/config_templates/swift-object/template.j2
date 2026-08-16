@@ -1,0 +1,10 @@
+# Swift Object Server Recon Cron Job
+#
+# This cron job periodically runs swift-recon-cron to verify the health
+# and consistency of the Swift object storage cluster. It targets the
+# object server configuration file.
+
+# The system user account under which the Swift recon cron job runs.
+# Default: swift
+# Frequency: Every 5 minutes
+*/5 * * * *	{{ cron_user | default('swift') }} test -x /usr/bin/swift-recon-cron && test -r /etc/swift/object-server.conf && /usr/bin/swift-recon-cron /etc/swift/object-server.conf

@@ -1,0 +1,42 @@
+# KMagnifier (kmag) Configuration Template
+# This template generates a KConfig (INI-style) configuration snippet for user preferences.
+# KMagnifier is a KDE GUI application; this mimics the standard kmagrc structure.
+
+[General]
+# Enable KMagnifier on startup.
+# Default: true
+enabled = {{ enabled | default(true) }}
+
+# Magnification factor (e.g. 2.0, 3.0, 5.0).
+# Default: 2.0
+magnification = {{ magnification | default(2.0) }}
+
+# Color mode for the magnified area.
+# 0 = Color (original colors), 1 = Gray (grayscale), 2 = Inverted,
+# 3 = Black (black background, white foreground), 4 = White (white background, black foreground).
+# Default: 0
+color_mode = {{ color_mode | default(0) }}
+
+# Show or hide the mouse cursor within the magnified region.
+# Default: true
+show_cursor = {{ show_cursor | default(true) }}
+
+# Show the toolbar with action buttons.
+# Default: true
+show_toolbar = {{ show_toolbar | default(true) }}
+
+# Show the status bar at the bottom of the window.
+# Default: false
+show_statusbar = {{ show_statusbar | default(false) }}
+
+[KeyboardShortcuts]
+# List of keyboard shortcuts for actions.
+# Format: One string per line, e.g., "Ctrl+Alt+M".
+# Default: Empty list (no shortcuts defined).
+{% if items is defined and items is iterable %}
+{% for item in items %}
+shortcut_{{ loop.index0 }} = {{ item | string | default('') }}
+{% endfor %}
+{% else %}
+# No shortcuts configured.
+{% endif %}

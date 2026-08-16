@@ -1,0 +1,54 @@
+# ==============================================================================
+# jdns Command-Line Invocation Template
+# ==============================================================================
+# This template generates a command-line invocation for the 'jdns' utility.
+# 'jdns' is primarily a CLI tool for DNS querying; it does not run as a
+# persistent daemon with a traditional configuration file.
+#
+# The 'config' is represented here as the arguments passed to the jdns command.
+# All parameters are derived from the 'jdns' schema fields, with safe defaults
+# applied via Jinja2 'default' filters to ensure idempotent and error-free
+# rendering even if optional variables are undefined.
+# ==============================================================================
+
+# --- Base Command and Mode ---
+# 'jdns' is the executable. The first argument specifies the operation mode.
+# Modes:
+#   - 'uni': Unicast query (standard DNS query to specific servers).
+#   - 'mul': Multicast/Bonjour query (local network service discovery).
+#   - 'pub': Publication (advertise a service via multicast).
+jdns {{ (jdns | default({})).mode | default('uni') }}
+
+# --- Query Parameters ---
+# The type of DNS record to query. Common types include 'a' (IPv4), 'aaaa' (IPv6),
+# 'ptr' (pointer), 'srv' (service locator), 'mx', 'txt', etc.
+{{ (jdns | default({})).query_type | default('a') }}
+
+# The domain name or host to query.
+{{ (jdns | default({})).query_name | default('example.com') }}
+
+# --- Optional Arguments ---
+
+# Nameservers to query.
+# Format: 'host' or 'host;port'.
+# Multiple nameservers are separated by spaces.
+# Note: In 'uni' mode, this is required if system defaults are not desired.
+{% if (jdns | default({})).nameservers is defined and (jdns | default({})).nameservers | length > 0 %}
+{{ (jdns | default({})).nameservers | join(' ') }}
+{% endif %}
+
+{% if (jdns | default({})).debug | default(False) | bool %}
+# Enable debug output (-d flag).
+-d
+{% endif %}
+
+{% if (jdns | default({})).ipv6 | default(False) | bool %}
+# Force IPv6 usage (-6 flag).
+-6
+{% endif %}
+
+{% if (jdns | default({})).quiet_timeout | default(0) | int > 0 %}
+# Quit after X seconds (-q X flag).
+# Set to 0 or omit to disable timeout.
+-q {{ (jdns | default({})).quiet_timeout | default(0) | int }}
+{% endif %}

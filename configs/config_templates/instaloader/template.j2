@@ -1,0 +1,136 @@
+# Instaloader CLI Configuration Template
+#
+# Self-documenting template for generating Instaloader command-line arguments.
+# Instaloader is a CLI tool; it does not read a static config file for runtime
+# options. Instead, this template expands into the exact arguments required
+# by the `instaloader` binary, based on the Ansible role variables.
+#
+# Each section below is commented with the schema description for that field.
+
+# --- Authentication ---
+
+# Instagram username for logging in to download private profiles. If empty, login is skipped.
+{% if login_username | default('') | length > 0 %}
+--login={{ login_username | default('') }}
+{% endif %}
+
+# --- Content Selection Flags ---
+
+# Instruct Instaloader to download the user's stories.
+{% if download_stories | default(False) %}
+--stories
+{% endif %}
+
+# Download the highlights of the profile.
+{% if download_highlights | default(False) %}
+--highlights
+{% endif %}
+
+# Download posts where the user is tagged.
+{% if download_tagged | default(False) %}
+--tagged
+{% endif %}
+
+# Download IGTV videos.
+{% if download_igtv | default(False) %}
+--igtv
+{% endif %}
+
+# Download reels.
+{% if download_reels | default(False) %}
+--reels
+{% endif %}
+
+# --- Update & Performance ---
+
+# Stop downloading when the first already-downloaded picture is encountered.
+{% if fast_update | default(False) %}
+--fast-update
+{% endif %}
+
+# Store and use timestamps to only download newer media.
+{% if download_latest_stamps | default(False) %}
+--latest-stamps
+{% endif %}
+
+# --- Metadata & Media Options ---
+
+# Download comments of each post.
+{% if download_comments | default(False) %}
+--comments
+{% endif %}
+
+# Download geotags of each post and save them as Google Maps links.
+{% if download_geotags | default(False) %}
+--geotags
+{% endif %}
+
+# Do not create .txt files with post captions.
+{% if no_captions | default(False) %}
+--no-captions
+{% endif %}
+
+# Skip downloading videos (specifically for sidecar posts).
+{% if no_videos | default(False) %}
+--no-videos
+{% endif %}
+
+# Skip downloading video thumbnails.
+{% if no_video_thumbnails | default(False) %}
+--no-video-thumbnails
+{% endif %}
+
+# --- Verbosity ---
+
+# Suppress output during execution.
+{% if quiet | default(False) %}
+--quiet
+{% endif %}
+
+# --- Directory & Filename Patterns ---
+
+# Configure the directory name of each target. Supports tokens like {target} and {profile}.
+{% if dirname_pattern | default('{target}') != '{target}' %}
+--dirname-pattern={{ dirname_pattern | default('{target}') }}
+{% endif %}
+
+# Configure the path of the post files relative to the target directory. Supports tokens like {shortcode}, {date_utc}, {profile}.
+{% if filename_pattern | default('{date_utc}_utc') != '{date_utc}_utc' %}
+--filename-pattern={{ filename_pattern | default('{date_utc}_utc') }}
+{% endif %}
+
+# Configure the name for profile pics, hashtag profile pics, and highlight covers. If empty, uses default logic.
+{% if title_pattern | default('') | length > 0 %}
+--title-pattern={{ title_pattern | default('') }}
+{% endif %}
+
+# --- Filters ---
+
+# Python boolean expression to filter posts (e.g., 'likes > 100' or 'not is_video').
+{% if post_filter | default('') | length > 0 %}
+--post-filter='{{ post_filter | default('') }}'
+{% endif %}
+
+# Python boolean expression to filter story items (e.g., 'expiring_utc > datetime.now()').
+{% if storyitem_filter | default('') | length > 0 %}
+--storyitem-filter='{{ storyitem_filter | default('') }}'
+{% endif %}
+
+# --- Metadata File Templates ---
+
+# Template for the content of the .txt file alongside each post. Supports post attributes.
+{% if post_metadata_txt | default('{caption}') != '{caption}' %}
+--post-metadata-txt='{{ post_metadata_txt | default('{caption}') }}'
+{% endif %}
+
+# Template for the content of the .txt file alongside each story item. If empty, no metadata file is created.
+{% if storyitem_metadata_txt | default('') | length > 0 %}
+--storyitem-metadata-txt='{{ storyitem_metadata_txt | default('') }}'
+{% endif %}
+
+# --- Targets ---
+
+# List of targets to download (profiles, hashtags, etc.).
+{% for target in targets | default([]) %}
+{{ target }}
+{% endfor %}

@@ -1,0 +1,46 @@
+# =============================================================================
+# Drop-in configuration for systemd-userdbd.service
+#
+# Self-documenting Jinja2 template for Ansible.
+# See systemd-userdbd(8) and systemd.service(5) for directive details.
+# =============================================================================
+
+[Service]
+
+{# -----------------------------------------------------------------------------
+   ExecStart: The full command line to execute for the service.
+   If empty or omitted, systemd falls back to the unit's default ExecStart
+   (/usr/lib/systemd/systemd-userdbd).
+   ----------------------------------------------------------------------------- #}
+{% set _exec_start = exec_start | default('') %}
+{% if _exec_start is defined and _exec_start != '' %}
+# Override the default command for the user database daemon
+ExecStart={{ _exec_start | string }}
+{% endif %}
+
+{# -----------------------------------------------------------------------------
+   Environment: List of environment variable assignments (KEY=VALUE) to pass
+   to the service process.
+   ----------------------------------------------------------------------------- #}
+{% set _extra_env = extra_env | default([]) %}
+{% if _extra_env | length > 0 %}
+# Set environment variables for the service
+Environment={% for env in _extra_env %}{{ env | string }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}
+
+{# -----------------------------------------------------------------------------
+   Restart: Condition under which the service will be automatically restarted.
+   Valid values: no, on-success, on-failure, on-abnormal, on-watchdog, on-abort,
+   always, on-reload.
+   ----------------------------------------------------------------------------- #}
+{% set _restart = restart | default('on-failure') %}
+# Configure restart behavior
+Restart={{ _restart | string }}
+
+{# -----------------------------------------------------------------------------
+   LimitNOFILE: Set the file descriptor limit for the service.
+   0 means use the default system limit. See systemd.service(5) LimitNOFILE.
+   ----------------------------------------------------------------------------- #}
+{% set _limit_nofile = limit_nofile | default(0) %}
+# Set maximum number of open files
+LimitNOFILE={{ _limit_nofile | int }}

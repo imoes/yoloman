@@ -1,0 +1,7 @@
+{
+  "batch_patterns": {
+    "type": "list",
+    "default": [],
+    "description": "List of batch mode dialog patterns and responses. Each item is a map with 'pattern' (glob pattern) and 'response' (button text or value). Corresponds to -B flag pairs concatenated with semicolons in the actual CLI, but here we manage the string construction via template logic if needed, or simple list of pairs. Note: The man page says -B 'pattern=response;pattern=response'. For this template, we will output individual -B flags or construct one string. To keep it simple and safe with Jinja, we'll output a single -B flag containing the joined list of pattern=response pairs separated by semicolons. However, the schema requires a list of objects. We will construct the string in the template using join and indent if necessary, but simpler is to just list the pairs and join them in the template logic? No, Jinja2 doesn't support complex logic like joining specific fields from a list of dicts easily without custom filters. Let's simplify: batch_patterns is a list of strings where each string is 'pattern=response'. The template will join them with ';'. Wait, the prompt says NO custom filters. `join` is a standard filter. We can do `batch_patterns | map(attribute='pair') | join(';')`. But `map` is a standard filter in Jinja2. Is it allowed? The prompt says "
+  }
+}

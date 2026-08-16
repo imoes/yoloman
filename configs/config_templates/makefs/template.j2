@@ -1,0 +1,143 @@
+#!/usr/bin/makefs
+# Self-documenting template for generating filesystem images using makefs.
+#
+# This template generates a shell command line that invokes the makefs utility.
+# It does not produce a configuration file for a daemon, so it has no network
+# capabilities (no provides/requires entries in capabilities.json).
+
+# Command: makefs [options] <output-image> <source-directory>
+
+# Output image file path.
+# Schema: image_file (str, default='output.img')
+# Description: The path to the output filesystem image file.
+-o {{ image_file | default('output.img') }} {{ source_directory | default('./rootfs') }}
+
+# Filesystem type to create.
+# Schema: fs_type (str, default='ffs')
+# Description: Filesystem type: ffs or cd9660.
+# Note: The -t flag sets the type. Subsequent -o flags apply type-specific options.
+-t {{ fs_type | default('ffs') }}
+
+# FFS specific options (applied if fs_type is 'ffs').
+# Schema: ffs_options (list, default=[])
+# Description: List of comma-separated FFS-specific options (e.g., 'bsize=4096', 'density=8192'). See man page for valid keywords.
+{% if fs_type | default('ffs') == 'ffs' %}
+# FFS options
+{% if ffs_options | default([]) | length > 0 %}
+-o {{ ffs_options | default([]) | join(',') }}
+{% endif %}
+{% endif %}
+
+# CD9660 specific options (applied if fs_type is 'cd9660').
+# Schema: cd9660_options (list, default=[])
+# Description: List of comma-separated CD9660/ISO9660-specific options (e.g., 'label=MYCD', 'rockridge'). See man page for valid keywords.
+{% if fs_type | default('ffs') == 'cd9660' %}
+# CD9660 options
+{% if cd9660_options | default([]) | length > 0 %}
+-o {{ cd9660_options | default([]) | join(',') }}
+{% endif %}
+{% endif %}
+
+# Byte order of the image.
+# Schema: byte_order (str, default='')
+# Description: Byte order: 'big', 'be', 'little', 'le', '4321', or '1234'. Empty string to omit.
+# Note: The -B flag sets the byte order.
+{% set bo = byte_order | default('') %}
+{% if bo %}
+-B {{ bo }}
+{% endif %}
+
+# Minimum size of the filesystem image.
+# Schema: minimum_size (str, default='')
+# Description: Minimum size of the image. Decimal bytes, optionally with suffix b/k/m/g/t/w. Empty to omit.
+# Note: The -M flag sets the minimum size.
+{% set ms = minimum_size | default('') %}
+{% if ms %}
+-M {{ ms }}
+{% endif %}
+
+# Maximum size of the filesystem image.
+# Schema: maximum_size (str, default='')
+# Description: Maximum size of the image. Decimal bytes, optionally with suffix b/k/m/g/t/w. Empty to omit.
+# Note: The -m flag sets the maximum size.
+{% set xms = maximum_size | default('') %}
+{% if xms %}
+-m {{ xms }}
+{% endif %}
+
+# Size of the filesystem image.
+# Schema: image_size (str, default='')
+# Description: Fixed size of the image. Decimal bytes, optionally with suffix b/k/m/g/t/w. Empty to omit.
+# Note: The -s flag sets the fixed size.
+{% set isize = image_size | default('') %}
+{% if isize %}
+-s {{ isize }}
+{% endif %}
+
+# Sector size in bytes.
+# Schema: sector_size (int, default=512)
+# Description: Sector size in bytes. Defaults to 512.
+# Note: The -S flag sets the sector size.
+-S {{ sector_size | default(512) }}
+
+# Minimum free blocks to ensure in the image.
+# Schema: free_blocks (str, default='')
+# Description: Minimum free blocks. Can include '%' suffix. Empty to omit.
+# Note: The -b flag sets the number of free blocks.
+{% set fb = free_blocks | default('') %}
+{% if fb %}
+-b {{ fb }}
+{% endif %}
+
+# Minimum free files (inodes) to ensure in the image.
+# Schema: free_files (str, default='')
+# Description: Minimum free files (inodes). Can include '%' suffix. Empty to omit.
+# Note: The -f flag sets the number of free files.
+{% set ff = free_files | default('') %}
+{% if ff %}
+-f {{ ff }}
+{% endif %}
+
+# User/Group database directory.
+# Schema: userdb_dir (str, default='')
+# Description: Directory containing master.passwd and group files. Empty to use system defaults.
+# Note: The -N flag sets the user database directory.
+{% set udb = userdb_dir | default('') %}
+{% if udb %}
+-N {{ udb }}
+{% endif %}
+
+# Maximum time clamp for timestamps.
+# Schema: maximum_time (int, default=0)
+# Description: Clamp timestamps to this many seconds since Epoch. 0 to omit.
+# Note: The -T flag sets the maximum time.
+{% set mt = maximum_time | default(0) %}
+{% if mt != 0 %}
+-T {{ mt }}
+{% endif %}
+
+# Exclude filesystem nodes not in specfile.
+# Schema: exclude_fs_nodes (bool, default=False)
+# Description: If true, adds -x to exclude filesystem nodes not in specfile.
+# Note: The -x flag excludes filesystem nodes.
+{% if exclude_fs_nodes | default(False) %}
+-x
+{% endif %}
+
+# Specfile for mtree specification.
+# Schema: specfile (str, default='')
+# Description: Path to mtree specfile. Empty to omit.
+# Note: The -F flag sets the specfile.
+{% set sf = specfile | default('') %}
+{% if sf %}
+-F {{ sf }}
+{% endif %}
+
+# Debug mask.
+# Schema: debug_mask (str, default='')
+# Description: Debug mask value. Empty to omit.
+# Note: The -d flag sets the debug mask.
+{% set dm = debug_mask | default('') %}
+{% if dm %}
+-d {{ dm }}
+{% endif %}

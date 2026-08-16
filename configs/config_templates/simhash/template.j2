@@ -1,0 +1,107 @@
+# =============================================================================
+# Simhash Configuration Template
+# =============================================================================
+# This template configures the `simhash` tool, which computes perceptual hashes
+# for files (documents, images, etc.) to detect similarity.
+#
+# Operation modes:
+# - compute: Hash a single file.
+# - batch: Hash multiple files.
+# - match: Compute a similarity matrix for multiple files.
+# - compare: Compare two existing hash files.
+#
+# The structure below reflects the command-line arguments or configuration
+# expected by the simhash binary.
+# =============================================================================
+
+# Global Settings
+# ------------------------------------------------------------------------------
+
+# Number of significant hashes to retain (-f)
+# Default: 128
+# A higher value increases precision but may increase computational cost.
+-f {{ features | default(128) }}
+
+# Size of shingles in bytes (-s)
+# Default: 8
+# Defines the chunk size used to create shingles for hashing.
+-s {{ shingle_size | default(8) }}
+
+# Operation Mode
+# ------------------------------------------------------------------------------
+# Selects the operational mode of simhash. Valid values are:
+# 'compute', 'batch', 'match', 'compare'.
+# This determines which input fields are interpreted below.
+# operation: {{ operation | default('compute') }}
+
+{% set op = operation | default('compute') %}
+
+{% if op == 'compute' %}
+    # ---------------------------------------------------------------------
+    # Compute Mode
+    # ---------------------------------------------------------------------
+    # Computes a similarity hash for a single specified input file.
+    # If no file is specified or if the default is used, reads from stdin.
+
+    # Input file to hash
+    # Default: /dev/stdin
+    {{ input_file | default('/dev/stdin') }}
+
+{% elif op == 'batch' %}
+    # ---------------------------------------------------------------------
+    # Batch Mode
+    # ---------------------------------------------------------------------
+    # Computes similarity hashes for a list of files and writes them to
+    # corresponding .sim files.
+
+    # List of files to process
+    # Default: [] (Empty list)
+    # Each line below represents a file path to be hashed.
+    {% if files | default([]) %}
+        {% for file in files | default([]) %}
+        {{ file }}
+        {% endfor %}
+    {% else %}
+    # No files specified for batch processing.
+    {% endif %}
+
+{% elif op == 'match' %}
+    # ---------------------------------------------------------------------
+    # Match Mode
+    # ---------------------------------------------------------------------
+    # Computes a similarity matrix for a list of files.
+    # Useful for deduplication or clustering datasets.
+
+    # List of input files to compare
+    # Default: [] (Empty list)
+    {% if files | default([]) %}
+        {% for file in files | default([]) %}
+        {{ file }}
+        {% endfor %}
+    {% else %}
+    # No files specified for match processing.
+    {% endif %}
+
+{% elif op == 'compare' %}
+    # ---------------------------------------------------------------------
+    # Compare Mode
+    # ---------------------------------------------------------------------
+    # Compares two existing hash files (.sim) and displays the distance
+    # (similarity) between them.
+
+    # Path to first hash file
+    # Default: /tmp/hash1.sim
+    {{ hash_file1 | default('/tmp/hash1.sim') }}
+
+    # Path to second hash file
+    # Default: /tmp/hash2.sim
+    {{ hash_file2 | default('/tmp/hash2.sim') }}
+
+{% else %}
+    # ---------------------------------------------------------------------
+    # Unknown Operation
+    # ---------------------------------------------------------------------
+    # WARNING: The operation '{{ op }}' is not
+    # recognized. Please set 'operation' to one of: compute, batch, match, compare.
+    # No specific configuration block will be generated.
+{% endif %}

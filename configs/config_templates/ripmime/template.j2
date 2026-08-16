@@ -1,0 +1,174 @@
+# ripmime command configuration wrapper
+# This template generates a configuration script that wraps the ripmime utility
+# to extract attachments from MIME-encoded email files.
+# It is self-documenting: every configurable field is preceded by a comment
+# explaining its purpose and corresponding ripmime command-line flag.
+
+# ==============================================================================
+# Input and Output Paths
+# ==============================================================================
+
+# Path to the input MIME encoded file. Use '-' for STDIN.
+# Corresponds to: ripmime -i <mime file>
+INPUT_FILE: {{ input_file | default('/var/mail/incoming.msg') }}
+
+# Output directory where extracted attachments will be saved.
+# Corresponds to: ripmime -d <directory>
+OUTPUT_DIR: {{ output_dir | default('/tmp/attachments') }}
+
+# ==============================================================================
+# Naming and Headers
+# ==============================================================================
+
+# Prefix filename to be used on files without a filename in the MIME pack.
+# Corresponds to: ripmime -p <prefix> (default 'text')
+PREFIX: {{ prefix | default('text') }}
+
+# Filename for the dumped headers file.
+# Corresponds to: ripmime -e <headerfile> (default '_headers_')
+HEADER_FILE: {{ header_file | default('_headers_') }}
+
+# ==============================================================================
+# General Behavior Flags
+# ==============================================================================
+
+# Turn on verbosity for general operation.
+# Corresponds to: ripmime -v
+VERBOSE: {{ verbose | default(false) }}
+
+# Run quietly, do not report non-fatal errors.
+# Corresponds to: ripmime -q
+QUIET: {{ quiet | default(false) }}
+
+# Output log destination: stdout, stderr, or syslog.
+# Corresponds to: ripmime --stdout (implicit), --stderr, --syslog
+LOG_DESTINATION: {{ log_destination | default('stdout') }}
+
+# Converts all filenames to strict 7-bit compliance (paranoia mode).
+# Corresponds to: ripmime --paranoid
+PARANOID: {{ paranoid | default(false) }}
+
+# Saves a given attachment by its content-type if it has no other name.
+# Corresponds to: ripmime --name-by-type
+NAME_BY_TYPE: {{ name_by_type | default(false) }}
+
+# Do not save nameless attachments.
+# Corresponds to: ripmime --no-nameless
+NO_NAMELESS: {{ no_nameless | default(false) }}
+
+# Overwrite files if they have the same name on extraction.
+# Corresponds to: ripmime --overwrite
+OVERWRITE: {{ overwrite | default(false) }}
+
+# Recursion max level for nested mailpacks.
+# Corresponds to: ripmime --recursion-max <level> (default 20)
+RECURSION_MAX: {{ recursion_max | default(20) }}
+
+# Process input as a mailbox file rather than a single MIME message.
+# Corresponds to: ripmime --mailbox
+MAILBOX: {{ mailbox | default(false) }}
+
+# Returns error codes for non-fatal decoding situations.
+# Corresponds to: ripmime --extended-errors
+EXTENDED_ERRORS: {{ extended_errors | default(false) }}
+
+# Produces detailed information about the whole decoding process.
+# Corresponds to: ripmime --debug
+DEBUG: {{ debug | default(false) }}
+
+# ==============================================================================
+# Decoding Feature Toggles
+# ==============================================================================
+
+# Turn off OLE (Object Linking and Embedding) decoding.
+# Corresponds to: ripmime --no-ole
+NO_OLE: {{ no_ole | default(false) }}
+
+# Turns off the facility of detecting UUencoded attachments in emails.
+# Corresponds to: ripmime --no-uudecode
+NO_UUDECODE: {{ no_uudecode | default(false) }}
+
+# Turns off the facility of decoding QuotedPrintable data.
+# Corresponds to: ripmime --no-quotedprintable
+NO_QUOTEDPRINTABLE: {{ no_quotedprintable | default(false) }}
+
+# Turns off saving of double-CR embedded data.
+# Corresponds to: ripmime --no-doublecr
+NO_DOUBLECR: {{ no_doublecr | default(false) }}
+
+# Turns off MHT (Microsoft mailpack attachment format) decoding.
+# Corresponds to: ripmime --no-mht
+NO_MHT: {{ no_mht | default(false) }}
+
+# Turns off attempts to fix broken headers.
+# Corresponds to: ripmime --disable-header-fix
+DISABLE_HEADER_FIX: {{ disable_header_fix | default(false) }}
+
+# Turns off look-ahead searching for RFC822 headers within a body of text
+# (useful to disable qmail bounce detection interference).
+# Corresponds to: ripmime --disable-qmail-bounce
+DISABLE_QMAIL_BOUNCE: {{ disable_qmail_bounce | default(false) }}
+
+# Turns off handling multiple filename occurrences in a single MIME header.
+# Corresponds to: ripmime --no-multiple-filenames
+NO_MULTIPLE_FILENAME: {{ no_multiple_filename | default(false) }}
+
+# ==============================================================================
+# Verbose Reporting Modes
+# ==============================================================================
+
+# Turn on verbosity of file content type.
+# Corresponds to: ripmime --verbose-contenttype
+VERBOSE_CONTENTTYPE: {{ verbose_contenttype | default(false) }}
+
+# Uses the v1.2.x style of filename reporting.
+# Corresponds to: ripmime --verbose-oldstyle
+VERBOSE_OLDSTYLE: {{ verbose_oldstyle | default(false) }}
+
+# Report MIME header/body defects located in the mailpack.
+# Corresponds to: ripmime --verbose-defects
+VERBOSE_DEFECTS: {{ verbose_defects | default(false) }}
+
+# ==============================================================================
+# Unique Names Strategy
+# ==============================================================================
+
+# Unique names strategy: prefix, postfix, or infix.
+# Corresponds to: ripmime --unique-names[--prefix|--postfix|--infix]
+UNIQUE_NAMES_STRATEGY: {{ unique_names_strategy | default('infix') }}
+
+# ==============================================================================
+# Command Assembly
+# ==============================================================================
+# The following block assembles the final ripmime command line based on the
+# configuration values above. Only non-default or explicitly enabled options
+# are appended to keep the command clean.
+
+COMMAND: ripmime \
+  -i {{ input_file | default('/var/mail/incoming.msg') }} \
+  -d {{ output_dir | default('/tmp/attachments') }} \
+  -p {{ prefix | default('text') }} \
+  -e {{ header_file | default('_headers_') }} \
+  {% if verbose | default(false) %}-v{% endif %} \
+  {% if quiet | default(false) %}-q{% endif %} \
+  {% if log_destination | default('stdout') == 'stderr' %}--stderr{% elif log_destination | default('stdout') == 'syslog' %}--syslog{% endif %} \
+  {% if paranoid | default(false) %}--paranoid{% endif %} \
+  {% if name_by_type | default(false) %}--name-by-type{% endif %} \
+  {% if no_nameless | default(false) %}--no-nameless{% endif %} \
+  {% if overwrite | default(false) %}--overwrite{% endif %} \
+  {% if unique_names_strategy | default('infix') != 'none' %}--unique-names--{{ unique_names_strategy | default('infix') }}{% endif %} \
+  {% if mailbox | default(false) %}--mailbox{% endif %} \
+  {% if extended_errors | default(false) %}--extended-errors{% endif %} \
+  {% if recursion_max | default(20) != 20 %}--recursion-max {{ recursion_max | default(20) }}{% endif %} \
+  {% if debug | default(false) %}--debug{% endif %} \
+  {% if no_ole | default(false) %}--no-ole{% endif %} \
+  {% if no_uudecode | default(false) %}--no-uudecode{% endif %} \
+  {% if no_quotedprintable | default(false) %}--no-quotedprintable{% endif %} \
+  {% if no_doublecr | default(false) %}--no-doublecr{% endif %} \
+  {% if no_mht | default(false) %}--no-mht{% endif %} \
+  {% if disable_header_fix | default(false) %}--disable-header-fix{% endif %} \
+  {% if disable_qmail_bounce | default(false) %}--disable-qmail-bounce{% endif %} \
+  {% if no_multiple_filename | default(false) %}--no-multiple-filenames{% endif %} \
+  {% if verbose_contenttype | default(false) %}--verbose-contenttype{% endif %} \
+  {% if verbose_oldstyle | default(false) %}--verbose-oldstyle{% endif %} \
+  {% if verbose_defects | default(false) %}--verbose-defects{% endif %}

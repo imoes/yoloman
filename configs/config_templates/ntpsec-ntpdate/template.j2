@@ -1,0 +1,45 @@
+# =============================================================================
+# NTPSEC-NTDATE Configuration Template
+# =============================================================================
+# This template generates the configuration for `ntpdate` (specifically the
+# Debian/Ubuntu wrapper script used by NTPsec). It controls how the system
+# synchronizes the clock using NTP servers before the main NTP daemon starts,
+# or for one-time synchronization.
+#
+# Self-Documentation:
+# - Variables are injected from the Ansible inventory/variables.
+# - Defaults are provided inline for every variable to prevent render errors
+#   if a variable is undefined.
+# - Comments describe the purpose of each configuration directive.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Directive: NTPDATE_USE_NTP_CONF
+# Description: Set to "yes" to take the server list from /etc/ntpsec/ntp.conf,
+#              so you only have to keep it in one place. If "no", the servers
+#              listed in NTPSERVERS are used.
+# ------------------------------------------------------------------------------
+NTPDATE_USE_NTP_CONF={{ ntpdate_use_ntp_conf | default('yes') | lower }}
+
+# ------------------------------------------------------------------------------
+# Directive: NTPSERVERS
+# Description: List of NTP servers to use. Multiple servers are separated by
+#              spaces. This setting is ignored if NTPDATE_USE_NTP_CONF is "yes".
+#              Maps to the NTP capability (provider) host field.
+# ------------------------------------------------------------------------------
+NTPSERVERS="{{ ntpdate_servers | default(['0.debian.pool.ntp.org', '1.debian.pool.ntp.org', '2.debian.pool.ntp.org', '3.debian.pool.ntp.org']) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# Directive: NTPOPTIONS
+# Description: Additional options to pass to the ntpdate command.
+#              (e.g., '-b' for step time, '-q' for query only).
+# ------------------------------------------------------------------------------
+NTPOPTIONS="{{ ntpdate_options | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Directive: IGNORE_DHCP
+# Description: Set to "yes" to ignore NTP servers returned by DHCP.
+#              Useful if you want to strictly control time sources via
+#              configuration files rather than DHCP options.
+# ------------------------------------------------------------------------------
+IGNORE_DHCP="{{ ntpdate_ignore_dhcp | default('') | lower }}"

@@ -1,0 +1,54 @@
+# ============================================================================
+# usbredirect Configuration Template
+# ============================================================================
+# This template generates a JSON configuration block intended for use with
+# systemd service units or wrapper scripts that invoke the `usbredirect` CLI tool.
+# `usbredirect` itself does not read a configuration file; it accepts arguments
+# directly on the command line. This structure allows Ansible to generate
+# the exact command line invocation dynamically based on the provided variables.
+# ============================================================================
+
+# USB device identifier.
+# Specifies the USB device to export in <vendorid>:<prodid> format
+# (e.g., '046d:c52b') or bus:device (e.g., '1-2').
+# See usbredirect(1) SYNOPSIS: --device <id>
+# Default: 1d6b:0002
+DEVICE_ID: "{{ device_id | default('1d6b:0002') }}"
+
+# Target address for client mode.
+# The addr:port of the remote USB server to which this instance will connect
+# and redirect traffic. Use this when `usbredirect` acts as a client.
+# See usbredirect(1) SYNOPSIS: --to <addr:port>
+# Default: '' (empty, client mode disabled)
+TO_ADDR: "{{ to_addr | default('') }}"
+
+# Local listen address for server mode.
+# The addr:port on which this instance will listen for incoming USB redirection
+# requests from remote clients. Use this when `usbredirect` acts as a server.
+# See usbredirect(1) SYNOPSIS: --as <addr:port>
+# Default: 127.0.0.1:4000
+AS_ADDR: "{{ as_addr | default('127.0.0.1:4000') }}"
+
+# ============================================================================
+# Command Line Invocation Generation
+# ============================================================================
+# The following section constructs the argument list for the `usbredirect` command.
+# It checks each variable to determine which CLI flags are required.
+# This JSON-like structure is designed to be parsed by a shell script or
+# embedded directly into a systemd ExecStart directive.
+
+COMMAND: "usbredirect"
+ARGS: [
+{% if (device_id | default('1d6b:0002')) is string and (device_id | default('1d6b:0002')) != '' %}
+    "--device", "{{ device_id | default('1d6b:0002') }}",
+{% endif %}
+
+{% if (to_addr | default('')) is string and (to_addr | default('')) != '' %}
+    "--to", "{{ to_addr | default('') }}",
+{% endif %}
+
+{% if (as_addr | default('127.0.0.1:4000')) is string and (as_addr | default('127.0.0.1:4000')) != '' %}
+    "--as", "{{ as_addr | default('127.0.0.1:4000') }}",
+{% endif %}
+]
+# End of generated arguments

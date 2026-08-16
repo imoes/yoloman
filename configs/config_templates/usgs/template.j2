@@ -1,0 +1,44 @@
+# USGS CLI Configuration Template
+# This file configures the usgs CLI tool for interacting with the USGS
+# National Map and EarthExplorer services via the Inventory API.
+
+# Base URL for the USGS Inventory API service.
+# Default is the official public endpoint.
+# Changing this may allow use of internal mirrors or staging environments.
+base_url: {{ usgs_base_url | default('https://inventoryapi.usgs.gov') }}
+
+# API authentication token for authenticated access.
+# Leave empty to use interactive login or environment variables (e.g., USGS_API_TOKEN).
+# If provided, this token is passed with API requests for higher rate limits or
+# access to restricted data products.
+api_token: {{ usgs_api_token | default('') }}
+
+# Maximum number of search results returned per page.
+# Valid values are typically 5, 10, 25, 50, or 100.
+# Higher values reduce the number of API calls but may increase response latency.
+results_per_page: {{ usgs_results_per_page | default(25) }}
+
+# Maximum percentage of cloud cover allowed for scenes in search results (0-100).
+# A value of 0 filters out scenes with any clouds; 100 includes all scenes.
+# This setting acts as a default filter for search queries.
+max_cloud_cover: {{ usgs_max_cloud_cover | default(50) }}
+
+# Local directory path where downloaded scenes will be saved.
+# If relative, it is resolved from the current working directory.
+# Corresponds to the -o flag in download commands.
+download_dir: {{ usgs_download_dir | default('.') }}
+
+# Default file format for exporting search results.
+# Options include CSV, KMZ, Shapefile, FGDC.
+# Determines how search metadata is written to disk.
+export_format: {{ usgs_export_format | default('CSV') }}
+
+# Start date for search queries in YYYY-MM-DD format.
+# Used to filter results to scenes acquired on or after this date.
+# Leave empty to include all available dates.
+start_date: {{ usgs_start_date | default('') }}
+
+# End date for search queries in YYYY-MM-DD format.
+# Used to filter results to scenes acquired on or before this date.
+# Leave empty to include all available dates.
+end_date: {{ usgs_end_date | default('') }}

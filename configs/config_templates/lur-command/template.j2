@@ -1,0 +1,21 @@
+# Configuration for lur-command (Logitech Unifying device manager)
+# See man page lur-command(1) for command details.
+
+# The path to the hidraw device node for the Logitech Unifying receiver.
+receiver_device: {{ receiver_device | default('/dev/hidraw0') }}
+
+# The duration in seconds the receiver stays open for pairing.
+pairing_timeout: {{ pairing_timeout | default(30) }}
+
+# Enable verbose output.
+verbose: {{ verbose | default(false) }}
+
+# Path to the udev rules file for device permissions.
+udev_rules_path: {{ udev_rules_path | default('/etc/udev/rules.d/99-logitech-unifying.rules') }}
+
+# List of devices to configure automatically. Each item is a map with device_id and name.
+auto_devices:
+{% for item in auto_devices | default([]) | list %}
+  - device_id: {{ item.device_id | default(0) }}
+    name: {{ item.name | default('Unnamed Device') }}
+{% endfor %}

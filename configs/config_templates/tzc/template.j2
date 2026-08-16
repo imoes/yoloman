@@ -1,0 +1,65 @@
+# TZC (Zephyr Client) Configuration
+#
+# This file serves as a wrapper to pass command-line options to the tzc service.
+# Each variable corresponds to a documented option in tzc(1).
+# Generated from Ansible schema to ensure self-documentation and safe defaults.
+
+# -a nseconds: Restart tzc every nseconds seconds.
+# Set to 0 or null to disable automatic restarts.
+{% if restart_interval | default(0) | int > 0 %}
+--restart {{ restart_interval | default(0) }}
+{% endif %}
+
+# -e exposure: Set user exposure level.
+# Must be one of: NONE, OPSTAFF, REALM-VISIBLE, REALM-ANNOUNCED, NET-VISIBLE, NET-ANNOUNCED.
+{% if exposure | default('NONE') != 'NONE' %}
+--exposure {{ exposure | default('NONE') }}
+{% endif %}
+
+# -l location: Set zlocation tty identifier.
+# If empty, defaults to tzc.<pid>.
+{% if location_tty | default('') | trim != '' %}
+--location {{ location_tty | default('') }}
+{% endif %}
+
+# -h hostname: Set zlocation hostname.
+# If empty, defaults to the current host's hostname.
+{% if location_hostname | default('') | trim != '' %}
+--hostname {{ location_hostname | default('') }}
+{% endif %}
+
+# -p filename: Write process-id to file.
+# If empty, no PID file is created.
+{% if pid_file | default('') | trim != '' %}
+--pidfile {{ pid_file | default('') }}
+{% endif %}
+
+# -s: Use zctl for subscriptions.
+# If true, reads from ~/.zephyr.subs.tzc.
+{% if use_zctl | default(False) | bool %}
+--use-zctl
+{% endif %}
+
+# -t nseconds: Send a test message if no zephyrgrams arrive in nseconds.
+# Set to 0 to disable heartbeat checks.
+{% if heartbeat_interval | default(300) | int > 0 %}
+--heartbeat {{ heartbeat_interval | default(300) }}
+{% endif %}
+
+# -o: Run in output-only mode.
+# If true, print zephyrgrams but do not accept stdin commands.
+{% if output_only | default(False) | bool %}
+--output-only
+{% endif %}
+
+# -i: Ignore EOF on input.
+# If true, the service will not exit when input stream closes.
+{% if ignore_eof | default(False) | bool %}
+--ignore-eof
+{% endif %}
+
+# -d: Print debugging information.
+# If true, enables verbose debug output.
+{% if debug | default(False) | bool %}
+--debug
+{% endif %}

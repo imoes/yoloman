@@ -1,0 +1,55 @@
+# =============================================================================
+# QEMU User Static Configuration Template
+# =============================================================================
+# This file configures qemu-user-static to automatically register QEMU user-mode
+# interpreters with the Linux 'binfmt_misc' facility. This allows the kernel to
+# automatically invoke QEMU to execute binaries of different architectures
+# (e.g., running AArch64 binaries on an x86_64 host).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Architecture Registrations
+# -----------------------------------------------------------------------------
+# List of architecture configurations for binfmt_misc registration.
+# Each item defines how the kernel should recognize and handle a specific
+# binary format. The order is preserved from the list.
+# Fields per item:
+#   - name: Target architecture name (e.g., 'aarch64', 'armhf')
+#   - machine_type: Internal QEMU machine type identifier
+#   - endianness: Byte order flag ('B' for Big-endian, 'L' for Little-endian)
+#   - flags: Parser flags for binfmt_misc (e.g., 'PFOE')
+#   - interpreter: Absolute path to the specific QEMU static binary for this arch
+# -----------------------------------------------------------------------------
+{% for arch in (architectures | default([{'name': 'aarch64', 'machine_type': ':MM', 'endianness': ':B:', 'flags': ':PFOE', 'interpreter': '/usr/bin/qemu-aarch64-static'}])) %}
+binfmt_misc.register={{ arch.name }}:{{ arch.machine_type }}:{{ arch.endianness }}:{{ arch.flags }}:{{ arch.interpreter }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Registration Control
+# -----------------------------------------------------------------------------
+# Enable automatic registration of architectures via binfmt_misc on service start.
+# If set to 'false', the service will not write the binfmt_misc rules,
+# assuming manual registration or host-level configuration.
+# -----------------------------------------------------------------------------
+# Default: true
+register={{ register | default(True) }}
+
+# -----------------------------------------------------------------------------
+# QEMU Binary Path
+# -----------------------------------------------------------------------------
+# Path to the main qemu-user-static compatibility symlink or binary.
+# Used as the fallback interpreter if specific architecture binaries are not
+# found or if the service needs a general entry point.
+# -----------------------------------------------------------------------------
+# Default: /usr/bin/qemu-user-static
+qemu_user_static_path={{ qemu_user_static_path | default('/usr/bin/qemu-user-static') }}
+
+# -----------------------------------------------------------------------------
+# Concurrency Limit
+# -----------------------------------------------------------------------------
+# Maximum number of concurrent QEMU user-mode instances allowed.
+# This limits resource usage (CPU/Memory) during cross-compilation or emulation
+# tasks to prevent system thrashing.
+# -----------------------------------------------------------------------------
+# Default: 4
+max_instances={{ max_instances | default(4) }}

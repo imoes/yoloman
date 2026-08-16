@@ -1,0 +1,112 @@
+# ==============================================================================
+# Apache Virtual Host Configuration for Tirex Example Map
+# Generated from Ansible role template.
+# This configuration sets up an Apache VirtualHost to serve tiles using mod_tile,
+# connecting to the Tirex rendering daemon.
+# ==============================================================================
+
+# Alias: Maps a URL path to the document root directory for the example map.
+Alias /{{ tirex_alias_path | default('/tirex-example-map') }} {{ tirex_document_root | default('/usr/share/tirex/example-map') }}
+
+# Directory block: Sets access options for the document root.
+<Directory {{ tirex_document_root | default('/usr/share/tirex/example-map') }}/>
+    # Options: Enables FollowSymLinks and allows .htaccess override.
+    Options +FollowSymLinks
+    AllowOverride All
+    # Access Control: Allow access from all clients (legacy Apache 2.2 syntax preserved).
+    order allow,deny
+    allow from all
+</Directory>
+
+# Listen: Configures Apache to listen on the specified port for this virtual host.
+Listen {{ apache_listen_port | default(8083) }}
+
+<VirtualHost *:{{ apache_listen_port | default(8083) }}>
+
+    # ModTileTileDir: Specifies the directory where mod_tile stores cached tiles.
+    ModTileTileDir {{ mod_tile_tile_dir | default('/var/cache/tirex/tiles') }}
+
+    # AddTileConfig: Registers a tile set with the virtual host.
+    # First argument: URL path relative to the virtual host for serving the tile set.
+    # Second argument: Name of the tile set, used for communication with Tirex.
+    AddTileConfig {{ tileset_url_path | default('/tiles/tirex-example') }} {{ tileset_name | default('tirex-example') }}
+
+    # ModTileEnableStats: Enables or disables tile delivery statistics.
+    # On: Keep stats (may have minor performance impact).
+    # Off: Disable stats for maximum performance.
+    ModTileEnableStats {{ mod_tile_enable_stats | default('On') }}
+
+    # ModTileBulkMode: Enables bulk rendering mode.
+    # On: mod_tile does not request dirty tiles to be re-rendered; missing tiles are requested in lowest priority.
+    # Off: Normal mode, requests dirty tiles for re-rendering.
+    ModTileBulkMode {{ mod_tile_bulk_mode | default('Off') }}
+
+    # ModTileRequestTimeout: Timeout in seconds before giving up on rendering a tile.
+    ModTileRequestTimeout {{ mod_tile_request_timeout | default(0) }}
+
+    # ModTileMissingRequestTimeout: Timeout in seconds before giving up on rendering a missing tile.
+    ModTileMissingRequestTimeout {{ mod_tile_missing_request_timeout | default(60) }}
+
+    # ModTileMaxLoadOld: Load threshold above which old/outdated tiles are NOT re-rendered.
+    # If server load is above this value, users receive stale tiles instead of waiting for re-render.
+    ModTileMaxLoadOld {{ mod_tile_max_load_old | default(2) }}
+
+    # ModTileMaxLoadMissing: Load threshold above which missing tiles are NOT rendered.
+    # If server load is above this value, users receive 404 errors instead of waiting for rendering.
+    ModTileMaxLoadMissing {{ mod_tile_max_load_missing | default(5) }}
+
+    # ModTileRenderdSocketName: Socket path to connect to the Tirex rendering daemon.
+    ModTileRenderdSocketName {{ mod_tile_renderd_socket_name | default('/run/tirex/modtile.sock') }}
+
+    # ModTileCacheDurationMax: Upper bound on cache duration in seconds.
+    # Tiles will not be considered cacheable for longer than this value, regardless of other settings.
+    ModTileCacheDurationMax {{ mod_tile_cache_duration_max | default(604800) }}
+
+    # ModTileCacheDurationDirty: Cache duration in seconds for dirty/outdated tiles.
+    # These are tiles that have been requested for re-rendering but are not yet updated.
+    ModTileCacheDurationDirty {{ mod_tile_cache_duration_dirty | default(900) }}
+
+    # ModTileCacheDurationMinimum: Minimum cache duration in seconds for fresh tiles.
+    # Ensures fresh tiles are cached for at least this long to reduce server load.
+    ModTileCacheDurationMinimum {{ mod_tile_cache_duration_minimum | default(10800) }}
+
+    # ModTileCacheDurationMediumZoom: Sets caching parameters for medium zoom levels.
+    # Argument 1: Zoom level below which medium caching applies.
+    # Argument 2: Cache duration in seconds for tiles in this zoom range.
+    ModTileCacheDurationMediumZoom {{ mod_tile_cache_duration_medium_zoom_level | default(13) }} {{ mod_tile_cache_duration_medium_time | default(86400) }}
+
+    # ModTileCacheDurationLowZoom: Sets caching parameters for low zoom levels.
+    # Argument 1: Zoom level below which low caching applies.
+    # Argument 2: Cache duration in seconds for tiles in this zoom range.
+    ModTileCacheDurationLowZoom {{ mod_tile_cache_duration_low_zoom_level | default(9) }} {{ mod_tile_cache_duration_low_time | default(518400) }}
+
+    # ModTileCacheLastModifiedFactor: Factor for determining cache duration based on last modified time.
+    # If a tile hasn't changed for (LastModifiedTime * Factor), it can be cached for longer.
+    # Example: Factor 0.20, tile unchanged 5 days -> cache up to 1 day without validation.
+    ModTileCacheLastModifiedFactor {{ mod_tile_cache_last_modified_factor | default('0.20') }}
+
+    # ModTileEnableTileThrottling: Enables or disables tile request throttling.
+    # On: Throttle requests from IPs requesting excessive tiles to prevent abuse.
+    # Off: No throttling applied.
+    ModTileEnableTileThrottling {{ mod_tile_enable_tile_throttling | default('Off') }}
+
+    # ModTileEnableTileThrottlingXForward: Controls IP identification for throttling.
+    # 0: Use the connecting client IP address.
+    # 1: Use the first entry in the X-Forwarded-For header (allows proxy cascade handling).
+    ModTileEnableTileThrottlingXForward {{ mod_tile_enable_tile_throttling_xforward | default(0) }}
+
+    # ModTileThrottlingTiles: Parameters for throttling overall tile serving.
+    # Argument 1: Pool size in tiles (initial burst allowance).
+    # Argument 2: Topup rate in tiles per second.
+    ModTileThrottlingTiles {{ mod_tile_throttling_tiles_pool | default(10000) }} {{ mod_tile_throttling_tiles_rate | default(1) }}
+
+    # ModTileThrottlingRenders: Parameters for throttling render requests to Tirex.
+    # Argument 1: Pool size in tiles (initial burst allowance for render requests).
+    # Argument 2: Topup rate in tiles per second.
+    ModTileThrottlingRenders {{ mod_tile_throttling_renders_pool | default(128) }} {{ mod_tile_throttling_renders_rate | default(0.2) }}
+
+    # Block internal commands: Prevent access to dirty and status endpoints for security.
+    RedirectMatch 404 /tiles/.*/dirty
+    RedirectMatch 404 /tiles/.*/status
+
+</VirtualHost>

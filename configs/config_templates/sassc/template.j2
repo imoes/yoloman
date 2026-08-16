@@ -1,0 +1,48 @@
+# SASSC Configuration Template
+#
+# This file configures the SassC compiler (a C/C++ port of LibSass).
+# It is self-documenting: every setting includes its schema description
+# and source reference. Use it with an Ansible role that generates
+# sassc configuration for build pipelines or static site generators.
+
+# Output style. Can be: nested, expanded, compact, compressed.
+# See sassc(1) for -t, --style
+# Allowed values: nested | expanded | compact | compressed
+style: {{ style | default('nested') }}
+
+# Emit comments showing original line numbers (--line-numbers).
+# See sassc(1) for -l, --line-numbers
+line_numbers: {{ line_numbers | default(false) }}
+
+# Emit source map. Can be: auto, inline.
+# See sassc(1) for -m, --sourcemap
+# Allowed values: auto | inline
+source_map: {{ source_map | default('auto') }}
+
+# Omits the source map url comment (--omit-map-comment).
+# When enabled, no /*# sourceMappingURL=... */ comment is emitted.
+# See sassc(1) for -M, --omit-map-comment
+omit_map_comment: {{ omit_map_comment | default(false) }}
+
+# Set the precision for numbers (--precision).
+# Controls the number of decimal places for CSS numeric values.
+# See sassc(1) for -p, --precision
+precision: {{ precision | default(5) }}
+
+# Set Sass import paths (--load-path).
+# List of directory strings to search when resolving @import/@use rules.
+# See sassc(1) for -I, --load-path
+load_paths:
+{% for path in load_paths | default([]) %}
+  - {{ path }}
+{% endfor %}
+
+# Set path to autoload plugins (--plugin-path).
+# Directory containing LibSass plugin shared objects (.so/.dylib).
+# See sassc(1) for -P, --plugin-path
+plugin_path: {{ plugin_path | default('') }}
+
+# Treat input as indented syntax (Sass) (--sass).
+# When enabled, input is parsed as Sass (indented syntax) instead of SCSS.
+# See sassc(1) for -a, --sass
+disable_scss: {{ disable_scss | default(false) }}

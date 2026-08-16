@@ -1,0 +1,92 @@
+# ==============================================================================
+# maptool Configuration Template
+# ==============================================================================
+# This file configures the maptool binary to convert OSM data into Navit binfiles.
+# It is self-documenting: every parameter is described below.
+#
+# Variables used here map directly to the schema fields.
+# All variables are provided with safe defaults to prevent rendering errors
+# if the Ansible playbook does not define them.
+# ==============================================================================
+
+# Path to the input OSM data file.
+# If empty, reads from stdin.
+# Supported formats: OSM XML, PBF (Protocol Buffer), O5M.
+input_file: {{ input_file | default('/var/lib/maptool/input.osm') }}
+
+# Path to the output Navit binfile.
+# This is the compiled map data used by Navit navigation software.
+output_file: {{ output_file | default('/var/lib/maptool/mymap.bin') }}
+
+# Format of input data.
+# Valid values: 'osm' (XML), 'pbf' (Protocol Buffer), 'o5m' (O5M).
+input_format: {{ input_format | default('osm') }}
+
+# ZIP compression level for the output file (0=none, 9=best).
+# Higher levels produce smaller files but take more CPU and time.
+compression_level: {{ compression_level | default(6) }}
+
+# Enable ZIP 64 bit compression for large files.
+# Required if the output file exceeds 4GB.
+use_64bit: {{ use_64bit | default(false) }}
+
+# Limit memory for large internal buffers in bytes.
+# Default is 1GB. Adjust this if you run into memory limits on large datasets.
+slice_size: {{ slice_size | default(1073741824) }}
+
+# Maximum country index size in bytes.
+# Controls how much memory is allocated for the spatial index of countries.
+index_size: {{ index_size | default(134217728) }}
+
+# Phase number to start processing.
+# Maptool can process data in phases; 0 indicates the beginning.
+start_phase: {{ start_phase | default(0) }}
+
+# Phase number to end processing.
+# Processing stops after this phase is completed.
+end_phase: {{ end_phase | default(5) }}
+
+# Level to control which data is included in the debug attribute.
+# Higher levels include more verbose metadata for debugging purposes.
+debug_level: {{ debug_level | default(0) }}
+
+# Path to a mapping rule file.
+# Contains custom logic for transforming OSM tags into Navit attributes.
+# Empty string disables rule processing.
+rule_file: {{ rule_file | default('') }}
+
+# Ensure no duplicate ways or nodes.
+# Improves map quality by merging identical geometries and attributes.
+dedupe_ways: {{ dedupe_ways | default(true) }}
+
+# Do not delete tmp files after processing.
+# Useful for debugging intermediate steps, but consumes more disk space.
+keep_tmpfiles: {{ keep_tmpfiles | default(false) }}
+
+# Do not output ways and nodes with unknown type.
+# Filtering out unknown types reduces noise in the final map.
+ignore_unknown: {{ ignore_unknown | default(true) }}
+
+# Process only nodes.
+# Skips ways and relations, useful for specific lightweight map types.
+nodes_only: {{ nodes_only | default(false) }}
+
+# Process only ways.
+# Skips nodes and relations, useful for road network extraction.
+ways_only: {{ ways_only | default(false) }}
+
+# Add objects with unknown country to index.
+# Helps ensure that objects in unconfigured regions are still visible.
+unknown_country: {{ unknown_country | default(false) }}
+
+# Enable experimental features if available.
+# Use with caution; features may change or be removed in future versions.
+experimental: {{ experimental | default(false) }}
+
+# Dump map data to standard output in Navit textfile format.
+# Overrides output_file if true. Useful for piping to other tools.
+dump_to_stdout: {{ dump_to_stdout | default(false) }}
+
+# Dump coordinates after phase 1.
+# Outputs raw coordinate data for debugging the initial parsing stage.
+dump_coordinates: {{ dump_coordinates | default(false) }}

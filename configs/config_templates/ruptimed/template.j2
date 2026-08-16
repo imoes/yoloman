@@ -1,0 +1,48 @@
+# Ruptimed configuration file
+# This configuration controls the ruptimed daemon, which provides the "ruptime" service
+# (RFC 867) for querying system uptime across a network.
+# See ruptimed(8) for detailed command-line options and format specifications.
+
+# ---------------------------------------------------------------------------
+# spool_dir: Directory where ruptimed stores its data files containing uptime
+#            information of queried hosts. The daemon writes per-host state here.
+#            Default: /var/spool/ruptime
+# ---------------------------------------------------------------------------
+spool_dir: {{ spool_dir | default('/var/spool/ruptime') }}
+
+# ---------------------------------------------------------------------------
+# port: TCP/UDP port number for the ruptime service.
+#       The standard port for ruptime is 37. Use this to override the default.
+#       Default: 37
+# ---------------------------------------------------------------------------
+port: {{ port | default(37) }}
+
+# ---------------------------------------------------------------------------
+# bind_address: IP address to bind the server socket to.
+#               '0.0.0.0' listens on all available interfaces; specify a
+#               specific IP (e.g., 192.168.1.10) to restrict network exposure.
+#               Default: 0.0.0.0
+# ---------------------------------------------------------------------------
+bind_address: {{ bind_address | default('0.0.0.0') }}
+
+# ---------------------------------------------------------------------------
+# verbose: If true, enables verbose logging output to stderr.
+#          Useful for troubleshooting connection or parsing issues.
+#          Default: false
+# ---------------------------------------------------------------------------
+verbose: {{ verbose | default(false) }}
+
+# ---------------------------------------------------------------------------
+# allowed_hosts: List of hostnames or IP addresses allowed to connect to the
+#                service. Empty list means no restriction (allow all).
+#                Each entry appears on its own line, indented for readability.
+#                Default: [] (allow all)
+# ---------------------------------------------------------------------------
+{% if allowed_hosts is defined and allowed_hosts | length > 0 %}
+allowed_hosts:
+{% for host in allowed_hosts %}
+  - {{ host }}
+{% endfor %}
+{% else %}
+allowed_hosts: []
+{% endif %}

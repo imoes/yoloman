@@ -1,0 +1,61 @@
+# IB ACM (InfiniBand Address Configuration Manager) configuration
+# This file configures the core ibacm service and its default provider (ibacmp).
+# It manages address resolution, caching behavior, logging, and operational mode.
+
+# Path to the address configuration file containing name and address mappings
+# for each IB endpoint.
+# Schema: addr_file | default='/etc/ibacm/ibacm_addr.cfg'
+addr_file: {{ addr_file | default('/etc/ibacm/ibacm_addr.cfg') }}
+
+# Path to the option configuration file providing configurable options for
+# the core service and default provider.
+# Schema: option_file | default('/etc/ibacm/ibacm_opts.cfg'
+option_file: {{ option_file | default('/etc/ibacm/ibacm_opts.cfg') }}
+
+# Whether to run the service in daemon mode (-D) or as a standard process (-P).
+# Schema: daemon_mode | default=True
+daemon_mode: {{ daemon_mode | default(true) }}
+
+# Controls preloading of GID and LID destination caches.
+# Valid values: 'none' (default), 'full_opensm_v1'
+# Schema: route_preload | default='none'
+route_preload: {{ route_preload | default('none') }}
+
+# Controls preloading of name, IPv4, and IPv6 caches.
+# Valid values: 'none' (default), 'acm_hosts'
+# Schema: addr_preload | default='none'
+addr_preload: {{ addr_preload | default('none') }}
+
+# Path to the data file used when addr_preload is set to 'acm_hosts'.
+# This file typically contains static host mappings for name resolution.
+# Schema: addr_data_file | default='/etc/ibacm/hosts'
+addr_data_file: {{ addr_data_file | default('/etc/ibacm/hosts') }}
+
+# Log level for the ibacm service, controlling verbosity.
+# Common values: debug, info, warn, error
+# Schema: log_level | default='info'
+log_level: {{ log_level | default('info') }}
+
+# Number of retries for resolution attempts.
+# If a resolution request fails, the provider will retry this many times.
+# Schema: max_retries | default=3
+max_retries: {{ max_retries | default(3) }}
+
+# Timeout value for resolution requests in milliseconds.
+# The maximum time to wait for a response before timing out.
+# Schema: resolve_timeout | default=5000
+resolve_timeout: {{ resolve_timeout | default(5000) }}
+
+# Enable systemd socket activation for the daemon's listening socket.
+# If true, the daemon waits for systemd to activate the socket.
+# Schema: systemd_socket_activation | default=False
+systemd_socket_activation: {{ systemd_socket_activation | default(false) }}
+
+# List of back-end protocols used by the default provider ibacmp for route resolution.
+# Common values: 'sa' (Service Agent), 'multicast' (Note: multicast may not work on all topologies like torus).
+# Schema: resolution_protocols | default=['sa']
+{% set protocols = resolution_protocols | default(['sa']) %}
+resolution_protocols:
+{% for protocol in protocols %}
+- {{ protocol }}
+{% endfor %}

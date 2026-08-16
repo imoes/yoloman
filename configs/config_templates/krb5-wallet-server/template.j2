@@ -1,0 +1,42 @@
+# /etc/remctl/acl/wallet-report -- ACL for wallet reporting.
+#
+# This is the ACL controlling who can run reports against the wallet
+# database using wallet-report via remctl. This backend doesn't allow any
+# modification of data or retrieval of stored data, but does allow
+# examination of all of the metadata in the wallet database.
+#
+# Format:
+# principal_or_role action [resource]
+#
+# --- Global Settings ---
+
+# Whether to enable strict ACL checking (true/false)
+# default: true
+strict_checking {{ strict_checking | default(true) }}
+
+# Default action for unlisted principals (allow/deny)
+# default: deny
+default_action {{ default_action | default('deny') }}
+
+# --- ACL Rules ---
+# List of ACL entries. Each entry is a mapping with keys:
+# - principal: The Kerberos principal or role allowed
+# - action: The action permitted (e.g., 'run', 'view')
+# - resource: Optional resource pattern (e.g., 'wallet-report')
+{% if acl_entries is defined and acl_entries is iterable %}
+{% for entry in acl_entries | default([]) %}
+# Rule for {{ entry.principal | default('unknown') }}: allows {{ entry.action | default('run') }}
+{{ entry.principal | default('unknown') }} {{ entry.action | default('run') }} {{ entry.resource | default('wallet-report') }}
+{% endfor %}
+{% else %}
+# No ACL entries defined. Using default policy.
+{% endif %}
+
+# --- Logging ---
+# Log level (debug, info, warn, error)
+# default: info
+log_level {{ log_level | default('info') }}
+
+# Log file path
+# default: /var/log/remctl/wallet-report.log
+log_file {{ log_file | default('/var/log/remctl/wallet-report.log') }}

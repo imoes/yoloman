@@ -1,0 +1,123 @@
+# kpcli configuration file (kpcli.conf)
+#
+# This configuration file defines the default behaviour for the kpcli
+# (KeePass Command Line Interface) interactive shell.
+# All settings listed below can be overridden via command-line arguments
+# or environment variables, but defaults here are applied automatically
+# on startup.
+#
+# This template is self-documenting: every directive is preceded by
+# the schema description of the corresponding field.
+
+# Path to the KeePass database file to open by default
+# Type: string
+# Default: '/etc/kpcli/default.kdbx'
+DATABASE_FILE={{ (values | default({})).database_file | default('/etc/kpcli/default.kdbx') }}
+
+# Path to an external key file used for authentication
+# Type: string
+# Default: '' (empty — no external key file)
+# If provided, kpcli will use this key file in addition to (or instead of)
+# the database password for unlocking the KeePass database.
+KEY_FILE={{ (values | default({})).key_file | default('') }}
+
+# Path to the readline history file
+# Type: string
+# Default: '/var/lib/kpcli/.kpcli_history'
+# Stores the command history so it persists across kpcli sessions.
+HISTFILE={{ (values | default({})).histfile | default('/var/lib/kpcli/.kpcli_history') }}
+
+# Inactivity timeout in seconds before the session is locked
+# Type: integer
+# Default: 300
+# Set to 0 to disable the inactivity timeout entirely.
+# When the timeout expires, the user must re-enter the database password.
+INACTIVITY_TIMEOUT={{ (values | default({})).inactivity_timeout | default(300) }}
+
+# Use dictionary-based word generation for passwords instead of random characters
+# Type: boolean
+# Default: false
+# When enabled, generated passwords are formed from concatenated dictionary
+# words rather than random printable characters.
+PASSWORD_GENERATE_WORDS={{ (values | default({})).password_generate_words | default(false) }}
+
+# Minimum number of special characters in generated passwords
+# Type: integer
+# Default: 0
+# Applies to character-based password generation. If PASSWORD_GENERATE_WORDS
+# is true, this setting is typically ignored.
+PASSWORD_SPECIAL_MIN={{ (values | default({})).password_special_min | default(0) }}
+
+# Maximum number of special characters in generated passwords
+# Type: integer
+# Default: 0
+# Applies to character-based password generation. A value of 0 means no
+# upper limit is enforced.
+PASSWORD_SPECIAL_MAX={{ (values | default({})).password_special_max | default(0) }}
+
+# Length of generated passwords (in characters, or words if word-based)
+# Type: integer
+# Default: 12
+# Determines the size of the password to generate. When PASSWORD_GENERATE_WORDS
+# is enabled, this represents the number of words; otherwise, it is the
+# number of characters.
+PASSWORD_LENGTH={{ (values | default({})).password_length | default(12) }}
+
+# String of characters treated as special separators in shell commands
+# Type: string
+# Default: '-_'
+# These characters are recognised as special delimiters when parsing
+# kpcli command lines. Adjust if your commands use different separators.
+PASSWORD_SPECIAL_CHARS={{ (values | default({})).password_special_chars | default('-_') }}
+
+# Time in seconds to clear the clipboard after a password is copied
+# Type: integer
+# Default: 10
+# After kpcli copies a password to the system clipboard, it will be
+# cleared automatically after this many seconds to reduce exposure.
+# Set to 0 to disable automatic clearing.
+CLIPBOARD_CLEAR_SECONDS={{ (values | default({})).clipboard_clear_seconds | default(10) }}
+
+# Display asterisks instead of plain text for passwords during input
+# Type: boolean
+# Default: true
+# When enabled, kpcli masks password entry with asterisks (*).
+# When disabled, the entered password is shown in plain text.
+SHOW_PASSWORD_STARS={{ (values | default({})).show_password_stars | default(true) }}
+
+# Print the generated password to stdout after creation
+# Type: boolean
+# Default: true
+# When enabled, kpcli outputs the newly generated password to the
+# console immediately after creation, so the user can read or copy it.
+PRINT_GENERATED_PASSWORD={{ (values | default({})).print_generated_password | default(true) }}
+
+# Enable autosave / shadow copies when saving the database
+# Type: boolean
+# Default: false
+# When enabled, kpcli creates a temporary shadow copy of the database
+# before writing changes, providing a safety net against corruption.
+AUTOSAVE_ENABLED={{ (values | default({})).autosave_enabled | default(false) }}
+
+# Disable the recycle bin; deletions are permanent
+# Type: boolean
+# Default: false
+# When enabled, entries deleted from the database are permanently removed
+# without being moved to a recycle bin. Disable this setting if you
+# want the recycle bin functionality.
+DISABLE_RECYCLE_BIN={{ (values | default({})).disable_recycle_bin | default(false) }}
+
+# Open the database in read-only mode
+# Type: boolean
+# Default: false
+# When enabled, kpcli opens the KeePass database without write
+# permissions. No changes can be saved while this option is active.
+READ_ONLY_MODE={{ (values | default({})).read_only_mode | default(false) }}
+
+# Semicolon-separated list of commands to run on startup
+# Type: string
+# Default: '' (empty — no commands)
+# These commands are executed automatically when kpcli starts.
+# Separate multiple commands with semicolons (;).
+# Example: 'open mydb.kdbx;cd /Passwords/Work'
+STARTUP_COMMANDS={{ (values | default({})).startup_commands | default('') }}

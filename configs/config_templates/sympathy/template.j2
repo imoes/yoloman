@@ -1,0 +1,88 @@
+# Sympathy Server Configuration
+# Generated from sympathy(1) man page
+#
+# This configuration file controls the Sympathy server daemon. Sympathy is a
+# tool for sharing terminal sessions over a serial or network link.
+#
+# Format: key = value
+# Comments starting with # are ignored by the parser.
+
+# ==============================================================================
+# Serial Device Configuration
+# ==============================================================================
+
+# The serial device path to connect the server to (e.g., /dev/ttyS0, /dev/ttyUSB0).
+# Corresponds to the -d option.
+# Required in server mode (-s).
+device_serial_device = {{ server_serial_device | default('/dev/ttyS0') }}
+
+# The baud rate for the serial device. If omitted, the current rate of the
+# device is used.
+# Corresponds to -b baud-rate.
+device_baud_rate = {{ server_baud_rate | default(9600) }}
+
+# Enable hardware flow control (RTS/CTS) on the terminal device.
+# Corresponds to -f.
+device_flow_control = {{ server_flow_control | default(false) }}
+
+# Lock the terminal device to prevent other processes from using it.
+# Corresponds to -K.
+device_lock_device = {{ server_lock_device | default(false) }}
+
+# ==============================================================================
+# Server Socket & History
+# ==============================================================================
+
+# The filesystem path for the socket where the server listens for clients.
+# Corresponds to -k socket.
+server_socket_path = {{ server_socket_path | default('~/.sympathy/sympathy.sock') }}
+
+# Number of lines of history stored by the server to inject into client terminals.
+# Corresponds to -n nlines.
+server_history_lines = {{ server_history_lines | default(200) }}
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+
+# Path to the log file. Sympathy reopens this file on SIGHUP.
+# If set to '-', logs to stdout.
+# Corresponds to -L logfile.
+server_log_file = {{ server_log_file | default('/var/log/sympathy/sympathy.log') }}
+
+# Automatically rotate and compress log files when they grow large.
+# Corresponds to -R.
+server_rotate_logs = {{ server_rotate_logs | default(false) }}
+
+# Log errors to the system syslog.
+# Corresponds to -S.
+server_log_syslog = {{ server_log_syslog | default(false) }}
+
+# ==============================================================================
+# Process Management
+# ==============================================================================
+
+# File path to write the server process ID to.
+# Removed on clean exit.
+# Corresponds to -P pidfile.
+server_pid_file = {{ server_pid_file | default('/var/run/sympathy.pid') }}
+
+# ==============================================================================
+# Terminal Display Settings
+# ==============================================================================
+
+# Initial width of the terminal frame buffer in columns.
+# Corresponds to -w width.
+terminal_width = {{ terminal_width | default(80) }}
+
+# Initial height of the terminal frame buffer in rows.
+# Corresponds to -w height.
+terminal_height = {{ terminal_height | default(24) }}
+
+# Attempt to render Unicode characters using ISO-2202 sequences.
+# Corresponds to -u.
+terminal_unicode = {{ terminal_unicode | default(false) }}
+
+# Render the current internal frame buffer state to stdout as HTML.
+# Primarily a client/display option. Corresponds to -H.
+display_html_dump = {{ display_html_dump | default(false) }}

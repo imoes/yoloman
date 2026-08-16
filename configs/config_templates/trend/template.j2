@@ -1,0 +1,100 @@
+# trend configuration
+# Input specification: FIFO path or stdin
+input: {{ input | default('-') }}
+
+# History specification: defines the time window and horizontal resolution
+# Format: NxM (x-sz= N, hist-sz= N*M) or N/M (hist-sz=N, x-sz=N/M)
+hist_spec: {{ hist_spec | default('60x24') }}
+
+# Counting mode and number of graphs
+# Modes: a (absolute), i (incremental), d (differential)
+# Prefix with number for multiple graphs (e.g., 2a)
+counting_mode: {{ counting_mode | default('a') }}
+
+# Input format type
+# Types: a (ASCII), f (binary float), d (binary double), s (binary short), i (binary int), l (binary long)
+format_type: {{ format_type | default('a') }}
+
+# Vertical limits for auto-scaling disable
+# low: minimum Y value
+low: {{ low | default(0) }}
+# high: maximum Y value
+high: {{ high | default(100) }}
+
+# Polling rate in Hz (how often history buffer is checked)
+# Default 1000 for continuous scanning
+polling_rate: {{ polling_rate | default(1000) }}
+
+# Graph labels for multiple graphs, comma-separated
+labels: {{ labels | default('') }}
+
+# Trend colours for multiple graphs, comma-separated, hex RGB (#RRGGBB)
+trend_colours: {{ trend_colours | default('#0000FF') }}
+
+# Background colour
+background_colour: {{ background_colour | default('#000000') }}
+
+# Text/Values colour
+text_colour: {{ text_colour | default('#FFFFFF') }}
+
+# Grid colour
+grid_colour: {{ grid_colour | default('#404040') }}
+
+# Marker colour
+marker_colour: {{ marker_colour | default('#FFFF00') }}
+
+# Interactive examiner colour
+examiner_colour: {{ examiner_colour | default('#00FF00') }}
+
+# Edit mode colour
+edit_colour: {{ edit_colour | default('#FF00FF') }}
+
+# Zero line(s) Y position(s), comma-separated
+zeros: {{ zeros | default('0') }}
+
+# Grid resolution spec
+# Format: [[A][+C]][x[B][+C]] (A=y grid, B=x grid, C=major every C lines)
+grid_spec: {{ grid_spec | default('') }}
+
+# Window title
+title: {{ title | default('trend') }}
+
+# Enable dimmed shading mode
+dimmed: {{ dimmed | default(false) }}
+
+# Enable distribution graph
+distribution: {{ distribution | default(false) }}
+
+# Enable anti-aliasing
+anti_aliasing: {{ anti_aliasing | default(false) }}
+
+# Enable scrolling mode (vs wrap-around)
+scrolling: {{ scrolling | default(false) }}
+
+# Show visible values
+visible_values: {{ visible_values | default(false) }}
+
+# Show visual/max sync latency indicator
+visible_latency: {{ visible_latency | default(false) }}
+
+# Show marker
+visible_marker: {{ visible_marker | default(false) }}
+
+# Enable filling
+filling: {{ filling | default(false) }}
+
+# Show grid
+visible_grid: {{ visible_grid | default(true) }}
+
+# Show undefined values
+show_undefined: {{ show_undefined | default(false) }}
+
+# Enable escape sequences
+escape_sequences: {{ escape_sequences | default(false) }}
+
+# Command line flags summary
+# -dDSsvlmFgGhtAERIMNTLzfcpue
+flags: "-{{ 'd' if dimmed else '' }}{{ 'D' if distribution else '' }}{{ 'S' if anti_aliasing else '' }}{{ 's' if scrolling else '' }}{{ 'v' if visible_values else '' }}{{ 'l' if visible_latency else '' }}{{ 'm' if visible_marker else '' }}{{ 'F' if filling else '' }}{{ 'g' if visible_grid else '' }}{{ 'z' }}{{ zeros | join(',') }}{{ 'u' if show_undefined else '' }}{{ 'e' if escape_sequences else '' }}"  
+
+# Full command invocation
+command: trend {{ input }} {{ hist_spec }} -c{{ counting_mode }} -f{{ format_type }} -p{{ polling_rate }}{{ ' -t' + title }}{{ ' -A' + background_colour }}{{ ' -E' + text_colour }}{{ ' -R' + grid_colour }}{{ ' -I' + trend_colours | join(',') }}{{ ' -M' + marker_colour }}{{ ' -N' + examiner_colour }}{{ ' -T' + edit_colour }}{{ ' -L' + labels | join(',') }}{{ ' -z' + zeros | join(',') }}{{ ' -G' + grid_spec }}{{ ' -' + 'dDSSsvlmFgGzue' | replace('d', 'd' if dimmed else '') | replace('D', 'D' if distribution else '') | replace('S', 'S' if anti_aliasing else '') | replace('s', 's' if scrolling else '') | replace('v', 'v' if visible_values else '') | replace('l', 'l' if visible_latency else '') | replace('m', 'm' if visible_marker else '') | replace('F', 'F' if filling else '') | replace('g', 'g' if visible_grid else '') | replace('z', '') | replace('u', 'u' if show_undefined else '') | replace('e', 'e' if escape_sequences else '') }}

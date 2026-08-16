@@ -1,0 +1,27 @@
+; MailAliases -- nmh global aliases file
+;
+; This file is used to define aliases that are valid for all mh users.
+; This file is almost empty as MH now supports personal aliases.
+;
+; If you need to define system wide aliases such as "everyone", it is
+; preferable that this be done as the mail transport level, so that they
+; will be valid for users of other mail clients.
+
+; Global aliases list.
+; Each line should be in the format: alias_name: target_address
+{% if aliases is defined and aliases is iterable %}
+{# Iterate over the list of alias dictionaries or strings #}
+{% for alias in aliases %}
+{# Handle both dict-style {'name': 'val'} and simple string aliases #}
+{% if alias is mapping %}
+{% for name, value in alias | dict2items %}
+{{ name }}: {{ value }}
+{% endfor %}
+{% else %}
+; {{ alias }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+; Default alias for "everyone" to expand to all users (optional)
+; everyone: *

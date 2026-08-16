@@ -1,0 +1,58 @@
+# =============================================================================
+# netwox Configuration & Execution Script
+# =============================================================================
+#
+# This template generates a shell script that executes a series of netwox
+# network diagnostic/attack tools based on the provided 'tasks' list.
+#
+# Each task corresponds to a specific netwox utility (identified by its
+# numeric tool_number) and defines how it should be invoked (run, help, etc.).
+#
+# The generated script is safe to source or execute in a POSIX-compliant shell.
+# =============================================================================
+
+{% set tasks_list = tasks | default([], true) %}
+{% if tasks_list | length > 0 %}
+# ------------------------------------------------------------------------------
+# Task Definitions
+# ------------------------------------------------------------------------------
+# The following block iterates over the 'tasks' list. If the variable is
+# undefined or empty, this section is skipped.
+
+{% for task in tasks_list %}
+# ------------------------------------------------------------------------------
+# Task: {{ task.name | default('unnamed_task') }}
+# ------------------------------------------------------------------------------
+# Purpose: Execute or inspect netwox tool {{ task.tool_number }}.
+# Action : {{ task.action | default('run') }}
+# Extended: {% if task.extended | default(false) %}Yes (-e flag){% else %}No{% endif %}
+# Params : {{ task.parameters | default([]) | join(' ') }}
+
+{% set action = task.action | default('run') %}
+{% set tool_num = task.tool_number | default(1) %}
+{% set extended_flag = task.extended | default(false) %}
+{% set params = task.parameters | default([]) %}
+
+{% if action == 'help' %}
+# Show simple help for netwox tool number {{ tool_num }}
+netwox {{ tool_num }} --help
+
+{% elif action == 'help2' %}
+# Show extended help for netwox tool number {{ tool_num }}
+netwox {{ tool_num }} --help2
+
+{% elif action == 'run' %}
+# Execute netwox tool number {{ tool_num }}
+# Flags : {% if extended_flag %}-e{% endif %}
+# Args  : {{ params | join(' ') }}
+netwox {{ tool_num }} {% if extended_flag %}-e{% endif %} {{ params | join(' ') | trim }}
+{% else %}
+# WARNING: Unknown action '{{ action }}' for task '{{ task.name }}'. Skipping.
+# Valid actions are: run, help, help2.
+{% endif %}
+
+{% endfor %}
+{% else %}
+# No tasks defined in 'tasks'. The configuration is empty.
+# Add tasks to the inventory variable to generate commands.
+{% endif %}

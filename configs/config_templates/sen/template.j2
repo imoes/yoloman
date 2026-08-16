@@ -1,0 +1,69 @@
+# ==============================================================================
+# SEN (Smart Event Notification) Configuration Template
+# ==============================================================================
+# This template configures the SEN daemon (often used for mail queue monitoring
+# or generic event notification). As the provided schema is empty, this
+# configuration uses safe, minimal defaults suitable for a basic standalone
+# instance.
+#
+# Self-Documenting Principles:
+# - Every directive is preceded by a comment describing its function.
+# - All Jinja2 variables use the `default()` filter with safe fallbacks to prevent
+#   rendering errors if variables are undefined.
+# - No complex logic is applied; structure mirrors standard INI-style configuration.
+# ==============================================================================
+
+# --- Global Settings ---
+
+[global]
+# Path to the directory where SEN stores its runtime data, logs, or temporary files.
+# Default: /var/lib/sen
+datadir = {{ sen_datadir | default('/var/lib/sen') }}
+
+# Path to the configuration log file.
+# Default: /var/log/sen/sen.log
+logfile = {{ sen_logfile | default('/var/log/sen/sen.log') }}
+
+# Logging level: debug, info, warn, error, fatal.
+# Default: info
+loglevel = {{ sen_loglevel | default('info') }}
+
+# Daemon mode: if true, SEN runs in the background as a daemon.
+# Default: true
+daemonize = {{ sen_daemonize | default(true) }}
+
+# PID file path to store the process ID.
+# Default: /var/run/sen.pid
+pidfile = {{ sen_pidfile | default('/var/run/sen.pid') }}
+
+# --- Network/Notification Settings ---
+
+[notification]
+# The host address to bind to or connect to for notification services.
+# Default: 127.0.0.1
+bind_address = {{ sen_bind_address | default('127.0.0.1') }}
+
+# The port number for the notification service.
+# Default: 8080
+port = {{ sen_port | default(8080) }}
+
+# --- Backend/Integration Settings ---
+
+# If SEN is configured to monitor a specific queue or service, this field
+# defines the connection string or host.
+# Default: (empty)
+backend_host = {{ sen_backend_host | default('') }}
+
+# --- Security ---
+
+# Enable TLS/SSL for connections.
+# Default: false
+ssl_enabled = {{ sen_ssl_enabled | default(false) }}
+
+# Path to the SSL certificate file.
+# Default: (empty)
+ssl_cert = {{ sen_ssl_cert | default('') }}
+
+# Path to the SSL private key file.
+# Default: (empty)
+ssl_key = {{ sen_ssl_key | default('') }}

@@ -1,0 +1,90 @@
+# StegCracker Configuration Template
+#
+# This template generates the command-line invocation for stegcracker, a steganography
+# password cracker. It reads configuration from Ansible variables and constructs the
+# final execution line.
+#
+# Self-Documenting Notes:
+# - All variables use the `default()` filter to ensure safe rendering even if undefined.
+# - Boolean flags (quiet/verbose) are handled via Jinja2 logic to produce correct CLI args.
+# - The `output_file` logic handles the empty-string default case as per stegcracker behavior.
+
+# Path to the image or audio file suspected of containing hidden data.
+# Must be jpg, jpeg, bmp, wav, or au.
+# Default: /var/lib/stegcracker/input.bmp
+FILE: {{ file_path | default('/var/lib/stegcracker/input.bmp') }}
+
+# Path to the wordlist file containing candidate passwords, one per line.
+# Default: /usr/share/wordlists/rockyou.txt
+WORDLIST: {{ wordlist | default('/usr/share/wordlists/rockyou.txt') }}
+
+# Path where the decrypted secret will be written.
+# If empty, stegcracker writes to <input_file>.out automatically.
+# Default: '' (empty)
+OUTPUT_FILE: {{ output_file | default('') }}
+
+# Number of concurrent threads for parallel processing.
+# Higher values may improve performance on multi-core systems.
+# Default: 16
+THREADS: {{ threads | default(16) }}
+
+# Number of passwords loaded into memory per thread cycle.
+# Tuning this can optimize memory usage vs throughput.
+# Default: 64
+CHUNK_SIZE: {{ chunk_size | default(64) }}
+
+# If true, runs in quiet mode suppressing status updates.
+# Mutually exclusive with verbose.
+# Default: false
+QUIET: {{ quiet | default(false) }}
+
+# If true, runs in verbose mode printing debugging info.
+# Mutually exclusive with quiet.
+# Default: false
+VERBOSE: {{ verbose | default(false) }}
+
+# ------------------------------------------------------------------
+# Command Execution Line Construction
+# ------------------------------------------------------------------
+
+# Determine the output flag based on the 'output_file' setting.
+# If output_file is provided, use -o <path>; otherwise, omit the flag
+# to let stegcracker use its default <input>.out behavior.
+{% set output_path = (output_file | default('')) | trim %}
+{% if output_path | length > 0 %}
+OUTPUT_FLAG: -o {{ output_path }}
+{% else %}
+OUTPUT_FLAG:
+{% endif %}
+
+# Construct the thread size flag if it differs from the default (64).
+# This reduces noise when defaults are used, but always includes it
+# for explicit clarity if desired. Here we include it always to
+# ensure the configuration intent is visible.
+THREAD_FLAG: --threads {{ threads | default(16) }}
+CHUNK_FLAG: --chunk-size {{ chunk_size | default(64) }}
+
+# Handle mutually exclusive flags.
+# stegcracker does not support both --quiet and --verbose simultaneously.
+# If both are true, --quiet takes precedence (or either, depending on CLI parsing order).
+# We output the flags explicitly. If both are present, the CLI tool will likely error
+# or ignore one; here we document the precedence.
+{% if verbose | default(false) %}
+VERBOSE_FLAG: --verbose
+{% else %}
+VERBOSE_FLAG:
+{% endif %}
+
+{% if quiet | default(false) %}
+QUIET_FLAG: --quiet
+{% else %}
+QUIET_FLAG:
+{% endif %}
+
+# ------------------------------------------------------------------
+# Final Command
+# ------------------------------------------------------------------
+
+# The full command line constructed from the configuration parameters.
+# Order: stegcracker [output_flag] [thread_flag] [chunk_flag] [verbose_flag] [quiet_flag] [file] [wordlist]
+CMD: stegcracker {{ (OUTPUT_FLAG | default('')) | trim }} {{ (THREAD_FLAG | default('')) | trim }} {{ (CHUNK_FLAG | default('')) | trim }} {{ (VERBOSE_FLAG | default('')) | trim }} {{ (QUIET_FLAG | default('')) | trim }} {{ (FILE | default('')) | trim }} {{ (WORDLIST | default('')) | trim }}
