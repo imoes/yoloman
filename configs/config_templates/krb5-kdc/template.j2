@@ -3,7 +3,7 @@
 # Provides:             krb5-kdc
 # Required-Start:       $local_fs $remote_fs $network $syslog
 # Required-Stop:        $local_fs $remote_fs $network $syslog
-# X-Start-Before: $x-display-manager
+# X-Start-Before: $x-display-manager                                           
 # Default-Start:        2 3 4 5
 # Default-Stop:         0 1 6
 # Short-Description:    MIT Kerberos KDC
@@ -24,10 +24,12 @@ NAME=krb5kdc
 DAEMON=/usr/sbin/$NAME
 
 # DAEMON_ARGS: Additional arguments to pass to the krb5kdc daemon via DAEMON_ARGS.
+# See kdc_daemon_args schema field for configuration.
 DAEMON_ARGS="{{ kdc_daemon_args | default('') }}"
 
 # PIDFILE: Path to the PID file used for tracking the KDC process.
-PIDFILE="{{ kdc_pidfile | default('/var/run/krb5kdc.pid') }}"
+# See kdc_pidfile schema field for configuration.
+PIDFILE={{ kdc_pidfile | default('/var/run/krb5kdc.pid') }}
 
 SCRIPTNAME=/etc/init.d/krb5-kdc
 
@@ -72,7 +74,7 @@ do_stop_kdc()
 }
 
 
-case "$1" in
+case "$1" in 
   start)
     [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
     do_start_kdc
@@ -107,8 +109,8 @@ case "$1" in
         do_start_kdc
         case "$?" in
           0)
-	    log_end_msg 0
-	    ;;
+	  log_end_msg 0
+	  ;;
           1|2)
             log_end_msg 1
             ;;
