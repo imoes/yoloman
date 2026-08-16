@@ -27,6 +27,16 @@ interface DevRow {
   depth: number;
 }
 
+/** One entry of /proc/swaps, as the agent's `swap` module reports it. Sizes are KiB because that
+ * is what the kernel prints; the card converts for display rather than the module guessing a unit. */
+interface SwapArea {
+  name: string;
+  type: string;
+  size_kb: number;
+  used_kb: number;
+  priority: number;
+}
+
 /** Block J4d, Cockpit-adaptation — the Storage section rebuilt like Cockpit's
  * storaged (../cockpit/pkg/storaged): a single hierarchical device table
  * (disk → partition → LVM → filesystem) with per-filesystem usage bars, and
@@ -97,6 +107,57 @@ interface DevRow {
             </table>
           }
         </section>
+
+        <!-- Swap. Its own card rather than rows in the fstab table: an fstab line is the
+             PERSISTENCE of a swap area, not the area itself. A line can exist with no active
+             swap (never mkswap'd) and an area can be active with no line (gone after reboot),
+             so showing them as one thing would let the UI claim a state the host does not have.
+             The note under the table says which of the two this card changes. -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Swap</h3>
+            <span class="bm-spacer"></span>
+            @if (swapMsg()) { <span class="bm-svc-ok">{{ swapMsg() }}</span> }
+            @if (swapErr()) { <span class="bm-svc-err">{{ swapErr() }}</span> }
+          </header>
+          <table class="bm-ct">
+            <thead><tr><th>Area</th><th>Type</th><th>Size</th><th>Used</th><th>Priority</th><th></th></tr></thead>
+            <tbody>
+              @for (a of swapAreas(); track a.name) {
+                <tr>
+                  <td class="bm-mono">{{ a.name }}</td>
+                  <td>{{ a.type }}</td>
+                  <td>{{ mib(a.size_kb) }}</td>
+                  <td>{{ mib(a.used_kb) }}</td>
+                  <td>{{ a.priority }}</td>
+                  <td class="bm-right">
+                    <button mat-icon-button class="bm-danger" [disabled]="swapBusy()"
+                            (click)="removeSwap(a)" title="Swap off (the file is kept)">
+                      <mat-icon>delete</mat-icon></button>
+                  </td>
+                </tr>
+              }
+              @if (!swapAreas().length) { <tr><td colspan="6" class="bm-empty">No swap is active.</td></tr> }
+            </tbody>
+          </table>
+          <div class="bm-swap-add">
+            <input class="bm-fi bm-fi-wide" placeholder="/swapfile" [value]="newSwapPath()"
+                   (input)="newSwapPath.set($any($event.target).value)" />
+            <input class="bm-fi bm-fi-sm" placeholder="2G" [value]="newSwapSize()"
+                   (input)="newSwapSize.set($any($event.target).value)" />
+            <input class="bm-fi bm-fi-xs" placeholder="prio" [value]="newSwapPrio()"
+                   (input)="newSwapPrio.set($any($event.target).value)" />
+            <button mat-stroked-button [disabled]="swapBusy() || !newSwapPath() || !newSwapSize()"
+                    (click)="addSwap()">{{ dryRun() ? 'Preview' : 'Add swap file' }}</button>
+          </div>
+          @if (swapSteps().length) {
+            <p class="bm-swap-note">Would run: <span class="bm-mono">{{ swapSteps().join(' → ') }}</span></p>
+          }
+          <p class="bm-swap-note">
+            This card manages the RUNNING swap only. To survive a reboot the area also needs a line
+            in <span class="bm-mono">/etc/fstab</span> — add it in Mounts above
+            (<span class="bm-mono">type swap</span>, mount point <span class="bm-mono">none</span>).
+          </p>
+        </section>
       }
     </div>
   `,
@@ -107,6 +168,8 @@ interface DevRow {
       .bm-topbar { display: flex; align-items: center; gap: 12px; }
       .bm-spacer { flex: 1; }
       .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow: hidden; background: var(--mat-sys-surface); }
+      .bm-swap-add { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-swap-note { margin: 0; padding: 0 14px 10px; font-size: 12px; opacity: 0.7; }
       .bm-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
       .bm-na { color: var(--mat-sys-on-surface); opacity: 0.5; font-size: 12px; }
@@ -223,6 +286,75 @@ export class HostStorageComponent {
       error: (e) => { this.loading.set(false); this.loaded.set(true); this.loadErr.set(e?.error?.detail ?? 'failed to load storage'); },
     });
     this.loadFstab();
+    this.loadSwap();
+  }
+
+  // ---- Swap ----------------------------------------------------------------
+  // The agent's `swap` module owns the RUNNING area (create → mkswap → swapon); the fstab line is
+  // the config module's job. Keeping them apart here mirrors that: two truths that can legitimately
+  // disagree must not be shown as one row.
+  swapAreas = signal<SwapArea[]>([]);
+  swapBusy = signal(false);
+  swapMsg = signal('');
+  swapErr = signal('');
+  swapSteps = signal<string[]>([]);
+  newSwapPath = signal('/swapfile');
+  newSwapSize = signal('2G');
+  newSwapPrio = signal('');
+
+  /** KiB → a size a human reads. The module reports KiB because /proc/swaps does. */
+  mib(kb: number): string {
+    if (kb >= 1024 * 1024) return (kb / 1024 / 1024).toFixed(1) + ' GiB';
+    return Math.round(kb / 1024) + ' MiB';
+  }
+
+  private loadSwap(): void {
+    // Read-only, so it works on a write-gated host too. An old agent without the module just
+    // leaves the card empty rather than showing an error the operator cannot act on.
+    this.agentService.callTool(this.agentId(), 'swap', {}).subscribe({
+      next: (r: any) => this.swapAreas.set(r?.result?.data?.areas ?? []),
+      error: () => this.swapAreas.set([]),
+    });
+  }
+
+  addSwap(): void {
+    this.swapBusy.set(true);
+    this.swapMsg.set('');
+    this.swapErr.set('');
+    this.swapSteps.set([]);
+    const params: Record<string, unknown> = {
+      path: this.newSwapPath().trim(), size: this.newSwapSize().trim(), state: 'present',
+    };
+    const prio = parseInt(this.newSwapPrio(), 10);
+    if (!isNaN(prio)) params['priority'] = prio;
+    this.tool('swap', params).subscribe({
+      next: (r: any) => {
+        this.swapBusy.set(false);
+        // The module returns the steps it took (or would take), so a preview says exactly what an
+        // Apply will do instead of leaving the operator to guess.
+        this.swapSteps.set(r?.result?.data?.steps ?? []);
+        this.swapMsg.set(r?.result?.msg ?? (this.dryRun() ? 'previewed' : 'applied'));
+        if (!this.dryRun()) this.loadSwap();
+      },
+      error: (e) => { this.swapBusy.set(false); this.swapErr.set(e?.error?.detail ?? 'failed'); },
+    });
+  }
+
+  removeSwap(a: SwapArea): void {
+    this.swapBusy.set(true);
+    this.swapMsg.set('');
+    this.swapErr.set('');
+    this.swapSteps.set([]);
+    // remove_file is deliberately NOT sent: swapping off is reversible, deleting is not, and a
+    // delete button in a table row is too easy to hit for something unrecoverable.
+    this.tool('swap', { path: a.name, state: 'absent' }).subscribe({
+      next: (r: any) => {
+        this.swapBusy.set(false);
+        this.swapMsg.set(r?.result?.msg ?? 'swapped off');
+        if (!this.dryRun()) this.loadSwap();
+      },
+      error: (e) => { this.swapBusy.set(false); this.swapErr.set(e?.error?.detail ?? 'failed'); },
+    });
   }
 
   /** Load /etc/fstab from the observed state (decoded to entries by the fstab
