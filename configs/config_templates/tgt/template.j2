@@ -1,26 +1,16 @@
-# =============================================================================
-# TGT (Target) Configuration
-# =============================================================================
-# This file serves as the main entry point for TGT configuration.
-# It includes individual target definitions from a specified directory.
-#
-# To configure SCSI targets (LUNs, iSCSI portals, etc.), create .conf files
-# in the directory defined by `conf_dir` below.
-# =============================================================================
+# TGT (Target Generic Framework) configuration template.
+# This file serves as the entry point for TGT's iSCSI target configuration.
+# Actual target definitions should be placed in separate files within the
+# configuration directory, which are then included via the glob pattern below.
 
-# -----------------------------------------------------------------------------
-# conf_dir
 # Directory where individual configuration snippets are placed.
-# TGT scans this directory for files to include in the configuration.
-# -----------------------------------------------------------------------------
-{% set _conf_dir = conf_dir | default('/etc/tgt/conf.d') %}
+# TGT looks for .conf files in this directory to define storage targets.
+# Default: /etc/tgt/conf.d
+conf_dir {{ conf_dir | default('/etc/tgt/conf.d') }}
 
-# -----------------------------------------------------------------------------
-# include_pattern
 # Glob pattern for including configuration files from the conf_dir.
-# Defaults to all .conf files in the conf_dir.
-# -----------------------------------------------------------------------------
-{% set _include_pattern = include_pattern | default('/etc/tgt/conf.d/*.conf') %}
-
-# Include all configuration snippets matching the pattern
-include {{ _include_pattern }}
+# Any file matching this pattern will be parsed and included into the
+# active TGT configuration. This allows modular management of multiple
+# storage targets.
+# Default: /etc/tgt/conf.d/*.conf
+include {{ include_pattern | default('/etc/tgt/conf.d/*.conf') }}
