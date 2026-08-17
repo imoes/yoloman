@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity
 from bossman.db.models import Agent, HostGroup, HostGroupMember, OUNode
 from bossman.db.session import get_session
-from bossman.services import host_membership
+from bossman.services import host_membership, ou_placement
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,13 @@ async def update_host_group(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     group.description = body.description
+    # Refused before the write, not reported after it: an OU placement that contradicts a member's
+    # own OU puts two unorderable claims about one host in the tree, and GPO has nothing to resolve
+    # them with (its precedence is depth along ONE path). See services/ou_placement.
+    conflicts = await ou_placement.conflicts_for_group_ou(session, group, body.ou_id)
+    if conflicts:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=ou_placement.as_detail(conflicts))
     group.ou_id = body.ou_id
     try:
         await session.commit()
@@ -136,6 +143,11 @@ async def patch_host_group(
     if body.ou_id is not None:
         if await session.get(OUNode, body.ou_id) is None:
             raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+        # Same check as PUT. This is the drag-to-link gesture in the OU palette, i.e. the EASIEST
+        # way to create the contradiction — guarding only the form would leave the gesture open.
+        conflicts = await ou_placement.conflicts_for_group_ou(session, group, body.ou_id)
+        if conflicts:
+            raise HTTPException(status_code=409, detail=ou_placement.as_detail(conflicts))
         group.ou_id = body.ou_id
     await session.commit()
     return await _to_out(session, group)
