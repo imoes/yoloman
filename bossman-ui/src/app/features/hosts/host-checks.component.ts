@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
@@ -16,7 +17,8 @@ import { AgentService } from '../../core/services/agent.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { ServiceChecksComponent } from './management/service-checks/service-checks.component';
 import { serviceStateBadge } from '../../shared/status.util';
-import { formatMetricValue } from '../../shared/format.util';
+import { formatMetricValue, serviceMetricSpec } from '../../shared/format.util';
+import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 
 /** One row of the persisted discovery result (Checkmk's autochecks). */
 interface DiscoRow {
@@ -44,7 +46,7 @@ interface DiscoRow {
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent, ServiceChecksComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent, ServiceChecksComponent, MatDialogModule],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
@@ -278,8 +280,11 @@ interface DiscoRow {
       </p>
       <p class="bm-dim bm-svc-note">
         From threshold rules + the agent's built-in metrics — distinct from the assigned checks above.
-        Edit thresholds in <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>; full detail on the
-        <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab.
+        <b>Click a threshold to change it for this host</b> — the same editor the
+        <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab
+        opens, reached from here so a value you are looking at is a value you can edit. Setting it
+        for MANY hosts is a different scope, not a different editor:
+        <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>.
       </p>
       @if (services().length) {
         <div class="bm-group">
@@ -294,12 +299,19 @@ interface DiscoRow {
                   <!-- WHY is this row WARN/CRIT? A state without its threshold is an
                        assertion without a reason. The API already ships it
                        (ServiceOut.warn/crit_threshold + comparison). -->
-                  <td class="bm-thr" [title]="thresholdHint(s)">
-                    @if (s.warn_threshold != null || s.crit_threshold != null) {
-                      <span class="bm-mono">{{ thresholdText(s) }}</span>
-                    } @else {
-                      <span class="bm-dim">—</span>
-                    }
+                  <!-- The threshold is editable HERE, not only two screens away. It is the same
+                       ThresholdDialogComponent the Services tab opens and the same createCheckRule
+                       behind it: two entry points, ONE editor. Two editors for one value would be
+                       the actual mistake — this is a second door, not a second room. -->
+                  <td class="bm-thr">
+                    <button class="bm-thr-btn" [title]="thresholdHint(s) || 'Set a warn/crit threshold for this service on this host'"
+                            (click)="editThreshold(s)">
+                      @if (s.warn_threshold != null || s.crit_threshold != null) {
+                        <span class="bm-mono">{{ thresholdText(s) }}</span>
+                      } @else {
+                        <span class="bm-thr-none">set…</span>
+                      }
+                    </button>
                   </td>
                   <td class="bm-dim bm-mono">{{ s.metric }}</td>
                   <td class="bm-svc-actions">
@@ -325,6 +337,13 @@ interface DiscoRow {
          LOOK different — an unnoticed missing service is the failure this section
          exists to prevent. */
       .bm-thr { font-size: 12px; white-space: nowrap; opacity: 0.85; }
+      /* The threshold reads as text until hovered, then as the control it is: a table full of
+         buttons is noise, but a value you can change must not look inert either. */
+      .bm-thr-btn { font: inherit; color: inherit; background: none; border: 1px solid transparent;
+        border-radius: 5px; padding: 2px 6px; cursor: pointer; text-align: left; }
+      .bm-thr-btn:hover, .bm-thr-btn:focus-visible { border-color: var(--mat-sys-outline-variant);
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-thr-none { opacity: 0.5; font-style: italic; }
       .bm-disco-sub { font-weight: 400; font-size: 12px; margin-left: 8px; }
       .bm-disco-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
       .bm-disco-tab { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 20px;
@@ -394,6 +413,7 @@ interface DiscoRow {
 export class HostChecksComponent {
   private checkService = inject(CheckService);
   private monitoringService = inject(MonitoringService);
+  private dialog = inject(MatDialog);
   private agentService = inject(AgentService);
   agent = input.required<Agent>();
   /** F-4 bridge: the monitoring services actually active on this host (from
@@ -499,6 +519,14 @@ export class HostChecksComponent {
     this.monitoringService.deleteService(s.id).subscribe({
       next: () => { this.deleting.set(null); this.services.update((list) => list.filter((x) => x.id !== s.id)); },
       error: (e) => { this.deleting.set(null); this.fail(e); },
+    });
+  }
+
+  /** Just the service states — a threshold change does not alter the assigned checks or the
+   * catalog, so reloading all four lists would be noise. */
+  private refreshServices(): void {
+    this.monitoringService.agentServices(this.agent().id).subscribe({
+      next: (v) => this.services.set(v ?? []), error: () => this.services.set([]),
     });
   }
 
@@ -772,4 +800,40 @@ export class HostChecksComponent {
       error: (e) => this.fail(e),
     });
   }
+  /** Second entry point to the threshold editor — the FIRST is the Services tab row.
+   *
+   * Two doors, one editor: this opens the very ThresholdDialogComponent the Services tab opens and
+   * posts through the same createCheckRule. That distinction matters. Two entry points to one
+   * editor is navigation, and it is what makes a value you are looking at a value you can change.
+   * Two DIFFERENT editors for one threshold would be the defect — they could disagree, and the
+   * operator would have no way to tell which one won.
+   *
+   * Before this, the cell showed the threshold and the caption told you to go to OU / Policy or the
+   * Services tab: the reason a row is WARN was on screen while the only way to act on it was not.
+   */
+  editThreshold(s: ServiceState): void {
+    const spec = serviceMetricSpec(s.name, s.metric);
+    const ref = this.dialog.open(ThresholdDialogComponent, {
+      width: 'min(880px, 94vw)',
+      maxWidth: '94vw',
+      data: {
+        hostName: this.agent().name,
+        serviceName: s.name,
+        // A disk service carries its mount in the name ("Disk /var"); serviceMetricSpec splits that
+        // out so the rule is scoped to THAT mount instead of every disk on the host.
+        metric: spec?.members[0] ?? s.metric ?? '',
+        labelValue: spec?.mount ?? null,
+      },
+    });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      // Reload the service list either way: on success the new grading must be visible, and on
+      // failure the row must still show what the host actually has rather than the value we tried.
+      this.monitoringService.createCheckRule(input).subscribe({
+        next: () => this.refreshServices(),
+        error: () => this.refreshServices(),
+      });
+    });
+  }
+
 }

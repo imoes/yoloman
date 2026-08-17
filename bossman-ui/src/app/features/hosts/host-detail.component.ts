@@ -6,7 +6,7 @@ import { ProvisionDbDialogComponent } from './provision-db-dialog.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
-import { formatBytes, formatMetricValue, thresholdContext } from '../../shared/format.util';
+import { formatBytes, formatMetricValue, serviceMetricSpec, thresholdContext } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -100,38 +100,6 @@ const COMBINED_GRAPHS: string[][] = [
 
 function familyMembers(metric: string): string[] {
   return COMBINED_GRAPHS.find((f) => f.includes(metric)) ?? [metric];
-}
-
-/** Where an agent-reported check's chart data comes from. Agent checks carry
- * an empty `metric` (their state arrives pre-computed), so we map the check by
- * name onto the real telemetry metric(s) it grades — otherwise the service
- * detail chart has nothing to plot ("no data"). Disk checks additionally pin
- * a mount, since all mounts share the one `disk_used_pct` series. */
-function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string; perLabel?: string; fallback?: string; labelKey?: string; labelValue?: string } | null {
-  // CPU utilization: one line PER CORE (cpu_core_pct{core=N}), falling back to
-  // the aggregate cpu_pct on a single-core host / older agent.
-  if (name === 'CPU load' || metric === 'cpu_pct') return { members: ['cpu_core_pct'], perLabel: 'core', fallback: 'cpu_pct' };
-  // A "Disk <mount>" service MUST pin its mount, and this has to be tested BEFORE
-  // the generic `metric` branch below. Every mount shares the one `disk_used_pct`
-  // series (distinguished only by the `mount` label), so returning the bare metric
-  // dropped the mount and the chart drew every filesystem overlaid — nine lines
-  // under a single legend entry, filling in as one solid block. The Disk branch
-  // used to sit after `if (metric)` and was therefore unreachable for any service
-  // that carries a metric, which these do.
-  // The leading slash matters: "Disk IOPS" is a service, not a mount point.
-  if (name.startsWith('Disk /')) return { members: ['disk_used_pct'], mount: name.slice('Disk '.length) };
-  // A per-interface lnx_if service ("Interface ens18"): its throughput lives in
-  // the agent's net_rx_bytes/net_tx_bytes telemetry, labelled by `iface` — the
-  // check itself only grades link state, so without this the service charts
-  // nothing. Same shape as the disk-mount pin, on the `iface` label.
-  if (name.startsWith('Interface ')) {
-    return { members: ['net_rx_bytes', 'net_tx_bytes'], labelKey: 'iface', labelValue: name.slice('Interface '.length) };
-  }
-  if (metric) return { members: [metric] };
-  if (name === 'CPU load') return { members: ['cpu_load1', 'cpu_load5', 'cpu_load15'] };
-  if (name === 'Memory') return { members: ['mem_used_pct'] };
-  if (name === 'Uptime') return { members: ['uptime_seconds'] };
-  return null;
 }
 
 @Component({
