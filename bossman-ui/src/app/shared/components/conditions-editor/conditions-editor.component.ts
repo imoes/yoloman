@@ -42,9 +42,9 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
   { v: 'host_label', label: 'Host label', hasKey: true, keyPh: 'label key' },
   { v: 'host_name', label: 'Host name', hasKey: false },
   { v: 'host_folder', label: 'Host folder (OU)', hasKey: false },
-  // Next to the OU on purpose: an OU scope plus a group condition is the AND an operator wants
-  // ("everything in Europe that is also a webserver"), and reading them side by side says so.
-  { v: 'host_group', label: 'Host group', hasKey: false },
+  // 'host_group' is deliberately NOT a row here: it is the "Applies to" control at the top of the
+  // editor. Offering it in both places would be two controls writing one field inside one dialog,
+  // where a reader cannot tell which of them is in force.
   { v: 'service_name', label: 'Service name', hasKey: false },
   { v: 'service_label', label: 'Service label', hasKey: true, keyPh: 'label key' },
 ];
@@ -62,8 +62,43 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
   imports: [FormsModule, MatIconModule, MatButtonModule],
   template: `
     <div class="bm-cond">
+      <!-- SECURITY FILTERING, the way Windows does it: a rule is linked to a scope (OU/site/global)
+           and then narrowed to a set of hosts. AD narrows by security PRINCIPAL; we apply config as
+           root, so there is no user identity to filter on and the equivalent lever is the host set.
+
+           This writes conditions.host_groups — the SAME field the matcher reads. It is not a new
+           column and not a second representation: "all" is that key being absent. A separate
+           separate filter FIELD would have been two sources for one fact that must be kept in sync,
+           which is the defect this codebase keeps paying off. The advanced list below no longer
+           offers a "Host group" row for exactly that reason: one fact, one control. -->
+      <div class="bm-filt">
+        <span class="bm-cond-h">Applies to</span>
+        <label class="bm-filt-opt">
+          <input type="radio" name="bm-filt" [checked]="!groupFilter().length"
+                 (change)="setFilterMode('all')" /> All hosts in scope
+        </label>
+        <label class="bm-filt-opt">
+          <input type="radio" name="bm-filt" [checked]="groupFilter().length > 0"
+                 (change)="setFilterMode('groups')" /> Only these groups
+        </label>
+        @if (groupFilter().length) {
+          <select class="bm-cin bm-filt-neg" [ngModel]="groupFilterNegated() ? 'none' : 'any'"
+                  (ngModelChange)="setFilterNegated($event === 'none')">
+            <option value="any">is any of</option>
+            <option value="none">is none of</option>
+          </select>
+          <input class="bm-cin bm-filt-val" placeholder="webservers, prod"
+                 [ngModel]="groupFilter().join(', ')" (ngModelChange)="setFilterGroups($event)"
+                 list="bm-filt-groups" />
+          <!-- Live search over the groups the fleet actually has, so a filter is picked from what
+               EXISTS instead of typed blind and silently matching nothing. -->
+          <datalist id="bm-filt-groups">
+            @for (g of vocab().host_groups; track g) { <option [value]="g"></option> }
+          </datalist>
+        }
+      </div>
       <div class="bm-cond-hd">
-        <span class="bm-cond-h">Conditions</span>
+        <span class="bm-cond-h">Advanced conditions</span>
         <span class="bm-cond-hint">{{ clauses().length ? 'Applies only where ALL of these match' : 'No conditions — applies wherever the scope reaches' }}</span>
         @if (previewScope && preview(); as p) {
           <span class="bm-cond-preview" [title]="p.matched.join(', ')">
@@ -105,6 +140,11 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
   `,
   styles: [`
     .bm-cond { margin-top: 6px; display: flex; flex-direction: column; gap: 8px; }
+    .bm-filt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 8px;
+      border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .bm-filt-opt { display: flex; align-items: center; gap: 5px; font-size: 12.5px; cursor: pointer; }
+    .bm-filt-neg { max-width: 8.5rem; }
+    .bm-filt-val { min-width: 14rem; flex: 1; }
     .bm-cond-hd { display: flex; align-items: baseline; gap: 10px; }
     .bm-cond-h { font-size: 12px; font-weight: 600; opacity: 0.8; }
     .bm-cond-hint { font-size: 11.5px; opacity: 0.6; }
@@ -149,6 +189,36 @@ export class ConditionsEditorComponent implements OnInit {
     ou_folders: string[];
     host_groups: string[];
   }>({ host_tags: {}, host_facts: {}, variables: {}, host_labels: {}, ou_folders: [], host_groups: [] });
+
+  // --- "Applies to" (Security Filtering) ---------------------------------------------------------
+  // Held as its OWN state rather than as a clause in the list, because it is a different question:
+  // the scope says where a rule lives, this says which hosts inside it are in force, and the
+  // advanced conditions refine on top. It still serialises into conditions.host_groups — one field,
+  // read by rule_conditions, so "all" is simply that key being absent.
+  groupFilter = signal<string[]>([]);
+  groupFilterNegated = signal(false);
+
+  setFilterMode(mode: 'all' | 'groups'): void {
+    // Switching to "all" CLEARS the list instead of remembering it: a filter that is not in force
+    // must not be sitting in the object, or the next reader cannot tell whether it applies.
+    if (mode === 'all') {
+      this.groupFilter.set([]);
+      this.groupFilterNegated.set(false);
+    } else if (!this.groupFilter().length) {
+      this.groupFilter.set(['']);   // an empty row so the input appears and can be typed into
+    }
+    this.emit();
+  }
+
+  setFilterGroups(csv: string): void {
+    this.groupFilter.set(csv.split(',').map((x) => x.trim()).filter(Boolean));
+    this.emit();
+  }
+
+  setFilterNegated(negated: boolean): void {
+    this.groupFilterNegated.set(negated);
+    this.emit();
+  }
 
   ngOnInit(): void {
     this.ouService.matchVocabulary().subscribe({ next: (v) => this.vocab.set(v), error: () => {} });
@@ -244,8 +314,6 @@ export class ConditionsEditorComponent implements OnInit {
     const hostVars: Record<string, unknown> = {};
     const hostLabelMembers: [string, string][] = [];
     const svcLabelMembers: [string, string][] = [];
-    let hostGroups: string[] | null = null;
-    let hostGroupNeg = false;
     let hostNames: unknown[] | null = null;
     let hostNameNeg = false;
     let svcNames: unknown[] | null = null;
@@ -296,9 +364,6 @@ export class ConditionsEditorComponent implements OnInit {
           // A comma list, same as any_of elsewhere. none_of wraps the WHOLE list in $nor, which the
           // backend reads as "in none of these" — see rule_conditions._matches_any_name for why the
           // negation has to apply to the set rather than per value.
-          hostGroups = [...(hostGroups ?? []), ...list(v)];
-          if (c.op === 'none_of') hostGroupNeg = true;
-          break;
         case 'host_folder':
           if (v) out['host_folder'] = v;
           break;
@@ -309,7 +374,11 @@ export class ConditionsEditorComponent implements OnInit {
     if (Object.keys(hostVars).length) out['host_vars'] = hostVars;
     if (hostLabelMembers.length) out['host_label_groups'] = [['and', hostLabelMembers]];
     if (svcLabelMembers.length) out['service_label_groups'] = [['and', svcLabelMembers]];
-    if (hostGroups) out['host_groups'] = hostGroupNeg ? { $nor: hostGroups } : hostGroups;
+    // From the "Applies to" control, not from a clause. An empty list means "all hosts in scope",
+    // which is the key being ABSENT — not an empty array, which rule_conditions would also treat as
+    // "matches everything" but which would leave a meaningless key in the stored object.
+    const filt = this.groupFilter().filter(Boolean);
+    if (filt.length) out['host_groups'] = this.groupFilterNegated() ? { $nor: filt } : filt;
     if (hostNames) out['host_name'] = hostNameNeg ? { $nor: hostNames } : hostNames;
     if (svcNames) out['service_description'] = svcNameNeg ? { $nor: svcNames } : svcNames;
     return out;
@@ -327,15 +396,19 @@ export class ConditionsEditorComponent implements OnInit {
     this.deserializeNames(cond['host_name'], 'host_name', out);
     this.deserializeNames(cond['service_description'], 'service_name', out);
     if (cond['host_folder']) out.push({ cat: 'host_folder', key: '', op: 'at_or_below', value: String(cond['host_folder']) });
-    // host_groups round-trips as one clause: a bare list is any-of, a $nor wrapper is none-of.
-    // Reading it back as one row rather than one row per group matters — the negation belongs to the
-    // whole list ("in NONE of these"), and split rows would each carry it and read as something else.
+    // host_groups feeds the "Applies to" control, not the clause list. A bare list is any-of, a
+    // $nor wrapper is none-of; the negation belongs to the WHOLE list ("in none of these"), which is
+    // why it is one control and not one row per group.
     const hg = cond['host_groups'];
-    if (Array.isArray(hg) && hg.length) {
-      out.push({ cat: 'host_group', key: '', op: 'any_of', value: hg.map(String).join(', ') });
+    if (Array.isArray(hg)) {
+      this.groupFilter.set(hg.map(String));
+      this.groupFilterNegated.set(false);
     } else if (hg && typeof hg === 'object' && '$nor' in (hg as Record<string, unknown>)) {
-      const list = ((hg as Record<string, unknown>)['$nor'] as unknown[]) || [];
-      if (list.length) out.push({ cat: 'host_group', key: '', op: 'none_of', value: list.map(String).join(', ') });
+      this.groupFilter.set((((hg as Record<string, unknown>)['$nor'] as unknown[]) || []).map(String));
+      this.groupFilterNegated.set(true);
+    } else {
+      this.groupFilter.set([]);
+      this.groupFilterNegated.set(false);
     }
     return out;
   }
