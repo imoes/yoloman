@@ -56,6 +56,7 @@ import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared
 import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { HostConfigScopeService } from './host-config-scope.service';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -1354,6 +1355,10 @@ function familyMembers(metric: string): string[] {
       </div>
     }
   `,
+  // One apply-scope per HOST PAGE, not per app: a scope silently carried from one host to another is
+  // how an edit meant for one machine lands on a whole OU. Component-level providers give an instance
+  // created and destroyed with this page, and that every pane split out of it can inject.
+  providers: [HostConfigScopeService],
   styles: [
     `
       .bm-svc-control {
@@ -2682,12 +2687,7 @@ export class HostDetailComponent implements OnInit {
     // offered — targeting a group the host isn't in still creates the policy +
     // converges that group's members (agents.groups can lag the membership
     // table, so we don't filter by it).
-    if (!this.hostGroups().length) {
-      this.hostGroupService.list().subscribe({
-        next: (gs) => this.hostGroups.set((gs || []).map((g) => ({ id: g.id, name: g.name }))),
-        error: () => this.hostGroups.set([]),
-      });
-    }
+    this.scope.loadGroups();
   }
 
   // Block K3: drift = the recorded desired config re-planned against the host.
@@ -3303,7 +3303,7 @@ export class HostDetailComponent implements OnInit {
     const scopeFields = scope === 'ou'
       ? { scope_type: 'ou', scope_ou_id: agent.ou_id, scope_value: null }
       : scope.startsWith('group:')
-        ? { scope_type: 'group', scope_value: this.hostGroups().find((g) => 'group:' + g.id === scope)?.name ?? '', scope_ou_id: null }
+        ? { scope_type: 'group', scope_value: this.scope.groupName(), scope_ou_id: null }
         : { scope_type: 'host', scope_value: agent.name, scope_ou_id: null };
     this.thrBusy.set(true);
     this.thrError.set(null);
@@ -3332,15 +3332,20 @@ export class HostDetailComponent implements OnInit {
       error: fail,
     });
   }
-  // Block K4: apply scope — 'host', 'ou', or 'group:<id>'. OU/group applies save
-  // a config policy + converge every member host ("Host A = Host B").
-  applyScope = signal<string>('host');
-  hostGroups = signal<{ id: string; name: string }[]>([]); // groups this host is in
+  // Block K4: apply scope — 'host', 'ou', or 'group:<id>'. OU/group applies save a config policy and
+  // converge every member host ("Host A = Host B").
+  //
+  // The state itself lives in HostConfigScopeService, provided on THIS component so there is one
+  // instance per host page. It is a service and not local state because the Configuration editor is
+  // being split into panes that measurably share it (applyScope at four places in the threshold pane
+  // and as many in the file/settings/template panes) — every slice would otherwise thread the same
+  // three bindings. These two lines keep the ~9 existing template bindings working unchanged.
+  private scope = inject(HostConfigScopeService);
+  applyScope = this.scope.applyScope;
+  hostGroups = this.scope.hostGroups;
+
   private scopeArg(): { ouId?: string; groupId?: string } | undefined {
-    const s = this.applyScope();
-    if (s === 'ou') return { ouId: this.agent()?.ou_id ?? undefined };
-    if (s.startsWith('group:')) return { groupId: s.slice(6) };
-    return undefined;
+    return this.scope.scopeArg(this.agent()?.ou_id);
   }
   sourceFor(path: string): string | null {
     return this.drift().sources?.[path] ?? null;
