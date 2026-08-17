@@ -55,7 +55,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
-import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -2573,9 +2573,10 @@ export class HostDetailComponent implements OnInit {
   }
 
   /** A CheckMK-style state colour for the availability bar segments. */
-  availabilityColor(state: string): string {
-    return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
-  }
+  /** The shared state→colour mapping, exposed for the template. A field pointing at the imported
+   * function rather than a re-implementation: one definition, and the three call sites in the views
+   * stay untouched, which is what makes this a move and not a rewrite. */
+  availabilityColor = availabilityColor;
 
   /** Lazy-load a tab's live data the first time it is opened. */
   onTabChange(event: MatTabChangeEvent): void {
