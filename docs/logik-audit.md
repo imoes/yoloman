@@ -1333,3 +1333,69 @@ also lief er nie. **Abwesenheit ist der Zustand, über den man reden kann.**
 Belegt durch `tests/test_package_wizard_family.py` (9 Tests): die vier Zustände über den echten
 Katalog × drei Familien (auch `suse`, das gar keinen Zweig hat und deshalb überall `fallback`
 liefern muss), „verweigert nie ohne Grund", und ein Test, der die Kopien nicht zurückkommen lässt.
+
+---
+
+## Bereich: Gruppen — Ort, Eigenschaft, Rang (Punkte 1–4)
+
+Ausgelöst durch die Nutzerfrage nach einer „Duplikats-Anomalie": Host in OU A, seine Gruppe in OU B,
+Regeln an beiden — welche sticht? Die Messung drehte die Frage um.
+
+### Der Befund: eine zweite Platzierungsachse, die niemand auswertete
+
+```
+[Identität] host_groups.ou_id war ein Ort, den kein Auflöser liest
+  Beleg:   resolve_ou_ancestry (agent.ou_id), resolve_host_group_ids (nur Mitgliedschaft),
+           affected_agent_ids, scope.py:60, notification.py:218 — alle nehmen die OU
+           ausschließlich aus agents.ou_id. Gelesen wurde das Feld nur von
+           api/ou.py:309 (Objektliste) und der eigenen CRUD.
+  Problem: die Kollision KONNTE nicht auftreten, weil die Gruppen-OU nichts beitrug —
+           gleichzeitig versprach das UI eine Wirkung, die es nicht gab. Und hätte man sie
+           beigetragen, wäre die Kollision unauflösbar: GPO ordnet nach Tiefe entlang EINER
+           Kette, zwei Zweige haben keine relative Tiefe.
+  Messung: 0 von 5 Gruppen nutzten das Feld.
+  Fix:     Feld gelöscht (d7a3f1c95e24). Windows-Vorbild: eine GPO verknüpft mit
+           Site/Domain/OU, NIE mit einer Gruppe; Mitgliedschaft wirkt als Security Filtering.
+```
+
+Ein 409-Riegel gegen widersprüchliche Platzierungen (6406eec9) wurde drei Commits später
+**wieder entfernt** — dass er überflüssig wurde, war das Zeichen, dass er ein Symptom behandelte.
+
+### Was daraus folgte
+
+| Begriff | Rolle | Träger |
+|---|---|---|
+| **OU** | der *eine* Ort, Vererbung, Präzedenz nach Tiefe | `agents.ou_id` |
+| **Gruppe als Eigenschaft** | querschneidende Menge, ortlos | `host_group_members` |
+| **Gruppe als Filter** | Security Filtering auf eine Regel | `conditions.host_groups` |
+| **Gruppe als Scope** | Regel *für* diese Menge, eigener Rang | `scope_type='group'` |
+
+### Punkt 4: warum Scope und Filter *keine* Dublette sind
+
+```
+[Parsimonie — geprüft und verworfen] scope_type='group' bleibt
+  Beleg:   gpo.py:25-27 LEVEL_GLOBAL 0 < LEVEL_GROUP 1 < LEVEL_OU_BASE 2;
+           monitoring.py:145 subrank = scope_value.count("/")
+  Prüfung: Ein Filter kann zweierlei NICHT: (a) einen Rang zwischen global und OU — als
+           „global + Filter" fiele die Regel auf Ebene 0 und würde per link_order entschieden,
+           also willkürlich statt spezifisch; (b) Spezifität unter geschachtelten Gruppen —
+           „Europe/Latvia" schlägt „Europe" über den subrank, eine flache Liste hat dafür
+           keinen Begriff.
+  Ergebnis: verschiedene Werkzeuge, keine zwei Wege zum selben Ergebnis. Der Einwand
+           „eine Gruppe mit LEVEL verhält sich wie ein Ort" löst sich daran auf, was der
+           Level IST: ein Rang in der Mischreihenfolge, keine Position im OU-Baum.
+  Festgenagelt: tests/test_group_scope_vs_filter.py — inklusive des Tests, der zeigt, worauf
+           „global + Filter" degradieren würde (link_order entscheidet).
+```
+
+### Punkt 3: der Filter gilt jetzt überall
+
+Zehn Tabellen tragen `conditions` (`business_services`, `check_assignments`, `check_rules`,
+`compliance_rules`, `config_policies`, `config_policy_sets`, `notification_rules`,
+`orchestration_plan_links`, `remediation_policies`, `scheduled_jobs`) — ein Matcher, ein
+Batch-Helfer (`filter_agent_ids`).
+
+**Eine dokumentierte Ausnahme:** `ScopeVars` bekommt die Spalte *nicht*, weil
+`resolve_scope_vars` **von** `build_match_context` aufgerufen wird — eine bedingte
+Variablenmenge ruft sich selbst. Ein Test behauptet die Abwesenheit samt Grund, damit die
+Ausnahme sichtbar ist und nicht wie ein Versehen aussieht.
