@@ -849,17 +849,33 @@ class OUNode(Base):
 
 
 class HostGroup(Base):
-    """A first-class host group (Block L1) — the AD "group" object: it
-    lives inside an OU (ou_id) but has many-to-many host membership via
-    HostGroupMember, which is how a host gets assignments beyond its single
-    OU placement. Distinct from the legacy flat agents.groups string list,
-    which stays untouched in L1."""
+    """A first-class host group — a SECURITY/SET unit, deliberately PLACELESS.
+
+    A host has exactly one location (agents.ou_id) and arbitrarily many properties. The OU tree
+    carries the location, its inheritance and its precedence (depth along ONE path); a group carries
+    a property and is orthogonal to the tree — which is what lets it say "all webservers, wherever
+    they stand", something a single hierarchy cannot express without duplicating itself.
+
+    It USED to carry an `ou_id` too, "the AD group object lives inside an OU". That was removed: no
+    resolver ever read it (resolve_ou_ancestry, resolve_host_group_ids, affected_agent_ids and the
+    scope/notification contexts all take the OU from agents.ou_id alone), 0 of 5 groups used it, and
+    a second placement axis let two unorderable claims about one host exist at once — GPO's
+    precedence is depth along one chain, and two chains have no relative depth.
+
+    Windows works the same way where it counts: a GPO links to Site/Domain/OU and NEVER to a group;
+    group membership acts only as Security Filtering on a GPO linked to an OU. The AD group object
+    does sit somewhere in the tree, but purely for delegation — and only because every LDAP object
+    needs a DN. Our groups are rows with a UUID, so that reason does not apply.
+
+    The group's two legitimate ways to influence policy both survive: as a rule SCOPE
+    (scope_type='group', gpo.LEVEL_GROUP) and as a rule FILTER
+    (rule_conditions' host_groups condition = Security Filtering). Membership stays many-to-many
+    via HostGroupMember."""
 
     __tablename__ = "host_groups"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)

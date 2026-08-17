@@ -22,11 +22,6 @@ export class HostGroupService {
     return this.http.put<HostGroup>(`${this.base}/${id}`, body);
   }
 
-  /** Re-scope a group to another OU (palette drag-to-link). */
-  patchOu(id: string, ouId: string) {
-    return this.http.patch<HostGroup>(`${this.base}/${id}`, { ou_id: ouId });
-  }
-
   delete(id: string) {
     return this.http.delete<void>(`${this.base}/${id}`);
   }

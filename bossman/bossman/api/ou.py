@@ -306,8 +306,9 @@ async def list_ou_objects(
             OUObject(kind="notification", id=n.id, label=f"{n.name} → {n.channel}", enforced=n.enforced, enabled=n.enabled)
         )
 
-    for g in (await session.scalars(select(HostGroup).where(HostGroup.ou_id == ou_id, HostGroup.deleted_at.is_(None)))).all():
-        out.append(OUObject(kind="host_group", id=g.id, label=g.name))
+    # No host_group rows here any more: a group is placeless (see the HostGroup model docstring), so
+    # "the groups filed under this OU" is not a question the tree can answer. Listing them by an
+    # ignored field showed a containment that never affected which policies reached their members.
 
     # Variables set on this OU appear as their own tree object (like a GPO's
     # "Preferences" node) so they're visible/editable in the tree, not only in

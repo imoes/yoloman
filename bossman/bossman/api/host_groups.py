@@ -1,9 +1,9 @@
-"""Host group CRUD + membership (Block L1) — the first-class, many-to-many
-group object of the AD model (distinct from the legacy flat
-`Agent.groups` string list, which L1 deliberately leaves untouched). A
-group lives inside an OU (ou_id) but a host can belong to any number of
-groups, which is how a host gets cross-cutting assignments beyond its
-single OU placement.
+"""Host group CRUD + membership — the first-class, many-to-many group object (distinct from the
+legacy flat `Agent.groups` string list, which stays untouched).
+
+A group is PLACELESS: it has no position in the OU tree. A host has one location (agents.ou_id) and
+many properties; the group is a property, which is what lets it cut across the tree. See the
+HostGroup model docstring for why the former `ou_id` was removed and how Windows does the same.
 """
 
 from __future__ import annotations
@@ -20,9 +20,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Agent, HostGroup, HostGroupMember, OUNode
+from bossman.db.models import Agent, HostGroup, HostGroupMember
 from bossman.db.session import get_session
-from bossman.services import host_membership, ou_placement
+from bossman.services import host_membership
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +34,12 @@ DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 class HostGroupIn(BaseModel):
     name: str
     description: str = ""
-    ou_id: UUID | None = None
 
 
 class HostGroupOut(BaseModel):
     id: UUID
     name: str
     description: str
-    ou_id: UUID | None
     created_at: datetime
     member_agent_ids: list[UUID]
 
@@ -53,7 +51,7 @@ async def _members(session: AsyncSession, group_id: UUID) -> list[UUID]:
 
 async def _to_out(session: AsyncSession, group: HostGroup) -> HostGroupOut:
     return HostGroupOut(
-        id=group.id, name=group.name, description=group.description, ou_id=group.ou_id,
+        id=group.id, name=group.name, description=group.description,
         created_at=group.created_at, member_agent_ids=await _members(session, group.id),
     )
 
@@ -83,7 +81,7 @@ async def create_host_group(
 ) -> HostGroupOut:
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
-    group = HostGroup(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, name=body.name, description=body.description, ou_id=body.ou_id)
+    group = HostGroup(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, name=body.name, description=body.description)
     session.add(group)
     try:
         await session.commit()
@@ -111,14 +109,6 @@ async def update_host_group(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     group.description = body.description
-    # Refused before the write, not reported after it: an OU placement that contradicts a member's
-    # own OU puts two unorderable claims about one host in the tree, and GPO has nothing to resolve
-    # them with (its precedence is depth along ONE path). See services/ou_placement.
-    conflicts = await ou_placement.conflicts_for_group_ou(session, group, body.ou_id)
-    if conflicts:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=ou_placement.as_detail(conflicts))
-    group.ou_id = body.ou_id
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -129,28 +119,10 @@ async def update_host_group(
     return await _to_out(session, group)
 
 
-class HostGroupPatch(BaseModel):
-    # Re-scope the group to another OU (the palette drag-to-link gesture,
-    # Block L3e) — a partial update that doesn't need name/description resent.
-    ou_id: UUID | None = None
-
-
-@router.patch("/api/v1/host-groups/{group_id}", response_model=HostGroupOut)
-async def patch_host_group(
-    group_id: UUID, body: HostGroupPatch, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
-) -> HostGroupOut:
-    group = await _get_group_or_404(session, group_id)
-    if body.ou_id is not None:
-        if await session.get(OUNode, body.ou_id) is None:
-            raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
-        # Same check as PUT. This is the drag-to-link gesture in the OU palette, i.e. the EASIEST
-        # way to create the contradiction — guarding only the form would leave the gesture open.
-        conflicts = await ou_placement.conflicts_for_group_ou(session, group, body.ou_id)
-        if conflicts:
-            raise HTTPException(status_code=409, detail=ou_placement.as_detail(conflicts))
-        group.ou_id = body.ou_id
-    await session.commit()
-    return await _to_out(session, group)
+# The PATCH endpoint that lived here existed for ONE purpose: re-scoping a group to another OU
+# (the drag-to-link gesture in the OU palette). A group has no place in the OU tree any more — see
+# the HostGroup model docstring — so the endpoint went with the field rather than being left as a
+# no-op that silently accepts a body it cannot honour.
 
 
 @router.delete("/api/v1/host-groups/{group_id}", status_code=204)

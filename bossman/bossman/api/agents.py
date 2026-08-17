@@ -22,9 +22,9 @@ from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.services.auth import user_can_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, HostGroup, Metric, MetricRaw, MetricSeries
+from bossman.db.models import Agent, Metric, MetricRaw, MetricSeries
 from bossman.db.session import get_session
-from bossman.services import host_membership, module_library, ou_placement
+from bossman.services import host_membership, module_library
 from bossman.services.metrics_query import measurable_sql_filter
 from bossman.services.monitoring import is_infra_agent
 from bossman.services.agent_client import AgentClientError
@@ -235,18 +235,6 @@ async def update_agent_groups(
     table untouched, so the group editor and this endpoint reported different memberships for
     the same host — see that module's header for the measurement."""
     agent = await _get_agent_or_404(session, agent_id)
-    # The mirror of the guard in api/host_groups: the same contradiction — a host in one OU branch
-    # and its group in another — can be created from either side, so both sides refuse it. Checking
-    # only the group endpoint would make this one a back door into exactly the state that one
-    # rejects. Resolved by NAME because that is what the request carries.
-    wanted = {n.strip() for n in body.groups if n and n.strip()}
-    if wanted and agent.ou_id is not None:
-        ids = set((await session.scalars(
-            select(HostGroup.id).where(HostGroup.name.in_(list(wanted)))
-        )).all())
-        conflicts = await ou_placement.conflicts_for_membership(session, agent, ids)
-        if conflicts:
-            raise HTTPException(status_code=409, detail=ou_placement.as_detail(conflicts))
     await host_membership.set_agent_groups(session, agent, list(body.groups))
     await session.commit()
     return AgentOut.from_model(agent)

@@ -1073,9 +1073,8 @@ export class OuPolicyComponent implements OnInit {
       case 'notification':
         op = () => this.notification.patchRule(item.id, { ou_id: ouId });
         break;
-      case 'host_group':
-        op = () => this.hostGroup.patchOu(item.id, ouId);
-        break;
+      // 'host_group' is gone on purpose: a group has no place in the OU tree, so dropping one onto
+      // an OU has nothing to mean. See the HostGroup model docstring — the field it wrote is deleted.
       case 'site':
         op = () => this.site.patchOu(item.id, ouId);
         break;
