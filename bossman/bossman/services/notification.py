@@ -225,6 +225,38 @@ async def _event_context(
     return host_ctx, ServiceCtx(service_name=ev.service_name, policy_ids=policy_ids)
 
 
+async def _conditions_gate(session: AsyncSession, ev: NotifyEvent, rules: list[NotificationRule]):
+    """A predicate `(rule) -> bool` for the shared rule-conditions object, built LAZILY.
+
+    rule_conditions.matches needs a full MatchContext — host labels, flattened Ansible facts and the
+    host's resolved scope variables. That is several queries, and notification dispatch runs per
+    event, so paying for it unconditionally would tax every alert on a fleet where no rule uses
+    conditions at all.
+
+    So it mirrors the trick _event_context already uses for policy scope: look at the rules first, and
+    only resolve if at least one of them actually states a condition. When none do, the returned
+    predicate is a constant True and nothing is queried.
+
+    Returns True for a rule whose conditions are empty even in the expensive path — an unset condition
+    matches everywhere, which is rule_conditions' contract and what keeps every pre-existing rule
+    behaving as before.
+    """
+    if not any(getattr(r, "conditions", None) for r in rules):
+        return lambda _rule: True
+
+    from bossman.services.check_assignments import build_match_context
+    from bossman.services import rule_conditions
+
+    agent = await session.scalar(select(Agent).where(Agent.name == ev.agent_name))
+    if agent is None:
+        # No host row to judge against. A condition that cannot be evaluated must not silently pass:
+        # a rule narrowed to a group would otherwise page everyone for an event from an unknown host.
+        return lambda rule: not getattr(rule, "conditions", None)
+
+    ctx = await build_match_context(session, agent, service_name=ev.service_name)
+    return lambda rule: rule_conditions.matches(getattr(rule, "conditions", None), ctx)
+
+
 def _send_rule(settings: Settings, rule: NotificationRule, ev: NotifyEvent, subject: str, body: str,
                email_sender, webhook_sender, chat_sender) -> tuple[str, str | None]:
     """Send one rule's notification; returns (status, error). Never raises."""
@@ -318,6 +350,7 @@ async def dispatch(
     host_ctx, svc_ctx = await _event_context(session, ev, rules)
 
     subject, body = render(ev)
+    conditions_ok = await _conditions_gate(session, ev, list(rules))
     logs: list[Notification] = []
     now = datetime.now(timezone.utc)
     periods = await load_time_periods(session)
@@ -330,6 +363,10 @@ async def dispatch(
         if not rule_matches(rule, ev):
             continue
         if not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
+            continue
+        # The shared rule-conditions object, on top of the structural scope: the scope says where the
+        # rule lives, this says which hosts inside it are in force ("only these groups").
+        if not conditions_ok(rule):
             continue
         # L4: outside its window the rule does not fire — but it is LOGGED as suppressed
         # rather than skipped silently. "why did nobody get paged" has to be answerable
@@ -483,10 +520,16 @@ async def dispatch_escalations(
                          event="problem", output=svc.output or "", agent_tags=agent.agent_metadata or {})
         host_ctx, svc_ctx = await _event_context(session, ev, esc_rules)
         subject, body = render(ev)
+        # Escalations honour conditions too. Guarding only the immediate dispatch would mean a rule
+        # narrowed to a group still escalated to everyone once the problem aged — the alert the filter
+        # was meant to keep away, arriving late instead of not at all.
+        esc_conditions_ok = await _conditions_gate(session, ev, list(esc_rules))
         for rule in esc_rules:
             if mins_open < rule.escalate_after_minutes:
                 continue
             if not rule_matches(rule, ev) or not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
+                continue
+            if not esc_conditions_ok(rule):
                 continue
             # Already escalated this episode? (a send for this rule after the
             # problem went hard).

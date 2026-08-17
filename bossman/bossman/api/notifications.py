@@ -9,7 +9,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,6 +58,11 @@ class NotificationRuleIn(BaseModel):
     # L4: only notify while this time period is active. None = always, which is what
     # every rule meant before time periods existed.
     time_period_id: UUID | None = None
+    # The shared rule-conditions object (services/rule_conditions) — the same shape CheckRule and
+    # ConfigPolicy carry, and what the UI's "Applies to" control writes. {} = no condition, so a rule
+    # created without it behaves exactly as before. ANDed with tag_filter, which stays for the rules
+    # that already use it.
+    conditions: dict = Field(default_factory=dict)
 
 
 class NotificationRuleOut(NotificationRuleIn):
@@ -84,6 +89,7 @@ class NotificationRuleOut(NotificationRuleIn):
             escalate_after_minutes=r.escalate_after_minutes,
             created_at=r.created_at,
             tag_filter=r.tag_filter,
+            conditions=r.conditions or {},
             ou_id=r.ou_id,
             enforced=r.enforced,
             link_order=r.link_order,

@@ -2106,6 +2106,17 @@ class NotificationRule(Base):
     # (name-only tags stored as "" match a same-name tag of any value).
     # NULL = no tag condition (matches regardless of the host's tags).
     tag_filter: Mapped[dict | None] = mapped_column(JSONB)
+    # The shared rule-conditions object (services/rule_conditions), same shape and same matcher as
+    # CheckRule/ConfigPolicy/CheckAssignment carry — so "notify only for these host groups" is said
+    # the same way here as everywhere else, including the "Applies to" control in the UI.
+    #
+    # Kept ALONGSIDE tag_filter rather than replacing it: tag_filter predates this and is a narrower,
+    # cheaper subset match that existing rules rely on. Folding it in would be a migration of live
+    # notification behaviour, which is its own change. Both are ANDed, which is what a reader expects
+    # of two filters on one rule.
+    #
+    # Empty {} = no condition, so every pre-existing rule keeps behaving exactly as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     # Block L3a: OU binding + GPO precedence, mirroring CheckRule. ou_id NULL
     # = global (today's behavior); a value scopes the rule to that OU's
     # ltree subtree. enforced/link_order as in CheckRule.
