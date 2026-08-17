@@ -132,6 +132,12 @@ async def evaluate_rule(session: AsyncSession, settings: Settings, rule: Complia
         session, rule.scope_type, ou_id=rule.ou_id, agent_id=rule.agent_id,
         host_group_id=rule.host_group_id, tenant_id=rule.tenant_id,
     )
+    # The scope says which hosts the rule reaches; the condition says which of those are in force
+    # ("only these host groups"). Free when no condition is set — filter_agent_ids returns the list
+    # untouched without a single query.
+    from bossman.services.check_assignments import filter_agent_ids
+
+    agent_ids = await filter_agent_ids(session, list(agent_ids), getattr(rule, "conditions", None))
     compliant = violating = 0
     for aid in agent_ids:
         agent = await session.get(Agent, aid)

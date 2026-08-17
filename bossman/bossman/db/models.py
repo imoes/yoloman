@@ -1655,6 +1655,10 @@ class ConfigPolicySet(Base):
 
     __tablename__ = "config_policy_sets"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2506,6 +2510,10 @@ class ComplianceRule(Base):
 
     __tablename__ = "compliance_rules"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2592,6 +2600,10 @@ class BusinessService(Base):
 
     __tablename__ = "business_services"
 
+    # The shared rule-conditions object (services/rule_conditions) — same shape and matcher as every
+    # other rule kind, so "only these host groups" reads identically here. {} = no condition, which
+    # matches everywhere, so a row created before this column behaves exactly as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2622,6 +2634,10 @@ class ScheduledJob(Base):
 
     __tablename__ = "scheduled_jobs"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)

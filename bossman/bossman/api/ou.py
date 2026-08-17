@@ -913,6 +913,10 @@ class PolicySetPatchIn(BaseModel):
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
     site_id: UUID | None = None
+    # The shared rule-conditions object for the WHOLE policy — "this policy applies only to these host
+    # groups". None means "leave unchanged" (a partial update), {} means "clear the filter"; the two
+    # have to be distinguishable or a rename could silently drop a filter nobody meant to touch.
+    conditions: dict | None = None
     unlink: bool = False
 
 
@@ -1022,6 +1026,14 @@ async def patch_policy_set(
         # Propagate to entries so the compiler applies them at the new scope.
         for e in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id))).all():
             e.scope_ou_id, e.host_group_id, e.site_id = s.scope_ou_id, s.host_group_id, s.site_id
+    # A set's CONDITION propagates the same way its scope does, and for the same reason: nothing
+    # evaluates a ConfigPolicySet — the compiler only ever sees the entries. A condition stored only on
+    # the set would be a filter the UI shows and the engine never reads, which is exactly the class of
+    # defect that cost this codebase host_groups.ou_id.
+    if body.conditions is not None:
+        s.conditions = body.conditions
+        for e in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id))).all():
+            e.conditions = dict(body.conditions)
     try:
         await session.commit()
     except IntegrityError:

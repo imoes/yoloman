@@ -74,6 +74,33 @@ async def build_match_context(
     )
 
 
+async def filter_agent_ids(
+    session: AsyncSession, agent_ids: list, conditions: dict | None,
+) -> list:
+    """Narrow a scope's host list by the shared rule-conditions object.
+
+    The batch counterpart to build_match_context: ComplianceRule, ScheduledJob and BusinessService all
+    resolve their hosts through affected_agent_ids and then iterate, so they need "and of those, the
+    ones the condition matches" rather than a per-event predicate. One helper, because three copies of
+    a matcher is how two of them end up disagreeing about what host_groups means.
+
+    Returns the list UNCHANGED when there is no condition — and does so without touching the database.
+    An empty condition matches everywhere (rule_conditions' contract), so a rule written before its
+    kind had the column behaves exactly as it did, and the common case costs nothing.
+    """
+    if not conditions:
+        return list(agent_ids)
+    out = []
+    for aid in agent_ids:
+        agent = await session.get(Agent, aid)
+        if agent is None:
+            continue  # a scope that names a host which no longer exists contributes nothing
+        ctx = await build_match_context(session, agent)
+        if rule_conditions.matches(conditions, ctx):
+            out.append(aid)
+    return out
+
+
 @dataclass
 class EffectiveCheck:
     check_name: str
