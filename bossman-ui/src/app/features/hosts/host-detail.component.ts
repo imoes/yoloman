@@ -712,27 +712,6 @@ function familyMembers(metric: string): string[] {
                           </div>
                         </mat-card>
                       }
-                    } @else if (selectedPane() === '::plans') {
-                      <h3 class="bm-gpo-h">Applied plans / policies</h3>
-                      @if (appliedPlans().length) {
-                        <table class="bm-gpo-settings">
-                          <thead><tr><th>Policy</th><th>Type</th><th>Version</th><th>Source</th></tr></thead>
-                          <tbody>
-                            @for (p of appliedPlans(); track p.name) {
-                              <tr><td>{{ p.name }}</td><td class="bm-dim">{{ p.type }}</td><td>{{ p.version ?? '—' }}</td><td><span class="bm-tag">{{ p.source }}</span></td></tr>
-                            }
-                          </tbody>
-                        </table>
-                      } @else { <p class="bm-empty">No plans/policies apply to this host. Link one in OU / Policy.</p> }
-                    } @else if (selectedPane() === '::variables') {
-                      <h3 class="bm-gpo-h">Playbook variables (host_vars)
-                        <button mat-button (click)="openProvisionDb(agent)">
-                          <mat-icon>key</mat-icon> Provision DB credential…
-                        </button>
-                      </h3>
-                      <p class="bm-dim">Variables passed to playbooks/runbooks for this host — a single value, a list, or a dict. They resolve GPO-style (group &lt; OU &lt; host) at run time. “Provision DB credential” creates a database + user on a provider and stores the credential here (password encrypted).</p>
-                      <app-scope-vars-editor [embedded]="true" scopeType="host" [scopeId]="agent.id"
-                        [scopeLabel]="'host ' + agent.name" [reloadTick]="varsReloadTick()" (saved)="onVarsSaved()" />
                     } @else if (selRes(obs); as r) {
                       <div class="bm-cfg-row">
                         <code class="bm-cfg-path">{{ r.path }}</code>
@@ -955,7 +934,7 @@ function familyMembers(metric: string): string[] {
 
           <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
-              <app-host-management [agentId]="agent.id" />
+              <app-host-management [agentId]="agent.id" [hostName]="agent.name" />
             </div>
           </ng-template></mat-tab>
 
@@ -2776,9 +2755,11 @@ export class HostDetailComponent implements OnInit {
 
   gpoCategories(obs: ObservedState): { key: string; label: string; icon: string; count: number }[] {
     const cats: { key: string; label: string; icon: string; count: number }[] = [
+      // Policies and Variables MOVED to the Management tab's Miller list (management/host-policies,
+      // management/host-variables). They are not config files, and this list's categories are
+      // config-file categories — keeping them here made "category" mean two things. Removed rather
+      // than left in place: a second copy in the same product is how one of the two starts to rot.
       { key: '::mon', label: 'Monitoring', icon: 'speed', count: this.thresholds().length },
-      { key: '::pol', label: 'Policies', icon: 'policy', count: this.appliedPlans().length },
-      { key: '::vars', label: 'Variables', icon: 'data_object', count: this.varsCount() },
     ];
     for (const g of this.categoryGroups(obs)) {
       cats.push({ key: g.cat.key, label: g.cat.label, icon: g.cat.icon, count: g.files.length });
@@ -2789,8 +2770,7 @@ export class HostDetailComponent implements OnInit {
   gpoColItems(obs: ObservedState): { pane: string; label: string; title: string; drift: boolean }[] {
     const cat = this.gpoActiveCat();
     if (cat === '::mon') return [{ pane: '::thresholds', label: 'Thresholds', title: 'Monitoring thresholds', drift: false }];
-    if (cat === '::pol') return [{ pane: '::plans', label: 'Applied plans', title: 'Applied plans', drift: false }];
-    if (cat === '::vars') return [{ pane: '::variables', label: 'Host variables', title: 'Playbook variables (host_vars)', drift: false }];
+
     const grp = this.categoryGroups(obs).find((g) => g.cat.key === cat);
     return (grp?.files ?? []).map((f) => ({ pane: f.path, label: this.baseName(f.path), title: f.path, drift: !!this.driftFor(f.path) }));
   }

@@ -6,6 +6,8 @@ import { HostServicesComponent } from './host-services.component';
 import { HostLogsComponent } from './host-logs.component';
 import { HostAccountsComponent } from './host-accounts.component';
 import { HostStorageComponent } from './host-storage.component';
+import { HostPoliciesComponent } from './host-policies.component';
+import { HostVariablesComponent } from './host-variables.component';
 import { HostNetworkComponent } from './host-network.component';
 import { HostFirewallComponent } from './host-firewall.component';
 import { HostFreeipaComponent } from './host-freeipa.component';
@@ -45,6 +47,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
+    HostPoliciesComponent, HostVariablesComponent,
     HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, LogrotateComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     WebConfigTreeComponent, WebSingleConfigTreeComponent, TraefikConfigComponent,
@@ -78,6 +81,8 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('network')) { <div [style.display]="show('network')"><app-host-network [agentId]="agentId()" /></div> }
         @if (visited().has('firewall')) { <div [style.display]="show('firewall')"><app-host-firewall [agentId]="agentId()" /></div> }
         @if (visited().has('storage')) { <div [style.display]="show('storage')"><app-host-storage [agentId]="agentId()" /></div> }
+        @if (visited().has('policies')) { <div [style.display]="show('policies')"><app-host-policies [agentId]="agentId()" /></div> }
+        @if (visited().has('variables')) { <div [style.display]="show('variables')"><app-host-variables [agentId]="agentId()" [hostName]="hostName()" /></div> }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
@@ -131,6 +136,9 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
 export class HostManagementComponent implements OnInit {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
+  /** Only for display (the Variables snap-in labels its scope "host <name>"). Optional so the
+   * standalone shell, which knows the id but not always the name, needs no change. */
+  hostName = input<string>('');
   /** Snap-in ids to hide (e.g. the standalone console hides snap-ins that are a
    * Fleet-Commander concern). 'servicechecks' is no longer among them: service checks moved
    * to the host's Checks tab, where the rest of the host's checks already were — see
@@ -189,6 +197,12 @@ export class HostManagementComponent implements OnInit {
     { id: 'apt-repos', label: 'Software sources', icon: 'inventory_2', category: 'Server' },
     { id: 'logs', label: 'Logs', icon: 'article', category: 'Server' },
     { id: 'accounts', label: 'Accounts', icon: 'group', category: 'Server' },
+    // Their own category on purpose: a policy is a RULE that reaches this host and a variable is an
+    // input to one — neither is a service to start nor a file to edit, and filing them under
+    // "Server" would make that category mean three things. Moved here from the Configuration tab,
+    // where they were pseudo-categories in a list of config FILES.
+    { id: 'policies', label: 'Policies', icon: 'policy', category: 'Desired state' },
+    { id: 'variables', label: 'Variables', icon: 'data_object', category: 'Desired state' },
     { id: 'network', label: 'Network', icon: 'lan', category: 'Network' },
     { id: 'firewall', label: 'Firewall', icon: 'security', category: 'Network' },
     { id: 'storage', label: 'Storage', icon: 'storage', category: 'Storage' },
