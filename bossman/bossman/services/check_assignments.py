@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckAssignment, HostLabel
+from bossman.db.models import Agent, CheckAssignment, HostGroup, HostLabel
 from bossman.services import gpo, rule_conditions
 from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
 
@@ -49,6 +49,18 @@ async def build_match_context(
     from bossman.services.scope_vars import resolve_scope_vars
 
     host_vars = await resolve_scope_vars(session, agent)
+    # Group NAMES, so a condition can be written the way an operator says it ("webservers") rather
+    # than as a uuid. resolve_host_group_ids already expands group PATHS, so a host in
+    # "Europe/Latvia" also reports "Europe" — the same inheritance the group tree shows, and the
+    # reason a condition on a parent group reaches its children without being restated.
+    group_ids = await resolve_host_group_ids(session, agent.id)
+    group_names: list[str] = []
+    if group_ids:
+        group_names = [
+            n for n in (await session.scalars(
+                select(HostGroup.name).where(HostGroup.id.in_(list(group_ids)))
+            )).all() if n
+        ]
     return rule_conditions.MatchContext(
         host_name=agent.name or "",
         ou_paths=[n.path for n in ancestry if getattr(n, "path", None)],
@@ -58,6 +70,7 @@ async def build_match_context(
         service_labels=dict(service_labels or {}),
         host_facts=rule_conditions.flatten_facts(agent.facts or {}),
         host_vars={str(k): str(v) for k, v in host_vars.items()},
+        host_groups=group_names,
     )
 
 

@@ -9,6 +9,7 @@ here (Batch 7's API-compatibility goal):
     host_folder            an OU path — the rule applies from there downwards
     host_tags              {"env": "prod"} | {"env": {"$or": ["prod","stage"]}}
                                           | {"env": {"$ne": "test"}} | {"$nor": [...]}
+    host_groups            ["webservers", "prod"]  or  {"$nor": ["staging"]}   (Bossman)
     host_label_groups      [["and", [["and", "k:v"], ["not", "k2:v2"]]], ["or", [...]]]
     service_label_groups   same grammar, on the service's labels
     service_description    same shape as host_name, matched against the service name
@@ -54,6 +55,11 @@ class MatchContext:
     # (services/scope_vars). Both are flat {key: value} maps.
     host_facts: dict[str, str] = field(default_factory=dict)
     host_vars: dict[str, str] = field(default_factory=dict)
+    # `host_groups` = the NAMES of every host group this host belongs to, including the ones it
+    # inherits through group paths ("Europe" governs "Europe/Latvia"). It exists so a rule can be
+    # scoped to an OU *and* narrowed to a group — an AND that the scope alone cannot express, since
+    # a rule's scope is exactly one of OU / group / site.
+    host_groups: list[str] = field(default_factory=list)
 
 
 def flatten_facts(facts: Any, prefix: str = "", out: dict[str, str] | None = None) -> dict[str, str]:
@@ -104,6 +110,19 @@ def matches(conditions: dict[str, Any] | None, ctx: MatchContext) -> bool:
             return False
     for key, condition in (conditions.get("host_vars") or {}).items():
         if not matches_tag_condition(str(key), condition, ctx.host_vars):
+            return False
+
+    # Group membership as a CONDITION, which is what makes "OU and group" expressible: the rule is
+    # scoped to the OU (so it inherits downwards and keeps GPO precedence) and this narrows it to the
+    # members of a group. Doing it as a second scope instead would have meant deciding which of two
+    # scopes wins, and that is the ordered-ruleset complexity this design exists to avoid.
+    #
+    # Same grammar as host_name, deliberately: a bare list means ANY of these groups (a picker's
+    # natural reading), and {"$nor": [...]} means none of them. AND across several groups is
+    # expressible by naming a group that is itself the intersection — inventing a second, silent
+    # meaning for a list would be worse than not offering it.
+    if (want_groups := conditions.get("host_groups")) is not None:
+        if not _matches_any_name(want_groups, ctx.host_groups):
             return False
 
     if groups := conditions.get("host_label_groups"):
@@ -195,6 +214,24 @@ def _matches_name(condition: Any, text: str) -> bool:
     if not patterns:
         return True  # an empty list matches everything, as in Checkmk
     hit = _compiled(tuple(patterns)).match(text or "") is not None
+    return not hit if negate else hit
+
+
+def _matches_any_name(condition: Any, values: list[str]) -> bool:
+    """host_groups: does ANY of the host's group names satisfy the condition?
+
+    The sibling of _matches_name, and it has to be a sibling rather than the same function: that one
+    asks about ONE string (the host's name), this one about a SET (every group the host is in). The
+    negation therefore means something stricter here — {"$nor": ["staging"]} must hold for ALL the
+    host's groups, i.e. it is in none of them. Reusing _matches_name per value and OR-ing would have
+    made "$nor" mean "at least one group is not staging", which is true for almost every host and
+    would have quietly matched the opposite of what was written.
+    """
+    negate, patterns = _parse_negated(condition)
+    if not patterns:
+        return True  # an empty list matches everything, as with host_name
+    rx = _compiled(tuple(patterns))
+    hit = any(rx.match(v or "") is not None for v in values)
     return not hit if negate else hit
 
 

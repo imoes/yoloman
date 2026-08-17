@@ -873,6 +873,12 @@ async def match_vocabulary(
     ou_folders = sorted(
         p for (p,) in (await session.execute(select(OUNode.path))).all() if p
     )
+    # Host GROUP names, so a rule scoped to an OU can be narrowed to a group — the AND of OU and
+    # group. Names rather than ids: the condition is stored and read as the operator says it
+    # ("webservers"), and group names are already unique per tenant.
+    host_groups = sorted(
+        n for (n,) in (await session.execute(select(HostGroup.name))).all() if n
+    )
 
     def dedup(d: dict[str, set[str]]) -> dict[str, list[str]]:
         # Deduplicated + sorted; no cap — the editor's live search filters client-side.
@@ -884,6 +890,7 @@ async def match_vocabulary(
         "variables": dedup(variables),
         "host_labels": dedup(labels),
         "ou_folders": ou_folders,
+        "host_groups": host_groups,
     }
 
 

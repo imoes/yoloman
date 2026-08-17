@@ -8,7 +8,7 @@ import { OuService } from '../../../core/services/ou.service';
  * condition fields (host_tags / host_label_groups / host_name / host_folder /
  * service_description / service_label_groups); "OS" is the conventional `os`
  * host-tag group surfaced as its own category. */
-type Category = 'host_tag' | 'os' | 'host_fact' | 'host_var' | 'host_label' | 'host_name' | 'host_folder' | 'service_name' | 'service_label';
+type Category = 'host_tag' | 'os' | 'host_fact' | 'host_var' | 'host_group' | 'host_label' | 'host_name' | 'host_folder' | 'service_name' | 'service_label';
 
 interface Clause {
   cat: Category;
@@ -27,6 +27,10 @@ const OPS: Record<Category, { v: string; label: string }[]> = {
   service_label: [{ v: 'is', label: 'is' }, { v: 'is_not', label: 'is not' }],
   host_name: [{ v: 'matches', label: 'matches (regex)' }, { v: 'equals', label: 'equals' }, { v: 'not_matches', label: 'does not match' }],
   service_name: [{ v: 'matches', label: 'matches (regex)' }, { v: 'equals', label: 'equals' }, { v: 'not_matches', label: 'does not match' }],
+  // Deliberately only any-of / none-of: a host belongs to SEVERAL groups at once, so "group is
+  // webservers" would read as an exclusive claim the data cannot make. "is any of" states what is
+  // actually checked — membership — and "is none of" is its honest negation (in NONE of them).
+  host_group: [{ v: 'any_of', label: 'is any of' }, { v: 'none_of', label: 'is none of' }],
   host_folder: [{ v: 'at_or_below', label: 'at or below' }],
 };
 
@@ -38,6 +42,9 @@ const CATS: { v: Category; label: string; hasKey: boolean; keyPh?: string }[] = 
   { v: 'host_label', label: 'Host label', hasKey: true, keyPh: 'label key' },
   { v: 'host_name', label: 'Host name', hasKey: false },
   { v: 'host_folder', label: 'Host folder (OU)', hasKey: false },
+  // Next to the OU on purpose: an OU scope plus a group condition is the AND an operator wants
+  // ("everything in Europe that is also a webserver"), and reading them side by side says so.
+  { v: 'host_group', label: 'Host group', hasKey: false },
   { v: 'service_name', label: 'Service name', hasKey: false },
   { v: 'service_label', label: 'Service label', hasKey: true, keyPh: 'label key' },
 ];
@@ -140,7 +147,8 @@ export class ConditionsEditorComponent implements OnInit {
     variables: Record<string, string[]>;
     host_labels: Record<string, string[]>;
     ou_folders: string[];
-  }>({ host_tags: {}, host_facts: {}, variables: {}, host_labels: {}, ou_folders: [] });
+    host_groups: string[];
+  }>({ host_tags: {}, host_facts: {}, variables: {}, host_labels: {}, ou_folders: [], host_groups: [] });
 
   ngOnInit(): void {
     this.ouService.matchVocabulary().subscribe({ next: (v) => this.vocab.set(v), error: () => {} });
@@ -186,6 +194,10 @@ export class ConditionsEditorComponent implements OnInit {
       case 'host_label':
       case 'service_label': return v.host_labels[c.key] || [];
       case 'host_folder': return v.ou_folders;
+      // The live search for groups: every group name the fleet has, filtered client-side as
+      // you type, so a condition is picked from what EXISTS instead of typed blind and
+      // silently matching nothing.
+      case 'host_group': return v.host_groups;
       default: return [];
     }
   }
@@ -232,6 +244,8 @@ export class ConditionsEditorComponent implements OnInit {
     const hostVars: Record<string, unknown> = {};
     const hostLabelMembers: [string, string][] = [];
     const svcLabelMembers: [string, string][] = [];
+    let hostGroups: string[] | null = null;
+    let hostGroupNeg = false;
     let hostNames: unknown[] | null = null;
     let hostNameNeg = false;
     let svcNames: unknown[] | null = null;
@@ -278,6 +292,13 @@ export class ConditionsEditorComponent implements OnInit {
           svcNames.push(nameEntry(c.op, v));
           if (c.op === 'not_matches') svcNameNeg = true;
           break;
+        case 'host_group':
+          // A comma list, same as any_of elsewhere. none_of wraps the WHOLE list in $nor, which the
+          // backend reads as "in none of these" — see rule_conditions._matches_any_name for why the
+          // negation has to apply to the set rather than per value.
+          hostGroups = [...(hostGroups ?? []), ...list(v)];
+          if (c.op === 'none_of') hostGroupNeg = true;
+          break;
         case 'host_folder':
           if (v) out['host_folder'] = v;
           break;
@@ -288,6 +309,7 @@ export class ConditionsEditorComponent implements OnInit {
     if (Object.keys(hostVars).length) out['host_vars'] = hostVars;
     if (hostLabelMembers.length) out['host_label_groups'] = [['and', hostLabelMembers]];
     if (svcLabelMembers.length) out['service_label_groups'] = [['and', svcLabelMembers]];
+    if (hostGroups) out['host_groups'] = hostGroupNeg ? { $nor: hostGroups } : hostGroups;
     if (hostNames) out['host_name'] = hostNameNeg ? { $nor: hostNames } : hostNames;
     if (svcNames) out['service_description'] = svcNameNeg ? { $nor: svcNames } : svcNames;
     return out;
@@ -305,6 +327,16 @@ export class ConditionsEditorComponent implements OnInit {
     this.deserializeNames(cond['host_name'], 'host_name', out);
     this.deserializeNames(cond['service_description'], 'service_name', out);
     if (cond['host_folder']) out.push({ cat: 'host_folder', key: '', op: 'at_or_below', value: String(cond['host_folder']) });
+    // host_groups round-trips as one clause: a bare list is any-of, a $nor wrapper is none-of.
+    // Reading it back as one row rather than one row per group matters — the negation belongs to the
+    // whole list ("in NONE of these"), and split rows would each carry it and read as something else.
+    const hg = cond['host_groups'];
+    if (Array.isArray(hg) && hg.length) {
+      out.push({ cat: 'host_group', key: '', op: 'any_of', value: hg.map(String).join(', ') });
+    } else if (hg && typeof hg === 'object' && '$nor' in (hg as Record<string, unknown>)) {
+      const list = ((hg as Record<string, unknown>)['$nor'] as unknown[]) || [];
+      if (list.length) out.push({ cat: 'host_group', key: '', op: 'none_of', value: list.map(String).join(', ') });
+    }
     return out;
   }
 
