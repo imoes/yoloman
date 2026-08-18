@@ -1,0 +1,14 @@
+[Unit]
+Description=Agentic template repair — rebuild gate-refused templates from the real shipped config file
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/mutkluge/Dev/code/yolo-man/bossman
+# The interpreter is the HOST venv on purpose: the container's is not reachable from a user service, and
+# `uv run` inside the mounted container breaks the host venv (that lesson is in the repo's notes).
+ExecStart=/home/mutkluge/Dev/code/yolo-man/bossman/.venv-host/bin/python scripts/repair_templates.py
+Environment=PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin
+# oneshot, NOT Restart=always: the run is finite (223 candidates) and every item is marked in
+# configs/.repair_templates_state.json when it is attempted, so a restart would only re-walk a done list.
+# Re-run it by hand after a version bump instead.
