@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { ScopeVarsEditorComponent } from '../../shared/components/scope-vars-dialog/scope-vars-editor.component';
 import { ProvisionDbDialogComponent } from './provision-db-dialog.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -52,13 +51,13 @@ import { StandaloneOverviewComponent } from '../../standalone/standalone-overvie
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
-import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { HostConfigScopeService } from './host-config-scope.service';
 import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
 import { HostDesiredStateComponent } from './management/host-desired-state.component';
+import { HostFileEditComponent } from './management/host-file-edit.component';
 import { HostThresholdsComponent } from './management/host-thresholds.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
@@ -128,7 +127,6 @@ function familyMembers(metric: string): string[] {
     TopologyComponent,
     HostManagementComponent,
     HostResourcesComponent,
-    ScopeVarsEditorComponent,
     DeploymentEdgesComponent,
     KubernetesDeployComponent,
     MetricChartComponent,
@@ -137,11 +135,11 @@ function familyMembers(metric: string): string[] {
     PerfOMeterComponent,
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
-    DesiredStateReportComponent,
     EffectiveThresholdsComponent,
     FormsModule,
     HostConfigGenerationsComponent,
     HostDesiredStateComponent,
+    HostFileEditComponent,
     HostThresholdsComponent,
   ],
   template: `
@@ -728,19 +726,8 @@ function familyMembers(metric: string): string[] {
                           </table>
                         }
                       } @else if (r.raw) {
-                        @if (editingPath() === r.path) {
-                          <textarea class="bm-cfg-edit" rows="14" [value]="editText()" (input)="editText.set($any($event.target).value)"></textarea>
-                          @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                          @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
-                          <div class="bm-rollback-actions">
-                            <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                            <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
-                            <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
-                          </div>
-                        } @else {
-                          <pre class="bm-cfg-values">{{ r.raw }}</pre>
-                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit (raw fallback)</button>
-                        }
+                        <app-host-file-edit [agentId]="agent.id" [path]="r.path" [raw]="r.raw"
+                                            (changed)="loadObserved()" />
                       } @else if (r.sha256) {
                         <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                       }
@@ -2550,7 +2537,10 @@ export class HostDetailComponent implements OnInit {
   selectPane(p: string): void {
     this.selectedPane.set(p);
     this.closeSetting();
-    this.cancelEdit();
+    // No cancelEdit() here any more: the raw editor is app-host-file-edit, which sits inside the pane
+    // and is DESTROYED when the pane changes — its open/dirty state goes with it. Same reasoning as the
+    // thresholds note below; a parent reaching in to reset a child's state was only necessary while
+    // they shared a class.
     this.cancelTemplateEdit();
     // No threshold reset here any more: the pane lives behind @if (selectedPane() === '::thresholds'),
     // so switching pane DESTROYS it and its state goes with it. Resetting a child's signal from the
@@ -3024,122 +3014,22 @@ export class HostDetailComponent implements OnInit {
     return `${pad}${this.scalarStr(v)}`;
   }
 
-  /** A config is editable when we carried its verbatim text (textual file under
-   * the size cap). The edit pushes the whole file back via `copy`, so every
-   * format works and comments/order/deletions are preserved. */
-  isEditable(r: { raw?: string }): boolean {
-    return !!r.raw;
-  }
-
-  editingPath = signal<string | null>(null);
-  editMode = signal<'kv' | 'raw'>('kv');
-  editText = signal(''); // raw fallback tier
-  editBusy = signal(false);
-  editError = signal<string | null>(null);
-  editPreview = signal<string | null>(null); // raw dry-run message
-
-  // K1 value editor (codec'd files): key-value rows + the document-loop plan.
-  kvRows = signal<{ key: string; value: string }[]>([]);
-  private kvOriginalKeys: string[] = [];
-  kvPlan = signal<StateResourceChange | null>(null);
-
-  startEdit(r: { path: string; format: string; separator?: string; raw?: string; values?: Record<string, unknown> }): void {
-    this.editingPath.set(r.path);
-    this.editError.set(null);
-    this.editPreview.set(null);
-    this.kvPlan.set(null);
-    if (r.values) {
-      // Codec'd file → edit VALUES via a key-value table (the document loop).
-      this.editMode.set('kv');
-      const rows = Object.entries(r.values).map(([key, v]) => ({ key, value: this.scalarStr(v) }));
-      this.kvRows.set(rows);
-      this.kvOriginalKeys = rows.map((x) => x.key);
-    } else {
-      // No codec → raw-text fallback tier.
-      this.editMode.set('raw');
-      this.editText.set(r.raw ?? '');
-    }
-  }
-
-  cancelEdit(): void {
-    this.editingPath.set(null);
-    this.editPreview.set(null);
-    this.editError.set(null);
-    this.kvPlan.set(null);
-  }
-
-  setKvKey(i: number, key: string): void {
-    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, key } : r)));
-  }
-  setKvValue(i: number, value: string): void {
-    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, value } : r)));
-  }
-  removeKvRow(i: number): void {
-    this.kvRows.update((rows) => rows.filter((_, j) => j !== i));
-  }
-  addKvRow(): void {
-    this.kvRows.update((rows) => [...rows, { key: '', value: '' }]);
-  }
-
-  /** Build the desired values map: every current row (key→value) plus any
-   * original key the user removed, set to null (codec-level delete). */
-  private kvValues(): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    const present = new Set<string>();
-    for (const { key, value } of this.kvRows()) {
-      const k = key.trim();
-      if (!k) continue;
-      out[k] = value;
-      present.add(k);
-    }
-    for (const k of this.kvOriginalKeys) if (!present.has(k)) out[k] = null;
-    return out;
-  }
-
-  private kvResource(r: { path: string; format: string; separator?: string }): ConfigResource {
-    return { type: 'config', path: r.path, format: r.format, separator: r.separator, values: this.kvValues() };
-  }
-
-  /** Dry-run the value edit through the document loop → per-key diff. */
-  previewKv(r: { path: string; format: string; separator?: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.statePlan(agent.id, [this.kvResource(r)]).subscribe({
-      next: (res) => {
-        this.editBusy.set(false);
-        this.kvPlan.set((res.changes || []).find((c) => c.path === r.path) ?? { type: 'config', path: r.path, action: 'noop' });
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'plan failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
-
-  /** Apply the value edit → codec merge-write + a new generation, then reload. */
-  applyKv(r: { path: string; format: string; separator?: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.stateApply(agent.id, [this.kvResource(r)], false, this.scopeArg()).subscribe({
-      next: () => {
-        this.editBusy.set(false);
-        this.cancelEdit();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'apply failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
+  // THE K1 KEY-VALUE EDITOR IS GONE, not moved. It was a table of key/value rows with its own
+  // plan/apply pair, reached through startEdit() — and NOTHING called startEdit() any more: the
+  // per-setting dialog (Configured / Host based / Removed, with scope and restart-after-apply)
+  // replaced it and is strictly richer. Measured before deleting: startEdit, previewKv, applyKv,
+  // kvDiffRows, setKvKey, setKvValue, removeKvRow, addKvRow, kvValues, isEditable each had exactly ONE
+  // reference in this file — their own definition — and none anywhere else in the app.
+  //
+  // Two editors for the same job is the redundancy the config-model consolidation is about; leaving a
+  // dead one behind is worse, because the next person cannot tell which is authoritative.
+  //
+  // The RAW tier moved to management/host-file-edit.component.ts rather than being deleted: it is the
+  // last resort for a file with neither codec nor template, and it still has a caller.
 
   // --- Block K2: bind a discovered file to a Class-B template + edit via a
-  // schema-driven form (opt-in; the raw codec-less alternative is K1's raw
-  // fallback, and codec'd files still have the K1 KV editor) ---
+  // schema-driven form (opt-in; a file with neither codec nor template falls back
+  // to the raw whole-file editor in app-host-file-edit) ---
 
   /** path → template, from GET /config-templates/index. */
   templateIndex = signal<Record<string, ConfigTemplateIndexEntry>>({});
@@ -3189,7 +3079,10 @@ export class HostDetailComponent implements OnInit {
    * would show a form whose fields do not yet reflect the file, which reads as "this file has no
    * settings". */
   startTemplateEdit(r: { path: string }, entry: ConfigTemplateIndexEntry): void {
-    this.cancelEdit();
+    // It used to call cancelEdit() here so the raw editor could not stay open on the same file — two
+    // editors, two versions of one file. The rule survives the extraction, inverted: app-host-file-edit
+    // takes tplEditPath as an input and closes itself when it matches. The constraint is now expressed
+    // where it is enforced, instead of relying on this method remembering to reach across.
     this.tplBusy.set(true);
     this.tplError.set(null);
     this.agentService.configTemplate(entry.template).subscribe({
@@ -3280,51 +3173,6 @@ export class HostDetailComponent implements OnInit {
       },
     });
   }
-
-  /** Per-key diff rows for the KV preview (key: before → after). */
-  kvDiffRows(): { key: string; before: string; after: string }[] {
-    const changed = this.kvPlan()?.changed;
-    if (!changed) return [];
-    return Object.entries(changed).map(([key, [b, a]]) => ({
-      key,
-      before: b === null || b === undefined ? '—' : this.scalarStr(b),
-      after: a === null || a === undefined ? '(removed)' : this.scalarStr(a),
-    }));
-  }
-
-  private pushConfig(r: { path: string }, dryRun: boolean, onDone: (changed: boolean) => void): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.writeFileContent(agent.id, r.path, this.editText(), dryRun).subscribe({
-      next: (res) => {
-        this.editBusy.set(false);
-        onDone(!!res.result?.changed);
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'config write failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
-
-  /** Dry-run the edit: the agent reports whether the file would change, without
-   * writing. */
-  previewEdit(r: { path: string }): void {
-    this.pushConfig(r, true, (changed) =>
-      this.editPreview.set(changed ? `preview: ${r.path} would change (nothing written yet)` : 'preview: no changes'),
-    );
-  }
-
-  /** Apply the edit for real (writes the whole file), then reload the tab. */
-  applyEdit(r: { path: string }): void {
-    this.pushConfig(r, false, () => {
-      this.cancelEdit();
-      this.loadObserved();
-    });
-  }
-
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +
    * slowest disk I/O) — the 'what' behind the latency heatmaps. Live

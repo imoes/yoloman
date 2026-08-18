@@ -80,23 +80,29 @@ services:
       - "514:1514/udp"
       - "162:1162/udp"
     volumes:
-      - ${PWD}/bossman/plans:/app/plans:ro
+      # RELATIVE, not ${PWD}. Compose resolves a relative bind mount against the COMPOSE FILE's
+      # directory; ${PWD} resolves against whatever shell happened to launch it. Running
+      # `docker compose up -d --build bossman-ui` from bossman-ui/ (e.g. right after `ng build`, which
+      # leaves you there) therefore mounted bossman-ui/configs/* — and Docker CREATES a missing bind
+      # source as an empty directory, so the server came up with an empty config catalog and served an
+      # empty template index instead of failing. Silent, and the container looked healthy.
+      - ./bossman/plans:/app/plans:ro
       # RW so Bossman itself can create a package's config files (codec /
       # directives / template / enum) via the on-demand qualify endpoint — the
       # same artifacts the host batch writes; both target these repo configs.
-      - ${PWD}/configs/config_templates:/app/config-templates
-      - ${PWD}/configs/config_codecs.json:/app/config_codecs.json
-      - ${PWD}/configs/config_directives.json:/app/config_directives.json
-      - ${PWD}/configs/package_catalog.json:/app/package_catalog.json
-      - ${PWD}/configs/package_doc_audit.json:/app/package_doc_audit.json:ro
+      - ./configs/config_templates:/app/config-templates
+      - ./configs/config_codecs.json:/app/config_codecs.json
+      - ./configs/config_directives.json:/app/config_directives.json
+      - ./configs/package_catalog.json:/app/package_catalog.json
+      - ./configs/package_doc_audit.json:/app/package_doc_audit.json:ro
       # The whole configs/ tree, RW — the on-demand qualify endpoint runs the
       # qualify scripts in-container with AGENTIC_CONFIGS_DIR=/app/configs, so they
       # write templates/codecs/directives/catalog + their .state files straight
       # into the repo configs (same files the app serves from the mounts above).
-      - ${PWD}/configs:/app/configs
+      - ./configs:/app/configs
       # Generated Ansible playbooks that seed the installation-wizard runbooks
       # (scripts/wizards_to_playbooks.py output; wizard_seed reads them here).
-      - ${PWD}/configs/wizard_playbooks:/app/wizard_playbooks:ro
+      - ./configs/wizard_playbooks:/app/wizard_playbooks:ro
       - bossman-tls:/app/data/tls
       # Persist the downloaded CVE feed (+ its parsed descriptions) across
       # restarts/rebuilds so it isn't re-fetched (78MB) and CVE descriptions
@@ -173,8 +179,8 @@ services:
       - pxe-tftp:/srv/tftp
       - pxe-pe:/pe-root
       # Bind mounts for the QEMU install path (ISO to install from, template disk to install into):
-      - ${PWD}/deploy/pxe/iso:/srv/iso
-      - ${PWD}/deploy/pxe/templates:/srv/templates
+      - ./deploy/pxe/iso:/srv/iso
+      - ./deploy/pxe/templates:/srv/templates
       # Node-agent config + state, so the enrollment/token survive a restart (managed-host mode).
       - pxe-agent-conf:/etc/agentic-mcp
       - pxe-agent-data:/var/lib/agentic-mcp
