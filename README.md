@@ -337,14 +337,14 @@ Start with `list_hosts` (name, mode, enrollment, online, OU/tags). For one host:
 (cross-signal snapshot). Fleet health: `fleet_health`, `list_problems`. Logs/procs:
 `get_host_logs`, `get_host_processes`. The whole host as one document:
 `get_server_document(host)`; ask it a question with `explain_server(host, question)`.
-In the UI this is the host's **Overview / Services / Configuration** tabs.
+In the UI this is the host's **Overview / Services** tabs plus **Management ▸ Configuration**.
 
 ### Configure ONE host (set_host_config)
 Set a single config file on one machine: `set_host_config(host, path, values,
 dry_run=True)` — it merges into the file via the file's codec (foreign keys kept),
 previews the diff, and only writes when `dry_run=False`. Managed files are then
 **auto-enforced every poll** (drift is reverted and recorded as a roll-backable
-generation). UI: the host's **Configuration → Settings** (gpedit) tab.
+generation). UI: the host's **Management ▸ Configuration ▸ Settings** (gpedit) snap-in.
 
 ### Configure MANY hosts with a policy (named policies, link to a scope)
 A policy is a **named container** of config-file entries you author once and **link
@@ -369,7 +369,8 @@ tree object and in the report.
 See state with `list_problems` and `host_services(host)`. Author a rule with
 `set_threshold(host_or_scope, metric, comparison, warn, crit)`. Manage noise with
 `acknowledge_problem` and `schedule_downtime`. To see **which rule wins** for a host
-and why, open its **Configuration → Effective thresholds** tab (closest-to-host).
+and why, open its **Management ▸ Configuration ▸ Effective thresholds** (closest-to-host) — or the
+same thresholds from the service row itself, whichever door you are standing at.
 
 ### Find and read a check (list_checks, get_check)
 `list_checks(query)` returns each check's name, short description, one-paragraph

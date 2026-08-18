@@ -66,7 +66,7 @@ Vorschläge; der Operator kann jeden Eintrag umklassifizieren.
 - **Code:** `'feature'` in die `kind`-Union (`package-catalog.service.ts`); die 3 Konsumenten so anpassen,
   dass ein Feature **installierbar** ist (wie `role`), im Wizard aber der Monitoring-Check-/Role-Schritt
   **übersprungen** wird (Feature = install + config, keine Orchestrierung). `roles-features.component`
-  gruppiert künftig Roles / Features / (Config bleibt im Configuration-Tab).
+  gruppiert künftig Roles / Features / (Config liegt unter Management ▸ Configuration).
 
 ## Teil 2 — Klassifikation IN den qualify-Lauf integrieren (keine doppelte Arbeit)
 
@@ -145,7 +145,7 @@ Wiederverwenden: `retranslate_checks.py` (OpenRouter-Client, Credit-Guard, Resum
 ## Verifikation
 
 1. Teil 1: `npx ng build` grün; im Browser zeigt Roles & Features die drei Gruppen; ein **Feature**
-   hinzufügen installiert nur das Paket und dessen Config ist im Configuration-Tab editierbar; eine
+   hinzufügen installiert nur das Paket und dessen Config ist unter Management ▸ Configuration editierbar; eine
    **Rolle** bekommt weiter einen Monitoring-Check.
 2. Teil 2 dry-run: der Report zeigt plausible Zahlen (z. B. „X features, Y roles, Z skipped") und die
    Kandidatenliste ist nachvollziehbar; Stichprobe von ~10 Einträgen von Hand geprüft (Paketname, service,

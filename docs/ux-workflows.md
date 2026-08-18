@@ -43,7 +43,7 @@ produced it.
 
 ## 3 · Create a policy for a host  ✅
 
-Path: **Host → Configuration tab** — the gpedit editor (Miller columns:
+Path: **Host → Management ▸ Configuration ▸ Settings** — the gpedit editor (Miller columns:
 category → file → settings). Set a config value with scope **this host**;
 thresholds live under the Monitoring category. Rollback-able generations,
 per-key drift. Coherent and self-contained.

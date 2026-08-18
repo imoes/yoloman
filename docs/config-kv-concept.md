@@ -1,5 +1,10 @@
 # Configuration tab — course correction: use the codecs, templates, and the document loop
 
+> **Where this lives now (2026-08-18):** the Configuration TAB was folded into the
+> Management console — **Management ▸ Configuration ▸ Settings / Effective thresholds / Desired
+> state**. The tab names below are kept as written because this file records a decision made when
+> they were accurate; only the location changed.
+
 **The mistake (user feedback, 2026-07-15):** the Configuration tab grew a raw-text
 editor ("edit the file 1:1, push via copy"). That is vi-over-HTTP — it bypasses
 everything the architecture is for. "Wozu haben wir die jinja2 templates und die

@@ -23,8 +23,8 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
 | Network / Firewall / Storage / Accounts / FreeIPA / Updates / Logs | ✅ Management sub-tabs | ❌ | ❌ | ✅ | Cockpit-adaptation plan exists (separate) |
 | Plans/orchestration (roles, links) | ✅ Runs tab, placement panel | ✅ Plans, Runs, Deploy | ✅ OU/Policy | ✅ | |
 | Check-rule thresholds (GPO) | ⚠️ only in Host placement panel | ❌ | ✅ OU console, **now multi-OU** | ✅ | not on host detail (F-4); multi-OU done |
-| **Observed state (server document)** | ✅ **Configuration tab (F1 done)** | ❌ | — | ⚠️ agent-only | read side live |
-| **Generations / diff / rollback** | ✅ **Configuration tab (F2 done)** | ❌ drift dashboard | — | ⚠️ agent-only | live-verified |
+| **Observed state (server document)** | ✅ **Management ▸ Configuration (F1 done)** | ❌ | — | ⚠️ agent-only | read side live |
+| **Generations / diff / rollback** | ✅ **Management ▸ Configuration (F2 done)** | ❌ drift dashboard | — | ⚠️ agent-only | live-verified |
 | **Config codecs (structured /etc editing)** | ❌ | n/a | ❌ | ⚠️ raw tool call | **F4** |
 | **Config templates (17, schema.json)** | ❌ apply-to-host | ❌ no catalog page | ❌ as policy | ⚠️ raw tool call | **F3** |
 | **Piggyback guests/sources (docker/proxmox/vsphere/libvirt)** | ❌ Virtualization tab says "none" while Docker runs | ⚠️ guests appear as hosts only | ❌ | ❌ | **F5** |
@@ -113,13 +113,13 @@ approval).
 - **F1 — Config tab (read)**: ✅ DONE. Bossman proxy `GET
   /agents/{id}/state/observed` (+ /state/generations) added in api/management.py
   next to the tools proxy; AgentClient.state_observed/state_generations. New
-  host-detail **Configuration** tab (lazy) renders each discovered config file
+  the **Management ▸ Configuration ▸ Settings** snap-in (lazy) renders each discovered config file
   with its path, codec/format badge, and codec-parsed values (or sha256/size
   for opaque, or the read error). Loads on tab open + on deep-link
   (?tab=configuration). Verified live on docker-test (6 files: config.yaml
   yaml, /etc/default/* keyvalue). generations endpoint wired but its UI is F2.
 - **F2 — Generations & rollback**: ✅ DONE + live-verified. Same
-  Configuration tab: generation table (# / applied / hash / resources /
+  Management ▸ Configuration ▸ Settings: generation table (# / applied / hash / resources /
   current badge), "Roll back to #N…" runs a dry-run whose plan is the diff
   (per-file key: before→after), shown in a preview card, then "Apply rollback".
   Bossman proxy POST /agents/{id}/state/rollback + AgentClient.state_rollback.
@@ -129,7 +129,7 @@ approval).
   `configs/config_templates/` (needs a small Bossman endpoint serving the
   catalog); `schema.json` → auto-generated form, live render preview
   (template_render dry-run via tools proxy), "apply to host" writing dest;
-  per-host entry point from the Configuration tab.
+  per-host entry point from Management ▸ Configuration.
 - **Bugfix batch (with F1)**: F-1 null-chart crash, F-2 empty dashlet,
   F-12 memory defaults (warn 80/crit 90), F-14 icons, F-11 cleanup script
   (`scripts/cleanup_test_artifacts.py` — delete u-*/plan-*/1-letter-run
