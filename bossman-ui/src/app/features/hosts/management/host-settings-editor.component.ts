@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Agent, ConfigTemplateIndexEntry, DirectiveSpec, ObservedResource, ObservedState, StateResourceChange } from '../../../core/models/agent.model';
 import { AgentService } from '../../../core/services/agent.service';
 import { ServiceState } from '../../../core/models/monitoring.model';
+import { MonitoringService } from '../../../core/services/monitoring.service';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../../shared/config-categories';
 import { ResourceNodeComponent } from '../../../shared/resource-node/resource-node.component';
@@ -114,9 +115,13 @@ import { HostThresholdsComponent } from './host-thresholds.component';
     <!-- Miller column 3: the selected pane -->
     <div class="bm-gpo-main">
       @if (selectedPane() === '::thresholds') {
-        <app-host-thresholds
-          [agent]="agent()" [services]="services()" [thresholds]="thresholds()"
-          (changed)="loadDesiredMonitoring()" />
+        @if (agent(); as a) {
+          <app-host-thresholds
+            [agent]="a" [services]="services()" [thresholds]="thresholds()"
+            (changed)="loadDesiredMonitoring()" />
+        } @else {
+          <p class="bm-empty">Loading the host…</p>
+        }
       } @else if (selRes(obs); as r) {
         <div class="bm-cfg-row">
           <code class="bm-cfg-path">{{ r.path }}</code>
@@ -135,11 +140,11 @@ import { HostThresholdsComponent } from './host-thresholds.component';
           <span class="bm-dim bm-vt-note">Resource view = the generic config node (host-direct state + generations). The Settings editor keeps scope/policy, source, Removed and restart-after-apply.</span>
         </div>
         @if (configView() === 'resource') {
-          <app-resource-node kind="config" [name]="r.path" [agentId]="agent().id" />
+          <app-resource-node kind="config" [name]="r.path" [agentId]="agentId()" />
         } @else {
         @if (tplEditPath() === r.path) {
-          <app-host-template-edit [agentId]="agent().id" [path]="r.path"
-                                  [templateName]="tplName()" [ouId]="agent().ou_id"
+          <app-host-template-edit [agentId]="agentId()" [path]="r.path"
+                                  [templateName]="tplName()" [ouId]="agent()?.ou_id"
                                   (applied)="loadObserved(true)"
                                   (cancelled)="cancelTemplateEdit()" />
         } @else if (r.values) {
@@ -167,9 +172,9 @@ import { HostThresholdsComponent } from './host-thresholds.component';
             <button mat-stroked-button (click)="addSettingKey(r)" [disabled]="!newSettingKey().trim()">Add</button>
           </div>
           @if (settingRow(); as row) {
-            <app-host-setting-dialog [agentId]="agent().id" [resource]="r" [row]="row"
+            <app-host-setting-dialog [agentId]="agentId()" [resource]="r" [row]="row"
                                      [spec]="specFor(r.path, row.key)"
-                                     [service]="settingService(r.path)" [ouId]="agent().ou_id"
+                                     [service]="settingService(r.path)" [ouId]="agent()?.ou_id"
                                      (applied)="loadObserved(true)" (closed)="closeSetting()" />
           }
           @if (driftRows(r.path).length) {
@@ -184,7 +189,7 @@ import { HostThresholdsComponent } from './host-thresholds.component';
             </table>
           }
         } @else if (r.raw) {
-          <app-host-file-edit [agentId]="agent().id" [path]="r.path" [raw]="r.raw"
+          <app-host-file-edit [agentId]="agentId()" [path]="r.path" [raw]="r.raw"
                               (changed)="loadObserved(true)" />
         } @else if (r.sha256) {
           <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
@@ -195,8 +200,10 @@ import { HostThresholdsComponent } from './host-thresholds.component';
   </div>
   @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
 
-  <app-host-config-generations [agent]="agent()" [reloadTick]="observedReloadTick()"
-                               (changed)="loadObserved(true)" />
+  @if (agent(); as a) {
+    <app-host-config-generations [agent]="a" [reloadTick]="observedReloadTick()"
+                                 (changed)="loadObserved(true)" />
+  }
 } @else {
   <p class="bm-empty">Open this tab to read the host's configuration.</p>
 }
@@ -251,14 +258,21 @@ import { HostThresholdsComponent } from './host-thresholds.component';
 export class HostSettingsEditorComponent {
   private agentService = inject(AgentService);
   private orchestration = inject(OrchestrationService);
+  private monitoring = inject(MonitoringService);
   private scope = inject(HostConfigScopeService);
 
-  agent = input.required<Agent>();
-  /** The host's services, for the thresholds pane and for finding the unit that owns a config file. Kept
-   * as an input because the Services tab reads the same list — one fact, one owner. Typed as the real
-   * ServiceState rather than the structural subset this file happens to read, so the binding does not
-   * need a cast and a field added upstream cannot silently stop arriving. */
-  services = input<ServiceState[]>([]);
+  /** The host, by id — the same contract every other Management snap-in has.
+   *
+   * It used to take the whole Agent plus the services list as inputs, which tied it to a caller that
+   * already had both. Fetching them here makes it mountable anywhere an id is known, which is exactly
+   * what folding this editor into the Management console required. Sibling snap-ins (host-services,
+   * host-storage, …) work the same way; the cost is two small requests the page was making anyway. */
+  agentId = input.required<string>();
+
+  /** Fetched, not passed: the thresholds pane needs the Agent (for ou_id), and settingService() needs the
+   * services to name the unit that owns a config file. */
+  agent = signal<Agent | null>(null);
+  services = signal<ServiceState[]>([]);
 
   constructor() {
     // IN AN EFFECT, NOT THE CONSTRUCTOR. A required input is not bound yet in the constructor, so
@@ -273,7 +287,12 @@ export class HostSettingsEditorComponent {
     // boundary IS the guard. The page used to carry that check plus a null test plus a deep-link special
     // case; all three are gone.
     effect(() => {
-      this.agent();
+      const id = this.agentId();
+      this.agentService.get(id).subscribe((a) => this.agent.set(a));
+      this.monitoring.agentServices(id).subscribe({
+        next: (svcs) => this.services.set(svcs),
+        error: () => this.services.set([]),
+      });
       this.loadConfigCatalogs();
       this.loadObserved();
       this.loadDesiredMonitoring();

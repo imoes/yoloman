@@ -49,13 +49,10 @@ import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployme
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
-import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { HostConfigScopeService } from './host-config-scope.service';
-import { HostDesiredStateComponent } from './management/host-desired-state.component';
 import { driftRows as driftRowsOf } from './management/drift-rows';
-import { HostSettingsEditorComponent } from './management/host-settings-editor.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -130,10 +127,7 @@ function familyMembers(metric: string): string[] {
     PerfOMeterComponent,
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
-    EffectiveThresholdsComponent,
     FormsModule,
-    HostDesiredStateComponent,
-    HostSettingsEditorComponent,
   ],
   template: `
     @if (agent(); as agent) {
@@ -500,25 +494,9 @@ function familyMembers(metric: string): string[] {
             </div>
           </ng-template></mat-tab>
 
-          <mat-tab label="Configuration"><ng-template matTabContent>
-            <div class="bm-tab-content">
-             <mat-tab-group class="bm-cfg-sub">
-              <mat-tab label="Settings"><ng-template matTabContent>
-                <app-host-settings-editor [agent]="agent" [services]="services()" />
-              </ng-template></mat-tab>
-              <mat-tab label="Effective thresholds"><ng-template matTabContent>
-                <app-effective-thresholds [agentId]="agent.id" />
-              </ng-template></mat-tab>
-              <mat-tab label="Desired state"><ng-template matTabContent>
-                <app-host-desired-state [agentId]="agent.id" />
-              </ng-template></mat-tab>
-             </mat-tab-group>
-            </div>
-          </ng-template></mat-tab>
-
           <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
-              <app-host-management [agentId]="agent.id" [hostName]="agent.name" />
+              <app-host-management [agentId]="agent.id" [hostName]="agent.name" [initialSnapin]="initialSnapin" />
             </div>
           </ng-template></mat-tab>
 
@@ -1841,14 +1819,28 @@ export class HostDetailComponent implements OnInit {
   // Order MUST match the <mat-tab> order in the template (index → ?tab= deep link).
   // Grouped by theme: status (overview/services/inventory) → config & manage
   // (configuration + management adjacent) → checks/diagnostics → ops.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+
+  /** Retired tab names, mapped to where their content lives now.
+   *
+   * ?tab=configuration is in bookmarks, in this repo's own docs and in every link I used while testing.
+   * Dropping the tab without this would silently land those on Overview — the URL would still "work" and
+   * quietly show something else, which is worse than a 404. The Configuration tab's three panes are now
+   * the Management console's Configuration category. */
+  private readonly retiredTabs: Record<string, { tab: string; snapin?: string }> = {
+    configuration: { tab: 'management', snapin: 'config-settings' },
+  };
+  /** Snap-in to pre-select in the Management console, when arriving via a retired tab name. */
+  initialSnapin: string | null = null;
   initialTabIndex = 0;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     const tab = (this.route.snapshot.queryParamMap.get('tab') || '').toLowerCase();
-    const idx = this.tabOrder.indexOf(tab);
+    const retired = this.retiredTabs[tab];
+    const idx = this.tabOrder.indexOf(retired?.tab ?? tab);
     if (idx >= 0) this.initialTabIndex = idx;
+    this.initialSnapin = retired?.snapin ?? null;
 
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);

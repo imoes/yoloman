@@ -8,6 +8,9 @@ import { HostAccountsComponent } from './host-accounts.component';
 import { HostStorageComponent } from './host-storage.component';
 import { HostPoliciesComponent } from './host-policies.component';
 import { HostVariablesComponent } from './host-variables.component';
+import { HostSettingsEditorComponent } from './host-settings-editor.component';
+import { HostDesiredStateComponent } from './host-desired-state.component';
+import { EffectiveThresholdsComponent } from '../effective-thresholds.component';
 import { HostNetworkComponent } from './host-network.component';
 import { HostFirewallComponent } from './host-firewall.component';
 import { HostFreeipaComponent } from './host-freeipa.component';
@@ -48,6 +51,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostPoliciesComponent, HostVariablesComponent,
+    HostSettingsEditorComponent, HostDesiredStateComponent, EffectiveThresholdsComponent,
     HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, LogrotateComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     WebConfigTreeComponent, WebSingleConfigTreeComponent, TraefikConfigComponent,
@@ -83,6 +87,9 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('storage')) { <div [style.display]="show('storage')"><app-host-storage [agentId]="agentId()" /></div> }
         @if (visited().has('policies')) { <div [style.display]="show('policies')"><app-host-policies [agentId]="agentId()" /></div> }
         @if (visited().has('variables')) { <div [style.display]="show('variables')"><app-host-variables [agentId]="agentId()" [hostName]="hostName()" /></div> }
+        @if (visited().has('config-settings')) { <div [style.display]="show('config-settings')"><app-host-settings-editor [agentId]="agentId()" /></div> }
+        @if (visited().has('config-thresholds')) { <div [style.display]="show('config-thresholds')"><app-effective-thresholds [agentId]="agentId()" /></div> }
+        @if (visited().has('config-desired')) { <div [style.display]="show('config-desired')"><app-host-desired-state [agentId]="agentId()" /></div> }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
         @if (visited().has('virt')) { <div [style.display]="show('virt')"><app-host-virt [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-bind')) { <div [style.display]="show('pkg-bind')"><app-bind-zones [agentId]="agentId()" /></div> }
@@ -139,6 +146,10 @@ export class HostManagementComponent implements OnInit {
   /** Only for display (the Variables snap-in labels its scope "host <name>"). Optional so the
    * standalone shell, which knows the id but not always the name, needs no change. */
   hostName = input<string>('');
+  /** Snap-in to open instead of the default, when the page arrives from a retired tab URL
+   * (?tab=configuration → Configuration ▸ Settings). Ignored when it names nothing this console has, so a
+   * stale link degrades to the default rather than to a blank pane. */
+  initialSnapin = input<string | null>(null);
   /** Snap-in ids to hide (e.g. the standalone console hides snap-ins that are a
    * Fleet-Commander concern). 'servicechecks' is no longer among them: service checks moved
    * to the host's Checks tab, where the rest of the host's checks already were — see
@@ -203,6 +214,18 @@ export class HostManagementComponent implements OnInit {
     // where they were pseudo-categories in a list of config FILES.
     { id: 'policies', label: 'Policies', icon: 'policy', category: 'Desired state' },
     { id: 'variables', label: 'Variables', icon: 'data_object', category: 'Desired state' },
+    // The Configuration TAB folded in here, which is what removed the 13th top-level tab. It was a tab
+    // holding a Miller list beside a tab holding a Miller list — two consoles for one job, and the
+    // operator had to know which of the two a given setting lived behind. Its own category rather than
+    // "Server": these are the host's config FILES and the policies resolved into them, not units to
+    // start or packages to install.
+    //
+    // "Effective thresholds" stays a separate entry on purpose. Thresholds are also reachable from each
+    // service row, and the user asked for BOTH doors to exist — the Windows pattern, where a setting is
+    // where you are looking and also in the console that owns it.
+    { id: 'config-settings', label: 'Settings', icon: 'tune', category: 'Configuration' },
+    { id: 'config-thresholds', label: 'Effective thresholds', icon: 'speed', category: 'Configuration' },
+    { id: 'config-desired', label: 'Desired state', icon: 'fact_check', category: 'Configuration' },
     { id: 'network', label: 'Network', icon: 'lan', category: 'Network' },
     { id: 'firewall', label: 'Firewall', icon: 'security', category: 'Network' },
     { id: 'storage', label: 'Storage', icon: 'storage', category: 'Storage' },
@@ -395,7 +418,16 @@ export class HostManagementComponent implements OnInit {
 
   /** Called by host-detail when the parent Management tab is opened. */
   activate(): void {
-    this.select(this.selected());
+    const wanted = this.initialSnapin();
+    // Honoured ONCE, on the first activation: after that the operator's own clicks own the selection, and
+    // re-applying the URL's wish on every tab switch would drag them back where they started.
+    if (wanted && !this.initialSnapinApplied && this.allSnapins().some((s) => s.id === wanted)) {
+      this.initialSnapinApplied = true;
+      this.select(wanted);
+    } else {
+      this.select(this.selected());
+    }
     this.ensureModules();
   }
+  private initialSnapinApplied = false;
 }
