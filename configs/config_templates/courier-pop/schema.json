@@ -1,52 +1,82 @@
 {
-  "init_info_provides": {
+  "init_service_name": {
     "type": "string",
-    "default": "courier-pop",
-    "description": "The name this init script provides (used by system services manager)"
+    "default": "pop3d",
+    "description": "The name of the service used for the PID file."
   },
-  "init_info_required_start": {
-    "type": "string",
-    "default": "courier-authdaemon $remote_fs $syslog",
-    "description": "Dependencies that must start before this service"
+  "maxdaemons": {
+    "type": "number",
+    "default": 40,
+    "description": "Maximum number of POP3 servers started"
   },
-  "init_info_required_stop": {
-    "type": "string",
-    "default": "$remote_fs $syslog",
-    "description": "Dependencies required to stop this service"
+  "maxperip": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of connections to accept from the same IP address"
   },
-  "init_info_default_start": {
+  "pop3auth": {
     "type": "string",
-    "default": "2 3 4 5",
-    "description": "Runlevels in which this service starts by default"
+    "default": "",
+    "description": "Authentication mechanisms to advertise (e.g., LOGIN CRAM-MD5)"
   },
-  "init_info_default_stop": {
+  "pop3auth_orig": {
     "type": "string",
-    "default": "0 1 6",
-    "description": "Runlevels in which this service stops by default"
+    "default": "PLAIN LOGIN CRAM-MD5 CRAM-SHA1 CRAM-SHA256",
+    "description": "Original list of supported authentication mechanisms for webadmin"
   },
-  "init_info_short_description": {
+  "pop3auth_tls": {
     "type": "string",
-    "default": "Courier POP3 server",
-    "description": "Short description of the service"
+    "default": "",
+    "description": "Authentication mechanisms to advertise when TLS is enabled"
   },
-  "daemon_path": {
+  "pop3auth_tls_orig": {
     "type": "string",
-    "default": "/usr/sbin/pop3d",
-    "description": "Path to the POP3 daemon executable"
+    "default": "LOGIN PLAIN",
+    "description": "Original list of TLS authentication mechanisms for webadmin"
   },
-  "desc": {
-    "type": "string",
-    "default": "Courier POP3 server",
-    "description": "Human-readable description of the service"
+  "pop3_proxy": {
+    "type": "number",
+    "default": 0,
+    "description": "Enable proxying (0 or 1)"
   },
-  "pop3d_config_path": {
-    "type": "string",
-    "default": "/etc/courier/pop3d",
-    "description": "Path to the main Courier POP3 configuration file"
+  "port": {
+    "type": "number",
+    "default": 110,
+    "description": "Port to listen on for connections"
   },
-  "init_d_script_courier_path": {
+  "address": {
     "type": "string",
-    "default": "/usr/lib/courier/init-d-script-courier",
-    "description": "Path to the Courier-specific init-d-script helper"
+    "default": "0",
+    "description": "IP address to listen on. 0 means all IP addresses."
+  },
+  "tcpdopts": {
+    "type": "string",
+    "default": "-nodnslookup",
+    "description": "Options passed to couriertcpd"
+  },
+  "loggeropts": {
+    "type": "string",
+    "default": "-name=pop3d",
+    "description": "Options passed to courierlogger"
+  },
+  "defdomain": {
+    "type": "string",
+    "default": "@example.com",
+    "description": "Optional default domain suffix for usernames"
+  },
+  "pop3dstart": {
+    "type": "string",
+    "default": "YES",
+    "description": "Flag to enable/disable starting the service via startup scripts"
+  },
+  "maildirpath": {
+    "type": "string",
+    "default": "Maildir",
+    "description": "Directory name of the maildir directory"
+  },
+  "mime_unicode_message_type": {
+    "type": "string",
+    "default": "message/global",
+    "description": "MIME type for Unicode messages"
   }
 }
