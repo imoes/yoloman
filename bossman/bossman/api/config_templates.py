@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
+from bossman.services.template_index import build_template_index
 
 router = APIRouter()
 
@@ -66,6 +67,31 @@ async def list_config_templates(
                 if t is not None:
                     templates.append(t)
     return {"templates": templates}
+
+
+@router.get("/api/v1/config-templates/index")
+async def config_template_index(
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """{paths: {"/etc/nginx/nginx.conf": {template, source, role?}}, conflicts: [...]}.
+
+    The explicit answer to "which template renders THIS file", replacing a basename guess that resolved
+    /etc/aardvark-dns/aardvark-dns.conf to the template rendering forward.conf — and, since the write
+    path is template_render (whole file, no merge), would have written one file's content over another.
+
+    DECLARED BEFORE /{name} on purpose. FastAPI matches routes in declaration order, so the path
+    parameter below would otherwise swallow "index" and serve a 404 for a template literally named
+    index. Route order is load-bearing here, not style.
+
+    Also replaces a 33.7 MB download: the host page used to fetch every template BODY across 5460
+    directories to do a string comparison. This is path→name pairs.
+    """
+    return build_template_index(
+        Path(settings.config_templates_dir).parent / "package_catalog.json",
+        settings.config_codecs_path,
+        settings.config_templates_dir,
+    )
 
 
 @router.get("/api/v1/config-templates/{name}")
