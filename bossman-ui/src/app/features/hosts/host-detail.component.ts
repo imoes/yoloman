@@ -57,6 +57,7 @@ import { HostConfigScopeService } from './host-config-scope.service';
 import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
 import { HostDesiredStateComponent } from './management/host-desired-state.component';
 import { HostFileEditComponent } from './management/host-file-edit.component';
+import { HostSettingDialogComponent } from './management/host-setting-dialog.component';
 import { HostTemplateEditComponent } from './management/host-template-edit.component';
 import { HostThresholdsComponent } from './management/host-thresholds.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
@@ -139,6 +140,7 @@ function familyMembers(metric: string): string[] {
     HostConfigGenerationsComponent,
     HostDesiredStateComponent,
     HostFileEditComponent,
+    HostSettingDialogComponent,
     HostTemplateEditComponent,
     HostThresholdsComponent,
   ],
@@ -631,7 +633,7 @@ function familyMembers(metric: string): string[] {
                       @if (tplEditPath() === r.path) {
                         <app-host-template-edit [agentId]="agent.id" [path]="r.path"
                                                 [templateName]="tplName()" [ouId]="agent.ou_id"
-                                                (applied)="loadObserved()"
+                                                (applied)="loadObserved(true)"
                                                 (cancelled)="cancelTemplateEdit()" />
                       } @else if (r.values) {
                         <table class="bm-gpo-settings">
@@ -657,45 +659,11 @@ function familyMembers(metric: string): string[] {
                                  (keydown.enter)="addSettingKey(r)" />
                           <button mat-stroked-button (click)="addSettingKey(r)" [disabled]="!newSettingKey().trim()">Add</button>
                         </div>
-                        @if (settingKey(); as sk) {
-                          <mat-card class="bm-setting-dlg">
-                            <strong>{{ sk }}</strong>
-                            @if (directiveSpec(r); as ds) {
-                              @if (ds.description) { <p class="bm-dim bm-directive-desc">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
-                            }
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Host based — no policy; the file keeps its own value</label>
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
-                            @if (settingMode() === 'configured') {
-                              @if (valueOptions(r); as opts) {
-                                <select class="bm-kvin bm-setting-val" [ngModel]="settingValue()" (ngModelChange)="settingValue.set($event)">
-                                  @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
-                                </select>
-                              } @else {
-                                <input class="bm-kvin bm-setting-val" [value]="settingValue()" (input)="settingValue.set($any($event.target).value)" />
-                              }
-                            }
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'removed'" (change)="settingMode.set('removed')" /> Removed — enforce the key's absence in the file</label>
-                            <label class="bm-scope">Scope:
-                              <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                                <option value="host">this host</option>
-                                @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                                @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                              </select>
-                            </label>
-                            @if (settingService(r.path); as svc) {
-                              <label class="bm-scope bm-restart-svc">
-                                <input type="checkbox" [checked]="restartAfterApply()" (change)="restartAfterApply.set($any($event.target).checked)" />
-                                Restart <span class="bm-mono">{{ svc }}</span> after applying, so the change takes effect
-                              </label>
-                            }
-                            @if (settingError(); as se) { <p class="bm-cfg-err">{{ se }}</p> }
-                            <div class="bm-rollback-actions">
-                              <button mat-button (click)="closeSetting()" [disabled]="settingBusy()">Cancel</button>
-                              <button mat-flat-button color="primary" (click)="applySetting(r)" [disabled]="settingBusy()">
-                                {{ (settingService(r.path) && restartAfterApply()) ? ('Apply & restart ' + settingService(r.path)) : 'Apply' }}
-                              </button>
-                            </div>
-                          </mat-card>
+                        @if (settingRow(); as row) {
+                          <app-host-setting-dialog [agentId]="agent.id" [resource]="r" [row]="row"
+                                                   [spec]="specFor(r.path, row.key)"
+                                                   [service]="settingService(r.path)" [ouId]="agent.ou_id"
+                                                   (applied)="loadObserved(true)" (closed)="closeSetting()" />
                         }
                         @if (driftRows(r.path).length) {
                           <p class="bm-dim bm-drift-h">Drift — live vs desired:</p>
@@ -710,7 +678,7 @@ function familyMembers(metric: string): string[] {
                         }
                       } @else if (r.raw) {
                         <app-host-file-edit [agentId]="agent.id" [path]="r.path" [raw]="r.raw"
-                                            (changed)="loadObserved()" />
+                                            (changed)="loadObserved(true)" />
                       } @else if (r.sha256) {
                         <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
                       }
@@ -721,7 +689,7 @@ function familyMembers(metric: string): string[] {
                 @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
 
                 <app-host-config-generations [agent]="agent" [reloadTick]="observedReloadTick()"
-                                             (changed)="loadObserved()" />
+                                             (changed)="loadObserved(true)" />
               } @else {
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
@@ -2446,6 +2414,12 @@ export class HostDetailComponent implements OnInit {
     // the PREVIOUS observed read must not stay on screen looking authoritative.
     this.observedReloadTick.update((n) => n + 1);
     // Default open = the Postgres cache (instant); Reload = live re-fetch.
+    //
+    // EVERY CALLER THAT JUST WROTE PASSES refresh=true. Caught by testing this for real: applying
+    // PermitRootLogin and then un-managing it left the row reading `prohibit-password` while the file on
+    // the host said `yes` — the post-write reload had re-read a cache older than the write. A view that
+    // contradicts the machine it describes is worse than a slow one, and the extra live pull is paid
+    // exactly once, at the moment something changed.
     this.agentService.observedState(agent.id, refresh).subscribe({
       next: (res) => {
         this.observed.set(res.observed);
@@ -2662,35 +2636,19 @@ export class HostDetailComponent implements OnInit {
     }
     return out;
   }
-  private unflatten(key: string, value: unknown, deep: boolean): Record<string, unknown> {
-    if (!deep || !key.includes('.')) return { [key]: value };
-    const parts = key.split('.');
-    const root: Record<string, unknown> = {};
-    let node = root;
-    for (const p of parts.slice(0, -1)) {
-      const n: Record<string, unknown> = {};
-      node[p] = n;
-      node = n;
-    }
-    node[parts[parts.length - 1]] = value;
-    return root;
+  /** The row whose policy dialog is open, or null. The MODE, value, busy and error state live in
+   * app-host-setting-dialog with the write itself — the page's only stake is which row is open, because
+   * that decides whether the dialog renders and which row is highlighted. */
+  settingRow = signal<{ key: string; state: string; desired: string; live: string } | null>(null);
+  /** For the row highlight in the settings table. */
+  settingKey(): string | null {
+    return this.settingRow()?.key ?? null;
   }
-
-  // Per-setting dialog (gpedit's Not configured / Enabled / Disabled).
-  settingKey = signal<string | null>(null);
-  settingMode = signal<'notconf' | 'configured' | 'removed'>('configured');
-  settingValue = signal('');
-  settingBusy = signal(false);
-  settingError = signal<string | null>(null);
-  openSetting(r: ObservedResource, row: { key: string; state: string; desired: string; live: string }): void {
-    this.settingKey.set(row.key);
-    this.settingMode.set(row.state === 'Removed' ? 'removed' : row.state === 'Configured' ? 'configured' : 'notconf');
-    this.settingValue.set(row.desired || row.live || '');
-    this.settingError.set(null);
+  openSetting(_r: ObservedResource, row: { key: string; state: string; desired: string; live: string }): void {
+    this.settingRow.set(row);
   }
   closeSetting(): void {
-    this.settingKey.set(null);
-    this.settingError.set(null);
+    this.settingRow.set(null);
   }
   /** ADMX per-directive value catalog ({file: {directive: spec}}), loaded once. */
   directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
@@ -2706,39 +2664,15 @@ export class HostDetailComponent implements OnInit {
     return cat[path] ?? cat[base] ?? {};
   }
 
-  /** The mined spec for the setting currently being edited on this resource.
-   * Null if unmined. */
-  directiveSpec(r: ObservedResource): DirectiveSpec | null {
-    const key = this.settingKey();
-    if (!key) return null;
-    return this.specsForPath(r.path)[key] ?? null;
+  /** The mined spec for one key of one file, or null when the catalog does not know it.
+   *
+   * Was directiveSpec(r), which took the resource and read the open key off the component — a function
+   * whose answer depended on hidden state. Now both arguments are named, which is also what let the
+   * dialog take its spec as an input. */
+  specFor(path: string, key: string): DirectiveSpec | null {
+    return this.specsForPath(path)[key] ?? null;
   }
 
-  /** Possible values as a listbox. Prefers the ADMX catalog (enum's real
-   * allowed values / bool), so e.g. PermitRootLogin offers all four values —
-   * not just the yes/no family guessed from the current value. Falls back to
-   * the family heuristic when the directive isn't in the catalog, and to a
-   * free-text input (null) otherwise. */
-  valueOptions(r: ObservedResource): string[] | null {
-    const spec = this.directiveSpec(r);
-    if (spec) {
-      if (spec.type === 'enum' && spec.values?.length) {
-        const val = this.settingValue();
-        return spec.values.includes(val) || !val ? spec.values : [val, ...spec.values];
-      }
-      if (spec.type === 'bool') return ['yes', 'no'];
-      if (spec.type === 'int' || spec.type === 'string' || spec.type === 'list') return null;
-    }
-    const key = this.settingKey();
-    if (!key) return null;
-    const row = this.settingRows(r).find((x) => x.key === key);
-    const cur = (row?.desired || row?.live || '').trim().toLowerCase();
-    const families = [['yes', 'no'], ['true', 'false'], ['on', 'off'], ['enabled', 'disabled']];
-    const fam = families.find((f) => f.includes(cur));
-    if (!fam) return null;
-    const val = this.settingValue();
-    return fam.includes(val) ? fam : [val, ...fam].filter((v, i, a) => v !== '' && a.indexOf(v) === i);
-  }
   /** The systemd service that owns a config path, from the observed-state
    * discovery (service -> config_paths). Lets the Apply button also restart the
    * right unit so the change takes effect. Null when no service claims it. */
@@ -2747,7 +2681,6 @@ export class HostDetailComponent implements OnInit {
     const hit = svcs.find((s) => (s.config_paths ?? []).includes(path));
     return hit ? hit.service.replace(/@$/, '') : null; // strip template unit suffix (getty@)
   }
-  restartAfterApply = signal(true);
 
   // #5 — reach a config file the host doesn't have yet. The codec catalog lists
   // every known file; picking one injects a synthetic (empty) resource so the
@@ -2798,46 +2731,6 @@ export class HostDetailComponent implements OnInit {
     if (!k) return;
     this.newSettingKey.set('');
     this.openSetting(r, { key: k, state: 'Host based', desired: '', live: '' });
-  }
-
-  applySetting(r: ObservedResource): void {
-    const agent = this.agent();
-    const key = this.settingKey();
-    if (!agent || !key) return;
-    const mode = this.settingMode();
-    this.settingBusy.set(true);
-    this.settingError.set(null);
-    const svc = this.settingService(r.path);
-    const restart = !!svc && this.restartAfterApply() && mode !== 'notconf';
-    const finish = () => { this.settingBusy.set(false); this.closeSetting(); this.loadObserved(); };
-    const done = () => {
-      // After the config is applied, restart the owning service so the change
-      // takes effect (the user's "apply + restart" ask) — best-effort: a
-      // restart failure surfaces but the config change itself already landed.
-      if (restart) {
-        this.agentService.serviceControl(agent.id, svc!, 'restart').subscribe({
-          next: finish,
-          error: (e: { error?: { detail?: string } }) => {
-            this.settingError.set(`Config applied, but restarting ${svc} failed: ${e?.error?.detail ?? 'error'}`);
-            this.settingBusy.set(false);
-            this.loadObserved();
-          },
-        });
-      } else {
-        finish();
-      }
-    };
-    const fail = (e: { error?: { detail?: string } }) => { this.settingError.set(e?.error?.detail ?? 'failed'); this.settingBusy.set(false); };
-    if (mode === 'notconf') {
-      // Stop managing at the chosen scope; the live file is untouched.
-      const scope = this.scopeArg();
-      this.agentService.unsetDesired(agent.id, { path: r.path, key, ou_id: scope?.ouId, host_group_id: scope?.groupId }).subscribe({ next: done, error: fail });
-      return;
-    }
-    const value = mode === 'removed' ? null : this.settingValue();
-    const values = this.unflatten(key, value, r.format !== 'keyvalue');
-    const resource: ConfigResource = { type: 'config', path: r.path, format: r.format, separator: r.separator, values };
-    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({ next: done, error: fail });
   }
 
   // Thresholds category (check_rules as GPO settings) + applied plans.
@@ -2916,7 +2809,7 @@ export class HostDetailComponent implements OnInit {
     this.agentService.reapplyConfig(agent.id).subscribe({
       next: () => {
         this.driftBusy.set(false);
-        this.loadObserved();
+        this.loadObserved(true);   // we just rewrote the host; the cached read predates it
       },
       error: () => this.driftBusy.set(false),
     });
