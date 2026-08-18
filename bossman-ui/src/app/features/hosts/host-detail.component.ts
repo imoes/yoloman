@@ -56,6 +56,8 @@ import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge
 import { HostConfigScopeService } from './host-config-scope.service';
 import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
 import { HostDesiredStateComponent } from './management/host-desired-state.component';
+import { driftRows as driftRowsOf } from './management/drift-rows';
+import { HostDriftBannerComponent } from './management/host-drift-banner.component';
 import { HostFileEditComponent } from './management/host-file-edit.component';
 import { HostSettingDialogComponent } from './management/host-setting-dialog.component';
 import { HostTemplateEditComponent } from './management/host-template-edit.component';
@@ -139,6 +141,7 @@ function familyMembers(metric: string): string[] {
     FormsModule,
     HostConfigGenerationsComponent,
     HostDesiredStateComponent,
+    HostDriftBannerComponent,
     HostFileEditComponent,
     HostSettingDialogComponent,
     HostTemplateEditComponent,
@@ -524,43 +527,9 @@ function familyMembers(metric: string): string[] {
                   </span>
                   <button mat-stroked-button (click)="loadObserved(true)"><mat-icon>refresh</mat-icon> Reload</button>
                 </div>
-                @if (drift().managed.length) {
-                  <div class="bm-drift-banner" [class.bm-drift-on]="drift().drift.length">
-                    <mat-icon>{{ drift().drift.length ? 'sync_problem' : 'verified' }}</mat-icon>
-                    @if (drift().drift.length) {
-                      <span>{{ drift().drift.length }} of {{ drift().managed.length }} managed file(s) drifted from desired.</span>
-                      <button mat-button (click)="driftOpen.set(!driftOpen())">{{ driftOpen() ? 'Hide' : 'Show' }} diff</button>
-                      <button mat-flat-button color="primary" (click)="reapplyConfig()" [disabled]="driftBusy()">Re-sync to desired</button>
-                    } @else {
-                      <span>{{ drift().managed.length }} managed file(s), all in sync with desired.</span>
-                    }
-                  </div>
-                  @if (drift().drift.length && driftOpen()) {
-                    <div class="bm-drift-diff">
-                      @for (c of drift().drift; track c.path) {
-                        <div class="bm-drift-file">
-                          <div class="bm-drift-fname" (click)="jumpToFile(c.path)" title="Open this file">
-                            <mat-icon>description</mat-icon>{{ c.path }}
-                            <span class="bm-drift-n">{{ driftRows(c.path).length }} change(s)</span>
-                          </div>
-                          <table class="bm-drift-tbl">
-                            <thead><tr><th>Setting</th><th>Live (on host)</th><th></th><th>Desired</th></tr></thead>
-                            <tbody>
-                              @for (d of driftRows(c.path); track d.key) {
-                                <tr>
-                                  <td class="bm-mono">{{ d.key }}</td>
-                                  <td class="bm-mono bm-drift-live">{{ d.live }}</td>
-                                  <td class="bm-drift-arrow">→</td>
-                                  <td class="bm-mono bm-drift-want">{{ d.desired }}</td>
-                                </tr>
-                              }
-                            </tbody>
-                          </table>
-                        </div>
-                      }
-                    </div>
-                  }
-                }
+                <app-host-drift-banner [managed]="drift().managed" [drifted]="drift().drift"
+                                       [busy]="driftBusy()" (resync)="reapplyConfig()"
+                                       (openFile)="jumpToFile($event)" />
                 <input
                   class="bm-gpo-search"
                   type="search"
@@ -1205,21 +1174,6 @@ function familyMembers(metric: string): string[] {
       .bm-tpl-field { margin: 8px 0; }
       .bm-tpl-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
       .bm-tpl-field label .bm-dim { font-weight: 400; }
-      .bm-drift-banner { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); font-size: 13px; }
-      .bm-drift-banner.bm-drift-on { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 16%, transparent); }
-      .bm-drift-diff { margin: 0 0 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; }
-      .bm-drift-file { margin: 6px 0; }
-      .bm-drift-fname { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 12.5px; cursor: pointer; }
-      .bm-drift-fname:hover { color: var(--mat-sys-primary); }
-      .bm-drift-fname mat-icon { font-size: 16px; height: 16px; width: 16px; opacity: 0.7; }
-      .bm-drift-n { opacity: 0.6; font-family: inherit; font-size: 11px; }
-      .bm-drift-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 2px; }
-      .bm-drift-tbl th { text-align: left; font-size: 10.5px; opacity: 0.6; padding: 2px 10px; font-weight: 500; }
-      .bm-drift-tbl td { padding: 2px 10px; border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent); }
-      .bm-drift-live { color: var(--mat-sys-error, #c62828); }
-      .bm-drift-want { color: var(--bm-green, #2e7d32); }
-      .bm-drift-arrow { opacity: 0.5; }
-      .bm-drift-banner mat-icon { flex: 0 0 auto; }
       .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
       /* Baseline "Host" (the host's own value) muted; policy sources keep the accent tag. */
@@ -2518,7 +2472,6 @@ export class HostDetailComponent implements OnInit {
 
   // Drift diff: the banner can expand to show every drifted file + its
   // key-level live→desired changes, and jump to a file in the Miller view.
-  driftOpen = signal(false);
   jumpToFile(path: string): void {
     this.gpoSearch.set('');
     this.gpoActiveCat.set(categorizeConfigPath(path).key);
@@ -2788,17 +2741,15 @@ export class HostDetailComponent implements OnInit {
   driftFor(path: string): StateResourceChange | null {
     return this.drift().drift.find((c) => c.path === path) ?? null;
   }
-  /** Per-key drift rows for a managed file that has drifted. */
+  /** Per-key drift rows for a managed file that has drifted — the same derivation the drift banner uses,
+   * from management/drift-rows.ts. It was a method here that both the banner and the per-file table
+   * called; the direction (live vs desired, which a plan diff records the other way round) is easy to
+   * invert, so it exists once. */
   driftRows(path: string): { key: string; desired: string; live: string }[] {
-    const changed = this.driftFor(path)?.changed;
-    if (!changed) return [];
-    // plan diff is observed(before) → desired(after); for drift we show desired
-    // vs the live value, i.e. after=desired, before=live.
-    return Object.entries(changed).map(([key, [live, desired]]) => ({
-      key,
-      desired: desired === null || desired === undefined ? '(remove)' : this.scalarStr(desired),
-      live: live === null || live === undefined ? '—' : this.scalarStr(live),
-    }));
+    // ALIASED IMPORT on purpose: a bare `driftRows(...)` here resolves to the import, but the method has
+    // the same name, so anyone "tidying" it to this.driftRows() would get silent infinite recursion that
+    // compiles. Same shape as the cache-key shadowing found earlier this session.
+    return driftRowsOf(this.driftFor(path));
   }
 
   /** Re-sync the whole host to its recorded desired config (converge drift). */
