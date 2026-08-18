@@ -1,86 +1,73 @@
-# ============================================================================
-# Avahi mDNS/DNS-SD Daemon Configuration
-# ============================================================================
-# This file configures the avahi-daemon service, which implements
-# Multicast DNS (mDNS) and DNS Service Discovery (DNS-SD). It allows
-# your Linux host to be discovered on the local network without a
-# central DNS server.
+# This file is part of avahi.
 #
-# Reference: avahi-daemon.conf(5)
-# ============================================================================
+# avahi is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# avahi is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with avahi; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+# USA.
+
+# See avahi-daemon.conf(5) for more information on this configuration
+# file!
 
 [server]
-# ============================================================================
-# [server] Section: Core mDNS Server Settings
-# ============================================================================
-
-# Custom mDNS host name to publish (leave empty to use system hostname)
-# If left empty, the system's default hostname is used.
-host-name={{ (server | default({})).host_name | default('') }}
-
-# Domain suffix to use for mDNS names (typically 'local')
-# Services published here will be accessible as <name>.<domain-name>
-domain-name={{ (server | default({})).domain_name | default('local') }}
-
-# Whether to use IPv4 for mDNS traffic
+host-name={{ server.host_name }}
+domain-name={{ server.domain_name }}
+#browse-domains=0pointer.de, zeroconf.org
 use-ipv4=yes
-
-# Whether to use IPv6 for mDNS traffic
 use-ipv6=yes
-
-# List of interfaces Avahi will use for mDNS/DNS-SD discovery
-# Use empty list (commented out) to allow all interfaces.
-# To restrict, specify interfaces like: allow-interfaces=eth0,eth1
-{% if (discovery | default({})).allow_interfaces | default([]) | length > 0 %}
-allow-interfaces={{ (discovery | default({})).allow_interfaces | default([]) | join(',') }}
-{% endif %}
-
-# Rate limiting for mDNS responses to prevent broadcast storms
+#allow-interfaces=eth0
+#deny-interfaces=eth1
+#check-response-ttl=no
+#use-iff-running=no
+#enable-dbus=yes
+#disallow-other-stacks=no
+#allow-point-to-point=no
+#cache-entries-max=4096
+#clients-max=4096
+#objects-per-client-max=1024
+#entries-per-entry-group-max=32
 ratelimit-interval-usec=1000000
 ratelimit-burst=1000
 
-[wide-area]
-# ============================================================================
-# [wide-area] Section: Wide-Area mDNS
-# ============================================================================
+{% if discovery.allow_interfaces and discovery.allow_interfaces|length > 0 %}
+allow-interfaces={{ discovery.allow_interfaces|join(',') }}
+{% endif %}
 
-# Enable wide-area mDNS (forwarding mDNS across routers)
-# Generally discouraged for security/performance reasons on large networks.
+[wide-area]
 enable-wide-area=yes
 
 [publish]
-# ============================================================================
-# [publish] Section: Service Publication Settings
-# ============================================================================
-
-# Publish the system's HINFO record (Hardware/Software info)
-# Disabled by default to avoid leaking system details.
+#disable-publishing=no
+#disable-user-service-publishing=no
+#add-service-cookie=no
+#publish-addresses=yes
 publish-hinfo=no
-
-# Publish the system as a workstation service
-# Disabled by default.
 publish-workstation=no
+#publish-domain=yes
+#publish-dns-servers=192.168.50.1, 192.168.50.2
+#publish-resolv-conf-dns-servers=yes
+#publish-aaaa-on-ipv4=yes
+#publish-a-on-ipv6=no
 
 [reflector]
-# ============================================================================
-# [reflector] Section: DNS-SD Service Reflection
-# ============================================================================
-
-# Enable DNS-SD service reflection across subnets
-# Required only for multi-subnet discovery where routers do not forward mDNS.
-enable-reflector={{ (reflector | default({})).enabled | default(False) | lower }}
+enable-reflector={{ reflector.enabled }}
+#reflect-ipv=no
+#reflect-filters=_airplay._tcp.local,_raop._tcp.local
 
 [rlimits]
-# ============================================================================
-# [rlimits] Section: Resource Limits
-# ============================================================================
-# Leave commented out to use system defaults.
-# Uncomment and adjust if you encounter "too many files" or memory issues.
-#
-# rlimit-as=
-# rlimit-core=0
-# rlimit-data=8388608
-# rlimit-fsize=0
-# rlimit-nofile=768
-# rlimit-stack=8388608
-# rlimit-nproc=3
+#rlimit-as=
+#rlimit-core=0
+#rlimit-data=8388608
+#rlimit-fsize=0
+#rlimit-nofile=768
+#rlimit-stack=8388608
+#rlimit-nproc=3

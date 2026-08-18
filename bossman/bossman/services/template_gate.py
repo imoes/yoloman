@@ -64,6 +64,35 @@ def placed(field: str, body: str) -> bool:
                      body) is not None
 
 
+def directive_key(name: str) -> str:
+    """A config directive's name, reduced to what two catalogs can be compared on.
+
+    Case and the dash/underscore split are cosmetic (`host-name` vs `host_name`). The LAST DOTTED SEGMENT
+    is the substantive part: a template schema for an ini file qualifies its fields by section, so
+    `server.host_name` is the very same directive as the catalog's `host-name` under `[server]`, and the
+    settings editor flattens nested values with exactly that dot.
+
+    THIS COST ME A ROLLBACK. Comparing whole strings, the repaired avahi-daemon template — parametrized
+    from the real 1807-byte shipped file — shared "nothing" with the 41 known directives of
+    /etc/avahi/avahi-daemon.conf and was reverted as a failed repair. Comparing last segments, 3 of its 4
+    fields match. The test was rejecting section prefixes, not wrong content.
+    """
+    return name.lower().replace("-", "_").replace(" ", "_").split(".")[-1]
+
+
+def describes_file(fields: set[str], directive_names) -> bool | None:
+    """Do these template fields describe a file with THESE directives? None when there is nothing to compare.
+
+    The bar is ONE field in common, matching the gate's own generosity: a template may legitimately name
+    things differently, and a strict threshold would withdraw working editors. Zero overlap against a known
+    directive list is the unambiguous case — and it is what separates "a template for this file" from "a
+    template for some other file that happens to be named like this package".
+    """
+    if not fields or not directive_names:
+        return None
+    return bool({directive_key(f) for f in fields} & {directive_key(d) for d in directive_names})
+
+
 def template_configures(templates_dir: str | Path, name: str) -> bool | None:
     """True / False / None for the template directory `name` under `templates_dir`."""
     tdir = Path(templates_dir) / name

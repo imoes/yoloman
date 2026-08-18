@@ -134,3 +134,32 @@ def test_a_missing_schema_stays_an_unknown(tmp_path, monkeypatch):
     d.mkdir()
     (d / "template.j2").write_text("Port {{ port }}\n")
     assert bpc._template_configures("half-written") is None
+
+
+def test_a_section_qualified_field_is_the_same_directive(tpl):
+    """THE COMPARISON THAT COST A ROLLBACK. An ini template qualifies its fields by section, so
+    `server.host_name` IS the catalog's `host-name` under [server] — and the settings editor flattens
+    nested values with exactly that dot. Comparing whole strings, the correctly repaired avahi-daemon
+    template shared "nothing" with the 41 known directives of /etc/avahi/avahi-daemon.conf and was
+    reverted as a failed repair; comparing last segments, 3 of its 4 fields match."""
+    from bossman.services.template_gate import describes_file, directive_key
+    assert directive_key("server.host_name") == "host_name"
+    assert directive_key("host-name") == "host_name"
+    assert describes_file({"server.host_name", "reflector.enabled"},
+                          ["host-name", "domain-name", "enable-reflector"]) is True
+
+
+def test_no_overlap_at_all_is_still_a_refusal(tpl):
+    """The other side: the rule must keep rejecting a template that describes a different file. 240
+    resolved targets were refused on this basis (arc_datadelivery claiming datadelivery.conf, whose 17
+    real directives it shares none of)."""
+    from bossman.services.template_gate import describes_file
+    assert describes_file({"listen_port", "worker_count"}, ["bantime", "findtime", "maxretry"]) is False
+
+
+def test_nothing_to_compare_against_is_not_a_verdict(tpl):
+    """A path with no mined directives cannot be judged, and meta.json records witness: "none" rather
+    than pretending it passed — 324 of the recorded targets are in that state."""
+    from bossman.services.template_gate import describes_file
+    assert describes_file({"a", "b"}, []) is None
+    assert describes_file(set(), ["a"]) is None
