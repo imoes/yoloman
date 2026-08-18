@@ -10,14 +10,20 @@ template" button would have written one file's content over another.
 It also made the host page download GET /config-templates in full — 33.7 MB of template bodies across
 5460 directories — to perform a string comparison. This index is a few hundred kB of path→name pairs.
 
-TWO GROUNDED SOURCES, and the precedence is deliberate:
+THREE GROUNDED SOURCES, and the precedence is deliberate:
 
   1. package_catalog.json — a role's own `template` together with its `families.debian.config_path`.
-     Curated or measured, and the only one the withdrawal rule (_template_configures) has been applied
-     to, so a template known NOT to configure its own file is already `null` here. 55 paths.
+     Curated or measured, and the only one the withdrawal rule has been applied to, so a template known
+     NOT to configure its own file is already `null` here. 55 paths.
 
-  2. config_codecs.json — every non-glob path of a codec entry whose derived template dir exists.
-     The broad fallback that covers the Configuration tab. 3532 paths.
+  2. config_codecs.json — every non-glob path of a codec entry whose derived template dir exists. The
+     template's name and the file's basename agree by construction here, which is direct evidence.
+
+  3. the template's own meta.json `target_path` — a RECORDED fact rather than a derivation, written by
+     scripts/backfill_template_target.py. It exists because the library and the resolver disagree about
+     what a directory NAME means: the batch names a directory after the PACKAGE it processed, while this
+     index resolves by FILE. Measured before it: 2786 of 5460 template dirs were unreachable by anything,
+     2071 of them simply because no codec key's basename matched their name.
 
 Source 1 wins where they disagree — measured 20 times, e.g. /etc/haproxy/haproxy.cfg where the role
 offers `haproxy` and the codec key offers `haproxy.cfg`. BOTH DIRS EXIST: that is two templates for one
@@ -150,6 +156,31 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
                 # one is right is a question about their CONTENT, not something precedence settles.
                 conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
                                   "also": tname, "also_source": "codec"})
+
+    # Source 3 — the template's OWN record of what it renders (meta.json target_path), written by
+    # scripts/backfill_template_target.py and, going forward, by the pipeline that generates the
+    # template. Third in precedence because the catalog and the registry are the curated statements;
+    # this one exists because a template directory is named after a PACKAGE while the index resolves by
+    # FILE, so more than half the library — 2786 of 5460 dirs — was unreachable by anything.
+    #
+    # A recorded fact, not a derivation: the file says which path it is for, so nothing here has to
+    # guess from the name. Directories whose target is AMBIGUOUS carry `ambiguous_with` and no
+    # target_path (190 paths are claimed by 509 templates — 21 ejabberd modules all configure sections
+    # of one ejabberd.yml), and they are skipped exactly because they were not resolved.
+    for name in sorted(dirs):
+        try:
+            meta = json.loads((tpl_root / name / "meta.json").read_text())
+        except (OSError, ValueError):
+            continue
+        p = meta.get("target_path") if isinstance(meta, dict) else None
+        if not isinstance(p, str) or not p.startswith("/") or "*" in p or p.endswith("/"):
+            continue
+        have = paths.get(p)
+        if have is None:
+            paths[p] = {"template": name, "source": "template-meta"}
+        elif have["template"] != name:
+            conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
+                              "also": name, "also_source": "template-meta"})
 
     result = {"paths": paths, "conflicts": conflicts}
     _CACHE[key] = (time.monotonic(), sig, result)

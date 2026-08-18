@@ -128,3 +128,57 @@ def test_unreadable_inputs_yield_an_empty_index_not_an_error(tmp_path):
     Configuration tab for a missing catalog file."""
     idx = build_template_index(tmp_path / "nope.json", tmp_path / "nope2.json", tmp_path / "nodir")
     assert idx == {"paths": {}, "conflicts": []}
+
+
+def _tpl(dirpath, name, body="x = {{ a }}\ny = {{ b }}\nz = {{ c }}\n",
+         fields=("a", "b", "c"), meta=None):
+    """A template dir that PASSES the gate (three placed fields), optionally with meta.json."""
+    d = dirpath / name
+    d.mkdir(exist_ok=True)
+    (d / "template.j2").write_text(body)
+    (d / "schema.json").write_text(json.dumps({f: {} for f in fields}))
+    if meta is not None:
+        (d / "meta.json").write_text(json.dumps(meta))
+    return name
+
+
+def test_a_recorded_target_path_makes_a_package_named_template_reachable(tmp_path):
+    """Source 3, and the reason it exists: a template dir named after the PACKAGE cannot be found by an
+    index that resolves by FILE. Measured before this: 2786 of 5460 dirs were unreachable, 2071 of them
+    because no codec key's basename matched their name — including this shape."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {}, [])
+    _tpl(tpl, "avahi_daemon", meta={"target_path": "/etc/avahi/avahi-daemon.conf"})
+    idx = build_template_index(cat, cod, tpl)
+    assert idx["paths"]["/etc/avahi/avahi-daemon.conf"] == {
+        "template": "avahi_daemon", "source": "template-meta"}
+
+
+def test_an_ambiguous_template_records_its_rivals_and_is_NOT_indexed(tmp_path):
+    """21 ejabberd module templates all resolve to one ejabberd.yml, and 190 paths are claimed by 509
+    templates. The backfill records `ambiguous_with` and no target_path precisely so the index skips them:
+    choosing among ten by name length would be inventing an answer and hiding the question."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {}, [])
+    _tpl(tpl, "ceph_mds", meta={"ambiguous_with": ["ceph", "ceph_osd"],
+                                "candidate_path": "/etc/ceph/ceph.conf"})
+    assert build_template_index(cat, cod, tpl)["paths"] == {}
+
+
+def test_the_recorded_target_yields_to_the_curated_sources_and_says_so(tmp_path):
+    """Precedence: catalog, then codec registry (where the template's name and the file's basename agree
+    by construction), then the recorded target. The loser is reported rather than dropped — 296 paths are
+    claimed by both a file-named and a package-named template, and which of those two is BETTER is a
+    question about content that precedence cannot settle."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {"avahi-daemon.conf": {"paths": ["/etc/avahi/avahi-daemon.conf"]}}, [])
+    _tpl(tpl, "avahi-daemon.conf")
+    _tpl(tpl, "avahi_daemon", meta={"target_path": "/etc/avahi/avahi-daemon.conf"})
+    idx = build_template_index(cat, cod, tpl)
+    assert idx["paths"]["/etc/avahi/avahi-daemon.conf"]["template"] == "avahi-daemon.conf"
+    assert idx["conflicts"] == [{"path": "/etc/avahi/avahi-daemon.conf", "chosen": "avahi-daemon.conf",
+                                "chosen_source": "codec", "also": "avahi_daemon",
+                                "also_source": "template-meta"}]
+
+
+def test_a_recorded_directory_target_is_refused_like_any_other(tmp_path):
+    cat, cod, tpl = _fixture(tmp_path, {}, {}, [])
+    _tpl(tpl, "evolution_data_server", meta={"target_path": "/etc/evolution-data-server/"})
+    assert build_template_index(cat, cod, tpl)["paths"] == {}

@@ -96,3 +96,13 @@ def test_empty_is_a_real_answer_and_not_an_error():
     from the installed package at runtime. curate_catalog reports the remainder by name so that
     "we found none" cannot be mistaken for "nobody looked"."""
     assert main_config_path("something-nobody-knows", {}, {}) == ""
+
+
+def test_a_trailing_slash_is_a_directory_too():
+    """The second directory case, found while backfilling target paths: /etc/evolution-data-server/ has a
+    further segment as far as the split is concerned (the empty one after the slash), so the "stem with
+    something after it" rule let it through. A path that ends in / IS the directory marker, and
+    template_render still cannot write one."""
+    seed = {"evolution_data_server": {"families": {"debian": {"config_path": "/etc/evolution-data-server/"}}}}
+    codecs = {"/etc/evolution-data-server/": {"packages": ["evolution-data-server"]}}
+    assert main_config_path("evolution-data-server", codecs, seed) == ""
