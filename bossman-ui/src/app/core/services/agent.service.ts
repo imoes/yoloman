@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, ConfigTemplateIndex, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -155,9 +155,27 @@ export class AgentService {
   }
 
   /** Block K2 — the Class-B config template catalog (name + j2 text + schema +
-   * sample). Bossman-level, not agent-scoped. */
+   * sample). Bossman-level, not agent-scoped.
+   *
+   * 33.7 MB across 5460 templates. Use configTemplateIndex() to ask "which template renders this
+   * file" and configTemplate(name) to fetch the one the user actually opened. */
   configTemplates() {
     return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
+  }
+
+  /** path → template, built from the role catalog's config_path plus the codec registry.
+   *
+   * Replaces resolving by basename, which matched /etc/aardvark-dns/aardvark-dns.conf to the template
+   * that renders forward.conf — and the write path is whole-file, so that would have overwritten one
+   * file with another's content. */
+  configTemplateIndex() {
+    return this.http.get<ConfigTemplateIndex>(`${environment.apiUrl}/config-templates/index`);
+  }
+
+  /** One template with its body, schema and sample — fetched when the user opens the editor. */
+  configTemplate(name: string) {
+    return this.http.get<ConfigTemplate>(
+      `${environment.apiUrl}/config-templates/${encodeURIComponent(name)}`);
   }
 
   /** Block F5 — the guests this host reports via piggyback (Docker containers,

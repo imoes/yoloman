@@ -25,7 +25,7 @@ import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
-import { Agent, ConfigResource, ConfigTemplate, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { Agent, ConfigResource, ConfigTemplateIndexEntry, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
 import { HostEdge } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
@@ -618,8 +618,10 @@ function familyMembers(metric: string): string[] {
                           @if (driftFor(r.path)) { <span class="bm-tag bm-tag-drift">drifted</span> } @else { <span class="bm-tag bm-tag-sync">managed ✓</span> }
                         }
                         @if (templateFor(r.path); as tpl) {
-                          <button mat-button (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
+                          <button mat-button (click)="startTemplateEdit(r, tpl)" [disabled]="tplBusy()"
+                                  [title]="templateReason(tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
                         }
+                        @if (tplError(); as te) { <span class="bm-cfg-err">{{ te }}</span> }
                       </div>
                       <div class="bm-cfg-viewtoggle">
                         <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'editor'" (click)="configView.set('editor')">Settings editor</button>
@@ -2487,11 +2489,13 @@ export class HostDetailComponent implements OnInit {
     });
     // Generation history now belongs to app-host-config-generations, which fetches it itself — this
     // call's own comment already said it was independent of the observed read.
-    // Class-B template catalog (Block K2), for path↔template binding.
-    if (!this.templates().length) {
-      this.agentService.configTemplates().subscribe({
-        next: (res) => this.templates.set(res.templates ?? []),
-        error: () => this.templates.set([]),
+    // path→template index (Block K2). Was configTemplates(), which downloads every template BODY —
+    // 33.7 MB across 5460 dirs — to answer "does this path have a template". This is 229 kB of pairs,
+    // and the body is fetched only when an editor is opened.
+    if (!Object.keys(this.templateIndex()).length) {
+      this.agentService.configTemplateIndex().subscribe({
+        next: (res) => this.templateIndex.set(res.paths ?? {}),
+        error: () => this.templateIndex.set({}),
       });
     }
     // Drift: desired (Bossman DB) vs observed (Block K3).
@@ -3137,13 +3141,29 @@ export class HostDetailComponent implements OnInit {
   // schema-driven form (opt-in; the raw codec-less alternative is K1's raw
   // fallback, and codec'd files still have the K1 KV editor) ---
 
-  templates = signal<ConfigTemplate[]>([]);
+  /** path → template, from GET /config-templates/index. */
+  templateIndex = signal<Record<string, ConfigTemplateIndexEntry>>({});
 
-  /** The template whose name matches a config file's basename (sans a
-   * .conf/.cfg extension) — chrony.conf→chrony, rsyslog.conf→rsyslog, hosts. */
-  templateFor(path: string): ConfigTemplate | null {
-    const base = (path.split('/').pop() || '').replace(/\.(conf|cfg)$/, '');
-    return this.templates().find((t) => t.name === base) ?? null;
+  /** Which template renders THIS file — an index lookup, not a name guess.
+   *
+   * It used to take the basename minus .conf and look for a template of that name. That is inference
+   * from name similarity, and it was wrong on real data: /etc/aardvark-dns/aardvark-dns.conf resolved
+   * to the template dir `aardvark-dns`, which renders /etc/aardvark-dns/forward.conf — a different
+   * file of the same package. Configure writes the WHOLE file with no merge, so the button would have
+   * written one file's content over another.
+   *
+   * null now means "no template claims this path", and the button is simply absent. That is the right
+   * direction: an editor that cannot be correct is not offered, rather than offered and regretted. */
+  templateFor(path: string): ConfigTemplateIndexEntry | null {
+    return this.templateIndex()[path] ?? null;
+  }
+
+  /** Why this file has a template editor, in the button's tooltip. A claim the user cannot trace is a
+   * claim they have to take on faith. */
+  templateReason(e: ConfigTemplateIndexEntry): string {
+    return e.source === 'catalog'
+      ? `rendered by template "${e.template}" — declared as the config file of role ${e.role}`
+      : `rendered by template "${e.template}" — this path is listed in the codec registry`;
   }
 
   tplEditPath = signal<string | null>(null);
@@ -3159,16 +3179,37 @@ export class HostDetailComponent implements OnInit {
   tplBusy = signal(false);
   tplError = signal<string | null>(null);
 
-  startTemplateEdit(r: { path: string }, tpl: ConfigTemplate): void {
+  /** Open the template editor for this file, fetching the ONE template it needs.
+   *
+   * The index carries only the name, so the body/schema/sample are fetched here. That is the point:
+   * the page used to preload every template body — 33.7 MB across 5460 directories — so that a string
+   * comparison could pick one. Now it downloads the one the user opened.
+   *
+   * The editor does not open until the fetch succeeds. Opening an empty form first and filling it in
+   * would show a form whose fields do not yet reflect the file, which reads as "this file has no
+   * settings". */
+  startTemplateEdit(r: { path: string }, entry: ConfigTemplateIndexEntry): void {
     this.cancelEdit();
-    this.tplEditPath.set(r.path);
-    this.tplName.set(tpl.name);
-    this.tplTemplate = tpl.template;
-    this.tplRendered.set(null);
+    this.tplBusy.set(true);
     this.tplError.set(null);
-    this.tplSchema.set((tpl.schema || {}) as ParamSchema);
-    this.tplInitial.set((tpl.sample || {}) as Record<string, unknown>);
-    this.tplParamValues.set({});
+    this.agentService.configTemplate(entry.template).subscribe({
+      next: (tpl) => {
+        this.tplEditPath.set(r.path);
+        this.tplName.set(tpl.name);
+        this.tplTemplate = tpl.template;
+        this.tplRendered.set(null);
+        this.tplSchema.set((tpl.schema || {}) as ParamSchema);
+        this.tplInitial.set((tpl.sample || {}) as Record<string, unknown>);
+        this.tplParamValues.set({});
+        this.tplBusy.set(false);
+      },
+      error: (e) => {
+        // Named, and NOT opened: a template the server cannot serve must not present an editor whose
+        // Apply would render an empty file over the live one.
+        this.tplError.set(e?.error?.detail ?? `could not load template ${entry.template}`);
+        this.tplBusy.set(false);
+      },
+    });
   }
 
   cancelTemplateEdit(): void {

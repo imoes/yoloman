@@ -33,7 +33,10 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
+
+from bossman.services.template_gate import template_configures
 
 #: Same normalisation the catalog builder uses for a template directory name, so the index cannot
 #: disagree with the thing it indexes. Kept here rather than imported: scripts/ is not on the server's
@@ -44,6 +47,36 @@ _SAFE = re.compile(r"[^A-Za-z0-9._-]")
 def _template_name(key: str) -> str:
     base = key.rsplit("/", 1)[-1] or key
     return _SAFE.sub("-", base) or "config"
+
+
+#: In-process cache: {(catalog, codecs, templates_dir): (built_at, signature, index)}.
+#:
+#: Gating every entry means reading 5460 template bodies and schemas, which took the build from 41 ms to
+#: 560 ms — and this endpoint sits in the host page's load path. The signature covers the two JSON inputs
+#: (mtime + size) and the template root's own mtime and entry count, so adding, removing or rewriting a
+#: catalog/codec file is picked up at once.
+#:
+#: The TTL is the honest part: editing a template.j2 IN PLACE changes neither the root dir's mtime nor
+#: its entry count, so that one change is invisible to the signature. 60 seconds bounds how long a
+#: freshly-broken template can still be offered, or a freshly-fixed one stay hidden. The batch that
+#: writes templates runs for hours, so a minute is noise there; a page load is not.
+_CACHE: dict[tuple, tuple[float, tuple, dict]] = {}
+_TTL_SECONDS = 60.0
+
+
+def _signature(catalog_path: Path, codecs_path: Path, tpl_root: Path) -> tuple:
+    def _stat(p: Path) -> tuple:
+        try:
+            st = p.stat()
+            return (st.st_mtime_ns, st.st_size)
+        except OSError:
+            return (0, 0)
+
+    try:
+        count = sum(1 for _ in tpl_root.iterdir())
+    except OSError:
+        count = -1
+    return (_stat(catalog_path), _stat(codecs_path), _stat(tpl_root), count)
 
 
 def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
@@ -58,8 +91,22 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     empty index rather than an error: no index means no Configure button, which is the safe direction —
     the alternative would be resolving by name again.
     """
-    tpl_root = Path(templates_dir)
+    tpl_root, cat_p, cod_p = Path(templates_dir), Path(catalog_path), Path(codecs_path)
+    key = (str(cat_p), str(cod_p), str(tpl_root))
+    sig = _signature(cat_p, cod_p, tpl_root)
+    hit = _CACHE.get(key)
+    if hit and hit[1] == sig and time.monotonic() - hit[0] < _TTL_SECONDS:
+        return hit[2]
+
     dirs = {d.name for d in tpl_root.iterdir() if d.is_dir()} if tpl_root.is_dir() else set()
+    # EVERY entry passes the gate, both sources. Source 1 is filtered upstream too (a withdrawn
+    # template is already `null` in the catalog), but source 2 had NO filter at all: measured, 437 of
+    # 3488 codec-sourced paths pointed at a template the gate refuses — shell scripts, ufw profiles,
+    # unparameterised texts. Each one offered "Edit via template" on a file whose Apply writes a fixed
+    # text over the live config. False is refused; None (cannot be judged) is kept, because withholding
+    # every unjudgeable editor would remove working ones, and that asymmetry is the gate's own.
+    ok = {name: template_configures(tpl_root, name) is not False for name in dirs}
+    dirs = {name for name in dirs if ok[name]}
 
     def _load(path: str | Path) -> dict:
         try:
@@ -82,10 +129,14 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         paths.setdefault(cfg, {"template": tname, "source": "catalog", "role": role})
 
     # Source 2 — the codec registry, as the fallback.
-    for key, entry in _load(codecs_path).items():
+    #
+    # NOT named `key`: that is the cache key three lines up, and shadowing it stored the result under
+    # the last codec entry's name instead. The cache then never hit, which the timing showed (three
+    # calls, 520 ms each) and reading would not have.
+    for codec_key, entry in _load(codecs_path).items():
         if not isinstance(entry, dict):
             continue
-        tname = _template_name(key)
+        tname = _template_name(codec_key)
         if tname not in dirs:
             continue
         for p in entry.get("paths") or []:
@@ -100,4 +151,6 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
                 conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
                                   "also": tname, "also_source": "codec"})
 
-    return {"paths": paths, "conflicts": conflicts}
+    result = {"paths": paths, "conflicts": conflicts}
+    _CACHE[key] = (time.monotonic(), sig, result)
+    return result

@@ -479,6 +479,24 @@ export interface ConfigTemplate {
   sample: Record<string, unknown>;
 }
 
+/** One entry of GET /config-templates/index — "this exact path is rendered by this template".
+ *
+ * `source` is the reason the claim exists and is shown to the user: `catalog` means a role declares
+ * this path as its config_path, `codec` means the codec registry lists the path under a key whose
+ * template dir exists. Carrying it means the UI can say WHY an editor is offered instead of just
+ * offering it. */
+export interface ConfigTemplateIndexEntry {
+  template: string;
+  source: 'catalog' | 'codec';
+  role?: string;
+}
+
+export interface ConfigTemplateIndex {
+  paths: Record<string, ConfigTemplateIndexEntry>;
+  /** Paths claimed by two template dirs at once — reported rather than silently resolved. */
+  conflicts: { path: string; chosen: string; chosen_source: string; also: string; also_source: string }[];
+}
+
 export interface StateRollbackResponse {
   agent_id: string;
   plan: StatePlan;

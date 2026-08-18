@@ -18,8 +18,9 @@ def _fixture(tmp_path: Path, catalog: dict, codecs: dict, template_dirs: list[st
     (tmp_path / "package_catalog.json").write_text(json.dumps(catalog))
     (tmp_path / "config_codecs.json").write_text(json.dumps(codecs))
     tpl = tmp_path / "config_templates"
+    tpl.mkdir()  # always, so a caller can add dirs itself after the fixture returns
     for name in template_dirs:
-        (tpl / name).mkdir(parents=True)
+        (tpl / name).mkdir()
     return tmp_path / "package_catalog.json", tmp_path / "config_codecs.json", tpl
 
 
@@ -94,6 +95,32 @@ def test_glob_paths_are_excluded_from_both_sources(tmp_path):
     )
     idx = build_template_index(cat, cod, tpl)
     assert list(idx["paths"]) == ["/etc/mysql/my.cnf"]
+
+
+def test_a_refused_template_is_not_indexed_from_the_codec_side_either(tmp_path):
+    """Source 2 had no gate at all: 437 of 3488 codec-sourced paths pointed at a template the gate
+    refuses — shell scripts, ufw profiles, unparameterised texts — each offering "Edit via template" on
+    a file whose Apply writes a fixed text over the live config. /etc/X11/Xsession was one."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {"Xsession": {"paths": ["/etc/X11/Xsession"]}}, [])
+    (tpl / "Xsession").mkdir()
+    (tpl / "Xsession" / "template.j2").write_text("#!/bin/sh\nexec x-session-manager\n")
+    (tpl / "Xsession" / "schema.json").write_text(json.dumps({"session": {}, "opts": {}, "tty": {}}))
+    assert build_template_index(cat, cod, tpl)["paths"] == {}
+
+
+def test_the_result_is_cached_and_the_cache_key_is_not_shadowed(tmp_path):
+    """Gating reads 5460 template bodies (548 ms), so the result is cached — and the second call must
+    actually HIT. It did not at first: the codec loop reused the name `key`, so the result was stored
+    under the last codec entry's name. Only the timing showed it, which is why this asserts the object
+    IDENTITY rather than mere equality."""
+    cat, cod, tpl = _fixture(
+        tmp_path,
+        {"nginx": _role("nginx", "/etc/nginx/nginx.conf")},
+        {"a.conf": {"paths": ["/etc/a.conf"]}, "z.conf": {"paths": ["/etc/z.conf"]}},
+        ["nginx", "a.conf", "z.conf"],
+    )
+    first = build_template_index(cat, cod, tpl)
+    assert build_template_index(cat, cod, tpl) is first
 
 
 def test_unreadable_inputs_yield_an_empty_index_not_an_error(tmp_path):

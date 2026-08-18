@@ -1514,3 +1514,49 @@ selbst installiert.
 verbleibenden werden **namentlich** gemeldet (`paths empty`), weil „wir haben keinen gefunden" und
 „niemand hat geschaut" sich sonst gleich lesen. 10 Tests in `bossman/tests/test_main_config_path.py`
 nageln jede Regel an dem Fehler fest, aus dem sie entstanden ist.
+
+### Umgesetzt (Befund 3): Pfad→Template-Index statt Basename — und was er unterwegs aufdeckte
+
+`GET /api/v1/config-templates/index` beantwortet „welches Template rendert **diese** Datei" aus zwei
+belegten Quellen (Katalog-`config_path`, dann Codec-Register). Die Basename-Heuristik ist weg, und mit
+ihr ein **33,7-MB-Download**: die Host-Seite holte alle 5460 Template-*Körper*, um einen Zeichenketten-
+vergleich zu machen. Jetzt 223 KB Paare, der Körper wird beim Öffnen einzeln geladen. Ohne Treffer
+**kein Knopf**; mit Treffer nennt der Tooltip den Grund („declared as the config file of role nginx"
+bzw. „this path is listed in the codec registry").
+
+**Der Index war ein Messinstrument, und die Messung war unangenehm.** Drei Funde, jeder von der Art
+„Configure hätte die falsche Datei überschrieben":
+
+| Fund | Beleg | Wirkung ohne Fix |
+|---|---|---|
+| `openssh-server` zeigte auf ein **ufw-Anwendungsprofil** | `[OpenSSH] title= … ports=22/tcp`, `config_path=/etc/ssh/sshd_config` | fünf Zeilen Firewall-Profil über die SSH-Konfiguration → Aussperrung |
+| `chrony` rendert `/etc/default/chrony` | erste Zeile „Chrony daemon options wrapper", Schema = 12 chrony.conf-Direktiven | Wrapper über `/etc/chrony/chrony.conf` |
+| **437 von 3488** Codec-Einträgen zeigten auf abgelehnte Templates | `/etc/X11/Xsession` → Shell-Skript, `/etc/bzip2`, … | Shell-Skript als „Konfiguration" geschrieben |
+
+**Der Torwächter war die Ursache, nicht der Zufall.** `_template_configures` fragte „kommt ein
+Schemafeld irgendwo im Text vor". Seit die Templates **selbstdokumentierend** erzeugt werden — jede
+Direktive mit ihrem Kommentar darüber, wie es die globale Regel verlangt — ist diese Frage **vakuum**:
+die Dokumentation des Feldes erfüllt den Test. Die Konvention hat den Test entwaffnet. Jetzt zählt nur
+noch, ob das Feld **eingesetzt** wird (`{{ }}`/`{% %}`). Neu gemessen über 76 Katalog-Templates: 54
+bleiben True, 19 bleiben None, **genau 3 kippen** auf False — `squid` (rendert die ausgelieferte
+Beispieldatei „WELCOME TO SQUID 6.13", 0 Platzhalter), `opendkim` (Datei sagt über sich selbst „not
+used by the opendkim systemd service"), `lighttpd` (Platzhalter für Namen, die nicht im Schema stehen).
+Alle drei per Augenschein bestätigt.
+
+Zweitens ist das **„ja" jetzt enger als das „nein"**: ein Feldtreffer bei ≤2 Feldern liefert `None`
+statt `True` — bei der Größe ist er Zufall (`port` steht in jedem Init-Skript). 19 von 89 Rollen
+„bestanden" vorher so.
+
+Drittens lebt die Regel jetzt in `bossman/services/template_gate.py`, **nicht** in `scripts/`. Grund
+ist eine Einbahnstraße: der Server kann `scripts/` nicht importieren, `scripts/` aber das Paket. Genau
+deshalb war der Index ohne Tor ausgeliefert worden — die Regel war für ihn unerreichbar.
+
+**Und ein Fehler, den nur die Messung zeigte:** der Ergebnis-Cache griff nie, weil die Codec-Schleife
+`key` neu band und damit den Cache-Schlüssel überschrieb. Drei Aufrufe à 520 ms statt 548/6/6. Der Test
+prüft deshalb die **Objektidentität**, nicht bloß Gleichheit.
+
+**Offen und benannt:** 25 Pfade werden von **zwei** Template-Verzeichnissen beansprucht
+(`/etc/haproxy/haproxy.cfg` von `haproxy` und `haproxy.cfg`, beide existieren). Der Index entscheidet
+per Vorrang (Katalog vor Codec) und **meldet den Verlierer** — welches inhaltlich richtig ist, gehört
+zu Punkt 3 (die 278 Doppelverzeichnisse), nicht zu einer Vorrangregel. Ebenso offen: 20 `chrony-*`-
+Verzeichnisse (chrony-client, chrony-dhcp, chrony-dns …) — dieselbe Wildwuchs-Klasse.
