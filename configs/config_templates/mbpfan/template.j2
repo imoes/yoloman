@@ -1,76 +1,20 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          mbpfan
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: mbpfan initscript
-# Description:       Start the mbpfan daemon
-### END INIT INFO
+[general]
+# see https://ineed.coffee/3838/a-beginners-tutorial-for-mbpfan-under-ubuntu for the values
+# 
+# mbpfan will load the max / min speed of from the files produced by the applesmc driver. If these files are not found it will set all fans to the default of min_speed = {{ min_fan_speed }} and max_speed = {{ max_fan_speed }}
+# by setting the values for the speeds in this config it will override whatever it finds in:
+# /sys/devices/platform/applesmc.768/fan*_min
+# /sys/devices/platform/applesmc.768/fan*_max
+# or the defaults.
+#
+# multiple fans can be configured by using the config key of min_fan*_speed and max_fan*_speed
+# the number used will correlate to the file number of the fan in the applesmc driver that are used to control the fan speed.
+#
+#min_fan1_speed = {{ min_fan_speed }}	# put the *lowest* value of "cat /sys/devices/platform/applesmc.768/fan*_min"
+#max_fan1_speed = {{ max_fan_speed }}	# put the *highest* value of "cat /sys/devices/platform/applesmc.768/fan*_max"
 
-DESC="Start the mbpfan daemon"
-NAME=mbpfan
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DAEMON=/usr/sbin/$NAME
-PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
-
-# Path to the log file. Use 'syslog' to log to system journal instead.
-DAEMON_ARGS="--log {{ log_file | default('/var/log/mbpfan.log') }}"
-
-# Minimum fan speed as RPM (e.g., '2000') or 'auto' to let mbpfan infer.
-DAEMON_ARGS="${DAEMON_ARGS} --min_fan {{ min_fan_speed | default('2000') }}"
-
-# Maximum fan speed as RPM (e.g., '6200') or 'max' to allow full speed.
-DAEMON_ARGS="${DAEMON_ARGS} --max_fan {{ max_fan_speed | default('6200') }}"
-
-# Temperature (°C) at which fans switch to low speed.
-DAEMON_ARGS="${DAEMON_ARGS} --low_temp {{ low_temp_threshold | default(55) }}"
-
-# Temperature (°C) at which fans switch to medium speed.
-DAEMON_ARGS="${DAEMON_ARGS} --medium_temp {{ medium_temp_threshold | default(65) }}"
-
-# Temperature (°C) at which fans switch to high speed.
-DAEMON_ARGS="${DAEMON_ARGS} --high_temp {{ high_temp_threshold | default(75) }}"
-
-# Interval in seconds between temperature checks.
-DAEMON_ARGS="${DAEMON_ARGS} --poll {{ poll_interval | default(2) }}"
-
-# Whether users can manually set fan speeds via sysfs (e.g., /sys/class/hwmon/hwmon0/fan1_input).
-DAEMON_ARGS="${DAEMON_ARGS} --manual {{ allow_manual_override | default(false) | ternary('true', 'false') }}"
-
-# Fan control method: 'auto' (recommended), 'smc' (Apple System Management Controller), or legacy methods if supported.
-DAEMON_ARGS="${DAEMON_ARGS} --fan_method {{ fan_method | default('auto') }}"
-
-# Proportional gain for PID fan control (used if PID is enabled via compiled-in or kernel support).
-DAEMON_ARGS="${DAEMON_ARGS} --kp {{ kp | default(2.0) }}"
-
-# Integral gain for PID fan control.
-DAEMON_ARGS="${DAEMON_ARGS} --ki {{ ki | default(0.05) }}"
-
-# Derivative gain for PID fan control.
-DAEMON_ARGS="${DAEMON_ARGS} --kd {{ kd | default(0.5) }}"
-
-# Maximum integral term to prevent wind-up in PID control.
-DAEMON_ARGS="${DAEMON_ARGS} --integral_max {{ integral_max | default(1000) }}"
-
-# List of thermal zone or hwmon paths to ignore when computing average temperature.
-{% if exclude_paths | default([]) | length > 0 %}
-DAEMON_ARGS="${DAEMON_ARGS} --exclude {% for path in exclude_paths | default([]) %}{{ path }} {% endfor %}"
-{% endif %}
-
-# Override list of temperature sensor paths (leave empty to auto-detect).
-{% if temp_sources | default([]) | length > 0 %}
-DAEMON_ARGS="${DAEMON_ARGS} --sources {% for source in temp_sources | default([]) %}{{ source }} {% endfor %}"
-{% endif %}
-
-# Whether mbpfan is enabled and should manage fans.
-# Note: This template generates the daemon arguments; enabling the service itself is typically handled
-# by the service manager (systemd/upstart) or this init script's start logic.
-# If this script is meant to be a no-op when disabled, wrap the execution here:
-# {% if enabled | default(true) | bool %}
-# exec start-stop-daemon ...
-# {% else %}
-# echo "mbpfan is disabled."
-# {% endif %}
+# temperature units in celcius
+low_temp = {{ low_temp_threshold }}			# if temperature is below this, fans will run at minimum speed
+high_temp = {{ medium_temp_threshold }}			# if temperature is above this, fan speed will gradually increase
+max_temp = {{ high_temp_threshold }}			# if temperature is above this, fans will run at maximum speed
+polling_interval = {{ poll_interval }}	# default is 1 seconds

@@ -1,66 +1,61 @@
-# Lighttpd Configuration Template
-# Self-documenting: every setting below includes its source description.
-# Defaults are applied inline via |default() filters to ensure safe rendering.
+### Documentation
+# https://wiki.lighttpd.net/
 #
-# Reference: https://wiki.lighttpd.net/
+### Configuration Syntax
+# https://wiki.lighttpd.net/Docs_Configuration
+#
+### Configuration Options
+# https://wiki.lighttpd.net/Docs_ConfigurationOptions
+#
 
-# server.document_root: The root directory from which lighttpd serves files.
-server.document-root = "{{ (server | default({})).document_root | default('/var/www/html') }}"
+### Debian lighttpd base configuration
 
-# server.upload_dir: The base directory for lighttpd caches, including uploads subdirectory.
-# Note: Lighttpd expects a list of upload directories. We append 'uploads' to the base dir.
-server.upload-dirs = ( "{{ (server | default({})).upload_dir | default('/var/cache/lighttpd') }}/uploads" )
-
-# server.error_log: The path to the error log file.
-server.errorlog = "{{ (server | default({})).error_log | default('/var/log/lighttpd/error.log') }}"
-
-# server.pid_file: The path to the PID file.
-server.pid-file = "{{ (server | default({})).pid_file | default('/run/lighttpd.pid') }}"
-
-# server.runas_user: The system user account under which lighttpd runs.
-server.username = "{{ (server | default({})).runas_user | default('www-data') }}"
-
-# server.groupname: The system group account under which lighttpd runs.
-# Usually mirrors the user for permission consistency.
-server.groupname = "{{ (server | default({})).runas_user | default('www-data') }}"
-
-# server.port: The port lighttpd listens on.
-server.port = {{ (server | default({})).port | default(80) }}
-
-# Modules to load.
 server.modules = (
-    "mod_indexfile",
-    "mod_access",
-    "mod_alias",
-    "mod_redirect",
+	"mod_indexfile",
+	"mod_access",
+	"mod_alias",
+ 	"mod_redirect",
 )
+
+server.document-root        = "{{ server.document_root }}"
+server.upload-dirs          = ( "{{ server.upload_dir }}/uploads" )
+server.errorlog             = "{{ server.error_log }}"
+server.pid-file             = "{{ server.pid_file }}"
+server.username             = "{{ server.runas_user }}"
+server.groupname            = "www-data"
+server.port                 = {{ server.port }}
 
 # strict parsing and normalization of URL for consistency and security
 # https://wiki.lighttpd.net/Server_http-parseoptsDetails
+# (might need to explicitly set "url-path-2f-decode" = "disable"
+#  if a specific application is encoding URLs inside url-path)
 server.http-parseopts = (
-    "header-strict"           => "enable",
-    "host-strict"             => "enable",
-    "host-normalize"          => "enable",
-    "url-normalize-unreserved"=> "enable",
-    "url-normalize-required"  => "enable",
-    "url-ctrls-reject"        => "enable",
-    "url-path-2f-decode"      => "enable",
-    "url-path-dotseg-remove"  => "enable",
-    "url-invalid-utf8-reject" => "enable",
+  "header-strict"           => "enable",# default
+  "host-strict"             => "enable",# default
+  "host-normalize"          => "enable",# default
+  "url-normalize-unreserved"=> "enable",# recommended highly
+  "url-normalize-required"  => "enable",# recommended
+  "url-ctrls-reject"        => "enable",# recommended
+  "url-path-2f-decode"      => "enable",# recommended highly (unless breaks app)
+ #"url-path-2f-reject"      => "enable",
+  "url-path-dotseg-remove"  => "enable",# recommended highly (unless breaks app)
+ #"url-path-dotseg-reject"  => "enable",
+ #"url-query-20-plus"       => "enable",# consistency in query string
+  "url-invalid-utf8-reject" => "enable",# recommended highly (unless breaks app)
 )
 
-index-file.names = ( "index.php", "index.html" )
-
-url.access-deny = ( "~", ".inc" )
-
+index-file.names            = ( "index.php", "index.html" )
+url.access-deny             = ( "~", ".inc" )
 static-file.exclude-extensions = ( ".php", ".pl", ".fcgi" )
 
-# Include generated mime types
 include_shell "/usr/share/lighttpd/create-mime.conf.pl"
-
-# Include additional configuration snippets from conf-enabled
 include "/etc/lighttpd/conf-enabled/*.conf"
 
-# Include IPv6 configuration if available.
-# The script expects the port as an argument.
-include_shell "/usr/share/lighttpd/use-ipv6.pl " + "{{ (server | default({})).port | default(80) }}"
+# default listening port for IPv6 is same as default IPv4 port
+include_shell "/usr/share/lighttpd/use-ipv6.pl " + {{ server.port }}
+
+### Customizations
+# customizations should generally be placed in separate files such as
+#   /etc/lighttpd/conf-available/00_vars.conf    # override variables for *.conf
+#   /etc/lighttpd/conf-available/99_custom.conf  # override *.conf settings
+# and then enabled using lighty-enable-mod (1)

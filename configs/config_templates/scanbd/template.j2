@@ -1,244 +1,211 @@
-#!/bin/sh
-#
-# $Id: scanbd.debian 195 2014-11-15 18:06:47Z wimalopaan $
-#
-#  scanbd - KMUX scanner button daemon
-#
-#  Copyright (C) 2008 - 2013  Wilhelm Meier (wilhelm.meier@fh-kl.de)
-#  Copyright (C) 2013 - 2014  Rolf Leggewie (foss@rolf.leggewie.biz)
-#
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-### BEGIN INIT INFO
-# Provides:          scanbd
-# Required-Start:    $local_fs $remote_fs
-# Required-Stop:     $local_fs $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Scanner button events daemon
-# Description:       scanbd associates actions to scanner buttons
-### END INIT INFO
+/*
+ * $Id: scanbd.conf 241 2017-04-19 07:53:25Z wimalopaan $
+ *
+ *  scanbd - KMUX scanner button daemon
+ *
+ *  Copyright (C) 2008 - 2017 Wilhelm Meier (wilhelm.wm.meier@googlemail.com)
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-# Do NOT "set -e"
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# global settings
+global {
+        # turn on debugging
+        
+        # log to console
+        debug   = {{ debug }} 
 
-# Description of the daemon shown in logs and status output.
-DESC="{{ desc | default('SANE scanner button daemon') }}"
+        # debug logging
+        # 1=error, 2=warn, 3=info, 4-7=debug
+        debug-level = {{ debug_level }}
+        
+        # drop priviliges to this user
+        #=============================
+        # Linux (most distributions use the saned user):
+        # user    = saned
+        # ArchLinux (ArchLinux doesn't have saned user)
+        # user    = daemon
+        # *BSD
+        # user    = root
+        user    = {{ user }}
 
-# Name of the service/daemon.
-NAME={{ name | default('scanbd') }}
+        # Group to be used
+        #=================
+        # Linux (most distributions use the lp group to access scanners)
+        # group   = lp
+        # ArchLinux (ArchLinux uses the scanner group)
+        # group = scanner
+        #
+        # *BSD (no group lp here, use daemon instead)
+        # group   = daemon # root
+        #
+        group   = {{ group }}
 
-# Path to the main scanbd configuration file.
-# The daemon is invoked with this path as the -c argument.
-DAEMON_ARGS="-c {{ scanbd_conf | default('/etc/scanbd/scanbd.conf') }}"
+        # the saned executable for manager-mode
+        saned   = "{{ saned_path }}"
+        saned_opt  = {} # string-list
+		saned_env  = { "SANE_CONFIG_DIR={{ sane_config_dir }}" } # list of environment vars for saned
 
-# Path to the default configuration variable file (sh-style env vars).
-# If this file exists and is readable, its variables are sourced into the environment.
-DEFAULT_CONF={{ default_conf | default('/etc/default/scanbd') }}
+        # Scriptdir specifies where scanbd normally looks for scripts.
+        # The scriptdir option can be defined as: 
+        #   - a path relative to the configuations (<path>/etc/scanbd) directory
+        #   - an abosolute path
+        # Examples:
+        # scriptdir = scripts 
+        # sets scriptdir to <path>/etc/scanbd/scripts.
+        # scriptdir = /some/path
+        # sets scriptdir to the specified absolute path
+        # Default scriptdir is <path>/etc/scanbd, this is normally appropriate
+		scriptdir = {{ scriptdir }}
+        
+        # Scripts to execute upon device insertion/removal.
+        # It can be necessary to load firmware into the device when it is first
+        # inserted. For example, scanbuttond backend does not know how to load 
+        # scanner firmware, and it can be rectified by making a custom script.
+        # A simple command like "scanimage -L" in an example insert.script 
+        # invokes saned and it loads the appropriate firmware if necessary.
+        # These scripts receive environmental variables named in the "environment" subsection:
+        # SCANBD_DEVICE - device name (fixed string "dbus device" for dbus notification)
+        # SCANBD_ACTION - "insert" or "remove", so one script can be used.
+        # device_insert_script = "insert.script"
+        # device_remove_script =
 
-# Path to the SANE network configuration file.
-# Used during pre-start checks to verify connect_timeout settings.
-SANE_NET_CONF={{ sane_net_conf | default('/etc/sane.d/net.conf') }}
+        # scanbuttond_backends_dir sets the path where scanbd looks for the scanbuttond backends 
+		# It can be defined as relative path, starting from the scanbd config directory or
+        # as an absolute path
+        # Default is <libdir>/scanbd/scanbutond/backends
+        # Example
+		# scanbuttond_backends_dir = "/usr/local/lib/scanbd/scanbuttond/backends"
 
-# Path to the SANE dynamic loader configuration file.
-# Used during pre-start checks to ensure only 'net' backend is enabled.
-SANE_DLL_CONF={{ sane_dll_conf | default('/etc/sane.d/dll.conf') }}
+        # poll timeout in [ms]
+        # (for polling the devices)
+        timeout = {{ timeout }} 
+        
+        pidfile = "{{ pidfile_path }}"
+        
+        # env-vars for the scripts
+        environment {
+                # pass the device label as below in this env-var
+                device = "SCANBD_DEVICE"
+                # pass the action label as below in this env-var
+                action = "SCANBD_ACTION"
+        }
 
-# Path to the scanbd-specific SANE dll configuration file.
-# Used during pre-start checks to ensure 'net' backend is NOT enabled.
-SCANBD_DLL_CONF={{ scanbd_dll_conf | default('/etc/scanbd/dll.conf') }}
+        # function definitions
+        # values of the options are simply passed via env-vars
 
-# Path to the saned default configuration file.
-# Used during pre-start checks to warn if saned is already running.
-SANED_DEFAULT_CONF={{ saned_default_conf | default('/etc/default/saned') }}
+        function function_knob {
+                filter = "^message.*"
+                desc   = "The value of the function knob / wheel / selector"
+                env    = "SCANBD_FUNCTION" 
+        }
+        function function_mode {
+                filter = "^mode.*"
+                desc   = "Color mode"
+                env    = "SCANBD_FUNCTION_MODE" 
+        }
 
-# Directory for SANE configuration when running scanbd.
-# Exported to the daemon environment so it picks up scanbd's config dir.
-SANE_CONFIG_DIR={{ sane_config_dir | default('/etc/scanbd') }}
+        multiple_actions = {{ multiple_actions }} # allow multiple actions per option (up to the total amount of options)
 
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
-
-# Read configuration variable file if it is present
-# We quote DEFAULT_CONF to handle spaces in paths safely.
-[ -r "$DEFAULT_CONF" ] && . "$DEFAULT_CONF"
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
-#
-# Function to abort on errors
-#
-do_abort()
-{
-	log_failure_msg $1
-###	XXX the following cannot yet be activated since it breaks postinst in case of configuration errors
-#	log_failure_msg scanbd will not be started
-#	exit 128
-	exit 0
+        # action definitions
+        # if the filter matches and the value changes 
+        # from from-value to to-value,
+        # <script> is executed
+        # <script> is the full pathname (do not include any parameters)
+        # if parameters are needed, write a script
+        
+        # since we can have only at most one action for each option, the action-script
+        # can use the function definition (see above) to distinguish different tasks 
+        # (e.g. use the env-var SCANBD_FUNCTION defined above)
+        
+        action scan {
+                filter = "^scan.*"
+                numerical-trigger {
+                        from-value = 1
+                        to-value   = 0
+                }
+                desc   = "Scan to file"
+                # script must be an relative path starting from scriptdir (see above), 
+                # or an absolute pathname. 
+                # It must contain the path to the action script without arguments
+                # Absolute path example: script = "/some/path/foo.script 
+                script = "{{ action_script }}"
+        }
+        action email {
+                filter = "^email$"
+                string-trigger {
+                        from-value  = ""        
+                        to-value    = "^email.*"
+                }
+                desc   = "Scan to email"
+                # script must be an relative path starting from scriptdir (see above), 
+                # or an absolute pathname. 
+                # It must contain the path to the action script without arguments
+                # Absolute path example: script = "/some/path/foo.script 
+                script = "{{ action_script }}"
+        }
+        action copy {
+                filter = "^copy$"
+                string-trigger {
+                        from-value  = ""
+                        to-value    = "^copy.*"
+                }
+                desc   = "Copy to printer"
+                # script must be an relative path starting from scriptdir (see above), 
+                # or an absolute pathname. 
+                # It must contain the path to the action script without arguments
+                # Absolute path example: script = "/some/path/foo.script 
+                script = "{{ action_script }}"
+        }
+        action preview {
+                filter = "^preview$"
+                numerical-trigger {
+                        from-value = 1
+                        to-value   = 0
+                }
+                desc   = "Preview"
+                # script must be an relative path starting from scriptdir (see above), 
+                # or an absolute pathname. 
+                # It must contain the path to the action script without arguments
+                # Absolute path example: script = "/some/path/foo.script 
+                script = "{{ action_script }}"
+        }
+        action globaltest {
+                filter = "^message.*"
+                desc   = "Test (print all env vars)"
+                # script must be an relative path starting from scriptdir (see above), 
+                # or an absolute pathname. 
+                # It must contain the path to the action script without arguments
+                # Absolute path example: script = "/some/path/foo.script 
+                script = "{{ action_script }}"
+        }
 }
 
-#
-# Function to check for common configuration mistakes
-#
-do_check_config()
-{
-	# Check if connect_timeout is set in SANE net.conf
-	grep '^connect_timeout' "$SANE_NET_CONF" > /dev/null || log_warning_msg "$SANE_NET_CONF should contain a value for connect_timeout"
-	
-	# Check that SANE dll.conf contains ONLY the net backend (and comments/blanks)
-	egrep -v '(net|^#|^$)'  "$SANE_DLL_CONF" > /dev/null && do_abort "$SANE_DLL_CONF should contain only the net backend"
-	
-	# Check that SANE dll.conf DOES contain the net backend
-	egrep -x '(net)'        "$SANE_DLL_CONF" > /dev/null || do_abort "$SANE_DLL_CONF should contain the net backend"
-	
-	# Check that scanbd dll.conf DOES NOT contain the net backend (scanbd manages it)
-	egrep -x '(net)'        "$SCANBD_DLL_CONF" > /dev/null && do_abort "$SCANBD_DLL_CONF must not contain the net backend"
-	
-	# Check that saned is NOT already running to avoid port conflicts
-	pidof saned > /dev/null && do_abort "It was detected that saned is already running. This will lead to problems. scanbd will not be started. Please stop saned before trying again. Most likely you activated RUN=yes in $SANED_DEFAULT_CONF.  Change that to 'no'."
-}
+# include
+# include another file at this point. This may only occur outside general and devices blocks.
+# an include statement may be relative to the direcory where scanbd.conf is located or absolute
+# include("scanner.d/myscanner.conf")
+# include("/my/long/path/myscanner.conf")
 
-#
-# Function that starts the daemon/service
-#
-do_start()
-{
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-
-	# Set SANE config directory for the daemon process
-	export SANE_CONFIG_DIR="$SANE_CONFIG_DIR"
-	
-	# Validate configuration before starting
-	do_check_config
-	
-	# Test if the daemon can start
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
-		|| return 1
-		
-	# Start the daemon
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
-		$DAEMON_ARGS \
-		|| return 2
-}
-
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
-	RETVAL="$?"
-	[ "$RETVAL" = 2 ] && return 2
-	
-	# Wait for children to finish too if this is a daemon that forks
-	# and if the daemon is only ever run from this initscript.
-	# If the above conditions are not satisfied then add some other code
-	# that waits for the process to drop all resources that could be
-	# needed by services started subsequently.  A last resort is to
-	# sleep for some time.
-	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
-	[ "$?" = 2 ] && return 2
-	
-	# Many daemons don't delete their pidfiles when they exit.
-	rm -f $PIDFILE
-	return "$RETVAL"
-}
-
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-	#
-	# If the daemon can reload its configuration without
-	# restarting (for example, when it is sent a SIGHUP),
-	# then implement that here.
-	#
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-	return 0
-}
-
-case "$1" in
-  start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  #reload|force-reload)
-	#
-	# If do_reload() is not implemented then leave this commented out
-	# and leave 'force-reload' as an alias for 'restart'.
-	#
-	#log_daemon_msg "Reloading $DESC" "$NAME"
-	#do_reload
-	#log_end_msg $?
-	#;;
-  restart|force-reload)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-		# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
-  status)
-	status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" && exit 0 || exit $?
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
-	exit 3
-	;;
-esac
-
-:
+# devices 
+# each device can have actions and functions, you can disable not relevant devices
+include(scanner.d/avision.conf)
+include(scanner.d/fujitsu.conf)
+include(scanner.d/hp.conf)
+include(scanner.d/pixma.conf)
+include(scanner.d/snapscan.conf)
+include(scanner.d/canon.conf)
+include(scanner.d/plustek.conf)

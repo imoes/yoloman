@@ -1,52 +1,89 @@
-#! /bin/sh
-#
-# This is a System V init script template for the squidtaild daemon.
-# It is generated from a Jinja2 template that uses Ansible variables.
-# Every variable is provided with a default value to ensure the script
-# renders correctly even if the variable is undefined in the play.
-#
-### BEGIN INIT INFO
-# Provides:          {{ (provides | default('squidtaild')) }}
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-### END INIT INFO
-#
-# Written by: {{ (written_by | default('Behan Webster <behanw@pobox.com>')) }}
-#
+# squidtaild config file
 
-NAME={{ (name | default('squidtaild')) }}
-PATH=/bin:/usr/bin:/sbin:/usr/sbin
-DAEMON={{ (daemon_path | default('/usr/sbin/squidtaild')) }}
-PID={{ (pid_file | default('/var/run/squidtaild.pid')) }}
+# URL where squidtaild will reference it's files
+url			{{ url }}
+# Note the LACK of a trailing slash...
 
-trap "" 1
+# File where violations are logged
+htmldir		{{ htmldir }}
+# Note the trailing slash...
 
-test -f "$DAEMON" || exit 0
+# Squid log file
+squidlog		{{ squidlog }}
 
-# See how we were called.
-case "$1" in
-  start)
-	printf "Starting $NAME: $NAME"
-	start-stop-daemon --start --background --quiet --exec "$DAEMON"
-	echo "."
-	;;
-  stop)
-	printf "Stopping $NAME: $NAME"
-	start-stop-daemon --stop --oknodo --quiet --pidfile "$PID"
-	rm -f "$PID"
-	echo "."
-	;;
-  restart | force-reload)
-	$0 stop
-	sleep 1
-	$0 start
-	;;
-  *)
-	echo "Usage: $NAME {start|stop|restart}"
-	exit 1
-	;;
-esac
+# Enable Incremental mode (yes/no)
+incremental	{{ incremental }}	
 
-exit 0
+# Truncate URL's (yes/no)
+truncate_url {{ truncate_url }}
+
+# Size of truncated url (characters)
+url_length {{ url_length }}
+
+# Status page refresh interval
+# (in seconds)
+refresh {{ refresh }}
+
+# Lookup hostnames (yes/no)
+dnslookups {{ dnslookups }}
+
+
+#####################################################
+#			MailReporting												#
+#			Works only if sendmail is installed!!!!		#
+#####################################################
+
+# Enable mail reporting (yes/no)
+mailreport 		{{ mailreport }}	
+
+# Mailstyle ("text" = plain asci, "html" = HTML style) 
+mailstyle	{{ mailstyle }}
+
+# Sendmail Program
+sendmail		{{ sendmail }}
+
+# Who should receive the reports
+mailrecipient	{{ mailrecipient }}	
+
+#####################################################
+#			Filter File Locations									#
+#####################################################
+
+# Possible Filter file
+possible			{{ possible }}
+
+# Probably Filter file
+probable			{{ probable }}
+
+# Definite Filter file
+definite			{{ definite }}
+
+# Excludes Filter file
+excludes			{{ excludes }}
+
+#####################################################
+#			WinPopUps												#
+# Works only if samba is installed									#
+# and configured correctly!!!!												#
+#####################################################
+
+# Enable winpopups (yes/no)
+winpopups	{{ winpopups }}	
+
+# smbclient program
+smbclient		{{ smbclient }}
+
+# Send winpopups to users (yes/no)
+winpopup_users	{{ winpopup_users }}	
+
+# Users winpopup message
+user_msg		{{ user_msg }}
+
+# Send winpopups to admin (yes/no)
+winpopup_admin	{{ winpopup_admin }}	
+
+# Admin's winpopup message
+admin_msg		{{ admin_msg }}	
+
+# Admin user's netbios name
+admin_computer {{ admin_computer }}

@@ -1,168 +1,136 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          swift-object-expirer
-# Required-Start:    $remote_fs
-# Required-Stop:    $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Swift object expirer
-# Description:       Object expirer daemon for Swift.
-### END INIT INFO
+[DEFAULT]
+# swift_dir = /etc/swift
+# user = {{ system_user }}
+# You can specify default log routing here if you want:
+# log_name = swift
+# log_facility = LOG_LOCAL0
+# log_level = INFO
+# log_address = /dev/log
+# The following caps the length of log lines to the value given; no limit if
+# set to 0, the default.
+# log_max_line_length = 0
+#
+# comma separated list of functions to call to setup custom log handlers.
+# functions get passed: conf, name, log_to_console, log_route, fmt, logger,
+# adapted_logger
+# log_custom_handlers =
+#
+# If set, log_udp_host will override log_address
+# log_udp_host =
+# log_udp_port = 514
+#
+# You can enable StatsD logging here:
+# log_statsd_host =
+# log_statsd_port = 8125
+# log_statsd_default_sample_rate = 1.0
+# log_statsd_sample_rate_factor = 1.0
+# log_statsd_metric_prefix =
+#
+# You can set scheduling priority of processes. Niceness values range from -20
+# (most favorable to the process) to 19 (least favorable to the process).
+# nice_priority =
+#
+# You can set I/O scheduling class and priority of processes. I/O niceness
+# class values are realtime, best-effort and idle. I/O niceness
+# priority is a number which goes from 0 to 7. The higher the value, the lower
+# the I/O priority of the process. Work only with ionice_class.
+# ionice_class =
+# ionice_priority =
 
-# The project name used to prefix variables and paths.
-PROJECT_NAME={{ project_name | default('swift') }}
-NAME="${PROJECT_NAME}-object-expirer"
-DESC="OpenStack Swift object expirer"
-# The base configuration filename for the object expirer.
-CONFIG={{ config_file | default('object-expirer') }}
-SYSTEMD_DOC="man:${NAME}(1)"
-#!/bin/sh
-# The content after this line comes from Debian Swift source package
-# and has been automatically added to a .init.in script, which
-# contains only the descriptive part for the daemon. Everything
-# else is standardized as a single unique script.
+[object-expirer]
+# interval = 300.0
+# report_interval = 300.0
+#
+# request_tries is the number of times the expirer's internal client will
+# attempt any given request in the event of failure. The default is 3.
+# request_tries = 3
 
-# Author: Thomas Goirand <zigo@debian.org>
-# Author: Ondřej Nový <novy@ondrej.org>
+# concurrency is the level of concurrency to use to do the work, this value
+# must be set to at least 1
+# concurrency = 1
+#
+# deletes can be ratelimited to prevent the expirer from overwhelming the cluster
+# tasks_per_second = 50.0
+#
+# processes is how many parts to divide the work into, one part per process
+# that will be doing the work
+# processes set 0 means that a single process will be doing all the work
+# processes can also be specified on the command line and will override the
+# config value
+# processes = 0
+#
+# process is which of the parts a particular process will work on
+# process can also be specified on the command line and will override the config
+# value
+# process is "zero based", if you want to use 3 processes, you should run
+# processes with process set to 0, 1, and 2
+# process = 0
+#
+# The expirer will re-attempt expiring if the source object is not available
+# up to reclaim_age seconds before it gives up and deletes the entry in the
+# queue.
+# reclaim_age = 604800
+#
+# The expirer can delay the reaping of expired objects on disk (and in
+# container listings) with an account level or container level delay_reaping
+# time.
+# After the delay_reaping time has passed objects will be reaped as normal.
+# You may configure this delay_reaping value in seconds with dynamic config
+# option names prefixed with delay_reaping_<ACCT> for account level delays
+# and delay_reaping_<ACCT>/<CNTR> for container level delays.
+# Special characters in <ACCT> or <CNTR> should be quoted.
+# The delay_reaping value should be a float value greater than or equal to
+# zero.
+# A container level delay_reaping does not require an account level
+# delay_reaping but overrides the account level delay_reaping for the same
+# account if it exists.
+# For example:
+# delay_reaping_AUTH_test = 300.0
+# delay_reaping_AUTH_test2 = 86400.0
+# delay_reaping_AUTH_test/test = 400.0
+# delay_reaping_AUTH_test/test2 = 600.0
+# delay_reaping_AUTH_test/special%0Achars%3Dshould%20be%20quoted
+# N.B. By default no delay_reaping value is configured for any accounts or
+# containers.
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# Number of tasks objects to cache before processing.  With many nodes it may
+# take some time to fill a larger cache_size but may also have a better chance
+# to distribute DELETEs to multiple target containers.
+# round_robin_task_cache_size = 100000
 
-DAEMON=/usr/bin/${NAME}
-# The system user running the Swift service.
-SYSTEM_USER={{ system_user | default('swift') }}
-# The system group running the Swift service.
-SYSTEM_GROUP={{ system_group | default('swift') }}
+# recon_cache_path = /var/cache/swift
+#
+# You can set scheduling priority of processes. Niceness values range from -20
+# (most favorable to the process) to 19 (least favorable to the process).
+# nice_priority =
+#
+# You can set I/O scheduling class and priority of processes. I/O niceness
+# class values are realtime, best-effort and idle. I/O niceness
+# priority is a number which goes from 0 to 7. The higher the value, the lower
+# the I/O priority of the process. Work only with ionice_class.
+# ionice_class =
+# ionice_priority =
 
-# Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+#
+# The following sections define the configuration of the expirer's internal
+# client pipeline
+#
 
-# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
-if [ `whoami` = "root" ] ; then
-	for i in lock run cache ; do
-		mkdir -p /var/$i/${PROJECT_NAME}
-		chown ${SYSTEM_USER}:${SYSTEM_GROUP} /var/$i/${PROJECT_NAME}
-	done
-fi
+[pipeline:main]
+pipeline = catch_errors proxy-logging cache proxy-server
 
-# This defines init_is_upstart which we use later on (+ more...)
-. /lib/lsb/init-functions
+[app:proxy-server]
+use = egg:swift#proxy
+# See proxy-server.conf-sample for options
 
-RET=0
+[filter:cache]
+use = egg:swift#memcache
+# See proxy-server.conf-sample for options
 
-# Configs
-[ -r /etc/default/openstack ] && . /etc/default/openstack
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+[filter:catch_errors]
+use = egg:swift#catch_errors
+# See proxy-server.conf-sample for options
 
-do_start() {
-	# Check for existence of ring files
-	if
-			[ ! -r /etc/swift/account.ring.gz ] ||
-			[ ! -r /etc/swift/container.ring.gz ] ||
-			test -z "$(find /etc/swift -maxdepth 1 -name 'object*.ring.gz' -print -quit)" ; then
-		log_end_msg 1
-		exit $?
-	fi
-
-	STARTED=
-	for CONF_FILE in /etc/swift/${CONFIG}.conf /etc/swift/${CONFIG}/*.conf ; do
-		if [ ! -e "$CONF_FILE" ] ; then
-			continue
-		fi
-
-		SUFFIX=${CONF_FILE#/etc/swift/$CONFIG}
-		SUFFIX=${SUFFIX%.conf}
-		if [ "$SUFFIX" ] ; then
-			# /etc/swift/${NAME}/*.conf
-			SUFFIX=-${SUFFIX#/}
-		fi
-		PIDFILE=/var/run/${PROJECT_NAME}/${NAME}${SUFFIX}.pid
-
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background \
-			--chuid ${SYSTEM_USER}:${SYSTEM_GROUP} \
-			--make-pidfile \
-			--pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			--test > /dev/null \
-			|| return 1
-		start-stop-daemon \
-			--start \
-			--quiet \
-			--background \
-			--chuid ${SYSTEM_USER}:${SYSTEM_GROUP} \
-			--make-pidfile \
-			--pidfile ${PIDFILE} \
-			--chdir /var/lib/${PROJECT_NAME} \
-			--startas $DAEMON \
-			-- $CONF_FILE \
-			|| return 2
-
-		STARTED=1
-	done
-
-	if [ ! "$STARTED" ] ; then
-		return 2
-	fi
-}
-
-do_stop() {
-	for PIDFILE in /var/run/${PROJECT_NAME}/${NAME}*.pid ; do
-		start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
-		RETVAL=$?
-		rm -f $PIDFILE
-		if [ "$RETVAL" != "0" ] ; then
-			return "$RETVAL"
-		fi
-	done
-}
-
-case "$1" in
-start)
-	#init_is_upstart > /dev/null 2>&1 && exit 1
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-stop)
-	#init_is_upstart > /dev/null 2>&1 && exit 0
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1) log_end_msg 0 ; RET=$? ;;
-		2)   log_end_msg 1 ; RET=$? ;;
-	esac
-;;
-status)
-	status_of_proc "$DAEMON" "$NAME"
-	RET=$?
-;;
-restart|force-reload)
-	#init_is_upstart > /dev/null 2>&1 && exit 1
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case $? in
-		0|1)
-			do_start
-			case $? in
-				0) log_end_msg 0 ; RET=$? ;;
-				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
-				*) log_end_msg 1 ; RET=$? ;; # Failed to start
-			esac
-		;;
-		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
-	esac
-;;
-*)
-	echo "Usage: $0 {start|stop|status|restart|force-reload}" >&2
-	RET=3
-;;
-esac
-
-exit $RET
+[filter:proxy-logging]
+use = egg:swift#proxy_logging
+# See proxy-server.conf-sample for options

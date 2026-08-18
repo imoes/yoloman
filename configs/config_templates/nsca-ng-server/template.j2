@@ -1,133 +1,143 @@
-#!/bin/sh
+#
+# Sample configuration for nsca-ng(8).  See the nsca-ng.cfg(5) man page.
+#
+# PLEASE SET THE PERMISSIONS OF THIS FILE APPROPRIATELY TO MAKE SURE THAT ONLY
+# AUTHORIZED USERS CAN ACCESS IT!
+#
 
-### BEGIN INIT INFO
-# Provides:          nsca-ng nsca-ng-server
-# Required-Start:    $remote_fs $network $syslog
-# Required-Stop:     $remote_fs $network $syslog
-# Should-Start:      $named icinga
-# Should-Stop:       $named icinga
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Accept monitoring commands
-# Description:       The NSCA-ng server makes the Icinga command file accessible
-#                    from remote systems.  This allows for submitting passive
-#                    check results, downtimes, and many other commands to
-#                    Icinga.
-### END INIT INFO
+#
+# Most probably, you'll have to specify the path to the Icinga command file.
+#
 
-# Set the standard system path to ensure daemons and utilities are found.
-PATH='/sbin:/usr/sbin:/bin:/usr/bin'
+# command_file for icinga
+command_file= "{{ command_file }}"
 
-# The base name of the daemon service.
-NAME='{{ name | default("nsca-ng") }}'
+# Debian specific settings
+listen = "{{ listen_address }}" # only listen on localhost. If you use systemd this
+                          # this option is overriden by the
+                          # nsca-ng-server.socket file.
 
-# Description of the service displayed in logs and status messages.
-DESC='{{ desc | default("monitoring command acceptor") }}'
+user = "{{ run_user }}" # run as user {{ run_user }}
+pid_file = "{{ pid_file }}" # pid file for nsca-ng
 
-# Path to the actual daemon executable.
-DAEMON="/usr/sbin/{{ name | default("nsca-ng") }}"
+#
+# local configuration:
+#   if you'd prefer, you can instead place directives here
+include(/etc/nsca-ng/nsca-ng.local.cfg)
 
-# Directory where the PID file is stored.
-PIDDIR="{{ pid_dir | default("/var/run/nsca-ng/") }}"
+#
+#
+# These configuration settings are optional.
+#
+#  listen = "monitoring.example.com:5668"  # Default: "*".
+#  pid_file = "/var/run/nsca-ng.pid"       # Default: create no PID file.
+#  temp_directory = "/dev/shm"             # Default: "/tmp".
+#  tls_ciphers = "PSK-AES256-CBC-SHA"      # Default: see nsca-ng.cfg(5).
+#  chroot = "/usr/local/nagios/var"        # Default: don't chroot(2).
+#  user = "{{ run_user }}"                         # Default: don't switch user.
+#  log_level = 2                           # Default: 3.
+#  max_command_size = 65536                # Default: 16384.
+#  max_queue_size = 128                    # Default: 1024.
+#  timeout = 15.0                          # Default: 60.0.
+#
 
-# Full path to the PID file.
-PIDFILE="$PIDDIR/nsca-ng.pid"
+#
+# Clients provide a client ID (think: user name) and a password.  The same
+# ID/password combination may be used by multiple clients.  In order to
+# authorize clients to submit check results and/or other external commands, at
+# least one "authorize" section must be specified.  The client ID (which follows
+# the "authorize" keyword) may be "*".  In this case, the block will be used as
+# fallback if no section is defined for a given client ID.  No other wildcard
+# characters are available, and "*" has no special meaning unless the client ID
+# is exactly "*".
+#
+# Authorizations are specified using the "commands", "hosts, and/or "services"
+# variables within an "authorize" section.  These variables are (lists of)
+# extended POSIX regular expressions (see the regex(7) man page), but with an
+# implicit leading "^" and trailing "$".  The "commands" patterns are matched
+# against the full command string transmitted by the client, except for the
+# leading bracketed timestamp.  The "hosts" and "services" variables are
+# syntactic sugar, e.g.:
+#
+#  services = {
+#   	"http@web-server",
+#   	"disk"
+#  }
+#
+# is equivalent to
+#
+#  commands = {
+#   	"PROCESS_SERVICE_CHECK_RESULT;web-server;http;.+;.+",
+#   	"PROCESS_SERVICE_CHECK_RESULT;[^;]+;disk;.+;.+"
+#  }
+#
+# Some examples:
+#
+# Authenticated "root" clients may submit arbitrary check results and any other
+# monitoring commands.
+#
+#  authorize "root" {
+#   	password = "cM5vBM9CtCWTH1SwnxFEOfp8VAmQq2vd"
+#   	commands = ".*"
+#  }
+#
+# Authenticated "checker" clients may submit arbitrary check results, but no
+# other commands.
+#
+#  authorize "checker" {
+#   	password = "s2LDCy4CiK6yrlcHhTXT6agFh067XYE3"
+#   	hosts = ".*"
+#   	services = ".*"
+#  }
+#
+# Authenticated "mail-checker" clients may submit check results for arbitrary
+# services on hosts whose names begin with "pop", "imap", or "smtp".
+#
+#  authorize "mail-checker" {
+#   	password = "1HOiwYonRoLByCaX6lfY5KDhP484THzV"
+#   	services = {
+#   		".+@pop.*",
+#   		".+@imap.*",
+#   		".+@smtp.*"
+#   	}
+#  }
+#
+# Authenticated "system-checker" clients may submit check results for the
+# "disk", "swap", and "load" services on arbitrary hosts.
+#
+#  authorize "system-checker" {
+#   	password = "rDCnSMFaM9wb5Yzjd6JwRcvHEwmC9ZlQ"
+#   	services = {
+#   		"disk",
+#   		"swap",
+#   		"load"
+#   	}
+#  }
+#
 
-# Path to the main configuration file.
-CFGFILE="{{ cfg_file | default("/etc/nsca-ng/nsca-ng.cfg") }}"
+#
+# The "*" section applies when no other section matches the client's identity.
+# In order to authorize clients to actually submit check results (or other
+# commands), at least one "commands", "hosts", and/or "services" expression must
+# be specified.
+#
+# This authorization line only allows pinging of the server, but you probably
+# want to change the password if you go into production
 
-# Exit if the package is not installed.
-[ -x "$DAEMON" ] || exit 0
-
-# Read configuration variable file if it is present.
-[ -r "/etc/default/${NAME}-server" ] && . "/etc/default/${NAME}-server"
-
-# Define LSB log_* functions.
-. /lib/lsb/init-functions
-
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Extract the daemon user from the configuration file if it exists.
-if [ -r "$CFGFILE" ]
-then
-	: ${DAEMONUSER:="$(sed -r -n "s/^[[:blank:]]*user[[:blank:]]*=[[:blank:]]*[\"']?([^\"'#[:blank:]]+).*/\1/p" "$CFGFILE")"}
-else
-    log_failure_msg "Please configure user in nsca-ng.cfg, running nsca-ng.cfg is not recommended"
-    exit 1
-fi
-
-# Check whether that user actually exists.
-if ! getent passwd "$DAEMONUSER" >'/dev/null'
-then
-	log_failure_msg "Configured user \"$DAEMONUSER\" doesn't exist, aborting."
-	exit 1
-fi
-
-# Create PID directory and hand it over to the $DAEMONUSER.
-if [ ! -d "$PIDDIR" ]
-then
-	mkdir -p "$PIDDIR"
-	chown "$DAEMONUSER:$DAEMONUSER" "$PIDDIR"
-fi
-
-# Set the default command line arguments.
-: ${DAEMONARGS:="-P $PIDFILE -c $CFGFILE -s"}
-
-DAEMONCTL="start-stop-daemon --quiet --pidfile $PIDFILE --exec $DAEMON"
-
-check_started() {
-	if ! start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null
-	then
-		return 0 #is started
-	else
-		return 1 #isn't started
-	fi
+authorize "*" {
+	password = "{{ default_auth_password }}"
+	#
+	# The original NSCA server permits all authenticated clients to submit
+	# arbitrary check results.  To get this behaviour, enable the following
+	# lines:
+	#
+	#  hosts = ".*"
+	#  services = ".*"
 }
 
-status()
-{
-  log_action_begin_msg "checking $DAEMON"
-  if check_started; then
-    log_action_end_msg 0 "running"
-  else
-    if [ -e "$PIDFILE" ]; then
-      log_action_end_msg 1 "$DAEMON failed"
-      exit 1
-    else
-      log_action_end_msg 1 "not running"
-      exit 3
-    fi  
-  fi  
-}
-
-case $1 in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	if ! check_started
-	then
-		$DAEMONCTL --start -- $DAEMONARGS
-	fi
-	log_end_msg $?
-	;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	$DAEMONCTL --stop --retry 'TERM/30/KILL/5'
-	log_end_msg $?
-	;;
-restart)
-	"$0" 'stop' && sleep 1 && "$0" 'start'
-	;;
-reload|force-reload)
-	log_daemon_msg "Reloading $DESC" "$NAME"
-	$DAEMONCTL --stop --signal 1
-	log_end_msg $?
-	;;
-status)
-	status
-	;;
-*)
-	echo >&2 "Usage: $0 {start|stop|status|restart|reload|force-reload}"
-	exit 3
-	;;
-esac
+#
+# Other files can be included.  If a directory is specified, all "*.cfg" and
+# "*.conf" files within this directory and all subdirectories are included.
+#
+#  include(nsca-ng.d/included.cfg)
+#
