@@ -114,3 +114,23 @@ def test_a_missing_template_dir_is_unknown_not_a_refusal(tmp_path, monkeypatch):
     False precisely so "we cannot judge" and "we judged it bad" stay different states."""
     monkeypatch.setattr(bpc, "TEMPLATES_DIR", tmp_path)
     assert bpc._template_configures("never-generated") is None
+
+
+def test_an_empty_schema_is_a_no_not_an_unknown(tpl):
+    """A template with zero fields cannot express any input, so Apply renders a CONSTANT file over
+    whatever the host has — the ufw-profile damage without the clue. Measured: 169 templates have an
+    empty schema and 84 of them were REACHABLE, offering an editor with nothing to edit. Two catalog
+    roles lost their Configure to this (dovecot, pure-ftpd), correctly: there was nothing to configure."""
+    name = tpl("passt", "# passt configuration\n--bridge\n", {})
+    assert bpc._template_configures(name) is False
+
+
+def test_a_missing_schema_stays_an_unknown(tmp_path, monkeypatch):
+    """The distinction that makes the rule above safe: "we cannot judge this" is not "there is nothing
+    here to configure". A dir without schema.json is unjudgeable, and an unknown must not withdraw a
+    working editor."""
+    monkeypatch.setattr(bpc, "TEMPLATES_DIR", tmp_path)
+    d = tmp_path / "half-written"
+    d.mkdir()
+    (d / "template.j2").write_text("Port {{ port }}\n")
+    assert bpc._template_configures("half-written") is None

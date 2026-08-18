@@ -88,7 +88,14 @@ def template_configures(templates_dir: str | Path, name: str) -> bool | None:
         return None
     fields = {k: v for k, v in fields.items() if isinstance(v, dict)}
     if not fields:
-        return None
+        # READABLE AND EMPTY IS A NO, not an unknown. A template with zero fields cannot express any
+        # input at all, so Apply renders a CONSTANT file over whatever the host has — the same damage as
+        # the ufw profile aimed at sshd_config, minus the clue. Measured: 169 templates have an empty
+        # schema and 84 of them were reachable, i.e. offering an editor with nothing to edit.
+        #
+        # The unreadable/missing cases above still return None: "we cannot judge this" and "there is
+        # nothing here to configure" are different answers, and only the second one is a verdict.
+        return False
 
     body = body_file.read_text(errors="replace")
     if not any(placed(key, body) for key in fields):
