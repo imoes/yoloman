@@ -1471,3 +1471,46 @@ Die 278 Doppelverzeichnisse zuletzt: sie kosten Platz und haben LLM-Zeit gekoste
 welches Verzeichnis das bessere ist, hängt an der Zieldatei — also nach dem `target_path`.
 Nichts davon wird gelöscht, bevor die Zieldateien bekannt sind; deprecated wird nach
 `config_templates/_deprecated/`, damit nichts still verschwindet.
+
+### Umgesetzt (Befund 4): ein Resolver, zwei belegte Quellen, eine widerlegte Behauptung
+
+`main_config_path(pkg, codecs, seed)` in `build_package_catalog.py` ist jetzt die **einzige**
+Antwort auf „was ist die Hauptkonfiguration dieses Pakets"; der Classifier hat seine eigene
+Kopie verloren, und `curate_catalog.py` reparieren damit auch die Einträge, die ein früherer
+Lauf schon leer geschrieben hat (der Builder *bewahrt* die, also hätte eine reparierte Regel
+mit unreparierten Daten niemand beobachten können).
+
+**Die Reihenfolge war der eigentliche Fix.** Zuerst der Seed-Pfad (mit dem Codec-Register als
+Zeuge, dass es die Datei wirklich gibt), danach die Stamm-Regel des Registers. Grund: die zwei
+Quellen beantworten verschiedene Fragen — der Seed behauptet „das ist die **Haupt**konfiguration",
+das Register kann nur sagen „das ist **eine** Konfigurationsdatei dieses Pakets". Registry-zuerst
+lieferte `sudo` → `/etc/sudo.conf` (die Plugin-Konfiguration) statt `/etc/sudoers`.
+
+Zwei weitere gemessene Korrekturen: `/etc/restic` ist das Konfig**verzeichnis** — die Stamm-Regel
+akzeptierte den Stamm ohne Folgesegment, und `config_path` speist `template_render`, das *eine
+ganze Datei* schreibt; ein Verzeichnis ist dort kein Beinahe-Treffer, sondern ein unbeschreibbares
+Ziel. Und `/etc/default/etcd` fällt als ancillary heraus.
+
+**Gegen das echte Archiv geprüft, nicht weiter heuristisiert.** Acht Pfade hingen allein an der
+Seed-Behauptung. Auf einem Debian-13-Host per `apt-get download` + `dpkg-deb -c` (ohne Installation)
+nachgesehen — und der naive Test „ist es ein conffile?" hätte **drei richtige verworfen**:
+
+| Rolle | Pfad | Befund im Archiv | Urteil |
+|---|---|---|---|
+| `pacemaker` | `/etc/crm/crm.conf` | **crmsh** liefert die Datei | widerlegt |
+| `cron` | `/etc/crontab` | `cron-daemon-common` (Abhängigkeit von `cron`) | gültig |
+| `openssh-server` | `/etc/ssh/sshd_config` | liefert `/usr/share/openssh/sshd_config`, per ucf installiert | gültig |
+| `sssd` | `/etc/sssd/sssd.conf` | `sssd-common` besitzt `/etc/sssd/`, Datei legt der Admin an | gültig |
+| `ntpsec`, `rsyslog`, `sudo` | — | echte conffiles des Pakets | gültig |
+| `mysql-server` | — | auf dem Testhost nicht ladbar | ungeprüft, unverändert |
+
+„Kein conffile" ist also **kein** Beleg für einen falschen Pfad; „ein anderes Paket liefert sie"
+ist einer. Die eine Widerlegung steht mit Begründung in `_SEED_PATH_REFUTED`, damit sie nicht
+versehentlich neu verhandelt wird — und sie hat prompt die richtige Antwort freigelegt:
+`pacemaker` fällt jetzt auf `/etc/corosync/corosync.conf`, bezeugt über `corosync`, das die Rolle
+selbst installiert.
+
+**Ergebnis:** 14 von 30 leeren Pfaden gefüllt, idempotent (zweiter Lauf: 0). Die **16**
+verbleibenden werden **namentlich** gemeldet (`paths empty`), weil „wir haben keinen gefunden" und
+„niemand hat geschaut" sich sonst gleich lesen. 10 Tests in `bossman/tests/test_main_config_path.py`
+nageln jede Regel an dem Fehler fest, aus dem sie entstanden ist.
