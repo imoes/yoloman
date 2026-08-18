@@ -1399,3 +1399,75 @@ Batch-Helfer (`filter_agent_ids`).
 `resolve_scope_vars` **von** `build_match_context` aufgerufen wird — eine bedingte
 Variablenmenge ruft sich selbst. Ein Test behauptet die Abwesenheit samt Grund, damit die
 Ausnahme sichtbar ist und nicht wie ein Versehen aussieht.
+
+## Bereich: Template-Katalog — ein Paket, zwei Namen, zwei Antworten
+
+Aufgetaucht beim Entfernen von `configs/.qualify_pipeline_state.json.bak-llmcrash` (einer
+LLM-Crash-Sicherung, die im Repo lag). Der einzige Pfad, den die Sicherung kannte und der
+Live-Stand nicht, war `gridengine_exec` — mit **Unterstrich**. Auf der Platte liegen
+`gridengine_exec` *und* `gridengine-exec`. Diesem einen Zeichen nachgegangen:
+
+### [Identität] 278 Template-Verzeichnisse tragen den Paketnamen in zwei Schreibweisen
+
+  Beleg:   `configs/config_templates/` — 278 Paare `<name mit _>` / `<name mit ->`
+           (`aardvark_dns`/`aardvark-dns`, `avahi_daemon`/`avahi-daemon`, …).
+           Herkunft belegt: die Unterstrich-Seite sind Schlüssel aus
+           `configs/package_seed.json` (1487 Einträge, alle mit `_`), die Bindestrich-Seite
+           sind echte Debian-Paketnamen aus `configs/package_universe_real.json`.
+           `qualify_packages.py:1391` startet die Worklist mit *jedem* Verzeichnis auf der
+           Platte, also füttert sich jede Schreibweise selbst weiter.
+  Problem: Ein Paket, zwei Namen — und beide Schreibweisen wurden **unabhängig durch den
+           LLM-Lauf geschickt**: im Pipeline-State stehen 286 Paare, davon 273 beidseitig
+           auf `v6-enriched`. Kein einziges Paar ist byte-identisch, es gibt also zu einem
+           Paket zwei verschiedene Antworten.
+  Fix:     Die Verzeichnisnamen auf **eine** Schreibweise normalisieren (der echte
+           Paketname, also Bindestrich — das ist der Name, den Universum, Katalog und
+           `apt` benutzen), und `package_seed.json` beim Lesen einmalig normalisieren
+           statt seine Schlüssel als zweite Identität weiterzutragen.
+
+### [Ausgeschlossenes Drittes] Der Verzeichnisname sagt nicht, welche Datei er konfiguriert
+
+  Beleg:   `aardvark_dns/template.j2` rendert `/etc/aardvark-dns/aardvark-dns.conf`
+           (Seed-`config_path`), `aardvark-dns/template.j2` rendert
+           `/etc/aardvark-dns/forward.conf` — eine **andere Datei desselben Pakets**.
+           `apt-cacher-ng/template.j2` beginnt mit `#!/bin/sh`: es rendert das
+           Expire-Shellskript, nicht die Konfiguration.
+  Problem: Die Paare sind damit nicht durchweg Dubletten, sondern teils zwei *verschiedene*
+           Dateien unter zwei Namen, die sich nur im Trennzeichen unterscheiden — der
+           Zustandsraum „welche Datei gehört zu diesem Verzeichnis" ist nirgends notiert.
+  Fix:     `target_path` in die Template-Metadaten schreiben (steht schon als Aufgabe im
+           Konsolidierungsplan) und den Verzeichnisnamen aus Paket **und** Zieldatei
+           bilden, wenn ein Paket mehrere Dateien hat.
+
+### [Gültige Ableitung] Die Basename-Heuristik greift daneben — belegbar
+
+  Beleg:   `host-detail.component.ts:3144-3147` — `templateFor(path)` nimmt den Basename
+           ohne `.conf`/`.cfg` und sucht ein gleichnamiges Template.
+  Problem: Für `/etc/aardvark-dns/aardvark-dns.conf` liefert das das Verzeichnis
+           `aardvark-dns` — welches `forward.conf` rendert. Der Knopf „Edit via template"
+           würde also den Inhalt der einen Datei in die andere schreiben. Ein Schluss von
+           Namensähnlichkeit auf Identität.
+  Fix:     Auflösung über den `target_path`-Index, nicht über den Basename; ohne Treffer
+           **keinen** Knopf anbieten (verweigern mit Grund ist richtig, falsch rendern nicht).
+
+### [Identität] 27 Rollen haben keinen Konfigpfad, obwohl der Seed ihn kennt
+
+  Beleg:   `configs/package_catalog.json` — 30 von 89 Rollen haben
+           `families.debian.config_path == ""`; für **27** davon steht der Pfad in
+           `package_seed.json` unter dem unterstrichenen Schlüssel: `cron` →
+           `/etc/crontab`, `isc-dhcp-server` → `/etc/dhcp/dhcpd.conf`, `clamav` →
+           `/etc/clamav/clamd.conf`, `krb5-kdc` → `/etc/krb5kdc/kdc.conf`, …
+  Problem: Zwei Quellen der Wahrheit für **eine** Tatsache, und die benutzte ist die
+           leere. Genau dieser leere Pfad ließ den Dateipicker bei `libvirt-daemon` die
+           flachste Conffile nehmen (`/etc/default/libvirtd`, 6 Variablen) statt
+           `/etc/libvirt/libvirtd.conf` (17 kB) — derselbe Defekt, 27 weitere Male.
+  Fix:     Beim Katalogbau den Seed-Pfad übernehmen, wenn der Katalog keinen hat
+           (Schlüssel per `-`→`_` nachschlagen). Eine Zeile, kein LLM-Aufruf.
+
+**Rangfolge.** Der Konfigpfad-Befund zuerst — er ist eine Zeile Code, betrifft 27 Rollen und
+verhindert, dass weitere Templates auf die falsche Datei gebaut werden. Danach die
+Auflösung (`target_path`-Index statt Basename), weil sie ein *falsches Schreiben* verhindert.
+Die 278 Doppelverzeichnisse zuletzt: sie kosten Platz und haben LLM-Zeit gekostet, aber
+welches Verzeichnis das bessere ist, hängt an der Zieldatei — also nach dem `target_path`.
+Nichts davon wird gelöscht, bevor die Zieldateien bekannt sind; deprecated wird nach
+`config_templates/_deprecated/`, damit nichts still verschwindet.
