@@ -49,7 +49,6 @@ import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployme
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
-import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
@@ -58,6 +57,7 @@ import { HostConfigScopeService } from './host-config-scope.service';
 import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
 import { HostDesiredStateComponent } from './management/host-desired-state.component';
 import { HostFileEditComponent } from './management/host-file-edit.component';
+import { HostTemplateEditComponent } from './management/host-template-edit.component';
 import { HostThresholdsComponent } from './management/host-thresholds.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
@@ -121,7 +121,6 @@ function familyMembers(metric: string): string[] {
     HostInventoryComponent,
     StandaloneOverviewComponent,
     ResourceNodeComponent,
-    ParamFormComponent,
     HostChecksComponent,
     HostConsoleComponent,
     TopologyComponent,
@@ -140,6 +139,7 @@ function familyMembers(metric: string): string[] {
     HostConfigGenerationsComponent,
     HostDesiredStateComponent,
     HostFileEditComponent,
+    HostTemplateEditComponent,
     HostThresholdsComponent,
   ],
   template: `
@@ -616,10 +616,9 @@ function familyMembers(metric: string): string[] {
                           @if (driftFor(r.path)) { <span class="bm-tag bm-tag-drift">drifted</span> } @else { <span class="bm-tag bm-tag-sync">managed ✓</span> }
                         }
                         @if (templateFor(r.path); as tpl) {
-                          <button mat-button (click)="startTemplateEdit(r, tpl)" [disabled]="tplBusy()"
+                          <button mat-button (click)="startTemplateEdit(r, tpl)"
                                   [title]="templateReason(tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
                         }
-                        @if (tplError(); as te) { <span class="bm-cfg-err">{{ te }}</span> }
                       </div>
                       <div class="bm-cfg-viewtoggle">
                         <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'editor'" (click)="configView.set('editor')">Settings editor</button>
@@ -630,26 +629,10 @@ function familyMembers(metric: string): string[] {
                         <app-resource-node kind="config" [name]="r.path" [agentId]="agent.id" />
                       } @else {
                       @if (tplEditPath() === r.path) {
-                        <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
-                        <app-param-form [params]="tplSchema()" [initial]="tplInitial()" [agentId]="agent.id"
-                                        (valuesChange)="tplParamValues.set($event)" />
-                        @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                        @if (tplRendered(); as rendered) {
-                          <p class="bm-dim">Rendered file (would be written):</p>
-                          <pre class="bm-cfg-values">{{ rendered }}</pre>
-                        }
-                        <label class="bm-scope">Apply to:
-                          <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                            <option value="host">this host</option>
-                            @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                            @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                          </select>
-                        </label>
-                        <div class="bm-rollback-actions">
-                          <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
-                          <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
-                          <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
-                        </div>
+                        <app-host-template-edit [agentId]="agent.id" [path]="r.path"
+                                                [templateName]="tplName()" [ouId]="agent.ou_id"
+                                                (applied)="loadObserved()"
+                                                (cancelled)="cancelTemplateEdit()" />
                       } @else if (r.values) {
                         <table class="bm-gpo-settings">
                           <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
@@ -3056,122 +3039,30 @@ export class HostDetailComponent implements OnInit {
       : `rendered by template "${e.template}" — this path is listed in the codec registry`;
   }
 
+  /** Which file's template editor is open, and under which template name.
+   *
+   * That is ALL the page keeps. The schema, sample, rendered text, busy and error state moved into
+   * app-host-template-edit together with the fetch — the page's only remaining stake is "is the editor
+   * open, and for what", because that decides which branch of the pane renders.
+   */
   tplEditPath = signal<string | null>(null);
   tplName = signal('');
-  // The shared ParamForm renders the template's fields (one editor across the
-  // app — replaced the bespoke tplFields form). It parses per type + emits the
-  // full typed value map via (valuesChange); we just hold that.
-  tplSchema = signal<ParamSchema>({});
-  tplInitial = signal<Record<string, unknown>>({});
-  tplParamValues = signal<Record<string, unknown>>({});
-  private tplTemplate = '';
-  tplRendered = signal<string | null>(null);
-  tplBusy = signal(false);
-  tplError = signal<string | null>(null);
 
-  /** Open the template editor for this file, fetching the ONE template it needs.
+  /** Open the template editor for this file.
    *
-   * The index carries only the name, so the body/schema/sample are fetched here. That is the point:
-   * the page used to preload every template body — 33.7 MB across 5460 directories — so that a string
-   * comparison could pick one. Now it downloads the one the user opened.
-   *
-   * The editor does not open until the fetch succeeds. Opening an empty form first and filling it in
-   * would show a form whose fields do not yet reflect the file, which reads as "this file has no
-   * settings". */
+   * It no longer FETCHES here. The child fetches its own template and shows "Loading template X…" while
+   * it does, so a slow or failing fetch is reported where the editor would be rather than as an error
+   * beside a button that appears to have done nothing. The earlier version deliberately delayed opening
+   * until the fetch succeeded, to avoid showing an empty form; a pane that says what it is waiting for
+   * achieves that without the page having to own the request.
+   */
   startTemplateEdit(r: { path: string }, entry: ConfigTemplateIndexEntry): void {
-    // It used to call cancelEdit() here so the raw editor could not stay open on the same file — two
-    // editors, two versions of one file. The rule survives the extraction, inverted: app-host-file-edit
-    // takes tplEditPath as an input and closes itself when it matches. The constraint is now expressed
-    // where it is enforced, instead of relying on this method remembering to reach across.
-    this.tplBusy.set(true);
-    this.tplError.set(null);
-    this.agentService.configTemplate(entry.template).subscribe({
-      next: (tpl) => {
-        this.tplEditPath.set(r.path);
-        this.tplName.set(tpl.name);
-        this.tplTemplate = tpl.template;
-        this.tplRendered.set(null);
-        this.tplSchema.set((tpl.schema || {}) as ParamSchema);
-        this.tplInitial.set((tpl.sample || {}) as Record<string, unknown>);
-        this.tplParamValues.set({});
-        this.tplBusy.set(false);
-      },
-      error: (e) => {
-        // Named, and NOT opened: a template the server cannot serve must not present an editor whose
-        // Apply would render an empty file over the live one.
-        this.tplError.set(e?.error?.detail ?? `could not load template ${entry.template}`);
-        this.tplBusy.set(false);
-      },
-    });
+    this.tplName.set(entry.template);
+    this.tplEditPath.set(r.path);
   }
 
   cancelTemplateEdit(): void {
     this.tplEditPath.set(null);
-    this.tplRendered.set(null);
-    this.tplError.set(null);
-  }
-
-  /** ParamForm already parsed each field by its schema type and emitted the full
-   * value map — just return it (no manual JSON parsing / no throw). */
-  private tplValues(): Record<string, unknown> {
-    return this.tplParamValues();
-  }
-
-  private tplResource(path: string): ConfigResource {
-    return { type: 'template_render', path, template: this.tplTemplate, values: this.tplValues() };
-  }
-
-  /** Render the template with the form values (dry-run) → the file that would
-   * be written. */
-  previewTemplate(r: { path: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    let values: Record<string, unknown>;
-    try {
-      values = this.tplValues();
-    } catch (e) {
-      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
-      return;
-    }
-    this.tplBusy.set(true);
-    this.tplError.set(null);
-    this.agentService.renderTemplate(agent.id, this.tplTemplate, values, r.path).subscribe({
-      next: (res) => {
-        this.tplBusy.set(false);
-        this.tplRendered.set(res.result?.data?.rendered ?? '(empty render)');
-      },
-      error: (e) => {
-        this.tplError.set(e?.error?.detail ?? 'render failed');
-        this.tplBusy.set(false);
-      },
-    });
-  }
-
-  /** Apply the template through the document loop → renders + writes the file
-   * and records a generation. */
-  applyTemplate(r: { path: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    let resource: ConfigResource;
-    try {
-      resource = this.tplResource(r.path);
-    } catch (e) {
-      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
-      return;
-    }
-    this.tplBusy.set(true);
-    this.tplError.set(null);
-    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({
-      next: () => {
-        this.tplBusy.set(false);
-        this.cancelTemplateEdit();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.tplError.set(e?.error?.detail ?? 'apply failed');
-        this.tplBusy.set(false);
-      },
-    });
   }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +
