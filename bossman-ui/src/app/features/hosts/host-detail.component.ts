@@ -58,6 +58,7 @@ import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { HostConfigScopeService } from './host-config-scope.service';
 import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
+import { HostDesiredStateComponent } from './management/host-desired-state.component';
 import { HostThresholdsComponent } from './management/host-thresholds.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
@@ -140,6 +141,7 @@ function familyMembers(metric: string): string[] {
     EffectiveThresholdsComponent,
     FormsModule,
     HostConfigGenerationsComponent,
+    HostDesiredStateComponent,
     HostThresholdsComponent,
   ],
   template: `
@@ -509,7 +511,7 @@ function familyMembers(metric: string): string[] {
 
           <mat-tab label="Configuration"><ng-template matTabContent>
             <div class="bm-tab-content">
-             <mat-tab-group class="bm-cfg-sub" (selectedTabChange)="onConfigSubTab($event)">
+             <mat-tab-group class="bm-cfg-sub">
               <mat-tab label="Settings"><ng-template matTabContent>
               @if (observedLoading()) {
                 <p class="bm-empty">Reading the host's configuration…</p>
@@ -756,17 +758,7 @@ function familyMembers(metric: string): string[] {
                 <app-effective-thresholds [agentId]="agent.id" />
               </ng-template></mat-tab>
               <mat-tab label="Desired state"><ng-template matTabContent>
-                <div class="bm-ds-head">
-                  <span class="bm-dim">The full compiled desired_state for this host — the GPO-merged result of the global, OU, group and host layers.</span>
-                  <button mat-stroked-button (click)="loadDesiredJson()" [disabled]="desiredJsonLoading()"><mat-icon>refresh</mat-icon> Reload</button>
-                </div>
-                @if (desiredJsonLoading()) {
-                  <p class="bm-empty">Compiling the desired state…</p>
-                } @else if (desiredJsonError(); as e) {
-                  <p class="bm-empty">{{ e }}</p>
-                } @else if (desiredStateFull(); as ds) {
-                  <app-desired-state-report [state]="ds" [config]="desiredConfig()" />
-                }
+                <app-host-desired-state [agentId]="agent.id" />
               </ng-template></mat-tab>
              </mat-tab-group>
             </div>
@@ -2470,13 +2462,6 @@ export class HostDetailComponent implements OnInit {
     });
   }
 
-  /** Inner Configuration tabs: lazy-load the desired_state JSON on first open. */
-  onConfigSubTab(event: MatTabChangeEvent): void {
-    if (event.tab.textLabel === 'Desired state' && this.desiredStateFull() === null && !this.desiredJsonLoading()) {
-      this.loadDesiredJson();
-    }
-  }
-
   /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
    * loaded lazily when the Configuration tab is first opened. */
   loadObserved(refresh = false): void {
@@ -2881,33 +2866,9 @@ export class HostDetailComponent implements OnInit {
   // Thresholds category (check_rules as GPO settings) + applied plans.
   thresholds = signal<{ metric: string; service_name?: string; warn?: number | null; crit?: number | null; comparison?: string; source?: string }[]>([]);
   appliedPlans = signal<{ name: string; version: number | null; type: string; source: string }[]>([]);
-  // Desired-state sub-tab: the full compiled desired_state document for this host
-  // (the GPO-merged result of global/OU/group/host layers), rendered as a
-  // gpresult-style collapsible report.
-  desiredStateFull = signal<CompiledHostState | null>(null);
-  desiredConfig = signal<ConfigDesiredResource[] | null>(null);
-  desiredJsonLoading = signal(false);
-  desiredJsonError = signal<string | null>(null);
-  loadDesiredJson(): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.desiredJsonLoading.set(true);
-    this.desiredJsonError.set(null);
-    forkJoin({
-      state: this.orchestration.desiredState(agent.id),
-      config: this.agentService.configDesired(agent.id),
-    }).subscribe({
-      next: ({ state, config }) => {
-        this.desiredStateFull.set(state);
-        this.desiredConfig.set(config.resources);
-        this.desiredJsonLoading.set(false);
-      },
-      error: (e: { error?: { detail?: string } }) => {
-        this.desiredJsonError.set(e?.error?.detail ?? 'failed to load desired state');
-        this.desiredJsonLoading.set(false);
-      },
-    });
-  }
+  // The desired-state sub-tab moved to management/host-desired-state.component, which fetches its own
+  // document — and took the lazy-load handler with it: matTabContent does not construct a component
+  // until its tab is opened, so the boundary already says "not until someone looks".
   loadDesiredMonitoring(): void {
     const agent = this.agent();
     if (!agent) return;
