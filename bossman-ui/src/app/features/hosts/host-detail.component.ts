@@ -57,6 +57,7 @@ import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
 import { HostConfigScopeService } from './host-config-scope.service';
+import { HostConfigGenerationsComponent } from './management/host-config-generations.component';
 import { HostThresholdsComponent } from './management/host-thresholds.component';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
@@ -138,6 +139,7 @@ function familyMembers(metric: string): string[] {
     DesiredStateReportComponent,
     EffectiveThresholdsComponent,
     FormsModule,
+    HostConfigGenerationsComponent,
     HostThresholdsComponent,
   ],
   template: `
@@ -744,64 +746,8 @@ function familyMembers(metric: string): string[] {
                 </div>
                 @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
 
-                <!-- Block F2: generation history + rollback -->
-                @if (generations().length) {
-                  <h3 class="bm-cfg-gen-h">Generations</h3>
-                  <table class="bm-cfg-gen">
-                    <thead><tr><th>#</th><th>Applied</th><th>Hash</th><th>Resources</th><th></th></tr></thead>
-                    <tbody>
-                      @for (g of generations(); track g.number) {
-                        <tr [class.bm-gen-current]="isCurrentGeneration(g.number)">
-                          <td>{{ g.number }}</td>
-                          <td>{{ g.applied_at | date: 'medium' }}</td>
-                          <td><code>{{ g.hash.slice(0, 12) }}…</code></td>
-                          <td>{{ g.resources }}</td>
-                          <td>
-                            @if (isCurrentGeneration(g.number)) {
-                              <span class="bm-tag">current</span>
-                            } @else {
-                              <button mat-button (click)="previewRollback(g.number)" [disabled]="rollbackBusy()">Roll back to #{{ g.number }}…</button>
-                            }
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-
-                  @if (rollbackTarget() !== null) {
-                    <mat-card class="bm-rollback">
-                      <div class="bm-rollback-head">
-                        <strong>Roll back to generation #{{ rollbackTarget() }}</strong>
-                        <span class="bm-dim">— dry-run preview, nothing applied yet</span>
-                      </div>
-                      @if (rollbackBusy() && !rollbackPlan()) {
-                        <p class="bm-empty">Computing the diff…</p>
-                      } @else if (rollbackError(); as rerr) {
-                        <p class="bm-cfg-err">{{ rerr }}</p>
-                      } @else if (rollbackPlan(); as plan) {
-                        @if (rollbackDiffRows().length) {
-                          <table class="bm-diff">
-                            <thead><tr><th>File</th><th>Action</th><th>Change</th></tr></thead>
-                            <tbody>
-                              @for (d of rollbackDiffRows(); track d.path + d.detail) {
-                                <tr><td><code>{{ d.path }}</code></td><td>{{ d.action }}</td><td>{{ d.detail }}</td></tr>
-                              }
-                            </tbody>
-                          </table>
-                        } @else {
-                          <p class="bm-dim">No changes — the host already matches generation #{{ rollbackTarget() }}.</p>
-                        }
-                      }
-                      <div class="bm-rollback-actions">
-                        <button mat-button (click)="cancelRollback()" [disabled]="rollbackBusy()">Cancel</button>
-                        <button mat-flat-button color="warn" (click)="applyRollback()"
-                                [disabled]="rollbackBusy() || !rollbackPlan() || !rollbackDiffRows().length">
-                          Apply rollback
-                        </button>
-                      </div>
-                    </mat-card>
-                  }
-                }
+                <app-host-config-generations [agent]="agent" [reloadTick]="observedReloadTick()"
+                                             (changed)="loadObserved()" />
               } @else {
                 <p class="bm-empty">Open this tab to read the host's configuration.</p>
               }
@@ -2159,12 +2105,9 @@ export class HostDetailComponent implements OnInit {
   observedLoading = signal(false);
   observedError = signal<string | null>(null);
   observedCachedAt = signal<string | null>(null); // when the served cache was captured (null = just fetched live)
-  // Block F2 — generation history + rollback (same tab).
-  generations = signal<StateGeneration[]>([]);
-  rollbackTarget = signal<number | null>(null); // generation being previewed
-  rollbackPlan = signal<StatePlan | null>(null); // dry-run diff for that target
-  rollbackBusy = signal(false);
-  rollbackError = signal<string | null>(null);
+  observedReloadTick = signal(0);   // bumped on every observed read, watched by the generations pane
+  // Block F2's generation history + rollback state moved to
+  // management/host-config-generations.component, which owns its own fetch too.
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
@@ -2542,8 +2485,9 @@ export class HostDetailComponent implements OnInit {
     this.loadVarsCount();
     this.observedLoading.set(true);
     this.observedError.set(null);
-    this.rollbackTarget.set(null);
-    this.rollbackPlan.set(null);
+    // The generations pane discards its rollback preview on this tick: a dry-run diff computed against
+    // the PREVIOUS observed read must not stay on screen looking authoritative.
+    this.observedReloadTick.update((n) => n + 1);
     // Default open = the Postgres cache (instant); Reload = live re-fetch.
     this.agentService.observedState(agent.id, refresh).subscribe({
       next: (res) => {
@@ -2556,11 +2500,8 @@ export class HostDetailComponent implements OnInit {
         this.observedLoading.set(false);
       },
     });
-    // Generation history (Block F2) — independent of the observed read.
-    this.agentService.stateGenerations(agent.id).subscribe({
-      next: (res) => this.generations.set(res.generations ?? []),
-      error: () => this.generations.set([]),
-    });
+    // Generation history now belongs to app-host-config-generations, which fetches it itself — this
+    // call's own comment already said it was independent of the observed read.
     // Class-B template catalog (Block K2), for path↔template binding.
     if (!this.templates().length) {
       this.agentService.configTemplates().subscribe({
@@ -3043,59 +2984,6 @@ export class HostDetailComponent implements OnInit {
     });
   }
 
-  /** True for the newest generation — the one currently applied. */
-  isCurrentGeneration(n: number): boolean {
-    const gens = this.generations();
-    return gens.length > 0 && n === Math.max(...gens.map((g) => g.number));
-  }
-
-  /** Preview a rollback to generation `n`: a dry-run whose plan IS the
-   * observed→target diff. Nothing is written. */
-  previewRollback(n: number): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.rollbackTarget.set(n);
-    this.rollbackPlan.set(null);
-    this.rollbackError.set(null);
-    this.rollbackBusy.set(true);
-    this.agentService.stateRollback(agent.id, n, true).subscribe({
-      next: (res) => {
-        this.rollbackPlan.set(res.plan);
-        this.rollbackBusy.set(false);
-      },
-      error: (e) => {
-        this.rollbackError.set(e?.error?.detail ?? 'rollback preview failed');
-        this.rollbackBusy.set(false);
-      },
-    });
-  }
-
-  cancelRollback(): void {
-    this.rollbackTarget.set(null);
-    this.rollbackPlan.set(null);
-    this.rollbackError.set(null);
-  }
-
-  /** Apply the previewed rollback for real, then reload the tab. */
-  applyRollback(): void {
-    const agent = this.agent();
-    const n = this.rollbackTarget();
-    if (!agent || n === null) return;
-    this.rollbackBusy.set(true);
-    this.rollbackError.set(null);
-    this.agentService.stateRollback(agent.id, n, false).subscribe({
-      next: () => {
-        this.rollbackBusy.set(false);
-        this.cancelRollback();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.rollbackError.set(e?.error?.detail ?? 'rollback failed');
-        this.rollbackBusy.set(false);
-      },
-    });
-  }
-
   // --- Block F1b: render stored JSON values in the file's native format, and
   // edit + push keyvalue configs (the "server is a key-value document") ---
 
@@ -3435,24 +3323,6 @@ export class HostDetailComponent implements OnInit {
     });
   }
 
-  /** Flatten a plan's non-noop changes into readable "path: key before→after"
-   * rows for the rollback preview. */
-  rollbackDiffRows(): { path: string; action: string; detail: string }[] {
-    const plan = this.rollbackPlan();
-    if (!plan) return [];
-    const rows: { path: string; action: string; detail: string }[] = [];
-    for (const c of plan.changes) {
-      if (c.action === 'noop') continue;
-      if (c.changed && Object.keys(c.changed).length) {
-        for (const [k, [before, after]] of Object.entries(c.changed)) {
-          rows.push({ path: c.path, action: c.action, detail: `${k}: ${JSON.stringify(before)} → ${JSON.stringify(after)}` });
-        }
-      } else {
-        rows.push({ path: c.path, action: c.action, detail: c.error ? `error: ${c.error}` : c.action });
-      }
-    }
-    return rows;
-  }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +
    * slowest disk I/O) — the 'what' behind the latency heatmaps. Live
