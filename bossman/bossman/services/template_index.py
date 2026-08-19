@@ -43,7 +43,7 @@ import time
 from pathlib import Path
 
 from bossman.services.snapin_owned import SNAPIN_OWNED as SNAPIN_ONLY_PATHS, snapin_for
-from bossman.services.template_gate import plausible_target, template_configures
+from bossman.services.template_gate import DirectorySet, plausible_target, template_configures
 
 #: Same normalisation the catalog builder uses for a template directory name, so the index cannot
 #: disagree with the thing it indexes. Kept here rather than imported: scripts/ is not on the server's
@@ -125,8 +125,12 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     paths: dict[str, dict] = {}
     conflicts: list[dict] = []
 
-    known = {p for e in _load(codecs_path).values() if isinstance(e, dict)
-             for p in (e.get("paths") or []) if isinstance(p, str)}
+    # Precomputed ONCE: plausible_target asks "is this a directory", which is membership in the set of
+    # ancestors of every known path. Asked as a linear scan per candidate it cost this endpoint 4.1 s after the
+    # registry grew to 11573 entries — and it is in the host page's load path.
+    known = DirectorySet.of(
+        p for e in _load(codecs_path).values() if isinstance(e, dict)
+        for p in (e.get("paths") or []) if isinstance(p, str))
 
     # Source 1 — the catalog. First, so it owns every path it claims.
     for role, entry in _load(catalog_path).items():

@@ -53,6 +53,32 @@ ANCILLARY_DIRS = ("/etc/cron.daily/", "/etc/cron.d/", "/etc/cron.hourly/", "/etc
                   "/etc/profile.d/", "/etc/ufw/")
 
 
+class DirectorySet(frozenset):
+    """The directories among a set of known paths — every proper ancestor of every path.
+
+    WHY A TYPE AND NOT A LOOP. "Is `path` a directory" was answered by scanning every known path for one that
+    starts with `path + "/"`. That is one linear pass per candidate, and with the RedHat corpus measured the
+    registry went from 4587 to 11573 entries: the same question asked 11.5k times over 10k paths took the
+    path->template index from 560 ms to 4.1 s, and that index sits in the host page's load path.
+
+    The question is equivalent to set membership — a path is a directory exactly when it is a proper ancestor
+    of something we know — so the ancestors are computed ONCE and the check becomes a lookup. Same answer, same
+    honest limit (a directory with no known children still looks like a file), 11.5k lookups instead of 10^8
+    comparisons.
+    """
+
+    @classmethod
+    def of(cls, known_paths) -> "DirectorySet":
+        ancestors = set()
+        for path in known_paths:
+            if not isinstance(path, str):
+                continue
+            parts = path.rstrip("/").split("/")
+            for cut in range(2, len(parts)):     # skip "" and the leaf itself
+                ancestors.add("/".join(parts[:cut]))
+        return cls(ancestors)
+
+
 def plausible_target(path: str, known_paths=()) -> bool:
     """Can this path be a whole-file render target at all?
 
@@ -74,8 +100,12 @@ def plausible_target(path: str, known_paths=()) -> bool:
     """
     if not path.startswith("/etc/") or "*" in path or path.endswith("/"):
         return False
+    if isinstance(known_paths, DirectorySet):
+        return path not in known_paths           # O(1): the ancestors were computed once
     prefix = path + "/"
     return not any(other.startswith(prefix) for other in known_paths)
+
+
 
 
 #: A shell/init/perl/python interpreter line — an executable, not a config.
