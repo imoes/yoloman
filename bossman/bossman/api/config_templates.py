@@ -12,8 +12,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
+from bossman.db.models import Agent
+from bossman.db.session import get_session
+from bossman.services.capabilities import family_of
 from bossman.services.template_index import build_template_index
 
 router = APIRouter()
@@ -71,6 +78,9 @@ async def list_config_templates(
 
 @router.get("/api/v1/config-templates/index")
 async def config_template_index(
+    family: str = "",
+    agent_id: UUID | None = None,
+    session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict:
@@ -87,10 +97,18 @@ async def config_template_index(
     Also replaces a 33.7 MB download: the host page used to fetch every template BODY across 5460
     directories to do a string comparison. This is path→name pairs.
     """
+    # `agent_id` means "for this host": the family is derived HERE with family_of(facts), the same function
+    # the wizard and the capability matcher use, so the os_release sniffing exists once. Without it the index
+    # is the host-independent authoring view, which is the right answer for OU policy.
+    if agent_id is not None and not family:
+        agent = await session.get(Agent, agent_id)
+        if agent is not None:
+            family = family_of(agent.facts or {})
     return build_template_index(
         Path(settings.config_templates_dir).parent / "package_catalog.json",
         settings.config_codecs_path,
         settings.config_templates_dir,
+        family,
     )
 
 

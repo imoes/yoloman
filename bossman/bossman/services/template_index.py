@@ -87,7 +87,7 @@ def _signature(catalog_path: Path, codecs_path: Path, tpl_root: Path) -> tuple:
 
 
 def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
-                         templates_dir: str | Path) -> dict:
+                         templates_dir: str | Path, family: str = "") -> dict:
     """Return {"paths": {path: {"template": name, "source": "catalog"|"codec"}}, "conflicts": [...]}.
 
     Each input is passed explicitly rather than derived from a configs root: the codec registry has its
@@ -99,7 +99,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     the alternative would be resolving by name again.
     """
     tpl_root, cat_p, cod_p = Path(templates_dir), Path(catalog_path), Path(codecs_path)
-    key = (str(cat_p), str(cod_p), str(tpl_root))
+    key = (str(cat_p), str(cod_p), str(tpl_root), family)
     sig = _signature(cat_p, cod_p, tpl_root)
     hit = _CACHE.get(key)
     if hit and hit[1] == sig and time.monotonic() - hit[0] < _TTL_SECONDS:
@@ -190,10 +190,27 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             continue
         have = paths.get(p)
         if have is None:
+            # `family` only when the template records one — an empty key on every entry would be noise, and
+            # the comparison below reads a missing key as "no family" anyway.
             paths[p] = {"template": name, "source": "template-meta"}
+            if meta.get("family"):
+                paths[p]["family"] = meta["family"]
         elif have["template"] != name:
-            conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
-                              "also": name, "also_source": "template-meta"})
+            # SAME PATH, TWO DISTRIBUTIONS. /etc/caddy/Caddyfile is that path on both families and the two
+            # files differ, so precedence alone would render Debian's over a RedHat host's. When the CALLER
+            # knows the family — only a host does; this index is otherwise host-independent by design — the
+            # matching template wins and the loser is still reported. Without a family, nothing changes: the
+            # earlier claim stands and the clash is a conflict, which is the honest answer to a question
+            # nobody has asked precisely enough.
+            mine = meta.get("family") or ""
+            if family and mine == family and have.get("family") != family:
+                conflicts.append({"path": p, "chosen": name, "chosen_source": "template-meta",
+                                  "also": have["template"], "also_source": have["source"],
+                                  "reason": "family {} matches the host".format(family)})
+                paths[p] = {"template": name, "source": "template-meta", "family": mine}
+            else:
+                conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
+                                  "also": name, "also_source": "template-meta"})
 
     # A snap-in that owns the file gets the last word. EXCLUSIVE means the generic whole-file editor is not
     # offered for that path at all — named.conf has zones, smb.conf has shares, nginx.conf has server

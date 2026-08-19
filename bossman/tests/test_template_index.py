@@ -244,3 +244,33 @@ def test_a_snapin_only_path_appears_under_snapins_not_under_paths(tmp_path):
     idx = build_template_index(cat, cod, tpl)
     assert "/etc/network/interfaces" not in idx["paths"]
     assert idx["snapins"]["/etc/network/interfaces"]["snapin_exclusive"] is True
+
+
+def test_same_path_two_families_picks_the_host_s_own_template(tmp_path):
+    """/etc/caddy/Caddyfile is that path on Debian AND on RedHat, with different content in each.
+
+    Without a family the index is the host-independent authoring view and precedence decides — which handed a
+    RedHat host the Debian template. Given the family, the template whose meta.json says so wins, and the
+    loser is still reported rather than dropped: a caller must be able to see that two templates claimed the
+    file.
+    """
+    cat, cod, tpl = _fixture(tmp_path, {}, {}, ["caddy", "caddy-redhat"])
+    for name, family in (("caddy", "debian"), ("caddy-redhat", "redhat")):
+        body = tpl / name
+        (body / "meta.json").write_text(json.dumps(
+            {"target_path": "/etc/caddy/Caddyfile", "family": family, "witness": "deb"}))
+        # A gate-passing template: placed fields in a body that is not executable.
+        (body / "schema.json").write_text(json.dumps({"listen": {"type": "string"},
+                                                      "root": {"type": "string"}}))
+        (body / "template.j2").write_text(":{{ listen }}\nroot * {{ root }}\nfile_server\n")
+
+    plain = build_template_index(cat, cod, tpl)
+    assert plain["paths"]["/etc/caddy/Caddyfile"]["template"] in ("caddy", "caddy-redhat")
+
+    el = build_template_index(cat, cod, tpl, "redhat")
+    assert el["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy-redhat"
+    assert any(c["path"] == "/etc/caddy/Caddyfile" for c in el["conflicts"]), \
+        "the losing template must still be reported"
+
+    deb = build_template_index(cat, cod, tpl, "debian")
+    assert deb["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy"

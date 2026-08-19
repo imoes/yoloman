@@ -335,7 +335,10 @@ export class HostSettingsEditorComponent {
         this.loadObserved(false, id);
         this.loadDesiredMonitoring(id);
         if (!Object.keys(this.templateIndex()).length) {
-          this.agentService.configTemplateIndex().subscribe({
+          // FOR THIS HOST: /etc/caddy/Caddyfile is that path on Debian and on RedHat with different content,
+          // so the index must be asked on the host's behalf or it answers with the authoring default (Debian)
+          // and would render another distribution's file here.
+          this.agentService.configTemplateIndex(id).subscribe({
                 next: (res) => {
               this.templateIndex.set(res.paths ?? {});
               this.snapinOwned.set(res.snapins ?? {});
@@ -435,7 +438,9 @@ export class HostSettingsEditorComponent {
     // 33.7 MB across 5460 dirs — to answer "does this path have a template". This is 229 kB of pairs,
     // and the body is fetched only when an editor is opened.
     if (!Object.keys(this.templateIndex()).length) {
-      this.agentService.configTemplateIndex().subscribe({
+      // Same reason as the other call site: on a host, the index must be asked FOR that host, or a path that
+      // exists on both families resolves to the authoring default.
+      this.agentService.configTemplateIndex(agent.id).subscribe({
         next: (res) => this.templateIndex.set(res.paths ?? {}),
         error: () => this.templateIndex.set({}),
       });

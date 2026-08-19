@@ -168,8 +168,12 @@ export class AgentService {
    * Replaces resolving by basename, which matched /etc/aardvark-dns/aardvark-dns.conf to the template
    * that renders forward.conf — and the write path is whole-file, so that would have overwritten one
    * file with another's content. */
-  configTemplateIndex() {
-    return this.http.get<ConfigTemplateIndex>(`${environment.apiUrl}/config-templates/index`);
+  configTemplateIndex(agentId?: string) {
+    // Passing the host lets the SERVER pick the template that renders THIS host's file:
+    // /etc/caddy/Caddyfile exists on Debian and RedHat with different content. The family is derived
+    // server-side from the host's facts — deriving it here would put one rule in two languages.
+    const q = agentId ? `?agent_id=${encodeURIComponent(agentId)}` : '';
+    return this.http.get<ConfigTemplateIndex>(`${environment.apiUrl}/config-templates/index${q}`);
   }
 
   /** One template with its body, schema and sample — fetched when the user opens the editor. */

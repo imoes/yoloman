@@ -22,10 +22,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bossman.api.auth import get_current_identity
 from bossman.api.config_templates import _load_template
 from bossman.config import Settings, get_settings
+from bossman.db.models import Agent
+from bossman.db.session import get_session
 from bossman.services import config_schema
+from bossman.services.capabilities import family_of
 from bossman.services.template_index import build_template_index
 
 router = APIRouter()
@@ -80,7 +87,7 @@ def _provenance(record: dict) -> dict:
     }
 
 
-def _template_for_path(path: str, settings: Settings) -> str | None:
+def _template_for_path(path: str, settings: Settings, family: str = "") -> str | None:
     """Resolve a freeform file to the template that renders THAT file — through the index, not by name.
 
     THIS USED TO BE A SECOND RESOLVER, and it gave the wrong answer the moment a second distribution appeared.
@@ -102,6 +109,7 @@ def _template_for_path(path: str, settings: Settings) -> str | None:
         Path(settings.config_templates_dir).parent / "package_catalog.json",
         settings.config_codecs_path,
         settings.config_templates_dir,
+        family,
     )
     entry = (index.get("paths") or {}).get(path)
     return entry.get("template") if isinstance(entry, dict) else None
@@ -110,11 +118,24 @@ def _template_for_path(path: str, settings: Settings) -> str | None:
 @router.get("/api/v1/config-fields")
 async def config_fields(
     path: str,
+    family: str = "",
+    agent_id: UUID | None = None,
+    session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
     """One field spec for `path`: {path, write, format?, separator?, template?,
     fields:{key:FieldDef}, available}."""
+    # THE SERVER DERIVES THE FAMILY, not the caller. `agent_id` says "for this host" and family_of(facts)
+    # answers what family that is — the same function the package wizard and the capability matcher use. A
+    # caller could pass `family` directly (the OU/authoring view has no host), but reimplementing the
+    # os_release sniffing in TypeScript would put one rule in two languages, which is how the two halves of
+    # this system started disagreeing about codecs in the first place.
+    if agent_id is not None and not family:
+        agent = await session.get(Agent, agent_id)
+        if agent is not None:
+            family = family_of(agent.facts or {})
+
     codecs = _load_json(settings.config_codecs_path)
     codec = codecs.get(path) or {}
     codec_kind = codec.get("codec")
@@ -132,7 +153,9 @@ async def config_fields(
 
     # Freeform (codec == none, or unknown): the whole-file template is the spec.
     tdir = Path(settings.config_templates_dir)
-    tpl = _template_for_path(path, settings)
+    # `family` (debian|redhat|…) lets a host ask for the template that renders ITS file: /etc/caddy/Caddyfile
+    # exists on both with different content. Omitted, the answer is the host-independent authoring view.
+    tpl = _template_for_path(path, settings, family)
     if tpl:
         t = _load_template(tdir / tpl) or {}
         meta = _load_json(tdir / tpl / "meta.json")
