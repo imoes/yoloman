@@ -30,7 +30,7 @@ from bossman.services import config_schema
 router = APIRouter()
 
 
-def _load_json(path_str: str) -> dict:
+def _load_json(path_str: str | Path) -> dict:
     try:
         data = json.loads(Path(path_str).read_text())
         return data if isinstance(data, dict) else {}
@@ -53,6 +53,30 @@ def _field_from_directive(spec: dict) -> dict:
         if isinstance(spec.get(k), int):
             out[k] = spec[k]
     return out
+
+
+def _provenance(record: dict) -> dict:
+    """WHERE THIS ANSWER COMES FROM — every state needs a reachable cause (docs/logik-audit.md).
+
+    The registry has just learned to distinguish measured answers from asked ones: `source: "probe"` means the
+    codec was decided by round-tripping the file the package really ships, `"extension"` that the file name
+    settles it, `"embedded-import"` that it was carried over from the agent's own registry, and NO source at
+    all that a model was once shown a package description. Of 11573 records, 7098 are measured and 4216 are
+    not — and the UI has been presenting all of them identically.
+
+    That matters because the write path acts on this: an unverified `keyvalue` claim means the editor offers a
+    per-key merge on a grammar nobody ever checked. Saying so is cheap; leaving it unsaid is how a catalog
+    lies quietly.
+    """
+    source = record.get("source") or "unverified"
+    measured = source in ("probe", "extension")
+    return {
+        "source": source,
+        "measured": measured,
+        "confidence": record.get("confidence") or "unknown",
+        "note": record.get("notes") or ("" if measured else
+                                       "this grammar has never been checked against a real file"),
+    }
 
 
 def _template_for_path(path: str, codecs: dict, tdir: Path) -> str | None:
@@ -87,6 +111,7 @@ async def config_fields(
         return {
             "path": path, "write": "codec",
             "format": codec_kind, "separator": codec.get("separator", ""),
+            "provenance": _provenance(codec),
             "fields": fields, "available": True,
         }
 
@@ -95,9 +120,17 @@ async def config_fields(
     tpl = _template_for_path(path, codecs, tdir)
     if tpl:
         t = _load_template(tdir / tpl) or {}
+        meta = _load_json(tdir / tpl / "meta.json")
         return {
             "path": path, "write": "template",
             "template": t.get("template", ""),
+            # A template's provenance is its own: witness "deb"/"rpm" means the target path was read out of
+            # the package, "derived" that it was inferred from a name.
+            "provenance": {"source": meta.get("source") or "unknown",
+                           "measured": meta.get("witness") in ("deb", "rpm"),
+                           "confidence": "high" if meta.get("witness") in ("deb", "rpm") else "unknown",
+                           "note": "renders {} (witness: {})".format(
+                               meta.get("target_path") or path, meta.get("witness") or "none")},
             "fields": t.get("schema") or {}, "available": True,
         }
     # NO WAY TO EDIT BY FIELD — and the two reasons are different, so they get different names instead of

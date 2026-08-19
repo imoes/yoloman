@@ -223,6 +223,9 @@ export class AgentService {
        * template yet (raw text only) · unknown = nothing recorded about this path. `reason` carries the
        * why for the last two, so a screen never has to say "no fields" without saying why. */
       path: string; write: string; reason?: string; format?: string; separator?: string; template?: string;
+      /** Where this answer comes from: measured=true means the grammar was decided by round-tripping the
+       * file the package really ships; false means it was never checked against a real file. */
+      provenance?: { source: string; measured: boolean; confidence: string; note: string };
       fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
       available: boolean;
     }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);
