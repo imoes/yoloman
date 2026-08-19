@@ -219,7 +219,10 @@ export class AgentService {
    * consolidation); replaces reading the raw directive catalog per file. */
   configFields(path: string) {
     return this.http.get<{
-      path: string; write: string; format?: string; separator?: string; template?: string;
+      /** codec = per-key merge · template = whole-file render · freeform = measured, no grammar and no
+       * template yet (raw text only) · unknown = nothing recorded about this path. `reason` carries the
+       * why for the last two, so a screen never has to say "no fields" without saying why. */
+      path: string; write: string; reason?: string; format?: string; separator?: string; template?: string;
       fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
       available: boolean;
     }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);

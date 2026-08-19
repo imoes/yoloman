@@ -160,6 +160,39 @@ func bareLeaves(values map[string]any) int {
 // and the tie was decided by map order: /etc/docker/registry/config.yml was about to be recorded as json,
 // which would rewrite a YAML file as JSON on the first apply. Whether the bytes are strict JSON is the
 // distinction the round-trip cannot see.
+// bracketedSection: a line that is nothing but [name] — the same test iniCodec.sectionOf applies
+// (config.go:584), so what is counted here is exactly what the ini codec would treat as a section.
+var bracketedSection = regexp.MustCompile(`(?m)^\s*\[[^\]]+\]\s*$`)
+
+// countSections: how many bracketed section headers the file has.
+//
+// This decided 28 of the 75 disagreements between the RedHat measurement and the registry, all of the form
+// "registry says ini, probe says keyvalue" — /etc/UPower/UPower.conf, /etc/avahi/avahi-daemon.conf. Those ARE
+// ini files, and keyvalue won only because it counted every [Section] line as one more setting, so it scored
+// MORE keys and the ranking preferred it. Flattening bracketed sections loses which section a setting belongs
+// to, exactly as with haproxy's positional ones, so keyvalue is refuted where they exist.
+func countSections(text string) int { return len(bracketedSection.FindAllString(text, -1)) }
+
+// shellConstruct: control flow that only exists in a program.
+var shellConstruct = regexp.MustCompile(`(?m)^\s*(if\s|case\s.*\sin\s*$|for\s.*\sin\s|while\s|fi\s*$|esac\s*$|done\s*$|function\s+\w+)`)
+
+// looksExecutable: is this a SCRIPT rather than a settings file?
+//
+// Measured on the harvested RedHat corpus: 286 files that a codec fitted — stably, round-tripping cleanly —
+// are shell scripts. /etc/zprofile got `ini` because one of its eleven lines contains an "=" sign, and
+// /etc/X11/xinit/xinitrc the same. A structure-preserving merge would not corrupt them, but the settings
+// editor would list `if [ -f "$HOME/.profile" ]` as a setting with a value, which is a lie about what the
+// file is.
+//
+// Executable content therefore refutes every codec, no matter how well the round-trip goes — the same shape
+// of rule as the nesting and positional-section refusals: a property of the file that no grammar can undo.
+func looksExecutable(text string) bool {
+	if strings.HasPrefix(strings.TrimSpace(text), "#!") {
+		return true
+	}
+	return shellConstruct.MatchString(text)
+}
+
 func isStrictJSON(text string) bool {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
@@ -232,6 +265,8 @@ type probeResult struct {
 	ActiveLines   int    `json:"active_lines"`
 	Positional    int    `json:"positional"`
 	StrictJSON    bool   `json:"strict_json"`
+	Executable    bool   `json:"executable"`
+	Sections      int    `json:"sections"`
 	Separator     string `json:"separator"`
 	Error         string `json:"error,omitempty"`
 }
@@ -239,7 +274,8 @@ type probeResult struct {
 func probeOne(req probeRequest, format string) probeResult {
 	res := probeResult{Path: req.Path, Codec: format, Separator: req.Separator,
 		Comment: req.Comment, Blocks: countBlocks(req.Text), ActiveLines: activeLines(req.Text),
-		Positional: countPositionalSections(req.Text), StrictJSON: isStrictJSON(req.Text)}
+		Positional: countPositionalSections(req.Text), StrictJSON: isStrictJSON(req.Text),
+		Executable: looksExecutable(req.Text), Sections: countSections(req.Text)}
 	params := map[string]any{}
 	if req.Separator != "" {
 		params["separator"] = req.Separator
@@ -313,8 +349,8 @@ func TestCodecRoundTripProbe(t *testing.T) {
 			format := req.Candidates[0]
 			r := probeOne(req, format)
 			results = append(results, r)
-			t.Logf("%-46s %-9s sep=%-3q cmt=%-3q keys=%-4d chop=%-4d bare=%-4d junk=%-4d blocks=%-3d pos=%-3d active=%-4d byte=%-5v stable=%-5v %s",
-				req.Path, format, r.Separator, r.Comment, r.Keys, r.Chopped, r.Bare, r.Junk, r.Blocks, r.Positional, r.ActiveLines,
+			t.Logf("%-46s %-9s sep=%-3q cmt=%-3q exe=%-5v sec=%-3d keys=%-4d chop=%-4d bare=%-4d junk=%-4d blocks=%-3d pos=%-3d active=%-4d byte=%-5v stable=%-5v %s",
+				req.Path, format, r.Separator, r.Comment, r.Executable, r.Sections, r.Keys, r.Chopped, r.Bare, r.Junk, r.Blocks, r.Positional, r.ActiveLines,
 				r.ByteIdentical, r.Stable, r.Error)
 		}
 	}

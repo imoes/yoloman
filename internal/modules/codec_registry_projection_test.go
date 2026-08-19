@@ -59,5 +59,18 @@ func TestEmbeddedRegistryMatchesItsSource(t *testing.T) {
 			t.Errorf("%s: projected with codec %q, which lookupCodec ignores — it should not be shipped",
 				path, got.Codec)
 		}
+		// CONSTRUCTIBLE, not merely plausible. 24 records claimed `toml` — recorded from the file extension
+		// by an earlier repair pass of mine — and the agent has no toml codec at all, so lookupCodec would
+		// hand the config module a format newCodec cannot build and the APPLY would fail, on a record that
+		// reads perfectly well in the registry. A codec nobody can construct is not a codec.
+		// dirvalue is dispatched BEFORE newCodec (config.go:74) — the path is a DIRECTORY with one file per
+		// setting, so there is no byte codec to build. It is implemented; it just is not one of these.
+		if got.Codec == "dirvalue" {
+			continue
+		}
+		if _, err := newCodec(got.Codec, map[string]any{}); err != nil {
+			t.Errorf("%s: codec %q is recorded but not implemented (%v) — the write path would fail at "+
+				"apply time; see the enum in config.go:54", path, got.Codec, err)
+		}
 	}
 }

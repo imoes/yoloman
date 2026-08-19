@@ -100,8 +100,23 @@ async def config_fields(
             "template": t.get("template", ""),
             "fields": t.get("schema") or {}, "available": True,
         }
+    # NO WAY TO EDIT BY FIELD — and the two reasons are different, so they get different names instead of
+    # both being called a codec write with zero fields.
+    #
+    # `"codec" if codec_kind else "unknown"` used to answer write="codec", format="none", fields={} for a file
+    # whose record says "no grammar fits": the string "none" is truthy. So the record said one thing and the
+    # API said the opposite about the same file — and with the RedHat corpus measured, thousands of files now
+    # carry exactly that record, /etc/httpd/conf/httpd.conf among them.
+    #
+    #   freeform  MEASURED: no codec fits this file, and no template exists for it yet. It is editable as raw
+    #             text, and generating a template is the work that would make it editable by field.
+    #   unknown   nothing has ever been recorded about this path. Not the same claim at all.
     return {
-        "path": path, "write": "codec" if codec_kind else "unknown",
-        "format": codec_kind, "separator": codec.get("separator", ""),
+        "path": path,
+        "write": "freeform" if codec_kind == "none" else "unknown",
+        "reason": ("no codec fits this file (measured) and no template renders it yet — raw text only"
+                   if codec_kind == "none" else
+                   "this path has no codec record and no template — nothing is known about it yet"),
+        "format": None, "separator": "",
         "fields": {}, "available": False,
     }
