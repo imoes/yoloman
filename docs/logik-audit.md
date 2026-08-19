@@ -1777,3 +1777,37 @@ ini-Merge im Agent), `daemon.json` → json, `sshd_config` → keyvalue.
 **Damit bleibt genau eine offene Front:** 4301 Einträge sind ungemessen. Der Weg ist gebaut und erprobt
 (`deb_extract_configs.py` / `rh_extract_configs.py` → Sonde → `decide_codecs.py`); es fehlt der Korpus-Lauf
 über alle Pakete.
+
+---
+
+## Nachtrag 2026-08-19 (RedHat-Durchgang, Teil 2)
+
+### [Identität] OFFEN: `config_directives.json` hat zwei Leser mit zwei Annahmen über ihre Form
+
+  Beleg:   [`config_schema.py:105`](../bossman/bossman/services/config_schema.py#L105) packt eine umhüllte
+           Form aus (`entry.get("directives") if isinstance(...) else entry`), während
+           [`wizard_seed.py:168`](../bossman/bossman/services/wizard_seed.py#L168) den Direktivennamen
+           **direkt** in `directives[path]` sucht.
+  Problem: Dieselbe Datei darf laut einem Leser `{"directives": {...}, "source": …}` sein und laut dem
+           anderen nicht — wer die umhüllte Form schreibt, bricht die Wizard-Defaults still, denn dort wäre
+           `directives` einfach eine Direktive namens „directives". Zwei Formen für eine Datei sind zwei
+           Dinge unter einem Namen.
+  Fix:     Eine Form festlegen (die flache, weil sie geschrieben wird) und den unbenutzten Auspack-Zweig
+           entfernen — oder beide Leser auf die umhüllte umstellen. Bis dahin **nicht** hineinschreiben:
+           Provenienz liegt daneben in `configs/config_directives_sources.json`
+           ([`rh_mine_directives.py`](../bossman/scripts/rh_mine_directives.py)).
+
+### Direktiven für RedHat: erst der Zwilling, dann das Modell
+
+Eine Direktive gehört zur **Software**, nicht zur Distribution — Apache liest `ServerRoot`, ob die Datei
+`/etc/apache2/apache2.conf` oder `/etc/httpd/conf/httpd.conf` heißt. Diese Zwillingsbeziehung steht seit
+Langem kuriert im Katalog (`families.debian.config_path` ↔ `families.redhat.config_path`) und ist in diesem
+Durchgang gegen die RPM-Inhalte **verifiziert** worden. Also erbt der RedHat-Pfad die Direktiven seines
+Zwillings — exakt, kostenlos, ohne Modellaufruf.
+
+Gemessen, bevor gebaut: 16 Rollen haben wirklich verschiedene Pfade je Familie, aber nur **3** ihrer
+Debian-Zwillinge haben heute überhaupt Direktiven (`mariadb` 22, `vsftpd` 35, `sysstat` 8). Der Erbschaftspass
+ist also klein — er wächst aber automatisch mit jeder Debian-Seite, die gemint wird. Die übrigen 13 Pfade
+gehen an qwen35b über die bestehende Maschinerie (`_resolve_man` + `_web_docs` → `mine_one`, JSON-Schema als
+Grammatik server-seitig erzwungen); neu ist hier nur die **Auswahl**, welche Pfade überhaupt gemint werden,
+und die Aufzeichnung, woher jede Antwort kommt.
