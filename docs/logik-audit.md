@@ -1624,3 +1624,52 @@ Dokument stand die falsche Zahl nie.
            Notausgang und **sagt**, dass ein Snapin zuständig ist. Vorschlag: erste Variante für die
            strukturierten Formate (bind, samba, nginx, apache, cups, exports), zweite für die flachen
            (`/etc/crontab`, `/etc/logrotate.conf`), wo der generische Editor nichts kaputt macht.
+
+---
+
+## Nachtrag 2026-08-19 — die Codec-Registry (gemessen beim RedHat-Durchgang)
+
+Beim Prüfen, welche RedHat-Pfade die Registry kennt, sind zwei Verstöße derselben Klasse aufgefallen.
+Der erste ist behoben, der zweite ist der schwerere und ausdrücklich **noch offen**.
+
+### [Identität] Behoben: 124 Registry-Schlüssel waren keine Pfade
+
+  Beleg:   `configs/config_codecs.json` hatte 4473 Schlüssel, davon **124 nackte Dateinamen** —
+           `haproxy.cfg`, `chrony.conf`, `vsftpd.conf`. Nachgeschlagen wird ausschließlich exakt:
+           `codecs.get(path)` in [config_fields.py:80](../bossman/bossman/api/config_fields.py#L80).
+  Problem: Für `/etc/haproxy/haproxy.cfg` **war** ein Codec bestimmt, und der Server hat die Datei
+           trotzdem in den Freiform-/Template-Zweig geleitet — die Arbeit war nicht falsch, sondern
+           unerreichbar. Und ein Basename ist mehrdeutig: `client.conf` benennt in dieser Registry vier
+           Dateien mit vier verschiedenen Codecs, `config` fünf. Ein Basename-Lookup ist kein Kürzel,
+           sondern ein Münzwurf — dieselbe Äquivokation, die aus dem Pfad→Template-Index schon entfernt
+           wurde.
+  Fix:     [`rekey_codec_registry.py`](../bossman/scripts/rekey_codec_registry.py) — 78 auf ihren einen
+           echten Pfad umgeschlüsselt, 14 auf mehrere aufgefächert, 35 waren schon deckungsgleich.
+           Verweigert und **als Daten hinterlegt** (`configs/config_codecs_unresolved.json`), nicht
+           stillschweigend entschieden: 22 Konflikte (Pfad und Basename behaupten verschiedene Codecs),
+           5 zu breit (`apparmor.d` hat 267 Ziele), 5 ohne jeden `/etc`-Pfad. Nackte Schlüssel 124 → 32,
+           bekannte RedHat-Pfade 12 → 17. Zweiter Lauf: 0 verschoben.
+
+### [Widerspruchsfreiheit] OFFEN: zwei Registries, 236-mal verschiedener Codec für dieselbe Datei
+
+  Beleg:   `configs/config_codecs.json` (4496 Einträge, Server + gebündelt nach
+           `/usr/share/agentic-mcp/configs`) und `internal/modules/config_codecs.json` (961, in den Agent
+           **einkompiliert**). 869 Schlüssel in beiden, **236 mit verschiedenem Codec**:
+           `/etc/dhcpcd.conf` keyvalue vs. none, `/etc/pulse/daemon.conf` ini vs. keyvalue.
+           Richtung: 178-mal eingebettet spezifisch / kanonisch `none`, 2-mal umgekehrt, 56-mal **beide**
+           spezifisch und verschieden.
+  Problem: Der **Schreibweg** liest die eingebettete Registry
+           ([codec_registry.go](../internal/modules/codec_registry.go)), der Anzeige-/Entscheidungsweg
+           die gebündelte ([management.go:415](../internal/server/management.go#L415)). Also kann die UI
+           „Freiform, ganze Datei rendern" anzeigen, während der Agent dieselbe Datei per Key mergt —
+           zwei Ansichten mit widersprüchlichem Zustand für dasselbe Objekt, und das an der Stelle, wo
+           geschrieben wird.
+  Nicht:   Ein Sync in die eine Richtung. Die kanonische hatte diese 178 Codecs **nie** (geprüft bis
+           HEAD~30), und die eingebettete trägt handgeprüfte Korrekturen (`sshd_config` ist
+           space-separiert, `fstab`). Keine ist Teilmenge der anderen; ein Abgleich in beliebiger
+           Richtung wäre Datenverlust.
+  Fix:     Eine Registry mit einer begründeten Vorrangregel — und die Regel braucht einen
+           **Beobachtungspunkt**, keine Vorliebe: für die 236 Streitfälle den ausgelieferten Dateitext
+           holen und prüfen, ob der behauptete Codec **rundläuft** (parse → serialize → byte-gleich).
+           Wer rundläuft, hat recht; wer nicht, ist widerlegt. `none` gewinnt nur, wenn kein Codec
+           rundläuft. Das ist der nächste Block, nicht Teil dieses Durchgangs.
