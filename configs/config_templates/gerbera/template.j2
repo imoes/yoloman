@@ -1,141 +1,164 @@
-#! /bin/sh
-# Gerbera UPnP Media Server Init Script
-#
-# This script manages the Gerbera daemon. It is auto-generated and
-# self-documenting. See the comments below for configuration details.
-#
-### BEGIN INIT INFO
-# Provides:          {{ daemon_name | default('gerbera') }}
-# Required-Start:    $remote_fs $network $syslog
-# Required-Stop:     $remote_fs $network $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Run the {{ daemon_name | default('gerbera') }} UPnP media server
-# Description:       Run the {{ daemon_name | default('gerbera') }} UPnP media server
-### END INIT INFO
+<?xml version="1.0" encoding="UTF-8"?>
+<config version="2" xmlns="http://mediatomb.cc/config/2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://mediatomb.cc/config/2 http://mediatomb.cc/config/2.xsd">
+  <!--
+     See http://gerbera.io or read the docs for more
+     information on creating and using config.xml configuration files.
+    -->
+  <server>
+    <ui enabled="no" show-tooltips="yes">
+      <accounts enabled="no" session-timeout="30">
+        <account user="{{ gerbera_user }}" password="gerbera"/>
+      </accounts>
+    </ui>
+    <name>gerbera</name>
+    <udn/>
+    <home>/var/lib/gerbera</home>
+    <webroot>/usr/share/gerbera/web</webroot>
+    <!--
+        How frequently (in seconds) to send ssdp:alive advertisements.
+        Minimum alive value accepted is: 62
 
-DESC="{{ daemon_name | default('gerbera') }} UPnP media server"
-NAME={{ daemon_name | default('gerbera') }}
-# Path to the Gerbera configuration file (XML format)
-GERBERA_CONFIG={{ gerbera_config_path | default('/etc/gerbera/config.xml') }}
+        The advertisement will be sent every (A/2)-30 seconds,
+        and will have a cache-control max-age of A where A is
+        the value configured here. Ex: A value of 62 will result
+        in an SSDP advertisement being sent every second.
+    -->
+    <alive>1800</alive>
+    <storage>
+      <sqlite3 enabled="yes">
+        <database-file>{{ gerbera_config_path | dirname }}/gerbera.db</database-file>
+      </sqlite3>
+      <mysql enabled="no">
+        <host>localhost</host>
+        <username>gerbera</username>
+        <database>gerbera</database>
+      </mysql>
+    </storage>
+    <protocolInfo extend="no"/><!-- For PS3 support change to "yes" -->
+    <!--
+       Uncomment the lines below to get rid of jerky avi playback on the
+       DSM320 or to enable subtitles support on the DSM units
+    -->
+    <!--
+    <custom-http-headers>
+      <add header="X-User-Agent: redsonic"/>
+    </custom-http-headers>
 
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
-DAEMON=/usr/bin/$NAME
-# Path to the PID file for the Gerbera process
-PIDFILE={{ gerbera_pid_file | default('/var/run/gerbera.pid') }}
-# Path to the log file for Gerbera output
-LOGFILE={{ gerbera_log_file | default('/var/log/gerbera.log') }}
-SCRIPTNAME=/etc/init.d/$NAME
-
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
-
-# Load the VERBOSE setting and other rcS variables
-[ -f /etc/default/rcS ] && . /etc/default/rcS
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
-# Command-line arguments passed to the Gerbera daemon
-DAEMON_ARGS="-c $GERBERA_CONFIG -l $LOGFILE"
-
-#
-#       Function that starts the daemon/service.
-#
-do_start() {
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	touch $LOGFILE
-	chmod 640 $LOGFILE
-	# Ensure the log file is owned by the Gerbera user and adm group for proper logging
-	chown {{ gerbera_user | default('gerbera') }}:adm $LOGFILE
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON \
-		--test > /dev/null \
-		|| return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON \
-		--chuid {{ gerbera_user | default('gerbera') }}:{{ gerbera_group | default('gerbera') }} \
-		--background --make-pidfile -- $DAEMON_ARGS \
-		|| return 2
-}
-
-#
-#       Function that stops the daemon/service.
-#
-do_stop() {
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
-		--pidfile $PIDFILE --remove-pidfile --name $NAME
-	RETVAL="$?"
-	[ "$RETVAL" = 2 ] && return 2
-	rm -f $PIDFILE
-	return "$RETVAL"
-}
-
-#
-#       Function that sends a SIGHUP to the daemon/service.
-#
-do_reload() {
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-	return 0
-}
-
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case " $?" in
-		0) log_end_msg 0 ;;
-		1) log_warning_msg "$DESC" "'$NAME'" "was already started" ;;
-		2) log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case " $?" in
-		0) log_end_msg 0 ;;
-		1) log_warning_msg "$DESC" "'$NAME'" "was already stopped" ;;
-		2) log_end_msg 1 ;;
-	esac
-	;;
-  status)
-	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-	;;
-  reload|force-reload)
-	log_daemon_msg "Reloading $DESC" "$NAME"
-	do_reload
-	log_end_msg $?
-  	;;
-  restart)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case " $?" in
-	  0|1)
-		sleep 1
-		do_start
-		case " $?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-		# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload|force-reload}" >&2
-	exit 3
-	;;
-esac
-
-:
+    <manufacturerURL>redsonic.com</manufacturerURL>
+    <modelNumber>105</modelNumber>
+    -->
+    <!-- Uncomment the line below if you have a Telegent TG100 -->
+    <!--
+       <upnp-string-limit>101</upnp-string-limit>
+    -->
+    <extended-runtime-options>
+      <ffmpegthumbnailer enabled="no">
+        <thumbnail-size>128</thumbnail-size>
+        <seek-percentage>5</seek-percentage>
+        <filmstrip-overlay>yes</filmstrip-overlay>
+        <workaround-bugs>no</workaround-bugs>
+      </ffmpegthumbnailer>
+      <mark-played-items enabled="no" suppress-cds-updates="yes">
+        <string mode="prepend">*</string>
+        <mark>
+          <content>video</content>
+        </mark>
+      </mark-played-items>
+    </extended-runtime-options>
+  </server>
+  <import hidden-files="no">
+    <scripting script-charset="UTF-8">
+      <common-script>/usr/share/gerbera/js/common.js</common-script>
+      <playlist-script>/usr/share/gerbera/js/playlists.js</playlist-script>
+      <virtual-layout type="builtin">
+        <import-script>/usr/share/gerbera/js/import.js</import-script>
+      </virtual-layout>
+    </scripting>
+    <mappings>
+      <extension-mimetype ignore-unknown="no">
+        <map from="mp3" to="audio/mpeg"/>
+        <map from="ogx" to="application/ogg"/>
+        <map from="ogv" to="video/ogg"/>
+        <map from="oga" to="audio/ogg"/>
+        <map from="ogg" to="audio/ogg"/>
+        <map from="ogm" to="video/ogg"/>
+        <map from="asf" to="video/x-ms-asf"/>
+        <map from="asx" to="video/x-ms-asf"/>
+        <map from="wma" to="audio/x-ms-wma"/>
+        <map from="wax" to="audio/x-ms-wax"/>
+        <map from="wmv" to="video/x-ms-wmv"/>
+        <map from="wvx" to="video/x-ms-wvx"/>
+        <map from="wm" to="video/x-ms-wm"/>
+        <map from="wmx" to="video/x-ms-wmx"/>
+        <map from="m3u" to="audio/x-mpegurl"/>
+        <map from="pls" to="audio/x-scpls"/>
+        <map from="flv" to="video/x-flv"/>
+        <map from="mkv" to="video/x-matroska"/>
+        <map from="mka" to="audio/x-matroska"/>
+        <!-- Uncomment the line below for PS3 divx support -->
+        <!-- <map from="avi" to="video/divx"/> -->
+        <!-- Uncomment the line below for D-Link DSM / ZyXEL DMA-1000 -->
+        <!-- <map from="avi" to="video/avi"/> -->
+      </extension-mimetype>
+      <mimetype-upnpclass>
+        <map from="audio/*" to="object.item.audioItem.musicTrack"/>
+        <map from="video/*" to="object.item.videoItem"/>
+        <map from="image/*" to="object.item.imageItem"/>
+        <map from="application/ogg" to="object.item.audioItem.musicTrack"/>
+      </mimetype-upnpclass>
+      <mimetype-contenttype>
+        <treat mimetype="audio/mpeg" as="mp3"/>
+        <treat mimetype="application/ogg" as="ogg"/>
+        <treat mimetype="audio/ogg" as="ogg"/>
+        <treat mimetype="audio/x-flac" as="flac"/>
+        <treat mimetype="audio/x-ms-wma" as="wma"/>
+        <treat mimetype="audio/x-wavpack" as="wv"/>
+        <treat mimetype="image/jpeg" as="jpg"/>
+        <treat mimetype="audio/x-mpegurl" as="playlist"/>
+        <treat mimetype="audio/x-scpls" as="playlist"/>
+        <treat mimetype="audio/x-wav" as="pcm"/>
+        <treat mimetype="audio/L16" as="pcm"/>
+        <treat mimetype="video/x-msvideo" as="avi"/>
+        <treat mimetype="video/mp4" as="mp4"/>
+        <treat mimetype="audio/mp4" as="mp4"/>
+        <treat mimetype="video/x-matroska" as="mkv"/>
+        <treat mimetype="audio/x-matroska" as="mka"/>
+      </mimetype-contenttype>
+    </mappings>
+    <online-content>
+      <YouTube enabled="no" refresh="28800" update-at-start="no" purge-after="604800" racy-content="exclude" format="mp4" hd="no">
+        <favorites user="gerbera"/>
+        <standardfeed feed="most_viewed" time-range="today"/>
+        <playlists user="gerbera"/>
+        <uploads user="gerbera"/>
+        <standardfeed feed="recently_featured" time-range="today"/>
+      </YouTube>
+    </online-content>
+  </import>
+  <transcoding enabled="no">
+    <mimetype-profile-mappings>
+      <transcode mimetype="video/x-flv" using="vlcmpeg"/>
+      <transcode mimetype="application/ogg" using="vlcmpeg"/>
+      <transcode mimetype="application/ogg" using="oggflac2raw"/>
+      <transcode mimetype="audio/x-flac" using="oggflac2raw"/>
+    </mimetype-profile-mappings>
+    <profiles>
+      <profile name="oggflac2raw" enabled="no" type="external">
+        <mimetype>audio/L16</mimetype>
+        <accept-url>no</accept-url>
+        <first-resource>yes</first-resource>
+        <accept-ogg-theora>no</accept-ogg-theora>
+        <agent command="ogg123" arguments="-d raw -o byteorder:big -f %out %in"/>
+        <buffer size="1048576" chunk-size="131072" fill-size="262144"/>
+      </profile>
+      <profile name="vlcmpeg" enabled="no" type="external">
+        <mimetype>video/mpeg</mimetype>
+        <accept-url>yes</accept-url>
+        <first-resource>yes</first-resource>
+        <accept-ogg-theora>yes</accept-ogg-theora>
+        <agent command="vlc" arguments="-I dummy %in --sout #transcode{venc=ffmpeg,vcodec=mp2v,vb=4096,fps=25,aenc=ffmpeg,acodec=mpga,ab=192,samplerate=44100,channels=2}:standard{access=file,mux=ps,dst=%out} vlc:quit"/>
+        <buffer size="14400000" chunk-size="512000" fill-size="120000"/>
+      </profile>
+    </profiles>
+  </transcoding>
+</config>

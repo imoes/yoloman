@@ -1,138 +1,181 @@
-#!/bin/sh
-set -e
+<?php
+/**
+ * This is DokuWiki's Main Configuration file
+ *
+ * All the default values are kept here, you should not modify it but use
+ * a local.php file instead to override the settings from here.
+ *
+ * This is a piece of PHP code so PHP syntax applies!
+ *
+ * For help with the configuration and a more detailed explanation of the various options
+ * see https://www.dokuwiki.org/config
+ */
 
-# =============================================================================
-# DokuWiki Maintenance Script
-#
-# This script handles periodic maintenance tasks for DokuWiki installations.
-# It performs two main functions:
-# 1. Cleanup of old cached files, attic revisions, and stale lock files.
-# 2. Update of the local spam/wordblock blacklist from Wikimedia.
-#
-# Configuration is read from /etc/default/dokuwiki, with defaults applied here
-# if variables are not set.
-# =============================================================================
 
-# Function to cleanup a wiki data directory
-# (see <https://www.dokuwiki.org/tips:maintenance>)
-#
-# Args:
-#   $1 - Full path to the wiki data directory
-#   $2 - Maximum age in days for files before deletion
-#   $3 - Whether to remove old revision files ("true" or "false")
-cleanup() {
-	# $1 ... full path to data directory of wiki
-	# $2 ... number of days after which old files are to be removed
-	# $3 ... whether or not to remove old revision files
-	data_path="$1"
-	max_days="$2"
-	remove_attic="$3"
+/* Basic Settings */
+$conf['title']       = '{{ wiki_title }}';        //what to show in the title
+$conf['start']       = '{{ wiki_start }}';           //name of start page
+$conf['lang']        = '{{ wiki_lang }}';              //your language
+$conf['template']    = '{{ wiki_template }}';         //see lib/tpl directory
+$conf['tagline']     = '{{ wiki_tagline }}';                //tagline in header (if template supports it)
+$conf['sidebar']     = '{{ wiki_sidebar }}';         //name of sidebar in root namespace (if template supports it)
+$conf['license']     = '{{ wiki_license }}';     //see conf/license.php
+$conf['savedir']     = '{{ wiki_savedir }}'; //where to store all the files
+$conf['basedir']     = '{{ wiki_basedir }}';                //absolute dir from serveroot - blank for autodetection
+$conf['baseurl']     = '{{ wiki_baseurl }}';                //URL to server including protocol - blank for autodetect
+$conf['cookiedir']   = '{{ wiki_cookiedir }}';                //path to use in cookies - blank for basedir
+$conf['dmode']       = {{ wiki_dmode }};              //set directory creation mode
+$conf['fmode']       = {{ wiki_fmode }};              //set file creation mode
+$conf['allowdebug']  = {{ wiki_allowdebug }};                 //allow debug output, enable if needed 0|1
 
-	# Change to the data directory to operate on relative paths
-	cd "$data_path"
+/* Display Settings */
+$conf['recent']      = {{ wiki_recent }};                //how many entries to show in recent
+$conf['recent_days'] = {{ wiki_recent_days }};                 //How many days of recent changes to keep. (days)
+$conf['breadcrumbs'] = {{ wiki_breadcrumbs }};                //how many recent visited pages to show
+$conf['youarehere']  = {{ wiki_youarehere }};                 //show "You are here" navigation? 0|1
+$conf['fullpath']    = {{ wiki_fullpath }};                 //show full path of the document or relative to datadir only? 0|1
+$conf['typography']  = {{ wiki_typography }};                 //smartquote conversion 0=off, 1=doublequotes, 2=all quotes
+$conf['dformat']     = '{{ wiki_dformat }}';  //dateformat accepted by PHPs strftime() function
+$conf['signature']   = '{{ wiki_signature }}'; //signature see wiki page for details
+$conf['showuseras']  = '{{ wiki_showuseras }}';       // 'loginname' users login name
+                                          // 'username' users full name
+                                          // 'email' e-mail address (will be obfuscated as per mailguard)
+                                          // 'email_link' e-mail address as a mailto: link (obfuscated)
+$conf['toptoclevel'] = {{ wiki_toptoclevel }};                 //Level starting with and below to include in AutoTOC (max. 5)
+$conf['tocminheads'] = {{ wiki_tocminheads }};                 //Minimum amount of headlines that determines if a TOC is built
+$conf['maxtoclevel'] = {{ wiki_maxtoclevel }};                 //Up to which level include into AutoTOC (max. 5)
+$conf['maxseclevel'] = {{ wiki_maxseclevel }};                 //Up to which level create editable sections (max. 5)
+$conf['camelcase']   = {{ wiki_camelcase }};                 //Use CamelCase for linking? (I don't like it) 0|1
+$conf['deaccent']    = {{ wiki_deaccent }};                 //deaccented chars in pagenames (1) or romanize (2) or keep (0)?
+$conf['useheading']  = {{ wiki_useheading }};                 //use the first heading in a page as its name
+$conf['sneaky_index']= {{ wiki_sneaky_index}};                 //check for namespace read permission in index view (0|1) (1 might cause unexpected behavior)
+$conf['hidepages']   = '{{ wiki_hidepages }}';                //Regexp for pages to be skipped from RSS, Search and Recent Changes
 
-	# -----------------------------------------------------------------------
-	# Purge old revision files from attic directories
-	# -----------------------------------------------------------------------
-	if [ "$remove_attic" = "true" ]
-	then
-		# Find files older than max_days in attic and media_attic and delete them
-		find attic media_attic -type f -mtime "+$max_days" -delete
-	fi
+/* Authentication Settings */
+$conf['useacl']      = {{ wiki_useacl }};                //Use Access Control Lists to restrict access?
+$conf['autopasswd']  = {{ wiki_autopasswd }};                //autogenerate passwords and email them to user
+$conf['authtype']    = '{{ wiki_authtype }}';      //which authentication backend should be used
+$conf['passcrypt']   = '{{ wiki_passcrypt }}';           //Used crypt method (smd5,md5,sha1,ssha,crypt,mysql,my411,bcrypt)
+$conf['defaultgroup']= '{{ wiki_defaultgroup }}';           //Default groups new Users are added to
+$conf['superuser']   = '{{ wiki_superuser }}';    //The admin can be user or @group or comma separated list user1,@group1,user2
+$conf['manager']     = '{{ wiki_manager }}';    //The manager can be user or @group or comma separated list user1,@group1,user2
+$conf['profileconfirm'] = {{ wiki_profileconfirm }};             //Require current password to confirm changes to user profile
+$conf['rememberme'] = {{ wiki_rememberme }};                 //Enable/disable remember me on login
+$conf['disableactions'] = '{{ wiki_disableactions }}';            //comma separated list of actions to disable
+$conf['auth_security_timeout'] = {{ wiki_auth_security_timeout }};    //time (seconds) auth data is considered valid, set to 0 to recheck on every page view
+$conf['securecookie'] = {{ wiki_securecookie }};               //never send HTTPS cookies via HTTP
+$conf['samesitecookie'] = '{{ wiki_samesitecookie }}';         //SameSite attribute for cookies (Lax|Strict|None|Empty)
+$conf['remote']      = {{ wiki_remote }};                //Enable/disable remote interfaces
+$conf['remoteuser']  = '{{ wiki_remoteuser }}';    //user/groups that have access to remote interface (comma separated). leave empty to allow all users
+$conf['remotecors']  = '{{ wiki_remotecors }}';               //enable Cross-Origin Resource Sharing (CORS) for the remote interfaces. Asterisk (*) to allow all origins. leave empty to deny.
 
-	# -----------------------------------------------------------------------
-	# Remove stale lock files
-	# -----------------------------------------------------------------------
-	# Lock files older than 1 day are likely stale and can be removed safely
-	find locks -name '*.lock' -type f -mtime +1 -delete
+/* Antispam Features */
+$conf['usewordblock']= {{ wiki_usewordblock }};                //block spam based on words? 0|1
+$conf['relnofollow'] = {{ wiki_relnofollow }};                //use rel="ugc nofollow" for external links?
+$conf['indexdelay']  = {{ wiki_indexdelay }};       //allow indexing after this time (seconds) default is 5 days
+$conf['mailguard']   = '{{ wiki_mailguard }}';            //obfuscate email addresses against spam harvesters?
+                                         //valid entries are:
+                                         //  'visible' - replace @ with [at], . with [dot] and - with [dash]
+                                         //  'hex'     - use hex entities to encode the mail address
+                                         //  'none'    - do not obfuscate addresses
+$conf['iexssprotect']= {{ wiki_iexssprotect }};                // check for JavaScript and HTML in uploaded files 0|1
 
-	# -----------------------------------------------------------------------
-	# Remove empty directories
-	# -----------------------------------------------------------------------
-	# Clean up empty directories in standard DokuWiki subdirectories
-	find attic cache index locks media media_attic media_meta \
-		meta pages tmp -mindepth 1 -type d -empty -delete
+/* Editing Settings */
+$conf['usedraft']    = {{ wiki_usedraft }};                //automatically save a draft while editing (0|1)
+$conf['locktime']    = {{ wiki_locktime }};            //maximum age for lockfiles (defaults to 15 minutes)
+$conf['cachetime']   = {{ wiki_cachetime }};         //maximum age for cachefile in seconds (defaults to a day)
 
-	# -----------------------------------------------------------------------
-	# Purge old cache files
-	# -----------------------------------------------------------------------
-	# Remove cache files older than max_days
-	find cache -type f -mtime "+$max_days" -delete
+/* Link Settings */
+// Set target to use when creating links - leave empty for same window
+$conf['target']['wiki']      = '{{ wiki_target_wiki }}';
+$conf['target']['interwiki'] = '{{ wiki_target_interwiki }}';
+$conf['target']['extern']    = '{{ wiki_target_extern }}';
+$conf['target']['media']     = '{{ wiki_target_media }}';
+$conf['target']['windows']   = '{{ wiki_target_windows }}';
 
-	# Return to previous working directory silently
-	cd - > /dev/null
-}
+/* Media Settings */
+$conf['mediarevisions'] = {{ wiki_mediarevisions }};             //enable/disable media revisions
+$conf['refcheck']    = {{ wiki_refcheck }};                //check for references before deleting media files
+$conf['gdlib']       = {{ wiki_gdlib }};                //the GDlib version (0, 1 or 2) 2 tries to autodetect
+$conf['im_convert']  = '{{ wiki_im_convert }}';               //path to ImageMagicks convert (will be used instead of GD)
+$conf['jpg_quality'] = '{{ wiki_jpg_quality }}';             //quality of compression when scaling jpg images (0-100)
+$conf['fetchsize']   = {{ wiki_fetchsize }};                //maximum size (bytes) fetch.php may download from extern, disabled by default
 
-# Function to update the spam blacklist
-# (see <https://www.dokuwiki.org/blacklist>)
-#
-# Downloads the current spam blacklist from Wikimedia and installs it as
-# the local wordblock configuration file.
-update_blacklist() {
-	# Create a temporary file for the downloaded blacklist
-	temp="$(tempfile -p doku -s blist)"
-	# Ensure the temporary file is cleaned up on exit, unless overridden
-	trap "rm -f -- '$temp'" EXIT
+/* Notification Settings */
+$conf['subscribers'] = {{ wiki_subscribers }};                //enable change notice subscription support
+$conf['subscribe_time'] = {{ wiki_subscribe_time }};      //Time after which digests / lists are sent (in sec, default 1 day)
+                                         //Should be smaller than the time specified in recent_days
+$conf['notify']      = '{{ wiki_notify }}';               //send change info to this email (leave blank for nobody)
+$conf['registernotify'] = '{{ wiki_registernotify }}';            //send info about newly registered users to this email (leave blank for nobody)
+$conf['mailfrom']    = '{{ wiki_mailfrom }}';               //use this email when sending mails
+$conf['mailreturnpath']    = '{{ wiki_mailreturnpath }}';         //use this email as returnpath for bounce mails
+$conf['mailprefix']  = '{{ wiki_mailprefix }}';               //use this as prefix of outgoing mails
+$conf['htmlmail']    = {{ wiki_htmlmail }};                //send HTML multipart mails
+$conf['dontlog'] = '{{ wiki_dontlog }}';              //logging facilities that should be disabled
+$conf['logretain'] = {{ wiki_logretain }};                  //how many days of logs to keep
 
-	# Download the raw blacklist and strip the <pre> wrapper tags
-	wget -q -O - 'http://meta.wikimedia.org/wiki/Spam_blacklist?action=raw' | grep -vF '<pre>' > "$temp"
+/* Syndication Settings */
+$conf['sitemap']     = {{ wiki_sitemap }};                //Create a Google sitemap? How often? In days.
+$conf['rss_type']    = '{{ wiki_rss_type }}';           //type of RSS feed to provide, by default:
+                                         //  'rss'  - RSS 0.91
+                                         //  'rss1' - RSS 1.0
+                                         //  'rss2' - RSS 2.0
+                                         //  'atom' - Atom 0.3
+                                         //  'atom1' - Atom 1.0
+$conf['rss_linkto'] = '{{ wiki_rss_linkto }}';            //what page RSS entries link to:
+                                         //  'diff'    - page showing revision differences
+                                         //  'page'    - the revised page itself
+                                         //  'rev'     - page showing all revisions
+                                         //  'current' - most recent revision of page
+$conf['rss_content'] = '{{ wiki_rss_content }}';       //what to put in the items by default?
+                                         //  'abstract' - plain text, first paragraph or so
+                                         //  'diff'     - plain text unified diff wrapped in <pre> tags
+                                         //  'htmldiff' - diff as HTML table
+                                         //  'html'     - the full page rendered in XHTML
+$conf['rss_media']   = '{{ wiki_rss_media }}';           //what should be listed?
+                                         //  'both'     - page and media changes
+                                         //  'pages'    - page changes only
+                                         //  'media'    - media changes only
+$conf['rss_update'] = {{ wiki_rss_update }};              //Update the RSS feed every n seconds (defaults to 5 minutes)
+$conf['rss_show_summary'] = {{ wiki_rss_show_summary }};           //Add revision summary to title? 0|1
+$conf['rss_show_deleted'] = {{ wiki_rss_show_deleted }};           //Show deleted items 0|1
 
-	# Install the updated blacklist into the DokuWiki config directory
-	mv "$temp" "/etc/dokuwiki/wordblock.local.conf"
+/* Advanced Settings */
+$conf['updatecheck'] = {{ wiki_updatecheck }};                //automatically check for new releases?
+$conf['userewrite']  = {{ wiki_userewrite }};                //this makes nice URLs: 0: off 1: .htaccess 2: internal
+$conf['useslash']    = {{ wiki_useslash }};                //use slash instead of colon? only when rewrite is on
+$conf['sepchar']     = '{{ wiki_sepchar }}';              //word separator character in page names; may be a
+                                         //  letter, a digit, '_', '-', or '.'.
+$conf['canonical']   = {{ wiki_canonical }};                //Should all URLs use full canonical http://... style?
+$conf['fnencode']    = '{{ wiki_fnencode }}';            //encode filenames (url|safe|utf-8)
+$conf['autoplural']  = {{ wiki_autoplural }};                //try (non)plural form of nonexistent files?
+$conf['compression'] = '{{ wiki_compression }}';             //compress old revisions: (0: off) ('gz': gnuzip) ('bz2': bzip)
+                                         //  bz2 generates smaller files, but needs more cpu-power
+$conf['gzip_output'] = {{ wiki_gzip_output }};                //use gzip content encoding for the output xhtml (if allowed by browser)
+$conf['compress']    = {{ wiki_compress }};                //Strip whitespaces and comments from Styles and JavaScript? 1|0
+$conf['cssdatauri']  = {{ wiki_cssdatauri }};              //Maximum byte size of small images to embed into CSS, won't work on IE<8
+$conf['send404']     = {{ wiki_send404 }};                //Send an HTTP 404 status for nonexistent pages?
+$conf['broken_iua']  = {{ wiki_broken_iua }};                //Platform with broken ignore_user_abort (IIS+CGI) 0|1
+$conf['xsendfile']   = {{ wiki_xsendfile }};                //Use X-Sendfile (1 = lighttpd, 2 = standard)
+$conf['renderer_xhtml'] = '{{ wiki_renderer_xhtml }}';       //renderer to use for main page generation
+$conf['readdircache'] = {{ wiki_readdircache }};               //time cache in second for the readdir operation, 0 to deactivate.
+$conf['search_nslimit'] = {{ wiki_search_nslimit }};             //limit the search to the current X namespaces
+$conf['search_fragment'] = '{{ wiki_search_fragment }}';      //specify the default fragment search behavior
+$conf['trustedproxy'] = '{{ wiki_trustedproxy }}';
+                                         //Regexp of trusted proxy address when reading IP using HTTP header
+                                         //  if blank, do not trust any proxy (including local IP)
 
-	# Clear the exit trap since the temp file has been moved
-	trap - EXIT
-}
+/* Feature Flags */
+$conf['defer_js'] = {{ wiki_defer_js }};                   // Defer javascript to be executed after the page's HTML has been parsed. Setting will be removed in the next release.
+$conf['hidewarnings'] = {{ wiki_hidewarnings }};               // Hide warnings
 
-# -----------------------------------------------------------------------
-# Get configuration from system defaults file
-# -----------------------------------------------------------------------
-. /etc/default/dokuwiki
-
-# -----------------------------------------------------------------------
-# Set variable default values
-# These defaults are applied if /etc/default/dokuwiki does not define them.
-# -----------------------------------------------------------------------
-
-# Whether to run the cleanup routine ("true" or "false")
-run_cleanup="${RUN_CLEANUP:-{{ run_cleanup_default | default('true') }}"
-
-# Maximum age in days for files before they are considered for deletion
-cleanup_maxdays="${CLEANUP_MAXDAYS:-{{ cleanup_maxdays_default | default(180) }}}"
-
-# Whether to remove old revision files from attic directories ("true" or "false")
-remove_attic="${REMOVE_REVISIONS:-{{ remove_attic_default | default('false') }}}"
-
-# Whether to update the spam/wordblock blacklist ("true" or "false")
-update_blacklist="${UPDATE_BLACKLIST:-{{ update_blacklist_default | default('false') }}}"
-
-# -----------------------------------------------------------------------
-# If configured, run the purge for files older than specified (~6 months by
-# default)
-# -----------------------------------------------------------------------
-if [ "$run_cleanup" = "true" ]
-then
-	# Change to the base DokuWiki directory
-	cd {{ wiki_basedir | default('/var/lib/dokuwiki') }}
-
-	# Iterate over all wiki data directories (supports multi-wiki farm setups)
-	for data_dir in data farm/*/data
-	do
-		# Skip non-existent directories (glob might not match in single-wiki setups)
-		if [ -d "$data_dir" ]
-		then
-			cleanup "$data_dir" "$cleanup_maxdays" "$remove_attic"
-		fi
-	done
-
-	# Return to previous working directory silently
-	cd - > /dev/null
-fi
-
-# -----------------------------------------------------------------------
-# If configured, update the spam blacklist
-# -----------------------------------------------------------------------
-if [ "$update_blacklist" = "true" ] && [ -x /usr/bin/wget ]
-then
-	update_blacklist
-fi
+/* Network Settings */
+$conf['dnslookups'] = {{ wiki_dnslookups }};                 //disable to disallow IP to hostname lookups
+$conf['jquerycdn']  = {{ wiki_jquerycdn }};                 //use a CDN for delivering jQuery?
+// Proxy setup - if your Server needs a proxy to access the web set these
+$conf['proxy']['host']    = '{{ wiki_proxy_host }}';
+$conf['proxy']['port']    = '{{ wiki_proxy_port }}';
+$conf['proxy']['user']    = '{{ wiki_proxy_user }}';
+$conf['proxy']['pass']    = '{{ wiki_proxy_pass }}';
+$conf['proxy']['ssl']     = {{ wiki_proxy_ssl }};
+$conf['proxy']['except']  = '{{ wiki_proxy_except }}';
