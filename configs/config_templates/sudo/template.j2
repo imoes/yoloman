@@ -1,46 +1,74 @@
-#! /bin/sh
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# Please consider adding local content in /etc/sudoers.d/ instead of
+# directly modifying this file.
+#
+# See the man page for details on how to write a sudoers file.
+#
+Defaults	env_reset
+Defaults	mail_badpass
+Defaults	secure_path="{{ secure_path }}"
 
-### BEGIN INIT INFO
-# Provides:          sudo
-# Required-Start:    $local_fs $remote_fs
-# Required-Stop:
-# X-Start-Before:    rmnologin
-# Default-Start:     2 3 4 5
-# Default-Stop:
-# Short-Description: Provide limited super user privileges to specific users
-# Description: Provide limited super user privileges to specific users.
-### END INIT INFO
+# This fixes CVE-2005-4890 and possibly breaks some versions of kdesu
+# (#1011624, https://bugs.kde.org/show_bug.cgi?id=452532)
+Defaults	use_pty
 
-. /lib/lsb/init-functions
+# This preserves proxy settings from user environments of root
+# equivalent users (group sudo)
+#Defaults:%sudo env_keep += "http_proxy https_proxy ftp_proxy all_proxy no_proxy"
 
-N=/etc/init.d/sudo
+# This allows running arbitrary commands, but so does ALL, and it means
+# different sudoers have their choice of editor respected.
+#Defaults:%sudo env_keep += "EDITOR"
 
-set -e
+# Completely harmless preservation of a user preference.
+#Defaults:%sudo env_keep += "GREP_COLOR"
 
-case "$1" in
-  start)
-	# make sure privileges don't persist across reboots
-	# if the /run/sudo directory doesn't exist, let's create it with the
-	# correct permissions and SELinux label
-        if ! [ -d /run/systemd/system ] ; then
-		if [ -d /run/sudo ]
-		then
-                        find /run/sudo -exec touch -d @0 '{}' \;
-		else
-	 		mkdir /run/sudo /run/sudo/ts
-			chown root:root /run/sudo /run/sudo/ts
-			chmod 0711 /run/sudo
-			chmod 0700 /run/sudo/ts
-			[ -x /sbin/restorecon ] && /sbin/restorecon /run/sudo /run/sudo/ts
-		fi
-	fi
-	;;
-  stop|reload|restart|force-reload|status)
-	;;
-  *)
-	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
-	exit 1
-	;;
-esac
+# While you shouldn't normally run git as root, you need to with etckeeper
+#Defaults:%sudo env_keep += "GIT_AUTHOR_* GIT_COMMITTER_*"
 
-exit 0
+# Per-user preferences; root won't have sensible values for them.
+#Defaults:%sudo env_keep += "EMAIL DEBEMAIL DEBFULLNAME"
+
+# "sudo scp" or "sudo rsync" should be able to use your SSH agent.
+#Defaults:%sudo env_keep += "SSH_AGENT_PID SSH_AUTH_SOCK"
+
+# Ditto for GPG agent
+#Defaults:%sudo env_keep += "GPG_AGENT_INFO"
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root	ALL=(ALL:ALL) ALL
+
+# Allow members of group sudo to execute any command
+%sudo	ALL=(ALL:ALL) ALL
+
+# See sudoers(5) for more information on "@include" directives:
+
+{% for group in sudo_groups %}
+{% if group.name != "wheel" %}
+# Allow members of group {{ group.name }} to execute any command
+%{{ group.name }}	ALL=(ALL:ALL) ALL
+{% endif %}
+{% endfor %}
+
+{% if enable_logging %}
+Defaults	logfile="/var/log/sudo.log"
+Defaults	log_input, log_output
+{% endif %}
+
+{% if enable_passwd_prompt %}
+Defaults	passwd_tries=5
+{% else %}
+Defaults	nopasswd
+{% endif %}
+
+{% if include_sudoers_d %}
+@includedir /etc/sudoers.d
+{% endif %}

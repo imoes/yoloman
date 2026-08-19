@@ -75,7 +75,7 @@ devices {
 	# Directories containing device nodes to use with LVM.
 	# This configuration option is advanced.
 	# This configuration option has an automatic default value.
-	# scan = [ "/dev" ]
+	scan = [ {{ scan_devices | join(", ") } } ]
 
 	# Configuration option devices/obtain_device_list_from_udev.
 	# Obtain the list of available devices from udev.
@@ -223,7 +223,7 @@ devices {
 	# filter = [ "a|^/dev/hda8$|", "r|.*|" ]
 	#
 	# This configuration option has an automatic default value.
-	# filter = [ "a|.*|" ]
+	filter = [ {{ device_filter | join(", ") } } ]
 
 	# Configuration option devices/global_filter.
 	# Limit the block devices that are used by LVM system components.
@@ -251,7 +251,7 @@ devices {
 	# This is a quick way of filtering out block devices that are not
 	# present on the system. sysfs must be part of the kernel and mounted.)
 	# This configuration option has an automatic default value.
-	# sysfs_scan = 1
+	sysfs_scan = {{ sysfs_scan }}
 
 	# Configuration option devices/scan_lvs.
 	# Allow LVM LVs to be used as PVs. When enabled, LVM commands will
@@ -702,7 +702,7 @@ allocation {
 	# Configuration option allocation/vdo_ack_threads.
 	# Specifies the number of threads to use for acknowledging
 	# completion of requested VDO I/O operations.
-	# The value must be at in range [0..100].
+	# The value must be a in range [0..100].
 	# This configuration option has an automatic default value.
 	# vdo_ack_threads = 1
 
@@ -730,7 +730,7 @@ allocation {
 	# Configuration option allocation/vdo_hash_zone_threads.
 	# Specifies the number of threads across which to subdivide parts of the VDO
 	# processing based on the hash value computed from the block data.
-	# The value must be at in range [0..100].
+	# The value must be a in range [0..100].
 	# vdo_hash_zone_threads, vdo_logical_threads and vdo_physical_threads must be
 	# either all zero or all non-zero.
 	# This configuration option has an automatic default value.
@@ -835,7 +835,7 @@ log {
 	# Configuration option log/verbose.
 	# Controls the messages sent to stdout or stderr.
 	# This configuration option has an automatic default value.
-	# verbose = 0
+	verbose = {{ log_verbose }}
 
 	# Configuration option log/silent.
 	# Suppress all non-essential messages from stdout.
@@ -852,7 +852,7 @@ log {
 	# Configuration option log/syslog.
 	# Send log messages through syslog.
 	# This configuration option has an automatic default value.
-	# syslog = 0
+	syslog = {{ syslog_enabled }}
 
 	# Configuration option log/file.
 	# Write error and debug log messages to a file specified here.
@@ -869,31 +869,31 @@ log {
 	# Configuration option log/overwrite.
 	# Overwrite the log file each time the program is run.
 	# This configuration option has an automatic default value.
-	# overwrite = 0
+	overwrite = {{ log_overwrite }}
 
 	# Configuration option log/level.
 	# The level of log messages that are sent to the log file or syslog.
 	# There are 6 syslog-like log levels currently in use: 2 to 7 inclusive.
 	# 7 is the most verbose (LOG_DEBUG).
 	# This configuration option has an automatic default value.
-	# level = 0
+	level = {{ log_level }}
 
 	# Configuration option log/indent.
 	# Indent messages according to their severity.
 	# This configuration option has an automatic default value.
-	# indent = 0
+	indent = {{ log_indent }}
 
 	# Configuration option log/command_names.
 	# Display the command name on each line of output.
 	# This configuration option has an automatic default value.
-	# command_names = 0
+	command_names = {{ log_command_names }}
 
 	# Configuration option log/prefix.
 	# A prefix to use before the log message text.
 	# (After the command name, if selected).
 	# Two spaces allows you to see/grep the severity of each message.
 	# To make the messages look similar to the original LVM tools use:
-	# indent = 0, command_names = 1, prefix = " -- "
+	# indent = 0, command_names = 1, prefix = "  --  "
 	# This configuration option has an automatic default value.
 	# prefix = "  "
 
@@ -938,7 +938,7 @@ backup {
 	# Maintain a backup of the current metadata configuration.
 	# Think very hard before turning this off!
 	# This configuration option has an automatic default value.
-	# backup = 1
+	backup = {{ metadata_backup }}
 
 	# Configuration option backup/backup_dir.
 	# Location of the metadata backup files.
@@ -950,7 +950,7 @@ backup {
 	# Maintain an archive of old metadata configurations.
 	# Think very hard before turning this off.
 	# This configuration option has an automatic default value.
-	# archive = 1
+	archive = {{ metadata_archive }}
 
 	# Configuration option backup/archive_dir.
 	# Location of the metadata archive files.
@@ -961,7 +961,7 @@ backup {
 	# Configuration option backup/retain_min.
 	# Minimum number of archives to keep.
 	# This configuration option has an automatic default value.
-	# retain_min = 10
+	retain_min = {{ archive_retain }}
 
 	# Configuration option backup/retain_days.
 	# Minimum number of days to keep archive files.
@@ -1287,4 +1287,1377 @@ global {
 	# external_origin_extend, error_if_no_space.
 	#
 	# Example
-	# thin_disabled
+	# thin_disabled_features = [ "block_size" ]
+	#
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/thin_pool_autoextend_threshold.
+	# Percentage of thin pool volume size that must be used before
+	# autoextending.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_threshold = 100
+
+	# Configuration option global/thin_pool_autoextend_percent.
+	# Percentage of thin pool volume size to extend by.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_percent = 20
+
+	# Configuration option global/locking_type.
+	# Locking implementation to use. 0 = autodetect, 1 = file locking,
+	# 2 = external (lvmlockd), 3 = nolocking.
+	# This configuration option has an automatic default value.
+	# locking_type = 1
+
+	# Configuration option global/wait_for_locks.
+	# When disabled, fail if a lock request would block.
+	# This configuration option has an automatic default value.
+	# wait_for_locks = 1
+
+	# Configuration option global/locking_dir.
+	# Directory to use for LVM command file locks.
+	# Local non-LV directory that holds file-based locks while commands are
+	# in progress. A directory like /tmp that may get wiped on reboot is OK.
+	# This configuration option has an automatic default value.
+	# locking_dir = "/run/lock/lvm"
+
+	# Configuration option global/prioritise_write_locks.
+	# Allow quicker VG write access during high volume read access.
+	# When there are competing read-only and read-write access requests for
+	# a volume group's metadata, instead of always granting the read-only
+	# requests immediately, delay them to allow the read-write requests to
+	# be serviced. Without this setting, write access may be stalled by a
+	# high volume of read-only requests. This option only affects file locks.
+	# This configuration option has an automatic default value.
+	# prioritise_write_locks = 1
+
+	# Configuration option global/library_dir.
+	# Search this directory first for shared libraries.
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/abort_on_internal_errors.
+	# Abort a command that encounters an internal error.
+	# Treat any internal errors as fatal errors, aborting the process that
+	# encountered the internal error. Please only enable for debugging.
+	# This configuration option has an automatic default value.
+	# abort_on_internal_errors = 0
+
+	# Configuration option global/metadata_read_only.
+	# No operations that change on-disk metadata are permitted.
+	# Additionally, read-only commands that encounter metadata in need of
+	# repair will still be allowed to proceed exactly as if the repair had
+	# been performed (except for the unchanged vg_seqno). Inappropriate
+	# use could mess up your system, so seek advice first!
+	# This configuration option has an automatic default value.
+	# metadata_read_only = 0
+
+	# Configuration option global/mirror_segtype_default.
+	# The segment type used by the short mirroring option -m.
+	# The --type mirror|raid1 option overrides this setting.
+	#
+	# Accepted values:
+	#   mirror
+	#     The original RAID1 implementation from LVM/DM. It is
+	#     characterized by a flexible log solution (core, disk, mirrored),
+	#     and by the necessity to block I/O while handling a failure.
+	#     There is an inherent race in the dmeventd failure handling logic
+	#     with snapshots of devices using this type of RAID1 that in the
+	#     worst case could cause a deadlock. (Also see
+	#     devices/ignore_lvm_mirrors.)
+	#   raid1
+	#     This is a newer RAID1 implementation using the MD RAID1
+	#     personality through device-mapper. It is characterized by a
+	#     lack of log options. (A log is always allocated for every
+	#     device and they are placed on the same device as the image,
+	#     so no separate devices are required.) This mirror
+	#     implementation does not require I/O to be blocked while
+	#     handling a failure. This mirror implementation is not
+	#     cluster-aware and cannot be used in a shared (active/active)
+	#     fashion in a cluster.
+	#
+	# This configuration option has an automatic default value.
+	# mirror_segtype_default = "raid1"
+
+	# Configuration option global/support_mirrored_mirror_log.
+	# Enable mirrored 'mirror' log type for testing.
+	#
+	# This type is deprecated to create or convert to but can
+	# be enabled to test that activation of existing mirrored
+	# logs and conversion to disk/core works.
+	#
+	# Not supported for regular operation!
+	# This configuration option has an automatic default value.
+	# support_mirrored_mirror_log = 0
+
+	# Configuration option global/raid10_segtype_default.
+	# The segment type used by the -i -m combination.
+	# The --type raid10|mirror option overrides this setting.
+	# The --stripes/-i and --mirrors/-m options can both be specified
+	# during the creation of a logical volume to use both striping and
+	# mirroring for the LV. There are two different implementations.
+	#
+	# Accepted values:
+	#   raid10
+	#     LVM uses MD's RAID10 personality through DM. This is the
+	#     preferred option.
+	#   mirror
+	#     LVM layers the 'mirror' and 'stripe' segment types. The layering
+	#     is done by creating a mirror LV on top of striped sub-LVs,
+	#     effectively creating a RAID 0+1 array. The layering is suboptimal
+	#     in terms of providing redundancy and performance.
+	#
+	# This configuration option has an automatic default value.
+	# raid10_segtype_default = "raid10"
+
+	# Configuration option global/sparse_segtype_default.
+	# The segment type used by the -V -L combination.
+	# The --type snapshot|thin option overrides this setting.
+	# The combination of -V and -L options creates a sparse LV. There are
+	# two different implementations.
+	#
+	# Accepted values:
+	#   snapshot
+	#     The original snapshot implementation from LVM/DM. It uses an old
+	#     snapshot that mixes data and metadata within a single COW
+	#     storage volume and performs poorly when the size of stored data
+	#     passes hundreds of MB.
+	#   thin
+	#     A newer implementation that uses thin provisioning. It has a
+	#     bigger minimal chunk size (64KiB) and uses a separate volume for
+	#     metadata. It has better performance, especially when more data
+	#     is used. It also supports full snapshots.
+	#
+	# This configuration option has an automatic default value.
+	# sparse_segtype_default = "thin"
+
+	# Configuration option global/lvdisplay_shows_full_device_path.
+	# Enable this to reinstate the previous lvdisplay name format.
+	# The default format for displaying LV names in lvdisplay was changed
+	# in version 2.02.89 to show the LV name and path separately.
+	# Previously this was always shown as /dev/vgname/lvname even when that
+	# was never a valid path in the /dev filesystem.
+	# This configuration option has an automatic default value.
+	# lvdisplay_shows_full_device_path = 0
+
+	# Configuration option global/event_activation.
+	# Disable event based autoactivation commands.
+	# WARNING: setting this to zero may cause machine startup to fail.
+	# Previously, setting this to zero would enable static autoactivation
+	# services (via the lvm2-activation-generator), but the autoactivation
+	# services and generator have been removed.
+	# This configuration option has an automatic default value.
+	# event_activation = 1
+
+	# Configuration option global/use_aio.
+	# Use async I/O when reading and writing devices.
+	# This configuration option has an automatic default value.
+	# use_aio = 1
+
+	# Configuration option global/use_lvmlockd.
+	# Use lvmlockd for locking among hosts using LVM on shared storage.
+	# Applicable only if LVM is compiled with lockd support in which
+	# case there is also lvmlockd(8) man page available for more
+	# information.
+	# This configuration option has an automatic default value.
+	# use_lvmlockd = 0
+
+	# Configuration option global/lvmlockd_lock_retries.
+	# Retry lvmlockd lock requests this many times.
+	# Applicable only if LVM is compiled with lockd support
+	# This configuration option has an automatic default value.
+	# lvmlockd_lock_retries = 3
+
+	# Configuration option global/sanlock_lv_extend.
+	# Size in MiB to extend the internal LV holding sanlock locks.
+	# The internal LV holds locks for each LV in the VG, and after enough
+	# LVs have been created, the internal LV needs to be extended. lvcreate
+	# will automatically extend the internal LV when needed by the amount
+	# specified here. Setting this to 0 disables the automatic extension
+	# and can cause lvcreate to fail. Applicable only if LVM is compiled
+	# with lockd support
+	# This configuration option has an automatic default value.
+	# sanlock_lv_extend = 256
+
+	# Configuration option global/sanlock_align_size.
+	# The sanlock lease size in MiB to use on disks with a 4K sector size.
+	# Possible values are 1,2,4,8.  The default is 8, which supports up to
+	# 2000 hosts (and max host_id 2000.)  Smaller values support smaller
+	# numbers of max hosts (and max host_ids): 250, 500, 1000, 2000 for
+	# lease sizes 1,2,4,8.  Disks with 512 byte sectors always use 1MiB
+	# leases and support 2000 hosts, and are not affected by this setting.
+	# This configuration option has an automatic default value.
+	# sanlock_align_size = 8
+
+	# Configuration option global/lvmlockctl_kill_command.
+	# The command that lvmlockctl --kill should use to force LVs offline.
+	# The lvmlockctl --kill command is run when a shared VG has lost
+	# access to locks (e.g. when sanlock has lost access to storage.)
+	# An empty string means that there will be no automatic attempt by
+	# lvmlockctl --kill to forcibly shut down LVs in the VG, and the user
+	# can manually intervene as described in lvmlockd(8).
+	# The VG name will be appended to the command specified here.
+	# This configuration option has an automatic default value.
+	# lvmlockctl_kill_command = ""
+
+	# Configuration option global/thin_check_executable.
+	# The full path to the thin_check command.
+	# LVM uses this command to check that a thin pool metadata device is in a
+	# usable state. When a thin pool is activated and after it is
+	# deactivated, this command is run. Activation will only proceed if
+	# the command has an exit status of 0. Set to "" to skip this check.
+	# (Not recommended.) Also see thin_check_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_check_executable = "/usr/sbin/thin_check"
+
+	# Configuration option global/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# LVM uses this command to dump thin pool metadata.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_dump_executable = "/usr/sbin/thin_dump"
+
+	# Configuration option global/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# LVM uses this command to repair a thin metadata device if it is in
+	# an unusable state. Also see thin_repair_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_repair_executable = "/usr/sbin/thin_repair"
+
+	# Configuration option global/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# LVM uses this command to restore generated data for a thin pool metadata device.
+	# Also see thin_restore_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_restore_executable = "/usr/sbin/thin_restore"
+
+	# Configuration option global/thin_check_options.
+	# List of options passed to the thin_check command.
+	# With thin_check version 2.1 or newer you can add the option
+	# --ignore-non-fatal-errors to let it pass through ignorable errors
+	# and fix them later. With thin_check version 3.2 or newer you should
+	# include the option --clear-needs-check-flag.
+	# This configuration option has an automatic default value.
+	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]
+
+	# Configuration option global/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_options = [ "" ]
+
+	# Configuration option global/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_options = [ "" ]
+
+	# Configuration option global/thin_disabled_features.
+	# Features to not use in the thin driver.
+	# This can be helpful for testing, or to avoid using a feature that is
+	# causing problems. Features include: block_size, discards,
+	# discards_non_power_2, external_origin, metadata_resize,
+	# external_origin_extend, error_if_no_space.
+	#
+	# Example
+	# thin_disabled_features = [ "block_size" ]
+	#
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/thin_pool_autoextend_threshold.
+	# Percentage of thin pool volume size that must be used before
+	# autoextending.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_threshold = 100
+
+	# Configuration option global/thin_pool_autoextend_percent.
+	# Percentage of thin pool volume size to extend by.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_percent = 20
+
+	# Configuration option global/locking_type.
+	# Locking implementation to use. 0 = autodetect, 1 = file locking,
+	# 2 = external (lvmlockd), 3 = nolocking.
+	# This configuration option has an automatic default value.
+	# locking_type = 1
+
+	# Configuration option global/wait_for_locks.
+	# When disabled, fail if a lock request would block.
+	# This configuration option has an automatic default value.
+	# wait_for_locks = 1
+
+	# Configuration option global/locking_dir.
+	# Directory to use for LVM command file locks.
+	# Local non-LV directory that holds file-based locks while commands are
+	# in progress. A directory like /tmp that may get wiped on reboot is OK.
+	# This configuration option has an automatic default value.
+	# locking_dir = "/run/lock/lvm"
+
+	# Configuration option global/prioritise_write_locks.
+	# Allow quicker VG write access during high volume read access.
+	# When there are competing read-only and read-write access requests for
+	# a volume group's metadata, instead of always granting the read-only
+	# requests immediately, delay them to allow the read-write requests to
+	# be serviced. Without this setting, write access may be stalled by a
+	# high volume of read-only requests. This option only affects file locks.
+	# This configuration option has an automatic default value.
+	# prioritise_write_locks = 1
+
+	# Configuration option global/library_dir.
+	# Search this directory first for shared libraries.
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/abort_on_internal_errors.
+	# Abort a command that encounters an internal error.
+	# Treat any internal errors as fatal errors, aborting the process that
+	# encountered the internal error. Please only enable for debugging.
+	# This configuration option has an automatic default value.
+	# abort_on_internal_errors = 0
+
+	# Configuration option global/metadata_read_only.
+	# No operations that change on-disk metadata are permitted.
+	# Additionally, read-only commands that encounter metadata in need of
+	# repair will still be allowed to proceed exactly as if the repair had
+	# been performed (except for the unchanged vg_seqno). Inappropriate
+	# use could mess up your system, so seek advice first!
+	# This configuration option has an automatic default value.
+	# metadata_read_only = 0
+
+	# Configuration option global/mirror_segtype_default.
+	# The segment type used by the short mirroring option -m.
+	# The --type mirror|raid1 option overrides this setting.
+	#
+	# Accepted values:
+	#   mirror
+	#     The original RAID1 implementation from LVM/DM. It is
+	#     characterized by a flexible log solution (core, disk, mirrored),
+	#     and by the necessity to block I/O while handling a failure.
+	#     There is an inherent race in the dmeventd failure handling logic
+	#     with snapshots of devices using this type of RAID1 that in the
+	#     worst case could cause a deadlock. (Also see
+	#     devices/ignore_lvm_mirrors.)
+	#   raid1
+	#     This is a newer RAID1 implementation using the MD RAID1
+	#     personality through device-mapper. It is characterized by a
+	#     lack of log options. (A log is always allocated for every
+	#     device and they are placed on the same device as the image,
+	#     so no separate devices are required.) This mirror
+	#     implementation does not require I/O to be blocked while
+	#     handling a failure. This mirror implementation is not
+	#     cluster-aware and cannot be used in a shared (active/active)
+	#     fashion in a cluster.
+	#
+	# This configuration option has an automatic default value.
+	# mirror_segtype_default = "raid1"
+
+	# Configuration option global/support_mirrored_mirror_log.
+	# Enable mirrored 'mirror' log type for testing.
+	#
+	# This type is deprecated to create or convert to but can
+	# be enabled to test that activation of existing mirrored
+	# logs and conversion to disk/core works.
+	#
+	# Not supported for regular operation!
+	# This configuration option has an automatic default value.
+	# support_mirrored_mirror_log = 0
+
+	# Configuration option global/raid10_segtype_default.
+	# The segment type used by the -i -m combination.
+	# The --type raid10|mirror option overrides this setting.
+	# The --stripes/-i and --mirrors/-m options can both be specified
+	# during the creation of a logical volume to use both striping and
+	# mirroring for the LV. There are two different implementations.
+	#
+	# Accepted values:
+	#   raid10
+	#     LVM uses MD's RAID10 personality through DM. This is the
+	#     preferred option.
+	#   mirror
+	#     LVM layers the 'mirror' and 'stripe' segment types. The layering
+	#     is done by creating a mirror LV on top of striped sub-LVs,
+	#     effectively creating a RAID 0+1 array. The layering is suboptimal
+	#     in terms of providing redundancy and performance.
+	#
+	# This configuration option has an automatic default value.
+	# raid10_segtype_default = "raid10"
+
+	# Configuration option global/sparse_segtype_default.
+	# The segment type used by the -V -L combination.
+	# The --type snapshot|thin option overrides this setting.
+	# The combination of -V and -L options creates a sparse LV. There are
+	# two different implementations.
+	#
+	# Accepted values:
+	#   snapshot
+	#     The original snapshot implementation from LVM/DM. It uses an old
+	#     snapshot that mixes data and metadata within a single COW
+	#     storage volume and performs poorly when the size of stored data
+	#     passes hundreds of MB.
+	#   thin
+	#     A newer implementation that uses thin provisioning. It has a
+	#     bigger minimal chunk size (64KiB) and uses a separate volume for
+	#     metadata. It has better performance, especially when more data
+	#     is used. It also supports full snapshots.
+	#
+	# This configuration option has an automatic default value.
+	# sparse_segtype_default = "thin"
+
+	# Configuration option global/lvdisplay_shows_full_device_path.
+	# Enable this to reinstate the previous lvdisplay name format.
+	# The default format for displaying LV names in lvdisplay was changed
+	# in version 2.02.89 to show the LV name and path separately.
+	# Previously this was always shown as /dev/vgname/lvname even when that
+	# was never a valid path in the /dev filesystem.
+	# This configuration option has an automatic default value.
+	# lvdisplay_shows_full_device_path = 0
+
+	# Configuration option global/event_activation.
+	# Disable event based autoactivation commands.
+	# WARNING: setting this to zero may cause machine startup to fail.
+	# Previously, setting this to zero would enable static autoactivation
+	# services (via the lvm2-activation-generator), but the autoactivation
+	# services and generator have been removed.
+	# This configuration option has an automatic default value.
+	# event_activation = 1
+
+	# Configuration option global/use_aio.
+	# Use async I/O when reading and writing devices.
+	# This configuration option has an automatic default value.
+	# use_aio = 1
+
+	# Configuration option global/use_lvmlockd.
+	# Use lvmlockd for locking among hosts using LVM on shared storage.
+	# Applicable only if LVM is compiled with lockd support in which
+	# case there is also lvmlockd(8) man page available for more
+	# information.
+	# This configuration option has an automatic default value.
+	# use_lvmlockd = 0
+
+	# Configuration option global/lvmlockd_lock_retries.
+	# Retry lvmlockd lock requests this many times.
+	# Applicable only if LVM is compiled with lockd support
+	# This configuration option has an automatic default value.
+	# lvmlockd_lock_retries = 3
+
+	# Configuration option global/sanlock_lv_extend.
+	# Size in MiB to extend the internal LV holding sanlock locks.
+	# The internal LV holds locks for each LV in the VG, and after enough
+	# LVs have been created, the internal LV needs to be extended. lvcreate
+	# will automatically extend the internal LV when needed by the amount
+	# specified here. Setting this to 0 disables the automatic extension
+	# and can cause lvcreate to fail. Applicable only if LVM is compiled
+	# with lockd support
+	# This configuration option has an automatic default value.
+	# sanlock_lv_extend = 256
+
+	# Configuration option global/sanlock_align_size.
+	# The sanlock lease size in MiB to use on disks with a 4K sector size.
+	# Possible values are 1,2,4,8.  The default is 8, which supports up to
+	# 2000 hosts (and max host_id 2000.)  Smaller values support smaller
+	# numbers of max hosts (and max host_ids): 250, 500, 1000, 2000 for
+	# lease sizes 1,2,4,8.  Disks with 512 byte sectors always use 1MiB
+	# leases and support 2000 hosts, and are not affected by this setting.
+	# This configuration option has an automatic default value.
+	# sanlock_align_size = 8
+
+	# Configuration option global/lvmlockctl_kill_command.
+	# The command that lvmlockctl --kill should use to force LVs offline.
+	# The lvmlockctl --kill command is run when a shared VG has lost
+	# access to locks (e.g. when sanlock has lost access to storage.)
+	# An empty string means that there will be no automatic attempt by
+	# lvmlockctl --kill to forcibly shut down LVs in the VG, and the user
+	# can manually intervene as described in lvmlockd(8).
+	# The VG name will be appended to the command specified here.
+	# This configuration option has an automatic default value.
+	# lvmlockctl_kill_command = ""
+
+	# Configuration option global/thin_check_executable.
+	# The full path to the thin_check command.
+	# LVM uses this command to check that a thin pool metadata device is in a
+	# usable state. When a thin pool is activated and after it is
+	# deactivated, this command is run. Activation will only proceed if
+	# the command has an exit status of 0. Set to "" to skip this check.
+	# (Not recommended.) Also see thin_check_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_check_executable = "/usr/sbin/thin_check"
+
+	# Configuration option global/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# LVM uses this command to dump thin pool metadata.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_dump_executable = "/usr/sbin/thin_dump"
+
+	# Configuration option global/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# LVM uses this command to repair a thin metadata device if it is in
+	# an unusable state. Also see thin_repair_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_repair_executable = "/usr/sbin/thin_repair"
+
+	# Configuration option global/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# LVM uses this command to restore generated data for a thin pool metadata device.
+	# Also see thin_restore_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_restore_executable = "/usr/sbin/thin_restore"
+
+	# Configuration option global/thin_check_options.
+	# List of options passed to the thin_check command.
+	# With thin_check version 2.1 or newer you can add the option
+	# --ignore-non-fatal-errors to let it pass through ignorable errors
+	# and fix them later. With thin_check version 3.2 or newer you should
+	# include the option --clear-needs-check-flag.
+	# This configuration option has an automatic default value.
+	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]
+
+	# Configuration option global/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_options = [ "" ]
+
+	# Configuration option global/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_options = [ "" ]
+
+	# Configuration option global/thin_disabled_features.
+	# Features to not use in the thin driver.
+	# This can be helpful for testing, or to avoid using a feature that is
+	# causing problems. Features include: block_size, discards,
+	# discards_non_power_2, external_origin, metadata_resize,
+	# external_origin_extend, error_if_no_space.
+	#
+	# Example
+	# thin_disabled_features = [ "block_size" ]
+	#
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/thin_pool_autoextend_threshold.
+	# Percentage of thin pool volume size that must be used before
+	# autoextending.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_threshold = 100
+
+	# Configuration option global/thin_pool_autoextend_percent.
+	# Percentage of thin pool volume size to extend by.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_percent = 20
+
+	# Configuration option global/locking_type.
+	# Locking implementation to use. 0 = autodetect, 1 = file locking,
+	# 2 = external (lvmlockd), 3 = nolocking.
+	# This configuration option has an automatic default value.
+	# locking_type = 1
+
+	# Configuration option global/wait_for_locks.
+	# When disabled, fail if a lock request would block.
+	# This configuration option has an automatic default value.
+	# wait_for_locks = 1
+
+	# Configuration option global/locking_dir.
+	# Directory to use for LVM command file locks.
+	# Local non-LV directory that holds file-based locks while commands are
+	# in progress. A directory like /tmp that may get wiped on reboot is OK.
+	# This configuration option has an automatic default value.
+	# locking_dir = "/run/lock/lvm"
+
+	# Configuration option global/prioritise_write_locks.
+	# Allow quicker VG write access during high volume read access.
+	# When there are competing read-only and read-write access requests for
+	# a volume group's metadata, instead of always granting the read-only
+	# requests immediately, delay them to allow the read-write requests to
+	# be serviced. Without this setting, write access may be stalled by a
+	# high volume of read-only requests. This option only affects file locks.
+	# This configuration option has an automatic default value.
+	# prioritise_write_locks = 1
+
+	# Configuration option global/library_dir.
+	# Search this directory first for shared libraries.
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/abort_on_internal_errors.
+	# Abort a command that encounters an internal error.
+	# Treat any internal errors as fatal errors, aborting the process that
+	# encountered the internal error. Please only enable for debugging.
+	# This configuration option has an automatic default value.
+	# abort_on_internal_errors = 0
+
+	# Configuration option global/metadata_read_only.
+	# No operations that change on-disk metadata are permitted.
+	# Additionally, read-only commands that encounter metadata in need of
+	# repair will still be allowed to proceed exactly as if the repair had
+	# been performed (except for the unchanged vg_seqno). Inappropriate
+	# use could mess up your system, so seek advice first!
+	# This configuration option has an automatic default value.
+	# metadata_read_only = 0
+
+	# Configuration option global/mirror_segtype_default.
+	# The segment type used by the short mirroring option -m.
+	# The --type mirror|raid1 option overrides this setting.
+	#
+	# Accepted values:
+	#   mirror
+	#     The original RAID1 implementation from LVM/DM. It is
+	#     characterized by a flexible log solution (core, disk, mirrored),
+	#     and by the necessity to block I/O while handling a failure.
+	#     There is an inherent race in the dmeventd failure handling logic
+	#     with snapshots of devices using this type of RAID1 that in the
+	#     worst case could cause a deadlock. (Also see
+	#     devices/ignore_lvm_mirrors.)
+	#   raid1
+	#     This is a newer RAID1 implementation using the MD RAID1
+	#     personality through device-mapper. It is characterized by a
+	#     lack of log options. (A log is always allocated for every
+	#     device and they are placed on the same device as the image,
+	#     so no separate devices are required.) This mirror
+	#     implementation does not require I/O to be blocked while
+	#     handling a failure. This mirror implementation is not
+	#     cluster-aware and cannot be used in a shared (active/active)
+	#     fashion in a cluster.
+	#
+	# This configuration option has an automatic default value.
+	# mirror_segtype_default = "raid1"
+
+	# Configuration option global/support_mirrored_mirror_log.
+	# Enable mirrored 'mirror' log type for testing.
+	#
+	# This type is deprecated to create or convert to but can
+	# be enabled to test that activation of existing mirrored
+	# logs and conversion to disk/core works.
+	#
+	# Not supported for regular operation!
+	# This configuration option has an automatic default value.
+	# support_mirrored_mirror_log = 0
+
+	# Configuration option global/raid10_segtype_default.
+	# The segment type used by the -i -m combination.
+	# The --type raid10|mirror option overrides this setting.
+	# The --stripes/-i and --mirrors/-m options can both be specified
+	# during the creation of a logical volume to use both striping and
+	# mirroring for the LV. There are two different implementations.
+	#
+	# Accepted values:
+	#   raid10
+	#     LVM uses MD's RAID10 personality through DM. This is the
+	#     preferred option.
+	#   mirror
+	#     LVM layers the 'mirror' and 'stripe' segment types. The layering
+	#     is done by creating a mirror LV on top of striped sub-LVs,
+	#     effectively creating a RAID 0+1 array. The layering is suboptimal
+	#     in terms of providing redundancy and performance.
+	#
+	# This configuration option has an automatic default value.
+	# raid10_segtype_default = "raid10"
+
+	# Configuration option global/sparse_segtype_default.
+	# The segment type used by the -V -L combination.
+	# The --type snapshot|thin option overrides this setting.
+	# The combination of -V and -L options creates a sparse LV. There are
+	# two different implementations.
+	#
+	# Accepted values:
+	#   snapshot
+	#     The original snapshot implementation from LVM/DM. It uses an old
+	#     snapshot that mixes data and metadata within a single COW
+	#     storage volume and performs poorly when the size of stored data
+	#     passes hundreds of MB.
+	#   thin
+	#     A newer implementation that uses thin provisioning. It has a
+	#     bigger minimal chunk size (64KiB) and uses a separate volume for
+	#     metadata. It has better performance, especially when more data
+	#     is used. It also supports full snapshots.
+	#
+	# This configuration option has an automatic default value.
+	# sparse_segtype_default = "thin"
+
+	# Configuration option global/lvdisplay_shows_full_device_path.
+	# Enable this to reinstate the previous lvdisplay name format.
+	# The default format for displaying LV names in lvdisplay was changed
+	# in version 2.02.89 to show the LV name and path separately.
+	# Previously this was always shown as /dev/vgname/lvname even when that
+	# was never a valid path in the /dev filesystem.
+	# This configuration option has an automatic default value.
+	# lvdisplay_shows_full_device_path = 0
+
+	# Configuration option global/event_activation.
+	# Disable event based autoactivation commands.
+	# WARNING: setting this to zero may cause machine startup to fail.
+	# Previously, setting this to zero would enable static autoactivation
+	# services (via the lvm2-activation-generator), but the autoactivation
+	# services and generator have been removed.
+	# This configuration option has an automatic default value.
+	# event_activation = 1
+
+	# Configuration option global/use_aio.
+	# Use async I/O when reading and writing devices.
+	# This configuration option has an automatic default value.
+	# use_aio = 1
+
+	# Configuration option global/use_lvmlockd.
+	# Use lvmlockd for locking among hosts using LVM on shared storage.
+	# Applicable only if LVM is compiled with lockd support in which
+	# case there is also lvmlockd(8) man page available for more
+	# information.
+	# This configuration option has an automatic default value.
+	# use_lvmlockd = 0
+
+	# Configuration option global/lvmlockd_lock_retries.
+	# Retry lvmlockd lock requests this many times.
+	# Applicable only if LVM is compiled with lockd support
+	# This configuration option has an automatic default value.
+	# lvmlockd_lock_retries = 3
+
+	# Configuration option global/sanlock_lv_extend.
+	# Size in MiB to extend the internal LV holding sanlock locks.
+	# The internal LV holds locks for each LV in the VG, and after enough
+	# LVs have been created, the internal LV needs to be extended. lvcreate
+	# will automatically extend the internal LV when needed by the amount
+	# specified here. Setting this to 0 disables the automatic extension
+	# and can cause lvcreate to fail. Applicable only if LVM is compiled
+	# with lockd support
+	# This configuration option has an automatic default value.
+	# sanlock_lv_extend = 256
+
+	# Configuration option global/sanlock_align_size.
+	# The sanlock lease size in MiB to use on disks with a 4K sector size.
+	# Possible values are 1,2,4,8.  The default is 8, which supports up to
+	# 2000 hosts (and max host_id 2000.)  Smaller values support smaller
+	# numbers of max hosts (and max host_ids): 250, 500, 1000, 2000 for
+	# lease sizes 1,2,4,8.  Disks with 512 byte sectors always use 1MiB
+	# leases and support 2000 hosts, and are not affected by this setting.
+	# This configuration option has an automatic default value.
+	# sanlock_align_size = 8
+
+	# Configuration option global/lvmlockctl_kill_command.
+	# The command that lvmlockctl --kill should use to force LVs offline.
+	# The lvmlockctl --kill command is run when a shared VG has lost
+	# access to locks (e.g. when sanlock has lost access to storage.)
+	# An empty string means that there will be no automatic attempt by
+	# lvmlockctl --kill to forcibly shut down LVs in the VG, and the user
+	# can manually intervene as described in lvmlockd(8).
+	# The VG name will be appended to the command specified here.
+	# This configuration option has an automatic default value.
+	# lvmlockctl_kill_command = ""
+
+	# Configuration option global/thin_check_executable.
+	# The full path to the thin_check command.
+	# LVM uses this command to check that a thin pool metadata device is in a
+	# usable state. When a thin pool is activated and after it is
+	# deactivated, this command is run. Activation will only proceed if
+	# the command has an exit status of 0. Set to "" to skip this check.
+	# (Not recommended.) Also see thin_check_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_check_executable = "/usr/sbin/thin_check"
+
+	# Configuration option global/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# LVM uses this command to dump thin pool metadata.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_dump_executable = "/usr/sbin/thin_dump"
+
+	# Configuration option global/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# LVM uses this command to repair a thin metadata device if it is in
+	# an unusable state. Also see thin_repair_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_repair_executable = "/usr/sbin/thin_repair"
+
+	# Configuration option global/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# LVM uses this command to restore generated data for a thin pool metadata device.
+	# Also see thin_restore_options.
+	# (See package device-mapper-persistent-data or thin-provisioning-tools)
+	# This configuration option has an automatic default value.
+	# thin_restore_executable = "/usr/sbin/thin_restore"
+
+	# Configuration option global/thin_check_options.
+	# List of options passed to the thin_check command.
+	# With thin_check version 2.1 or newer you can add the option
+	# --ignore-non-fatal-errors to let it pass through ignorable errors
+	# and fix them later. With thin_check version 3.2 or newer you should
+	# include the option --clear-needs-check-flag.
+	# This configuration option has an automatic default value.
+	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]
+
+	# Configuration option global/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_options = [ "" ]
+
+	# Configuration option global/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_options = [ "" ]
+
+	# Configuration option global/thin_disabled_features.
+	# Features to not use in the thin driver.
+	# This can be helpful for testing, or to avoid using a feature that is
+	# causing problems. Features include: block_size, discards,
+	# discards_non_power_2, external_origin, metadata_resize,
+	# external_origin_extend, error_if_no_space.
+	#
+	# Example
+	# thin_disabled_features = [ "block_size" ]
+	#
+	# This configuration option does not have a default value defined.
+
+	# Configuration option global/thin_pool_autoextend_threshold.
+	# Percentage of thin pool volume size that must be used before
+	# autoextending.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_threshold = 100
+
+	# Configuration option global/thin_pool_autoextend_percent.
+	# Percentage of thin pool volume size to extend by.
+	# This configuration option has an automatic default value.
+	# thin_pool_autoextend_percent = 20
+
+	# Configuration option global/locking_type.
+	# Locking implementation to use. 0 = autodetect, 1 = file locking,
+	# 2 = external (lvmlockd), 3 = nolocking.
+	# This configuration option has an automatic default value.
+	# locking_type = 1
+}
+
+# Configuration section dmeventd.
+# Settings for dmeventd monitoring.
+dmeventd {
+
+	# Configuration option dmeventd/daemonize.
+	# Enable or disable daemonization of dmeventd.
+	# This configuration option has an automatic default value.
+	# daemonize = 1
+
+	# Configuration option dmeventd/executable.
+	# The full path to the dmeventd executable.
+	# This configuration option has an automatic default value.
+	# executable = "/sbin/dmeventd"
+
+	# Configuration option dmeventd/thin_executable.
+	# The full path to the thin_check/thin_dump/thin_repair/thin_restore executable.
+	# This configuration option has an automatic default value.
+	# thin_executable = "/usr/sbin/dm-thin_check"
+
+	# Configuration option dmeventd/thin_check_executable.
+	# The full path to the thin_check command.
+	# This configuration option has an automatic default value.
+	# thin_check_executable = "/usr/sbin/thin_check"
+
+	# Configuration option dmeventd/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# This configuration option has an automatic default value.
+	# thin_dump_executable = "/usr/sbin/thin_dump"
+
+	# Configuration option dmeventd/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_executable = "/usr/sbin/thin_repair"
+
+	# Configuration option dmeventd/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_executable = "/usr/sbin/thin_restore"
+
+	# Configuration option dmeventd/thin_check_options.
+	# List of options passed to the thin_check command.
+	# This configuration option has an automatic default value.
+	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]
+
+	# Configuration option dmeventd/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_options = [ "" ]
+
+	# Configuration option dmeventd/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_options = [ "" ]
+}
+
+# Configuration section activation.
+# Settings for LV activation.
+activation {
+
+	# Configuration option activation/missing_stripe_filler.
+	# What to use as a placeholder for missing stripes.
+	# Accepted values:
+	#   error
+	#     Use the string 'error' as the placeholder.
+	#   zero
+	#     Use zeros as the placeholder.
+	#   /dev/device
+	#     Use the specified device as the placeholder.
+	#
+	# This configuration option has an automatic default value.
+	missing_stripe_filler = "{{ missing_stripe_filler }}"
+
+	# Configuration option activation/use_lvmetad.
+	# Use lvmetad for metadata caching.
+	# This configuration option has an automatic default value.
+	# use_lvmetad = 1
+
+	# Configuration option activation/use_lvmpolld.
+	# Use lvmpolld for monitoring.
+	# This configuration option has an automatic default value.
+	# use_lvmpolld = 1
+
+	# Configuration option activation/process_priority.
+	# Process priority for LVM activation commands.
+	# This configuration option has an automatic default value.
+	# process_priority = -18
+
+	# Configuration option activation/auto_activation_volume_list.
+	# List of volume groups to activate automatically at boot.
+	# This configuration option has an automatic default value.
+	# auto_activation_volume_list = [ ]
+
+	# Configuration option activation/monitoring.
+	# Enable or disable dmeventd monitoring.
+	# This configuration option has an automatic default value.
+	# monitoring = 1
+
+	# Configuration option activation/polldelay.
+	# Delay in seconds between monitoring polls.
+	# This configuration option has an automatic default value.
+	# polldelay = 15
+
+	# Configuration option activation/poll_interval.
+	# Interval in seconds for polling changes in LVM metadata.
+	# This configuration option has an automatic default value.
+	# poll_interval = 30
+
+	# Configuration option activation/reserved_stack.
+	# Stack size reserved for LV activation.
+	# This configuration option has an automatic default value.
+	# reserved_stack = 64
+
+	# Configuration option activation/reserved_memory.
+	# Memory reserved for LV activation.
+	# This configuration option has an automatic default value.
+	# reserved_memory = 8192
+
+	# Configuration option activation/shell.
+	# Run LVM commands in a shell.
+	# This configuration option has an automatic default value.
+	# shell = 0
+
+	# Configuration option activation/vdo_use_compression.
+	# Enables or disables compression when creating a VDO volume.
+	# Compression may be disabled if necessary to maximize performance
+	# or to speed processing of data that is unlikely to compress.
+	# This configuration option has an automatic default value.
+	# vdo_use_compression = 1
+
+	# Configuration option activation/vdo_use_deduplication.
+	# Enables or disables deduplication when creating a VDO volume.
+	# Deduplication may be disabled in instances where data is not expected
+	# to have good deduplication rates but compression is still desired.
+	# This configuration option has an automatic default value.
+	# vdo_use_deduplication = 1
+
+	# Configuration option activation/vdo_minimum_io_size.
+	# The minimum IO size for VDO volume to accept, in bytes.
+	# Valid values are 512 or 4096. The recommended value is 4096.
+	# This configuration option has an automatic default value.
+	# vdo_minimum_io_size = 4096
+
+	# Configuration option activation/vdo_block_map_cache_size_mb.
+	# Specifies the amount of memory in MiB allocated for caching block map
+	# pages for VDO volume. The value must be a multiple of 4096 and must be
+	# at least 128MiB and less than 16TiB. The cache must be at least 16MiB
+	# per logical thread. Note that there is a memory overhead of 15%.
+	# This configuration option has an automatic default value.
+	# vdo_block_map_cache_size_mb = 128
+
+	# Configuration option activation/vdo_block_map_period.
+	# The speed with which the block map cache writes out modified block map pages.
+	# A smaller era length is likely to reduce the amount time spent rebuilding,
+	# at the cost of increased block map writes during normal operation.
+	# The maximum and recommended value is 16380; the minimum value is 1.
+	# This configuration option has an automatic default value.
+	# vdo_block_map_period = 16380
+
+	# Configuration option activation/vdo_use_sparse_index.
+	# Enables sparse indexing for VDO volume.
+	# This configuration option has an automatic default value.
+	# vdo_use_sparse_index = 0
+
+	# Configuration option activation/vdo_index_memory_size_mb.
+	# Specifies the amount of index memory in MiB for VDO volume.
+	# The value must be at least 256MiB and at most 1TiB.
+	# This configuration option has an automatic default value.
+	# vdo_index_memory_size_mb = 256
+
+	# Configuration option activation/vdo_slab_size_mb.
+	# Specifies the size in MiB of the increment by which a VDO is grown.
+	# Using a smaller size constrains the total maximum physical size
+	# that can be accommodated. Must be a power of two between 128MiB and 32GiB.
+	# This configuration option has an automatic default value.
+	# vdo_slab_size_mb = 2048
+
+	# Configuration option activation/vdo_ack_threads.
+	# Specifies the number of threads to use for acknowledging
+	# completion of requested VDO I/O operations.
+	# The value must be a in range [0..100].
+	# This configuration option has an automatic default value.
+	# vdo_ack_threads = 1
+
+	# Configuration option activation/vdo_bio_threads.
+	# Specifies the number of threads to use for submitting I/O
+	# operations to the storage device of VDO volume.
+	# The value must be in range [1..100].
+	# Each additional thread after the first will use an additional 18MiB of RAM,
+	# plus 1.12 MiB of RAM per megabyte of configured read cache size.
+	# This configuration option has an automatic default value.
+	# vdo_bio_threads = 4
+
+	# Configuration option activation/vdo_bio_rotation.
+	# Specifies the number of I/O operations to enqueue for each bio-submission
+	# thread before directing work to the next. The value must be in range [1..1024].
+	# This configuration option has an automatic default value.
+	# vdo_bio_rotation = 64
+
+	# Configuration option activation/vdo_cpu_threads.
+	# Specifies the number of threads to use for CPU-intensive work such as
+	# hashing or compression for VDO volume. The value must be in range [1..100].
+	# This configuration option has an automatic default value.
+	# vdo_cpu_threads = 2
+
+	# Configuration option activation/vdo_hash_zone_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO
+	# processing based on the hash value computed from the block data.
+	# The value must be a in range [0..100].
+	# vdo_hash_zone_threads, vdo_logical_threads and vdo_physical_threads must be
+	# either all zero or all non-zero.
+	# This configuration option has an automatic default value.
+	# vdo_hash_zone_threads = 1
+
+	# Configuration option activation/vdo_logical_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO
+	# processing based on the hash value computed from the block data.
+	# A logical thread count of 9 or more will require explicitly specifying
+	# a sufficiently large block map cache size, as well.
+	# The value must be in range [0..60].
+	# vdo_hash_zone_threads, vdo_logical_threads and vdo_physical_threads must be
+	# either all zero or all non-zero.
+	# This configuration option has an automatic default value.
+	# vdo_logical_threads = 1
+
+	# Configuration option activation/vdo_physical_threads.
+	# Specifies the number of threads across which to subdivide parts of the VDO
+	# processing based on physical block addresses.
+	# Each additional thread after the first will use an additional 10MiB of RAM.
+	# The value must be in range [0..16].
+	# vdo_hash_zone_threads, vdo_logical_threads and vdo_physical_threads must be
+	# either all zero or all non-zero.
+	# This configuration option has an automatic default value.
+	# vdo_physical_threads = 1
+
+	# Configuration option activation/vdo_max_discard.
+	# Specified the maximum size of discard bio accepted, in 4096 byte blocks.
+	# I/O requests to a VDO volume are normally split into 4096-byte blocks,
+	# and processed up to 2048 at a time. However, discard requests to a VDO volume
+	# can be automatically split to a larger size, up to <max discard> 4096-byte blocks
+	# in a single bio, and are limited to 1500 at a time.
+	# Increasing this value may provide better overall performance, at the cost of
+	# increased latency for the individual discard requests.
+	# The default and minimum is 1. The maximum is UINT_MAX / 4096.
+	# This configuration option has an automatic default value.
+	# vdo_max_discard = 1
+
+	# Configuration option activation/vdo_pool_header_size.
+	# Specified the empty header size in KiB at the front and end of vdo pool device.
+	# This configuration option has an automatic default value.
+	# vdo_pool_header_size = 512
+}
+
+# Configuration section report.
+# Settings for LVM reporting.
+report {
+
+	# Configuration option report/output_format.
+	# Output format for reporting commands.
+	# Accepted values:
+	#   basic
+	#     Basic text output.
+	#   json
+	#     JSON format output.
+	#   json_std
+	#     Standard JSON format output.
+	#   long
+	#     Long text output.
+	#
+	# This configuration option has an automatic default value.
+	# output_format = "basic"
+
+	# Configuration option report/bits_as_bytes.
+	# Display bits as bytes in report output.
+	# This configuration option has an automatic default value.
+	# bits_as_bytes = 1
+
+	# Configuration option report/human_readable.
+	# Display sizes in human-readable format in report output.
+	# This configuration option has an automatic default value.
+	# human_readable = 1
+
+	# Configuration option report/compact_output.
+	# Compact output for reporting commands.
+	# This configuration option has an automatic default value.
+	# compact_output = 0
+
+	# Configuration option report/columns_as_rows.
+	# Display columns as rows in report output.
+	# This configuration option has an automatic default value.
+	# columns_as_rows = 0
+
+	# Configuration option report/aligned.
+	# Align columns in report output.
+	# This configuration option has an automatic default value.
+	# aligned = 1
+
+	# Configuration option report/headings.
+	# Display column headings in report output.
+	# This configuration option has an automatic default value.
+	# headings = 1
+
+	# Configuration option report/suffix.
+	# Display unit suffix for sizes in report output.
+	# This configuration option has an automatic default value.
+	# suffix = 1
+
+	# Configuration option report/separator.
+	# Separator character for report output.
+	# This configuration option has an automatic default value.
+	# separator = ","
+
+	# Configuration option report/prefix.
+	# Prefix character for report output.
+	# This configuration option has an automatic default value.
+	# prefix = ""
+
+	# Configuration option report/scale_size_units.
+	# Scale size units in report output.
+	# This configuration option has an automatic default value.
+	# scale_size_units = "B K M G T P E Z Y"
+
+	# Configuration option report/kbytes_as_bytes.
+	# Display KBytes as bytes in report output.
+	# This configuration option has an automatic default value.
+	# kbytes_as_bytes = 0
+
+	# Configuration option report/bytes_as_bytes.
+	# Display bytes as bytes in report output.
+	# This configuration option has an automatic default value.
+	# bytes_as_bytes = 1
+
+	# Configuration option report/lineseparator.
+	# Line separator for report output.
+	# This configuration option has an automatic default value.
+	# lineseparator = "\n"
+}
+
+# Configuration section metadata.
+# Settings for LVM metadata.
+metadata {
+
+	# Configuration option metadata/check_pv_device_sizes.
+	# Check PV device sizes against metadata.
+	# This configuration option has an automatic default value.
+	# check_pv_device_sizes = 1
+
+	# Configuration option metadata/read_only.
+	# Read-only metadata access.
+	# This configuration option has an automatic default value.
+	# read_only = 0
+
+	# Configuration option metadata/record_lvs_history.
+	# Record LV history in metadata.
+	# This configuration option has an automatic default value.
+	# record_lvs_history = 0
+
+	# Configuration option metadata/record_mirror_image_faults.
+	# Record mirror image faults in metadata.
+	# This configuration option has an automatic default value.
+	# record_mirror_image_faults = 1
+
+	# Configuration option metadata/record_lvs_history.
+	# Record LV history in metadata.
+	# This configuration option has an automatic default value.
+	# record_lvs_history = 0
+
+	# Configuration option metadata/pvmetadatacopies.
+	# Number of metadata copies per PV.
+	# Accepted values:
+	#   0
+	#     No metadata copies.
+	#   1
+	#     First sector only.
+	#   2
+	#     First and second sectors.
+	#
+	# This configuration option has an automatic default value.
+	pvmetadatacopies = {{ pvmetadatacopies }}
+
+	# Configuration option metadata/vgmetadatacopies.
+	# Number of metadata copies per VG.
+	# Accepted values:
+	#   unmanaged
+	#     Automatic management.
+	#   all
+	#     All PVs in VG.
+	#   any
+	#     Any available PV.
+	#   none
+	#     No additional copies.
+	#
+	# This configuration option has an automatic default value.
+	vgmetadatacopies = "{{ vgmetadatacopies }}"
+
+	# Configuration option metadata/alloc.
+	# Allocation policy for new LVs.
+	# Accepted values:
+	#   anywhere
+	#     Allocate anywhere.
+	#   cling
+	#     Cling to existing extents.
+	#   normal
+	#     Normal allocation.
+	#   maximisecling
+	#     Maximise clinging.
+	#
+	# This configuration option has an automatic default value.
+	# alloc = "anywhere"
+
+	# Configuration option metadata/alloc_pv_list.
+	# List of PV names/UUIDs to prefer when allocating space.
+	# This configuration option has an automatic default value.
+	# alloc_pv_list = [ ]
+
+	# Configuration option metadata/max_extentsize.
+	# Maximum size of a single allocation chunk in KB.
+	# This configuration option has an automatic default value.
+	max_extentsize = {{ max_extentsize }}
+
+	# Configuration option metadata/mirror_log_type.
+	# Default mirror log type.
+	# Accepted values:
+	#   disk
+	#     Persistent log on disk.
+	#   core
+	#     In-memory log.
+	#   mirrored
+	#     Mirrored log.
+	#
+	# This configuration option has an automatic default value.
+	mirror_log_type = "{{ mirror_log_type }}"
+
+	# Configuration option metadata/default_mirror_count.
+	# Default number of mirror images.
+	# This configuration option has an automatic default value.
+	default_mirror_count = {{ default_mirror_count }}
+
+	# Configuration option metadata/default_snapshot_size.
+	# Default snapshot size in KB.
+	# This configuration option has an automatic default value.
+	# default_snapshot_size = 1024
+}
+
+# Configuration section cache.
+# Settings for cache.
+cache {
+
+	# Configuration option cache/writeback_mapping_threshold.
+	# Writeback mapping threshold for cache.
+	# This configuration option has an automatic default value.
+	# writeback_mapping_threshold = 1024
+
+	# Configuration option cache/writeback_mapping_size.
+	# Writeback mapping size for cache.
+	# This configuration option has an automatic default value.
+	# writeback_mapping_size = 1024
+
+	# Configuration option cache/writeback_dirty_ratio.
+	# Writeback dirty ratio for cache.
+	# This configuration option has an automatic default value.
+	# writeback_dirty_ratio = 50
+
+	# Configuration option cache/writeback_dirty_target_ratio.
+	# Writeback dirty target ratio for cache.
+	# This configuration option has an automatic default value.
+	# writeback_dirty_target_ratio = 25
+
+	# Configuration option cache/migration_threshold.
+	# Migration threshold for cache.
+	# This configuration option has an automatic default value.
+	# migration_threshold = 1024
+
+	# Configuration option cache/pool_chunk_size.
+	# Pool chunk size for cache.
+	# This configuration option does not have a default value defined.
+
+	# Configuration option cache/pool_metadata_require_separate_pvs.
+	# Pool metadata requires separate PVs for cache.
+	# This configuration option has an automatic default value.
+	# pool_metadata_require_separate_pvs = 0
+}
+
+# Configuration section dmeventd.
+# Settings for dmeventd monitoring.
+dmeventd {
+
+	# Configuration option dmeventd/daemonize.
+	# Enable or disable daemonization of dmeventd.
+	# This configuration option has an automatic default value.
+	# daemonize = 1
+
+	# Configuration option dmeventd/executable.
+	# The full path to the dmeventd executable.
+	# This configuration option has an automatic default value.
+	# executable = "/sbin/dmeventd"
+
+	# Configuration option dmeventd/thin_executable.
+	# The full path to the thin_check/thin_dump/thin_repair/thin_restore executable.
+	# This configuration option has an automatic default value.
+	# thin_executable = "/usr/sbin/dm-thin_check"
+
+	# Configuration option dmeventd/thin_check_executable.
+	# The full path to the thin_check command.
+	# This configuration option has an automatic default value.
+	# thin_check_executable = "/usr/sbin/thin_check"
+
+	# Configuration option dmeventd/thin_dump_executable.
+	# The full path to the thin_dump command.
+	# This configuration option has an automatic default value.
+	# thin_dump_executable = "/usr/sbin/thin_dump"
+
+	# Configuration option dmeventd/thin_repair_executable.
+	# The full path to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_executable = "/usr/sbin/thin_repair"
+
+	# Configuration option dmeventd/thin_restore_executable.
+	# The full path to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_executable = "/usr/sbin/thin_restore"
+
+	# Configuration option dmeventd/thin_check_options.
+	# List of options passed to the thin_check command.
+	# This configuration option has an automatic default value.
+	# thin_check_options = [ "-q", "--clear-needs-check-flag" ]
+
+	# Configuration option dmeventd/thin_repair_options.
+	# List of options passed to the thin_repair command.
+	# This configuration option has an automatic default value.
+	# thin_repair_options = [ "" ]
+
+	# Configuration option dmeventd/thin_restore_options.
+	# List of options passed to the thin_restore command.
+	# This configuration option has an automatic default value.
+	# thin_restore_options = [ "" ]
+}
