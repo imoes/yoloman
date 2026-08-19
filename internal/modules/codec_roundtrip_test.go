@@ -51,7 +51,27 @@ var choppedValue = regexp.MustCompile(`^[{}();]+$`)
 // tie-breaker between two codec claims must be.
 var blockOpen = regexp.MustCompile(`(?m)(\{\s*$|^\s*<[A-Za-z][^>/]*>\s*$)`)
 
-func countBlocks(text string) int { return len(blockOpen.FindAllString(text, -1)) }
+// countBlocks: block openers, counted two ways because one pattern missed a whole family. syslog-ng writes
+// `options { chain_hostnames(off); flush_lines(0);` — the brace opens MID-LINE with content after it, so a
+// pattern anchored at end-of-line saw exactly 1 block in a thoroughly nested file and let a flat grammar
+// through with 14 settings out of 76 active lines. A line that opens more braces than it closes is an
+// opener regardless of what follows it.
+func countBlocks(text string) int {
+	n := len(blockOpen.FindAllString(text, -1))
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ";") {
+			continue
+		}
+		if strings.HasSuffix(trimmed, "{") {
+			continue // already counted by blockOpen
+		}
+		if strings.Count(trimmed, "{") > strings.Count(trimmed, "}") {
+			n++
+		}
+	}
+	return n
+}
 
 // A POSITIONAL SECTION HEADER: unindented, unbracketed, no separator, and followed by an indented line.
 // haproxy.cfg is built out of these — `global`, `defaults`, `frontend main` with their settings indented
@@ -134,6 +154,21 @@ func bareLeaves(values map[string]any) int {
 	return n
 }
 
+// isStrictJSON: does encoding/json accept the text? The json codec PARSES with yaml.Unmarshal ("YAML is a
+// JSON superset", config.go:849) but RENDERS with json.MarshalIndent — so on a YAML file it parses fine and
+// is judged "stable", because the VALUES survive. Nothing in the round-trip can then tell json from yaml,
+// and the tie was decided by map order: /etc/docker/registry/config.yml was about to be recorded as json,
+// which would rewrite a YAML file as JSON on the first apply. Whether the bytes are strict JSON is the
+// distinction the round-trip cannot see.
+func isStrictJSON(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return false
+	}
+	var any_ any
+	return json.Unmarshal([]byte(trimmed), &any_) == nil
+}
+
 func leafKeys(values map[string]any) []string {
 	var out []string
 	for key, val := range values {
@@ -167,6 +202,7 @@ type probeResult struct {
 	Blocks        int    `json:"blocks"`
 	ActiveLines   int    `json:"active_lines"`
 	Positional    int    `json:"positional"`
+	StrictJSON    bool   `json:"strict_json"`
 	Separator     string `json:"separator"`
 	Error         string `json:"error,omitempty"`
 }
@@ -174,7 +210,7 @@ type probeResult struct {
 func probeOne(req probeRequest, format string) probeResult {
 	res := probeResult{Path: req.Path, Codec: format, Separator: req.Separator,
 		Comment: req.Comment, Blocks: countBlocks(req.Text), ActiveLines: activeLines(req.Text),
-		Positional: countPositionalSections(req.Text)}
+		Positional: countPositionalSections(req.Text), StrictJSON: isStrictJSON(req.Text)}
 	params := map[string]any{}
 	if req.Separator != "" {
 		params["separator"] = req.Separator

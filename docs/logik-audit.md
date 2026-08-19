@@ -1701,3 +1701,37 @@ Längerem rote `TestGuessCodec` war kein Testfehler: die eingebettete Registry b
 nie gemessen worden. Der Weg dahin ist derselbe wie bei RedHat: die `.deb`s holen (`_deb_config` existiert),
 Text durch die Sonde, Urteil in die Registry — damit auch die 236 Widersprüche zwischen den beiden
 Registries **einzeln belegt** aufgelöst werden statt per Vorrangregel.
+
+### Der Widerspruch schrumpft belegt: 236 → 169
+
+Die 234 streitigen Pfade wurden auf der Debian-Seite mit
+[`deb_extract_configs.py`](../bossman/scripts/deb_extract_configs.py) nachgeschlagen (Gegenstück zur
+RPM-Extraktion, `apt-get download` + `dpkg-deb -x`, nichts installiert). 74 davon existieren in Debian 12
+main und liefern echten Text; der Rest stammt aus einem anderen Korpus (Ubuntu/universe) und bleibt
+unentschieden — **gezählt, nicht weggelassen**.
+
+Und damit die Frage beantwortet, die den ganzen Befund ausgelöst hat — welche Registry hat recht?
+
+| | |
+|---|---|
+| kanonisch richtig | **26** |
+| eingebettet richtig | **22** |
+| **beide falsch** | **16** |
+| kein Befund | 10 |
+
+**Keine Vorrangregel hätte funktioniert.** Meine erste Eingebung („ein spezifischer Codec schlägt `none`")
+wäre 26-mal falsch gewesen, die umgekehrte 22-mal, und in 16 Fällen ist keine der beiden Antworten richtig.
+Genau deshalb wird jede Datei einzeln an ihrem Text entschieden. Ergebnis: Widersprüche **236 → 169**,
+gemessene Einträge 0 → 44 (eingebettet) bzw. 55 (kanonisch).
+
+Zwei weitere Fehlurteile fand erst dieser Lauf:
+- `json` **liest** YAML (sein `parse` ist `yaml.Unmarshal`), **schreibt** aber JSON. Im Rundlauf ist es
+  deshalb von `yaml` nicht unterscheidbar, und `/etc/docker/registry/config.yml` wäre als JSON
+  zurückgeschrieben worden. Zusatzregel: `json` nur bei **striktem** JSON.
+- `/etc/lighttpd/lighttpd.conf` ist auf EL geschweift (`$HTTP["url"] =~ … { }`) und auf Debian flach (dort
+  in `conf-enabled/`-Fragmente zerlegt). Die Registry hat **einen** Datensatz pro Pfad, also kippte er bei
+  jedem Lauf. Jetzt gewinnt die konservative Antwort (freiform kann nicht falsch mergen) und der Streit wird
+  protokolliert. Der eigentliche Fix sind **Familien-Zweige pro Pfad**, wie sie `package_catalog.json`
+  schon hat.
+
+Offen bleibt der Maßstab: **783 der 961** eingebetteten Einträge sind weiter `inferred`.
