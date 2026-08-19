@@ -1735,3 +1735,45 @@ Zwei weitere Fehlurteile fand erst dieser Lauf:
   schon hat.
 
 Offen bleibt der Maßstab: **783 der 961** eingebetteten Einträge sind weiter `inferred`.
+
+### [Identität] Behoben: eine Quelle, eine erzeugte Projektion — Widersprüche 236 → 0
+
+Zwei beschreibbare Kopien einer Tatsache lassen sich nicht durch Disziplin konsistent halten; eine muss
+aufhören, Quelle zu sein. [`unify_codec_registry.py`](../bossman/scripts/unify_codec_registry.py) macht
+`configs/config_codecs.json` zur einzigen Quelle und
+`internal/modules/config_codecs.json` zu ihrer **erzeugten Projektion** (nur die drei Felder, die der Agent
+liest: codec, separator, comment). [`codec_registry_projection_test.go`](../internal/modules/codec_registry_projection_test.go)
+schlägt fehl, sobald die beiden auseinanderlaufen — die Fehlerklasse kann nicht durch Drift zurückkommen.
+
+Der Zusammenschluss durfte nichts verlieren, und drei Versuche davon waren falsch, bevor gemessen wurde:
+
+1. **Naive Projektion** hätte 238 Pfaden den Codec genommen, weil die kanonische Datei dort `none` sagt.
+   Nachgemessen: **kein einziges** dieser `none` war gemessen — 138 unbelegte Vorgaben hätten 138
+   Behauptungen gelöscht. Jetzt weicht ein **ungemessenes** `none` einer konkreten Angabe (übernommen als
+   `inferred`, also mit offener Messschuld); ein **gemessenes** gewinnt und die widersprechende Angabe wird
+   als erledigt protokolliert.
+2. **Alle nackten Basennamen verwerfen** hätte 91 brauchbare Rückfälle für 9 Münzwürfe geopfert. Der Agent
+   fragt erst den Pfad, dann den Basename — so bekommt ein unbekanntes `/etc/chrony/chrony.conf` überhaupt
+   eine Grammatik. Verworfen werden nur die **mehrdeutigen** (`client.conf` = vier Dateien über ini/yaml/none,
+   `config` = 25); die übrigen wurden als `kind: basename-fallback` **benannt** statt heimlich aufgelöst.
+3. **Basennamen in Pfade auflösen** löschte 86 Rückfälle unbemerkt: die Pfade existierten schon, der Import
+   meldete „already", und der Rückfall selbst war weg.
+
+Nebenbei fiel `TestGuessCodec` wieder rot — und wieder zu Recht: ohne den mehrdeutigen Basename
+`daemon.json` antwortete der Pfad-Datensatz `ini` für eine **JSON**-Datei. Vier Pfade behaupteten `ini` für
+`.json`/`.toml`/`.yaml`, alle mit `confidence: high` und ohne Messung. Die Endung ist intrinsische Evidenz
+(dieselbe Art wie die strict-JSON-Widerlegung) und entscheidet.
+
+| | vorher | jetzt |
+|---|---|---|
+| Widersprüche zwischen den Registries | 236 | **0** |
+| Einträge, die der Agent trägt | 961 (878 nutzbar) | **1733** |
+| Größe der Agent-Datei | 323 KB | **154 KB** |
+| Herkunft in der Quelle | — | 55 gemessen, 217 importiert, 4 per Endung, 4301 ungemessen |
+
+Live geprüft: `smb.conf` → ini-Merge (vorher Ganzdatei-Template), `nginx.conf` → Template (vorher falscher
+ini-Merge im Agent), `daemon.json` → json, `sshd_config` → keyvalue.
+
+**Damit bleibt genau eine offene Front:** 4301 Einträge sind ungemessen. Der Weg ist gebaut und erprobt
+(`deb_extract_configs.py` / `rh_extract_configs.py` → Sonde → `decide_codecs.py`); es fehlt der Korpus-Lauf
+über alle Pakete.
