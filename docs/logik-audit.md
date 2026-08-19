@@ -1560,3 +1560,67 @@ prüft deshalb die **Objektidentität**, nicht bloß Gleichheit.
 per Vorrang (Katalog vor Codec) und **meldet den Verlierer** — welches inhaltlich richtig ist, gehört
 zu Punkt 3 (die 278 Doppelverzeichnisse), nicht zu einer Vorrangregel. Ebenso offen: 20 `chrony-*`-
 Verzeichnisse (chrony-client, chrony-dhcp, chrony-dns …) — dieselbe Wildwuchs-Klasse.
+
+## Nachprüfung meiner eigenen Behauptungen (2026-08-19)
+
+Auf Nutzerwunsch: jede prüfbare Zahl aus den Abschnitten oben neu gemessen. **Keine war zum Zeitpunkt
+der Messung falsch**, mehrere sind durch die zwischenzeitliche Arbeit **veraltet** — und der Audit hat
+zwei echte Defekte gefunden, die keine Behauptung waren, sondern eine Lücke.
+
+| Behauptung | damals | heute | Urteil |
+|---|---|---|---|
+| Template-Verzeichnisse | 5460 | 5460 | gilt |
+| erreichbar über den Index | 2674 | 2908 | veraltet (Reparatur + Auflösung) |
+| Unterstrich/Bindestrich-Paare | 278 | 278 | gilt |
+| `chrony-*`-Verzeichnisse | 20 | 20 | gilt |
+| leere Schemata | 169 | 165 | verändert (4 repariert) |
+| davon erreichbar | 84 | **0** | behoben — genau der Zweck der Regel |
+| Katalogrollen mit ≤2 Feldern | 19 | 17 | verändert (Reparaturen) |
+| Rollen mit leerem `config_path` | 30 von 89 | **16 von 89** | stimmig: 14 gefüllt, wie berichtet |
+| Pakete ohne Konfiguration | 3982 | 3982 | gilt |
+
+**Eine Zahl war wirklich falsch** und ist bereits im Commit korrigiert: „datei-benannt schlägt paket-benannt
+148 zu 7" — mit dem berichtigten Vergleich (letztes Punktsegment, also `server.host_name` = `host-name`)
+sind es **101 zu 11**. Die Richtung hält, die Spanne war von einem fehlerhaften Test aufgebläht. Im
+Dokument stand die falsche Zahl nie.
+
+### [Widerspruchsfreiheit] Der Index bot Ziele an, die kein Renderer schreiben kann
+
+  Beleg:   `/etc/bind` und `/etc/ovn-controller-vtep` standen als Ziel im Index — **Verzeichnisse**,
+           während `/etc/bind/named.conf` im selben Register daneben liegt. Dazu
+           `/etc/default/policyd-weight`.
+  Problem: `template_render` schreibt **eine Datei**. Ein Verzeichnis als Ziel ist kein Beinahe-Treffer,
+           sondern unschreibbar — dieselbe Fehlerklasse wie `/etc/restic` beim Resolver, nur durch die
+           andere Tür hereingekommen: die Regel existierte in `main_config_path`, die Codec-Quelle des
+           Index kannte sie nicht.
+  Fix:     **eine** Regel in `bossman/services/template_gate.plausible_target`, angewandt auf alle drei
+           Indexquellen. Verzeichnisse sind ohne Dateisystemzugriff erkennbar: existiert ein anderer
+           bekannter Pfad unter `<pfad>/`, ist `<pfad>` das Verzeichnis. Grenze offen benannt: ein
+           Verzeichnis ohne bekannte Kinder sieht wie eine Datei aus (`/etc/ovn-controller-vtep` bleibt).
+
+  **Und mein erster Fix war zu streng** — die Zahl hat es verraten: er schloss auch die ancillary-Orte
+  aus und nahm damit **626 Pfaden** ihren Editor. `/etc/default/chrony` *ist* eine bearbeitbare Datei mit
+  einem Template, das genau sie rendert. `ANCILLARY_DIRS` beantwortet eine **andere** Frage — „welche
+  Datei ist die *Haupt*konfiguration dieses Pakets" —, und die stellt der Index nicht. 3412 → **3349**
+  (63 Verzeichnis-Ziele weg), nicht 2786.
+
+### [Parsimonie] 14 Dateien haben zwei Türen: ein Snapin und einen generischen Editor
+
+  Beleg:   Nutzerhinweis („bind ist ein snapin", „Netzplan wird mit dem Interface Modul bestückt"),
+           gemessen gegen den Index:
+
+           `/etc/bind/named.conf` → Snapin *BIND zones* **und** Template `bind9`
+           `/etc/exports` → *NFS exports* und `exports` · `/etc/samba/smb.conf` → *Samba shares* und `samba`
+           `/etc/dhcp/dhcpd.conf`, `/etc/cups/cupsd.conf`, `/etc/nginx/nginx.conf`,
+           `/etc/apache2/apache2.conf`, `/etc/haproxy/haproxy.cfg`, `/etc/caddy/Caddyfile`,
+           `/etc/traefik/traefik.yml`, `/etc/proftpd/proftpd.conf`, `/etc/crontab`,
+           `/etc/logrotate.conf`, `/etc/bind/named.conf.options` — 14 insgesamt.
+  Problem: Zwei Wege zum gleichen Ergebnis, und sie sind **nicht gleichwertig**: das Snapin kennt die
+           Struktur (Zonen, Shares, vhosts, Drucker) und schreibt gezielt, der generische Editor rendert
+           die **ganze Datei** aus einem Formular. Wer die falsche Tür nimmt, überschreibt die Arbeit der
+           anderen — und nichts im UI sagt, welche die zuständige ist.
+  Fix:     Nicht von mir zu entscheiden, weil es eine Produktfrage ist: entweder das Snapin ist für diese
+           Pfade die einzige Tür (Template zurückziehen), oder der generische Editor bleibt als
+           Notausgang und **sagt**, dass ein Snapin zuständig ist. Vorschlag: erste Variante für die
+           strukturierten Formate (bind, samba, nginx, apache, cups, exports), zweite für die flachen
+           (`/etc/crontab`, `/etc/logrotate.conf`), wo der generische Editor nichts kaputt macht.

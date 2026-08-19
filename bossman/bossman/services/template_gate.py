@@ -38,6 +38,46 @@ import json
 import re
 from pathlib import Path
 
+#: /etc directories that hold a package's ANCILLARY files — a cron hook, a logrotate rule, a PAM stanza,
+#: a SysV defaults snippet. Every package ships some, and none of them is the thing an operator means by
+#: "this service's configuration". /etc/ufw/ is here because ufw ships application profiles NAMED AFTER
+#: other packages, so a name match there is guaranteed to be wrong.
+#:
+#: Lives HERE, in the package, because two callers need the same list and had different ones: the resolver
+#: (scripts/build_package_catalog.main_config_path) filtered on it while the path→template INDEX did not,
+#: so /etc/default/policyd-weight reached the index as a config target. One rule about "what can be a
+#: config file" cannot have two strictnesses.
+ANCILLARY_DIRS = ("/etc/cron.daily/", "/etc/cron.d/", "/etc/cron.hourly/", "/etc/cron.weekly/",
+                  "/etc/logrotate.d/", "/etc/init.d/", "/etc/default/", "/etc/rc.d/",
+                  "/etc/apparmor.d/", "/etc/pam.d/", "/etc/sysctl.d/", "/etc/modprobe.d/",
+                  "/etc/profile.d/", "/etc/ufw/")
+
+
+def plausible_target(path: str, known_paths=()) -> bool:
+    """Can this path be a whole-file render target at all?
+
+    Refuses: anything not absolute under /etc, a glob (a SET of files is not a file), a trailing slash, and
+    — the one this audit turned up — a path that is a DIRECTORY.
+
+    A directory is detectable without touching a filesystem: if any other known path starts with
+    `<path>/`, then `<path>` is the directory holding it. That is how /etc/bind reached the index as a
+    config target while /etc/bind/named.conf sat right beside it in the same registry, and template_render
+    cannot write a directory (the same defect /etc/restic had on the resolver side, arriving by the other
+    door). Its limit is honest: a directory with no known children still looks like a file, so
+    /etc/ovn-controller-vtep survives. Nothing offline can tell those apart.
+
+    IT DOES NOT REFUSE ANCILLARY LOCATIONS, and my first version did — which cost 626 paths their editor
+    before the number gave it away. ANCILLARY_DIRS answers a different question: "which file is this
+    PACKAGE's main config" (main_config_path), where /etc/default/chrony is the wrong answer. Here the
+    question is "which template renders THIS file", and /etc/default/chrony is a real file an operator
+    edits, with a template that renders exactly it. Same list, two questions, one of them not this one.
+    """
+    if not path.startswith("/etc/") or "*" in path or path.endswith("/"):
+        return False
+    prefix = path + "/"
+    return not any(other.startswith(prefix) for other in known_paths)
+
+
 #: A shell/init/perl/python interpreter line — an executable, not a config.
 _SCRIPT_SHEBANG = re.compile(r"^#!\s*/(usr/)?s?bin/(env\s+)?(sh|bash|dash|ksh|zsh|perl|python\d?)\b")
 

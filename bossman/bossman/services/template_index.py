@@ -42,7 +42,7 @@ import re
 import time
 from pathlib import Path
 
-from bossman.services.template_gate import template_configures
+from bossman.services.template_gate import plausible_target, template_configures
 
 #: Same normalisation the catalog builder uses for a template directory name, so the index cannot
 #: disagree with the thing it indexes. Kept here rather than imported: scripts/ is not on the server's
@@ -124,16 +124,24 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     paths: dict[str, dict] = {}
     conflicts: list[dict] = []
 
+    known = {p for e in _load(codecs_path).values() if isinstance(e, dict)
+             for p in (e.get("paths") or []) if isinstance(p, str)}
+
     # Source 1 — the catalog. First, so it owns every path it claims.
     for role, entry in _load(catalog_path).items():
         if not isinstance(entry, dict):
             continue
         tname = entry.get("template")
         cfg = ((entry.get("families") or {}).get("debian") or {}).get("config_path") or ""
-        if not tname or not cfg or "*" in cfg or tname not in dirs:
+        if not tname or not cfg or tname not in dirs or not plausible_target(cfg, known):
             continue
         paths.setdefault(cfg, {"template": tname, "source": "catalog", "role": role})
 
+    # Every candidate path is checked by ONE rule (template_gate.plausible_target): under /etc, not a
+    # glob, not an ancillary location, not a directory. The audit found three paths in the index that no
+    # renderer could ever write — /etc/bind and /etc/ovn-controller-vtep (directories, with their real
+    # config files sitting right beside them in the same registry) and /etc/default/policyd-weight (a
+    # SysV defaults snippet). The resolver had always refused those; this source never asked.
     # Source 2 — the codec registry, as the fallback.
     #
     # NOT named `key`: that is the cache key three lines up, and shadowing it stored the result under
@@ -146,7 +154,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         if tname not in dirs:
             continue
         for p in entry.get("paths") or []:
-            if not isinstance(p, str) or not p.startswith("/") or "*" in p:
+            if not isinstance(p, str) or not plausible_target(p, known):
                 continue
             have = paths.get(p)
             if have is None:
@@ -173,7 +181,7 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         except (OSError, ValueError):
             continue
         p = meta.get("target_path") if isinstance(meta, dict) else None
-        if not isinstance(p, str) or not p.startswith("/") or "*" in p or p.endswith("/"):
+        if not isinstance(p, str) or not plausible_target(p, known):
             continue
         have = paths.get(p)
         if have is None:

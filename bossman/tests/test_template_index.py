@@ -182,3 +182,29 @@ def test_a_recorded_directory_target_is_refused_like_any_other(tmp_path):
     cat, cod, tpl = _fixture(tmp_path, {}, {}, [])
     _tpl(tpl, "evolution_data_server", meta={"target_path": "/etc/evolution-data-server/"})
     assert build_template_index(cat, cod, tpl)["paths"] == {}
+
+
+def test_a_directory_is_never_a_render_target(tmp_path):
+    """FOUND BY AUDITING MY OWN INVARIANTS. /etc/bind sat in the index as a config target while
+    /etc/bind/named.conf lay right beside it in the same registry — and template_render writes one FILE, so
+    a directory is unwritable, not merely odd. Detectable without a filesystem: something else is known to
+    live under it."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {
+        "bind": {"paths": ["/etc/bind"]},
+        "named.conf": {"paths": ["/etc/bind/named.conf"]},
+    }, [])
+    _tpl(tpl, "bind")
+    _tpl(tpl, "named.conf")
+    idx = build_template_index(cat, cod, tpl)
+    assert "/etc/bind" not in idx["paths"]
+    assert idx["paths"]["/etc/bind/named.conf"]["template"] == "named.conf"
+
+
+def test_an_ancillary_path_is_still_indexed(tmp_path):
+    """The other half, and my first fix got it wrong: excluding /etc/default/… cost 626 paths their editor.
+    ANCILLARY_DIRS answers "which file is this PACKAGE's main config" (main_config_path), not "which
+    template renders THIS file". /etc/default/chrony is a real file with a template that renders exactly
+    it."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {"chrony": {"paths": ["/etc/default/chrony"]}}, [])
+    _tpl(tpl, "chrony")
+    assert build_template_index(cat, cod, tpl)["paths"]["/etc/default/chrony"]["template"] == "chrony"
