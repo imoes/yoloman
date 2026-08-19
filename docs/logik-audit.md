@@ -1811,3 +1811,27 @@ ist also klein — er wächst aber automatisch mit jeder Debian-Seite, die gemin
 gehen an qwen35b über die bestehende Maschinerie (`_resolve_man` + `_web_docs` → `mine_one`, JSON-Schema als
 Grammatik server-seitig erzwungen); neu ist hier nur die **Auswahl**, welche Pfade überhaupt gemint werden,
 und die Aufzeichnung, woher jede Antwort kommt.
+
+### [Gültige Ableitung] Die Direktiven-Herkunft wurde nie geprüft — und lieferte die falsche Software
+
+  Beleg:   `/etc/redis/redis.conf` wurde zu 18 Direktiven namens `SSL_verify_mode`,
+           `sentinels_cnx_timeout`, `on_connect` gemint — den Optionen des **Perl-Moduls** `Redis(3pm)`,
+           weil die Man-Page-Suche zum Paketnamen „redis" diese Seite fand. Deckung der 41 Schlüssel, die
+           die ausgelieferte Datei setzt: **0 %**.
+  Problem: Niemand hat gefragt, ob die geholte Dokumentation überhaupt von dieser Datei handelt. Ein
+           Katalog voll selbstsicherer Einträge für die falsche Software ist schlechter als ein leerer —
+           der Einstellungs-Editor würde Optionen anbieten, die der Dienst nie gehört hat.
+  Fix:     Die Schlüsselliste der ausgelieferten Datei ist der **Fingerabdruck** der richtigen
+           Dokumentation: echte Doku zu einer Konfigurationsdatei nennt ihre Direktiven, fremde nicht.
+           `doc_is_about()` verlangt, dass mindestens ein Fünftel (und wenigstens drei) der Schlüssel im
+           Text vorkommen, sonst wird die Web-Quelle versucht und andernfalls **nichts** geschrieben.
+           Zusätzlich: `MAN_PAGE_FOR` für Dateien, deren Seite anders heißt — postfix' Parameter stehen in
+           `postconf(5)`, eine `main.cf(5)` existiert nicht, weshalb dort nur 16 KB Webseiten gefunden
+           wurden und 15 von 32 Schlüsseln beschrieben waren.
+
+**Die Deckungsprüfung ist der Beobachtungspunkt, der beides fand** — und die Zahlen, die sie liefert, sind
+das Abnahmekriterium für diesen Katalog: `chrony.conf`, `dnsmasq.conf`, `snmpd.conf`, `sysconfig/memcached`
+je **100 %**, `vsftpd` 92 %, `pure-ftpd` 86 %, `sysstat` 86 % — und die widerlegten wurden verworfen und neu
+gemint, statt sie als „gefüllt" zu zählen. Vererbung vom Zwilling ist exakt für das, was sie abdeckt, aber
+sie **verspricht keine Deckung**: `mariadb-server.cnf` erbt 22 gültige Direktiven und trifft damit nur 1 von
+4 Schlüsseln der EL-Datei.
