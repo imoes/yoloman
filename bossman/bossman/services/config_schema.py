@@ -103,9 +103,14 @@ def catalog_for_path(path: str, catalog: Mapping[str, Any]) -> dict[str, Any]:
             continue
         entry = catalog.get(cand)
         if isinstance(entry, dict):
-            inner = entry.get("directives") if isinstance(entry.get("directives"), dict) else entry
-            if isinstance(inner, dict):
-                merged.update({k: v for k, v in inner.items() if isinstance(v, dict)})
+            # ONE SHAPE: {path: {directive: spec}}, flat. This used to also unwrap a
+            # {"directives": {...}} form — which nothing has ever written (measured: 0 of 1172 entries)
+            # and which wizard_seed._build_parameters cannot read, since it looks directive names up in
+            # this dict directly and would find one named "directives". Two readers disagreeing about the
+            # shape of one file is two things under one name; whoever wrote the wrapped form would have
+            # silently emptied the wizard's defaults. Provenance for these entries lives beside the file,
+            # in configs/config_directives_sources.json.
+            merged.update({k: v for k, v in entry.items() if isinstance(v, dict)})
     return merged
 
 

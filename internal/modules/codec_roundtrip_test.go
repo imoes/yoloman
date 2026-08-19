@@ -187,6 +187,35 @@ type probeRequest struct {
 	Candidates []string `json:"candidates"`
 	Separator  string   `json:"separator,omitempty"`
 	Comment    string   `json:"comment,omitempty"`
+	// Separators/Comments turn one request into the cross product of the variants to try, so a file's TEXT
+	// is carried once instead of once per variant. With 8843 files and 8 variants each, the one-copy-per-
+	// variant form meant a 136 MB input for a 17 MB corpus.
+	Separators []string `json:"separators,omitempty"`
+	Comments   []string `json:"comments,omitempty"`
+}
+
+// variants expands a request into the (codec, separator, comment) triples it asks for. The separator and
+// comment are part of the CLAIM, not of the file: probing haproxy.cfg with "=" invents 42 settings out of 24,
+// and probing www.conf with "#" instead of ";" reads 366 commented examples as live ones.
+func (r probeRequest) variants() []probeRequest {
+	separators := r.Separators
+	if len(separators) == 0 {
+		separators = []string{r.Separator}
+	}
+	comments := r.Comments
+	if len(comments) == 0 {
+		comments = []string{r.Comment}
+	}
+	var out []probeRequest
+	for _, codec := range r.Candidates {
+		for _, separator := range separators {
+			for _, comment := range comments {
+				out = append(out, probeRequest{Path: r.Path, Text: r.Text, Candidates: []string{codec},
+					Separator: separator, Comment: comment})
+			}
+		}
+	}
+	return out
 }
 
 type probeResult struct {
@@ -279,8 +308,9 @@ func TestCodecRoundTripProbe(t *testing.T) {
 		t.Fatalf("parse %s: %v", in, err)
 	}
 	var results []probeResult
-	for _, req := range requests {
-		for _, format := range req.Candidates {
+	for _, outer := range requests {
+		for _, req := range outer.variants() {
+			format := req.Candidates[0]
 			r := probeOne(req, format)
 			results = append(results, r)
 			t.Logf("%-46s %-9s sep=%-3q cmt=%-3q keys=%-4d chop=%-4d bare=%-4d junk=%-4d blocks=%-3d pos=%-3d active=%-4d byte=%-5v stable=%-5v %s",
