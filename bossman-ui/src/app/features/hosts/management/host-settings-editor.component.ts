@@ -1,4 +1,4 @@
-import { Component, effect, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -130,8 +130,29 @@ import { HostThresholdsComponent } from './host-thresholds.component';
             @if (driftFor(r.path)) { <span class="bm-tag bm-tag-drift">drifted</span> } @else { <span class="bm-tag bm-tag-sync">managed ✓</span> }
           }
           @if (templateFor(r.path); as tpl) {
-            <button mat-button (click)="startTemplateEdit(r, tpl)"
-                    [title]="templateReason(tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
+            @if (tpl.snapin_exclusive) {
+              <!-- A snap-in owns this file, so the whole-file editor is NOT offered: named.conf has zones,
+                   smb.conf has shares, nginx.conf has server blocks, and rendering one of those from a flat
+                   form drops whatever the form has no field for. Saying which snap-in — and linking to it —
+                   is the difference between withholding an action and hiding one. -->
+              <button mat-button class="bm-snapin-link" (click)="openSnapin.emit(tpl.snapin!)"
+                      [title]="'Configured by the ' + tpl.snapin_label + ' snap-in, which understands the structure of this file'">
+                <mat-icon>open_in_new</mat-icon> Configured in {{ tpl.snapin_label }}
+              </button>
+            } @else {
+              @if (tpl.template) {
+                <button mat-button (click)="startTemplateEdit(r, tpl)"
+                        [title]="templateReason(tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
+              }
+              @if (tpl.snapin) {
+                <!-- Flat file: both doors are safe, so say the other one exists rather than pretending
+                     this is the only way in. -->
+                <button mat-button class="bm-snapin-link" (click)="openSnapin.emit(tpl.snapin!)"
+                        [title]="'Also configurable in the ' + tpl.snapin_label + ' snap-in'">
+                  <mat-icon>open_in_new</mat-icon> Also in {{ tpl.snapin_label }}
+                </button>
+              }
+            }
           }
         </div>
         <div class="bm-cfg-viewtoggle">
@@ -228,6 +249,8 @@ import { HostThresholdsComponent } from './host-thresholds.component';
     .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
     .bm-tag--baseline { background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); opacity: 0.7; font-weight: 400; }
     .bm-drift-h { margin: 8px 0 2px; }
+    /* Reads as a way OUT of this pane rather than another action inside it. */
+    .bm-snapin-link { color: var(--mat-sys-primary); }
     .bm-gpo { display: flex; gap: 10px; align-items: stretch; }
     .bm-gpo-col { flex: 0 0 210px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
     .bm-gpo-search { display: block; width: 100%; max-width: 440px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
@@ -268,6 +291,9 @@ export class HostSettingsEditorComponent {
    * what folding this editor into the Management console required. Sibling snap-ins (host-services,
    * host-storage, …) work the same way; the cost is two small requests the page was making anyway. */
   agentId = input.required<string>();
+  /** A file this editor may not write is owned by a snap-in; asking the console to open that snap-in is
+   * the page's job, not this pane's. Emitted with the snap-in id (pkg-bind, cron, …). */
+  openSnapin = output<string>();
 
   /** Fetched, not passed: the thresholds pane needs the Agent (for ou_id), and settingService() needs the
    * services to name the unit that owns a config file. */
@@ -286,23 +312,39 @@ export class HostSettingsEditorComponent {
     // No "is the Configuration tab open?" guard: this component exists only inside matTabContent, so the
     // boundary IS the guard. The page used to carry that check plus a null test plus a deep-link special
     // case; all three are gone.
+    // EVERYTHING INSIDE untracked(), and this is not decoration — without it the effect ran 883 times.
+    //
+    // An effect depends on every signal it READS. These loads read `agent()` (loadObserved does, to get an
+    // id) and `templateIndex()` (the once-only guard), and they also WRITE both. So the first pass set
+    // `agent`, which re-triggered the effect, which set it again: a loop that fired 1764 desired-state
+    // requests, 883 agent reads and 882 observed-state reads at the server before the browser tooling
+    // noticed the DOM never holding still. The build was green and the screen looked fine.
+    //
+    // untracked() says exactly what is meant: react to the AGENT ID changing, not to what the loads
+    // produce. It is the same trap the parent page never had, because there these loads sat in a plain
+    // method that nothing re-ran.
     effect(() => {
       const id = this.agentId();
-      this.agentService.get(id).subscribe((a) => this.agent.set(a));
-      this.monitoring.agentServices(id).subscribe({
-        next: (svcs) => this.services.set(svcs),
-        error: () => this.services.set([]),
-      });
-      this.loadConfigCatalogs();
-      this.loadObserved();
-      this.loadDesiredMonitoring();
-      if (!Object.keys(this.templateIndex()).length) {
-        this.agentService.configTemplateIndex().subscribe({
-          next: (res) => this.templateIndex.set(res.paths ?? {}),
-          error: () => this.templateIndex.set({}),
+      untracked(() => {
+        this.agentService.get(id).subscribe((a) => this.agent.set(a));
+        this.monitoring.agentServices(id).subscribe({
+          next: (svcs) => this.services.set(svcs),
+          error: () => this.services.set([]),
         });
-      }
-      this.scope.loadGroups();
+        this.loadConfigCatalogs();
+        this.loadObserved(false, id);
+        this.loadDesiredMonitoring(id);
+        if (!Object.keys(this.templateIndex()).length) {
+          this.agentService.configTemplateIndex().subscribe({
+                next: (res) => {
+              this.templateIndex.set(res.paths ?? {});
+              this.snapinOwned.set(res.snapins ?? {});
+            },
+            error: () => { this.templateIndex.set({}); this.snapinOwned.set({}); },
+          });
+        }
+        this.scope.loadGroups();
+      });
     });
   }
 
@@ -354,9 +396,16 @@ export class HostSettingsEditorComponent {
 
   /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
    * loaded lazily when the Configuration tab is first opened. */
-  loadObserved(refresh = false): void {
-    const agent = this.agent();
-    if (!agent) return;
+  /** `agentId` is passed in by the constructor's effect and defaults to the input otherwise.
+   *
+   * It used to read the fetched `agent()` signal for its id — which made every caller a dependency of a
+   * signal this component also writes, and that is what turned the load into an 883-iteration loop. An id
+   * is all this needs, and taking it as an argument also means the first read does not wait for the
+   * agent fetch to land. */
+  loadObserved(refresh = false, agentId?: string): void {
+    const id = agentId ?? this.agentId();
+    if (!id) return;
+    const agent = { id };
     this.observedLoading.set(true);
     this.observedError.set(null);
     // The generations pane discards its rollback preview on this tick: a dry-run diff computed against
@@ -657,9 +706,10 @@ export class HostSettingsEditorComponent {
   // document — and took the lazy-load handler with it: matTabContent does not construct a component
   // until its tab is opened, so the boundary already says "not until someone looks".
 
-  loadDesiredMonitoring(): void {
-    const agent = this.agent();
-    if (!agent) return;
+  loadDesiredMonitoring(agentId?: string): void {
+    const id = agentId ?? this.agentId();
+    if (!id) return;
+    const agent = { id };
     this.orchestration.desiredState(agent.id).subscribe({
       next: (d) => {
         const t = (d.state.monitoring.thresholds ?? {}) as Record<string, { service_name?: string; warn?: number; crit?: number; comparison?: string; source?: string }>;
@@ -707,6 +757,9 @@ export class HostSettingsEditorComponent {
 
   /** path → template, from GET /config-templates/index. */
   templateIndex = signal<Record<string, ConfigTemplateIndexEntry>>({});
+  /** Files a snap-in owns. Consulted for paths that have NO template, so a file the interface module fills
+   * (/etc/network/interfaces) still names its owner instead of showing nothing. */
+  snapinOwned = signal<Record<string, { snapin: string; snapin_label: string; snapin_exclusive: boolean }>>({});
 
   /** Which template renders THIS file — an index lookup, not a name guess.
    *
@@ -719,7 +772,13 @@ export class HostSettingsEditorComponent {
    * null now means "no template claims this path", and the button is simply absent. That is the right
    * direction: an editor that cannot be correct is not offered, rather than offered and regretted. */
   templateFor(path: string): ConfigTemplateIndexEntry | null {
-    return this.templateIndex()[path] ?? null;
+    const hit = this.templateIndex()[path];
+    if (hit) return hit;
+    // No template renders it, but a snap-in may still own it — /etc/network/interfaces is filled by the
+    // agent's interface module. Returning a template-less entry lets the row say who is in charge with
+    // one code path instead of two.
+    const owned = this.snapinOwned()[path];
+    return owned ? { template: null, source: 'snapin', ...owned } : null;
   }
 
   /** Why this file has a template editor, in the button's tooltip. A claim the user cannot trace is a
@@ -748,6 +807,10 @@ export class HostSettingsEditorComponent {
    * achieves that without the page having to own the request.
    */
   startTemplateEdit(r: { path: string }, entry: ConfigTemplateIndexEntry): void {
+    // An index entry may name NO template: a path owned by a snap-in is carried so the UI can point at the
+    // snap-in, and there is nothing to render from. The button is already hidden in that case; refusing
+    // here too means a future caller cannot open an editor with no template behind it.
+    if (!entry.template) return;
     this.tplName.set(entry.template);
     this.tplEditPath.set(r.path);
   }

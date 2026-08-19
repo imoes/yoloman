@@ -486,13 +486,26 @@ export interface ConfigTemplate {
  * template dir exists. Carrying it means the UI can say WHY an editor is offered instead of just
  * offering it. */
 export interface ConfigTemplateIndexEntry {
-  template: string;
-  source: 'catalog' | 'codec';
+  /** null when a snap-in owns the file and no template renders it (source: 'snapin'). */
+  template: string | null;
+  source: 'catalog' | 'codec' | 'template-meta' | 'snapin';
   role?: string;
+  /** A dedicated Management snap-in owns this file — id, label, and whether it is the ONLY door.
+   *
+   * Exclusive means the generic whole-file editor must not be offered: named.conf has zones, smb.conf has
+   * shares, nginx.conf has server blocks, and rendering one of those from a flat form drops whatever the
+   * form has no field for. Non-exclusive means both doors are safe and the UI just says so. */
+  snapin?: string;
+  snapin_label?: string;
+  snapin_exclusive?: boolean;
 }
 
 export interface ConfigTemplateIndex {
   paths: Record<string, ConfigTemplateIndexEntry>;
+  /** Files a dedicated Management snap-in owns, whether or not a template also exists for them. Separate
+   * from `paths` on purpose: that map means "the template that renders this file", and an entry with no
+   * template would make it mean two things. */
+  snapins: Record<string, { snapin: string; snapin_label: string; snapin_exclusive: boolean }>;
   /** Paths claimed by two template dirs at once — reported rather than silently resolved. */
   conflicts: { path: string; chosen: string; chosen_source: string; also: string; also_source: string }[];
 }

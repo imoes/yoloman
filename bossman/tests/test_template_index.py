@@ -61,8 +61,10 @@ def test_the_catalog_wins_over_the_codec_registry_and_the_loss_is_reported(tmp_p
         ["haproxy", "haproxy.cfg"],
     )
     idx = build_template_index(cat, cod, tpl)
-    assert idx["paths"]["/etc/haproxy/haproxy.cfg"] == {
-        "template": "haproxy", "source": "catalog", "role": "haproxy"}
+    entry = idx["paths"]["/etc/haproxy/haproxy.cfg"]
+    assert entry["template"] == "haproxy" and entry["source"] == "catalog" and entry["role"] == "haproxy"
+    # HAProxy also has a snap-in, so the entry carries that too — see the double-door tests below.
+    assert entry["snapin"] == "pkg-haproxy"
     assert idx["conflicts"] == [{"path": "/etc/haproxy/haproxy.cfg", "chosen": "haproxy",
                                 "chosen_source": "catalog", "also": "haproxy.cfg",
                                 "also_source": "codec"}]
@@ -127,7 +129,9 @@ def test_unreadable_inputs_yield_an_empty_index_not_an_error(tmp_path):
     """No index means no Configure button — the safe direction. Raising here would take out the whole
     Configuration tab for a missing catalog file."""
     idx = build_template_index(tmp_path / "nope.json", tmp_path / "nope2.json", tmp_path / "nodir")
-    assert idx == {"paths": {}, "conflicts": []}
+    assert idx["paths"] == {} and idx["conflicts"] == []
+    # `snapins` is a static product fact, not derived from these inputs, so it is present regardless.
+    assert idx["snapins"]["/etc/bind/named.conf"]["snapin"] == "pkg-bind"
 
 
 def _tpl(dirpath, name, body="x = {{ a }}\ny = {{ b }}\nz = {{ c }}\n",
@@ -208,3 +212,35 @@ def test_an_ancillary_path_is_still_indexed(tmp_path):
     cat, cod, tpl = _fixture(tmp_path, {}, {"chrony": {"paths": ["/etc/default/chrony"]}}, [])
     _tpl(tpl, "chrony")
     assert build_template_index(cat, cod, tpl)["paths"]["/etc/default/chrony"]["template"] == "chrony"
+
+
+def test_a_snapin_owned_path_says_so_and_may_forbid_the_generic_editor(tmp_path):
+    """The 14 double doors. A snap-in that knows a file's STRUCTURE (bind zones, samba shares, nginx
+    server blocks) and a generic whole-file editor are not equivalent: rendering that file from a flat
+    form drops whatever the form has no field for. The index carries the ownership so the UI can send the
+    operator to the right door instead of silently offering the wrong one."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {"named.conf": {"paths": ["/etc/bind/named.conf"]}}, [])
+    _tpl(tpl, "named.conf")
+    e = build_template_index(cat, cod, tpl)["paths"]["/etc/bind/named.conf"]
+    assert e["snapin"] == "pkg-bind" and e["snapin_label"] == "BIND zones"
+    assert e["snapin_exclusive"] is True
+
+
+def test_a_flat_file_keeps_both_doors(tmp_path):
+    """/etc/crontab and /etc/logrotate.conf are flat, so the generic editor cannot destroy structure it
+    failed to model. Both doors stay open and the UI just says the other one exists."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {"crontab": {"paths": ["/etc/crontab"]}}, [])
+    _tpl(tpl, "crontab")
+    e = build_template_index(cat, cod, tpl)["paths"]["/etc/crontab"]
+    assert e["template"] == "crontab" and e["snapin_exclusive"] is False
+
+
+def test_a_snapin_only_path_appears_under_snapins_not_under_paths(tmp_path):
+    """/etc/network/interfaces is filled by the agent's interface module — NO template renders it. It
+    belongs under `snapins` so the editor can name the owner, and NOT under `paths`, which means "the
+    template that renders this file". Putting it there made `paths` mean two things and nine tests caught
+    it at once."""
+    cat, cod, tpl = _fixture(tmp_path, {}, {}, [])
+    idx = build_template_index(cat, cod, tpl)
+    assert "/etc/network/interfaces" not in idx["paths"]
+    assert idx["snapins"]["/etc/network/interfaces"]["snapin_exclusive"] is True

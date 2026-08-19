@@ -42,6 +42,7 @@ import re
 import time
 from pathlib import Path
 
+from bossman.services.snapin_owned import SNAPIN_OWNED as SNAPIN_ONLY_PATHS, snapin_for
 from bossman.services.template_gate import plausible_target, template_configures
 
 #: Same normalisation the catalog builder uses for a template directory name, so the index cannot
@@ -190,6 +191,24 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             conflicts.append({"path": p, "chosen": have["template"], "chosen_source": have["source"],
                               "also": name, "also_source": "template-meta"})
 
-    result = {"paths": paths, "conflicts": conflicts}
+    # A snap-in that owns the file gets the last word. EXCLUSIVE means the generic whole-file editor is not
+    # offered for that path at all — named.conf has zones, smb.conf has shares, nginx.conf has server
+    # blocks, and rendering any of them from a flat form drops whatever the form has no field for. The
+    # entry stays in the index rather than disappearing: the UI needs to say WHICH snap-in is in charge,
+    # and a path that silently vanished would look like "no editor exists".
+    for path, entry in paths.items():
+        owned = snapin_for(path)
+        if owned:
+            entry["snapin"], entry["snapin_label"], entry["snapin_exclusive"] = owned
+    # The ownership table is returned SEPARATELY rather than injected into `paths`. My first version added
+    # an entry per owned path with `template: null`, which made `paths` mean two things at once — "the
+    # template that renders this file" and "a snap-in owns this file, no template involved" — and nine
+    # tests said so immediately by finding paths in an index built from empty fixtures. One key, one
+    # meaning: `paths` is templates, `snapins` is ownership, and an entry in `paths` carries the ownership
+    # annotation when both apply.
+    snapins = {path: {"snapin": o[0], "snapin_label": o[1], "snapin_exclusive": o[2]}
+               for path, o in ((p, snapin_for(p)) for p in SNAPIN_ONLY_PATHS) if o}
+
+    result = {"paths": paths, "conflicts": conflicts, "snapins": snapins}
     _CACHE[key] = (time.monotonic(), sig, result)
     return result

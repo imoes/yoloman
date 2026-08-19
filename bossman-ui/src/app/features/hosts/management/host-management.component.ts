@@ -87,7 +87,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('storage')) { <div [style.display]="show('storage')"><app-host-storage [agentId]="agentId()" /></div> }
         @if (visited().has('policies')) { <div [style.display]="show('policies')"><app-host-policies [agentId]="agentId()" /></div> }
         @if (visited().has('variables')) { <div [style.display]="show('variables')"><app-host-variables [agentId]="agentId()" [hostName]="hostName()" /></div> }
-        @if (visited().has('config-settings')) { <div [style.display]="show('config-settings')"><app-host-settings-editor [agentId]="agentId()" /></div> }
+        @if (visited().has('config-settings')) { <div [style.display]="show('config-settings')"><app-host-settings-editor [agentId]="agentId()" (openSnapin)="select($event)" /></div> }
         @if (visited().has('config-thresholds')) { <div [style.display]="show('config-thresholds')"><app-effective-thresholds [agentId]="agentId()" /></div> }
         @if (visited().has('config-desired')) { <div [style.display]="show('config-desired')"><app-host-desired-state [agentId]="agentId()" /></div> }
         @if (visited().has('freeipa')) { <div [style.display]="show('freeipa')"><app-host-freeipa [agentId]="agentId()" /></div> }
