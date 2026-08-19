@@ -1673,3 +1673,31 @@ Der erste ist behoben, der zweite ist der schwerere und ausdrücklich **noch off
            holen und prüfen, ob der behauptete Codec **rundläuft** (parse → serialize → byte-gleich).
            Wer rundläuft, hat recht; wer nicht, ist widerlegt. `none` gewinnt nur, wenn kein Codec
            rundläuft. Das ist der nächste Block, nicht Teil dieses Durchgangs.
+
+### Der Beobachtungspunkt existiert jetzt (Nachtrag zum offenen Befund)
+
+[`codec_roundtrip_test.go`](../internal/modules/codec_roundtrip_test.go) misst, [`decide_codecs.py`](../bossman/scripts/decide_codecs.py) entscheidet. Der Codec einer Datei wird nicht mehr behauptet,
+sondern am **ausgelieferten Text** widerlegt oder bestätigt — mit sechs Widerlegungen (keine Keys, nicht
+stabil, Struktur zerhackt, falsches Kommentarzeichen, mehr Keys als aktive Zeilen, falscher Separator) und
+zwei strukturellen Verweigerungen (geschweifte Verschachtelung, positionsabhängige Abschnitte wie
+haproxys `global`/`defaults`).
+
+Jede dieser acht Regeln kam aus einem **falschen Urteil im Lauf davor**, nicht aus dem Lehrbuch:
+`ini` fand auf `httpd.conf` null Einstellungen und war damit trivial byte-identisch (wer nichts versteht,
+ändert nichts); `keyvalue` behauptete 32 Einstellungen in `named.conf`, weil `options {` als Wert `{`
+durchläuft; `sshd_config` meldete 59 Einstellungen bei 5 aktiven Zeilen, sobald das Kommentarzeichen falsch
+war. Zwei meiner eigenen Messgrößen waren dabei ebenfalls falsch: `len(values)` zählte bei ini die
+**Sektionen** (4 statt 24 bei `smb.conf`), und eine Prüfung auf „Schlüssel sieht wie ein Identifier aus"
+verwarf `passdb backend` und `php_admin_value[error_log]` — beide legitim.
+
+Erster Einsatz, 32 RedHat-Dateien: **18 Codec / 12 freiform / 2 kein Befund**. Gegen die Registry gehalten:
+**12 bestehende Behauptungen bestätigt, 4 widerlegt** (`cupsd.conf` keyvalue → none bei 22 Blöcken,
+`redis.conf` none → keyvalue, `smb.conf` none → ini byte-identisch, `sysconfig/memcached` none → keyvalue),
+14 neu entschieden. Zwei der 22 Registry-Konflikte lösten sich dadurch von selbst (22 → 20). Und der seit
+Längerem rote `TestGuessCodec` war kein Testfehler: die eingebettete Registry behauptete `ini` für
+`/etc/nginx/nginx.conf` — 8 geschweifte Blöcke, widerlegt, korrigiert.
+
+**Offen bleibt der Maßstab:** 827 der 961 eingebetteten Einträge tragen `confidence: inferred`, sind also
+nie gemessen worden. Der Weg dahin ist derselbe wie bei RedHat: die `.deb`s holen (`_deb_config` existiert),
+Text durch die Sonde, Urteil in die Registry — damit auch die 236 Widersprüche zwischen den beiden
+Registries **einzeln belegt** aufgelöst werden statt per Vorrangregel.
