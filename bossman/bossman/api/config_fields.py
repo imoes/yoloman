@@ -26,6 +26,7 @@ from bossman.api.auth import get_current_identity
 from bossman.api.config_templates import _load_template
 from bossman.config import Settings, get_settings
 from bossman.services import config_schema
+from bossman.services.template_index import build_template_index
 
 router = APIRouter()
 
@@ -79,17 +80,31 @@ def _provenance(record: dict) -> dict:
     }
 
 
-def _template_for_path(path: str, codecs: dict, tdir: Path) -> str | None:
-    """Resolve a freeform file to its whole-file template dir. Basename (minus
-    .conf/.cfg) then a codec `packages` name — confident matches only."""
-    base = path.rsplit("/", 1)[-1]
-    for cand in (base, re.sub(r"\.(conf|cfg)$", "", base)):
-        if cand and (tdir / cand / "schema.json").is_file():
-            return cand
-    for pkg in (codecs.get(path) or {}).get("packages") or []:
-        if (tdir / pkg / "schema.json").is_file():
-            return pkg
-    return None
+def _template_for_path(path: str, settings: Settings) -> str | None:
+    """Resolve a freeform file to the template that renders THAT file — through the index, not by name.
+
+    THIS USED TO BE A SECOND RESOLVER, and it gave the wrong answer the moment a second distribution appeared.
+    It matched on the basename (minus .conf/.cfg) and then on a codec `packages` name, so:
+
+      /etc/named.conf            -> the DEBIAN bind9 template, whose meta.json says it renders
+                                    /etc/bind/named.conf. Rendering that over EL's named.conf writes another
+                                    distribution's file.
+      /etc/httpd/conf/httpd.conf -> nothing at all, although apache2-redhat renders exactly it — because no
+                                    template directory happens to be called "httpd.conf".
+
+    The path->template index exists precisely to answer this by TARGET PATH (each template's meta.json
+    target_path), which is why 2786 templates were unreachable while it was a name guess. Two resolvers for one
+    question is one name for two things, and the second one was the wrong answer.
+    """
+    # Same three inputs the index endpoint passes (config_templates.py:89) — there is no separate catalog
+    # setting; the catalog sits beside the templates directory.
+    index = build_template_index(
+        Path(settings.config_templates_dir).parent / "package_catalog.json",
+        settings.config_codecs_path,
+        settings.config_templates_dir,
+    )
+    entry = (index.get("paths") or {}).get(path)
+    return entry.get("template") if isinstance(entry, dict) else None
 
 
 @router.get("/api/v1/config-fields")
@@ -117,7 +132,7 @@ async def config_fields(
 
     # Freeform (codec == none, or unknown): the whole-file template is the spec.
     tdir = Path(settings.config_templates_dir)
-    tpl = _template_for_path(path, codecs, tdir)
+    tpl = _template_for_path(path, settings)
     if tpl:
         t = _load_template(tdir / tpl) or {}
         meta = _load_json(tdir / tpl / "meta.json")

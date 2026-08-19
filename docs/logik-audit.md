@@ -1835,3 +1835,30 @@ je **100 %**, `vsftpd` 92 %, `pure-ftpd` 86 %, `sysstat` 86 % — und die widerl
 gemint, statt sie als „gefüllt" zu zählen. Vererbung vom Zwilling ist exakt für das, was sie abdeckt, aber
 sie **verspricht keine Deckung**: `mariadb-server.cnf` erbt 22 gültige Direktiven und trifft damit nur 1 von
 4 Schlüsseln der EL-Datei.
+
+### [Identität] Behoben: zwei Auflöser für „welches Template rendert diese Datei"
+
+  Beleg:   `config_fields._template_for_path` löste über den **Basename** auf (minus `.conf`/`.cfg`), dann
+           über einen Paketnamen aus dem Codec-Eintrag — während `template_index` dieselbe Frage über
+           `meta.json`/`target_path` beantwortet.
+  Problem: Sichtbar geworden, sobald eine zweite Distribution existiert:
+           `/etc/named.conf` (EL) bekam das **Debian**-Template, dessen `meta.json` sagt, dass es
+           `/etc/bind/named.conf` rendert — eine fremde Distribution über die eigene Datei geschrieben.
+           `/etc/httpd/conf/httpd.conf` bekam **gar nichts**, obwohl `apache2-redhat` genau diese Datei
+           rendert; nur heißt kein Verzeichnis „httpd.conf". Zwei Auflöser für eine Frage, und der zweite
+           gab die falsche Antwort.
+  Fix:     `config_fields` fragt jetzt den Index. Live geprüft: EL-`httpd.conf` → `apache2-redhat`
+           (Zeuge rpm), EL-`named.conf` → `bind9-redhat`, Debian-`/etc/bind/named.conf` → sein eigenes.
+
+### [Ausgeschlossenes Drittes] OFFEN: gleicher Pfad, zwei Distributionen, ein Template
+
+  Beleg:   `/etc/caddy/Caddyfile` heißt auf beiden Familien gleich, hat aber verschiedenen Inhalt. Der Index
+           meldet den Streit ordentlich als Konflikt (`chosen: caddy` aus dem Katalog, `also: caddy-redhat`
+           aus `template-meta`) — **entscheidet** ihn aber zugunsten des Katalogs, also Debian.
+  Problem: Auf einem RedHat-Host würde `Caddyfile` aus dem Debian-Template gerendert. Der Index ist
+           host-unabhängig (Autorenansicht) und kann die Familie nicht kennen; die Auswahl gehört daher an
+           die Stelle, die den Host kennt.
+  Fix:     Familien-Zweige pro Pfad — dasselbe Muster, das `package_catalog.json` schon hat — und eine
+           host-seitige Auswahl, die den familien-passenden Kandidaten nimmt. Datenlage bisher: von den
+           ersten drei RedHat-Templates kollidiert **eines**; die Zahl wächst mit dem laufenden Durchgang
+           (`nginx.conf`, `lighttpd.conf`, `proftpd.conf` heißen ebenfalls auf beiden Seiten gleich).
