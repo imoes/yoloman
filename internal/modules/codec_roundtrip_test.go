@@ -265,6 +265,7 @@ type probeResult struct {
 	ActiveLines   int    `json:"active_lines"`
 	Positional    int    `json:"positional"`
 	StrictJSON    bool   `json:"strict_json"`
+	LinesLost     int    `json:"lines_lost"`
 	Executable    bool   `json:"executable"`
 	Sections      int    `json:"sections"`
 	Separator     string `json:"separator"`
@@ -321,6 +322,12 @@ func probeOne(req probeRequest, format string) probeResult {
 		return res
 	}
 	res.ByteIdentical = string(out) == req.Text
+	// LINES LOST, and nothing else was measuring it. /etc/sudoers repeats `Defaults` on several lines, and a
+	// flat map keeps ONE of them — so a merge writes the file back with the others gone. The stability check
+	// cannot see it (parse(render) still equals parse(original): both collapsed), and byte-inequality alone
+	// is indistinguishable from harmless reformatting. Counting the lines does see it, and a codec that
+	// deletes a line is not a codec for this file at any similarity.
+	res.LinesLost = len(strings.Split(req.Text, "\n")) - len(strings.Split(string(out), "\n"))
 	again, err := codec.parse(out)
 	if err != nil {
 		res.Error = "reparse: " + err.Error()
@@ -349,8 +356,8 @@ func TestCodecRoundTripProbe(t *testing.T) {
 			format := req.Candidates[0]
 			r := probeOne(req, format)
 			results = append(results, r)
-			t.Logf("%-46s %-9s sep=%-3q cmt=%-3q exe=%-5v sec=%-3d keys=%-4d chop=%-4d bare=%-4d junk=%-4d blocks=%-3d pos=%-3d active=%-4d byte=%-5v stable=%-5v %s",
-				req.Path, format, r.Separator, r.Comment, r.Executable, r.Sections, r.Keys, r.Chopped, r.Bare, r.Junk, r.Blocks, r.Positional, r.ActiveLines,
+			t.Logf("%-46s %-9s sep=%-3q cmt=%-3q exe=%-5v sec=%-3d keys=%-4d lost=%-4d chop=%-4d bare=%-4d junk=%-4d blocks=%-3d pos=%-3d active=%-4d byte=%-5v stable=%-5v %s",
+				req.Path, format, r.Separator, r.Comment, r.Executable, r.Sections, r.Keys, r.LinesLost, r.Chopped, r.Bare, r.Junk, r.Blocks, r.Positional, r.ActiveLines,
 				r.ByteIdentical, r.Stable, r.Error)
 		}
 	}
