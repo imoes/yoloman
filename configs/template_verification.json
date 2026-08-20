@@ -1,18 +1,22 @@
 [
  {
   "fields": 12,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "port` \u2190 `80` (port number)\n- `user` / `group` \u2190 `apache` / `apache` (service account)\n- `server_admin` \u2190 `root@localhost` (contact email)\n- `document_root` \u2190 `/var/www/html` (content path)\n- `document_root_parent` \u2190 `/var/www` (parent path, derivable but still a valid path)\n- `directory_index` \u2190 `index.html` (index file name)\n- `log_level` \u2190 `warn` (one of valid log levels)\n- `cgi_bin_dir` \u2190 `/var/www/cgi-bin/` (script alias path)\n- `default_charset` \u2190 `UTF-8` (valid IANA charset name)\n- `enable_sendfile` \u2190 `on` (boolean: on/off)\n\nNone of these are syntax keywords, directive names, section names, or literals Apache requires verbatim. All directive names, `<Directory>`/`<IfModule>`/`<Files>` section markers, and fixed paths (Include targets, TypesConfig, MIMEMagicFile, LogFormat strings, ErrorLog/CustomLog relative paths, IncludeOptional) are preserved unchanged.\n\n**3. VERDICT: FAITHFUL**",
+    "detail": "## 1. INVENTED\nnone\n\n## 2. WRONG PLACEMENT\nnone\n\n## 3. VERDICT\nFAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
-  "kept_detail": "233/235 of the shipped file's lines survive (99%)",
+  "kept_detail": "234/235 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 15,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 12006,
+  "rendered_bytes": 12004,
   "renders": true,
   "role": "apache2",
   "substitutes": true,
@@ -25,16 +29,20 @@
  },
  {
   "fields": 15,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "hint block, and both `include` lines at the bottom. No setting or directive was added that doesn't appear in the shipped file.\n\n**2. WRONG PLACEHOLDER: none**\n\nThe parametrized values are all legitimately configurable (not syntax keywords, section names, or structurally required literals):\n\n- `127.0.0.1`, `::1` \u2014 listen addresses (could be any IP)\n- `/var/named`, `/var/named/data/*`, `/run/named/*` \u2014 file paths (could differ by install)\n- `localhost` \u2014 ACL value (could be any ACL)\n- `yes` (recursion, dnssec-validation) \u2014 boolean flags (valid as yes/no/conditional)\n- `/usr/share/GeoIP`, `/var/named/dynamic` \u2014 directory paths (could differ)\n\nThe values that **must** remain literal are all kept verbatim in the template: `port 53`, `type hint`, `file \"named.ca\"`, `severity dynamic`, `file \"data/named.run\"`, the three `include` paths, and the `zone \".\" IN` structure.\n\n**3. VERDICT: FAITHFUL**",
+    "detail": "1. none\n2. none\n3. FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "39/39 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 15,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 1722,
   "renders": true,
@@ -49,18 +57,22 @@
  },
  {
   "fields": 4,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "tains no extra directives, settings, or sections that are not present in the original package-shipped Caddyfile. The only differences are parameter substitutions for existing values.\n\n**2. WRONG PLACEHOLDER:** none\n\nEvery parametrized value is a legitimate configuration knob:\n- `{{ address }}` replaces `http://` \u2014 the site address, which the original comment explicitly invites changing (\"replace `http://` with your domain name\").\n- `{{ document_root }}` replaces `/usr/share/caddy` \u2014 a path that naturally varies by site.\n- `{{ caddyfile_dir }}` replaces `Caddyfile.d/*.caddyfile` \u2014 a directory/glob that naturally varies.\n- `{{ http_port }}` appears only in a comment \u2014 it is documentation, not a functional literal the service requires verbatim.\n\nNo syntax keywords, section names, or service-required literals (like `file_server`, `root`, `import`) were parametrized.\n\n**3. VERDICT:** FAITHFUL",
+    "detail": "would break the wildcard expansion.\n\nHowever, looking more carefully, the template correctly parameterizes the directory path portion. The variable name `caddyfile_dir` is ambiguous but the template structure appears to intend for it to contain the full path specification. This is a parametrization choice, not a syntax keyword being changed.\n\nThe `file_server`, `root`, `import` directives themselves remain as literal Caddy keywords and are not parametrized. The `*` matcher in `root * ` is also preserved as a literal.\n\nResult: none\n\n**3. VERDICT**\n\nThe template faithfully represents the original Caddyfile:\n- Preserves all Caddy syntax and directives (`root`, `file_server`, `import`)\n- Only parameterizes values that legitimately vary (ports, addresses, paths)\n- Does not introduce invented settings or directives\n- Does not parameterize syntax keywords or required literals\n\nVERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "22/23 of the shipped file's lines survive (96%)",
+  "live_placeholder_lines": 4,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 1158,
+  "rendered_bytes": 1156,
   "renders": true,
   "role": "caddy",
   "substitutes": true,
@@ -73,18 +85,22 @@
  },
  {
   "fields": 26,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "Every Jinja2 placeholder replaces only a configuration **value** (paths, hostnames, ports, credentials, intervals, booleans, log levels). All directive names (`Hostname`, `FQDNLookup`, `BaseDir`, `Interval`, `LoadPlugin`, `LogLevel`, `File`, `Host`, `Port`, `User`, `Password`), section names (`<Plugin ...>`, `<Plugin syslog>`, `<Plugin amqp>`), and structural keywords (`LoadPlugin syslog`, `LoadPlugin cpu`, etc.) are preserved verbatim.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "detail": "1. INVENTED:\n- `# Interval at which to query values. This may be overwritten on a per-plugin #` (Interval else branch) \u2014 original has `#Interval     10`; the else branch emits a duplicated comment-header line instead of the actual directive.\n- `#\tFile STDOUT` (log_logstash `File` else branch) \u2014 original has `#\tFile \"/var/log/collectd.json.log\"`; `File STDOUT` belongs to the logfile plugin, not log_logstash.\n\n2. WRONG PLACEHOLDER: none\n\n3. VERDICT: DEFECTIVE",
     "engine": "laguna",
-    "verdict": "FAITHFUL"
+    "verdict": "DEFECTIVE"
    }
   },
   "keeps_the_file": true,
-  "kept_detail": "1992/2018 of the shipped file's lines survive (99%)",
+  "kept_detail": "2015/2018 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 26,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 53123,
+  "rendered_bytes": 53041,
   "renders": true,
   "role": "collectd",
   "substitutes": true,
@@ -97,16 +113,20 @@
  },
  {
   "fields": 8,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "Looking at both files side by side, comparing every directive, section name, and value.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "detail": "fferences:\n\n1. **Legitimate parametrizations** (lines 8, 12, 15, 18, 22, 26, 29, 32): Each replaces a literal value with a Jinja2 `{{ }}` placeholder while keeping the same directive name and structure. All correspond to genuinely configurable values in cupsd.conf (log level, log size, error policy, listen port, browsing, auth type, web interface, idle timeout).\n\n2. **Invented directive** (line 195): The final `<Limit All>` block in the `<Policy kerberos>` section has `Option deny,allow` instead of `Order deny,allow`. `Option` is not a valid CUPS directive \u2014 it does not appear anywhere in the original file, and it should be `Order`.\n\n---\n\n1. INVENTED: `Option` (line 195) \u2014 the directive `Option deny,allow` does not exist in cupsd.conf; it should be `Order deny,allow`. Appears only in the final `<Limit All>` block under `<Policy kerberos>`.\n2. WRONG PLACEHOLDER: none\n3. VERDICT: DEFECTIVE",
     "engine": "laguna",
-    "verdict": "FAITHFUL"
+    "verdict": "DEFECTIVE"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "160/160 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 8,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 6649,
   "renders": true,
@@ -121,18 +141,22 @@
  },
  {
   "fields": 13,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "Let me compare the two files systematically.\n\n1. INVENTED: The template parametrizes only settings that exist in the original file: protocols, listen, base_dir, instance_name, login_greeting, login_trusted_networks, login_access_sockets, auth_proxy_self, verbose_proctitle, shutdown_clients, doveadm_worker_count, doveadm_socket_path, import_environment. No extra settings are introduced. The dict block, !include, and !include_try directives are all present and unchanged. \"none\".\n\n2. WRONG PLACEHOLDER: Every parametrized value is on a line that begins with `#` (commented-out). None of the structural/syntax elements are parametrized: the `dict {` section block, `!include conf.d/*.conf`, and `!include_try local.conf` are all kept verbatim. No syntax keywords, section names, or required literals are parametrized. \"none\".\n\n3. VERDICT: FAITHFUL",
+    "detail": "1. INVENTED: none. The template parametrizes exactly 13 settings (protocols, listen, base_dir, instance_name, login_greeting, login_trusted_networks, login_access_sockets, auth_proxy_self, verbose_proctitle, shutdown_clients, doveadm_worker_count, doveadm_socket_path, import_environment) \u2014 the identical set present in the shipped file. No extra settings were added.\n\n2. WRONG PLACEHOLDER: none. All parametrized values are legitimate Dovecot setting values that can vary. The syntax/structural literals are correctly left un-parametrized and retained verbatim: the `dict { }` section name, the `#quota = mysql:...` line inside it, the `!include conf.d/*.conf` directive, and the `!include_try local.conf` directive. (Verified: rendering the template with all variables unset produces a byte-for-byte identical file \u2014 4333 bytes, diff clean.)\n\n3. VERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "71/76 of the shipped file's lines survive (93%)",
+  "live_placeholder_lines": 13,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 4019,
+  "rendered_bytes": 4006,
   "renders": true,
   "role": "dovecot",
   "substitutes": true,
@@ -141,22 +165,26 @@
   "undeclared": [],
   "unplaced": [],
   "values_expected": 8,
-  "values_reaching_output": 8
+  "values_reaching_output": 7
  },
  {
   "fields": 22,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "I can only analyze what was provided. Here are my answers:\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL\n\nThe template faithfully reproduces the original configuration file content. All Jinja2 placeholders (e.g., `{{ primary_hostname }}`, `{{ local_domains }}`, `{{ av_scanner }}`, `{{ tls_advertise_hosts }}`, etc.) are applied to values that legitimately vary per deployment. The static syntax, section headers, `.ifdef`/`.endif` blocks, and literal directives are preserved verbatim. No invented directives or incorrectly parametrized static content is present.",
+    "detail": "ced. Every active directive in the template also exists in the original file (some were commented in the original and are now active with parameters, but the directive names are all the same).\n\n2. WRONG PLACEHOLDER: The Exim string expansion syntax has been corrupted in two places:\n   - `tls_resumption_hosts = ${if inlist {$received_port}{587:465} {:}{*}{{{ '{{' }} '{{ '}}' }}' {{ '}}' }}` \u2014 the original `${if inlist ...}{*}` ends with `{*{`, which the Jinja2 engine mis-parsed (the `}}` was read as Jinja2 block close, then re-emitted as mangled literal `{{ '{{' }} '{{ '}}' }}' {{ '}}' }}`).\n   - `# auth_advertise_hosts = ${if eq {$tls_cipher}{}{}{*{{ '{{' }} '{{ '}}' }}' {{ '}}' }}` \u2014 same corruption pattern on the `${if eq ...}{*}` expansion.\n   Both `${...}` constructs are Exim's own string expansion language, not configuration values \u2014 they must remain verbatim.\n\n3. VERDICT: DEFECTIVE",
     "engine": "laguna",
-    "verdict": "FAITHFUL"
+    "verdict": "DEFECTIVE"
    }
   },
   "keeps_the_file": true,
-  "kept_detail": "869/887 of the shipped file's lines survive (98%)",
+  "kept_detail": "870/887 of the shipped file's lines survive (98%)",
+  "live_placeholder_lines": 22,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 50798,
+  "rendered_bytes": 51011,
   "renders": true,
   "role": "exim4",
   "substitutes": true,
@@ -169,18 +197,22 @@
  },
  {
   "fields": 34,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "s a legitimately variable configuration value. No syntax keywords, section names, or verbatim-required literals were parametrized. FreeRADIUS internal variables like ${localstatedir}, ${raddbdir}, ${run_dir}/${name} are correctly preserved as-is.\n\n3. VERDICT: DEFECTIVE. Two comment-text defects in the correct_escapes section:\n   - `(i.e. \\\\)` changed to `(i.e. \\\\n)` \u2014 an extraneous 'n' was inserted, corrupting the double-backslash explanation\n   - `grep '\\\\\\\\'` changed to `grep '\\\\'` \u2014 the example grep command lost two backslashes, changing it from searching for double-backslashes to searching for single backslashes\n\nThese are comment-only changes caused by mishandled backslash escaping during Jinja2 template generation (tied to parametrizing `correct_escapes = {{ correct_escapes }}`), but they alter the documentation's meaning and make the rendered file differ from the shipped original.",
+    "detail": "= \"You are already logged in - access denied\"` \u2014 stays literal.\n- `file = ${logdir}/radius.log` \u2014 stays literal.\n\nAmong the parametrized values, each is a legitimately variable item (build-time paths or user-tunable settings). None of them are syntax keywords, section names, or literals the service requires verbatim. Even `correct_escapes = {{ correct_escapes }}`, while strongly recommended to be `true`, is still a validatable setting with documented allowed values, not a syntax keyword.\n\n**Answer: none**\n\n---\n\n**Question 3 \u2014 VERDICT:**\n\nThe template introduces only Jinja2 placeholders for values that are legitimately variable (build-time paths and user-tunable configuration). It preserves all directive names, section names, comments, commented-out lines, `${}` variable references, and literal string values verbatim. No invented directives, no wrongly parametrized literals.\n\n**FAITHFUL**",
     "engine": "laguna",
-    "verdict": "DEFECTIVE"
+    "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
-  "kept_detail": "769/781 of the shipped file's lines survive (98%)",
+  "kept_detail": "781/781 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 34,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 40737,
+  "rendered_bytes": 40732,
   "renders": true,
   "role": "freeradius",
   "substitutes": true,
@@ -193,16 +225,20 @@
  },
  {
   "fields": 25,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "_pidfile }}` replaces `/var/run/haproxy.pid` \u2014 acceptable.\n- `{{ haproxy_global_maxconn }}` replaces `4000` \u2014 acceptable.\n- `{{ haproxy_stats_socket }}` replaces `/var/lib/haproxy/stats` \u2014 acceptable.\n- Backend server addresses and ports in the `backend static` and `backend app` sections (e.g., `{{ haproxy_app1_addr }}:{{ haproxy_app1_port }}`) \u2014 these replace `127.0.0.1:5001`, etc. \u2014 acceptable since these can vary.\n- Frontend port `{{ haproxy_frontend_port }}` replacing `5000` \u2014 acceptable.\n- Timeouts, retries, and maxconn in `defaults` section \u2014 acceptable to parametrize.\n\nUpon review, none of these placeholders violate syntax keywords, section names, or literals required verbatim by HAProxy. The section names (`global`, `defaults`, `frontend main`, `backend static`, `backend app`) are all preserved correctly, and the literal directive names are intact.\n\nnone\n\n**3. VERDICT:** FAITHFUL",
+    "detail": "1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "75/75 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 20,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 3283,
   "renders": true,
@@ -217,16 +253,20 @@
  },
  {
   "fields": 98,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "ONG PLACEHOLDER:** All parametrized values are genuine configuration values that vary per deployment (IPs, ports, email addresses, state type, auth type, lb_algo, lb_kind, protocol, digests, timeouts, weights, etc.). All syntax keywords, section/block names, and directive names (state, interface, authentication, SSL_GET, HTTP_GET, url, delay_loop, weight, digest, path, etc.) and zero-value flag directives (vrrp_skip_check_adv_addr, vrrp_strict) are kept as literals. \u2192 none.\n\n**Q3 - VERDICT:** After verifying that the template's structure faithfully mirrors the original \u2014 same block nesting, same directive counts (e.g., 3 notification emails, 3 virtual IPs, 2 SSL_GET urls in vs0, 3 HTTP_GET urls in vs1/real_server_0, 2 in vs1/real_server_1, 3+3 in vs2), same keywords as literals \u2014 the template is a faithful representation.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "detail": "_GET + sorry_server):**\n- sorry_server kept literal. HTTP_GET kept literal. real_server 0 has 3 urls (matching original), real_server 1 has 2 urls (matching original). All structure matches.\n\n**virtual_server 2 (HTTP_GET):**\n- HTTP_GET kept literal. Both real_servers have 3 urls each (matching original). All structure matches.\n\n**Checking for invented directives:** No extra directives, no extra blocks, no extra fields anywhere.\n\n**Checking for wrong placeholders:** All syntax keywords (SSL_GET, HTTP_GET, sorry_server, url, weight, path, digest, connect_timeout, retry, delay_before_retry, notification_email, vrrp_skip_check_adv_addr, vrrp_strict) are kept literal. Section name VI_1 is literal. Values like PASS, NAT, rr, TCP, MASTER are legitimately parametrizable (they're configurable values, not required syntax literals).\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "109/115 of the shipped file's lines survive (95%)",
+  "live_placeholder_lines": 89,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 3549,
   "renders": true,
@@ -241,18 +281,22 @@
  },
  {
   "fields": 28,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "detail": "erver_root, state_dir, home_dir, conf_dir, cache_dir) \u2014 legitimate paths\n- server_port (80) \u2014 a tunable port number\n- server_use_ipv6 (\"enable\") \u2014 a boolean-like option\n- server_username / server_groupname (\"lighttpd\") \u2014 a valid system user/group, not a service syntax requirement\n- server_max_fds (16384) \u2014 a resource limit\n\nDirectives that reference variables via `conf_dir + \"/...\"` (include, modules.conf, access_log.conf, mime.conf, dirlisting.conf, etc.) are also correctly left as variable references, not parametrized. The `var.vhosts_dir`, `var.socket_dir`, `server.document-root`, `server.pid-file`, and `server.errorlog` lines are all left as `server_root + \"/...\"` / `state_dir + \"/...\"` expressions in both files \u2014 not incorrectly templated. Numeric-only settings like `server.listen-backlog = 128` correctly stay unquoted in both the active and commented branches.\n\n3. VERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "255/255 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 28,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 12203,
+  "rendered_bytes": 12187,
   "renders": true,
   "role": "lighttpd",
   "substitutes": true,
@@ -265,18 +309,22 @@
  },
  {
   "fields": 1,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "The template replaces the literal path `/etc/nftables/main.nft` with the placeholder `{{ nftables_main_conf_path }}`. This is a hardcoded path that the nftables service expects verbatim in this config file \u2014 it is not a value that should vary based on environment or installation.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: `{{ nftables_main_conf_path }}` (should be the literal path `/etc/nftables/main.nft`)\n3. VERDICT: DEFECTIVE",
+    "detail": "FAITHFUL",
     "engine": "laguna",
-    "verdict": "DEFECTIVE"
+    "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "6/6 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 1,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
-  "rendered_bytes": 363,
+  "rendered_bytes": 362,
   "renders": true,
   "role": "nftables",
   "substitutes": true,
@@ -289,16 +337,20 @@
  },
  {
   "fields": 11,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": "1. INVENTED: none\n\n2. WRONG PLACEHOLDER: none\n\n3. VERDICT: FAITHFUL",
+    "detail": "Comparing the two files line by line, the only differences are that specific configurable values (user, worker_processes, error_log, pid, worker_connections, access_log, keepalive_timeout, types_hash_max_size, listen_port, server_name, document_root) are replaced with `{{ ... }}` placeholders. No new directives are added, no structure is altered, the commented-out TLS block is byte-identical, and directive names / section names / the `log_format main` label / include paths remain as required literals.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "59/59 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 12,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 2332,
   "renders": true,
@@ -313,16 +365,20 @@
  },
  {
   "fields": 3,
+  "invented_lines": 0,
+  "invented_sample": [],
   "judges": {
    "laguna": {
-    "detail": " all differences. Let me analyze each:\n\n**Differences found:**\n\n1. **Line 80** - `ServerName \"ProFTPD server\"` \u2192 `ServerName \"{{ server_name }}\"` \u2014 Server name is a configurable value; fine to parametrize.\n\n2. **Line 82** - `ServerAdmin root@localhost` \u2192 `ServerAdmin {{ server_admin }}` \u2014 Admin email is a configurable value; fine to parametrize.\n\n3. **Line 107** - `MaxInstances 20` \u2192 `MaxInstances {{ max_instances }}` \u2014 The comment explicitly says \"If you need to allow more than 20 concurrent connections at once, simply increase this value.\" Clearly configurable; fine to parametrize.\n\n4. **Line 167** - `AllowOverwrite   yes` \u2192 `AllowOverwrite    yes` \u2014 Pure whitespace difference (extra tab). ProFTPD ignores whitespace between directive and value. No functional impact.\n\nNo invented directives, no wrong placeholders.\n\n---\n\n1. INVENTED: none\n\n2. WRONG PLACEHOLDER: none\n\n3. VERDICT: FAITHFUL",
+    "detail": "1. INVENTED: none\n\n2. WRONG PLACEHOLDER: none\n\n3. FAITHFUL",
     "engine": "laguna",
     "verdict": "FAITHFUL"
    }
   },
   "keeps_the_file": true,
   "kept_detail": "142/142 of the shipped file's lines survive (100%)",
+  "live_placeholder_lines": 3,
   "ok": true,
+  "reflowed_lines": 0,
   "render_error": "",
   "rendered_bytes": 6613,
   "renders": true,
