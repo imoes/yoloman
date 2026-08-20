@@ -10,26 +10,26 @@
 # Global settings for the daemon.                                            #
 ##############################################################################
 
-#Hostname    "{{ collectd_hostname }}"
-#FQDNLookup   {{ collectd_fqdn_lookup }}
-#BaseDir     "{{ collectd_basedir }}"
-#PIDFile     "{{ collectd_pidfile }}"
-#PluginDir   "{{ collectd_plugin_dir }}"
-#TypesDB     "{{ collectd_typesdb }}"
+{% if collectd_hostname %}Hostname    "{{ collectd_hostname }}"{% else %}#Hostname    "localhost"{% endif %}
+{% if collectd_fqdn_lookup %}FQDNLookup   {{ collectd_fqdn_lookup }}{% else %}#FQDNLookup   true{% endif %}
+{% if collectd_basedir %}BaseDir     "{{ collectd_basedir }}"{% else %}#BaseDir     "/var/lib/collectd"{% endif %}
+{% if collectd_pidfile %}PIDFile     "{{ collectd_pidfile }}"{% else %}#PIDFile     "/var/run/collectd.pid"{% endif %}
+{% if collectd_plugin_dir %}PluginDir   "{{ collectd_plugin_dir }}"{% else %}#PluginDir   "/usr/lib64/collectd"{% endif %}
+{% if collectd_typesdb %}TypesDB     "{{ collectd_typesdb }}"{% else %}#TypesDB     "/usr/share/collectd/types.db"{% endif %}
 
 #----------------------------------------------------------------------------#
 # When enabled, plugins are loaded automatically with the default options    #
 # when an appropriate <Plugin ...> block is encountered.                     #
 # Disabled by default.                                                       #
 #----------------------------------------------------------------------------#
-#AutoLoadPlugin {{ collectd_autoload_plugin }}
+{% if collectd_autoload_plugin %}AutoLoadPlugin {{ collectd_autoload_plugin }}{% else %}#AutoLoadPlugin false{% endif %}
 
 #----------------------------------------------------------------------------#
 # When enabled, internal statistics are collected, using "collectd" as the   #
 # plugin name.                                                               #
 # Disabled by default.                                                       #
 #----------------------------------------------------------------------------#
-#CollectInternalStats {{ collectd_collect_internal_stats }}
+{% if collectd_collect_internal_stats %}CollectInternalStats {{ collectd_collect_internal_stats }}{% else %}#CollectInternalStats false{% endif %}
 
 #----------------------------------------------------------------------------#
 # Interval at which to query values. This may be overwritten on a per-plugin #
@@ -38,17 +38,17 @@
 #       Interval 60                                                          #
 #   </LoadPlugin>                                                            #
 #----------------------------------------------------------------------------#
-#Interval     {{ collectd_interval }}
+{% if collectd_interval %}Interval     {{ collectd_interval }}{% else %}# Interval at which to query values. This may be overwritten on a per-plugin #{% endif %}
 
-#MaxReadInterval {{ collectd_max_read_interval }}
-#Timeout         {{ collectd_timeout }}
-#ReadThreads     {{ collectd_read_threads }}
-#WriteThreads    {{ collectd_write_threads }}
+{% if collectd_max_read_interval %}MaxReadInterval {{ collectd_max_read_interval }}{% else %}#MaxReadInterval 86400{% endif %}
+{% if collectd_timeout %}Timeout         {{ collectd_timeout }}{% else %}#Timeout         2{% endif %}
+{% if collectd_read_threads %}ReadThreads     {{ collectd_read_threads }}{% else %}#ReadThreads     5{% endif %}
+{% if collectd_write_threads %}WriteThreads    {{ collectd_write_threads }}{% else %}#WriteThreads    5{% endif %}
 
 # Limit the size of the write queue. Default is no limit. Setting up a limit is
 # recommended for servers handling a high volume of traffic.
-#WriteQueueLimitHigh {{ collectd_write_queue_limit_high }}
-#WriteQueueLimitLow   {{ collectd_write_queue_limit_low }}
+{% if collectd_write_queue_limit_high %}WriteQueueLimitHigh {{ collectd_write_queue_limit_high }}{% else %}#WriteQueueLimitHigh 1000000{% endif %}
+{% if collectd_write_queue_limit_low %}WriteQueueLimitLow   {{ collectd_write_queue_limit_low }}{% else %}#WriteQueueLimitLow   800000{% endif %}
 
 ##############################################################################
 # Logging                                                                    #
@@ -63,19 +63,19 @@ LoadPlugin syslog
 #LoadPlugin log_logstash
 
 #<Plugin logfile>
-#    LogLevel info
-#    File STDOUT
-#    Timestamp true
-#    PrintSeverity false
+#	LogLevel info
+#	File STDOUT
+#	Timestamp true
+#	PrintSeverity false
 #</Plugin>
 
 #<Plugin log_logstash>
-#    LogLevel info
-#    File "{{ collectd_log_logstash_file }}"
+#	LogLevel info
+{% if collectd_log_logstash_file %}File "{{ collectd_log_logstash_file }}"{% else %}#	File STDOUT{% endif %}
 #</Plugin>
 
 #<Plugin syslog>
-#    LogLevel {{ collectd_syslog_log_level }}
+{% if collectd_syslog_log_level %}LogLevel {{ collectd_syslog_log_level }}{% else %}#	LogLevel info{% endif %}
 #</Plugin>
 
 ##############################################################################
@@ -275,11 +275,11 @@ LoadPlugin memory
 
 #<Plugin amqp>
 #  <Publish "name">
-#    Host "{{ collectd_amqp_host }}"
-#    Port "{{ collectd_amqp_port }}"
+{% if collectd_amqp_host %}Host "{{ collectd_amqp_host }}"{% else %}#    Host "localhost"{% endif %}
+{% if collectd_amqp_port %}Port "{{ collectd_amqp_port }}"{% else %}#    Port "5672"{% endif %}
 #    VHost "/"
-#    User "{{ collectd_amqp_user }}"
-#    Password "{{ collectd_amqp_password }}"
+{% if collectd_amqp_user %}User "{{ collectd_amqp_user }}"{% else %}#    User "guest"{% endif %}
+{% if collectd_amqp_password %}Password "{{ collectd_amqp_password }}"{% else %}#    Password "guest"{% endif %}
 #    Exchange "amq.fanout"
 #    RoutingKey "collectd"
 #    Persistent false
@@ -296,10 +296,10 @@ LoadPlugin memory
 
 #<Plugin amqp1>
 #  <Transport "name">
-#    Host "{{ collectd_amqp1_host }}"
-#    Port "{{ collectd_amqp1_port }}"
-#    User "{{ collectd_amqp1_user }}"
-#    Password "{{ collectd_amqp1_password }}"
+{% if collectd_amqp1_host %}Host "{{ collectd_amqp1_host }}"{% else %}#    Host "localhost"{% endif %}
+{% if collectd_amqp1_port %}Port "{{ collectd_amqp1_port }}"{% else %}#    Port "5672"{% endif %}
+{% if collectd_amqp1_user %}User "{{ collectd_amqp1_user }}"{% else %}#    User "guest"{% endif %}
+{% if collectd_amqp1_password %}Password "{{ collectd_amqp1_password }}"{% else %}#    Password "guest"{% endif %}
 #    Address "collectd"
 #    RetryDelay 1
 #    <Instance "log">
@@ -430,7 +430,7 @@ LoadPlugin memory
 #</Plugin>
 #
 #<Plugin csv>
-#    DataDir "/var/lib/collectd/csv"
+#	DataDir "/var/lib/collectd/csv"
 #	StoreRates false
 #</Plugin>
 
@@ -725,8 +725,8 @@ LoadPlugin memory
 #</Plugin>
 
 #<Plugin dpdk_telemetry>
-#    ClientSocketPath "/var/run/.client"
-#    DpdkSocketPath "/var/run/dpdk/rte/telemetry"
+#	ClientSocketPath "/var/run/.client"
+#	DpdkSocketPath "/var/run/dpdk/rte/telemetry"
 #</Plugin>
 
 #<Plugin email>
@@ -938,7 +938,7 @@ LoadPlugin memory
 #      </Match>
 #      <Match "device">
 #        PluginInstance true
-#        Regex " ([0-9a-fA-F:\.]*): PCIe Bus Error"
+#        Regex " ([0-9a-fA-F:\\.]*): PCIe Bus Error"
 #        SubmatchIdx 1
 #        IsMandatory false
 #      </Match>
@@ -1650,7 +1650,7 @@ LoadPlugin memory
 #       Community "community_string"
 #       Collect "std_traffic"
 #       Interval 120
-#	Timeout 10
+# 	Timeout 10
 #	Retries 1
 #   </Host>
 #   <Host "some.server.mydomain.org">
@@ -1666,7 +1666,7 @@ LoadPlugin memory
 #       Community "more_communities"
 #       Collect "powerplus_voltge_input"
 #       Interval 300
-#	Timeout 5
+# 	Timeout 5
 #	Retries 5
 #   </Host>
 #   <Host "highend.switch.example.org">
@@ -1896,15 +1896,15 @@ LoadPlugin memory
 #   ShowCPUCores true
 #   ShowMemory true
 #   ShowTemperatures true
-##	Temperature Sensors can be ignored/shown by repeated #Temperature lines, and
-##	then inverted with a IgnoreSelectedTemperature.
-##	Known Temperature sensors: die, devmem, fin, fout, vccp, vddg, vddq
+##  Temperature Sensors can be ignored/shown by repeated #Temperature lines, and
+##  then inverted with a IgnoreSelectedTemperature.
+##  Known Temperature sensors: die, devmem, fin, fout, vccp, vddg, vddq
 #   Temperature vddg
 #   IgnoreSelectedTemperature true
 #   ShowPower true
-##	Power Sensors can be ignored/shown by repeated #Power lines, and
-##	then inverted with a IgnoreSelectedTemperature.
-##	Known Temperature sensors: total0, total1, inst, imax, pci3, c2x3, c2x4, vccp, vddg, vddq
+##  Power Sensors can be ignored/shown by repeated #Power lines, and
+##  then inverted with a IgnoreSelectedTemperature.
+##  Known Temperature sensors: total0, total1, inst, imax, pci3, c2x3, c2x4, vccp, vddg, vddq
 #   Power total1
 #   IgnoreSelectedPower true
 #</Plugin>
@@ -2044,7 +2044,7 @@ LoadPlugin memory
 #</Plugin>
 
 #<Plugin write_prometheus>
-#	Port "{{ collectd_write_prometheus_port }}"
+{% if collectd_write_prometheus_port %}Port "{{ collectd_write_prometheus_port }}"{% else %}#    Port "5672"{% endif %}
 #</Plugin>
 
 #<Plugin write_redis>

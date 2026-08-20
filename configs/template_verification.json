@@ -1,0 +1,338 @@
+[
+ {
+  "fields": 12,
+  "judges": {
+   "laguna": {
+    "detail": "port` \u2190 `80` (port number)\n- `user` / `group` \u2190 `apache` / `apache` (service account)\n- `server_admin` \u2190 `root@localhost` (contact email)\n- `document_root` \u2190 `/var/www/html` (content path)\n- `document_root_parent` \u2190 `/var/www` (parent path, derivable but still a valid path)\n- `directory_index` \u2190 `index.html` (index file name)\n- `log_level` \u2190 `warn` (one of valid log levels)\n- `cgi_bin_dir` \u2190 `/var/www/cgi-bin/` (script alias path)\n- `default_charset` \u2190 `UTF-8` (valid IANA charset name)\n- `enable_sendfile` \u2190 `on` (boolean: on/off)\n\nNone of these are syntax keywords, directive names, section names, or literals Apache requires verbatim. All directive names, `<Directory>`/`<IfModule>`/`<Files>` section markers, and fixed paths (Include targets, TypesConfig, MIMEMagicFile, LogFormat strings, ErrorLog/CustomLog relative paths, IncludeOptional) are preserved unchanged.\n\n**3. VERDICT: FAITHFUL**",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "233/235 of the shipped file's lines survive (99%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 12006,
+  "renders": true,
+  "role": "apache2",
+  "substitutes": true,
+  "target": "/etc/httpd/conf/httpd.conf",
+  "template": "apache2-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 10,
+  "values_reaching_output": 10
+ },
+ {
+  "fields": 15,
+  "judges": {
+   "laguna": {
+    "detail": "hint block, and both `include` lines at the bottom. No setting or directive was added that doesn't appear in the shipped file.\n\n**2. WRONG PLACEHOLDER: none**\n\nThe parametrized values are all legitimately configurable (not syntax keywords, section names, or structurally required literals):\n\n- `127.0.0.1`, `::1` \u2014 listen addresses (could be any IP)\n- `/var/named`, `/var/named/data/*`, `/run/named/*` \u2014 file paths (could differ by install)\n- `localhost` \u2014 ACL value (could be any ACL)\n- `yes` (recursion, dnssec-validation) \u2014 boolean flags (valid as yes/no/conditional)\n- `/usr/share/GeoIP`, `/var/named/dynamic` \u2014 directory paths (could differ)\n\nThe values that **must** remain literal are all kept verbatim in the template: `port 53`, `type hint`, `file \"named.ca\"`, `severity dynamic`, `file \"data/named.run\"`, the three `include` paths, and the `zone \".\" IN` structure.\n\n**3. VERDICT: FAITHFUL**",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "39/39 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 1722,
+  "renders": true,
+  "role": "bind9",
+  "substitutes": true,
+  "target": "/etc/named.conf",
+  "template": "bind9-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 15,
+  "values_reaching_output": 15
+ },
+ {
+  "fields": 4,
+  "judges": {
+   "laguna": {
+    "detail": "tains no extra directives, settings, or sections that are not present in the original package-shipped Caddyfile. The only differences are parameter substitutions for existing values.\n\n**2. WRONG PLACEHOLDER:** none\n\nEvery parametrized value is a legitimate configuration knob:\n- `{{ address }}` replaces `http://` \u2014 the site address, which the original comment explicitly invites changing (\"replace `http://` with your domain name\").\n- `{{ document_root }}` replaces `/usr/share/caddy` \u2014 a path that naturally varies by site.\n- `{{ caddyfile_dir }}` replaces `Caddyfile.d/*.caddyfile` \u2014 a directory/glob that naturally varies.\n- `{{ http_port }}` appears only in a comment \u2014 it is documentation, not a functional literal the service requires verbatim.\n\nNo syntax keywords, section names, or service-required literals (like `file_server`, `root`, `import`) were parametrized.\n\n**3. VERDICT:** FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "22/23 of the shipped file's lines survive (96%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 1158,
+  "renders": true,
+  "role": "caddy",
+  "substitutes": true,
+  "target": "/etc/caddy/Caddyfile",
+  "template": "caddy-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 3,
+  "values_reaching_output": 3
+ },
+ {
+  "fields": 26,
+  "judges": {
+   "laguna": {
+    "detail": "Every Jinja2 placeholder replaces only a configuration **value** (paths, hostnames, ports, credentials, intervals, booleans, log levels). All directive names (`Hostname`, `FQDNLookup`, `BaseDir`, `Interval`, `LoadPlugin`, `LogLevel`, `File`, `Host`, `Port`, `User`, `Password`), section names (`<Plugin ...>`, `<Plugin syslog>`, `<Plugin amqp>`), and structural keywords (`LoadPlugin syslog`, `LoadPlugin cpu`, etc.) are preserved verbatim.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "1992/2018 of the shipped file's lines survive (99%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 53123,
+  "renders": true,
+  "role": "collectd",
+  "substitutes": true,
+  "target": "/etc/collectd.conf",
+  "template": "collectd-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 22,
+  "values_reaching_output": 22
+ },
+ {
+  "fields": 8,
+  "judges": {
+   "laguna": {
+    "detail": "Looking at both files side by side, comparing every directive, section name, and value.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "160/160 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 6649,
+  "renders": true,
+  "role": "cups",
+  "substitutes": true,
+  "target": "/etc/cups/cupsd.conf",
+  "template": "cups-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 6,
+  "values_reaching_output": 6
+ },
+ {
+  "fields": 13,
+  "judges": {
+   "laguna": {
+    "detail": "Let me compare the two files systematically.\n\n1. INVENTED: The template parametrizes only settings that exist in the original file: protocols, listen, base_dir, instance_name, login_greeting, login_trusted_networks, login_access_sockets, auth_proxy_self, verbose_proctitle, shutdown_clients, doveadm_worker_count, doveadm_socket_path, import_environment. No extra settings are introduced. The dict block, !include, and !include_try directives are all present and unchanged. \"none\".\n\n2. WRONG PLACEHOLDER: Every parametrized value is on a line that begins with `#` (commented-out). None of the structural/syntax elements are parametrized: the `dict {` section block, `!include conf.d/*.conf`, and `!include_try local.conf` are all kept verbatim. No syntax keywords, section names, or required literals are parametrized. \"none\".\n\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "71/76 of the shipped file's lines survive (93%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 4019,
+  "renders": true,
+  "role": "dovecot",
+  "substitutes": true,
+  "target": "/etc/dovecot/dovecot.conf",
+  "template": "dovecot-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 8,
+  "values_reaching_output": 8
+ },
+ {
+  "fields": 22,
+  "judges": {
+   "laguna": {
+    "detail": "I can only analyze what was provided. Here are my answers:\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL\n\nThe template faithfully reproduces the original configuration file content. All Jinja2 placeholders (e.g., `{{ primary_hostname }}`, `{{ local_domains }}`, `{{ av_scanner }}`, `{{ tls_advertise_hosts }}`, etc.) are applied to values that legitimately vary per deployment. The static syntax, section headers, `.ifdef`/`.endif` blocks, and literal directives are preserved verbatim. No invented directives or incorrectly parametrized static content is present.",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "869/887 of the shipped file's lines survive (98%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 50798,
+  "renders": true,
+  "role": "exim4",
+  "substitutes": true,
+  "target": "/etc/exim/exim.conf",
+  "template": "exim4-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 14,
+  "values_reaching_output": 14
+ },
+ {
+  "fields": 34,
+  "judges": {
+   "laguna": {
+    "detail": "s a legitimately variable configuration value. No syntax keywords, section names, or verbatim-required literals were parametrized. FreeRADIUS internal variables like ${localstatedir}, ${raddbdir}, ${run_dir}/${name} are correctly preserved as-is.\n\n3. VERDICT: DEFECTIVE. Two comment-text defects in the correct_escapes section:\n   - `(i.e. \\\\)` changed to `(i.e. \\\\n)` \u2014 an extraneous 'n' was inserted, corrupting the double-backslash explanation\n   - `grep '\\\\\\\\'` changed to `grep '\\\\'` \u2014 the example grep command lost two backslashes, changing it from searching for double-backslashes to searching for single backslashes\n\nThese are comment-only changes caused by mishandled backslash escaping during Jinja2 template generation (tied to parametrizing `correct_escapes = {{ correct_escapes }}`), but they alter the documentation's meaning and make the rendered file differ from the shipped original.",
+    "engine": "laguna",
+    "verdict": "DEFECTIVE"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "769/781 of the shipped file's lines survive (98%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 40737,
+  "renders": true,
+  "role": "freeradius",
+  "substitutes": true,
+  "target": "/etc/raddb/radiusd.conf",
+  "template": "freeradius-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 25,
+  "values_reaching_output": 25
+ },
+ {
+  "fields": 25,
+  "judges": {
+   "laguna": {
+    "detail": "_pidfile }}` replaces `/var/run/haproxy.pid` \u2014 acceptable.\n- `{{ haproxy_global_maxconn }}` replaces `4000` \u2014 acceptable.\n- `{{ haproxy_stats_socket }}` replaces `/var/lib/haproxy/stats` \u2014 acceptable.\n- Backend server addresses and ports in the `backend static` and `backend app` sections (e.g., `{{ haproxy_app1_addr }}:{{ haproxy_app1_port }}`) \u2014 these replace `127.0.0.1:5001`, etc. \u2014 acceptable since these can vary.\n- Frontend port `{{ haproxy_frontend_port }}` replacing `5000` \u2014 acceptable.\n- Timeouts, retries, and maxconn in `defaults` section \u2014 acceptable to parametrize.\n\nUpon review, none of these placeholders violate syntax keywords, section names, or literals required verbatim by HAProxy. The section names (`global`, `defaults`, `frontend main`, `backend static`, `backend app`) are all preserved correctly, and the literal directive names are intact.\n\nnone\n\n**3. VERDICT:** FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "75/75 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 3283,
+  "renders": true,
+  "role": "haproxy",
+  "substitutes": true,
+  "target": "/etc/haproxy/haproxy.cfg",
+  "template": "haproxy-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 21,
+  "values_reaching_output": 21
+ },
+ {
+  "fields": 98,
+  "judges": {
+   "laguna": {
+    "detail": "ONG PLACEHOLDER:** All parametrized values are genuine configuration values that vary per deployment (IPs, ports, email addresses, state type, auth type, lb_algo, lb_kind, protocol, digests, timeouts, weights, etc.). All syntax keywords, section/block names, and directive names (state, interface, authentication, SSL_GET, HTTP_GET, url, delay_loop, weight, digest, path, etc.) and zero-value flag directives (vrrp_skip_check_adv_addr, vrrp_strict) are kept as literals. \u2192 none.\n\n**Q3 - VERDICT:** After verifying that the template's structure faithfully mirrors the original \u2014 same block nesting, same directive counts (e.g., 3 notification emails, 3 virtual IPs, 2 SSL_GET urls in vs0, 3 HTTP_GET urls in vs1/real_server_0, 2 in vs1/real_server_1, 3+3 in vs2), same keywords as literals \u2014 the template is a faithful representation.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "109/115 of the shipped file's lines survive (95%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 3549,
+  "renders": true,
+  "role": "keepalived",
+  "substitutes": true,
+  "target": "/etc/keepalived/keepalived.conf",
+  "template": "keepalived-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 63,
+  "values_reaching_output": 63
+ },
+ {
+  "fields": 28,
+  "judges": {
+   "laguna": {
+    "detail": "1. INVENTED: none\n2. WRONG PLACEHOLDER: none\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "255/255 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 12203,
+  "renders": true,
+  "role": "lighttpd",
+  "substitutes": true,
+  "target": "/etc/lighttpd/lighttpd.conf",
+  "template": "lighttpd-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 22,
+  "values_reaching_output": 22
+ },
+ {
+  "fields": 1,
+  "judges": {
+   "laguna": {
+    "detail": "The template replaces the literal path `/etc/nftables/main.nft` with the placeholder `{{ nftables_main_conf_path }}`. This is a hardcoded path that the nftables service expects verbatim in this config file \u2014 it is not a value that should vary based on environment or installation.\n\n1. INVENTED: none\n2. WRONG PLACEHOLDER: `{{ nftables_main_conf_path }}` (should be the literal path `/etc/nftables/main.nft`)\n3. VERDICT: DEFECTIVE",
+    "engine": "laguna",
+    "verdict": "DEFECTIVE"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "6/6 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 363,
+  "renders": true,
+  "role": "nftables",
+  "substitutes": true,
+  "target": "/etc/sysconfig/nftables.conf",
+  "template": "nftables-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 1,
+  "values_reaching_output": 1
+ },
+ {
+  "fields": 11,
+  "judges": {
+   "laguna": {
+    "detail": "1. INVENTED: none\n\n2. WRONG PLACEHOLDER: none\n\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "59/59 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 2332,
+  "renders": true,
+  "role": "nginx",
+  "substitutes": true,
+  "target": "/etc/nginx/nginx.conf",
+  "template": "nginx-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 8,
+  "values_reaching_output": 8
+ },
+ {
+  "fields": 3,
+  "judges": {
+   "laguna": {
+    "detail": " all differences. Let me analyze each:\n\n**Differences found:**\n\n1. **Line 80** - `ServerName \"ProFTPD server\"` \u2192 `ServerName \"{{ server_name }}\"` \u2014 Server name is a configurable value; fine to parametrize.\n\n2. **Line 82** - `ServerAdmin root@localhost` \u2192 `ServerAdmin {{ server_admin }}` \u2014 Admin email is a configurable value; fine to parametrize.\n\n3. **Line 107** - `MaxInstances 20` \u2192 `MaxInstances {{ max_instances }}` \u2014 The comment explicitly says \"If you need to allow more than 20 concurrent connections at once, simply increase this value.\" Clearly configurable; fine to parametrize.\n\n4. **Line 167** - `AllowOverwrite   yes` \u2192 `AllowOverwrite    yes` \u2014 Pure whitespace difference (extra tab). ProFTPD ignores whitespace between directive and value. No functional impact.\n\nNo invented directives, no wrong placeholders.\n\n---\n\n1. INVENTED: none\n\n2. WRONG PLACEHOLDER: none\n\n3. VERDICT: FAITHFUL",
+    "engine": "laguna",
+    "verdict": "FAITHFUL"
+   }
+  },
+  "keeps_the_file": true,
+  "kept_detail": "142/142 of the shipped file's lines survive (100%)",
+  "ok": true,
+  "render_error": "",
+  "rendered_bytes": 6613,
+  "renders": true,
+  "role": "proftpd",
+  "substitutes": true,
+  "target": "/etc/proftpd.conf",
+  "template": "proftpd-redhat",
+  "undeclared": [],
+  "unplaced": [],
+  "values_expected": 2,
+  "values_reaching_output": 2
+ }
+]

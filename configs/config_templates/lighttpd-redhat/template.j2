@@ -108,12 +108,12 @@ server.groupname = "{{ server_groupname }}"
 ## Enable lighttpd to serve requests on sockets received from systemd
 ## https://www.freedesktop.org/software/systemd/man/systemd.socket.html
 ##
-#server.systemd-socket-activation = "{{ server_systemd_socket_activation }}"
+{% if server_systemd_socket_activation %}server.systemd-socket-activation = "{{ server_systemd_socket_activation }}"{% else %}#server.systemd-socket-activation = "enable"{% endif %}
 
 ## 
 ## enable core files.
 ##
-#server.core-files = "{{ server_core_files }}"
+{% if server_core_files %}server.core-files = "{{ server_core_files }}"{% else %}#server.core-files = "disable"{% endif %}
 
 ##
 ## Document root
@@ -150,7 +150,7 @@ server.errorlog             = log_root + "/error.log"
 ## If you want to log to syslog you have to unset the 
 ## server.errorlog setting and uncomment the next line.
 ##
-#server.errorlog-use-syslog = "{{ server_errorlog_use_syslog }}"
+{% if server_errorlog_use_syslog %}server.errorlog-use-syslog = "{{ server_errorlog_use_syslog }}"{% else %}#server.errorlog-use-syslog = "enable"{% endif %}
 
 ##
 ## Access log config
@@ -185,14 +185,14 @@ include conf_dir + "/conf.d/debug.conf"
 ## select (*not* recommended)
 ## libev  (*not* recommended)
 ##
-#server.event-handler = "{{ server_event_handler }}"
+{% if server_event_handler %}server.event-handler = "{{ server_event_handler }}"{% else %}#server.event-handler = "linux-sysepoll"{% endif %}
 
 ##
 ## The basic network interface for all platforms at the syscalls read()
 ## and write(). Every modern OS provides its own syscall to help network
 ## servers transfer files as fast as possible 
 ##
-#server.network-backend = "{{ server_network_backend }}"
+{% if server_network_backend %}server.network-backend = "{{ server_network_backend }}"{% else %}#server.network-backend = "sendfile"{% endif %}
 
 ##
 ## As lighttpd is a single-threaded server, its main resource limit is
@@ -240,7 +240,7 @@ server.max-fds = {{ server_max_fds }}
 ##
 ## Default: 1024
 ##
-#server.listen-backlog = {{ server_listen_backlog }}
+{% if server_listen_backlog %}server.listen-backlog = {{ server_listen_backlog }}{% else %}#server.listen-backlog = 128{% endif %}
 
 ##
 ## Stat() call caching.
@@ -250,7 +250,7 @@ server.max-fds = {{ server_max_fds }}
 ## possible values are:
 ## disable, simple, inotify, kqueue, or fam.
 ##
-#server.stat-cache-engine = "{{ server_stat_cache_engine }}"
+{% if server_stat_cache_engine %}server.stat-cache-engine = "{{ server_stat_cache_engine }}"{% else %}#server.stat-cache-engine = "simple"{% endif %}
 
 ##
 ## Fine tuning for the request handling
@@ -258,7 +258,7 @@ server.max-fds = {{ server_max_fds }}
 ## max-connections == max-fds/3)
 ## (other file handles are used for fastcgi/files)
 ##
-#server.max-connections = {{ server_max_connections }}
+{% if server_max_connections %}server.max-connections = {{ server_max_connections }}{% else %}#server.max-connections = 1024{% endif %}
 
 ##
 ## How many seconds to keep a keep-alive connection open,
@@ -266,14 +266,14 @@ server.max-fds = {{ server_max_fds }}
 ##
 ## Default: 5
 ##
-#server.max-keep-alive-idle = {{ server_max_keep_alive_idle }}
+{% if server_max_keep_alive_idle %}server.max-keep-alive-idle = {{ server_max_keep_alive_idle }}{% else %}#server.max-keep-alive-idle = 5{% endif %}
 
 ##
 ## How many keep-alive requests until closing the connection.
 ##
 ## Default: 16
 ##
-#server.max-keep-alive-requests = {{ server_max_keep_alive_requests }}
+{% if server_max_keep_alive_requests %}server.max-keep-alive-requests = {{ server_max_keep_alive_requests }}{% else %}#server.max-keep-alive-requests = 16{% endif %}
 
 ##
 ## Maximum size of a request in kilobytes.
@@ -281,21 +281,21 @@ server.max-fds = {{ server_max_fds }}
 ##
 ## Uploads to your server cant be larger than this value.
 ##
-#server.max-request-size = {{ server_max_request_size }}
+{% if server_max_request_size %}server.max-request-size = {{ server_max_request_size }}{% else %}#server.max-request-size = 0{% endif %}
 
 ##
 ## Time to read from a socket before we consider it idle.
 ##
 ## Default: 60
 ##
-#server.max-read-idle = {{ server_max_read_idle }}
+{% if server_max_read_idle %}server.max-read-idle = {{ server_max_read_idle }}{% else %}#server.max-read-idle = 60{% endif %}
 
 ##
 ## Time to write to a socket before we consider it idle.
 ##
 ## Default: 360
 ##
-#server.max-write-idle = {{ server_max_write_idle }}
+{% if server_max_write_idle %}server.max-write-idle = {{ server_max_write_idle }}{% else %}#server.max-write-idle = 360{% endif %}
 
 ##
 ##  Traffic Shaping 
@@ -311,12 +311,12 @@ server.max-fds = {{ server_max_fds }}
 ##
 ## per server:
 ##
-#server.kbytes-per-second = {{ server_kbytes_per_second }}
+{% if server_kbytes_per_second %}server.kbytes-per-second = {{ server_kbytes_per_second }}{% else %}#server.kbytes-per-second = 128{% endif %}
 
 ##
 ## per connection:
 ##
-#connection.kbytes-per-second = {{ connection_kbytes_per_second }}
+{% if connection_kbytes_per_second %}connection.kbytes-per-second = {{ connection_kbytes_per_second }}{% else %}#connection.kbytes-per-second = 32{% endif %}
 
 ##
 #######################################################################
@@ -403,12 +403,12 @@ include conf_dir + "/conf.d/dirlisting.conf"
 ##
 ## Should lighttpd follow symlinks?
 ## default: "enable"
-#server.follow-symlink = "{{ server_follow_symlink }}"
+{% if server_follow_symlink %}server.follow-symlink = "{{ server_follow_symlink }}"{% else %}#server.follow-symlink = "enable"{% endif %}
 
 ##
 ## force all filenames to be lowercase?
 ##
-#server.force-lowercase-filenames = "{{ server_force_lowercase_filenames }}"
+{% if server_force_lowercase_filenames %}server.force-lowercase-filenames = "{{ server_force_lowercase_filenames }}"{% else %}#server.force-lowercase-filenames = "disable"{% endif %}
 
 ##
 ## defaults to /var/tmp as we assume it is a local harddisk
