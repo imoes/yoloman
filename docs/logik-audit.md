@@ -1862,3 +1862,31 @@ sie **verspricht keine Deckung**: `mariadb-server.cnf` erbt 22 gültige Direktiv
            host-seitige Auswahl, die den familien-passenden Kandidaten nimmt. Datenlage bisher: von den
            ersten drei RedHat-Templates kollidiert **eines**; die Zahl wächst mit dem laufenden Durchgang
            (`nginx.conf`, `lighttpd.conf`, `proftpd.conf` heißen ebenfalls auf beiden Seiten gleich).
+
+### [Gültige Ableitung] Das Urteil eines Modells ist eine Behauptung, kein Befund
+
+Über vier Prüfläufe (Hermes/laguna, dieselben 14 Templates) hat der unabhängige Prüfer acht Aussagen
+gemacht. Jede wurde **nachgerechnet, bevor gehandelt wurde** — und das war nicht Formalie:
+
+| Aussage | geprüft |
+|---|---|
+| `freeradius`: Backslashes in Kommentaren verfälscht (`(i.e. \\)` → `(i.e. \\n)`) | **wahr** |
+| `nftables`: Platzhalter in auskommentierter Zeile — wirkungslos | **wahr**, betraf 3 Templates / 40 Felder |
+| `collectd`: else-Zweig aus dem falschen Plugin-Block | **wahr** |
+| `cups`: `Option deny,allow` statt `Order deny,allow` | **wahr** |
+| `apache2`: Prosa (`# Relax access …`) als aktive Direktive gerendert | **wahr** — der schwerste Fund |
+| `exim`: verschachteltes Escaping (`{{ '{{' }}` erneut escapt) | **wahr** |
+| `proftpd`: eingefügtes Wort „In" in einem Kommentar | **erfunden** — die Zeichenfolge existiert im Template nicht |
+| `apache2` zweimal FAITHFUL, dann DEFECTIVE — bei **unveränderter** Datei | **widersprüchlich** |
+
+**Sechs von acht trafen zu**, und die sechs haben Defekte gefunden, die alle meine Invarianten passiert
+hatten. Aber ein Urteil ist nicht reproduzierbar (dieselbe Datei, drei Läufe, zwei Ergebnisse) und kann
+frei erfunden sein. Daraus die Arbeitsregel:
+
+> **Der Prüfer zeigt, er entscheidet nicht.** Jede Aussage muss auf etwas Nachrechenbares zeigen — dann
+> wird sie geprüft, und wenn sie zutrifft, wird sie zu einer **mechanischen Invariante**, damit dieselbe
+> Fehlerklasse nie wieder ein Modellurteil braucht. Was nicht nachrechenbar formuliert ist, ist unbrauchbar.
+
+Deshalb sind aus den sechs wahren Aussagen sechs Invarianten geworden
+([`verify_templates.py`](../bossman/scripts/verify_templates.py)) und vier Reparaturen, die **im Generator**
+laufen — nicht sechs Notizen.
