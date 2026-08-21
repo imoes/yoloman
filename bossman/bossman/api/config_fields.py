@@ -160,6 +160,15 @@ async def config_fields(
 
     codecs = _load_json(settings.config_codecs_path)
     codec = codecs.get(path) or {}
+    # A PER-FAMILY MEASUREMENT WINS, because the two distributions ship different bytes for the same path.
+    # Measured: of 1605 paths present in both corpora, 33 disagree — /etc/logrotate.conf and
+    # /etc/lighttpd/lighttpd.conf are flat on Debian and nested on EL, /etc/dnsmasq.conf the other way round.
+    # One record per path is then wrong for one family, so the registry keeps both under `by_family` and the
+    # top level holds the conservative answer for a caller that does not know which host it is asking about.
+    # This one does: `family` comes from the host's own facts a few lines above.
+    branch = (codec.get("by_family") or {}).get(family) if family else None
+    if isinstance(branch, dict) and branch.get("codec"):
+        codec = {**codec, **branch}
     codec_kind = codec.get("codec")
     # The file's OWN statement about itself, carried on every branch below. It is not a write state and not
     # a refusal: /etc/munin/munin.conf is perfectly parsable and perfectly editable, and munin still says

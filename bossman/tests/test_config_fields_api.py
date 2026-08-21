@@ -117,3 +117,51 @@ async def test_the_four_write_states_and_the_file_s_own_advisory(db_session, tmp
 
     await db_session.delete(token)
     await db_session.commit()
+
+
+async def test_a_per_family_measurement_beats_the_conservative_top_level(db_session, tmp_path):
+    """The two distributions ship different bytes for the same path, so one record per path is wrong for
+    one of them. Measured: of 1605 paths in both corpora, 33 disagree — /etc/logrotate.conf is flat on
+    Debian and nested on EL. The registry keeps both under `by_family`, the top level stays the conservative
+    freeform (a whole-file template cannot mis-merge), and a caller that knows the host's family gets the
+    measurement for THAT family.
+    """
+    (tmp_path / "config_codecs.json").write_text(json.dumps({
+        "/etc/logrotate.conf": {
+            "codec": "none", "source": "probe",
+            "notes": "probed on two distros with different results",
+            "by_family": {"debian": {"codec": "keyvalue", "separator": " ", "comment": "#"}},
+            "paths": ["/etc/logrotate.conf"]},
+    }))
+    (tmp_path / "config_directives.json").write_text(json.dumps(
+        {"/etc/logrotate.conf": {"rotate": {"type": "int", "description": "How many to keep"}}}))
+    (tmp_path / "package_catalog.json").write_text(json.dumps({}))
+    (tmp_path / "config_templates").mkdir()
+    token, raw = await _token(db_session)
+
+    app = create_app()
+    base = get_settings()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        database_url=base.database_url,
+        config_codecs_path=str(tmp_path / "config_codecs.json"),
+        config_directives_path=str(tmp_path / "config_directives.json"),
+        config_templates_dir=str(tmp_path / "config_templates"),
+    )
+    headers = {"Authorization": f"Bearer {raw}"}
+    with TestClient(app) as client:
+        neutral = client.get("/api/v1/config-fields?path=/etc/logrotate.conf", headers=headers).json()
+        debian = client.get("/api/v1/config-fields?path=/etc/logrotate.conf&family=debian",
+                            headers=headers).json()
+        redhat = client.get("/api/v1/config-fields?path=/etc/logrotate.conf&family=redhat",
+                            headers=headers).json()
+
+    # No family asked: the conservative answer, and no per-key editor is offered.
+    assert neutral["write"] == "freeform"
+    # Debian was measured as keyvalue, so a Debian host gets the per-key merge and its directives.
+    assert debian["write"] == "codec" and debian["format"] == "keyvalue"
+    assert debian["fields"]["rotate"]["type"] == "int"
+    # RedHat has no branch here, so it keeps the conservative answer rather than borrowing Debian's.
+    assert redhat["write"] == "freeform"
+
+    await db_session.delete(token)
+    await db_session.commit()

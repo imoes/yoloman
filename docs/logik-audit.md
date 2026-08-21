@@ -2121,3 +2121,42 @@ Die Verteilung entscheidet die Handlung:
 - **24 brauchen mehr, als sie anbieten** — `gimprc` 75 Werte gegen 7 Felder, `prometheus_alertmanager` 15
   gegen 2. Dort würde der Render eine überwiegend leere Konfiguration über eine funktionierende schreiben,
   also wird der Editor **nicht angeboten** (`template_configures → False`, weil gemessen).
+
+---
+
+## Die Debian-Seite: 3038 Pfade, die nie gemessen waren
+
+Die RedHat-Seite war fertig, die Debian-Ernte auf Wunsch gestoppt. Wieder aufgenommen und durchgelaufen:
+**6455 Dateien aus 3886 Paketen** (598 nicht herunterladbar — verschwundene Versionen), Korpus jetzt 6999
+Dateien. Ein Durchlauf der Probe (6909 Dateien, 34545 Ansprüche) und die Registry sieht anders aus:
+
+| | vorher | nachher |
+|---|---|---|
+| Einträge | 11561 | **14599** |
+| davon an den Bytes gemessen | 7283 (63 %) | **10984 (75 %)** |
+| Projektion, die der Agent trägt | 5347 | **7286** |
+
+**290 Behauptungen hat die Datei widerlegt** — 131× `none → keyvalue` (ein Editor, den es nicht gab), 68×
+`keyvalue → none`, 33× `ini → none`, 30× `ini → keyvalue`.
+
+### Ein Codec pro Pfad ist zu wenig
+
+1605 Pfade liegen in **beiden** Korpora, und **33 messen unterschiedlich** — nicht weil eine Messung falsch
+ist, sondern weil die Distributionen für denselben Pfad **verschiedenen Inhalt** ausliefern:
+`/etc/logrotate.conf` und `/etc/lighttpd/lighttpd.conf` sind auf Debian flach und auf EL verschachtelt,
+`/etc/dnsmasq.conf` umgekehrt. Ein Datensatz pro Pfad ist damit für eine Familie zwangsläufig falsch, und der
+Schreibweg handelt danach.
+
+Also Zweige pro Familie, wie der Paketkatalog sie längst hat: `by_family: {debian: {...}, redhat: {...}}`
+neben einem **konservativen** Top-Level (`none` — ein Ganzdatei-Template kann nicht falsch mergen, ein
+Codec-Merge in die falsche Blockstruktur schon). `/config-fields` kennt die Familie aus den Fakten des Hosts
+und bevorzugt den Zweig. Live geprüft an `/etc/logrotate.conf`: ohne Familie `freeform`, mit
+`family=debian` `codec/keyvalue`, mit `family=redhat` wieder `freeform` — kein Ausleihen der fremden Messung.
+
+### Und die Projektions-Wache hat sich bezahlt
+
+Nach dem Debian-Lauf schlug `TestEmbeddedRegistryMatchesItsSource` an: `/etc/clustershell/groups.conf` stand
+im Agenten als `ini`, in der Quelle als `none`. Ursache ist `decide_codecs --registry both` — die Agenten-
+Registry ist eine **generierte Projektion** der kanonischen, und wer sie direkt schreibt, lässt beide
+auseinanderlaufen. Genau der Zustand, den „eine Quelle, eine Projektion" beseitigen sollte. `both` ist jetzt
+im Werkzeug als Falle benannt: kanonisch schreiben, dann `unify_codec_registry.py` regeneriert.
