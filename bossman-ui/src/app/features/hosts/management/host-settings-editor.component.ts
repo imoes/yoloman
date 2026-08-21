@@ -169,6 +169,9 @@ import { HostThresholdsComponent } from './host-thresholds.component';
                                   (applied)="loadObserved(true)"
                                   (cancelled)="cancelTemplateEdit()" />
         } @else if (r.values) {
+          @if (!writesPerKey(r)) {
+            <p class="bm-dim">{{ noPerKeyReason(r) }}</p>
+          }
           <table class="bm-gpo-settings">
             <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
             <tbody>
@@ -389,7 +392,13 @@ export class HostSettingsEditorComponent {
           const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
           if (!path || path.includes('*') || seen.has(path)) continue;
           seen.add(path);
-          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec, separator: e.separator ?? '' });
+          // KEEP THE MEASURED CODEC. This read `e.codec === 'none' ? 'keyvalue' : e.codec` — it rewrote a
+          // measurement. `none` is not missing information: the round-trip probe applied every codec to the
+          // bytes the package really ships and none of them reproduced the file, so a per-key merge would
+          // mangle it. Coercing that to `keyvalue` made the picker promise a merge the agent cannot perform
+          // for 40 paths that carry 1114 mined directives (cupsd.conf, lvm.conf, lftp.conf …). Those files
+          // are editable — through the template route (templateFor) or as whole text — just not per key.
+          files.push({ path, format: e.codec ?? '', separator: e.separator ?? '' });
         }
         this.codecCatalog.set(files);
       },
@@ -554,6 +563,26 @@ export class HostSettingsEditorComponent {
     return hit.length ? hit : rows;
   }
 
+  /** Can this file be written ONE KEY AT A TIME, or only as a whole?
+   *
+   * The distinction is the codec measurement, not a preference: `config` merges per key and leaves foreign
+   * keys alone, `template_render` writes the whole file. A resource whose format is `none` (no codec
+   * reproduced the shipped bytes) or empty (never measured) has no per-key write, and offering per-key
+   * fields there is a claim the write path cannot honour.
+   */
+  writesPerKey(r: ObservedResource): boolean {
+    const fmt = (r.format || '').toLowerCase();
+    return !!fmt && fmt !== 'none';
+  }
+
+  /** Why a file offers no settings list, in the operator's words. A refusal without a reason is the same
+   * defect as a wrong offer — see the `none` handling in the codec picker. */
+  noPerKeyReason(r: ObservedResource): string {
+    return (r.format || '').toLowerCase() === 'none'
+      ? 'No codec reproduces this file, so it cannot be edited setting by setting — use the template editor or edit the file as text.'
+      : 'This file has never been measured, so no per-key editor is offered yet.';
+  }
+
   /** Setting rows for a codec'd file: the union of live keys and desired keys.
    * State per key: Configured (managed with a value), Removed (managed null =
    * enforced absent), Not configured (live only, unmanaged). */
@@ -568,7 +597,12 @@ export class HostSettingsEditorComponent {
     // a row (configured or not) — like the Group Policy Editor lists all known
     // settings, not just the ones already present in the file.
     const specs = this.specsForPath(r.path);
-    const keys = [...new Set([...live.keys(), ...des.keys(), ...Object.keys(specs)])].sort();
+    // ONLY WHERE A PER-KEY WRITE EXISTS. The mined catalog is unioned in so unset settings still show — but
+    // for a file whose measured codec is `none` the agent has no per-key writer, so those rows would offer
+    // an edit that Apply cannot carry out. Measured: 40 such paths hold 1114 mined directives. Live and
+    // desired keys still show: those are facts about this host, not an offer.
+    const settable = this.writesPerKey(r) ? Object.keys(specs) : [];
+    const keys = [...new Set([...live.keys(), ...des.keys(), ...settable])].sort();
     return keys.map((key) => {
       const managed = des.has(key);
       const dv = des.get(key);
@@ -685,7 +719,9 @@ export class HostSettingsEditorComponent {
     const present = (obs?.config ?? []).some((c) => c.path === p) || this.extraConfigFiles().some((c) => c.path === p);
     if (!present) {
       const cat = this.codecCatalog().find((e) => e.path === p);
-      const res = { path: p, format: cat?.format || 'keyvalue', separator: cat?.separator || '=', values: {} } as ObservedResource;
+      // The measured format, and `none` stays `none` — see the codec catalog above. `|| 'keyvalue'` here was
+      // the second half of the same lie: it turned every unmeasured or codec-less file into a merge target.
+      const res = { path: p, format: cat?.format ?? '', separator: cat?.separator || '=', values: {} } as ObservedResource;
       this.extraConfigFiles.update((xs) => [...xs, res]);
     }
     if (obs) {

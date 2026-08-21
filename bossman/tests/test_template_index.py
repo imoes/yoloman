@@ -274,3 +274,68 @@ def test_same_path_two_families_picks_the_host_s_own_template(tmp_path):
 
     deb = build_template_index(cat, cod, tpl, "debian")
     assert deb["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy"
+
+
+def test_a_template_is_not_bound_to_a_path_it_says_it_does_not_render(tmp_path):
+    """The cups case, live: the catalog role `cups` names config_path /etc/cups/cupsd.conf and template
+    dir `cups`, but that directory's meta.json records target_path /etc/cups/snmp.conf — and its
+    template.j2 really is cups' snmp.conf. Since Configure renders the WHOLE file, the binding would
+    have written snmp.conf over cupsd.conf. A name match is a hypothesis; target_path is a record.
+
+    Measured on the live index before this rule: 203 of 3611 bindings named a template whose own
+    meta.json records a different target — /etc/ansible/hosts bound to the template `hosts`
+    (target /etc/hosts) among them.
+    """
+    cat, cod, tpl = _fixture(
+        tmp_path,
+        {"cups": _role("cups", "/etc/cups/cupsd.conf")},
+        {}, ["cups", "cups-redhat"])
+    (tpl / "cups" / "meta.json").write_text(json.dumps({"target_path": "/etc/cups/snmp.conf"}))
+    (tpl / "cups-redhat" / "meta.json").write_text(
+        json.dumps({"target_path": "/etc/cups/cupsd.conf", "witness": "rpm"}))
+    idx = build_template_index(cat, cod, tpl)
+    # The refused binding is gone, the recorded claimant took the path, and the refusal names its ground.
+    assert idx["paths"]["/etc/cups/cupsd.conf"]["template"] == "cups-redhat"
+    assert idx["paths"]["/etc/cups/snmp.conf"]["template"] == "cups"
+    refusal = [c for c in idx["conflicts"] if c["path"] == "/etc/cups/cupsd.conf" and c["chosen"] is None]
+    assert refusal and "/etc/cups/snmp.conf" in refusal[0]["reason"]
+
+
+def test_a_template_without_a_recorded_target_is_still_bound_by_name(tmp_path):
+    """The refusal is asymmetric on purpose. Most of the library predates meta.json, so "no record" must
+    not mean "refused" — that would empty the index instead of correcting it."""
+    cat, cod, tpl = _fixture(tmp_path, {"nginx": _role("nginx", "/etc/nginx/nginx.conf")}, {}, ["nginx"])
+    idx = build_template_index(cat, cod, tpl)
+    assert idx["paths"]["/etc/nginx/nginx.conf"]["template"] == "nginx"
+
+
+def test_a_witnessed_record_beats_a_name_binding(tmp_path):
+    """The collectd case: /etc/collectd.conf was held by the template dir `collectd.conf` because the
+    codec key's basename matches that name, while the dir `collectd` RECORDS /etc/collectd.conf and its
+    literal text was matched against the shipped file (witness corpus-text). The name binding is a
+    hypothesis, the record is evidence, and the loser is still reported.
+    """
+    cat, cod, tpl = _fixture(
+        tmp_path, {},
+        {"collectd.conf": {"packages": ["collectd"], "paths": ["/etc/collectd.conf"]}},
+        ["collectd.conf", "collectd"])
+    (tpl / "collectd" / "meta.json").write_text(json.dumps(
+        {"target_path": "/etc/collectd.conf", "witness": "corpus-text"}))
+    idx = build_template_index(cat, cod, tpl)
+    assert idx["paths"]["/etc/collectd.conf"]["template"] == "collectd"
+    lost = [c for c in idx["conflicts"] if c["also"] == "collectd.conf"]
+    assert lost and "name binding" in lost[0]["reason"]
+
+
+def test_a_family_specific_record_does_not_override_when_no_family_was_asked(tmp_path):
+    """/etc/caddy/Caddyfile is that path on both distributions and the files differ. `caddy-redhat`
+    records it with witness rpm AND family redhat; overriding the family-less answer with it would hand a
+    Debian host EL's file. Asked WITHOUT a family the incumbent stands and the clash is reported; asked
+    WITH family=redhat the recorded one wins."""
+    cat, cod, tpl = _fixture(tmp_path, {"caddy": _role("caddy", "/etc/caddy/Caddyfile")},
+                             {}, ["caddy", "caddy-redhat"])
+    (tpl / "caddy-redhat" / "meta.json").write_text(json.dumps(
+        {"target_path": "/etc/caddy/Caddyfile", "witness": "rpm", "family": "redhat"}))
+    assert build_template_index(cat, cod, tpl)["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy"
+    idx = build_template_index(cat, cod, tpl, family="redhat")
+    assert idx["paths"]["/etc/caddy/Caddyfile"]["template"] == "caddy-redhat"

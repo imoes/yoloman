@@ -1890,3 +1890,68 @@ frei erfunden sein. Daraus die Arbeitsregel:
 Deshalb sind aus den sechs wahren Aussagen sechs Invarianten geworden
 ([`verify_templates.py`](../bossman/scripts/verify_templates.py)) und vier Reparaturen, die **im Generator**
 laufen — nicht sechs Notizen.
+
+---
+
+## Identität, eine Ebene höher: wer beschreibt eigentlich welche Datei?
+
+Die Modellprüfung war der Anfang; die schwereren Fehler lagen in der **Zuordnung** von Katalogen und
+Templates zu Pfaden. Alle vier Befunde unten sind ohne Modell entschieden — durch Messung an den Bytes,
+die die Pakete wirklich ausliefern.
+
+### 1. Nackte Basisnamen im Direktivenkatalog
+
+`config_directives.json` trug **91 Basisnamen** neben 1063 echten Pfaden, und `catalog_for_path` **mischt**
+Basename- und Pfadtreffer. Nützlich, wenn der Name eine Datei meint (`NetworkManager.conf`); giftig, wenn er
+mehrere meint: der nackte Katalog `config` mit 29 Direktiven wurde in **zwanzig** unverwandte Dateien
+gemischt — `/etc/dehydrated/config`, `/etc/gridengine/config`, `/etc/selinux/config`, `/etc/w3m/config` —
+und **keiner** der fünf messbaren dieser zwanzig enthält einen einzigen dieser 29 Schlüssel.
+
+[`resolve_directive_basenames.py`](../bossman/scripts/resolve_directive_basenames.py) entscheidet nach Beweis:
+34 Namen meinen genau einen Pfad (umbenannt), 3 sind **Zwillingspaare** (Debian ↔ EL, an *beide* Pfade
+gehängt — `/etc/vsftpd.conf` hätte sonst die 51 Direktiven verloren, die es nur über den Merge hatte), 2 sind
+unattribuierbar und wandern nach `unattributed:<name>`: der Text bleibt erhalten, aber kein Basename-Lookup
+erreicht ihn mehr. Ergebnis 1154 → 1117 Schlüssel, 22986 → 22471 Direktiven (Duplikate beim Merge).
+
+### 2. Katalog ohne Schreibweg
+
+40 Pfade tragen **1114 Direktiven**, obwohl ihr Codec am Byte als `none` gemessen ist — der Agent hat dort
+keinen Per-Schlüssel-Schreibweg. `/config-fields` verzweigt korrekt (Template-Zweig), die **UI aber schrieb
+die Messung um**: `format: e.codec === 'none' ? 'keyvalue' : e.codec` in beiden gpedit-Editoren. Damit war
+für cupsd.conf, lvm.conf, lftp.conf ein Merge angeboten, den kein Writer ausführen kann — im OU-Editor sogar
+als *Policy*, die gespeichert wird, an ihrem Scope gewinnt und dann ins Leere greift. Jetzt bleibt die
+Messung stehen, die Zeilen entfallen (`writesPerKey`), und die Verweigerung nennt ihren Grund
+(`noPerKeyReason`).
+
+### 3. Fremde Kataloge — und warum Abwesenheit kein Beweis ist
+
+[`find_foreign_catalogs.py`](../bossman/scripts/find_foreign_catalogs.py): 26 Pfade, 683 Direktiven, von deren
+Schlüsseln **keiner** in der eigenen ausgelieferten Datei vorkommt (`/etc/shells` trägt sssd-Schlüssel,
+`/etc/mime.types` uWSGI-Optionen, `/etc/sudoers` Timeshift-Variablen). Sechs Wege, auf denen der einfache
+Test lügt, mussten erst raus: Stub-Datei, dotted keys, Wert-statt-Zeilenanfang, Doppelpunkt-Namespace
+(`cache:enable`), Schreibstil (`poll_interval_max_sec` vs `PollIntervalMaxSec`) und minimal ausgelieferte
+Dateien mit großem Direktivenraum (squid, fwupd). Die **positive** Probe — welche andere Datei benutzt diese
+Schlüssel? — bestätigt nur 2 von 26, und beide sind Fehltreffer (ein Zwilling, ein Zufall auf 8 generischen
+Namen). Also: **gemeldet, nichts gelöscht.** Der Korpus kann Fremdheit hier nicht beweisen.
+
+### 4. Der Index widersprach seinen eigenen Artefakten
+
+`build_template_index` band nach **Namen** (Quelle 1 Rollenname, Quelle 2 Codec-Key) und stellte die
+aufgezeichnete Tatsache (`meta.json target_path`) dahinter. Gemessen am Live-Index: **203 von 3611 Bindungen**
+nannten ein Template, das in seiner eigenen `meta.json` einen **anderen** Pfad aufzeichnet —
+`/etc/ansible/hosts` war an `hosts` gebunden (Ziel `/etc/hosts`), und da Configure die **ganze** Datei
+schreibt, hätte der Knopf die Maschinen-hosts über ein Ansible-Inventar geschrieben. `/etc/cups/cupsd.conf`
+war an `cups` gebunden, dessen `template.j2` neun Zeilen cups-**snmp.conf** sind.
+
+Zwei Regeln, beide mechanisch: ein Template wird **nicht** an einen Pfad gebunden, von dem es selbst sagt, es
+rendere ihn nicht (216 Verweigerungen, jede mit Grund im `conflicts`-Feld); und eine **bezeugte Aufzeichnung
+schlägt eine Namensbindung** (`witness: deb|rpm|corpus-text`) — außer die Aufzeichnung nennt eine Familie und
+es wurde keine erfragt, sonst bekäme ein Debian-Host EL-Dateien (`/etc/caddy/Caddyfile`).
+
+Damit die Aufzeichnung überhaupt existiert, fragt
+[`attribute_templates_by_text.py`](../bossman/scripts/attribute_templates_by_text.py) jedes der 4809
+Templates ohne `target_path`, aus **welcher** ausgelieferten Datei sein Literaltext stammt (invertierter
+Zeilenindex über 8206 Korpusdateien). Der Test muss **symmetrisch** sein: einseitig setzte er `argus-client`
+auf `/etc/smbldap-tools/smbldap.conf`, weil sie sich sieben Zeilen GPL-Kopf teilen — ein Template deckt
+seine Quelldatei auch ab, ein Lizenzkopf nicht. 69 Templates sind so belegt platziert, 4674 haben zu wenig
+unterscheidenden Text (der Korpus ist RedHat; Debian-only-Dateien kann er nicht platzieren).

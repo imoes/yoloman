@@ -112,6 +112,9 @@ export interface EditorScope {
                 </button>
               }
             </div>
+            @if (!writesPerKey(sel)) {
+              <p class="bm-dim">{{ noPerKeyReason(sel) }}</p>
+            }
             <table class="bm-oce-settings">
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
@@ -348,7 +351,11 @@ export class OuConfigEditorComponent implements OnChanges {
           const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
           if (!path || path.includes('*') || seen.has(path)) continue;
           seen.add(path);
-          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec });
+          // KEEP THE MEASURED CODEC — `none` means the round-trip probe applied every codec to the bytes the
+          // package ships and none reproduced the file, so there is no per-key write for it. Coercing it to
+          // `keyvalue` (as this did) made a per-key POLICY offerable for 40 such paths; the policy would be
+          // stored, win at its scope, and then have no writer on the host. Same fix as the host editor.
+          files.push({ path, format: e.codec ?? '' });
         }
         this.catalog.set(files);
         this.loaded.set(true);
@@ -454,9 +461,29 @@ export class OuConfigEditorComponent implements OnChanges {
     return this.policies().find((p) => p.path === path);
   }
 
+  /** Can this file be written ONE KEY AT A TIME? The measured codec decides — `none` means no codec
+   * reproduced the shipped bytes, so there is no per-key writer and a per-key policy could never be
+   * applied. Empty means the file was never measured. Neither is a per-key target. */
+  writesPerKey(path: string): boolean {
+    const fmt = (this.catalog().find((r) => r.path === path)?.format
+                 ?? this.policyFor(path)?.format ?? '').toLowerCase();
+    return !!fmt && fmt !== 'none';
+  }
+
+  /** The reason the settings list is empty, in the operator's words — a refusal has to name its ground. */
+  noPerKeyReason(path: string): string {
+    const fmt = (this.catalog().find((r) => r.path === path)?.format ?? '').toLowerCase();
+    return fmt === 'none'
+      ? 'No codec reproduces this file, so it cannot be policed setting by setting — it is written as a whole by its template.'
+      : 'This file has never been measured, so no per-key policy is offered for it yet.';
+  }
+
   rows(): SettingRow[] {
     const path = this.selected();
     if (!path) return [];
+    // A file with no per-key writer gets no rows: offering a policy that cannot be applied is the defect
+    // this replaced (the picker used to relabel a measured `none` as `keyvalue`).
+    if (!this.writesPerKey(path)) return [];
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
     const specs = this.specsForFile(path);
     const des = new Map(this.flat(this.policyFor(path)?.values ?? {}, fmt));

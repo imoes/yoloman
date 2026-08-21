@@ -125,6 +125,36 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     paths: dict[str, dict] = {}
     conflicts: list[dict] = []
 
+    # Every template's OWN record, read once and shared by all three sources below. Source 3 used to read
+    # these files itself; sources 1 and 2 never asked, which is exactly how the index came to contradict its
+    # own artifacts.
+    metas: dict[str, dict] = {}
+    for name in sorted(dirs):
+        try:
+            data = json.loads((tpl_root / name / "meta.json").read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            metas[name] = data
+
+    def renders(name: str, path: str) -> bool:
+        """Would binding `name` to `path` contradict what that template says about itself?
+
+        MEASURED on the live index: 203 of 3611 bindings named a template whose own meta.json records a
+        DIFFERENT target_path. /etc/ansible/hosts was bound to the template `hosts`, which records
+        /etc/hosts — pressing Configure would have written the machine's hosts file over an Ansible
+        inventory. /etc/cups/cupsd.conf was bound to `cups`, whose template.j2 is cups' snmp.conf, while
+        `cups-redhat` (witness: rpm) records cupsd.conf exactly.
+
+        Sources 1 and 2 bind by NAME — a catalog role name or a codec key that happens to match a directory.
+        A name match is a hypothesis; `target_path` is a record. Where the two disagree the record wins, and
+        the name-based binding is refused so the path stays free for whoever really claims it. A template
+        with no record is not refused: most of the library predates the field, and refusing everything
+        unrecorded would empty the index.
+        """
+        own = metas.get(name, {}).get("target_path")
+        return not isinstance(own, str) or own == path
+
     # Precomputed ONCE: plausible_target asks "is this a directory", which is membership in the set of
     # ancestors of every known path. Asked as a linear scan per candidate it cost this endpoint 4.1 s after the
     # registry grew to 11573 entries — and it is in the host page's load path.
@@ -139,6 +169,12 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         tname = entry.get("template")
         cfg = ((entry.get("families") or {}).get("debian") or {}).get("config_path") or ""
         if not tname or not cfg or tname not in dirs or not plausible_target(cfg, known):
+            continue
+        if not renders(tname, cfg):
+            conflicts.append({"path": cfg, "chosen": None, "chosen_source": "catalog",
+                              "also": tname, "also_source": "catalog",
+                              "reason": "refused: template {} records target {}".format(
+                                  tname, metas[tname]["target_path"])})
             continue
         paths.setdefault(cfg, {"template": tname, "source": "catalog", "role": role})
 
@@ -161,6 +197,12 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         for p in entry.get("paths") or []:
             if not isinstance(p, str) or not plausible_target(p, known):
                 continue
+            if not renders(tname, p):
+                conflicts.append({"path": p, "chosen": None, "chosen_source": "codec",
+                                  "also": tname, "also_source": "codec",
+                                  "reason": "refused: template {} records target {}".format(
+                                      tname, metas[tname]["target_path"])})
+                continue
             have = paths.get(p)
             if have is None:
                 paths[p] = {"template": tname, "source": "codec"}
@@ -180,12 +222,8 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # guess from the name. Directories whose target is AMBIGUOUS carry `ambiguous_with` and no
     # target_path (190 paths are claimed by 509 templates — 21 ejabberd modules all configure sections
     # of one ejabberd.yml), and they are skipped exactly because they were not resolved.
-    for name in sorted(dirs):
-        try:
-            meta = json.loads((tpl_root / name / "meta.json").read_text())
-        except (OSError, ValueError):
-            continue
-        p = meta.get("target_path") if isinstance(meta, dict) else None
+    for name, meta in sorted(metas.items()):
+        p = meta.get("target_path")
         if not isinstance(p, str) or not plausible_target(p, known):
             continue
         have = paths.get(p)
@@ -203,7 +241,25 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             # earlier claim stands and the clash is a conflict, which is the honest answer to a question
             # nobody has asked precisely enough.
             mine = meta.get("family") or ""
-            if family and mine == family and have.get("family") != family:
+            # A RECORD BEATS A NAME. The incumbent came from source 1 or 2, which bind because a catalog role
+            # or a codec key happens to share a directory name; this template states its target and carries
+            # a witness for it (`deb`/`rpm` = read out of the package, `corpus-text` = its literal text was
+            # matched against the shipped file). Measured: 265 paths were held by a name binding while a
+            # witnessed record for the exact path sat unused — /etc/collectd.conf went to the Debian dir
+            # `collectd.conf`, which shares 0% of EL's 988-line collectd.conf, while `collectd` matches it.
+            # A record that declares a FAMILY is not used to override without one being asked for: that is
+            # the /etc/caddy/Caddyfile case, where overriding blind would hand a Debian host EL's file.
+            witnessed = meta.get("witness") in ("deb", "rpm", "corpus-text")
+            incumbent_recorded = isinstance(metas.get(have["template"], {}).get("target_path"), str)
+            if witnessed and not incumbent_recorded and (not mine or mine == family):
+                conflicts.append({"path": p, "chosen": name, "chosen_source": "template-meta",
+                                  "also": have["template"], "also_source": have["source"],
+                                  "reason": "recorded target (witness {}) beats a name binding".format(
+                                      meta.get("witness"))})
+                paths[p] = {"template": name, "source": "template-meta"}
+                if mine:
+                    paths[p]["family"] = mine
+            elif family and mine == family and have.get("family") != family:
                 conflicts.append({"path": p, "chosen": name, "chosen_source": "template-meta",
                                   "also": have["template"], "also_source": have["source"],
                                   "reason": "family {} matches the host".format(family)})
