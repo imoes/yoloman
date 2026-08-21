@@ -2216,3 +2216,25 @@ es die Manpage **abgelehnt** und auf die Kommentare der Datei umgeschaltet.
 sieht nur einen Bruchteil. 145 echte Einstellungen gegen 20 Beschreibungen ist ein schlechter Handel. Der
 Miner **merged** jetzt pro Schlüssel (die frische Messung gewinnt, unerwähnte Schlüssel überleben), und die
 verlorenen sind zurückgeholt.
+
+### 11. Drei Dokumentationsquellen, in dieser Reihenfolge
+
+Der Miner nimmt jetzt: **die geerntete Paketseite** (offline, exakt, kann nicht über fremde Software sein) →
+**die zwei öffentlichen Spiegel** per direkter URL (`man7.org/linux/man-pages/man5/<name>.5.html`,
+`manpages.debian.org/<name>`) → **die Kommentare der Datei selbst**. Die Metasuche fällt raus
+(`QUALIFY_NO_SEARXNG=1`): mit drei Manpage-Quellen bringt sie nur Latenz und Treffer über die falsche Software.
+
+Die Spiegel brauchen den **Proxy** (`http://proxy.example.internal:80`), und `no_proxy` muss `llm.example.internal`
+enthalten — dort liegen Modell *und* SearXNG.
+
+**Ein Fehlschluss von mir, den es wert ist aufzuschreiben:** ein Lauf stand 24 Minuten, ich fragte den
+Modell-Endpunkt ab, sah `is_processing: false` und schaltete die Online-Rückfälle ab, „weil sie hängen". Der
+Endpunkt hat **vier Slots** — ich hatte Slot 0 gelesen, und Slot 1 hat die ganze Zeit gerechnet. Der Lauf war
+langsam, nicht blockiert. Die Abschaltung ist zurückgenommen; was bleibt, ist die Reihenfolge, und die steht
+aus eigenem Recht (das Paket, das die Datei ausliefert, kann nicht über fremde Software sprechen).
+
+**Ergebnis über beide Batches:** 410 → **217** leere Beschreibungen. Von den 18 Pfaden des letzten Laufs
+7 gemint, 11 ehrlich verweigert — „Dokumentation ist nicht über diese Datei (0 % ihrer Schlüssel) und die
+Datei hat 4 Kommentarzeilen" ist eine Antwort, keine Panne. Und die frisch geminten Direktiven trugen wieder
+dieselben Defektklassen wie eh und je: der Linter hat 149 Nullspannen, 111 Spannen auf `bool`/`enum`/`list`
+und 7 Enum-Defaults außerhalb ihrer Werte entfernt — deshalb läuft er nach jedem Mining.
