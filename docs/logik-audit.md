@@ -2238,3 +2238,25 @@ aus eigenem Recht (das Paket, das die Datei ausliefert, kann nicht über fremde 
 Datei hat 4 Kommentarzeilen" ist eine Antwort, keine Panne. Und die frisch geminten Direktiven trugen wieder
 dieselben Defektklassen wie eh und je: der Linter hat 149 Nullspannen, 111 Spannen auf `bool`/`enum`/`list`
 und 7 Enum-Defaults außerhalb ihrer Werte entfernt — deshalb läuft er nach jedem Mining.
+
+### 12. Textattribution über beide Korpora: 308 Templates platziert
+
+Mit 13525 Korpusdateien statt 8206 findet die Literaltext-Attribution **308** Templates (vorher 69) — der
+Index bindet jetzt 479 Pfade über eine **aufgezeichnete Messung** statt über den Namen, und wächst dabei von
+3375 auf 3533 Pfade.
+
+Eine Fehlerklasse musste dafür erst geschlossen werden: **Init-Skripte sind fast identische Rahmen** (LSB-
+Header, `start|stop|restart`-case), also passt ein daraus gebautes Template auf jedes andere, und die
+„unterscheidenden" Zeilen sind das gemeinsame Gerüst. Der erste Lauf platzierte `canna` auf
+`/etc/init.d/snmptrapfmt` (100 % gegen einen Verfolger bei 50 %), `cyborg-api` auf
+`/etc/init.d/cloudkitty-api`, `openafs-fileserver` auf `/etc/init.d/krb5-admin-server`.
+
+Die Regel: **ein enger Verfolger braucht die Zustimmung des Namens.** Wo beide Pfade dieselbe Software nennen,
+kann das Geschwisterproblem nicht auftreten (`owhttpd` → `/etc/init.d/owhttpd` bei 100 % gegen 82 % ist
+richtig); wo nicht, und eine andere Datei liegt innerhalb von 30 %, enthält sich die Attribution. Das kostet
+auch richtige Treffer — `nordugrid-arc-hed` → `/etc/init.d/arched` ist korrekt und fällt weg, weil nichts hier
+es zeigen kann. Danach: 0 Platzierungen ohne Namensbezug bei engem Verfolger, gegen 22 vorher.
+
+Nebenbei: der Bericht wird jetzt **auch ohne `--write`** geschrieben. Ein Trockenlauf, dessen Zahlen man nicht
+nachrechnen kann, ist eine halbe Messung — und die ersten 16 Zeilen einer 317er-Liste sagen nichts über den
+Rest.
