@@ -1,85 +1,85 @@
 {
-  "listen_addr": "0.0.0.0",
-  "port": 4242,
-  "ip": "203.0.113.10",
-  "subnet": "192.168.100.1/24",
-  "mtu": 1300,
-  "cert_file": "/etc/nebula/certs/nebula.crt",
-  "key_file": "/etc/nebula/certs/nebula.key",
-  "ca_file": "/etc/nebula/certs/ca.crt",
-  "lighthouse": true,
-  "lighthouse_interval": 30,
-  "lighthouse_remotes": [
-    {
-      "host": "lighthouse1.internal.example.com",
-      "port": 4242
-    },
-    {
-      "host": "lighthouse2.internal.example.com",
-      "port": 4242
-    }
-  ],
-  "static_host_mapping": {
-    "192.168.100.2": [
-      "10.0.0.5:4242"
-    ],
-    "192.168.100.3": [
-      "10.0.0.6:4242"
-    ]
+ "ca_file": "/etc/nebula/certs/ca.crt",
+ "cert_expiry": {
+  "renew_days": 7,
+  "warn_days": 14
+ },
+ "cert_file": "/etc/nebula/certs/nebula.crt",
+ "control": {
+  "cert": {
+   "ca_file": "/etc/nebula/certs/ca.crt",
+   "cert_file": "/etc/nebula/certs/control.crt",
+   "key_file": "/etc/nebula/certs/control.key"
   },
-  "relays_enabled": true,
-  "relay_hosts": [
-    "192.168.100.2",
-    "192.168.100.3"
-  ],
-  "firewall_outbound": "allow",
-  "firewall_inbound": "drop",
-  "firewall_default_outbound_action": "drop",
-  "firewall_default_inbound_action": "drop",
-  "firewall_rules": [
-    {
-      "proto": "tcp",
-      "port": "22",
-      "group": "servers",
-      "action": "allow"
-    },
-    {
-      "proto": "tcp",
-      "port": "443",
-      "host": "192.168.100.2",
-      "action": "allow"
-    }
-  ],
-  "tun": {
-    "dev": "nebula0",
-    "disabled_offloads": [
-      "gro",
-      "gso",
-      "tso",
-      "checksum"
-    ]
+  "listen": "127.0.0.1:4243"
+ },
+ "firewall_default_inbound_action": "drop",
+ "firewall_default_outbound_action": "drop",
+ "firewall_inbound": "drop",
+ "firewall_outbound": "allow",
+ "firewall_rules": [
+  {
+   "action": "allow",
+   "group": "servers",
+   "port": "22",
+   "proto": "tcp"
   },
-  "log_level": "info",
-  "log_format": "json",
-  "log_file": "/var/log/nebula/nebula.log",
-  "psk_file": "",
-  "control": {
-    "listen": "127.0.0.1:4243",
-    "cert": {
-      "cert_file": "/etc/nebula/certs/control.crt",
-      "key_file": "/etc/nebula/certs/control.key",
-      "ca_file": "/etc/nebula/certs/ca.crt"
-    }
-  },
-  "metrics": {
-    "listen": "127.0.0.1:4244"
-  },
-  "pulse": {
-    "enabled": true,
-    "interval": 60
-  },
-  "cert_expiry": {
-    "warn_days": 14,
-    "renew_days": 7
+  {
+   "action": "allow",
+   "host": "192.168.100.2",
+   "port": "443",
+   "proto": "tcp"
   }
+ ],
+ "ip": "203.0.113.10",
+ "key_file": "/etc/nebula/certs/nebula.key",
+ "lighthouse": true,
+ "lighthouse_interval": 30,
+ "lighthouse_remotes": [
+  {
+   "host": "lighthouse1.internal.example.com",
+   "port": 4242
+  },
+  {
+   "host": "lighthouse2.internal.example.com",
+   "port": 4242
+  }
+ ],
+ "listen_addr": "0.0.0.0",
+ "log_file": "/var/log/nebula/nebula.log",
+ "log_format": "json",
+ "log_level": "info",
+ "metrics": {
+  "listen": "127.0.0.1:4244"
+ },
+ "mtu": 1300,
+ "port": 4242,
+ "psk_file": "",
+ "pulse": {
+  "enabled": true,
+  "interval": 60
+ },
+ "relay_hosts": [
+  "192.168.100.2",
+  "192.168.100.3"
+ ],
+ "relays_enabled": true,
+ "static_host_mapping": {
+  "192.168.100.2": [
+   "10.0.0.5:4242"
+  ],
+  "192.168.100.3": [
+   "10.0.0.6:4242"
+  ]
+ },
+ "subnet": "192.168.100.1/24",
+ "tun": {
+  "dev": "nebula0",
+  "disabled_offloads": [
+   "gro",
+   "gso",
+   "tso",
+   "checksum"
+  ]
+ }
 }

@@ -1,366 +1,364 @@
 {
-  "domains": {
-    "type": "list",
-    "default": [],
-    "description": "List of domains with their ACME configuration. Each item defines a domain and its renewal parameters. Required fields: name, challenge_method. Other fields are optional depending on challenge method or advanced use cases."
-  },
-  "config_home": {
-    "type": "string",
-    "default": "~/.acme.sh",
-    "description": "Directory to store acme.sh configuration files. Corresponds to --config-home."
-  },
-  "cert_home": {
-    "type": "string",
-    "default": "~/.acme.sh",
-    "description": "Directory to store issued certificates. Corresponds to --cert-home."
-  },
-  "accountconf": {
-    "type": "string",
-    "default": "",
-    "description": "Path to custom account configuration file. Corresponds to --accountconf."
-  },
-  "home": {
-    "type": "string",
-    "default": "~/.acme.sh",
-    "description": "acme.sh installation home directory. Corresponds to --home."
-  },
-  "domains[].name": {
-    "type": "string",
-    "default": "",
-    "description": "Primary domain name (e.g., example.com). Required."
-  },
-  "domains[].challenge_method": {
-    "type": "string",
-    "default": "http",
-    "description": "Validation method: 'http', 'standalone', or 'dns'. Required.",
-    "enum": [
-      "http",
-      "standalone",
-      "dns"
-    ]
-  },
-  "domains[].webroot": {
-    "type": "string",
-    "default": "",
-    "description": "Webroot directory for HTTP validation (required if challenge_method is 'http')."
-  },
-  "domains[].dns_manual": {
-    "type": "bool",
-    "default": false,
-    "description": "Use DNS manual mode (requires --yes-I-know-dns-manual-mode-enough-go-ahead-please). Only one of dns_manual or dns_hook should be set."
-  },
-  "domains[].dns_hook": {
-    "type": "string",
-    "default": "",
-    "description": "DNS hook name (e.g., 'dns_cf') for automatic DNS API support. Only one of dns_manual or dns_hook should be set."
-  },
-  "domains[].ecc": {
-    "type": "bool",
-    "default": false,
-    "description": "Use ECC certificate (ECDSA). Corresponds to --ecc."
-  },
-  "domains[].keylength": {
-    "type": "string",
-    "default": "",
-    "description": "Domain key length. Valid values: 2048, 3072, 4096, 8192, ec-256, ec-384, ec-521. Corresponds to -k.",
-    "enum": [
-      "2048",
-      "3072",
-      "4096",
-      "8192",
-      "ec-256",
-      "ec-384",
-      "ec-521"
-    ]
-  },
-  "domains[].pre_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Command to run before certificate operations. Corresponds to --pre-hook."
-  },
-  "domains[].post_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Command to run after certificate operations (success or failure). Corresponds to --post-hook."
-  },
-  "domains[].renew_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Command to run only on successful renewals. Corresponds to --renew-hook."
-  },
-  "domains[].deploy_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Deploy hook name to run after successful issuance/renewal. Corresponds to --deploy-hook."
-  },
-  "domains[].server": {
-    "type": "string",
-    "default": "https://acme.zerossl.com/v2/DV90",
-    "description": "ACME server URI. Corresponds to --server."
-  },
-  "domains[].account_email": {
-    "type": "string",
-    "default": "",
-    "description": "Account email address. Required for initial registration. Corresponds to --email."
-  },
-  "domains[].revoke_reason": {
-    "type": "number",
-    "default": 0,
-    "description": "Revocation reason code (0-10). Only set if revoking. Corresponds to --revoke-reason."
-  },
-  "domains[].notify_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Notification level: 0=disabled, 1=error only, 2=renewal+error, 3=skip+renewal+error. Corresponds to --notify-level."
-  },
-  "domains[].notify_mode": {
-    "type": "number",
-    "default": 0,
-    "description": "Notification mode: 0=bulk, 1=per-cert. Corresponds to --notify-mode."
-  },
-  "domains[].notify_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Custom notification hook name. Corresponds to --notify-hook."
-  },
-  "domains[].cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to copy the leaf certificate after issuance/renewal. Corresponds to --cert-file."
-  },
-  "domains[].key_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to copy the private key after issuance/renewal. Corresponds to --key-file."
-  },
-  "domains[].ca_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to copy the intermediate CA certificate after issuance/renewal. Corresponds to --ca-file."
-  },
-  "domains[].fullchain_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to copy the fullchain certificate after issuance/renewal. Corresponds to --fullchain-file."
-  },
-  "domains[].reloadcmd": {
-    "type": "string",
-    "default": "",
-    "description": "Command to reload the target server after cert deployment. Corresponds to --reloadcmd."
-  },
-  "domains[].preferred_chain": {
-    "type": "string",
-    "default": "",
-    "description": "Preferred CA certificate chain issuer CN. Corresponds to --preferred-chain."
-  },
-  "domains[].days": {
-    "type": "number",
-    "default": 60,
-    "description": "Days before expiration to trigger renewal. Corresponds to --days."
-  },
-  "domains[].staging": {
-    "type": "bool",
-    "default": false,
-    "description": "Use ACME staging server. Corresponds to --staging."
-  },
-  "domains[].force": {
-    "type": "bool",
-    "default": false,
-    "description": "Force cert renewal or override sudo restrictions. Corresponds to --force."
-  },
-  "domains[].debug": {
-    "type": "number",
-    "default": 2,
-    "description": "Debug level: 0 (none), 1 (minimal), 2 (default), 3 (verbose). Corresponds to --debug."
-  },
-  "domains[].log": {
-    "type": "string",
-    "default": "~/.acme.sh/acme.sh.log",
-    "description": "Log file path. Corresponds to --log."
-  },
-  "domains[].log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Log level: 1 (error), 2 (info). Corresponds to --log-level."
-  },
-  "domains[].syslog": {
-    "type": "number",
-    "default": 0,
-    "description": "Syslog level: 0 (disabled), 3 (error), 6 (info), 7 (debug). Corresponds to --syslog."
-  },
-  "domains[].useragent": {
-    "type": "string",
-    "default": "",
-    "description": "User agent string. Corresponds to --useragent."
-  },
-  "domains[].account_key": {
-    "type": "string",
-    "default": "",
-    "description": "Path to account private key. Corresponds to --accountkey."
-  },
-  "domains[].account_keylength": {
-    "type": "string",
-    "default": "",
-    "description": "Account key length: 2048, 3072, 4096. Corresponds to -ak.",
-    "enum": [
-      "2048",
-      "3072",
-      "4096"
-    ]
-  },
-  "domains[].eab_kid": {
-    "type": "string",
-    "default": "",
-    "description": "Key Identifier for External Account Binding. Corresponds to --eab-kid."
-  },
-  "domains[].eab_hmac_key": {
-    "type": "string",
-    "default": "",
-    "description": "HMAC key for External Account Binding. Corresponds to --eab-hmac-key."
-  },
-  "domains[].httpport": {
-    "type": "number",
-    "default": 80,
-    "description": "Standalone HTTP server port (e.g., if behind proxy). Corresponds to --httpport."
-  },
-  "domains[].tlsport": {
-    "type": "number",
-    "default": 443,
-    "description": "Standalone TLS server port (e.g., if behind proxy). Corresponds to --tlsport."
-  },
-  "domains[].local_address": {
-    "type": "string",
-    "default": "",
-    "description": "Standalone server listening IP address. Corresponds to --local-address."
-  },
-  "domains[].listen_v4": {
-    "type": "bool",
-    "default": false,
-    "description": "Force standalone server to listen on IPv4 only. Corresponds to --listen-v4."
-  },
-  "domains[].listen_v6": {
-    "type": "bool",
-    "default": false,
-    "description": "Force standalone server to listen on IPv6 only. Corresponds to --listen-v6."
-  },
-  "domains[].no_cron": {
-    "type": "bool",
-    "default": false,
-    "description": "Skip installing automatic renewal cron job. Corresponds to --no-cron."
-  },
-  "domains[].no_profile": {
-    "type": "bool",
-    "default": false,
-    "description": "Skip installing shell aliases. Corresponds to --no-profile."
-  },
-  "domains[].auto_upgrade": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically upgrade acme.sh on --upgrade. Corresponds to --auto-upgrade."
-  },
-  "domains[].use_wget": {
-    "type": "bool",
-    "default": false,
-    "description": "Force use of wget instead of curl. Corresponds to --use-wget."
-  },
-  "domains[].insecure": {
-    "type": "bool",
-    "default": false,
-    "description": "Skip TLS verification for API calls. Corresponds to --insecure."
-  },
-  "domains[].ca_bundle": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate bundle. Corresponds to --ca-bundle."
-  },
-  "domains[].ca_path": {
-    "type": "string",
-    "default": "",
-    "description": "Directory with CA certificates in PEM format. Corresponds to --ca-path."
-  },
-  "domains[].openssl_bin": {
-    "type": "string",
-    "default": "openssl",
-    "description": "Path to custom openssl binary. Corresponds to --openssl-bin."
-  },
-  "domains[].branch": {
-    "type": "string",
-    "default": "master",
-    "description": "Git branch for --upgrade. Corresponds to --branch."
-  },
-  "domains[].need_password": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to prompt for password for --to-pkcs12. If true, `password` must be set."
-  },
-  "domains[].password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for PKCS#12 export. Only used when need_password is true."
-  },
-  "domains[].ocsp": {
-    "type": "bool",
-    "default": false,
-    "description": "Request OCSP Must-Staple extension. Corresponds to --ocsp."
-  },
-  "domains[].always_force_new_domain_key": {
-    "type": "bool",
-    "default": false,
-    "description": "Generate new domain key on every renewal. Corresponds to --always-force-new-domain-key."
-  },
-  "domains[].output_insecure": {
-    "type": "bool",
-    "default": false,
-    "description": "Include sensitive data in debug output. Corresponds to --output-insecure."
-  },
-  "domains[].no_color": {
-    "type": "bool",
-    "default": false,
-    "description": "Disable colored output. Corresponds to --no-color."
-  },
-  "domains[].force_color": {
-    "type": "bool",
-    "default": false,
-    "description": "Force colored output (e.g., for log capture). Corresponds to --force-color."
-  },
-  "domains[].csr": {
-    "type": "string",
-    "default": "",
-    "description": "Input CSR path for --sign-csr. Corresponds to --csr."
-  },
-  "domains[].extended_key_usage": {
-    "type": "string",
-    "default": "serverAuth,clientAuth",
-    "description": "Extended Key Usage (EKU) OIDs. Only used when need_eku is true."
-  },
-  "domains[].need_eku": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to include EKU extension. If true, `extended_key_usage` must be set."
-  },
-  "domains[].challenge_alias": {
-    "type": "string",
-    "default": "",
-    "description": "Domain alias for DNS alias mode. Corresponds to --challenge-alias."
-  },
-  "domains[].domain_alias": {
-    "type": "string",
-    "default": "",
-    "description": "Domain alias for DNS alias mode (parent domain). Corresponds to --domain-alias."
-  },
-  "domains[].dnssleep": {
-    "type": "number",
-    "default": 0,
-    "description": "Seconds to wait for DNS propagation. Corresponds to --dnssleep."
-  },
-  "domains[].valid_to": {
-    "type": "string",
-    "default": "",
-    "description": "NotAfter field (ISO 8601 format). Corresponds to --valid-to."
-  },
-  "domains[].valid_from": {
-    "type": "string",
-    "default": "",
-    "description": "NotBefore field (ISO 8601 format). Corresponds to --valid-from."
-  }
+ "accountconf": {
+  "default": "",
+  "description": "Path to custom account configuration file. Corresponds to --accountconf.",
+  "type": "string"
+ },
+ "cert_home": {
+  "default": "~/.acme.sh",
+  "description": "Directory to store issued certificates. Corresponds to --cert-home.",
+  "type": "string"
+ },
+ "config_home": {
+  "default": "~/.acme.sh",
+  "description": "Directory to store acme.sh configuration files. Corresponds to --config-home.",
+  "type": "string"
+ },
+ "domains": {
+  "default": [],
+  "description": "List of domains with their ACME configuration. Each item defines a domain and its renewal parameters. Required fields: name, challenge_method. Other fields are optional depending on challenge method or advanced use cases.",
+  "type": "list"
+ },
+ "domains[].account_email": {
+  "default": "",
+  "description": "Account email address. Required for initial registration. Corresponds to --email.",
+  "type": "string"
+ },
+ "domains[].account_key": {
+  "default": "",
+  "description": "Path to account private key. Corresponds to --accountkey.",
+  "type": "string"
+ },
+ "domains[].account_keylength": {
+  "description": "Account key length: 2048, 3072, 4096. Corresponds to -ak.",
+  "enum": [
+   "2048",
+   "3072",
+   "4096"
+  ],
+  "type": "string"
+ },
+ "domains[].always_force_new_domain_key": {
+  "default": false,
+  "description": "Generate new domain key on every renewal. Corresponds to --always-force-new-domain-key.",
+  "type": "bool"
+ },
+ "domains[].auto_upgrade": {
+  "default": true,
+  "description": "Automatically upgrade acme.sh on --upgrade. Corresponds to --auto-upgrade.",
+  "type": "bool"
+ },
+ "domains[].branch": {
+  "default": "master",
+  "description": "Git branch for --upgrade. Corresponds to --branch.",
+  "type": "string"
+ },
+ "domains[].ca_bundle": {
+  "default": "",
+  "description": "Path to CA certificate bundle. Corresponds to --ca-bundle.",
+  "type": "string"
+ },
+ "domains[].ca_file": {
+  "default": "",
+  "description": "Path to copy the intermediate CA certificate after issuance/renewal. Corresponds to --ca-file.",
+  "type": "string"
+ },
+ "domains[].ca_path": {
+  "default": "",
+  "description": "Directory with CA certificates in PEM format. Corresponds to --ca-path.",
+  "type": "string"
+ },
+ "domains[].cert_file": {
+  "default": "",
+  "description": "Path to copy the leaf certificate after issuance/renewal. Corresponds to --cert-file.",
+  "type": "string"
+ },
+ "domains[].challenge_alias": {
+  "default": "",
+  "description": "Domain alias for DNS alias mode. Corresponds to --challenge-alias.",
+  "type": "string"
+ },
+ "domains[].challenge_method": {
+  "default": "http",
+  "description": "Validation method: 'http', 'standalone', or 'dns'. Required.",
+  "enum": [
+   "http",
+   "standalone",
+   "dns"
+  ],
+  "type": "string"
+ },
+ "domains[].csr": {
+  "default": "",
+  "description": "Input CSR path for --sign-csr. Corresponds to --csr.",
+  "type": "string"
+ },
+ "domains[].days": {
+  "default": 60,
+  "description": "Days before expiration to trigger renewal. Corresponds to --days.",
+  "type": "number"
+ },
+ "domains[].debug": {
+  "default": 2,
+  "description": "Debug level: 0 (none), 1 (minimal), 2 (default), 3 (verbose). Corresponds to --debug.",
+  "type": "number"
+ },
+ "domains[].deploy_hook": {
+  "default": "",
+  "description": "Deploy hook name to run after successful issuance/renewal. Corresponds to --deploy-hook.",
+  "type": "string"
+ },
+ "domains[].dns_hook": {
+  "default": "",
+  "description": "DNS hook name (e.g., 'dns_cf') for automatic DNS API support. Only one of dns_manual or dns_hook should be set.",
+  "type": "string"
+ },
+ "domains[].dns_manual": {
+  "default": false,
+  "description": "Use DNS manual mode (requires --yes-I-know-dns-manual-mode-enough-go-ahead-please). Only one of dns_manual or dns_hook should be set.",
+  "type": "bool"
+ },
+ "domains[].dnssleep": {
+  "default": 0,
+  "description": "Seconds to wait for DNS propagation. Corresponds to --dnssleep.",
+  "type": "number"
+ },
+ "domains[].domain_alias": {
+  "default": "",
+  "description": "Domain alias for DNS alias mode (parent domain). Corresponds to --domain-alias.",
+  "type": "string"
+ },
+ "domains[].eab_hmac_key": {
+  "default": "",
+  "description": "HMAC key for External Account Binding. Corresponds to --eab-hmac-key.",
+  "type": "string"
+ },
+ "domains[].eab_kid": {
+  "default": "",
+  "description": "Key Identifier for External Account Binding. Corresponds to --eab-kid.",
+  "type": "string"
+ },
+ "domains[].ecc": {
+  "default": false,
+  "description": "Use ECC certificate (ECDSA). Corresponds to --ecc.",
+  "type": "bool"
+ },
+ "domains[].extended_key_usage": {
+  "default": "serverAuth,clientAuth",
+  "description": "Extended Key Usage (EKU) OIDs. Only used when need_eku is true.",
+  "type": "string"
+ },
+ "domains[].force": {
+  "default": false,
+  "description": "Force cert renewal or override sudo restrictions. Corresponds to --force.",
+  "type": "bool"
+ },
+ "domains[].force_color": {
+  "default": false,
+  "description": "Force colored output (e.g., for log capture). Corresponds to --force-color.",
+  "type": "bool"
+ },
+ "domains[].fullchain_file": {
+  "default": "",
+  "description": "Path to copy the fullchain certificate after issuance/renewal. Corresponds to --fullchain-file.",
+  "type": "string"
+ },
+ "domains[].httpport": {
+  "default": 80,
+  "description": "Standalone HTTP server port (e.g., if behind proxy). Corresponds to --httpport.",
+  "type": "number"
+ },
+ "domains[].insecure": {
+  "default": false,
+  "description": "Skip TLS verification for API calls. Corresponds to --insecure.",
+  "type": "bool"
+ },
+ "domains[].key_file": {
+  "default": "",
+  "description": "Path to copy the private key after issuance/renewal. Corresponds to --key-file.",
+  "type": "string"
+ },
+ "domains[].keylength": {
+  "description": "Domain key length. Valid values: 2048, 3072, 4096, 8192, ec-256, ec-384, ec-521. Corresponds to -k.",
+  "enum": [
+   "2048",
+   "3072",
+   "4096",
+   "8192",
+   "ec-256",
+   "ec-384",
+   "ec-521"
+  ],
+  "type": "string"
+ },
+ "domains[].listen_v4": {
+  "default": false,
+  "description": "Force standalone server to listen on IPv4 only. Corresponds to --listen-v4.",
+  "type": "bool"
+ },
+ "domains[].listen_v6": {
+  "default": false,
+  "description": "Force standalone server to listen on IPv6 only. Corresponds to --listen-v6.",
+  "type": "bool"
+ },
+ "domains[].local_address": {
+  "default": "",
+  "description": "Standalone server listening IP address. Corresponds to --local-address.",
+  "type": "string"
+ },
+ "domains[].log": {
+  "default": "~/.acme.sh/acme.sh.log",
+  "description": "Log file path. Corresponds to --log.",
+  "type": "string"
+ },
+ "domains[].log_level": {
+  "default": 2,
+  "description": "Log level: 1 (error), 2 (info). Corresponds to --log-level.",
+  "type": "number"
+ },
+ "domains[].name": {
+  "default": "",
+  "description": "Primary domain name (e.g., example.com). Required.",
+  "type": "string"
+ },
+ "domains[].need_eku": {
+  "default": false,
+  "description": "Whether to include EKU extension. If true, `extended_key_usage` must be set.",
+  "type": "bool"
+ },
+ "domains[].need_password": {
+  "default": false,
+  "description": "Whether to prompt for password for --to-pkcs12. If true, `password` must be set.",
+  "type": "bool"
+ },
+ "domains[].no_color": {
+  "default": false,
+  "description": "Disable colored output. Corresponds to --no-color.",
+  "type": "bool"
+ },
+ "domains[].no_cron": {
+  "default": false,
+  "description": "Skip installing automatic renewal cron job. Corresponds to --no-cron.",
+  "type": "bool"
+ },
+ "domains[].no_profile": {
+  "default": false,
+  "description": "Skip installing shell aliases. Corresponds to --no-profile.",
+  "type": "bool"
+ },
+ "domains[].notify_hook": {
+  "default": "",
+  "description": "Custom notification hook name. Corresponds to --notify-hook.",
+  "type": "string"
+ },
+ "domains[].notify_level": {
+  "default": 2,
+  "description": "Notification level: 0=disabled, 1=error only, 2=renewal+error, 3=skip+renewal+error. Corresponds to --notify-level.",
+  "type": "number"
+ },
+ "domains[].notify_mode": {
+  "default": 0,
+  "description": "Notification mode: 0=bulk, 1=per-cert. Corresponds to --notify-mode.",
+  "type": "number"
+ },
+ "domains[].ocsp": {
+  "default": false,
+  "description": "Request OCSP Must-Staple extension. Corresponds to --ocsp.",
+  "type": "bool"
+ },
+ "domains[].openssl_bin": {
+  "default": "openssl",
+  "description": "Path to custom openssl binary. Corresponds to --openssl-bin.",
+  "type": "string"
+ },
+ "domains[].output_insecure": {
+  "default": false,
+  "description": "Include sensitive data in debug output. Corresponds to --output-insecure.",
+  "type": "bool"
+ },
+ "domains[].password": {
+  "default": "",
+  "description": "Password for PKCS#12 export. Only used when need_password is true.",
+  "type": "string"
+ },
+ "domains[].post_hook": {
+  "default": "",
+  "description": "Command to run after certificate operations (success or failure). Corresponds to --post-hook.",
+  "type": "string"
+ },
+ "domains[].pre_hook": {
+  "default": "",
+  "description": "Command to run before certificate operations. Corresponds to --pre-hook.",
+  "type": "string"
+ },
+ "domains[].preferred_chain": {
+  "default": "",
+  "description": "Preferred CA certificate chain issuer CN. Corresponds to --preferred-chain.",
+  "type": "string"
+ },
+ "domains[].reloadcmd": {
+  "default": "",
+  "description": "Command to reload the target server after cert deployment. Corresponds to --reloadcmd.",
+  "type": "string"
+ },
+ "domains[].renew_hook": {
+  "default": "",
+  "description": "Command to run only on successful renewals. Corresponds to --renew-hook.",
+  "type": "string"
+ },
+ "domains[].revoke_reason": {
+  "default": 0,
+  "description": "Revocation reason code (0-10). Only set if revoking. Corresponds to --revoke-reason.",
+  "type": "number"
+ },
+ "domains[].server": {
+  "default": "https://acme.zerossl.com/v2/DV90",
+  "description": "ACME server URI. Corresponds to --server.",
+  "type": "string"
+ },
+ "domains[].staging": {
+  "default": false,
+  "description": "Use ACME staging server. Corresponds to --staging.",
+  "type": "bool"
+ },
+ "domains[].syslog": {
+  "default": 0,
+  "description": "Syslog level: 0 (disabled), 3 (error), 6 (info), 7 (debug). Corresponds to --syslog.",
+  "type": "number"
+ },
+ "domains[].tlsport": {
+  "default": 443,
+  "description": "Standalone TLS server port (e.g., if behind proxy). Corresponds to --tlsport.",
+  "type": "number"
+ },
+ "domains[].use_wget": {
+  "default": false,
+  "description": "Force use of wget instead of curl. Corresponds to --use-wget.",
+  "type": "bool"
+ },
+ "domains[].useragent": {
+  "default": "",
+  "description": "User agent string. Corresponds to --useragent.",
+  "type": "string"
+ },
+ "domains[].valid_from": {
+  "default": "",
+  "description": "NotBefore field (ISO 8601 format). Corresponds to --valid-from.",
+  "type": "string"
+ },
+ "domains[].valid_to": {
+  "default": "",
+  "description": "NotAfter field (ISO 8601 format). Corresponds to --valid-to.",
+  "type": "string"
+ },
+ "domains[].webroot": {
+  "default": "",
+  "description": "Webroot directory for HTTP validation (required if challenge_method is 'http').",
+  "type": "string"
+ },
+ "home": {
+  "default": "~/.acme.sh",
+  "description": "acme.sh installation home directory. Corresponds to --home.",
+  "type": "string"
+ }
 }

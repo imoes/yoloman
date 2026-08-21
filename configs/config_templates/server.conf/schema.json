@@ -1,120 +1,119 @@
 {
-  "server.address": {
-    "type": "string",
-    "default": ":67",
-    "description": "Network address and port for the DHCP server to listen on (e.g., '192.168.1.1:67' or ':67' for all interfaces)."
-  },
-  "server.log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of server logging. Options: debug, info, warn, error."
-  },
-  "server.ipv6_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable or disable IPv6 support (DHCPv6) in addition to IPv4 (DHCPv4)."
-  },
-  "plugins": {
-    "type": "list",
-    "default": [
-      "builtin:dns",
-      "builtin:ntp",
-      "file:/usr/lib/coredhcp/plugins/file.so"
+ "global_options": {
+  "description": "Global DHCP options applied to all subnets unless overridden. Example: {'vendor_class_id': 'CoreDHCP', 'bootfile_name': 'coredhcp.pxe'}.",
+  "type": "object"
+ },
+ "leases.backend": {
+  "default": "file",
+  "description": "Lease storage backend. 'file' persists leases across restarts; 'memory' resets on reload.",
+  "type": "string"
+ },
+ "leases.path": {
+  "default": "/var/lib/coredhcp/leases.dat",
+  "description": "Path to the lease file when using the 'file' backend. Ignored for 'memory' backend.",
+  "type": "string"
+ },
+ "plugins": {
+  "default": [
+   "builtin:dns",
+   "builtin:ntp",
+   "file:/usr/lib/coredhcp/plugins/file.so"
+  ],
+  "description": "List of plugins to load at startup. Each entry is either a builtin plugin name or a path to a shared library.",
+  "type": "list"
+ },
+ "server.address": {
+  "default": ":67",
+  "description": "Network address and port for the DHCP server to listen on (e.g., '192.168.1.1:67' or ':67' for all interfaces).",
+  "type": "string"
+ },
+ "server.ipv6_enabled": {
+  "default": false,
+  "description": "Enable or disable IPv6 support (DHCPv6) in addition to IPv4 (DHCPv4).",
+  "type": "bool"
+ },
+ "server.log_level": {
+  "default": "info",
+  "description": "Verbosity of server logging. Options: debug, info, warn, error.",
+  "type": "string"
+ },
+ "subnets": {
+  "default": [
+   {
+    "dns_servers": [
+     "8.8.8.8",
+     "8.8.4.4"
     ],
-    "description": "List of plugins to load at startup. Each entry is either a builtin plugin name or a path to a shared library."
-  },
-  "leases.backend": {
-    "type": "string",
-    "default": "file",
-    "description": "Lease storage backend. 'file' persists leases across restarts; 'memory' resets on reload."
-  },
-  "leases.path": {
-    "type": "string",
-    "default": "/var/lib/coredhcp/leases.dat",
-    "description": "Path to the lease file when using the 'file' backend. Ignored for 'memory' backend."
-  },
-  "subnets": {
-    "type": "list",
-    "default": [
-      {
-        "network": "192.168.1.0",
-        "gateway": "192.168.1.1",
-        "dns_servers": [
-          "8.8.8.8",
-          "8.8.4.4"
-        ],
-        "ntp_servers": [
-          "0.pool.ntp.org"
-        ],
-        "range": {
-          "start": "192.168.1.100",
-          "end": "192.168.1.200"
-        }
-      }
+    "gateway": "192.168.1.1",
+    "network": "192.168.1.0",
+    "ntp_servers": [
+     "0.pool.ntp.org"
     ],
-    "items": {
-      "type": "object",
-      "fields": {
-        "network": {
-          "type": "string",
-          "required": true,
-          "description": "Base IP address of the subnet (e.g., '192.168.1.0')."
-        },
-        "prefix": {
-          "type": "number",
-          "default": 24,
-          "description": "Subnet prefix length (e.g., 24 for /24). Optional; defaults to standard classful if omitted."
-        },
-        "gateway": {
-          "type": "string",
-          "required": true,
-          "description": "IP address of the default gateway/router for the subnet."
-        },
-        "dns_servers": {
-          "type": "list",
-          "default": [
-            "8.8.8.8"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "List of DNS server addresses to advertise to clients."
-        },
-        "ntp_servers": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "List of NTP server addresses to advertise to clients."
-        },
-        "range": {
-          "type": "object",
-          "required": true,
-          "fields": {
-            "start": {
-              "type": "string",
-              "required": true,
-              "description": "First IP in the dynamic allocation range (inclusive)."
-            },
-            "end": {
-              "type": "string",
-              "required": true,
-              "description": "Last IP in the dynamic allocation range (inclusive)."
-            }
-          }
-        },
-        "options": {
-          "type": "object",
-          "default": {},
-          "description": "Arbitrary DHCP options (e.g., 'bootfile_name: pxelinux.0', 'vendor_class_id: 'PXEClient'') in key-value form."
-        }
-      }
+    "range": {
+     "end": "192.168.1.200",
+     "start": "192.168.1.100"
     }
+   }
+  ],
+  "items": {
+   "fields": {
+    "dns_servers": {
+     "default": [
+      "8.8.8.8"
+     ],
+     "description": "List of DNS server addresses to advertise to clients.",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "gateway": {
+     "description": "IP address of the default gateway/router for the subnet.",
+     "required": true,
+     "type": "string"
+    },
+    "network": {
+     "description": "Base IP address of the subnet (e.g., '192.168.1.0').",
+     "required": true,
+     "type": "string"
+    },
+    "ntp_servers": {
+     "default": [],
+     "description": "List of NTP server addresses to advertise to clients.",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "options": {
+     "default": {},
+     "description": "Arbitrary DHCP options (e.g., 'bootfile_name: pxelinux.0', 'vendor_class_id: 'PXEClient'') in key-value form.",
+     "type": "object"
+    },
+    "prefix": {
+     "default": 24,
+     "description": "Subnet prefix length (e.g., 24 for /24). Optional; defaults to standard classful if omitted.",
+     "type": "number"
+    },
+    "range": {
+     "fields": {
+      "end": {
+       "description": "Last IP in the dynamic allocation range (inclusive).",
+       "required": true,
+       "type": "string"
+      },
+      "start": {
+       "description": "First IP in the dynamic allocation range (inclusive).",
+       "required": true,
+       "type": "string"
+      }
+     },
+     "required": true,
+     "type": "object"
+    }
+   },
+   "type": "object"
   },
-  "global_options": {
-    "type": "object",
-    "default": {},
-    "description": "Global DHCP options applied to all subnets unless overridden. Example: {'vendor_class_id': 'CoreDHCP', 'bootfile_name': 'coredhcp.pxe'}."
-  }
+  "type": "list"
+ }
 }

@@ -1,354 +1,353 @@
 {
-  "options": {
-    "type": "object",
-    "default": {},
-    "description": "Global syslog-ng options affecting message processing, DNS, permissions, and timing.",
-    "properties": {
-      "long_hostnames": {
-        "type": "bool",
-        "default": false,
-        "description": "Use long (FQDN) hostnames in log messages."
-      },
-      "flush_lines": {
-        "type": "number",
-        "default": 0,
-        "description": "Number of lines to flush at once (0 = flush on timeout only)."
-      },
-      "time_reopen": {
-        "type": "number",
-        "default": 10,
-        "description": "Time in seconds to wait before reopening a failed destination."
-      },
-      "use_dns": {
-        "type": "bool",
-        "default": true,
-        "description": "Resolve hostnames using DNS."
-      },
-      "use_fqdn": {
-        "type": "bool",
-        "default": false,
-        "description": "Use fully qualified domain names (FQDN) instead of short hostnames."
-      },
-      "add_host_name": {
-        "type": "bool",
-        "default": false,
-        "description": "Prefix messages with the local host name."
-      },
-      "use_time_recvd": {
-        "type": "bool",
-        "default": false,
-        "description": "Use time received (local) instead of timestamp from the message."
-      },
-      "perm": {
-        "type": "string",
-        "default": "0640",
-        "description": "Permission bits (octal) for created files."
-      },
-      "dir_perm": {
-        "type": "string",
-        "default": "0755",
-        "description": "Permission bits (octal) for created directories."
-      },
-      "owner": {
-        "type": "string",
-        "default": "root",
-        "description": "Owner for created files and directories."
-      },
-      "group": {
-        "type": "string",
-        "default": "root",
-        "description": "Group for created files and directories."
-      }
-    }
+ "config_fragments": {
+  "default": [],
+  "description": "Additional configuration file paths to include (e.g., for modular config).",
+  "items": {
+   "type": "string"
   },
-  "sources": {
-    "type": "list",
-    "default": [],
-    "description": "List of input sources to collect logs from (files, ports, etc.).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Unique name for this source."
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "file",
-            "tcp",
-            "udp",
-            "unix-stream",
-            "unix-dgram",
-            "internal",
-            "syslog",
-            "net",
-            "sun-streams",
-            "pipe"
-          ],
-          "description": "Type of source."
-        },
-        "path": {
-          "type": "string",
-          "description": "File/device path (used by file, pipe, unix-* sources)."
-        },
-        "ip": {
-          "type": "string",
-          "default": "0.0.0.0",
-          "description": "IP address to bind to (for network sources)."
-        },
-        "port": {
-          "type": "number",
-          "description": "Port number (required for network sources)."
-        },
-        "transport": {
-          "type": "string",
-          "enum": [
-            "tcp",
-            "udp",
-            "tls"
-          ],
-          "default": "tcp",
-          "description": "Transport protocol for network sources."
-        },
-        "max_connections": {
-          "type": "number",
-          "description": "Maximum number of concurrent connections (for tcp)."
-        },
-        "recv_buffer_size": {
-          "type": "number",
-          "description": "Receive buffer size in bytes (for tcp/udp)."
-        },
-        "flags": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "enum": [
-              "no-parse",
-              "syslog-protocol",
-              "validate-utf8",
-              "empty-headers",
-              "donot-parse-flags",
-              "no-multi-line",
-              "no-hostname",
-              "no-term",
-              "no-bad-hex",
-              "syslog-wire-protocol"
-            ]
-          },
-          "description": "Source-specific flags (e.g., 'no-parse' to skip syslog parsing)."
-        },
-        "perm": {
-          "type": "string",
-          "description": "Permission bits (octal) for unix socket (unix-stream/dgram)."
-        },
-        "device": {
-          "type": "string",
-          "description": "Device path (for sun-streams)."
-        },
-        "template": {
-          "type": "string",
-          "description": "Custom template string for file destinations (if applicable)."
-        }
-      },
-      "required": [
-        "name",
-        "type"
-      ]
-    }
-  },
-  "destinations": {
-    "type": "list",
-    "default": [],
-    "description": "List of destinations where log messages will be sent (files, remote servers, databases, etc.).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Unique name for this destination."
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "file",
-            "tcp",
-            "udp",
-            "unix-stream",
-            "unix-dgram",
-            "syslog",
-            "network",
-            "db",
-            "null",
-            "program"
-          ],
-          "description": "Type of destination."
-        },
-        "path": {
-          "type": "string",
-          "description": "File/socket path (for file, pipe, unix-* destinations)."
-        },
-        "ip": {
-          "type": "string",
-          "description": "Remote IP address (required for remote destinations)."
-        },
-        "port": {
-          "type": "number",
-          "description": "Port number (required for remote destinations)."
-        },
-        "localip": {
-          "type": "string",
-          "description": "Local IP to bind as source (for outbound connections)."
-        },
-        "transport": {
-          "type": "string",
-          "enum": [
-            "tcp",
-            "udp",
-            "tls"
-          ],
-          "default": "tcp",
-          "description": "Transport protocol (for syslog/network/tcp/udp)."
-        },
-        "owner": {
-          "type": "string",
-          "description": "Owner for file destination."
-        },
-        "group": {
-          "type": "string",
-          "description": "Group for file destination."
-        },
-        "perm": {
-          "type": "string",
-          "description": "Permission bits (octal) for file destination."
-        },
-        "dir_perm": {
-          "type": "string",
-          "description": "Permission bits (octal) for file destination directories."
-        },
-        "template": {
-          "type": "string",
-          "description": "Template string to format messages (e.g., '${ISODATE} ${HOST} ${MSGHDR}${MSG}\\n')."
-        },
-        "driver": {
-          "type": "string",
-          "description": "Database driver (e.g., 'postgres', 'mysql')."
-        },
-        "host": {
-          "type": "string",
-          "description": "Database host (for sql destinations)."
-        },
-        "database": {
-          "type": "string",
-          "description": "Database name (for sql destinations)."
-        },
-        "username": {
-          "type": "string",
-          "description": "Database username (for sql destinations)."
-        },
-        "password": {
-          "type": "string",
-          "description": "Database password (for sql destinations)."
-        },
-        "table": {
-          "type": "string",
-          "description": "Table name for log storage (for sql destinations)."
-        },
-        "columns": {
-          "type": "list",
-          "default": [
-            "date",
-            "host",
-            "facility",
-            "priority",
-            "message"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "description": "Column names for database table (for sql destinations)."
-        },
-        "command": {
-          "type": "string",
-          "description": "Shell command to execute (for program destinations)."
-        },
-        "flags": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "enum": [
-              "flush-late",
-              "no-multi-line",
-              "no-packet-size",
-              "no-hostname"
-            ]
-          },
-          "description": "Destination flags (e.g., 'flush-late' for deferred writes)."
-        }
-      },
-      "required": [
-        "name",
-        "type"
-      ]
-    }
-  },
-  "logs": {
-    "type": "list",
-    "default": [],
-    "description": "Log paths: link source(s) \u2192 filter(s) \u2192 destination(s). Each log entry defines a processing flow.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of this log path (for documentation only)."
-        },
-        "source": {
-          "type": "string",
-          "description": "Name of the source to consume messages from."
-        },
-        "destination": {
-          "type": "string",
-          "description": "Name of the destination to forward messages to."
-        },
-        "filters": {
-          "type": "list",
-          "default": [],
-          "description": "Optional filters to select messages (first filter determines flow).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Filter name (for reference in log paths)."
-              },
-              "expr": {
-                "type": "string",
-                "description": "syslog-ng filter expression (e.g., 'facility(syslog)', 'host(myserver)', 'match(\"error\" value(\"MESSAGE\"))'."
-              }
-            },
-            "required": [
-              "name",
-              "expr"
-            ]
-          }
-        }
-      },
-      "required": [
-        "name",
-        "source",
-        "destination"
-      ]
-    }
-  },
-  "config_fragments": {
-    "type": "list",
-    "default": [],
-    "description": "Additional configuration file paths to include (e.g., for modular config).",
-    "items": {
+  "type": "list"
+ },
+ "destinations": {
+  "default": [],
+  "description": "List of destinations where log messages will be sent (files, remote servers, databases, etc.).",
+  "items": {
+   "properties": {
+    "columns": {
+     "default": [
+      "date",
+      "host",
+      "facility",
+      "priority",
+      "message"
+     ],
+     "description": "Column names for database table (for sql destinations).",
+     "items": {
       "type": "string"
+     },
+     "type": "list"
+    },
+    "command": {
+     "description": "Shell command to execute (for program destinations).",
+     "type": "string"
+    },
+    "database": {
+     "description": "Database name (for sql destinations).",
+     "type": "string"
+    },
+    "dir_perm": {
+     "description": "Permission bits (octal) for file destination directories.",
+     "type": "string"
+    },
+    "driver": {
+     "description": "Database driver (e.g., 'postgres', 'mysql').",
+     "type": "string"
+    },
+    "flags": {
+     "default": [],
+     "description": "Destination flags (e.g., 'flush-late' for deferred writes).",
+     "items": {
+      "enum": [
+       "flush-late",
+       "no-multi-line",
+       "no-packet-size",
+       "no-hostname"
+      ],
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "group": {
+     "description": "Group for file destination.",
+     "type": "string"
+    },
+    "host": {
+     "description": "Database host (for sql destinations).",
+     "type": "string"
+    },
+    "ip": {
+     "description": "Remote IP address (required for remote destinations).",
+     "type": "string"
+    },
+    "localip": {
+     "description": "Local IP to bind as source (for outbound connections).",
+     "type": "string"
+    },
+    "name": {
+     "description": "Unique name for this destination.",
+     "type": "string"
+    },
+    "owner": {
+     "description": "Owner for file destination.",
+     "type": "string"
+    },
+    "password": {
+     "description": "Database password (for sql destinations).",
+     "type": "string"
+    },
+    "path": {
+     "description": "File/socket path (for file, pipe, unix-* destinations).",
+     "type": "string"
+    },
+    "perm": {
+     "description": "Permission bits (octal) for file destination.",
+     "type": "string"
+    },
+    "port": {
+     "description": "Port number (required for remote destinations).",
+     "type": "number"
+    },
+    "table": {
+     "description": "Table name for log storage (for sql destinations).",
+     "type": "string"
+    },
+    "template": {
+     "description": "Template string to format messages (e.g., '${ISODATE} ${HOST} ${MSGHDR}${MSG}\\n').",
+     "type": "string"
+    },
+    "transport": {
+     "default": "tcp",
+     "description": "Transport protocol (for syslog/network/tcp/udp).",
+     "enum": [
+      "tcp",
+      "udp",
+      "tls"
+     ],
+     "type": "string"
+    },
+    "type": {
+     "description": "Type of destination.",
+     "enum": [
+      "file",
+      "tcp",
+      "udp",
+      "unix-stream",
+      "unix-dgram",
+      "syslog",
+      "network",
+      "db",
+      "null",
+      "program"
+     ],
+     "type": "string"
+    },
+    "username": {
+     "description": "Database username (for sql destinations).",
+     "type": "string"
     }
-  }
+   },
+   "required": [
+    "name",
+    "type"
+   ],
+   "type": "object"
+  },
+  "type": "list"
+ },
+ "logs": {
+  "default": [],
+  "description": "Log paths: link source(s) → filter(s) → destination(s). Each log entry defines a processing flow.",
+  "items": {
+   "properties": {
+    "destination": {
+     "description": "Name of the destination to forward messages to.",
+     "type": "string"
+    },
+    "filters": {
+     "default": [],
+     "description": "Optional filters to select messages (first filter determines flow).",
+     "items": {
+      "properties": {
+       "expr": {
+        "description": "syslog-ng filter expression (e.g., 'facility(syslog)', 'host(myserver)', 'match(\"error\" value(\"MESSAGE\"))'.",
+        "type": "string"
+       },
+       "name": {
+        "description": "Filter name (for reference in log paths).",
+        "type": "string"
+       }
+      },
+      "required": [
+       "name",
+       "expr"
+      ],
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "name": {
+     "description": "Name of this log path (for documentation only).",
+     "type": "string"
+    },
+    "source": {
+     "description": "Name of the source to consume messages from.",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "source",
+    "destination"
+   ],
+   "type": "object"
+  },
+  "type": "list"
+ },
+ "options": {
+  "description": "Global syslog-ng options affecting message processing, DNS, permissions, and timing.",
+  "properties": {
+   "add_host_name": {
+    "default": false,
+    "description": "Prefix messages with the local host name.",
+    "type": "bool"
+   },
+   "dir_perm": {
+    "default": "0755",
+    "description": "Permission bits (octal) for created directories.",
+    "type": "string"
+   },
+   "flush_lines": {
+    "default": 0,
+    "description": "Number of lines to flush at once (0 = flush on timeout only).",
+    "type": "number"
+   },
+   "group": {
+    "default": "root",
+    "description": "Group for created files and directories.",
+    "type": "string"
+   },
+   "long_hostnames": {
+    "default": false,
+    "description": "Use long (FQDN) hostnames in log messages.",
+    "type": "bool"
+   },
+   "owner": {
+    "default": "root",
+    "description": "Owner for created files and directories.",
+    "type": "string"
+   },
+   "perm": {
+    "default": "0640",
+    "description": "Permission bits (octal) for created files.",
+    "type": "string"
+   },
+   "time_reopen": {
+    "default": 10,
+    "description": "Time in seconds to wait before reopening a failed destination.",
+    "type": "number"
+   },
+   "use_dns": {
+    "default": true,
+    "description": "Resolve hostnames using DNS.",
+    "type": "bool"
+   },
+   "use_fqdn": {
+    "default": false,
+    "description": "Use fully qualified domain names (FQDN) instead of short hostnames.",
+    "type": "bool"
+   },
+   "use_time_recvd": {
+    "default": false,
+    "description": "Use time received (local) instead of timestamp from the message.",
+    "type": "bool"
+   }
+  },
+  "type": "object"
+ },
+ "sources": {
+  "default": [],
+  "description": "List of input sources to collect logs from (files, ports, etc.).",
+  "items": {
+   "properties": {
+    "device": {
+     "description": "Device path (for sun-streams).",
+     "type": "string"
+    },
+    "flags": {
+     "default": [],
+     "description": "Source-specific flags (e.g., 'no-parse' to skip syslog parsing).",
+     "items": {
+      "enum": [
+       "no-parse",
+       "syslog-protocol",
+       "validate-utf8",
+       "empty-headers",
+       "donot-parse-flags",
+       "no-multi-line",
+       "no-hostname",
+       "no-term",
+       "no-bad-hex",
+       "syslog-wire-protocol"
+      ],
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "ip": {
+     "default": "0.0.0.0",
+     "description": "IP address to bind to (for network sources).",
+     "type": "string"
+    },
+    "max_connections": {
+     "description": "Maximum number of concurrent connections (for tcp).",
+     "type": "number"
+    },
+    "name": {
+     "description": "Unique name for this source.",
+     "type": "string"
+    },
+    "path": {
+     "description": "File/device path (used by file, pipe, unix-* sources).",
+     "type": "string"
+    },
+    "perm": {
+     "description": "Permission bits (octal) for unix socket (unix-stream/dgram).",
+     "type": "string"
+    },
+    "port": {
+     "description": "Port number (required for network sources).",
+     "type": "number"
+    },
+    "recv_buffer_size": {
+     "description": "Receive buffer size in bytes (for tcp/udp).",
+     "type": "number"
+    },
+    "template": {
+     "description": "Custom template string for file destinations (if applicable).",
+     "type": "string"
+    },
+    "transport": {
+     "default": "tcp",
+     "description": "Transport protocol for network sources.",
+     "enum": [
+      "tcp",
+      "udp",
+      "tls"
+     ],
+     "type": "string"
+    },
+    "type": {
+     "description": "Type of source.",
+     "enum": [
+      "file",
+      "tcp",
+      "udp",
+      "unix-stream",
+      "unix-dgram",
+      "internal",
+      "syslog",
+      "net",
+      "sun-streams",
+      "pipe"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "type"
+   ],
+   "type": "object"
+  },
+  "type": "list"
+ }
 }

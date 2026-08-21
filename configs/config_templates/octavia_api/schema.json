@@ -1,343 +1,333 @@
 {
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debug logging for troubleshooting."
-  },
-  "state_path": {
-    "type": "string",
-    "default": "/var/lib/octavia",
-    "description": "Base directory for Octavia runtime data (sockets, temp files)."
-  },
-  "log_config_append": {
-    "type": "string",
+ "amphora": {
+  "description": "Amphora VM provisioning and agent settings.",
+  "items": {
+   "agent_workers": {
+    "default": 2,
+    "type": "number"
+   },
+   "amphora_flavor": {
+    "default": "m1.small",
+    "type": "string"
+   },
+   "amphora_image_tag": {
+    "default": "amphora",
+    "type": "string"
+   },
+   "amphora_name": {
+    "default": "amphora",
+    "type": "string"
+   },
+   "amphora_network": {
     "default": "",
-    "description": "Path to a Python logging configuration file (optional)."
+    "type": "string"
+   },
+   "amphora_secgroup_list": {
+    "default": [],
+    "description": "List of security group IDs (UUIDs) to attach to amphorae.",
+    "type": "list"
+   },
+   "amphora_subnet": {
+    "default": "",
+    "type": "string"
+   }
   },
-  "log_dir": {
-    "type": "string",
-    "default": "/var/log/octavia",
-    "description": "Directory for log files (if not using logging config file)."
+  "type": "object"
+ },
+ "api_settings": {
+  "description": "Octavia API server settings.",
+  "items": {
+   "api_rate_limit": {
+    "default": 5,
+    "description": "Maximum requests per second per tenant (0 = disabled).",
+    "type": "number"
+   },
+   "bind_host": {
+    "default": "0.0.0.0",
+    "description": "IP address the Octavia API listens on.",
+    "type": "string"
+   },
+   "bind_port": {
+    "default": 9876,
+    "description": "Port the Octavia API listens on.",
+    "type": "number"
+   },
+   "enable_api_web_ui": {
+    "default": false,
+    "description": "Enable the Amphora web UI (not recommended for production).",
+    "type": "bool"
+   },
+   "tls_ciphers": {
+    "default": [
+     "ECDHE-ECDSA-AES128-GCM-SHA256",
+     "ECDHE-RSA-AES128-GCM-SHA256"
+    ],
+    "description": "Colon-separated list of allowed TLS ciphers.",
+    "type": "list"
+   },
+   "tls_versions": {
+    "default": [
+     "TLSv1.2"
+    ],
+    "description": "List of allowed TLS protocol versions for HTTPS.",
+    "type": "list"
+   }
   },
-  "api_settings": {
-    "type": "object",
-    "default": {},
-    "description": "Octavia API server settings.",
-    "items": {
-      "bind_host": {
-        "type": "string",
-        "default": "0.0.0.0",
-        "description": "IP address the Octavia API listens on."
-      },
-      "bind_port": {
-        "type": "number",
-        "default": 9876,
-        "description": "Port the Octavia API listens on."
-      },
-      "enable_api_web_ui": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable the Amphora web UI (not recommended for production)."
-      },
-      "api_rate_limit": {
-        "type": "number",
-        "default": 5,
-        "description": "Maximum requests per second per tenant (0 = disabled)."
-      },
-      "tls_versions": {
-        "type": "list",
-        "default": [
-          "TLSv1.2"
-        ],
-        "description": "List of allowed TLS protocol versions for HTTPS."
-      },
-      "tls_ciphers": {
-        "type": "list",
-        "default": [
-          "ECDHE-ECDSA-AES128-GCM-SHA256",
-          "ECDHE-RSA-AES128-GCM-SHA256"
-        ],
-        "description": "Colon-separated list of allowed TLS ciphers."
-      }
-    }
+  "type": "object"
+ },
+ "certificates": {
+  "description": "Certificates and CA settings for amphora security.",
+  "items": {
+   "ca_certificate": {
+    "default": "/etc/octavia/certs/ca_01.pem",
+    "description": "Path to CA certificate used to sign amphora certs.",
+    "type": "string"
+   },
+   "ca_private_key": {
+    "default": "/etc/octavia/certs/ca_01.key",
+    "description": "Path to CA private key.",
+    "type": "string"
+   },
+   "ca_private_key_passphrase": {
+    "default": "",
+    "description": "Passphrase for encrypted CA key (leave empty for unencrypted key).",
+    "type": "string"
+   },
+   "cert_manager": {
+    "default": "octavia.certificates.module.local",
+    "description": "Cert manager backend module path (e.g., 'octavia.certificates.module.local').",
+    "type": "string"
+   }
   },
-  "certificates": {
-    "type": "object",
-    "default": {},
-    "description": "Certificates and CA settings for amphora security.",
-    "items": {
-      "ca_certificate": {
-        "type": "string",
-        "default": "/etc/octavia/certs/ca_01.pem",
-        "description": "Path to CA certificate used to sign amphora certs."
-      },
-      "ca_private_key": {
-        "type": "string",
-        "default": "/etc/octavia/certs/ca_01.key",
-        "description": "Path to CA private key."
-      },
-      "ca_private_key_passphrase": {
-        "type": "string",
-        "default": "",
-        "description": "Passphrase for encrypted CA key (leave empty for unencrypted key)."
-      },
-      "cert_manager": {
-        "type": "string",
-        "default": "octavia.certificates.module.local",
-        "description": "Cert manager backend module path (e.g., 'octavia.certificates.module.local')."
-      }
-    }
+  "type": "object"
+ },
+ "debug": {
+  "default": false,
+  "description": "Enable verbose debug logging for troubleshooting.",
+  "type": "bool"
+ },
+ "driver_agent": {
+  "description": "Settings for the driver agent (used by amphora agents).",
+  "items": {
+   "agent_timeout": {
+    "default": 60,
+    "description": "Timeout (seconds) for amphora agent commands.",
+    "type": "number"
+   },
+   "config_file_dir": {
+    "default": "/etc/octavia/driver-agent",
+    "description": "Directory where amphora agent configs are written.",
+    "type": "string"
+   }
   },
-  "health_manager": {
-    "type": "object",
-    "default": {},
-    "description": "Health manager process settings.",
-    "items": {
-      "bind_host": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "IP address the health manager listens on."
-      },
-      "bind_port": {
-        "type": "number",
-        "default": 5555,
-        "description": "Port the health manager listens on."
-      },
-      "workers": {
-        "type": "number",
-        "default": 0,
-        "description": "Number of worker processes (0 = auto based on CPU cores)."
-      },
-      "health_check_interval": {
-        "type": "number",
-        "default": 30,
-        "description": "Interval (seconds) between health checks."
-      }
-    }
+  "type": "object"
+ },
+ "health_manager": {
+  "description": "Health manager process settings.",
+  "items": {
+   "bind_host": {
+    "default": "127.0.0.1",
+    "description": "IP address the health manager listens on.",
+    "type": "string"
+   },
+   "bind_port": {
+    "default": 5555,
+    "description": "Port the health manager listens on.",
+    "type": "number"
+   },
+   "health_check_interval": {
+    "default": 30,
+    "description": "Interval (seconds) between health checks.",
+    "type": "number"
+   },
+   "workers": {
+    "default": 0,
+    "description": "Number of worker processes (0 = auto based on CPU cores).",
+    "type": "number"
+   }
   },
-  "driver_agent": {
-    "type": "object",
-    "default": {},
-    "description": "Settings for the driver agent (used by amphora agents).",
-    "items": {
-      "config_file_dir": {
-        "type": "string",
-        "default": "/etc/octavia/driver-agent",
-        "description": "Directory where amphora agent configs are written."
-      },
-      "agent_timeout": {
-        "type": "number",
-        "default": 60,
-        "description": "Timeout (seconds) for amphora agent commands."
-      }
-    }
+  "type": "object"
+ },
+ "keystone_authtoken": {
+  "description": "Keystone authentication settings for service-to-service communication.",
+  "items": {
+   "auth_url": {
+    "default": "http://controller:5000/v3",
+    "description": "Keystone auth endpoint URL.",
+    "type": "string"
+   },
+   "cafile": {
+    "default": "",
+    "description": "Path to CA certificate bundle for keystone endpoint validation.",
+    "type": "string"
+   },
+   "insecure": {
+    "default": false,
+    "description": "Disable SSL verification for keystone (dangerous in production).",
+    "type": "bool"
+   },
+   "password": {
+    "default": "",
+    "description": "Password for the Octavia service user.",
+    "type": "string"
+   },
+   "project_domain_name": {
+    "default": "Default",
+    "description": "Domain name for the service project.",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "service",
+    "description": "Project name (tenant) for the Octavia service user.",
+    "type": "string"
+   },
+   "user_domain_name": {
+    "default": "Default",
+    "description": "Domain name for the service user.",
+    "type": "string"
+   },
+   "username": {
+    "default": "octavia",
+    "description": "Keystone username for Octavia service.",
+    "type": "string"
+   }
   },
-  "oslo_messaging": {
-    "type": "object",
-    "default": {},
-    "description": "Message queue (RabbitMQ) connection settings.",
-    "items": {
-      "rabbit_host": {
-        "type": "string",
-        "default": "localhost",
-        "description": "RabbitMQ broker hostname or IP."
-      },
-      "rabbit_port": {
-        "type": "number",
-        "default": 5672,
-        "description": "RabbitMQ broker port."
-      },
-      "rabbit_userid": {
-        "type": "string",
-        "default": "openstack",
-        "description": "RabbitMQ username."
-      },
-      "rabbit_password": {
-        "type": "string",
-        "default": "",
-        "description": "RabbitMQ password (required)."
-      },
-      "rabbit_virtual_host": {
-        "type": "string",
-        "default": "/",
-        "description": "RabbitMQ virtual host."
-      },
-      "rabbit_use_ssl": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable SSL/TLS for RabbitMQ connection."
-      }
-    }
+  "type": "object"
+ },
+ "listener": {
+  "description": "Default listener timeout and security settings.",
+  "items": {
+   "client_ca_file": {
+    "default": "",
+    "description": "CA cert file for client certificate verification (TLS mTLS).",
+    "type": "string"
+   },
+   "client_idle_timeout": {
+    "default": 50,
+    "description": "Client-side idle timeout in seconds.",
+    "type": "number"
+   }
   },
-  "keystone_authtoken": {
-    "type": "object",
-    "default": {},
-    "description": "Keystone authentication settings for service-to-service communication.",
-    "items": {
-      "auth_url": {
-        "type": "string",
-        "default": "http://controller:5000/v3",
-        "description": "Keystone auth endpoint URL."
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Domain name for the service project."
-      },
-      "project_name": {
-        "type": "string",
-        "default": "service",
-        "description": "Project name (tenant) for the Octavia service user."
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Domain name for the service user."
-      },
-      "username": {
-        "type": "string",
-        "default": "octavia",
-        "description": "Keystone username for Octavia service."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for the Octavia service user."
-      },
-      "cafile": {
-        "type": "string",
-        "default": "",
-        "description": "Path to CA certificate bundle for keystone endpoint validation."
-      },
-      "insecure": {
-        "type": "bool",
-        "default": false,
-        "description": "Disable SSL verification for keystone (dangerous in production)."
-      }
-    }
+  "type": "object"
+ },
+ "log_config_append": {
+  "default": "",
+  "description": "Path to a Python logging configuration file (optional).",
+  "type": "string"
+ },
+ "log_dir": {
+  "default": "/var/log/octavia",
+  "description": "Directory for log files (if not using logging config file).",
+  "type": "string"
+ },
+ "neutron": {
+  "description": "Neutron authentication (used for networking).",
+  "items": {
+   "auth_url": {
+    "default": "http://controller:9696",
+    "type": "string"
+   },
+   "password": {
+    "default": "",
+    "type": "string"
+   },
+   "project_domain_name": {
+    "default": "Default",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "service",
+    "type": "string"
+   },
+   "region_name": {
+    "default": "RegionOne",
+    "type": "string"
+   },
+   "user_domain_name": {
+    "default": "Default",
+    "type": "string"
+   },
+   "username": {
+    "default": "neutron",
+    "type": "string"
+   }
   },
-  "nova": {
-    "type": "object",
-    "default": {},
-    "description": "Nova authentication (used for metadata proxy).",
-    "items": {
-      "auth_url": {
-        "type": "string",
-        "default": "http://controller:8774/v2.1",
-        "description": "Nova auth endpoint URL."
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default"
-      },
-      "project_name": {
-        "type": "string",
-        "default": "service"
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default"
-      },
-      "username": {
-        "type": "string",
-        "default": "nova"
-      },
-      "password": {
-        "type": "string",
-        "default": ""
-      },
-      "region_name": {
-        "type": "string",
-        "default": "RegionOne"
-      }
-    }
+  "type": "object"
+ },
+ "nova": {
+  "description": "Nova authentication (used for metadata proxy).",
+  "items": {
+   "auth_url": {
+    "default": "http://controller:8774/v2.1",
+    "description": "Nova auth endpoint URL.",
+    "type": "string"
+   },
+   "password": {
+    "default": "",
+    "type": "string"
+   },
+   "project_domain_name": {
+    "default": "Default",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "service",
+    "type": "string"
+   },
+   "region_name": {
+    "default": "RegionOne",
+    "type": "string"
+   },
+   "user_domain_name": {
+    "default": "Default",
+    "type": "string"
+   },
+   "username": {
+    "default": "nova",
+    "type": "string"
+   }
   },
-  "neutron": {
-    "type": "object",
-    "default": {},
-    "description": "Neutron authentication (used for networking).",
-    "items": {
-      "auth_url": {
-        "type": "string",
-        "default": "http://controller:9696"
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default"
-      },
-      "project_name": {
-        "type": "string",
-        "default": "service"
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default"
-      },
-      "username": {
-        "type": "string",
-        "default": "neutron"
-      },
-      "password": {
-        "type": "string",
-        "default": ""
-      },
-      "region_name": {
-        "type": "string",
-        "default": "RegionOne"
-      }
-    }
+  "type": "object"
+ },
+ "oslo_messaging": {
+  "description": "Message queue (RabbitMQ) connection settings.",
+  "items": {
+   "rabbit_host": {
+    "default": "localhost",
+    "description": "RabbitMQ broker hostname or IP.",
+    "type": "string"
+   },
+   "rabbit_password": {
+    "default": "",
+    "description": "RabbitMQ password (required).",
+    "type": "string"
+   },
+   "rabbit_port": {
+    "default": 5672,
+    "description": "RabbitMQ broker port.",
+    "type": "number"
+   },
+   "rabbit_use_ssl": {
+    "default": false,
+    "description": "Enable SSL/TLS for RabbitMQ connection.",
+    "type": "bool"
+   },
+   "rabbit_userid": {
+    "default": "openstack",
+    "description": "RabbitMQ username.",
+    "type": "string"
+   },
+   "rabbit_virtual_host": {
+    "default": "/",
+    "description": "RabbitMQ virtual host.",
+    "type": "string"
+   }
   },
-  "amphora": {
-    "type": "object",
-    "default": {},
-    "description": "Amphora VM provisioning and agent settings.",
-    "items": {
-      "amphora_name": {
-        "type": "string",
-        "default": "amphora"
-      },
-      "amphora_image_tag": {
-        "type": "string",
-        "default": "amphora"
-      },
-      "amphora_flavor": {
-        "type": "string",
-        "default": "m1.small"
-      },
-      "amphora_network": {
-        "type": "string",
-        "default": ""
-      },
-      "amphora_subnet": {
-        "type": "string",
-        "default": ""
-      },
-      "amphora_secgroup_list": {
-        "type": "list",
-        "default": [],
-        "description": "List of security group IDs (UUIDs) to attach to amphorae."
-      },
-      "agent_workers": {
-        "type": "number",
-        "default": 2
-      }
-    }
-  },
-  "listener": {
-    "type": "object",
-    "default": {},
-    "description": "Default listener timeout and security settings.",
-    "items": {
-      "client_idle_timeout": {
-        "type": "number",
-        "default": 50,
-        "description": "Client-side idle timeout in seconds."
-      },
-      "client_ca_file": {
-        "type": "string",
-        "default": "",
-        "description": "CA cert file for client certificate verification (TLS mTLS)."
-      }
-    }
-  }
+  "type": "object"
+ },
+ "state_path": {
+  "default": "/var/lib/octavia",
+  "description": "Base directory for Octavia runtime data (sockets, temp files).",
+  "type": "string"
+ }
 }

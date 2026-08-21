@@ -2031,3 +2031,69 @@ unbekannt). Der Index verliert damit **62 Bindungen**, deren „Configure"-Knopf
 Fehlermeldung erzeugen konnte. Der Lookup musste zwei Orte kennen — im Repo liegt der Datensatz neben dem
 Template-Verzeichnis, im Container daneben in `/app/configs` —, denn die erste Fassung fand ihn im Test und
 in Produktion nicht, und ließ dort alle 147 durch.
+
+---
+
+## Der Kehraus: das Modell schlägt **Regeln** vor, nicht Urteile
+
+Bis hierher lief jede Prüfung Datei für Datei — 804 Modellaussagen über 157 Pfade, davon 309 widerlegt und
+470 unentschieden, und jeder echte Fund musste hinterher von Hand zu einer Regel werden. Das ist die
+Tretmühle: **die Klassen wiederholen sich, die Dateien sind nur der Ort, an dem sie auftauchen.**
+
+[`sweep_invariants.py`](../bossman/scripts/sweep_invariants.py) stellt daher die andere Frage. Das Modell
+bekommt das Schema der Artefaktklasse, die **schon vorhandenen** Prüfungen und eine Stichprobe echter
+Datensätze — und muss mit **Invarianten** antworten, jede mit einem Python-Prädikat, das *wahr* ist, wenn ein
+Datensatz sie verletzt. Danach führt der Harnisch jedes Prädikat über **alle** Datensätze der Klasse aus:
+
+| Treffer | Bedeutung |
+|---|---|
+| 0 | die Klasse kommt hier nicht vor — aufgeschrieben, nicht implementiert |
+| eine Handvoll | echter Fund → Beispiele ansehen, dann Linter-Regel oder Test |
+| über die Hälfte | die Regel hat das Format missverstanden und widerlegt sich selbst |
+
+Modelle: **qwen3.5-35b** über Hermes auf dem geteilten lokalen Endpunkt (ein Prozess, seriell, fortsetzbar,
+Fortschritt geloggt) und danach **poolside/laguna-s-2.1** über OpenRouter als zweite Meinung — ein anderes
+Modell hat andere blinde Flecken, und es hat vier Klassen gefunden, die qwen nicht sah.
+
+### Zwei Fehler im Prüfer, die der Kehraus an sich selbst fand
+
+1. **Ein Prädikat mit Comprehension scheiterte an `NameError`**, weil Namen aus dem `locals`-Mapping von
+   `eval` im Rumpf einer Comprehension unsichtbar sind. Ein *korrektes* Prädikat wurde als „broken" gemeldet.
+   Nach der Korrektur (Datensatz in `globals`) melden **acht von elf** Prädikaten Funde, wo vorher „sauber"
+   stand — die drei sauberen Klassen waren ein Artefakt meines Prüfers.
+2. **Ein Prädikat, das nichts erfüllen kann**, zählte null Verstöße — also genau wie eine saubere Klasse
+   (`codec not in ['yaml','none'] and codec not in ['ini','keyvalue','xml','json']`). Jetzt muss das Modell
+   ein `example_record` mitliefern, das seine *eigene* Regel trifft; wer daran scheitert, gilt als *vacuous*.
+
+Dazu ein **Gedächtnis**: jedes Urteil (`refuted` / `implemented` / `open` mit Begründung) steht im
+Zustandsfile und wird in jeden späteren Prompt gespiegelt. Sonst schlagen zwei Modelle dieselbe plausible
+Klasse zweimal vor, und die Tretmühle beginnt von vorn.
+
+### Was dabei herauskam
+
+**Direktiven** (22471 Datensätze): 1980 Einträge mit `min == max == 0` — eine Spanne, die keinen Wert
+zulässt, davon 531 auf Booleans und 191 auf Enums; die vorhandene `min > max`-Regel sah das nie, weil
+`0 > 0` falsch ist. 234 Defaults „not set"/„empty"/„n/a" (wo die Datei vorlag, war ein solcher Wert nur **5
+von 167** Mal wirklich belegt — `auto`, `disabled`, `unset` blieben bewusst stehen). 60 Spannen auf
+`bool`/`enum`/`list`. 56 `int`-Felder mit Bruchzahl-Default → Typ `number`, denn chrony nimmt wirklich
+`maxslewrate 83333.333`. **Widerlegt:** „values ohne enum" (311) — bei `bool` tragen die Werte die
+Schreibform (`Yes`/`No` statt `true`), und aus `values=['en']` ein Dropdown zu machen würde jede andere
+Sprache verbieten.
+
+**Codecs** (11561): 149 Einträge behaupteten `sections: true` bei flachem Codec — die Konsole zeigt das dem
+Bediener als „grouped, e.g. `[section]`". Die erste Reparatur war in der *anderen* Richtung falsch (sie
+erzwang `sections: true` für alle 211 `ini`-Einträge, die *false* sagten) und die Daten haben sie widerlegt:
+`sections` beschreibt die **Datei**, nicht die Grammatik — 1697 von 1908 `ini`-Dateien haben wirklich
+`[section]`-Köpfe, die 211 anderen sagten die Wahrheit. **Widerlegt:** „Verzeichnis ohne Endung" (2845
+Treffer, aber nur 19 sind wirklich Verzeichnisse — und alle 19 tragen längst `codec: none`).
+
+**Templates** (5474): **2561 Felder in 341 Templates** werden angeboten, obwohl ihr Name im Body nirgends
+vorkommt (`acme.sh` bietet 69 und platziert 5; `sshd` rendert eine PAM-Datei und beschreibt `sshd_config`).
+`/config-fields` hält sie jetzt zurück **und nennt die Zahl** — vorher füllte ein Bediener sie aus und der
+Ganzdatei-Render verwarf sie wortlos. Dazu 994 Schema-Reparaturen
+([`lint_template_schemas.py`](../bossman/scripts/lint_template_schemas.py)) und 27 doppelte Enum-Werte.
+
+Die schärfste Lehre steckt in einem Rückschritt, den die **Render-Ratsche** gefangen hat: ich hatte
+`sample.json` an den deklarierten Typ angepasst — und damit `anymeal`, `frr` und `munin-node.conf` sofort
+zerstört (`Can't use Getitem on None`). Das Sample ist mit dem Body erzeugt und rendert nachweislich; der
+Typ ist das, was der Batch geraten hat. **Also wird der Typ korrigiert, nie das Sample.**

@@ -1,170 +1,169 @@
 {
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/designate/pool-manager.log",
-    "description": "Path to the pool manager log file."
-  },
-  "log_dir": {
-    "type": "string",
-    "default": "/var/log/designate",
-    "description": "Directory to store log files."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level (e.g., DEBUG, INFO, WARNING)."
-  },
-  "pool_interval": {
-    "type": "number",
-    "default": 60,
-    "description": "Interval (in seconds) between pool health checks and status updates."
-  },
-  "enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable or disable the pool manager service."
-  },
-  "workers": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of worker processes for handling pool tasks."
-  },
-  "redis_host": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "Redis host for pool state coordination."
-  },
-  "redis_port": {
-    "type": "number",
-    "default": 6379,
-    "description": "Redis port for pool state coordination."
-  },
-  "redis_password": {
-    "type": "string",
+ "designate": {
+  "description": "Keystone authentication credentials for connecting to Designate API.",
+  "items": {
+   "auth_type": {
+    "default": "password",
+    "description": "Keystone authentication method (e.g., password, token).",
+    "type": "string"
+   },
+   "auth_uri": {
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone auth endpoint URI.",
+    "type": "string"
+   },
+   "password": {
     "default": "",
-    "description": "Password for Redis authentication (leave empty if none)."
+    "description": "Password for the Designate service user.",
+    "type": "string"
+   },
+   "project_domain_name": {
+    "default": "Default",
+    "description": "Project domain name.",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "service",
+    "description": "OpenStack project (tenant) name for Designate.",
+    "type": "string"
+   },
+   "user_domain_name": {
+    "default": "Default",
+    "description": "User domain name.",
+    "type": "string"
+   },
+   "username": {
+    "default": "designate",
+    "description": "OpenStack service username.",
+    "type": "string"
+   }
   },
-  "designate": {
-    "type": "object",
-    "default": {},
-    "description": "Keystone authentication credentials for connecting to Designate API.",
-    "items": {
-      "auth_uri": {
-        "type": "string",
-        "default": "http://localhost:5000/v3",
-        "description": "Keystone auth endpoint URI."
-      },
-      "auth_type": {
-        "type": "string",
-        "default": "password",
-        "description": "Keystone authentication method (e.g., password, token)."
-      },
-      "project_name": {
-        "type": "string",
-        "default": "service",
-        "description": "OpenStack project (tenant) name for Designate."
-      },
-      "username": {
-        "type": "string",
-        "default": "designate",
-        "description": "OpenStack service username."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for the Designate service user."
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "User domain name."
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Project domain name."
-      }
-    }
-  },
-  "pools": {
-    "type": "list",
+  "type": "object"
+ },
+ "enabled": {
+  "default": true,
+  "description": "Enable or disable the pool manager service.",
+  "type": "bool"
+ },
+ "log_dir": {
+  "default": "/var/log/designate",
+  "description": "Directory to store log files.",
+  "type": "string"
+ },
+ "log_file": {
+  "default": "/var/log/designate/pool-manager.log",
+  "description": "Path to the pool manager log file.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "INFO",
+  "description": "Logging verbosity level (e.g., DEBUG, INFO, WARNING).",
+  "type": "string"
+ },
+ "pool_interval": {
+  "default": 60,
+  "description": "Interval (in seconds) between pool health checks and status updates.",
+  "type": "number"
+ },
+ "pools": {
+  "default": [],
+  "description": "List of DNS pools to manage. Each pool defines a set of nameservers, targets, and health checks.",
+  "items": {
+   "description": {
+    "default": "",
+    "description": "Human-readable description of this pool.",
+    "type": "string"
+   },
+   "healthcheck_domain": {
+    "default": "",
+    "description": "DNS domain used for health checks (e.g., health.example.com).",
+    "type": "string"
+   },
+   "healthcheck_path": {
+    "default": "/health",
+    "description": "HTTP path for health check endpoints on targets (if supported).",
+    "type": "string"
+   },
+   "name": {
+    "default": "",
+    "description": "Unique name for this pool (used as section header).",
+    "type": "string"
+   },
+   "nameservers": {
     "default": [],
-    "description": "List of DNS pools to manage. Each pool defines a set of nameservers, targets, and health checks.",
+    "description": "List of upstream DNS nameservers for this pool (typically authoritative servers).",
     "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name for this pool (used as section header)."
-      },
-      "description": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable description of this pool."
-      },
-      "provider_driver": {
-        "type": "string",
-        "default": "designate_pool_manager.providers.bind9.Bind9Provider",
-        "description": "Provider driver class implementing this pool\u2019s backend."
-      },
-      "nameservers": {
-        "type": "list",
-        "default": [],
-        "description": "List of upstream DNS nameservers for this pool (typically authoritative servers).",
-        "items": {
-          "host": {
-            "type": "string",
-            "default": "",
-            "description": "Hostname or IP of nameserver."
-          },
-          "port": {
-            "type": "number",
-            "default": 53,
-            "description": "Port used by nameserver (default 53)."
-          }
-        }
-      },
-      "targets": {
-        "type": "list",
-        "default": [],
-        "description": "List of DNS providers (e.g., BIND9, PowerDNS) that will serve zones for this pool.",
-        "items": {
-          "description": {
-            "type": "string",
-            "default": "",
-            "description": "Optional description of the target."
-          },
-          "type": {
-            "type": "string",
-            "default": "bind9",
-            "description": "Target provider type (e.g., bind9, powerdns, route53)."
-          },
-          "host": {
-            "type": "string",
-            "default": "",
-            "description": "Host (hostname or IP) of the DNS provider."
-          },
-          "port": {
-            "type": "number",
-            "default": 53,
-            "description": "Port of the DNS provider (e.g., 53 for DNS, 8080 for API endpoints)."
-          },
-          "options": {
-            "type": "object",
-            "default": {},
-            "description": "Provider-specific options as key-value pairs (e.g., rndc_host, rndc_port)."
-          }
-        }
-      },
-      "healthcheck_domain": {
-        "type": "string",
-        "default": "",
-        "description": "DNS domain used for health checks (e.g., health.example.com)."
-      },
-      "healthcheck_path": {
-        "type": "string",
-        "default": "/health",
-        "description": "HTTP path for health check endpoints on targets (if supported)."
-      }
-    }
-  }
+     "host": {
+      "default": "",
+      "description": "Hostname or IP of nameserver.",
+      "type": "string"
+     },
+     "port": {
+      "default": 53,
+      "description": "Port used by nameserver (default 53).",
+      "type": "number"
+     }
+    },
+    "type": "list"
+   },
+   "provider_driver": {
+    "default": "designate_pool_manager.providers.bind9.Bind9Provider",
+    "description": "Provider driver class implementing this pool’s backend.",
+    "type": "string"
+   },
+   "targets": {
+    "default": [],
+    "description": "List of DNS providers (e.g., BIND9, PowerDNS) that will serve zones for this pool.",
+    "items": {
+     "description": {
+      "default": "",
+      "description": "Optional description of the target.",
+      "type": "string"
+     },
+     "host": {
+      "default": "",
+      "description": "Host (hostname or IP) of the DNS provider.",
+      "type": "string"
+     },
+     "options": {
+      "default": {},
+      "description": "Provider-specific options as key-value pairs (e.g., rndc_host, rndc_port).",
+      "type": "object"
+     },
+     "port": {
+      "default": 53,
+      "description": "Port of the DNS provider (e.g., 53 for DNS, 8080 for API endpoints).",
+      "type": "number"
+     },
+     "type": {
+      "default": "bind9",
+      "description": "Target provider type (e.g., bind9, powerdns, route53).",
+      "type": "string"
+     }
+    },
+    "type": "list"
+   }
+  },
+  "type": "list"
+ },
+ "redis_host": {
+  "default": "127.0.0.1",
+  "description": "Redis host for pool state coordination.",
+  "type": "string"
+ },
+ "redis_password": {
+  "default": "",
+  "description": "Password for Redis authentication (leave empty if none).",
+  "type": "string"
+ },
+ "redis_port": {
+  "default": 6379,
+  "description": "Redis port for pool state coordination.",
+  "type": "number"
+ },
+ "workers": {
+  "default": 2,
+  "description": "Number of worker processes for handling pool tasks.",
+  "type": "number"
+ }
 }

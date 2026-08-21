@@ -1,119 +1,118 @@
 {
-  "cluster.fsid": {
-    "type": "string",
-    "default": "",
-    "description": "Unique 128-bit UUID identifying this Ceph cluster. Must be generated once per cluster."
+ "cluster.fsid": {
+  "default": "",
+  "description": "Unique 128-bit UUID identifying this Ceph cluster. Must be generated once per cluster.",
+  "type": "string"
+ },
+ "cluster.mon_host": {
+  "default": [],
+  "description": "List of monitor addresses for client and OSD connectivity. Should include all monitors.",
+  "items": {
+   "description": "Any monitor hostname or IP address reachable by clients or other daemons.",
+   "type": "string"
   },
-  "cluster.mon_initial_members": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "string",
-      "description": "Initial monitor hostnames or IP addresses participating in the bootstrap quorum (comma-separated in config, but provided as list here)."
-    },
-    "description": "List of monitor names/IPs that form the initial quorum members during cluster bootstrap."
+  "type": "list"
+ },
+ "cluster.mon_initial_members": {
+  "default": [],
+  "description": "List of monitor names/IPs that form the initial quorum members during cluster bootstrap.",
+  "items": {
+   "description": "Initial monitor hostnames or IP addresses participating in the bootstrap quorum (comma-separated in config, but provided as list here).",
+   "type": "string"
   },
-  "cluster.mon_host": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "string",
-      "description": "Any monitor hostname or IP address reachable by clients or other daemons."
-    },
-    "description": "List of monitor addresses for client and OSD connectivity. Should include all monitors."
-  },
-  "network.public_cidr": {
-    "type": "string",
-    "default": "0.0.0.0/0",
-    "description": "CIDR subnet for the public (client-facing) network (e.g., '192.168.1.0/24')."
-  },
-  "network.cluster_cidr": {
-    "type": "string",
-    "default": "0.0.0.0/0",
-    "description": "CIDR subnet for the cluster (replication/internal) network (e.g., '10.0.0.0/24')."
-  },
-  "security.auth_cluster_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for cluster daemons (e.g., cephx, none)."
-  },
-  "security.auth_service_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for services (e.g., cephx, none)."
-  },
-  "security.auth_client_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for clients (e.g., cephx, none)."
-  },
-  "logging.log_file": {
-    "type": "string",
-    "default": "/var/log/ceph/$cluster-$name.log",
-    "description": "Path to log file (supports $cluster and $name variables)."
-  },
-  "logging.log_to_stderr": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to emit logs to stderr in addition to the log file."
-  },
-  "logging.err_to_stderr": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to emit error-level logs to stderr even if log_to_stderr is false."
-  },
-  "logging.log_std_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Log level for stderr/stdout output (e.g., debug, info, warn, error).",
-    "enum": [
-      "debug",
-      "info"
-    ]
-  },
-  "mon.clock_drift_allowed": {
-    "type": "number",
-    "default": 0.05,
-    "description": "Maximum allowed clock drift between monitors (in seconds) before warnings."
-  },
-  "mon.clock_drift_warn_backoff": {
-    "type": "number",
-    "default": 3.0,
-    "description": "Time (seconds) to back off from issuing clock drift warnings after one has been raised."
-  },
-  "mon.lease": {
-    "type": "number",
-    "default": 15,
-    "description": "Duration (seconds) of a leader lease in the monitor quorum."
-  },
-  "mon.lease_renew_interval": {
-    "type": "number",
-    "default": 7,
-    "description": "Interval (seconds) at which the leader renews its lease."
-  },
-  "mon.lease_ack_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Timeout (seconds) for lease acknowledgment before triggering quorum re-election."
-  },
-  "mon.quorum_size": {
-    "type": "number",
-    "default": 3,
-    "description": "Target quorum size (must be odd, e.g., 1, 3, 5). Adjusted automatically for cluster size if omitted."
-  },
-  "mon.quorum_timeout": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum time (seconds) allowed between monitor communication before declaring quorum lost."
-  },
-  "mon.allow_pool_delete": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to allow pool deletion via CLI. Enable with caution."
-  },
-  "services": {
-    "type": "object",
-    "default": {},
-    "description": "Additional per-service (e.g., mon, osd, mds, mgr) override sections. Keys are service section names like 'mon.a', 'mgr.x', etc."
-  }
+  "type": "list"
+ },
+ "logging.err_to_stderr": {
+  "default": true,
+  "description": "Whether to emit error-level logs to stderr even if log_to_stderr is false.",
+  "type": "bool"
+ },
+ "logging.log_file": {
+  "default": "/var/log/ceph/$cluster-$name.log",
+  "description": "Path to log file (supports $cluster and $name variables).",
+  "type": "string"
+ },
+ "logging.log_std_level": {
+  "default": "info",
+  "description": "Log level for stderr/stdout output (e.g., debug, info, warn, error).",
+  "enum": [
+   "debug",
+   "info"
+  ],
+  "type": "string"
+ },
+ "logging.log_to_stderr": {
+  "default": true,
+  "description": "Whether to emit logs to stderr in addition to the log file.",
+  "type": "bool"
+ },
+ "mon.allow_pool_delete": {
+  "default": false,
+  "description": "Whether to allow pool deletion via CLI. Enable with caution.",
+  "type": "bool"
+ },
+ "mon.clock_drift_allowed": {
+  "default": 0.05,
+  "description": "Maximum allowed clock drift between monitors (in seconds) before warnings.",
+  "type": "number"
+ },
+ "mon.clock_drift_warn_backoff": {
+  "default": 3.0,
+  "description": "Time (seconds) to back off from issuing clock drift warnings after one has been raised.",
+  "type": "number"
+ },
+ "mon.lease": {
+  "default": 15,
+  "description": "Duration (seconds) of a leader lease in the monitor quorum.",
+  "type": "number"
+ },
+ "mon.lease_ack_timeout": {
+  "default": 30,
+  "description": "Timeout (seconds) for lease acknowledgment before triggering quorum re-election.",
+  "type": "number"
+ },
+ "mon.lease_renew_interval": {
+  "default": 7,
+  "description": "Interval (seconds) at which the leader renews its lease.",
+  "type": "number"
+ },
+ "mon.quorum_size": {
+  "default": 3,
+  "description": "Target quorum size (must be odd, e.g., 1, 3, 5). Adjusted automatically for cluster size if omitted.",
+  "type": "number"
+ },
+ "mon.quorum_timeout": {
+  "default": 5,
+  "description": "Maximum time (seconds) allowed between monitor communication before declaring quorum lost.",
+  "type": "number"
+ },
+ "network.cluster_cidr": {
+  "default": "0.0.0.0/0",
+  "description": "CIDR subnet for the cluster (replication/internal) network (e.g., '10.0.0.0/24').",
+  "type": "string"
+ },
+ "network.public_cidr": {
+  "default": "0.0.0.0/0",
+  "description": "CIDR subnet for the public (client-facing) network (e.g., '192.168.1.0/24').",
+  "type": "string"
+ },
+ "security.auth_client_required": {
+  "default": "cephx",
+  "description": "Authentication required for clients (e.g., cephx, none).",
+  "type": "string"
+ },
+ "security.auth_cluster_required": {
+  "default": "cephx",
+  "description": "Authentication required for cluster daemons (e.g., cephx, none).",
+  "type": "string"
+ },
+ "security.auth_service_required": {
+  "default": "cephx",
+  "description": "Authentication required for services (e.g., cephx, none).",
+  "type": "string"
+ },
+ "services": {
+  "description": "Additional per-service (e.g., mon, osd, mds, mgr) override sections. Keys are service section names like 'mon.a', 'mgr.x', etc.",
+  "type": "object"
+ }
 }

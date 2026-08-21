@@ -1,78 +1,78 @@
 {
-  "pid_file": "/run/php/php-fpm8.4.pid",
-  "error_log": "/var/log/php8.4-fpm.log",
-  "log_level": "warning",
-  "syslog_ident": "php-fpm8.4",
-  "syslog_facility": "local0",
-  "process_manager": "dynamic",
-  "pm_max_children": 25,
-  "pm_max_children_dynamic": 25,
-  "pm_max_children_ondemand": 25,
-  "pm_start_servers": 5,
-  "pm_min_spare_servers": 2,
-  "pm_max_spare_servers": 10,
-  "pm_process_idle_timeout": 60,
-  "pm_max_requests": 1000,
-  "user": "www-data",
-  "group": "www-data",
-  "listen": "/run/php/php-fpm.sock",
-  "listen_owner": "www-data",
-  "listen_group": "www-data",
-  "listen_mode": "0660",
-  "status_allowed_clients": [
-    "127.0.0.1",
-    "10.0.0.0/8"
-  ],
-  "php_admin_error_log": "/var/log/php/php-fpm-error.log",
-  "php_admin_log_errors": true,
-  "env_vars": {
-    "APP_ENV": "production",
-    "APP_DEBUG": "0"
+ "env_vars": {
+  "APP_DEBUG": "0",
+  "APP_ENV": "production"
+ },
+ "error_log": "/var/log/php8.4-fpm.log",
+ "group": "www-data",
+ "listen": "/run/php/php-fpm.sock",
+ "listen_group": "www-data",
+ "listen_mode": "0660",
+ "listen_owner": "www-data",
+ "log_level": "warning",
+ "php_admin_error_log": "/var/log/php/php-fpm-error.log",
+ "php_admin_log_errors": true,
+ "pid_file": "/run/php/php-fpm8.4.pid",
+ "pm_max_children": 25,
+ "pm_max_children_dynamic": 25,
+ "pm_max_children_ondemand": 25,
+ "pm_max_requests": 1000,
+ "pm_max_spare_servers": 10,
+ "pm_min_spare_servers": 2,
+ "pm_process_idle_timeout": 60,
+ "pm_start_servers": 5,
+ "pools": [
+  {
+   "listen": "/run/php/php-fpm-www.sock",
+   "name": "www",
+   "php_admin_flags": {
+    "expose_php": "off"
+   },
+   "php_admin_values": {
+    "post_max_size": "50M",
+    "upload_max_filesize": "50M"
+   },
+   "php_flags": {
+    "display_errors": "off"
+   },
+   "php_values": {
+    "memory_limit": "512M"
+   },
+   "pm_max_children": 25,
+   "request_slowlog_timeout": 5,
+   "request_terminate_timeout": 30,
+   "slowlog": "/var/log/php/php-fpm-www-slow.log"
   },
-  "pools": [
-    {
-      "name": "www",
-      "listen": "/run/php/php-fpm-www.sock",
-      "pm_max_children": 25,
-      "request_terminate_timeout": 30,
-      "request_slowlog_timeout": 5,
-      "slowlog": "/var/log/php/php-fpm-www-slow.log",
-      "php_values": {
-        "memory_limit": "512M"
-      },
-      "php_flags": {
-        "display_errors": "off"
-      },
-      "php_admin_values": {
-        "upload_max_filesize": "50M",
-        "post_max_size": "50M"
-      },
-      "php_admin_flags": {
-        "expose_php": "off"
-      }
-    },
-    {
-      "name": "api",
-      "listen": "/run/php/php-fpm-api.sock",
-      "pm_max_children": 10,
-      "request_terminate_timeout": 60,
-      "request_slowlog_timeout": 10,
-      "slowlog": "/var/log/php/php-fpm-api-slow.log",
-      "user": "api-user",
-      "group": "api-user",
-      "php_admin_values": {
-        "upload_max_filesize": "10M",
-        "memory_limit": "256M"
-      },
-      "php_admin_flags": {
-        "expose_php": "off",
-        "zlib.output_compression": "on"
-      },
-      "enable_status_endpoint": true,
-      "status_path": "/api-status",
-      "status_allowed_clients": [
-        "10.0.0.5"
-      ]
-    }
-  ]
+  {
+   "enable_status_endpoint": true,
+   "group": "api-user",
+   "listen": "/run/php/php-fpm-api.sock",
+   "name": "api",
+   "php_admin_flags": {
+    "expose_php": "off",
+    "zlib.output_compression": "on"
+   },
+   "php_admin_values": {
+    "memory_limit": "256M",
+    "upload_max_filesize": "10M"
+   },
+   "pm_max_children": 10,
+   "request_slowlog_timeout": 10,
+   "request_terminate_timeout": 60,
+   "slowlog": "/var/log/php/php-fpm-api-slow.log",
+   "status_allowed_clients": [
+    "10.0.0.5"
+   ],
+   "status_path": "/api-status",
+   "user": "api-user"
+  }
+ ],
+ "process_manager": "dynamic",
+ "status_allowed_clients": [
+  "127.0.0.1",
+  "10.0.0.0/8"
+ ],
+ "syslog_facility": "local0",
+ "syslog_ident": "php-fpm8.4",
+ "user": "www-data"
 }

@@ -1,146 +1,145 @@
 {
-  "dpdk_initialized": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DPDK initialization in Open vSwitch. Required for DPDK-based forwarding."
-  },
-  "dpdk_socket_mem": {
-    "type": "string",
-    "default": "1024,1024",
-    "description": "Comma-separated list of MB of memory to reserve on each NUMA node for DPDK. Example: '1024,1024' for two NUMA nodes."
-  },
-  "dpdk_lcore_mask": {
-    "type": "string",
-    "default": "0x3",
-    "description": "Hexadecimal bitmask of CPU cores to use for DPDK lcore threads. Example: '0x3' uses cores 0 and 1."
-  },
-  "dpdk_pmd_core_mask": {
-    "type": "string",
-    "default": "0xc",
-    "description": "Hexadecimal bitmask of CPU cores dedicated to DPDK poll-mode drivers (PMDs). Separate from lcore mask if needed."
-  },
-  "dpdk_hugepages": {
-    "type": "string",
-    "default": "/mnt/hugepages",
-    "description": "Path to mounted DPDK hugepage filesystem. Must be mounted before OVS starts."
-  },
-  "dpdk_nics": {
-    "type": "list",
-    "default": [],
-    "description": "List of PCI addresses of NICs to be used by DPDK (e.g., '0000:01:00.0'). These will be bound to DPDK drivers and added as dpdk ports.",
+ "commands": {
+  "default": [],
+  "description": "List of low-level ovs-vsctl commands to generate config. Used for advanced customization beyond high-level fields.",
+  "items": {
+   "bridge": {
+    "description": "Bridge name for bridge-specific commands",
+    "type": "string"
+   },
+   "collection": {
+    "description": "Collection name for 'add' commands (e.g., 'ports')",
+    "type": "string"
+   },
+   "description": {
+    "description": "Human-readable description of the command (for comments)",
+    "type": "string"
+   },
+   "key": {
+    "description": "Config key to set or create",
+    "type": "string"
+   },
+   "port": {
+    "description": "Port name for 'set-ports' command",
+    "type": "string"
+   },
+   "ports": {
+    "description": "List of port names for bridge ports (used in set-bridge-ports)",
     "items": {
-      "pci_addr": {
-        "type": "string",
-        "description": "PCI address of the NIC (format: domain:bus:device.function)"
-      },
-      "interface_name": {
-        "type": "string",
-        "description": "Desired name for the resulting OVS dpdk port"
-      }
-    }
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "row": {
+    "description": "Table name for 'create' or 'add' commands (e.g., 'Interface')",
+    "type": "string"
+   },
+   "target": {
+    "description": "Target entity (e.g., 'open_vswitch .', 'bridge br0', 'port dpdk1')",
+    "type": "string"
+   },
+   "type": {
+    "description": "Type of ovs-vsctl operation",
+    "enum": [
+     "set",
+     "add",
+     "create",
+     "set-external-id",
+     "set-bridge-external-id",
+     "set-bridge-ports",
+     "set-ports"
+    ],
+    "type": "string"
+   },
+   "value": {
+    "description": "Value to assign (may be numeric or string, will be quoted as needed)",
+    "type": "string"
+   }
   },
-  "dpdk_rss_hash_functions": {
-    "type": "string",
-    "default": "toeplitz,ipv4,ipv4-tcp,ipv4-udp,ipv6,ipv6-tcp,ipv6-udp",
-    "description": "Comma-separated list of RSS hash functions to enable for DPDK ports."
+  "type": "list"
+ },
+ "dpdk_hugepages": {
+  "default": "/mnt/hugepages",
+  "description": "Path to mounted DPDK hugepage filesystem. Must be mounted before OVS starts.",
+  "type": "string"
+ },
+ "dpdk_initialized": {
+  "default": true,
+  "description": "Enable DPDK initialization in Open vSwitch. Required for DPDK-based forwarding.",
+  "type": "bool"
+ },
+ "dpdk_lcore_mask": {
+  "default": "0x3",
+  "description": "Hexadecimal bitmask of CPU cores to use for DPDK lcore threads. Example: '0x3' uses cores 0 and 1.",
+  "type": "string"
+ },
+ "dpdk_mempool_size": {
+  "default": 65536,
+  "description": "Number of mbufs per DPDK mempool (per port, per NUMA node).",
+  "type": "number"
+ },
+ "dpdk_nics": {
+  "default": [],
+  "description": "List of PCI addresses of NICs to be used by DPDK (e.g., '0000:01:00.0'). These will be bound to DPDK drivers and added as dpdk ports.",
+  "items": {
+   "interface_name": {
+    "description": "Desired name for the resulting OVS dpdk port",
+    "type": "string"
+   },
+   "pci_addr": {
+    "description": "PCI address of the NIC (format: domain:bus:device.function)",
+    "type": "string"
+   }
   },
-  "dpdk_rx_queues": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of RX queues per DPDK port."
-  },
-  "dpdk_tx_queues": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of TX queues per DPDK port."
-  },
-  "dpdk_rx_desc": {
-    "type": "number",
-    "default": 1024,
-    "description": "Number of RX descriptors per queue for DPDK ports."
-  },
-  "dpdk_tx_desc": {
-    "type": "number",
-    "default": 1024,
-    "description": "Number of TX descriptors per queue for DPDK ports."
-  },
-  "dpdk_mempool_size": {
-    "type": "number",
-    "default": 65536,
-    "description": "Number of mbufs per DPDK mempool (per port, per NUMA node)."
-  },
-  "ovs_bridge_name": {
-    "type": "string",
-    "default": "br0",
-    "description": "Name of the main OVS bridge to create and configure."
-  },
-  "ovs_bridge_type": {
-    "type": "string",
-    "default": "system",
-    "description": "Type of the main OVS bridge (typically 'system' for physical ports; use 'dpdk' only if DPDK bridge is explicitly needed)."
-  },
-  "external_ids": {
-    "type": "object",
-    "default": {},
-    "description": "Key-value pairs to set as open_vswitch external_ids (e.g., 'system-id', 'hostname')."
-  },
-  "commands": {
-    "type": "list",
-    "default": [],
-    "description": "List of low-level ovs-vsctl commands to generate config. Used for advanced customization beyond high-level fields.",
-    "items": {
-      "description": {
-        "type": "string",
-        "description": "Human-readable description of the command (for comments)"
-      },
-      "type": {
-        "type": "string",
-        "enum": [
-          "set",
-          "add",
-          "create",
-          "set-external-id",
-          "set-bridge-external-id",
-          "set-bridge-ports",
-          "set-ports"
-        ],
-        "description": "Type of ovs-vsctl operation"
-      },
-      "target": {
-        "type": "string",
-        "description": "Target entity (e.g., 'open_vswitch .', 'bridge br0', 'port dpdk1')"
-      },
-      "key": {
-        "type": "string",
-        "description": "Config key to set or create"
-      },
-      "value": {
-        "type": "string",
-        "description": "Value to assign (may be numeric or string, will be quoted as needed)"
-      },
-      "collection": {
-        "type": "string",
-        "description": "Collection name for 'add' commands (e.g., 'ports')"
-      },
-      "row": {
-        "type": "string",
-        "description": "Table name for 'create' or 'add' commands (e.g., 'Interface')"
-      },
-      "bridge": {
-        "type": "string",
-        "description": "Bridge name for bridge-specific commands"
-      },
-      "ports": {
-        "type": "list",
-        "items": {
-          "type": "string"
-        },
-        "description": "List of port names for bridge ports (used in set-bridge-ports)"
-      },
-      "port": {
-        "type": "string",
-        "description": "Port name for 'set-ports' command"
-      }
-    }
-  }
+  "type": "list"
+ },
+ "dpdk_pmd_core_mask": {
+  "default": "0xc",
+  "description": "Hexadecimal bitmask of CPU cores dedicated to DPDK poll-mode drivers (PMDs). Separate from lcore mask if needed.",
+  "type": "string"
+ },
+ "dpdk_rss_hash_functions": {
+  "default": "toeplitz,ipv4,ipv4-tcp,ipv4-udp,ipv6,ipv6-tcp,ipv6-udp",
+  "description": "Comma-separated list of RSS hash functions to enable for DPDK ports.",
+  "type": "string"
+ },
+ "dpdk_rx_desc": {
+  "default": 1024,
+  "description": "Number of RX descriptors per queue for DPDK ports.",
+  "type": "number"
+ },
+ "dpdk_rx_queues": {
+  "default": 2,
+  "description": "Number of RX queues per DPDK port.",
+  "type": "number"
+ },
+ "dpdk_socket_mem": {
+  "default": "1024,1024",
+  "description": "Comma-separated list of MB of memory to reserve on each NUMA node for DPDK. Example: '1024,1024' for two NUMA nodes.",
+  "type": "string"
+ },
+ "dpdk_tx_desc": {
+  "default": 1024,
+  "description": "Number of TX descriptors per queue for DPDK ports.",
+  "type": "number"
+ },
+ "dpdk_tx_queues": {
+  "default": 2,
+  "description": "Number of TX queues per DPDK port.",
+  "type": "number"
+ },
+ "external_ids": {
+  "description": "Key-value pairs to set as open_vswitch external_ids (e.g., 'system-id', 'hostname').",
+  "type": "object"
+ },
+ "ovs_bridge_name": {
+  "default": "br0",
+  "description": "Name of the main OVS bridge to create and configure.",
+  "type": "string"
+ },
+ "ovs_bridge_type": {
+  "default": "system",
+  "description": "Type of the main OVS bridge (typically 'system' for physical ports; use 'dpdk' only if DPDK bridge is explicitly needed).",
+  "type": "string"
+ }
 }

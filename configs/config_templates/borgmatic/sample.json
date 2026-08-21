@@ -1,61 +1,61 @@
 {
-  "repository": "/backup/borg/repo",
-  "verification": "data",
-  "pruning": true,
-  "retention_keep_daily": 7,
-  "retention_keep_weekly": 4,
-  "retention_keep_monthly": 6,
-  "retention_keep_yearly": 1,
-  "retention_prefix": "server1-",
-  "source_directories": [
-    "/home",
-    "/etc",
-    "/var/www",
-    "/var/lib/postgresql"
-  ],
-  "excludes": [
-    "**/.cache",
-    "*.tmp",
-    "*.log",
-    "/tmp/*",
-    "/var/cache/*",
-    "/home/*/.local/share/Trash"
-  ],
-  "extra_borg_create_options": [
-    "--compression=lz4",
-    "--files-cache=mtime,size"
-  ],
-  "pre_backup": [
-    "systemctl stop nginx",
-    "pg_ctlcluster 14 main stop"
-  ],
-  "post_backup": [
-    "systemctl start nginx",
-    "pg_ctlcluster 14 main start",
-    "borg prune --stats"
-  ],
-  "on_error": [
-    "curl -X POST 'https://events.pagerduty.com/v2/enqueue' -d '{\"routing_key\":\"YOUR_KEY\",\"event_action\":\"trigger\",\"payload\":{\"summary\":\"Borg backup failed\",\"severity\":\"error\",\"source\":\"{{hostname}}\"}}'"
-  ],
-  "storage_encryption": "repokey",
-  "storage_chunker_params": "default",
-  "storage_compression": "zstd",
-  "storage_archive_name_format": "{hostname}-{now:%Y-%m-%dT%H%M%S}",
-  "storage_relimit": {
-    "reads": 5242880,
-    "writes": 2621440
+ "excludes": [
+  "**/.cache",
+  "*.tmp",
+  "*.log",
+  "/tmp/*",
+  "/var/cache/*",
+  "/home/*/.local/share/Trash"
+ ],
+ "extra_borg_create_options": [
+  "--compression=lz4",
+  "--files-cache=mtime,size"
+ ],
+ "log_json": false,
+ "log_level": "INFO",
+ "monitoring_monitors": [
+  {
+   "type": "uptime-kuma",
+   "url": "https://uptime.example.com/ping/borg-backup"
   },
-  "monitoring_monitors": [
-    {
-      "type": "uptime-kuma",
-      "url": "https://uptime.example.com/ping/borg-backup"
-    },
-    {
-      "type": "pagerduty",
-      "url": "https://events.pagerduty.com/v2/enqueue",
-      "success_rate_threshold": 0.95
-    }
-  ],
-  "log_level": "INFO",
-  "log_json": false
+  {
+   "success_rate_threshold": 0.95,
+   "type": "pagerduty",
+   "url": "https://events.pagerduty.com/v2/enqueue"
+  }
+ ],
+ "on_error": [
+  "curl -X POST 'https://events.pagerduty.com/v2/enqueue' -d '{\"routing_key\":\"YOUR_KEY\",\"event_action\":\"trigger\",\"payload\":{\"summary\":\"Borg backup failed\",\"severity\":\"error\",\"source\":\"{{hostname}}\"}}'"
+ ],
+ "post_backup": [
+  "systemctl start nginx",
+  "pg_ctlcluster 14 main start",
+  "borg prune --stats"
+ ],
+ "pre_backup": [
+  "systemctl stop nginx",
+  "pg_ctlcluster 14 main stop"
+ ],
+ "pruning": true,
+ "repository": "/backup/borg/repo",
+ "retention_keep_daily": 7,
+ "retention_keep_monthly": 6,
+ "retention_keep_weekly": 4,
+ "retention_keep_yearly": 1,
+ "retention_prefix": "server1-",
+ "source_directories": [
+  "/home",
+  "/etc",
+  "/var/www",
+  "/var/lib/postgresql"
+ ],
+ "storage_archive_name_format": "{hostname}-{now:%Y-%m-%dT%H%M%S}",
+ "storage_chunker_params": "default",
+ "storage_compression": "zstd",
+ "storage_encryption": "repokey",
+ "storage_relimit": {
+  "reads": 5242880,
+  "writes": 2621440
+ },
+ "verification": "data"
 }

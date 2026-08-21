@@ -1,87 +1,87 @@
 {
-  "log_file": "/var/log/designate/pool-manager.log",
-  "log_dir": "/var/log/designate",
-  "log_level": "INFO",
-  "pool_interval": 60,
-  "enabled": true,
-  "workers": 2,
-  "redis_host": "127.0.0.1",
-  "redis_port": 6379,
-  "redis_password": "secret_redis_pass",
-  "designate": {
-    "auth_uri": "http://10.0.0.1:5000/v3",
-    "auth_type": "password",
-    "project_name": "service",
-    "username": "designate",
-    "password": "secretpass123",
-    "user_domain_name": "Default",
-    "project_domain_name": "Default"
-  },
-  "pools": [
+ "designate": {
+  "auth_type": "password",
+  "auth_uri": "http://10.0.0.1:5000/v3",
+  "password": "secretpass123",
+  "project_domain_name": "Default",
+  "project_name": "service",
+  "user_domain_name": "Default",
+  "username": "designate"
+ },
+ "enabled": true,
+ "log_dir": "/var/log/designate",
+ "log_file": "/var/log/designate/pool-manager.log",
+ "log_level": "INFO",
+ "pool_interval": 60,
+ "pools": [
+  {
+   "description": "Primary pool for public and private zones",
+   "healthcheck_domain": "health.example.com.",
+   "healthcheck_path": "/health",
+   "name": "default_pool",
+   "nameservers": [
     {
-      "name": "default_pool",
-      "description": "Primary pool for public and private zones",
-      "provider_driver": "designate_pool_manager.providers.bind9.Bind9Provider",
-      "nameservers": [
-        {
-          "host": "ns1.example.com",
-          "port": 53
-        },
-        {
-          "host": "ns2.example.com",
-          "port": 53
-        }
-      ],
-      "targets": [
-        {
-          "description": "Primary BIND9 server",
-          "type": "bind9",
-          "host": "10.1.1.10",
-          "port": 53,
-          "options": {
-            "rndc_host": "10.1.1.10",
-            "rndc_port": 953,
-            "rndc_key_file": "/etc/designate/rndc.key"
-          }
-        },
-        {
-          "description": "Secondary BIND9 server for failover",
-          "type": "bind9",
-          "host": "10.1.1.11",
-          "port": 53,
-          "options": {
-            "rndc_host": "10.1.1.11",
-            "rndc_port": 953,
-            "rndc_key_file": "/etc/designate/rndc.key"
-          }
-        }
-      ],
-      "healthcheck_domain": "health.example.com.",
-      "healthcheck_path": "/health"
+     "host": "ns1.example.com",
+     "port": 53
     },
     {
-      "name": "internal_pool",
-      "description": "Private/internal DNS zones only",
-      "provider_driver": "designate_pool_manager.providers.powerdns.PowerdnsProvider",
-      "nameservers": [
-        {
-          "host": "10.2.1.5",
-          "port": 53
-        }
-      ],
-      "targets": [
-        {
-          "description": "Internal PowerDNS server",
-          "type": "powerdns",
-          "host": "10.2.1.10",
-          "port": 8080,
-          "options": {
-            "api_key": "pdns-secret-api-key"
-          }
-        }
-      ],
-      "healthcheck_domain": "health.internal.example.com.",
-      "healthcheck_path": "/health"
+     "host": "ns2.example.com",
+     "port": 53
     }
-  ]
+   ],
+   "provider_driver": "designate_pool_manager.providers.bind9.Bind9Provider",
+   "targets": [
+    {
+     "description": "Primary BIND9 server",
+     "host": "10.1.1.10",
+     "options": {
+      "rndc_host": "10.1.1.10",
+      "rndc_key_file": "/etc/designate/rndc.key",
+      "rndc_port": 953
+     },
+     "port": 53,
+     "type": "bind9"
+    },
+    {
+     "description": "Secondary BIND9 server for failover",
+     "host": "10.1.1.11",
+     "options": {
+      "rndc_host": "10.1.1.11",
+      "rndc_key_file": "/etc/designate/rndc.key",
+      "rndc_port": 953
+     },
+     "port": 53,
+     "type": "bind9"
+    }
+   ]
+  },
+  {
+   "description": "Private/internal DNS zones only",
+   "healthcheck_domain": "health.internal.example.com.",
+   "healthcheck_path": "/health",
+   "name": "internal_pool",
+   "nameservers": [
+    {
+     "host": "10.2.1.5",
+     "port": 53
+    }
+   ],
+   "provider_driver": "designate_pool_manager.providers.powerdns.PowerdnsProvider",
+   "targets": [
+    {
+     "description": "Internal PowerDNS server",
+     "host": "10.2.1.10",
+     "options": {
+      "api_key": "pdns-secret-api-key"
+     },
+     "port": 8080,
+     "type": "powerdns"
+    }
+   ]
+  }
+ ],
+ "redis_host": "127.0.0.1",
+ "redis_password": "secret_redis_pass",
+ "redis_port": 6379,
+ "workers": 2
 }

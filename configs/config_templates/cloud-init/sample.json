@@ -1,138 +1,138 @@
 {
-  "config_version": 2,
-  "system_info": {
-    "dist": "ubuntu",
-    "release": "24.04",
-    "arch": "amd64"
+ "apt": {
+  "preserve_sources_list": false,
+  "primary": {
+   "arches": [
+    "default"
+   ],
+   "keyid": "3B4FE6ACC0B21F32",
+   "keyserver": "keyserver.ubuntu.com",
+   "suite": "noble",
+   "uri": "http://us.archive.ubuntu.com/ubuntu"
   },
-  "package_upgrade": true,
-  "packages": [
-    "curl",
-    "jq",
-    "vim"
-  ],
-  "apt": {
-    "primary": {
-      "arches": [
-        "default"
-      ],
-      "suite": "noble",
-      "uri": "http://us.archive.ubuntu.com/ubuntu",
-      "keyid": "3B4FE6ACC0B21F32",
-      "keyserver": "keyserver.ubuntu.com"
-    },
-    "sources": [
-      {
-        "name": "prometheus",
-        "source": "deb http://apt.prometheus.io $RELEASE main",
-        "keyid": "E0C10D4A753B25F9",
-        "keyserver": "keyserver.ubuntu.com"
-      }
-    ],
-    "proxy": "http://proxy.example.com:3128",
-    "preserve_sources_list": false
-  },
-  "runcmd": [
-    "echo 'Hello from cloud-init!' > /etc/motd",
-    "systemctl restart rsyslog"
-  ],
-  "bootcmd": [
-    "echo 'Running bootcmd...' > /var/log/cloud-bootcmd.log"
-  ],
-  "users": [
-    {
-      "name": "admin",
-      "groups": [
-        "sudo",
-        "docker"
-      ],
-      "shell": "/bin/bash",
-      "sudo": "ALL=(ALL) NOPASSWD:ALL",
-      "lock_passwd": true,
-      "ssh_authorized_keys": [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl admin@client"
-      ]
-    }
-  ],
-  "ssh_pwauth": false,
-  "ssh_authorized_keys": [],
-  "hostname": "cloud-node",
-  "fqdn": "cloud-node.example.com",
-  "resize_rootfs": true,
-  "locale": "en_US.UTF-8",
-  "timezone": "America/Los_Angeles",
-  "ntp": {
-    "enabled": true,
-    "pool": [
-      "0.us.pool.ntp.org",
-      "1.us.pool.ntp.org"
-    ],
-    "config": ""
-  },
-  "mounts": [
-    {
-      "device": "/dev/disk/by-uuid/12345678-1234-1234-1234-123456789abc",
-      "point": "/mnt/data",
-      "fstype": "ext4",
-      "opts": [
-        "defaults",
-        "nofail",
-        "comment=cloudconfig"
-      ],
-      "freq": 0,
-      "passno": 2
-    }
-  ],
-  "power_state": {
-    "mode": "poweroff",
-    "delay": "now",
-    "timeout": 120,
-    "message": "Cloud-init configuration complete \u2014 shutting down."
-  },
-  "write_files": [
-    {
-      "path": "/etc/myapp/settings.yaml",
-      "content": "app:\n  name: my-service\n  debug: false\n  endpoints:\n    - http://localhost:8080\n",
-      "owner": "root:root",
-      "permissions": "0644",
-      "append": false
-    }
-  ],
-  "disable_root": true,
-  "ssh_deletekeys": true,
-  "ssh_genkeytypes": [
-    "ed25519"
-  ],
-  "network": {
-    "version": 2,
-    "config": {
-      "interfaces": [
-        {
-          "name": "eth0",
-          "type": "ethernet",
-          "mac_address": "00:16:3e:xx:xx:xx",
-          "auto": true,
-          "mtu": 1500,
-          "dhcp4": true,
-          "dhcp6": false,
-          "accept_ra": false,
-          "nameservers": {
-            "search": [
-              "example.com"
-            ],
-            "addresses": [
-              "10.0.0.2"
-            ]
-          },
-          "routes": [
-            {
-              "to": "10.10.0.0/16",
-              "via": "10.0.0.1",
-              "metric": 100
-            }
-          ]
-        }
-      ]
-    }
+  "proxy": "http://proxy.example.com:3128",
+  "sources": [
+   {
+    "keyid": "E0C10D4A753B25F9",
+    "keyserver": "keyserver.ubuntu.com",
+    "name": "prometheus",
+    "source": "deb http://apt.prometheus.io $RELEASE main"
+   }
+  ]
+ },
+ "bootcmd": [
+  "echo 'Running bootcmd...' > /var/log/cloud-bootcmd.log"
+ ],
+ "config_version": 2,
+ "disable_root": true,
+ "fqdn": "cloud-node.example.com",
+ "hostname": "cloud-node",
+ "locale": "en_US.UTF-8",
+ "mounts": [
+  {
+   "device": "/dev/disk/by-uuid/12345678-1234-1234-1234-123456789abc",
+   "freq": 0,
+   "fstype": "ext4",
+   "opts": [
+    "defaults",
+    "nofail",
+    "comment=cloudconfig"
+   ],
+   "passno": 2,
+   "point": "/mnt/data"
   }
+ ],
+ "network": {
+  "config": {
+   "interfaces": [
+    {
+     "accept_ra": false,
+     "auto": true,
+     "dhcp4": true,
+     "dhcp6": false,
+     "mac_address": "00:16:3e:xx:xx:xx",
+     "mtu": 1500,
+     "name": "eth0",
+     "nameservers": {
+      "addresses": [
+       "10.0.0.2"
+      ],
+      "search": [
+       "example.com"
+      ]
+     },
+     "routes": [
+      {
+       "metric": 100,
+       "to": "10.10.0.0/16",
+       "via": "10.0.0.1"
+      }
+     ],
+     "type": "ethernet"
+    }
+   ]
+  },
+  "version": 2
+ },
+ "ntp": {
+  "config": "",
+  "enabled": true,
+  "pool": [
+   "0.us.pool.ntp.org",
+   "1.us.pool.ntp.org"
+  ]
+ },
+ "package_upgrade": true,
+ "packages": [
+  "curl",
+  "jq",
+  "vim"
+ ],
+ "power_state": {
+  "delay": "now",
+  "message": "Cloud-init configuration complete — shutting down.",
+  "mode": "poweroff",
+  "timeout": 120
+ },
+ "resize_rootfs": true,
+ "runcmd": [
+  "echo 'Hello from cloud-init!' > /etc/motd",
+  "systemctl restart rsyslog"
+ ],
+ "ssh_authorized_keys": [],
+ "ssh_deletekeys": true,
+ "ssh_genkeytypes": [
+  "ed25519"
+ ],
+ "ssh_pwauth": false,
+ "system_info": {
+  "arch": "amd64",
+  "dist": "ubuntu",
+  "release": "24.04"
+ },
+ "timezone": "America/Los_Angeles",
+ "users": [
+  {
+   "groups": [
+    "sudo",
+    "docker"
+   ],
+   "lock_passwd": true,
+   "name": "admin",
+   "shell": "/bin/bash",
+   "ssh_authorized_keys": [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl admin@client"
+   ],
+   "sudo": "ALL=(ALL) NOPASSWD:ALL"
+  }
+ ],
+ "write_files": [
+  {
+   "append": false,
+   "content": "app:\n  name: my-service\n  debug: false\n  endpoints:\n    - http://localhost:8080\n",
+   "owner": "root:root",
+   "path": "/etc/myapp/settings.yaml",
+   "permissions": "0644"
+  }
+ ]
 }

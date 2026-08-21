@@ -1,275 +1,273 @@
 {
-  "main": {
-    "type": "object",
-    "default": null,
-    "description": "System user and group under which the service runs for privilege separation, plus statefile location for UID tracking. Required by pullimap(1)."
-  },
-  "main.user": {
-    "type": "string",
-    "default": "nobody",
-    "description": "System username to run as."
-  },
-  "main.group": {
-    "type": "string",
-    "default": "nogroup",
-    "description": "System group to run as."
-  },
-  "main.statefile": {
-    "type": "string",
-    "default": "pullimap-state",
-    "description": "State file to track mailbox UIDVALIDITY and UIDNEXT values. Relative paths start from $XDG_DATA_HOME/pullimap or ~/.local/share/pullimap."
-  },
-  "imap": {
-    "type": "object",
-    "default": null,
-    "description": "Connection and authentication details for the source IMAP server."
-  },
-  "imap.host": {
-    "type": "string",
-    "default": "",
-    "description": "IMAP server hostname or IP address. Can optionally be enclosed in square brackets to force IP literal interpretation."
-  },
-  "imap.port": {
-    "type": "number",
-    "default": 993,
-    "description": "IMAP server port (143 for non-SSL, 993 for SSL)."
-  },
-  "imap.ssl": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable SSL/TLS for the IMAP connection (equivalent to type=imaps)."
-  },
-  "imap.type": {
-    "type": "string",
-    "default": "imaps",
-    "description": "Connection type: 'imap', 'imaps', or 'tunnel'. Defaults to 'imaps'.",
-    "enum": [
-      "imap",
-      "imaps",
-      "tunnel"
-    ]
-  },
-  "imap.mailbox": {
-    "type": "string",
-    "default": "INBOX",
-    "description": "IMAP mailbox name to pull messages from (UTF-7 encoded and unquoted)."
-  },
-  "imap.username": {
-    "type": "string",
-    "default": "",
-    "description": "IMAP login username (often full email address)."
-  },
-  "imap.password": {
-    "type": "string",
-    "default": "",
-    "description": "IMAP login password (store securely in production \u2014 e.g., via secrets manager or file permissions)."
-  },
-  "imap.fetch_batch_size": {
-    "type": "number",
-    "default": 100,
-    "description": "Number of messages to fetch per IMAP batch to avoid timeouts."
-  },
-  "imap.auth": {
-    "type": "string",
-    "default": "PLAIN LOGIN",
-    "description": "Space-separated list of preferred authentication mechanisms (PLAIN, LOGIN, etc.)."
-  },
-  "imap.compress": {
-    "type": "boolean",
-    "default": true,
-    "description": "Use the IMAP COMPRESS extension if advertised by the server."
-  },
-  "imap.proxy": {
-    "type": "string",
-    "default": "",
-    "description": "Optional SOCKS5 proxy in format PROTOCOL://[USER:PASSWORD@]PROXYHOST[:PROXYPORT]."
-  },
-  "delivery": {
-    "type": "object",
-    "default": null,
-    "description": "Delivery method: either SMTP (multiple servers supported) or LMTP (single socket)."
-  },
-  "delivery.method": {
-    "type": "string",
-    "default": "smtp",
-    "description": "Delivery protocol: 'smtp' or 'lmtp'.",
-    "enum": [
-      "smtp",
-      "lmtp"
-    ]
-  },
-  "delivery.smtp_servers": {
-    "type": "list",
-    "default": [
-      {
-        "host": "127.0.0.1",
-        "port": 25
-      }
-    ],
-    "description": "List of SMTP relay servers (host and port)."
-  },
-  "delivery.lmtp_socket": {
-    "type": "string",
-    "default": "/var/run/dovecot/lmtp",
-    "description": "Path to LMTP Unix socket (only used if method=lmtp)."
-  },
-  "delivery.ehlo": {
-    "type": "string",
-    "default": "localhost.localdomain",
-    "description": "Name to use in EHLO/LHLO commands."
-  },
-  "delivery.recipient": {
-    "type": "string",
-    "default": "",
-    "description": "Message recipient. If empty, defaults to the username associated with the effective user ID."
-  },
-  "tls": {
-    "type": "object",
-    "default": null,
-    "description": "Optional client-side TLS for outbound SMTP/LMTP connections, plus IMAP-side SSL/TLS settings."
-  },
-  "tls.enable": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable TLS for outgoing SMTP/LMTP connections."
-  },
-  "tls.ca_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate bundle for verifying the SMTP/LMTP server certificate."
-  },
-  "tls.client_cert": {
-    "type": "string",
-    "default": "",
-    "description": "Optional client certificate for mTLS."
-  },
-  "tls.client_key": {
-    "type": "string",
-    "default": "",
-    "description": "Optional client private key."
-  },
-  "tls.SSL_verify": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether to verify the server certificate chain and match its SAN/CN against host."
-  },
-  "tls.SSL_CAfile": {
-    "type": "string",
-    "default": "",
-    "description": "File containing trusted certificates for server verification."
-  },
-  "tls.SSL_CApath": {
-    "type": "string",
-    "default": "",
-    "description": "Directory to use for server certificate verification (must be in hash format)."
-  },
-  "tls.SSL_hostname": {
-    "type": "string",
-    "default": "",
-    "description": "Name to use for TLS SNI (Server Name Indication). Empty string disables SNI."
-  },
-  "tls.SSL_fingerprint": {
-    "type": "string",
-    "default": "",
-    "description": "Space-separated list of acceptable fingerprints for server certificate SPKI (e.g., sha256$<hex>)."
-  },
-  "tls.SSL_protocol_min": {
-    "type": "string",
-    "default": "",
-    "description": "Minimum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3).",
-    "enum": [
-      "SSLv3",
-      "TLSv1",
-      "TLSv1.1",
-      "TLSv1.2",
-      "TLSv1.3"
-    ]
-  },
-  "tls.SSL_protocol_max": {
-    "type": "string",
-    "default": "",
-    "description": "Maximum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3).",
-    "enum": [
-      "SSLv3",
-      "TLSv1",
-      "TLSv1.1",
-      "TLSv1.2",
-      "TLSv1.3"
-    ]
-  },
-  "logging": {
-    "type": "object",
-    "default": null,
-    "description": "Verbosity, syslog facility, and optional file log target."
-  },
-  "logging.level": {
-    "type": "string",
-    "default": "info",
-    "description": "Minimum log level: debug, info, warn, error.",
-    "enum": [
-      "debug",
-      "info",
-      "error"
-    ]
-  },
-  "logging.facility": {
-    "type": "string",
-    "default": "mail",
-    "description": "Syslog facility (e.g., mail, daemon, local0)."
-  },
-  "logging.log_file": {
-    "type": "string",
-    "default": "/var/log/pullimap.log",
-    "description": "Path to file where logs are written (empty = no file logging)."
-  },
-  "limits": {
-    "type": "object",
-    "default": null,
-    "description": "Resource and rate limits to prevent overload."
-  },
-  "limits.max_concurrent_jobs": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum parallel message deliveries at once."
-  },
-  "limits.max_message_size": {
-    "type": "number",
-    "default": 25165824,
-    "description": "Largest message size (in bytes) to process. 0 = unlimited."
-  },
-  "limits.rate_limit_per_minute": {
-    "type": "number",
-    "default": 60,
-    "description": "Maximum messages delivered per minute. 0 = unlimited."
-  },
-  "headers": {
-    "type": "object",
-    "default": null,
-    "description": "Modify headers of delivered messages."
-  },
-  "headers.add_received": {
-    "type": "boolean",
-    "default": true,
-    "description": "Add a 'Received:' header showing this forwarder's action."
-  },
-  "headers.add_date": {
-    "type": "boolean",
-    "default": true,
-    "description": "Ensure each message has a Date: header (add if missing)."
-  },
-  "headers.replace_from": {
-    "type": "string",
-    "default": "",
-    "description": "If non-empty, overwrite the From: header with this email address."
-  },
-  "purge": {
-    "type": "object",
-    "default": null,
-    "description": "Purge old messages from the IMAP server after a retention period."
-  },
-  "purge.retention_days": {
-    "type": "number",
-    "default": 0,
-    "description": "Retention period in days (\u226524h accuracy due to IMAP SEARCH). 0 = delete immediately after delivery."
-  }
+ "delivery": {
+  "default": null,
+  "description": "Delivery method: either SMTP (multiple servers supported) or LMTP (single socket).",
+  "type": "object"
+ },
+ "delivery.ehlo": {
+  "default": "localhost.localdomain",
+  "description": "Name to use in EHLO/LHLO commands.",
+  "type": "string"
+ },
+ "delivery.lmtp_socket": {
+  "default": "/var/run/dovecot/lmtp",
+  "description": "Path to LMTP Unix socket (only used if method=lmtp).",
+  "type": "string"
+ },
+ "delivery.method": {
+  "default": "smtp",
+  "description": "Delivery protocol: 'smtp' or 'lmtp'.",
+  "enum": [
+   "smtp",
+   "lmtp"
+  ],
+  "type": "string"
+ },
+ "delivery.recipient": {
+  "default": "",
+  "description": "Message recipient. If empty, defaults to the username associated with the effective user ID.",
+  "type": "string"
+ },
+ "delivery.smtp_servers": {
+  "default": [
+   {
+    "host": "127.0.0.1",
+    "port": 25
+   }
+  ],
+  "description": "List of SMTP relay servers (host and port).",
+  "type": "list"
+ },
+ "headers": {
+  "default": null,
+  "description": "Modify headers of delivered messages.",
+  "type": "object"
+ },
+ "headers.add_date": {
+  "default": true,
+  "description": "Ensure each message has a Date: header (add if missing).",
+  "type": "boolean"
+ },
+ "headers.add_received": {
+  "default": true,
+  "description": "Add a 'Received:' header showing this forwarder's action.",
+  "type": "boolean"
+ },
+ "headers.replace_from": {
+  "default": "",
+  "description": "If non-empty, overwrite the From: header with this email address.",
+  "type": "string"
+ },
+ "imap": {
+  "default": null,
+  "description": "Connection and authentication details for the source IMAP server.",
+  "type": "object"
+ },
+ "imap.auth": {
+  "default": "PLAIN LOGIN",
+  "description": "Space-separated list of preferred authentication mechanisms (PLAIN, LOGIN, etc.).",
+  "type": "string"
+ },
+ "imap.compress": {
+  "default": true,
+  "description": "Use the IMAP COMPRESS extension if advertised by the server.",
+  "type": "boolean"
+ },
+ "imap.fetch_batch_size": {
+  "default": 100,
+  "description": "Number of messages to fetch per IMAP batch to avoid timeouts.",
+  "type": "number"
+ },
+ "imap.host": {
+  "default": "",
+  "description": "IMAP server hostname or IP address. Can optionally be enclosed in square brackets to force IP literal interpretation.",
+  "type": "string"
+ },
+ "imap.mailbox": {
+  "default": "INBOX",
+  "description": "IMAP mailbox name to pull messages from (UTF-7 encoded and unquoted).",
+  "type": "string"
+ },
+ "imap.password": {
+  "default": "",
+  "description": "IMAP login password (store securely in production — e.g., via secrets manager or file permissions).",
+  "type": "string"
+ },
+ "imap.port": {
+  "default": 993,
+  "description": "IMAP server port (143 for non-SSL, 993 for SSL).",
+  "type": "number"
+ },
+ "imap.proxy": {
+  "default": "",
+  "description": "Optional SOCKS5 proxy in format PROTOCOL://[USER:PASSWORD@]PROXYHOST[:PROXYPORT].",
+  "type": "string"
+ },
+ "imap.ssl": {
+  "default": true,
+  "description": "Enable SSL/TLS for the IMAP connection (equivalent to type=imaps).",
+  "type": "boolean"
+ },
+ "imap.type": {
+  "default": "imaps",
+  "description": "Connection type: 'imap', 'imaps', or 'tunnel'. Defaults to 'imaps'.",
+  "enum": [
+   "imap",
+   "imaps",
+   "tunnel"
+  ],
+  "type": "string"
+ },
+ "imap.username": {
+  "default": "",
+  "description": "IMAP login username (often full email address).",
+  "type": "string"
+ },
+ "limits": {
+  "default": null,
+  "description": "Resource and rate limits to prevent overload.",
+  "type": "object"
+ },
+ "limits.max_concurrent_jobs": {
+  "default": 10,
+  "description": "Maximum parallel message deliveries at once.",
+  "type": "number"
+ },
+ "limits.max_message_size": {
+  "default": 25165824,
+  "description": "Largest message size (in bytes) to process. 0 = unlimited.",
+  "type": "number"
+ },
+ "limits.rate_limit_per_minute": {
+  "default": 60,
+  "description": "Maximum messages delivered per minute. 0 = unlimited.",
+  "type": "number"
+ },
+ "logging": {
+  "default": null,
+  "description": "Verbosity, syslog facility, and optional file log target.",
+  "type": "object"
+ },
+ "logging.facility": {
+  "default": "mail",
+  "description": "Syslog facility (e.g., mail, daemon, local0).",
+  "type": "string"
+ },
+ "logging.level": {
+  "default": "info",
+  "description": "Minimum log level: debug, info, warn, error.",
+  "enum": [
+   "debug",
+   "info",
+   "error"
+  ],
+  "type": "string"
+ },
+ "logging.log_file": {
+  "default": "/var/log/pullimap.log",
+  "description": "Path to file where logs are written (empty = no file logging).",
+  "type": "string"
+ },
+ "main": {
+  "default": null,
+  "description": "System user and group under which the service runs for privilege separation, plus statefile location for UID tracking. Required by pullimap(1).",
+  "type": "object"
+ },
+ "main.group": {
+  "default": "nogroup",
+  "description": "System group to run as.",
+  "type": "string"
+ },
+ "main.statefile": {
+  "default": "pullimap-state",
+  "description": "State file to track mailbox UIDVALIDITY and UIDNEXT values. Relative paths start from $XDG_DATA_HOME/pullimap or ~/.local/share/pullimap.",
+  "type": "string"
+ },
+ "main.user": {
+  "default": "nobody",
+  "description": "System username to run as.",
+  "type": "string"
+ },
+ "purge": {
+  "default": null,
+  "description": "Purge old messages from the IMAP server after a retention period.",
+  "type": "object"
+ },
+ "purge.retention_days": {
+  "default": 0,
+  "description": "Retention period in days (≥24h accuracy due to IMAP SEARCH). 0 = delete immediately after delivery.",
+  "type": "number"
+ },
+ "tls": {
+  "default": null,
+  "description": "Optional client-side TLS for outbound SMTP/LMTP connections, plus IMAP-side SSL/TLS settings.",
+  "type": "object"
+ },
+ "tls.SSL_CAfile": {
+  "default": "",
+  "description": "File containing trusted certificates for server verification.",
+  "type": "string"
+ },
+ "tls.SSL_CApath": {
+  "default": "",
+  "description": "Directory to use for server certificate verification (must be in hash format).",
+  "type": "string"
+ },
+ "tls.SSL_fingerprint": {
+  "default": "",
+  "description": "Space-separated list of acceptable fingerprints for server certificate SPKI (e.g., sha256$<hex>).",
+  "type": "string"
+ },
+ "tls.SSL_hostname": {
+  "default": "",
+  "description": "Name to use for TLS SNI (Server Name Indication). Empty string disables SNI.",
+  "type": "string"
+ },
+ "tls.SSL_protocol_max": {
+  "description": "Maximum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3).",
+  "enum": [
+   "SSLv3",
+   "TLSv1",
+   "TLSv1.1",
+   "TLSv1.2",
+   "TLSv1.3"
+  ],
+  "type": "string"
+ },
+ "tls.SSL_protocol_min": {
+  "description": "Minimum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3).",
+  "enum": [
+   "SSLv3",
+   "TLSv1",
+   "TLSv1.1",
+   "TLSv1.2",
+   "TLSv1.3"
+  ],
+  "type": "string"
+ },
+ "tls.SSL_verify": {
+  "default": true,
+  "description": "Whether to verify the server certificate chain and match its SAN/CN against host.",
+  "type": "boolean"
+ },
+ "tls.ca_file": {
+  "default": "",
+  "description": "Path to CA certificate bundle for verifying the SMTP/LMTP server certificate.",
+  "type": "string"
+ },
+ "tls.client_cert": {
+  "default": "",
+  "description": "Optional client certificate for mTLS.",
+  "type": "string"
+ },
+ "tls.client_key": {
+  "default": "",
+  "description": "Optional client private key.",
+  "type": "string"
+ },
+ "tls.enable": {
+  "default": false,
+  "description": "Enable TLS for outgoing SMTP/LMTP connections.",
+  "type": "boolean"
+ }
 }

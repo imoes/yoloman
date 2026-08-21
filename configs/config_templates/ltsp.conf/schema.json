@@ -1,147 +1,146 @@
 {
-  "ltsp_image_root": {
-    "type": "string",
-    "default": "/opt/ltsp",
-    "description": "Path to the LTSP chroot image directory where client root filesystems are stored."
+ "arch": {
+  "default": "amd64",
+  "description": "Client architecture for LTSP images (e.g., i386, amd64, armhf).",
+  "type": "string"
+ },
+ "client_env": {
+  "default": {
+   "LANG": "en_US.UTF-8",
+   "XMODE": "800x600",
+   "XSERVER": "xorg"
   },
-  "arch": {
-    "type": "string",
-    "default": "amd64",
-    "description": "Client architecture for LTSP images (e.g., i386, amd64, armhf)."
+  "description": "Default environment variables passed to all LTSP clients at boot.",
+  "type": "object"
+ },
+ "client_overrides": {
+  "default": [],
+  "description": "Per-client configuration overrides (by MAC or hostname). Each entry defines a client's hostname and optional settings.",
+  "items": {
+   "hostname": {
+    "description": "Client identifier (hostname or MAC address)",
+    "type": "string"
+   },
+   "locale": {
+    "description": "Locale setting (e.g., de_DE.UTF-8)",
+    "type": "string"
+   },
+   "xmode": {
+    "description": "Screen resolution (e.g., 1024x768)",
+    "type": "string"
+   },
+   "xserver": {
+    "description": "X server type (e.g., xorg, xserver-xorg)",
+    "type": "string"
+   }
   },
-  "dhcp_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable the built-in LTSP DHCP server. If disabled, configure an external DHCP server manually."
-  },
-  "dhcp_range_start": {
-    "type": "string",
-    "default": "192.168.0.100",
-    "description": "First IP address in the DHCP lease range (e.g., for thin clients)."
-  },
-  "dhcp_range_end": {
-    "type": "string",
-    "default": "192.168.0.200",
-    "description": "Last IP address in the DHCP lease range."
-  },
-  "dhcp_gateway": {
-    "type": "string",
-    "default": "192.168.0.1",
-    "description": "Default gateway IP address advertised to clients."
-  },
-  "dhcp_dns": {
-    "type": "list",
-    "default": [
-      "192.168.0.1",
-      "8.8.8.8"
-    ],
-    "description": "List of DNS servers to advertise to clients (space-separated or comma-separated in config)."
-  },
-  "dhcp_broadcast": {
-    "type": "string",
-    "default": "192.168.0.255",
-    "description": "Broadcast address for the client network."
-  },
-  "dhcp_next_server": {
-    "type": "string",
-    "default": "192.168.0.1",
-    "description": "TFTP server IP (usually the LTSP server itself)."
-  },
-  "dhcp_filename": {
-    "type": "string",
-    "default": "ltsp/i386/pxelinux.0",
-    "description": "Initial boot file (PXE filename) served to clients."
-  },
-  "dhcp_extra_options": {
-    "type": "object",
-    "default": {},
-    "description": "Additional custom DHCP options as key-value pairs (e.g., {\"66\": \"next-server\", \"67\": \"pxelinux.0\"})."
-  },
-  "nfs_export_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable NFS export of the LTSP image root (required for diskless clients)."
-  },
-  "nfs_export_path": {
-    "type": "string",
-    "default": "/opt/ltsp",
-    "description": "Path exported over NFS (typically matches LTSP_IMAGE_ROOT)."
-  },
-  "nfs_export_options": {
-    "type": "string",
-    "default": "ro,no_root_squash,async,no_subtree_check",
-    "description": "NFS export options for the LTSP image."
-  },
-  "tftp_root": {
-    "type": "string",
-    "default": "/var/lib/tftpboot",
-    "description": "TFTP server root directory containing bootloaders and config files."
-  },
-  "tftp_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable TFTP service (required for PXE boot)."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 4,
-    "description": "LTSP log verbosity (0\u20137, where 4 = notice)."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/ltsp-server.log",
-    "description": "Path to LTSP server log file (leave empty to log only to syslog)."
-  },
-  "nfs_no_root_squash": {
-    "type": "boolean",
-    "default": true,
-    "description": "Allow NFS root access to clients (set to false for stricter security)."
-  },
-  "https_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable HTTPS for the LTSP web management interface (requires SSL cert)."
-  },
-  "https_port": {
-    "type": "number",
-    "default": 8443,
-    "description": "Port for the HTTPS management interface."
-  },
-  "client_ssh_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Allow SSH access from clients (use with caution in production)."
-  },
-  "client_env": {
-    "type": "object",
-    "default": {
-      "XSERVER": "xorg",
-      "XMODE": "800x600",
-      "LANG": "en_US.UTF-8"
-    },
-    "description": "Default environment variables passed to all LTSP clients at boot."
-  },
-  "client_overrides": {
-    "type": "list",
-    "default": [],
-    "description": "Per-client configuration overrides (by MAC or hostname). Each entry defines a client's hostname and optional settings.",
-    "items": {
-      "hostname": {
-        "type": "string",
-        "description": "Client identifier (hostname or MAC address)"
-      },
-      "xserver": {
-        "type": "string",
-        "description": "X server type (e.g., xorg, xserver-xorg)"
-      },
-      "xmode": {
-        "type": "string",
-        "description": "Screen resolution (e.g., 1024x768)"
-      },
-      "locale": {
-        "type": "string",
-        "description": "Locale setting (e.g., de_DE.UTF-8)"
-      }
-    }
-  }
+  "type": "list"
+ },
+ "client_ssh_enabled": {
+  "default": false,
+  "description": "Allow SSH access from clients (use with caution in production).",
+  "type": "boolean"
+ },
+ "dhcp_broadcast": {
+  "default": "192.168.0.255",
+  "description": "Broadcast address for the client network.",
+  "type": "string"
+ },
+ "dhcp_dns": {
+  "default": [
+   "192.168.0.1",
+   "8.8.8.8"
+  ],
+  "description": "List of DNS servers to advertise to clients (space-separated or comma-separated in config).",
+  "type": "list"
+ },
+ "dhcp_enabled": {
+  "default": true,
+  "description": "Enable the built-in LTSP DHCP server. If disabled, configure an external DHCP server manually.",
+  "type": "boolean"
+ },
+ "dhcp_extra_options": {
+  "description": "Additional custom DHCP options as key-value pairs (e.g., {\"66\": \"next-server\", \"67\": \"pxelinux.0\"}).",
+  "type": "object"
+ },
+ "dhcp_filename": {
+  "default": "ltsp/i386/pxelinux.0",
+  "description": "Initial boot file (PXE filename) served to clients.",
+  "type": "string"
+ },
+ "dhcp_gateway": {
+  "default": "192.168.0.1",
+  "description": "Default gateway IP address advertised to clients.",
+  "type": "string"
+ },
+ "dhcp_next_server": {
+  "default": "192.168.0.1",
+  "description": "TFTP server IP (usually the LTSP server itself).",
+  "type": "string"
+ },
+ "dhcp_range_end": {
+  "default": "192.168.0.200",
+  "description": "Last IP address in the DHCP lease range.",
+  "type": "string"
+ },
+ "dhcp_range_start": {
+  "default": "192.168.0.100",
+  "description": "First IP address in the DHCP lease range (e.g., for thin clients).",
+  "type": "string"
+ },
+ "https_enabled": {
+  "default": false,
+  "description": "Enable HTTPS for the LTSP web management interface (requires SSL cert).",
+  "type": "boolean"
+ },
+ "https_port": {
+  "default": 8443,
+  "description": "Port for the HTTPS management interface.",
+  "type": "number"
+ },
+ "log_file": {
+  "default": "/var/log/ltsp-server.log",
+  "description": "Path to LTSP server log file (leave empty to log only to syslog).",
+  "type": "string"
+ },
+ "log_level": {
+  "default": 4,
+  "description": "LTSP log verbosity (0–7, where 4 = notice).",
+  "type": "number"
+ },
+ "ltsp_image_root": {
+  "default": "/opt/ltsp",
+  "description": "Path to the LTSP chroot image directory where client root filesystems are stored.",
+  "type": "string"
+ },
+ "nfs_export_enabled": {
+  "default": true,
+  "description": "Enable NFS export of the LTSP image root (required for diskless clients).",
+  "type": "boolean"
+ },
+ "nfs_export_options": {
+  "default": "ro,no_root_squash,async,no_subtree_check",
+  "description": "NFS export options for the LTSP image.",
+  "type": "string"
+ },
+ "nfs_export_path": {
+  "default": "/opt/ltsp",
+  "description": "Path exported over NFS (typically matches LTSP_IMAGE_ROOT).",
+  "type": "string"
+ },
+ "nfs_no_root_squash": {
+  "default": true,
+  "description": "Allow NFS root access to clients (set to false for stricter security).",
+  "type": "boolean"
+ },
+ "tftp_enabled": {
+  "default": true,
+  "description": "Enable TFTP service (required for PXE boot).",
+  "type": "boolean"
+ },
+ "tftp_root": {
+  "default": "/var/lib/tftpboot",
+  "description": "TFTP server root directory containing bootloaders and config files.",
+  "type": "string"
+ }
 }

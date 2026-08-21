@@ -1,115 +1,115 @@
 {
-  "scrape_interval": "15s",
-  "evaluation_interval": "15s",
-  "external_labels": {
-    "region": "us-west-2",
-    "environment": "production"
+ "alertmanagers": [
+  {
+   "bearer_token_file": "/var/run/secrets/alertmanager/token",
+   "scheme": "https",
+   "static_configs": [
+    {
+     "labels": {
+      "cluster": "prod-usw2"
+     },
+     "targets": [
+      "alertmanager-main-0.alertmanager-operated:9093",
+      "alertmanager-main-1.alertmanager-operated:9093"
+     ]
+    }
+   ],
+   "timeout": "10s"
+  }
+ ],
+ "enable_exemplar_storage": true,
+ "evaluation_interval": "15s",
+ "external_labels": {
+  "environment": "production",
+  "region": "us-west-2"
+ },
+ "rule_files": [
+  "/etc/prometheus/rules/node.rules.yml",
+  "/etc/prometheus/rules/kubernetes.rules.yml",
+  "/etc/prometheus/rules/alerts.yml"
+ ],
+ "scrape_configs": [
+  {
+   "job_name": "prometheus",
+   "relabel_configs": [
+    {
+     "replacement": "$1",
+     "source_labels": [
+      "__address__"
+     ],
+     "target_label": "__address__"
+    }
+   ],
+   "static_configs": [
+    {
+     "labels": {
+      "instance_type": "self"
+     },
+     "targets": [
+      "localhost:9090"
+     ]
+    }
+   ]
   },
-  "enable_exemplar_storage": true,
-  "alertmanagers": [
+  {
+   "job_name": "node-exporter",
+   "scheme": "http",
+   "scrape_interval": "30s",
+   "static_configs": [
     {
-      "static_configs": [
-        {
-          "targets": [
-            "alertmanager-main-0.alertmanager-operated:9093",
-            "alertmanager-main-1.alertmanager-operated:9093"
-          ],
-          "labels": {
-            "cluster": "prod-usw2"
-          }
-        }
-      ],
-      "scheme": "https",
-      "timeout": "10s",
-      "bearer_token_file": "/var/run/secrets/alertmanager/token"
+     "labels": {
+      "env": "prod"
+     },
+     "targets": [
+      "node1.example.com:9100",
+      "node2.example.com:9100",
+      "node3.example.com:9100"
+     ]
     }
-  ],
-  "rule_files": [
-    "/etc/prometheus/rules/node.rules.yml",
-    "/etc/prometheus/rules/kubernetes.rules.yml",
-    "/etc/prometheus/rules/alerts.yml"
-  ],
-  "scrape_configs": [
+   ]
+  },
+  {
+   "job_name": "kubernetes-pods",
+   "kubernetes_sd_configs": [
     {
-      "job_name": "prometheus",
-      "static_configs": [
-        {
-          "targets": [
-            "localhost:9090"
-          ],
-          "labels": {
-            "instance_type": "self"
-          }
-        }
-      ],
-      "relabel_configs": [
-        {
-          "source_labels": [
-            "__address__"
-          ],
-          "target_label": "__address__",
-          "replacement": "$1"
-        }
-      ]
+     "role": "pod"
+    }
+   ],
+   "metric_relabel_configs": [
+    {
+     "action": "drop",
+     "regex": "go_.*",
+     "source_labels": [
+      "__name__"
+     ]
+    }
+   ],
+   "relabel_configs": [
+    {
+     "action": "keep",
+     "regex": "true",
+     "source_labels": [
+      "__meta_kubernetes_pod_annotation_prometheus_io_scrape"
+     ]
     },
     {
-      "job_name": "node-exporter",
-      "scheme": "http",
-      "scrape_interval": "30s",
-      "static_configs": [
-        {
-          "targets": [
-            "node1.example.com:9100",
-            "node2.example.com:9100",
-            "node3.example.com:9100"
-          ],
-          "labels": {
-            "env": "prod"
-          }
-        }
-      ]
+     "regex": "(.+)",
+     "source_labels": [
+      "__meta_kubernetes_pod_annotation_prometheus_io_path"
+     ],
+     "target_label": "__metrics_path__"
     },
     {
-      "job_name": "kubernetes-pods",
-      "kubernetes_sd_configs": [
-        {
-          "role": "pod"
-        }
-      ],
-      "relabel_configs": [
-        {
-          "source_labels": [
-            "__meta_kubernetes_pod_annotation_prometheus_io_scrape"
-          ],
-          "action": "keep",
-          "regex": "true"
-        },
-        {
-          "source_labels": [
-            "__meta_kubernetes_pod_annotation_prometheus_io_path"
-          ],
-          "target_label": "__metrics_path__",
-          "regex": "(.+)"
-        },
-        {
-          "source_labels": [
-            "__meta_kubernetes_pod_annotation_prometheus_io_port",
-            "__meta_kubernetes_pod_ip"
-          ],
-          "target_label": "__address__",
-          "regex": "([^:]+)(?::\\d+)?;(\\d+)",
-          "replacement": "$1:$2"
-        }
-      ],
-      "metric_relabel_configs": [
-        {
-          "source_labels": [
-            "__name__"
-          ],
-          "regex": "go_.*",
-          "action": "drop"
-        }
-      ]
+     "regex": "([^:]+)(?::\\d+)?;(\\d+)",
+     "replacement": "$1:$2",
+     "source_labels": [
+      "__meta_kubernetes_pod_annotation_prometheus_io_port",
+      "__meta_kubernetes_pod_ip"
+     ],
+     "target_label": "__address__"
     }
-  ]
+   ]
+  }
+ ],
+ "scrape_interval": "15s"
 }

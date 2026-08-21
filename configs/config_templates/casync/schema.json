@@ -1,115 +1,114 @@
 {
-  "path": {
-    "type": "string",
-    "default": ".",
-    "description": "Path to archive (for 'make') or extract to (for 'extract'). Defaults to current directory."
-  },
-  "store": {
-    "type": "string",
-    "default": ".",
-    "description": "Path to the chunk store directory. If not absolute, treated relative to index file's directory. Defaults to '.' (i.e., store in default.castr)."
-  },
-  "digest": {
-    "type": "string",
-    "default": "sha512-256",
-    "description": "Digest algorithm: 'sha512-256' or 'sha256'.",
-    "enum": [
-      "sha512-256",
-      "sha256"
-    ]
-  },
-  "compression": {
-    "type": "string",
-    "default": "zstd",
-    "description": "Compression algorithm: 'zstd', 'xz', or 'gzip'.",
-    "enum": [
-      "zstd",
-      "xz",
-      "gzip"
-    ]
-  },
-  "chunk_size": {
-    "type": "string",
-    "default": "64K",
-    "description": "Chunk size in format [MIN:]AVG[:MAX]. Unit suffixes: K, M, G (e.g., '32K:64K:128K', '1M')."
-  },
-  "seed": {
-    "type": "string",
-    "default": "",
-    "description": "Optional seed file or directory to improve deduplication and compression. Must be an absolute or relative path."
-  },
-  "rate_limit_bps": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum bandwidth in bytes/s for remote communication (e.g., NFS mounts). 0 = unlimited."
-  },
-  "exclude_nodump": {
-    "type": "bool",
-    "default": false,
-    "description": "If false (default), exclude files with chattr +d (nodump) flag. Set true to disable this exclusion."
-  },
-  "exclude_submounts": {
-    "type": "bool",
-    "default": true,
-    "description": "If true (default), exclude submounts (e.g., /proc, /sys) during archiving."
-  },
-  "exclude_file": {
-    "type": "bool",
-    "default": true,
-    "description": "If true (default), respect .caexclude files in the source tree."
-  },
-  "reflink": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, create reflinks from seeds during extraction."
-  },
-  "hardlink": {
-    "type": "bool",
-    "default": true,
-    "description": "If true (default), create hardlinks from seeds during extraction."
-  },
-  "punch_holes": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, create sparse files during extraction."
-  },
-  "delete": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, delete files on disk not present in archive after extraction."
-  },
-  "undo_immutable": {
-    "type": "bool",
-    "default": true,
-    "description": "If true (default), undo chattr +i (immutable) flag when removing files during extraction."
-  },
-  "seed_output": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, use existing output directory as seed during extraction."
-  },
-  "uid_shift": {
-    "type": "string",
-    "default": "",
-    "description": "UID/GID shift setting: 'yes' (auto), 'no', or numeric shift offset (e.g., '65536').",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "uid_range": {
-    "type": "string",
-    "default": "",
-    "description": "UID/GID range restriction, format: START:COUNT (e.g., '0:65536')."
-  },
-  "archive_features": {
-    "type": "list",
-    "default": [
-      "unix",
-      "xattrs",
-      "acl",
-      "selinux"
-    ],
-    "description": "List of archive feature flags. Prefix with '!' to disable (e.g., 'unix', '!fat', 'xattrs'). These map directly to --with= and --without= options in casync(1)."
-  }
+ "archive_features": {
+  "default": [
+   "unix",
+   "xattrs",
+   "acl",
+   "selinux"
+  ],
+  "description": "List of archive feature flags. Prefix with '!' to disable (e.g., 'unix', '!fat', 'xattrs'). These map directly to --with= and --without= options in casync(1).",
+  "type": "list"
+ },
+ "chunk_size": {
+  "default": "64K",
+  "description": "Chunk size in format [MIN:]AVG[:MAX]. Unit suffixes: K, M, G (e.g., '32K:64K:128K', '1M').",
+  "type": "string"
+ },
+ "compression": {
+  "default": "zstd",
+  "description": "Compression algorithm: 'zstd', 'xz', or 'gzip'.",
+  "enum": [
+   "zstd",
+   "xz",
+   "gzip"
+  ],
+  "type": "string"
+ },
+ "delete": {
+  "default": false,
+  "description": "If true, delete files on disk not present in archive after extraction.",
+  "type": "bool"
+ },
+ "digest": {
+  "default": "sha512-256",
+  "description": "Digest algorithm: 'sha512-256' or 'sha256'.",
+  "enum": [
+   "sha512-256",
+   "sha256"
+  ],
+  "type": "string"
+ },
+ "exclude_file": {
+  "default": true,
+  "description": "If true (default), respect .caexclude files in the source tree.",
+  "type": "bool"
+ },
+ "exclude_nodump": {
+  "default": false,
+  "description": "If false (default), exclude files with chattr +d (nodump) flag. Set true to disable this exclusion.",
+  "type": "bool"
+ },
+ "exclude_submounts": {
+  "default": true,
+  "description": "If true (default), exclude submounts (e.g., /proc, /sys) during archiving.",
+  "type": "bool"
+ },
+ "hardlink": {
+  "default": true,
+  "description": "If true (default), create hardlinks from seeds during extraction.",
+  "type": "bool"
+ },
+ "path": {
+  "default": ".",
+  "description": "Path to archive (for 'make') or extract to (for 'extract'). Defaults to current directory.",
+  "type": "string"
+ },
+ "punch_holes": {
+  "default": false,
+  "description": "If true, create sparse files during extraction.",
+  "type": "bool"
+ },
+ "rate_limit_bps": {
+  "default": 0,
+  "description": "Maximum bandwidth in bytes/s for remote communication (e.g., NFS mounts). 0 = unlimited.",
+  "type": "number"
+ },
+ "reflink": {
+  "default": false,
+  "description": "If true, create reflinks from seeds during extraction.",
+  "type": "bool"
+ },
+ "seed": {
+  "default": "",
+  "description": "Optional seed file or directory to improve deduplication and compression. Must be an absolute or relative path.",
+  "type": "string"
+ },
+ "seed_output": {
+  "default": false,
+  "description": "If true, use existing output directory as seed during extraction.",
+  "type": "bool"
+ },
+ "store": {
+  "default": ".",
+  "description": "Path to the chunk store directory. If not absolute, treated relative to index file's directory. Defaults to '.' (i.e., store in default.castr).",
+  "type": "string"
+ },
+ "uid_range": {
+  "default": "",
+  "description": "UID/GID range restriction, format: START:COUNT (e.g., '0:65536').",
+  "type": "string"
+ },
+ "uid_shift": {
+  "description": "UID/GID shift setting: 'yes' (auto), 'no', or numeric shift offset (e.g., '65536').",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "undo_immutable": {
+  "default": true,
+  "description": "If true (default), undo chattr +i (immutable) flag when removing files during extraction.",
+  "type": "bool"
+ }
 }

@@ -1,377 +1,376 @@
 {
-  "scrape_interval": {
-    "type": "string",
-    "default": "1m",
-    "description": "Default interval for scraping targets (e.g., '30s', '1m')."
-  },
-  "evaluation_interval": {
-    "type": "string",
-    "default": "1m",
-    "description": "Interval for evaluating alerting and recording rules (e.g., '15s', '1m')."
-  },
-  "external_labels": {
-    "type": "object",
-    "default": {},
-    "description": "Additional labels to attach to all timeseries and alerts for external identification (e.g., region, cluster)."
-  },
-  "enable_exemplar_storage": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable storage of exemplars (sampled histogram values) for improved tracing."
-  },
-  "alertmanagers": {
-    "type": "list",
-    "default": [],
-    "description": "List of Alertmanager instances to send alerts to.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "static_configs": {
-          "type": "list",
-          "default": [],
-          "description": "Static list of Alertmanager targets.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "targets": {
-                "type": "list",
-                "items": {
-                  "type": "string"
-                },
-                "default": [],
-                "description": "List of Alertmanager endpoints (e.g., ['alertmanager:9093'])."
-              },
-              "labels": {
-                "type": "object",
-                "default": {},
-                "description": "Labels to attach to each target."
-              }
-            }
-          }
-        },
-        "scheme": {
-          "type": "string",
-          "default": "http",
-          "description": "HTTP scheme (http/https) for Alertmanager endpoint."
-        },
-        "timeout": {
-          "type": "string",
-          "default": "10s",
-          "description": "Timeout for requests to Alertmanager."
-        },
-        "basic_auth": {
-          "type": "object",
-          "default": {},
-          "description": "Basic auth config for Alertmanager.",
-          "properties": {
-            "username": {
-              "type": "string",
-              "default": "",
-              "description": "Username for basic auth."
-            },
-            "password": {
-              "type": "string",
-              "default": "",
-              "description": "Password for basic auth (avoid storing secrets in config; use secret injection instead)."
-            }
-          }
-        },
-        "bearer_token": {
-          "type": "string",
-          "default": "",
-          "description": "Bearer token for Alertmanager authentication (do not use plaintext tokens in config)."
-        },
-        "bearer_token_file": {
-          "type": "string",
-          "default": "",
-          "description": "Path to file containing bearer token for Alertmanager authentication."
-        },
-        "authorization": {
-          "type": "object",
-          "default": {},
-          "description": "Authorization header config.",
-          "properties": {
-            "type": {
-              "type": "string",
-              "default": "Bearer",
-              "description": "Authorization header type (e.g., 'Bearer')."
-            },
-            "credentials": {
-              "type": "string",
-              "default": "",
-              "description": "Authorization credentials."
-            }
-          }
-        },
-        "oauth2": {
-          "type": "object",
-          "default": {},
-          "description": "OAuth2 configuration for Alertmanager.",
-          "properties": {
-            "client_id": {
-              "type": "string",
-              "default": "",
-              "description": "OAuth2 client ID."
-            },
-            "client_secret": {
-              "type": "string",
-              "default": "",
-              "description": "OAuth2 client secret (avoid plaintext; use secret injection)."
-            },
-            "scopes": {
-              "type": "list",
-              "default": [
-                "openid"
-              ],
-              "description": "OAuth2 scopes to request."
-            },
-            "token_url": {
-              "type": "string",
-              "default": "",
-              "description": "Token endpoint URL."
-            },
-            "endpoint_params": {
-              "type": "object",
-              "default": {},
-              "description": "Additional parameters to send to token endpoint."
-            }
-          }
-        }
+ "alertmanagers": {
+  "default": [],
+  "description": "List of Alertmanager instances to send alerts to.",
+  "items": {
+   "properties": {
+    "authorization": {
+     "default": {},
+     "description": "Authorization header config.",
+     "properties": {
+      "credentials": {
+       "default": "",
+       "description": "Authorization credentials.",
+       "type": "string"
+      },
+      "type": {
+       "default": "Bearer",
+       "description": "Authorization header type (e.g., 'Bearer').",
+       "type": "string"
       }
-    }
-  },
-  "rule_files": {
-    "type": "list",
-    "default": [],
-    "description": "List of paths to rule files (e.g., /etc/prometheus/rules/*.yml)."
-  },
-  "scrape_configs": {
-    "type": "list",
-    "default": [],
-    "description": "List of scrape jobs to discover and collect metrics from targets.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "job_name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name for this scrape job."
-        },
-        "metrics_path": {
-          "type": "string",
-          "default": "/metrics",
-          "description": "Path on the target to scrape for metrics."
-        },
-        "scheme": {
-          "type": "string",
-          "default": "http",
-          "description": "Protocol scheme (http/https) for targets."
-        },
-        "basic_auth": {
-          "type": "object",
-          "default": {},
-          "description": "Basic auth for targets in this job.",
-          "properties": {
-            "username": {
-              "type": "string",
-              "default": "",
-              "description": "Username."
-            },
-            "password": {
-              "type": "string",
-              "default": "",
-              "description": "Password."
-            }
-          }
-        },
-        "bearer_token": {
-          "type": "string",
-          "default": "",
-          "description": "Bearer token (avoid plaintext)."
-        },
-        "bearer_token_file": {
-          "type": "string",
-          "default": "",
-          "description": "Path to file with bearer token."
-        },
-        "authorization": {
-          "type": "object",
-          "default": {},
-          "description": "Authorization header config.",
-          "properties": {
-            "type": {
-              "type": "string",
-              "default": "Bearer",
-              "description": "Authorization type."
-            },
-            "credentials": {
-              "type": "string",
-              "default": "",
-              "description": "Credentials."
-            }
-          }
-        },
-        "oauth2": {
-          "type": "object",
-          "default": {},
-          "description": "OAuth2 config.",
-          "properties": {
-            "client_id": {
-              "type": "string",
-              "default": "",
-              "description": "OAuth2 client ID."
-            },
-            "client_secret": {
-              "type": "string",
-              "default": "",
-              "description": "OAuth2 client secret."
-            },
-            "scopes": {
-              "type": "list",
-              "default": [],
-              "description": "OAuth2 scopes."
-            },
-            "token_url": {
-              "type": "string",
-              "default": "",
-              "description": "Token endpoint URL."
-            },
-            "endpoint_params": {
-              "type": "object",
-              "default": {},
-              "description": "Token endpoint parameters."
-            }
-          }
-        },
-        "scrape_interval": {
-          "type": "string",
-          "default": "",
-          "description": "Job-specific scrape interval override."
-        },
-        "scrape_timeout": {
-          "type": "string",
-          "default": "",
-          "description": "Job-specific scrape timeout override."
-        },
-        "static_configs": {
-          "type": "list",
-          "default": [],
-          "description": "Static list of scrape targets.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "targets": {
-                "type": "list",
-                "items": {
-                  "type": "string"
-                },
-                "default": [],
-                "description": "Target endpoints (e.g., ['localhost:9090'])."
-              },
-              "labels": {
-                "type": "object",
-                "default": {},
-                "description": "Labels to apply to scraped metrics."
-              }
-            }
-          }
-        },
-        "sd_configs": {
-          "type": "list",
-          "default": [],
-          "description": "Service discovery configs (e.g., kubernetes_sd_configs, file_sd_configs).",
-          "items": {
-            "type": "object",
-            "description": "SD config (key-value pairs as per Prometheus spec)."
-          }
-        },
-        "relabel_configs": {
-          "type": "list",
-          "default": [],
-          "description": "Relabeling rules applied during service discovery.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "source_labels": {
-                "type": "list",
-                "items": {
-                  "type": "string"
-                },
-                "default": [],
-                "description": "Labels to use as input."
-              },
-              "regex": {
-                "type": "string",
-                "default": "(.*)",
-                "description": "Regular expression to match against source labels."
-              },
-              "separator": {
-                "type": "string",
-                "default": ";",
-                "description": "Separator for source label values."
-              },
-              "target_label": {
-                "type": "string",
-                "default": "",
-                "description": "Label to set on the output."
-              },
-              "replacement": {
-                "type": "string",
-                "default": "$1",
-                "description": "Replacement value for matched groups."
-              },
-              "action": {
-                "type": "string",
-                "default": "replace",
-                "description": "Action: 'replace', 'keep', 'drop', 'hashmod', 'labelmap', 'labeldrop', 'labelkeep'."
-              }
-            }
-          }
-        },
-        "metric_relabel_configs": {
-          "type": "list",
-          "default": [],
-          "description": "Relabeling rules applied after scraping (e.g., to drop metrics).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "source_labels": {
-                "type": "list",
-                "items": {
-                  "type": "string"
-                },
-                "default": [],
-                "description": "Labels to use as input."
-              },
-              "regex": {
-                "type": "string",
-                "default": "(.*)",
-                "description": "Regular expression to match against source labels."
-              },
-              "separator": {
-                "type": "string",
-                "default": ";",
-                "description": "Separator for source label values."
-              },
-              "target_label": {
-                "type": "string",
-                "default": "",
-                "description": "Label to set on the output."
-              },
-              "replacement": {
-                "type": "string",
-                "default": "$1",
-                "description": "Replacement value."
-              },
-              "action": {
-                "type": "string",
-                "default": "drop",
-                "description": "Action (commonly 'drop' or 'keep' for metrics)."
-              }
-            }
-          }
-        }
+     },
+     "type": "object"
+    },
+    "basic_auth": {
+     "default": {},
+     "description": "Basic auth config for Alertmanager.",
+     "properties": {
+      "password": {
+       "default": "",
+       "description": "Password for basic auth (avoid storing secrets in config; use secret injection instead).",
+       "type": "string"
+      },
+      "username": {
+       "default": "",
+       "description": "Username for basic auth.",
+       "type": "string"
       }
+     },
+     "type": "object"
+    },
+    "bearer_token": {
+     "default": "",
+     "description": "Bearer token for Alertmanager authentication (do not use plaintext tokens in config).",
+     "type": "string"
+    },
+    "bearer_token_file": {
+     "default": "",
+     "description": "Path to file containing bearer token for Alertmanager authentication.",
+     "type": "string"
+    },
+    "oauth2": {
+     "default": {},
+     "description": "OAuth2 configuration for Alertmanager.",
+     "properties": {
+      "client_id": {
+       "default": "",
+       "description": "OAuth2 client ID.",
+       "type": "string"
+      },
+      "client_secret": {
+       "default": "",
+       "description": "OAuth2 client secret (avoid plaintext; use secret injection).",
+       "type": "string"
+      },
+      "endpoint_params": {
+       "default": {},
+       "description": "Additional parameters to send to token endpoint.",
+       "type": "object"
+      },
+      "scopes": {
+       "default": [
+        "openid"
+       ],
+       "description": "OAuth2 scopes to request.",
+       "type": "list"
+      },
+      "token_url": {
+       "default": "",
+       "description": "Token endpoint URL.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "scheme": {
+     "default": "http",
+     "description": "HTTP scheme (http/https) for Alertmanager endpoint.",
+     "type": "string"
+    },
+    "static_configs": {
+     "default": [],
+     "description": "Static list of Alertmanager targets.",
+     "items": {
+      "properties": {
+       "labels": {
+        "default": {},
+        "description": "Labels to attach to each target.",
+        "type": "object"
+       },
+       "targets": {
+        "default": [],
+        "description": "List of Alertmanager endpoints (e.g., ['alertmanager:9093']).",
+        "items": {
+         "type": "string"
+        },
+        "type": "list"
+       }
+      },
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "timeout": {
+     "default": "10s",
+     "description": "Timeout for requests to Alertmanager.",
+     "type": "string"
     }
-  }
+   },
+   "type": "object"
+  },
+  "type": "list"
+ },
+ "enable_exemplar_storage": {
+  "default": false,
+  "description": "Enable storage of exemplars (sampled histogram values) for improved tracing.",
+  "type": "boolean"
+ },
+ "evaluation_interval": {
+  "default": "1m",
+  "description": "Interval for evaluating alerting and recording rules (e.g., '15s', '1m').",
+  "type": "string"
+ },
+ "external_labels": {
+  "description": "Additional labels to attach to all timeseries and alerts for external identification (e.g., region, cluster).",
+  "type": "object"
+ },
+ "rule_files": {
+  "default": [],
+  "description": "List of paths to rule files (e.g., /etc/prometheus/rules/*.yml).",
+  "type": "list"
+ },
+ "scrape_configs": {
+  "default": [],
+  "description": "List of scrape jobs to discover and collect metrics from targets.",
+  "items": {
+   "properties": {
+    "authorization": {
+     "default": {},
+     "description": "Authorization header config.",
+     "properties": {
+      "credentials": {
+       "default": "",
+       "description": "Credentials.",
+       "type": "string"
+      },
+      "type": {
+       "default": "Bearer",
+       "description": "Authorization type.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "basic_auth": {
+     "default": {},
+     "description": "Basic auth for targets in this job.",
+     "properties": {
+      "password": {
+       "default": "",
+       "description": "Password.",
+       "type": "string"
+      },
+      "username": {
+       "default": "",
+       "description": "Username.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "bearer_token": {
+     "default": "",
+     "description": "Bearer token (avoid plaintext).",
+     "type": "string"
+    },
+    "bearer_token_file": {
+     "default": "",
+     "description": "Path to file with bearer token.",
+     "type": "string"
+    },
+    "job_name": {
+     "default": "",
+     "description": "Unique name for this scrape job.",
+     "type": "string"
+    },
+    "metric_relabel_configs": {
+     "default": [],
+     "description": "Relabeling rules applied after scraping (e.g., to drop metrics).",
+     "items": {
+      "properties": {
+       "action": {
+        "default": "drop",
+        "description": "Action (commonly 'drop' or 'keep' for metrics).",
+        "type": "string"
+       },
+       "regex": {
+        "default": "(.*)",
+        "description": "Regular expression to match against source labels.",
+        "type": "string"
+       },
+       "replacement": {
+        "default": "$1",
+        "description": "Replacement value.",
+        "type": "string"
+       },
+       "separator": {
+        "default": ";",
+        "description": "Separator for source label values.",
+        "type": "string"
+       },
+       "source_labels": {
+        "default": [],
+        "description": "Labels to use as input.",
+        "items": {
+         "type": "string"
+        },
+        "type": "list"
+       },
+       "target_label": {
+        "default": "",
+        "description": "Label to set on the output.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "metrics_path": {
+     "default": "/metrics",
+     "description": "Path on the target to scrape for metrics.",
+     "type": "string"
+    },
+    "oauth2": {
+     "default": {},
+     "description": "OAuth2 config.",
+     "properties": {
+      "client_id": {
+       "default": "",
+       "description": "OAuth2 client ID.",
+       "type": "string"
+      },
+      "client_secret": {
+       "default": "",
+       "description": "OAuth2 client secret.",
+       "type": "string"
+      },
+      "endpoint_params": {
+       "default": {},
+       "description": "Token endpoint parameters.",
+       "type": "object"
+      },
+      "scopes": {
+       "default": [],
+       "description": "OAuth2 scopes.",
+       "type": "list"
+      },
+      "token_url": {
+       "default": "",
+       "description": "Token endpoint URL.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "relabel_configs": {
+     "default": [],
+     "description": "Relabeling rules applied during service discovery.",
+     "items": {
+      "properties": {
+       "action": {
+        "default": "replace",
+        "description": "Action: 'replace', 'keep', 'drop', 'hashmod', 'labelmap', 'labeldrop', 'labelkeep'.",
+        "type": "string"
+       },
+       "regex": {
+        "default": "(.*)",
+        "description": "Regular expression to match against source labels.",
+        "type": "string"
+       },
+       "replacement": {
+        "default": "$1",
+        "description": "Replacement value for matched groups.",
+        "type": "string"
+       },
+       "separator": {
+        "default": ";",
+        "description": "Separator for source label values.",
+        "type": "string"
+       },
+       "source_labels": {
+        "default": [],
+        "description": "Labels to use as input.",
+        "items": {
+         "type": "string"
+        },
+        "type": "list"
+       },
+       "target_label": {
+        "default": "",
+        "description": "Label to set on the output.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "scheme": {
+     "default": "http",
+     "description": "Protocol scheme (http/https) for targets.",
+     "type": "string"
+    },
+    "scrape_interval": {
+     "default": "",
+     "description": "Job-specific scrape interval override.",
+     "type": "string"
+    },
+    "scrape_timeout": {
+     "default": "",
+     "description": "Job-specific scrape timeout override.",
+     "type": "string"
+    },
+    "sd_configs": {
+     "default": [],
+     "description": "Service discovery configs (e.g., kubernetes_sd_configs, file_sd_configs).",
+     "items": {
+      "description": "SD config (key-value pairs as per Prometheus spec).",
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "static_configs": {
+     "default": [],
+     "description": "Static list of scrape targets.",
+     "items": {
+      "properties": {
+       "labels": {
+        "default": {},
+        "description": "Labels to apply to scraped metrics.",
+        "type": "object"
+       },
+       "targets": {
+        "default": [],
+        "description": "Target endpoints (e.g., ['localhost:9090']).",
+        "items": {
+         "type": "string"
+        },
+        "type": "list"
+       }
+      },
+      "type": "object"
+     },
+     "type": "list"
+    }
+   },
+   "type": "object"
+  },
+  "type": "list"
+ },
+ "scrape_interval": {
+  "default": "1m",
+  "description": "Default interval for scraping targets (e.g., '30s', '1m').",
+  "type": "string"
+ }
 }

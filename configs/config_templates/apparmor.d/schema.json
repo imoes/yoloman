@@ -1,114 +1,113 @@
 {
-  "profile_name": {
-    "type": "string",
-    "default": "myapp",
-    "description": "Unique name for the AppArmor profile (no spaces or quotes needed unless special chars)"
-  },
-  "abi_version": {
-    "type": "string",
-    "default": "kernel",
-    "description": "ABI version string (e.g., '<abi/3.0>', 'kernel'); defines which language features are available"
-  },
-  "include_common": {
-    "type": "bool",
-    "default": true,
-    "description": "Include /etc/apparmor.d/tunables/global if true"
-  },
-  "includes": {
-    "type": "list",
-    "default": [],
-    "description": "Additional include paths (relative to /etc/apparmor.d/); strings"
-  },
-  "attach_path": {
-    "type": "string",
-    "default": "",
-    "description": "Optional execution attachment path (e.g., '/usr/bin/myapp'); used for profile matching"
-  },
-  "profile_flags": {
-    "type": "list",
-    "default": [],
-    "description": "List of profile flags (e.g., ['debug', 'mediate_deleted']); affects profile behavior globally"
-  },
-  "mode": {
-    "type": "string",
-    "default": "enforce",
-    "description": "Profile enforcement mode: 'enforce', 'complain', 'kill', 'unconfined', 'default_allow', or 'prompt'",
-    "enum": [
-      "enforce",
-      "complain",
-      "kill",
-      "default_allow",
-      "unconfined",
-      "prompt"
-    ]
-  },
-  "audit_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of rule types to always audit (e.g., ['file /etc/shadow r'])"
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enable debug flag in profile header"
-  },
-  "capabilities": {
-    "type": "list",
-    "default": [],
-    "description": "List of Linux capabilities (lowercase, no 'CAP_' prefix) required, e.g., ['net_bind_service']"
-  },
-  "network_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of network rules: each is {domain, type, local?, peer?}; domain e.g. 'inet', type e.g. 'tcp', local e.g. '127.0.0.1', peer is dict with ip and port"
-  },
-  "file_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of file rules: each is {qualifiers?, owner?, type, path, access?, target?}; access e.g. 'rwl', target e.g. 'unconfined' for exec transitions"
-  },
-  "signal_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of signal rules: each is {qualifiers?, access?, set?, peer?}; set is list of signal names like ['term', 'hup']; peer is label string"
-  },
-  "unix_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of Unix socket rules: each is {qualifiers?, access?, type?, protocol?, local?, peer?}; e.g. access='connect', local='@/tmp/foo', peer is list of dicts with label/addr"
-  },
-  "dbus_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of DBus rules: each is {qualifiers?, access?, bus?, name?, path?, interface?, member?, peer?}; bus e.g. 'system'; peer is list of dicts with name/label"
-  },
-  "mount_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of mount rules: each is {qualifiers?, action, fstype?, fstype_cond?, options?, options_cond?, source, dest}; action is 'mount', 'remount' or 'umount'"
-  },
-  "rlimit_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of rlimit rules: each is {resource, operator, value}; resource e.g. 'nofile', operator e.g. '<=', value e.g. '1024' or '1G'"
-  },
-  "change_profile_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of change_profile rules: each is {exec_mode?, exec_cond?, target}; target is target profile name"
-  },
-  "allow_all": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, adds 'all,' rule (allows everything \u2014 for testing only)"
-  },
-  "allow_all_qualifiers": {
-    "type": "string",
-    "default": "",
-    "description": "Qualifiers for the 'all' rule, e.g., 'audit' or 'deny'",
-    "enum": [
-      "audit",
-      "deny"
-    ]
-  }
+ "abi_version": {
+  "default": "kernel",
+  "description": "ABI version string (e.g., '<abi/3.0>', 'kernel'); defines which language features are available",
+  "type": "string"
+ },
+ "allow_all": {
+  "default": false,
+  "description": "If true, adds 'all,' rule (allows everything — for testing only)",
+  "type": "bool"
+ },
+ "allow_all_qualifiers": {
+  "description": "Qualifiers for the 'all' rule, e.g., 'audit' or 'deny'",
+  "enum": [
+   "audit",
+   "deny"
+  ],
+  "type": "string"
+ },
+ "attach_path": {
+  "default": "",
+  "description": "Optional execution attachment path (e.g., '/usr/bin/myapp'); used for profile matching",
+  "type": "string"
+ },
+ "audit_rules": {
+  "default": [],
+  "description": "List of rule types to always audit (e.g., ['file /etc/shadow r'])",
+  "type": "list"
+ },
+ "capabilities": {
+  "default": [],
+  "description": "List of Linux capabilities (lowercase, no 'CAP_' prefix) required, e.g., ['net_bind_service']",
+  "type": "list"
+ },
+ "change_profile_rules": {
+  "default": [],
+  "description": "List of change_profile rules: each is {exec_mode?, exec_cond?, target}; target is target profile name",
+  "type": "list"
+ },
+ "dbus_rules": {
+  "default": [],
+  "description": "List of DBus rules: each is {qualifiers?, access?, bus?, name?, path?, interface?, member?, peer?}; bus e.g. 'system'; peer is list of dicts with name/label",
+  "type": "list"
+ },
+ "debug": {
+  "default": false,
+  "description": "If true, enable debug flag in profile header",
+  "type": "bool"
+ },
+ "file_rules": {
+  "default": [],
+  "description": "List of file rules: each is {qualifiers?, owner?, type, path, access?, target?}; access e.g. 'rwl', target e.g. 'unconfined' for exec transitions",
+  "type": "list"
+ },
+ "include_common": {
+  "default": true,
+  "description": "Include /etc/apparmor.d/tunables/global if true",
+  "type": "bool"
+ },
+ "includes": {
+  "default": [],
+  "description": "Additional include paths (relative to /etc/apparmor.d/); strings",
+  "type": "list"
+ },
+ "mode": {
+  "default": "enforce",
+  "description": "Profile enforcement mode: 'enforce', 'complain', 'kill', 'unconfined', 'default_allow', or 'prompt'",
+  "enum": [
+   "enforce",
+   "complain",
+   "kill",
+   "default_allow",
+   "unconfined",
+   "prompt"
+  ],
+  "type": "string"
+ },
+ "mount_rules": {
+  "default": [],
+  "description": "List of mount rules: each is {qualifiers?, action, fstype?, fstype_cond?, options?, options_cond?, source, dest}; action is 'mount', 'remount' or 'umount'",
+  "type": "list"
+ },
+ "network_rules": {
+  "default": [],
+  "description": "List of network rules: each is {domain, type, local?, peer?}; domain e.g. 'inet', type e.g. 'tcp', local e.g. '127.0.0.1', peer is dict with ip and port",
+  "type": "list"
+ },
+ "profile_flags": {
+  "default": [],
+  "description": "List of profile flags (e.g., ['debug', 'mediate_deleted']); affects profile behavior globally",
+  "type": "list"
+ },
+ "profile_name": {
+  "default": "myapp",
+  "description": "Unique name for the AppArmor profile (no spaces or quotes needed unless special chars)",
+  "type": "string"
+ },
+ "rlimit_rules": {
+  "default": [],
+  "description": "List of rlimit rules: each is {resource, operator, value}; resource e.g. 'nofile', operator e.g. '<=', value e.g. '1024' or '1G'",
+  "type": "list"
+ },
+ "signal_rules": {
+  "default": [],
+  "description": "List of signal rules: each is {qualifiers?, access?, set?, peer?}; set is list of signal names like ['term', 'hup']; peer is label string",
+  "type": "list"
+ },
+ "unix_rules": {
+  "default": [],
+  "description": "List of Unix socket rules: each is {qualifiers?, access?, type?, protocol?, local?, peer?}; e.g. access='connect', local='@/tmp/foo', peer is list of dicts with label/addr",
+  "type": "list"
+ }
 }

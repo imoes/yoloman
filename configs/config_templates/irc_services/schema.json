@@ -1,225 +1,219 @@
 {
-  "servicename": {
-    "type": "string",
+ "admin": {
+  "description": "Admin information shown in /whois admin.",
+  "items": {
+   "email": {
+    "default": "admin@example.com",
+    "description": "Email address for administrative inquiries.",
+    "type": "string"
+   },
+   "name": {
+    "default": "Network Administrator",
+    "description": "Name of the network admin or team.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "database": {
+  "description": "Database backend configuration (e.g., SQLite, MySQL, PostgreSQL).",
+  "items": {
+   "module": {
+    "default": "moddatabase_sqlite3",
+    "description": "Database module name (e.g., moddatabase_sqlite3, moddatabase_mysql).",
+    "type": "string"
+   },
+   "params": {
+    "default": {},
+    "description": "Key-value parameters for the database module.",
+    "items": {
+     "description": "Parameter name and value (e.g., \"database\" → \"anope.db\", \"host\" → \"localhost\").",
+     "type": "string"
+    },
+    "type": "object"
+   }
+  },
+  "type": "object"
+ },
+ "defaults": {
+  "description": "Default limits applied to new users and channels.",
+  "items": {
+   "user": {
+    "default": {},
+    "items": {
+     "max_channels_per_user": {
+      "default": 10,
+      "description": "Maximum channels a user may be opered in (used by some services).",
+      "type": "number"
+     },
+     "max_chans": {
+      "default": 100,
+      "description": "Maximum channels a user may register.",
+      "type": "number"
+     },
+     "max_nicks": {
+      "default": 1,
+      "description": "Maximum nicknames a user may register (typically 1).",
+      "type": "number"
+     }
+    },
+    "type": "object"
+   }
+  },
+  "type": "object"
+ },
+ "language": {
+  "default": "en",
+  "description": "Default language file for messages (e.g., 'en', 'de', 'fr').",
+  "type": "string"
+ },
+ "modules.load": {
+  "default": [
+   "nickserv",
+   "chanserv",
+   "operserv",
+   "memserv",
+   "helpserv"
+  ],
+  "description": "List of core Anope modules to load.",
+  "items": {
+   "description": "Module name (without .so extension).",
+   "type": "string"
+  },
+  "type": "list"
+ },
+ "opers": {
+  "default": [],
+  "description": "List of service operators (opers) with elevated privileges.",
+  "items": {
+   "description": "An oper account definition.",
+   "items": {
+    "host": {
+     "default": "*@*",
+     "description": "Allowed hostmask (supports wildcards, e.g., *!*@*.edu).",
+     "type": "string"
+    },
+    "name": {
+     "default": "",
+     "description": "Oper name (login username).",
+     "type": "string"
+    },
+    "nick": {
+     "default": "",
+     "description": "Required nickname (if set, user must be using this nick to login).",
+     "type": "string"
+    },
+    "password": {
+     "default": "",
+     "description": "Plain-text password (recommended to use hashed password in production).",
+     "type": "string"
+    },
+    "user": {
+     "default": "",
+     "description": "Required username (ident).",
+     "type": "string"
+    },
+    "vhost": {
+     "default": "",
+     "description": "Virtual hostname to assign upon login (e.g., opers@example.com).",
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "type": "list"
+ },
+ "options": {
+  "description": "Global service behavior toggles.",
+  "items": {
+   "log_snoops": {
+    "default": false,
+    "description": "Log user actions (e.g., nick changes, messages) to oper snoop channels.",
+    "type": "bool"
+   },
+   "send_core_dump": {
+    "default": false,
+    "description": "Send crash/core dump notifications to opers.",
+    "type": "bool"
+   },
+   "send_oper_notice": {
+    "default": true,
+    "description": "Send operational messages (e.g., module load errors) to opers.",
+    "type": "bool"
+   },
+   "send_operwall": {
+    "default": true,
+    "description": "Enable operwalls (broadcast messages from opers).",
+    "type": "bool"
+   }
+  },
+  "type": "object"
+ },
+ "server": {
+  "description": "Connection settings for the upstream IRC daemon (e.g., UnrealIRCd, InspIRCd).",
+  "items": {
+   "hostname": {
+    "default": "127.0.0.1",
+    "description": "IP address or hostname of the IRC server to connect to.",
+    "type": "string"
+   },
+   "name": {
     "default": "services",
-    "description": "The name of the services server (must be DNS-resolvable and match what the IRCd expects)."
+    "description": "Server name (must be unique and match servername in IRCd config).",
+    "type": "string"
+   },
+   "password": {
+    "default": "",
+    "description": "Link password (shared secret) between Anope and the IRCd.",
+    "type": "string"
+   },
+   "port": {
+    "default": 7000,
+    "description": "Port number on which the IRC server listens for services links.",
+    "type": "number"
+   },
+   "ssl": {
+    "default": false,
+    "description": "Enable SSL/TLS for the link to the IRC server.",
+    "type": "bool"
+   },
+   "ssl_ca": {
+    "default": "",
+    "description": "Path to CA certificate bundle for verifying server cert (optional).",
+    "type": "string"
+   },
+   "ssl_cert": {
+    "default": "",
+    "description": "Path to SSL certificate file (required if ssl=true).",
+    "type": "string"
+   },
+   "ssl_key": {
+    "default": "",
+    "description": "Path to SSL private key file (required if ssl=true).",
+    "type": "string"
+   }
   },
-  "modules.load": {
-    "type": "list",
-    "default": [
-      "nickserv",
-      "chanserv",
-      "operserv",
-      "memserv",
-      "helpserv"
-    ],
-    "description": "List of core Anope modules to load.",
-    "items": {
-      "type": "string",
-      "description": "Module name (without .so extension)."
-    }
+  "type": "object"
+ },
+ "servicename": {
+  "default": "services",
+  "description": "The name of the services server (must be DNS-resolvable and match what the IRCd expects).",
+  "type": "string"
+ },
+ "timeout": {
+  "description": "Timeout and connection management settings.",
+  "items": {
+   "connection_timeout": {
+    "default": 30,
+    "description": "Seconds to wait for connection to succeed before retry.",
+    "type": "number"
+   },
+   "dead_link_timeout": {
+    "default": 120,
+    "description": "Seconds before a dead link is removed.",
+    "type": "number"
+   }
   },
-  "server": {
-    "type": "object",
-    "default": {},
-    "description": "Connection settings for the upstream IRC daemon (e.g., UnrealIRCd, InspIRCd).",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "services",
-        "description": "Server name (must be unique and match servername in IRCd config)."
-      },
-      "hostname": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "IP address or hostname of the IRC server to connect to."
-      },
-      "port": {
-        "type": "number",
-        "default": 7000,
-        "description": "Port number on which the IRC server listens for services links."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Link password (shared secret) between Anope and the IRCd."
-      },
-      "ssl": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable SSL/TLS for the link to the IRC server."
-      },
-      "ssl_cert": {
-        "type": "string",
-        "default": "",
-        "description": "Path to SSL certificate file (required if ssl=true)."
-      },
-      "ssl_key": {
-        "type": "string",
-        "default": "",
-        "description": "Path to SSL private key file (required if ssl=true)."
-      },
-      "ssl_ca": {
-        "type": "string",
-        "default": "",
-        "description": "Path to CA certificate bundle for verifying server cert (optional)."
-      }
-    }
-  },
-  "database": {
-    "type": "object",
-    "default": {},
-    "description": "Database backend configuration (e.g., SQLite, MySQL, PostgreSQL).",
-    "items": {
-      "module": {
-        "type": "string",
-        "default": "moddatabase_sqlite3",
-        "description": "Database module name (e.g., moddatabase_sqlite3, moddatabase_mysql)."
-      },
-      "params": {
-        "type": "object",
-        "default": {},
-        "description": "Key-value parameters for the database module.",
-        "items": {
-          "type": "string",
-          "description": "Parameter name and value (e.g., \"database\" \u2192 \"anope.db\", \"host\" \u2192 \"localhost\")."
-        }
-      }
-    }
-  },
-  "timeout": {
-    "type": "object",
-    "default": {},
-    "description": "Timeout and connection management settings.",
-    "items": {
-      "dead_link_timeout": {
-        "type": "number",
-        "default": 120,
-        "description": "Seconds before a dead link is removed."
-      },
-      "connection_timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Seconds to wait for connection to succeed before retry."
-      }
-    }
-  },
-  "defaults": {
-    "type": "object",
-    "default": {},
-    "description": "Default limits applied to new users and channels.",
-    "items": {
-      "user": {
-        "type": "object",
-        "default": {},
-        "items": {
-          "max_nicks": {
-            "type": "number",
-            "default": 1,
-            "description": "Maximum nicknames a user may register (typically 1)."
-          },
-          "max_chans": {
-            "type": "number",
-            "default": 100,
-            "description": "Maximum channels a user may register."
-          },
-          "max_channels_per_user": {
-            "type": "number",
-            "default": 10,
-            "description": "Maximum channels a user may be opered in (used by some services)."
-          }
-        }
-      }
-    }
-  },
-  "admin": {
-    "type": "object",
-    "default": {},
-    "description": "Admin information shown in /whois admin.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "Network Administrator",
-        "description": "Name of the network admin or team."
-      },
-      "email": {
-        "type": "string",
-        "default": "admin@example.com",
-        "description": "Email address for administrative inquiries."
-      }
-    }
-  },
-  "opers": {
-    "type": "list",
-    "default": [],
-    "description": "List of service operators (opers) with elevated privileges.",
-    "items": {
-      "type": "object",
-      "description": "An oper account definition.",
-      "items": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Oper name (login username)."
-        },
-        "password": {
-          "type": "string",
-          "default": "",
-          "description": "Plain-text password (recommended to use hashed password in production)."
-        },
-        "host": {
-          "type": "string",
-          "default": "*@*",
-          "description": "Allowed hostmask (supports wildcards, e.g., *!*@*.edu)."
-        },
-        "nick": {
-          "type": "string",
-          "default": "",
-          "description": "Required nickname (if set, user must be using this nick to login)."
-        },
-        "user": {
-          "type": "string",
-          "default": "",
-          "description": "Required username (ident)."
-        },
-        "vhost": {
-          "type": "string",
-          "default": "",
-          "description": "Virtual hostname to assign upon login (e.g., opers@example.com)."
-        }
-      }
-    }
-  },
-  "options": {
-    "type": "object",
-    "default": {},
-    "description": "Global service behavior toggles.",
-    "items": {
-      "send_core_dump": {
-        "type": "bool",
-        "default": false,
-        "description": "Send crash/core dump notifications to opers."
-      },
-      "send_oper_notice": {
-        "type": "bool",
-        "default": true,
-        "description": "Send operational messages (e.g., module load errors) to opers."
-      },
-      "send_operwall": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable operwalls (broadcast messages from opers)."
-      },
-      "log_snoops": {
-        "type": "bool",
-        "default": false,
-        "description": "Log user actions (e.g., nick changes, messages) to oper snoop channels."
-      }
-    }
-  },
-  "language": {
-    "type": "string",
-    "default": "en",
-    "description": "Default language file for messages (e.g., 'en', 'de', 'fr')."
-  }
+  "type": "object"
+ }
 }

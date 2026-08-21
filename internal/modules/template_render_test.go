@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestTemplateRenderJinja2(t *testing.T) {
@@ -94,10 +96,39 @@ func renderTemplateWithSample(root, name, dest string) error {
 	if err != nil {
 		return err
 	}
-	if rendered, _ := res.Data.(map[string]any)["rendered"].(string); len(rendered) == 0 {
+	rendered, _ := res.Data.(map[string]any)["rendered"].(string)
+	if len(rendered) == 0 {
 		return fmt.Errorf("rendered empty")
 	}
+	// AND THE OUTPUT HAS TO BE USABLE. The sweep proposed "a list rendered without '- ' breaks YAML" and
+	// flagged 1232 templates; only 22 actually target a YAML file, so as stated it was noise. What survives
+	// is stronger and does not care how the list is written: if the recorded target is a YAML file, the
+	// rendered text must parse. Invalid YAML is still a non-empty string, so the emptiness check above
+	// cannot see it — and a whole-file write of unparsable YAML leaves the service unable to read its own
+	// config. Measured: 3 of 17 (nextepc_pcrf, pre_commit, sagan-rules).
+	target := recordedTarget(root, name)
+	if strings.HasSuffix(target, ".yaml") || strings.HasSuffix(target, ".yml") {
+		var parsed any
+		if err := yaml.Unmarshal([]byte(rendered), &parsed); err != nil {
+			return fmt.Errorf("renders %s and the output is not valid YAML: %w", target, err)
+		}
+	}
 	return nil
+}
+
+// recordedTarget: what this template says it renders, or "" when it says nothing.
+func recordedTarget(root, name string) string {
+	raw, err := os.ReadFile(filepath.Join(root, name, "meta.json"))
+	if err != nil {
+		return ""
+	}
+	var meta struct {
+		TargetPath string `json:"target_path"`
+	}
+	if json.Unmarshal(raw, &meta) != nil {
+		return ""
+	}
+	return meta.TargetPath
 }
 
 // TestConfigTemplatesRenderWithSample renders every shipped Class-B template

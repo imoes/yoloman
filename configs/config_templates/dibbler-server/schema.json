@@ -1,165 +1,165 @@
 {
-  "log_level": {
-    "type": "number",
-    "default": 8,
-    "description": "Logging level (1=Ementgency to 8=Debug)"
-  },
-  "preference": {
-    "type": "number",
-    "default": 0,
-    "description": "Server preference value (higher = more preferred)"
-  },
-  "interface_name": {
-    "type": "string",
-    "default": "eth0",
-    "description": "Interface name to serve DHCPv6 on"
-  },
-  "t1_low": {
-    "type": "number",
-    "default": 1800,
-    "description": "T1 timer lower bound in seconds"
-  },
-  "t1_high": {
-    "type": "number",
-    "default": 2000,
-    "description": "T1 timer upper bound in seconds"
-  },
-  "t2_low": {
-    "type": "number",
-    "default": 2700,
-    "description": "T2 timer lower bound in seconds"
-  },
-  "t2_high": {
-    "type": "number",
-    "default": 3000,
-    "description": "T2 timer upper bound in seconds"
-  },
-  "preferred_lifetime": {
-    "type": "number",
-    "default": 3600,
-    "description": "Preferred lifetime for addresses in seconds"
-  },
-  "valid_lifetime": {
-    "type": "number",
-    "default": 7200,
-    "description": "Valid lifetime for addresses in seconds"
-  },
-  "pool_v6_64": {
-    "type": "string",
-    "default": "2001:db8:1111::/64",
-    "description": "IPv6 pool prefix for client addresses"
-  },
-  "pool_ta_96": {
-    "type": "string",
-    "default": "2001:db8:2222::/96",
-    "description": "IPv6 pool prefix for temporary addresses"
-  },
-  "pool_pd_80": {
-    "type": "string",
-    "default": "2001:db8:3333::/80",
-    "description": "IPv6 pool prefix for delegated prefixes"
-  },
-  "pd_length": {
-    "type": "number",
-    "default": 96,
-    "description": "Length of delegated prefixes in bits"
-  },
-  "dns_servers": {
-    "type": "list",
-    "default": [
-      "2000::ff",
-      "2000::fe"
-    ],
-    "description": "Comma-separated list of DNS server IPv6 addresses"
-  },
-  "domain_name": {
-    "type": "string",
-    "default": "example.com",
-    "description": "Domain name to provide to clients"
-  },
-  "vendor_spec": {
-    "type": "string",
-    "default": "5678-1-0x3031323334,1556-2-0x393837363534",
-    "description": "Vendor-specific options string"
-  },
-  "ntp_servers": {
-    "type": "list",
-    "default": [
-      "2000::200",
-      "2000::201",
-      "2000::202"
-    ],
-    "description": "Comma-separated list of NTP server IPv6 addresses"
-  },
-  "timezone": {
-    "type": "string",
-    "default": "CET",
-    "description": "Timezone identifier to provide to clients"
-  },
-  "sip_servers": {
-    "type": "list",
-    "default": [
-      "2000::300",
-      "2000::302",
-      "2000::303",
-      "2000::304"
-    ],
-    "description": "Comma-separated list of SIP server IPv6 addresses"
-  },
-  "sip_domains": {
-    "type": "list",
-    "default": [
-      "sip1.example.com",
-      "sip2.example.com"
-    ],
-    "description": "Comma-separated list of SIP domain names"
-  },
-  "nis_servers": {
-    "type": "list",
-    "default": [
-      "2000::400",
-      "2000::401",
-      "2000::404",
-      "2000::405",
-      "2000::405"
-    ],
-    "description": "Comma-separated list of NIS server IPv6 addresses"
-  },
-  "nis_domain": {
-    "type": "string",
-    "default": "nis.example.com",
-    "description": "NIS domain name"
-  },
-  "nisplus_servers": {
-    "type": "list",
-    "default": [
-      "2000::501",
-      "2000::502"
-    ],
-    "description": "Comma-separated list of NIS+ server IPv6 addresses"
-  },
-  "nisplus_domain": {
-    "type": "string",
-    "default": "nisplus.example.com",
-    "description": "NIS+ domain name"
-  },
-  "aftr_host": {
-    "type": "string",
-    "default": "cgn.example.com",
-    "description": "AFTR hostname for DS-Lite clients"
-  },
-  "fqdn_entries": {
-    "type": "list",
-    "default": [
-      "1 64 zebuline.example.com - 2000::1,",
-      "kael.example.com - 2000::2,",
-      "inara.example.com - 0x0001000043ce25b40013d4024bf5,",
-      "zoe.example.com,",
-      "malcolm.example.com,",
-      "kaylee.example.com,",
-      "jayne.example.com,",
-      "wash.example.com"
-    ],
-    "description": "List of FQDN entries. Each entry should be a single string representing one line of the multi-line option, preserving indentation if necessary for the config file format. Note: The original config has specific indentation. This implementation assumes the template handles the multi-line structure by joining these list items with newlines. To be strictly verbatim regarding the multi-line directive in the template, the variable should represent the raw content or the template should be structured to handle the list. Given the constraint 'no filters', 'no for-loops', and 'byte-for-byte verbatim', we must handle this carefully. The prompt says 'option fqdn 1 64 zebuline...' is on one line, but the example shows multiple lines. The real config file has newlines. \n\nLet's look at the constraint: 'Keep EVERYTHING ELSE BYTE-FOR-BYTE VERBATIM'. \n\nThe real file has:\noption fqdn 1 64 zebuline.example.com - 2000::1,\n                  kael.example.com - 2000::2,\n                  ...\n\nIf I replace the whole block with a single {{ fqdn_entries }}, I lose the specific indentation of the subsequent lines unless they are part of the string.\n\nHowever, the instruction says: 'Replace ONLY site-specific literal values... with {{ variable }} placeholders.'\nAnd: 'Use no Jinja beyond {{ variable }} \u2014 no filters, no map/join, no for-loops.'\n\nThis implies that if a value spans multiple lines, it must be a single string variable, or the template must keep the structure.\n\nLet's try to keep the structure as much as possible. \n\nThe line starts with `option fqdn `. Then there is `1 64 zebuline...`. Then newlines. \n\nActually, looking at the previous examples or standard practices for this type of task, often multi-line options are treated as a single string if they are logically one option. \n\nLet's replace the entire content of the option directive after `option fqdn ` with a single variable `fqdn_full_value`. \n\nWait, the first part `1 64 ` is part of the value? Yes, in Dibbler, `option fqdn` takes arguments. \n\nSo the template should be:\n`option fqdn {{ fqdn_full_value }}`\n\nAnd `fqdn_full_value` contains the multi-line string? \n\nOr, since I cannot use loops, I cannot iterate over a list to print them. \n\nTherefore, `fqdn_full_value` must be a single string containing the newlines and indentation.\n\nLet's adjust the schema to reflect this. `fqdn_entries` might be misleading if it's a list. It should be a single string. \n\nLet's rename `fqdn_entries` to `fqdn_value` and make it a string.\n\nAlso, for lists like `dns_servers`, the real config has `2000::ff,2000::fe`. It's a comma-separated string. \n\nSo `dns_servers` should be a string, not a list of strings, unless I join them. But I can't use join. \n\nSo `dns_servers` default should be `"
-  }
+ "aftr_host": {
+  "default": "cgn.example.com",
+  "description": "AFTR hostname for DS-Lite clients",
+  "type": "string"
+ },
+ "dns_servers": {
+  "default": [
+   "2000::ff",
+   "2000::fe"
+  ],
+  "description": "Comma-separated list of DNS server IPv6 addresses",
+  "type": "string"
+ },
+ "domain_name": {
+  "default": "example.com",
+  "description": "Domain name to provide to clients",
+  "type": "string"
+ },
+ "fqdn_entries": {
+  "default": [
+   "1 64 zebuline.example.com - 2000::1,",
+   "kael.example.com - 2000::2,",
+   "inara.example.com - 0x0001000043ce25b40013d4024bf5,",
+   "zoe.example.com,",
+   "malcolm.example.com,",
+   "kaylee.example.com,",
+   "jayne.example.com,",
+   "wash.example.com"
+  ],
+  "description": "List of FQDN entries. Each entry should be a single string representing one line of the multi-line option, preserving indentation if necessary for the config file format. Note: The original config has specific indentation. This implementation assumes the template handles the multi-line structure by joining these list items with newlines. To be strictly verbatim regarding the multi-line directive in the template, the variable should represent the raw content or the template should be structured to handle the list. Given the constraint 'no filters', 'no for-loops', and 'byte-for-byte verbatim', we must handle this carefully. The prompt says 'option fqdn 1 64 zebuline...' is on one line, but the example shows multiple lines. The real config file has newlines. \n\nLet's look at the constraint: 'Keep EVERYTHING ELSE BYTE-FOR-BYTE VERBATIM'. \n\nThe real file has:\noption fqdn 1 64 zebuline.example.com - 2000::1,\n                  kael.example.com - 2000::2,\n                  ...\n\nIf I replace the whole block with a single {{ fqdn_entries }}, I lose the specific indentation of the subsequent lines unless they are part of the string.\n\nHowever, the instruction says: 'Replace ONLY site-specific literal values... with {{ variable }} placeholders.'\nAnd: 'Use no Jinja beyond {{ variable }} — no filters, no map/join, no for-loops.'\n\nThis implies that if a value spans multiple lines, it must be a single string variable, or the template must keep the structure.\n\nLet's try to keep the structure as much as possible. \n\nThe line starts with `option fqdn `. Then there is `1 64 zebuline...`. Then newlines. \n\nActually, looking at the previous examples or standard practices for this type of task, often multi-line options are treated as a single string if they are logically one option. \n\nLet's replace the entire content of the option directive after `option fqdn ` with a single variable `fqdn_full_value`. \n\nWait, the first part `1 64 ` is part of the value? Yes, in Dibbler, `option fqdn` takes arguments. \n\nSo the template should be:\n`option fqdn {{ fqdn_full_value }}`\n\nAnd `fqdn_full_value` contains the multi-line string? \n\nOr, since I cannot use loops, I cannot iterate over a list to print them. \n\nTherefore, `fqdn_full_value` must be a single string containing the newlines and indentation.\n\nLet's adjust the schema to reflect this. `fqdn_entries` might be misleading if it's a list. It should be a single string. \n\nLet's rename `fqdn_entries` to `fqdn_value` and make it a string.\n\nAlso, for lists like `dns_servers`, the real config has `2000::ff,2000::fe`. It's a comma-separated string. \n\nSo `dns_servers` should be a string, not a list of strings, unless I join them. But I can't use join. \n\nSo `dns_servers` default should be `",
+  "type": "list"
+ },
+ "interface_name": {
+  "default": "eth0",
+  "description": "Interface name to serve DHCPv6 on",
+  "type": "string"
+ },
+ "log_level": {
+  "default": 8,
+  "description": "Logging level (1=Ementgency to 8=Debug)",
+  "type": "number"
+ },
+ "nis_domain": {
+  "default": "nis.example.com",
+  "description": "NIS domain name",
+  "type": "string"
+ },
+ "nis_servers": {
+  "default": [
+   "2000::400",
+   "2000::401",
+   "2000::404",
+   "2000::405",
+   "2000::405"
+  ],
+  "description": "Comma-separated list of NIS server IPv6 addresses",
+  "type": "string"
+ },
+ "nisplus_domain": {
+  "default": "nisplus.example.com",
+  "description": "NIS+ domain name",
+  "type": "string"
+ },
+ "nisplus_servers": {
+  "default": [
+   "2000::501",
+   "2000::502"
+  ],
+  "description": "Comma-separated list of NIS+ server IPv6 addresses",
+  "type": "string"
+ },
+ "ntp_servers": {
+  "default": [
+   "2000::200",
+   "2000::201",
+   "2000::202"
+  ],
+  "description": "Comma-separated list of NTP server IPv6 addresses",
+  "type": "string"
+ },
+ "pd_length": {
+  "default": 96,
+  "description": "Length of delegated prefixes in bits",
+  "type": "number"
+ },
+ "pool_pd_80": {
+  "default": "2001:db8:3333::/80",
+  "description": "IPv6 pool prefix for delegated prefixes",
+  "type": "string"
+ },
+ "pool_ta_96": {
+  "default": "2001:db8:2222::/96",
+  "description": "IPv6 pool prefix for temporary addresses",
+  "type": "string"
+ },
+ "pool_v6_64": {
+  "default": "2001:db8:1111::/64",
+  "description": "IPv6 pool prefix for client addresses",
+  "type": "string"
+ },
+ "preference": {
+  "default": 0,
+  "description": "Server preference value (higher = more preferred)",
+  "type": "number"
+ },
+ "preferred_lifetime": {
+  "default": 3600,
+  "description": "Preferred lifetime for addresses in seconds",
+  "type": "number"
+ },
+ "sip_domains": {
+  "default": [
+   "sip1.example.com",
+   "sip2.example.com"
+  ],
+  "description": "Comma-separated list of SIP domain names",
+  "type": "string"
+ },
+ "sip_servers": {
+  "default": [
+   "2000::300",
+   "2000::302",
+   "2000::303",
+   "2000::304"
+  ],
+  "description": "Comma-separated list of SIP server IPv6 addresses",
+  "type": "string"
+ },
+ "t1_high": {
+  "default": 2000,
+  "description": "T1 timer upper bound in seconds",
+  "type": "number"
+ },
+ "t1_low": {
+  "default": 1800,
+  "description": "T1 timer lower bound in seconds",
+  "type": "number"
+ },
+ "t2_high": {
+  "default": 3000,
+  "description": "T2 timer upper bound in seconds",
+  "type": "number"
+ },
+ "t2_low": {
+  "default": 2700,
+  "description": "T2 timer lower bound in seconds",
+  "type": "number"
+ },
+ "timezone": {
+  "default": "CET",
+  "description": "Timezone identifier to provide to clients",
+  "type": "string"
+ },
+ "valid_lifetime": {
+  "default": 7200,
+  "description": "Valid lifetime for addresses in seconds",
+  "type": "number"
+ },
+ "vendor_spec": {
+  "default": "5678-1-0x3031323334,1556-2-0x393837363534",
+  "description": "Vendor-specific options string",
+  "type": "string"
+ }
 }

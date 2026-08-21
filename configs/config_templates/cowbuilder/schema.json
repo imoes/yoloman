@@ -1,100 +1,99 @@
 {
-  "dist": {
-    "type": "string",
-    "default": "bullseye",
-    "description": "Debian/Ubuntu release codename (e.g., bullseye, jammy, noble). Must match available mirror."
+ "arch": {
+  "default": "",
+  "description": "Target architecture (e.g., amd64, arm64). Leave empty to build for the host architecture.",
+  "type": "string"
+ },
+ "base_tgz_path": {
+  "default": "/var/cache/cow/build-base.tgz",
+  "description": "Path to the cowbuilder base image tarball. cowbuilder reuses this snapshot for fast rebuilds.",
+  "type": "string"
+ },
+ "build_dir": {
+  "default": "/tmp/buildd",
+  "description": "Working directory inside the chroot where source is unpacked and compiled.",
+  "type": "string"
+ },
+ "cowbuilder_opts": {
+  "default": "--auto-cleanup",
+  "description": "Extra options for cowbuilder (e.g., '--no-cleanup-after', '--buildplace /custom/path').",
+  "type": "string"
+ },
+ "cowcow_opts": {
+  "default": "--no-copyonwrite",
+  "description": "Options passed to cow when invoked by cowbuilder. Common: '--no-copyonwrite' or '--shared-tmpfs'.",
+  "type": "string"
+ },
+ "dist": {
+  "default": "bullseye",
+  "description": "Debian/Ubuntu release codename (e.g., bullseye, jammy, noble). Must match available mirror.",
+  "type": "string"
+ },
+ "env_vars": {
+  "additionalProperties": {
+   "type": "string"
   },
-  "arch": {
-    "type": "string",
+  "description": "Environment variables to export inside the chroot (e.g., {'DEB_BUILD_OPTIONS': 'parallel=4'}).",
+  "type": "object"
+ },
+ "extra_packages": {
+  "default": [],
+  "description": "Additional packages to install in the build chroot (e.g., ['build-essential', 'devscripts']).",
+  "type": "list"
+ },
+ "extra_sources": {
+  "default": [],
+  "description": "Additional APT repository entries (e.g., security, backports). Each item adds one sources.list line.",
+  "items": {
+   "comment": {
     "default": "",
-    "description": "Target architecture (e.g., amd64, arm64). Leave empty to build for the host architecture."
+    "description": "Optional human-readable comment for the source (e.g., 'Debian security updates')",
+    "type": "string"
+   },
+   "content": {
+    "default": "",
+    "description": "Exact line to write into /etc/apt/sources.list (e.g., 'deb http://security.debian.org/ bullseye-security main')",
+    "type": "string"
+   }
   },
-  "base_tgz_path": {
-    "type": "string",
-    "default": "/var/cache/cow/build-base.tgz",
-    "description": "Path to the cowbuilder base image tarball. cowbuilder reuses this snapshot for fast rebuilds."
+  "type": "list"
+ },
+ "hooks": {
+  "default": [],
+  "description": "Custom hook scripts (pre-build, post-build, etc.). Scripts run inside the chroot unless otherwise noted.",
+  "items": {
+   "script_path": {
+    "default": "",
+    "description": "Absolute path to the executable script (must be present in the build host, e.g., /usr/local/bin/cow-prebuild.sh).",
+    "type": "string"
+   },
+   "type": {
+    "default": "prebuild",
+    "description": "Hook type; determines when it runs.",
+    "enum": [
+     "preinit",
+     "postinit",
+     "prebuild",
+     "postbuild"
+    ],
+    "type": "string"
+   }
   },
-  "mirror_url": {
-    "type": "string",
-    "default": "http://deb.debian.org/debian",
-    "description": "Base APT mirror URL. Must be reachable and support the requested distribution."
-  },
-  "extra_sources": {
-    "type": "list",
-    "default": [],
-    "description": "Additional APT repository entries (e.g., security, backports). Each item adds one sources.list line.",
-    "items": {
-      "comment": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable comment for the source (e.g., 'Debian security updates')"
-      },
-      "content": {
-        "type": "string",
-        "default": "",
-        "description": "Exact line to write into /etc/apt/sources.list (e.g., 'deb http://security.debian.org/ bullseye-security main')"
-      }
-    }
-  },
-  "extra_packages": {
-    "type": "list",
-    "default": [],
-    "description": "Additional packages to install in the build chroot (e.g., ['build-essential', 'devscripts'])."
-  },
-  "cowcow_opts": {
-    "type": "string",
-    "default": "--no-copyonwrite",
-    "description": "Options passed to cow when invoked by cowbuilder. Common: '--no-copyonwrite' or '--shared-tmpfs'."
-  },
-  "use_cow": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable copy-on-write for speed (requires overlay filesystem support). Set to true only if /var/cache/cow is on a COW-capable FS (e.g., btrfs)."
-  },
-  "cowbuilder_opts": {
-    "type": "string",
-    "default": "--auto-cleanup",
-    "description": "Extra options for cowbuilder (e.g., '--no-cleanup-after', '--buildplace /custom/path')."
-  },
-  "hooks": {
-    "type": "list",
-    "default": [],
-    "description": "Custom hook scripts (pre-build, post-build, etc.). Scripts run inside the chroot unless otherwise noted.",
-    "items": {
-      "type": {
-        "type": "string",
-        "enum": [
-          "preinit",
-          "postinit",
-          "prebuild",
-          "postbuild"
-        ],
-        "default": "prebuild",
-        "description": "Hook type; determines when it runs."
-      },
-      "script_path": {
-        "type": "string",
-        "default": "",
-        "description": "Absolute path to the executable script (must be present in the build host, e.g., /usr/local/bin/cow-prebuild.sh)."
-      }
-    }
-  },
-  "env_vars": {
-    "type": "object",
-    "default": {},
-    "description": "Environment variables to export inside the chroot (e.g., {'DEB_BUILD_OPTIONS': 'parallel=4'}).",
-    "additionalProperties": {
-      "type": "string"
-    }
-  },
-  "build_dir": {
-    "type": "string",
-    "default": "/tmp/buildd",
-    "description": "Working directory inside the chroot where source is unpacked and compiled."
-  },
-  "output_dir": {
-    "type": "string",
-    "default": "/var/cache/pbuilder/result",
-    "description": "Directory on the host where built .deb files are copied after a successful build."
-  }
+  "type": "list"
+ },
+ "mirror_url": {
+  "default": "http://deb.debian.org/debian",
+  "description": "Base APT mirror URL. Must be reachable and support the requested distribution.",
+  "type": "string"
+ },
+ "output_dir": {
+  "default": "/var/cache/pbuilder/result",
+  "description": "Directory on the host where built .deb files are copied after a successful build.",
+  "type": "string"
+ },
+ "use_cow": {
+  "default": false,
+  "description": "Enable copy-on-write for speed (requires overlay filesystem support). Set to true only if /var/cache/cow is on a COW-capable FS (e.g., btrfs).",
+  "type": "bool"
+ }
 }

@@ -1,111 +1,110 @@
 {
-  "repos": {
-    "type": "list",
+ "default_additional_dependencies": {
+  "default": [],
+  "description": "Dependencies added to each hook’s environment when installed (e.g., ['requests', 'numpy']).",
+  "type": "list"
+ },
+ "default_language_version": {
+  "description": "Global default version for each language (e.g., 'python: python3.10'). Overrides default system version.",
+  "type": "object"
+ },
+ "fail_fast": {
+  "default": false,
+  "description": "If true, abort all hooks after the first failure.",
+  "type": "bool"
+ },
+ "minimum_pre_commit_version": {
+  "default": "3.0.0",
+  "description": "Minimum pre-commit version required to use this config. Prevents compatibility issues.",
+  "type": "string"
+ },
+ "repos": {
+  "default": [],
+  "description": "List of Git repositories to pull hooks from. Each repo entry can specify a `rev` (tag, branch, or commit), and `hooks` to run from that repo.",
+  "items": {
+   "hooks": {
     "default": [],
-    "description": "List of Git repositories to pull hooks from. Each repo entry can specify a `rev` (tag, branch, or commit), and `hooks` to run from that repo.",
+    "description": "List of hooks to enable from this repository.",
     "items": {
-      "repo": {
-        "type": "string",
-        "default": "",
-        "description": "Git URL or pre-defined hook repo identifier (e.g., 'https://github.com/pre-commit/pre-commit-hooks')."
-      },
-      "rev": {
-        "type": "string",
-        "default": "",
-        "description": "Revision (tag/branch/commit) to use from the repo. If omitted, defaults to the latest commit."
-      },
-      "hooks": {
-        "type": "list",
-        "default": [],
-        "description": "List of hooks to enable from this repository.",
-        "items": {
-          "id": {
-            "type": "string",
-            "default": "",
-            "description": "Hook ID (required if no `name` or `entry` provided)."
-          },
-          "name": {
-            "type": "string",
-            "default": "",
-            "description": "Human-readable name for the hook (optional, overrides `id`)."
-          },
-          "entry": {
-            "type": "string",
-            "default": "",
-            "description": "Command or binary invoked for this hook (optional, inferred from `id` if omitted)."
-          },
-          "args": {
-            "type": "list",
-            "default": [],
-            "description": "Arguments passed to the hook command."
-          },
-          "files": {
-            "type": "string",
-            "default": "",
-            "description": "Regex pattern to match files to run on (e.g., '^src/')."
-          },
-          "exclude": {
-            "type": "string",
-            "default": "",
-            "description": "Regex pattern to exclude files from running."
-          },
-          "types": {
-            "type": "list",
-            "default": [],
-            "description": "File types to run on (e.g., ['python', 'yaml'])."
-          },
-          "language": {
-            "type": "string",
-            "default": "",
-            "description": "Implementation language (e.g., 'system', 'python', 'rust')."
-          },
-          "always_run": {
-            "type": "bool",
-            "default": false,
-            "description": "Run this hook even when no files match (e.g., for checks like docker-image)."
-          },
-          "pass_filenames": {
-            "type": "bool",
-            "default": true,
-            "description": "Pass matched filenames as arguments to the hook command."
-          },
-          "description": {
-            "type": "string",
-            "default": "",
-            "description": "Optional human-readable description for documentation or UI."
-          }
-        }
-      }
-    }
+     "always_run": {
+      "default": false,
+      "description": "Run this hook even when no files match (e.g., for checks like docker-image).",
+      "type": "bool"
+     },
+     "args": {
+      "default": [],
+      "description": "Arguments passed to the hook command.",
+      "type": "list"
+     },
+     "description": {
+      "default": "",
+      "description": "Optional human-readable description for documentation or UI.",
+      "type": "string"
+     },
+     "entry": {
+      "default": "",
+      "description": "Command or binary invoked for this hook (optional, inferred from `id` if omitted).",
+      "type": "string"
+     },
+     "exclude": {
+      "default": "",
+      "description": "Regex pattern to exclude files from running.",
+      "type": "string"
+     },
+     "files": {
+      "default": "",
+      "description": "Regex pattern to match files to run on (e.g., '^src/').",
+      "type": "string"
+     },
+     "id": {
+      "default": "",
+      "description": "Hook ID (required if no `name` or `entry` provided).",
+      "type": "string"
+     },
+     "language": {
+      "default": "",
+      "description": "Implementation language (e.g., 'system', 'python', 'rust').",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "description": "Human-readable name for the hook (optional, overrides `id`).",
+      "type": "string"
+     },
+     "pass_filenames": {
+      "default": true,
+      "description": "Pass matched filenames as arguments to the hook command.",
+      "type": "bool"
+     },
+     "types": {
+      "default": [],
+      "description": "File types to run on (e.g., ['python', 'yaml']).",
+      "type": "list"
+     }
+    },
+    "type": "list"
+   },
+   "repo": {
+    "default": "",
+    "description": "Git URL or pre-defined hook repo identifier (e.g., 'https://github.com/pre-commit/pre-commit-hooks').",
+    "type": "string"
+   },
+   "rev": {
+    "default": "",
+    "description": "Revision (tag/branch/commit) to use from the repo. If omitted, defaults to the latest commit.",
+    "type": "string"
+   }
   },
-  "fail_fast": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, abort all hooks after the first failure."
-  },
-  "skip": {
-    "type": "list",
-    "default": [],
-    "description": "List of hook IDs to skip globally (e.g., ['flake8', 'myenv'] for interactive skips)."
-  },
-  "default_language_version": {
-    "type": "object",
-    "default": {},
-    "description": "Global default version for each language (e.g., 'python: python3.10'). Overrides default system version."
-  },
-  "default_additional_dependencies": {
-    "type": "list",
-    "default": [],
-    "description": "Dependencies added to each hook\u2019s environment when installed (e.g., ['requests', 'numpy'])."
-  },
-  "minimum_pre_commit_version": {
-    "type": "string",
-    "default": "3.0.0",
-    "description": "Minimum pre-commit version required to use this config. Prevents compatibility issues."
-  },
-  "show_diff_on_failure": {
-    "type": "bool",
-    "default": false,
-    "description": "Show unified diff of changes made by hooks that modify files (e.g., formatters)."
-  }
+  "type": "list"
+ },
+ "show_diff_on_failure": {
+  "default": false,
+  "description": "Show unified diff of changes made by hooks that modify files (e.g., formatters).",
+  "type": "bool"
+ },
+ "skip": {
+  "default": [],
+  "description": "List of hook IDs to skip globally (e.g., ['flake8', 'myenv'] for interactive skips).",
+  "type": "list"
+ }
 }

@@ -1,146 +1,142 @@
 {
-  "server": {
-    "type": "object",
-    "default": {},
-    "description": "Server network and connection settings",
-    "properties": {
-      "host": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "IP address or hostname the server binds to. Use '0.0.0.0' to listen on all interfaces."
-      },
-      "port": {
-        "type": "number",
-        "default": 6523,
-        "description": "Port number for incoming connections."
-      },
-      "ssl_enabled": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable TLS/SSL encryption for client connections."
-      },
-      "ssl_certificate": {
-        "type": "string",
-        "default": "",
-        "description": "Absolute path to the SSL certificate file (PEM format). Required if SSL is enabled."
-      },
-      "ssl_key": {
-        "type": "string",
-        "default": "",
-        "description": "Absolute path to the SSL private key file (PEM format). Required if SSL is enabled."
-      },
-      "max_connections": {
-        "type": "number",
-        "default": 50,
-        "description": "Maximum number of simultaneous client connections allowed."
-      }
-    }
+ "general": {
+  "description": "General operational settings",
+  "properties": {
+   "autosave_dir": {
+    "default": "",
+    "description": "Directory path to store autosaved documents (empty disables autosave).",
+    "type": "string"
+   },
+   "autosave_interval": {
+    "default": 30,
+    "description": "Interval (seconds) between autosave operations.",
+    "type": "number"
+   },
+   "versioning": {
+    "default": false,
+    "description": "Enable versioned document storage.",
+    "type": "boolean"
+   },
+   "versioning_dir": {
+    "default": "/var/lib/gobby-0.5/versions",
+    "description": "Directory for storing version history (only used if versioning=true).",
+    "type": "string"
+   }
   },
-  "security": {
-    "type": "object",
-    "default": {},
-    "description": "Authentication and access control",
-    "properties": {
-      "password_auth": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable username/password authentication."
-      },
-      "password_file": {
-        "type": "string",
-        "default": "/etc/gobby-0.5/users.conf",
-        "description": "Path to INI-style file containing user credentials (format: [users] username=password)."
-      },
-      "cert_auth": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable client certificate-based authentication."
-      },
-      "ca_certificate": {
-        "type": "string",
-        "default": "",
-        "description": "Path to CA certificate file (PEM) used to verify client certificates. Required if cert_auth=true."
-      },
-      "require_cert": {
-        "type": "boolean",
-        "default": true,
-        "description": "Require every connecting client to present a valid certificate (only effective if cert_auth=true)."
-      },
-      "allowed_cert_fingerprints": {
-        "type": "list",
-        "default": [],
-        "description": "List of allowed client certificate fingerprints (SHA-256, hex). When non-empty, only certs in this list are accepted regardless of CA.",
-        "items": {
-          "type": "string",
-          "description": "SHA-256 fingerprint of an allowed certificate, in uppercase hex (e.g., 'AB:CD:12...')"
-        }
-      }
-    }
+  "type": "object"
+ },
+ "logging": {
+  "description": "Server logging configuration",
+  "properties": {
+   "file": {
+    "default": "",
+    "description": "Path to log file. Empty string means log to standard output.",
+    "type": "string"
+   },
+   "level": {
+    "default": "info",
+    "description": "Minimum severity level to log.",
+    "enum": [
+     "debug",
+     "info",
+     "warning",
+     "error",
+     "critical"
+    ],
+    "type": "string"
+   },
+   "rotate": {
+    "default": false,
+    "description": "Enable log rotation.",
+    "type": "boolean"
+   },
+   "rotate_max_files": {
+    "default": 5,
+    "description": "Number of old log files to retain after rotation.",
+    "type": "number"
+   },
+   "rotate_max_size": {
+    "default": 10,
+    "description": "Maximum size (in MB) per log file before rotation (if rotate=true).",
+    "type": "number"
+   }
   },
-  "logging": {
-    "type": "object",
-    "default": {},
-    "description": "Server logging configuration",
-    "properties": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "enum": [
-          "debug",
-          "info",
-          "warning",
-          "error",
-          "critical"
-        ],
-        "description": "Minimum severity level to log."
-      },
-      "file": {
-        "type": "string",
-        "default": "",
-        "description": "Path to log file. Empty string means log to standard output."
-      },
-      "rotate": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable log rotation."
-      },
-      "rotate_max_size": {
-        "type": "number",
-        "default": 10,
-        "description": "Maximum size (in MB) per log file before rotation (if rotate=true)."
-      },
-      "rotate_max_files": {
-        "type": "number",
-        "default": 5,
-        "description": "Number of old log files to retain after rotation."
-      }
-    }
+  "type": "object"
+ },
+ "security": {
+  "description": "Authentication and access control",
+  "properties": {
+   "allowed_cert_fingerprints": {
+    "default": [],
+    "description": "List of allowed client certificate fingerprints (SHA-256, hex). When non-empty, only certs in this list are accepted regardless of CA.",
+    "items": {
+     "description": "SHA-256 fingerprint of an allowed certificate, in uppercase hex (e.g., 'AB:CD:12...')",
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "ca_certificate": {
+    "default": "",
+    "description": "Path to CA certificate file (PEM) used to verify client certificates. Required if cert_auth=true.",
+    "type": "string"
+   },
+   "cert_auth": {
+    "default": false,
+    "description": "Enable client certificate-based authentication.",
+    "type": "boolean"
+   },
+   "password_auth": {
+    "default": false,
+    "description": "Enable username/password authentication.",
+    "type": "boolean"
+   },
+   "password_file": {
+    "default": "/etc/gobby-0.5/users.conf",
+    "description": "Path to INI-style file containing user credentials (format: [users] username=password).",
+    "type": "string"
+   },
+   "require_cert": {
+    "default": true,
+    "description": "Require every connecting client to present a valid certificate (only effective if cert_auth=true).",
+    "type": "boolean"
+   }
   },
-  "general": {
-    "type": "object",
-    "default": {},
-    "description": "General operational settings",
-    "properties": {
-      "autosave_dir": {
-        "type": "string",
-        "default": "",
-        "description": "Directory path to store autosaved documents (empty disables autosave)."
-      },
-      "autosave_interval": {
-        "type": "number",
-        "default": 30,
-        "description": "Interval (seconds) between autosave operations."
-      },
-      "versioning": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable versioned document storage."
-      },
-      "versioning_dir": {
-        "type": "string",
-        "default": "/var/lib/gobby-0.5/versions",
-        "description": "Directory for storing version history (only used if versioning=true)."
-      }
-    }
-  }
+  "type": "object"
+ },
+ "server": {
+  "description": "Server network and connection settings",
+  "properties": {
+   "host": {
+    "default": "127.0.0.1",
+    "description": "IP address or hostname the server binds to. Use '0.0.0.0' to listen on all interfaces.",
+    "type": "string"
+   },
+   "max_connections": {
+    "default": 50,
+    "description": "Maximum number of simultaneous client connections allowed.",
+    "type": "number"
+   },
+   "port": {
+    "default": 6523,
+    "description": "Port number for incoming connections.",
+    "type": "number"
+   },
+   "ssl_certificate": {
+    "default": "",
+    "description": "Absolute path to the SSL certificate file (PEM format). Required if SSL is enabled.",
+    "type": "string"
+   },
+   "ssl_enabled": {
+    "default": false,
+    "description": "Enable TLS/SSL encryption for client connections.",
+    "type": "boolean"
+   },
+   "ssl_key": {
+    "default": "",
+    "description": "Absolute path to the SSL private key file (PEM format). Required if SSL is enabled.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ }
 }

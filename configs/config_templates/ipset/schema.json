@@ -1,133 +1,131 @@
 {
-  "sets": {
-    "type": "list",
-    "default": [],
-    "description": "A list of IP sets to create and populate. Each item is an object describing a set and its entries. Items fields: name, type, hashsize (optional for hash types), maxelem (optional for hash types), timeout (optional global timeout for the set), counters (optional flag), comment (optional flag for set creation), entries (list of entry objects). Items fields: type (ip, ip,mac, net, net,iface), value (string for ip/net, object for ip,mac with ip/mac keys, object for net,iface with net/iface keys), timeout (optional per-entry timeout), nomatch (optional flag), comment (optional per-entry comment string). Please refer to ipset(8) for valid set types and entry formats. For hash types like hash:ip, hash:net, hash:ip,mac, hash:net,iface, hashsize defaults to 1024 and maxelem to 65536 if not specified. Timeout of 0 means permanent entry. Counters flag enables packet/byte counting. Comment flag enables comment extension on the set itself. Per-entry comments are only valid if the set was created with 'comment' extension."
-  },
-  "sets[].name": {
-    "type": "string",
-    "default": "",
-    "description": "The name of the IP set.",
-    "enum": [
-      "before",
-      "after"
-    ]
-  },
-  "sets[].type": {
-    "type": "string",
-    "default": "hash:ip",
-    "description": "The type of the IP set (e.g., hash:ip, hash:net, bitmap:ip, hash:ip,mac, hash:net,iface).",
-    "enum": [
-      "bitmap:ip",
-      "bitmap:ip,mac",
-      "bitmap:port",
-      "hash:ip",
-      "hash:mac",
-      "hash:ip,mac",
-      "hash:net",
-      "hash:net,net",
-      "hash:ip,port",
-      "hash:net,port",
-      "hash:ip,port,ip",
-      "hash:ip,port,net",
-      "hash:ip,mark",
-      "hash:net,port,net",
-      "hash:net,iface",
-      "list:set"
-    ]
-  },
-  "sets[].hashsize": {
-    "type": "number",
-    "default": 1024,
-    "description": "Initial hash size for hash type sets. Must be a power of two. Only used for hash types."
-  },
-  "sets[].maxelem": {
-    "type": "number",
-    "default": 65536,
-    "description": "Maximum number of elements for hash type sets. Only used for hash types."
-  },
-  "sets[].timeout": {
-    "type": "number",
-    "default": 0,
-    "description": "Default timeout for entries in this set (in seconds). 0 means permanent."
-  },
-  "sets[].counters": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable packet and byte counters for the set."
-  },
-  "sets[].comment": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable comment extension for the set. Allows per-entry comments."
-  },
-  "sets[].entries": {
-    "type": "list",
-    "default": [],
-    "description": "List of entries to add to the set. Each entry is an object. Items fields: type, value, timeout, nomatch, comment."
-  },
-  "sets[].entries[].type": {
-    "type": "string",
-    "default": "ip",
-    "description": "The format of the entry value. Use 'ip' for hash:ip, 'net' for hash:net, 'ip,mac' for hash:ip,mac, 'net,iface' for hash:net,iface.",
-    "enum": [
-      "ip",
-      "net",
-      "ip,mac",
-      "mac",
-      "net,net",
-      "ip,port",
-      "net,port",
-      "ip,port,ip",
-      "ip,port,net",
-      "ip,mark",
-      "net,port,net",
-      "net,iface",
-      "set"
-    ]
-  },
-  "sets[].entries[].value": {
-    "type": "string",
-    "default": "",
-    "description": "The entry value. For 'ip' or 'net', this is the IP/Network string (e.g., '192.168.1.0/24'). For 'ip,mac', this must be an object with 'ip' (string) and 'mac' (string) keys. For 'net,iface', this must be an object with 'net' (string) and 'iface' (string) keys."
-  },
-  "sets[].entries[].value.ip": {
-    "type": "string",
-    "default": "",
-    "description": "IP address for ip,mac entries.",
-    "enum": [
-      "before",
-      "after"
-    ]
-  },
-  "sets[].entries[].value.mac": {
-    "type": "string",
-    "default": "",
-    "description": "MAC address for ip,mac entries."
-  },
-  "sets[].entries[].value.net": {
-    "type": "string",
-    "default": "",
-    "description": "Network address for net,iface entries."
-  },
-  "sets[].entries[].value.iface": {
-    "type": "string",
-    "default": "",
-    "description": "Interface name for net,iface entries."
-  },
-  "sets[].entries[].timeout": {
-    "type": "number",
-    "default": 0,
-    "description": "Specific timeout for this entry (in seconds). Overrides set default if > 0. 0 means permanent."
-  },
-  "sets[].entries[].nomatch": {
-    "type": "bool",
-    "default": false,
-    "description": "Mark entry as nomatch (exception) for hash:*net* types."
-  },
-  "sets[].entries[].comment": {
-    "type": "string",
-    "default": "",
-    "description": "Comment string for the entry. Only used if the set was created with the 'comment' extension."
-  }
+ "sets": {
+  "default": [],
+  "description": "A list of IP sets to create and populate. Each item is an object describing a set and its entries. Items fields: name, type, hashsize (optional for hash types), maxelem (optional for hash types), timeout (optional global timeout for the set), counters (optional flag), comment (optional flag for set creation), entries (list of entry objects). Items fields: type (ip, ip,mac, net, net,iface), value (string for ip/net, object for ip,mac with ip/mac keys, object for net,iface with net/iface keys), timeout (optional per-entry timeout), nomatch (optional flag), comment (optional per-entry comment string). Please refer to ipset(8) for valid set types and entry formats. For hash types like hash:ip, hash:net, hash:ip,mac, hash:net,iface, hashsize defaults to 1024 and maxelem to 65536 if not specified. Timeout of 0 means permanent entry. Counters flag enables packet/byte counting. Comment flag enables comment extension on the set itself. Per-entry comments are only valid if the set was created with 'comment' extension.",
+  "type": "list"
+ },
+ "sets[].comment": {
+  "default": false,
+  "description": "Enable comment extension for the set. Allows per-entry comments.",
+  "type": "bool"
+ },
+ "sets[].counters": {
+  "default": false,
+  "description": "Enable packet and byte counters for the set.",
+  "type": "bool"
+ },
+ "sets[].entries": {
+  "default": [],
+  "description": "List of entries to add to the set. Each entry is an object. Items fields: type, value, timeout, nomatch, comment.",
+  "type": "list"
+ },
+ "sets[].entries[].comment": {
+  "default": "",
+  "description": "Comment string for the entry. Only used if the set was created with the 'comment' extension.",
+  "type": "string"
+ },
+ "sets[].entries[].nomatch": {
+  "default": false,
+  "description": "Mark entry as nomatch (exception) for hash:*net* types.",
+  "type": "bool"
+ },
+ "sets[].entries[].timeout": {
+  "default": 0,
+  "description": "Specific timeout for this entry (in seconds). Overrides set default if > 0. 0 means permanent.",
+  "type": "number"
+ },
+ "sets[].entries[].type": {
+  "default": "ip",
+  "description": "The format of the entry value. Use 'ip' for hash:ip, 'net' for hash:net, 'ip,mac' for hash:ip,mac, 'net,iface' for hash:net,iface.",
+  "enum": [
+   "ip",
+   "net",
+   "ip,mac",
+   "mac",
+   "net,net",
+   "ip,port",
+   "net,port",
+   "ip,port,ip",
+   "ip,port,net",
+   "ip,mark",
+   "net,port,net",
+   "net,iface",
+   "set"
+  ],
+  "type": "string"
+ },
+ "sets[].entries[].value": {
+  "default": "",
+  "description": "The entry value. For 'ip' or 'net', this is the IP/Network string (e.g., '192.168.1.0/24'). For 'ip,mac', this must be an object with 'ip' (string) and 'mac' (string) keys. For 'net,iface', this must be an object with 'net' (string) and 'iface' (string) keys.",
+  "type": "string"
+ },
+ "sets[].entries[].value.iface": {
+  "default": "",
+  "description": "Interface name for net,iface entries.",
+  "type": "string"
+ },
+ "sets[].entries[].value.ip": {
+  "description": "IP address for ip,mac entries.",
+  "enum": [
+   "before",
+   "after"
+  ],
+  "type": "string"
+ },
+ "sets[].entries[].value.mac": {
+  "default": "",
+  "description": "MAC address for ip,mac entries.",
+  "type": "string"
+ },
+ "sets[].entries[].value.net": {
+  "default": "",
+  "description": "Network address for net,iface entries.",
+  "type": "string"
+ },
+ "sets[].hashsize": {
+  "default": 1024,
+  "description": "Initial hash size for hash type sets. Must be a power of two. Only used for hash types.",
+  "type": "number"
+ },
+ "sets[].maxelem": {
+  "default": 65536,
+  "description": "Maximum number of elements for hash type sets. Only used for hash types.",
+  "type": "number"
+ },
+ "sets[].name": {
+  "description": "The name of the IP set.",
+  "enum": [
+   "before",
+   "after"
+  ],
+  "type": "string"
+ },
+ "sets[].timeout": {
+  "default": 0,
+  "description": "Default timeout for entries in this set (in seconds). 0 means permanent.",
+  "type": "number"
+ },
+ "sets[].type": {
+  "default": "hash:ip",
+  "description": "The type of the IP set (e.g., hash:ip, hash:net, bitmap:ip, hash:ip,mac, hash:net,iface).",
+  "enum": [
+   "bitmap:ip",
+   "bitmap:ip,mac",
+   "bitmap:port",
+   "hash:ip",
+   "hash:mac",
+   "hash:ip,mac",
+   "hash:net",
+   "hash:net,net",
+   "hash:ip,port",
+   "hash:net,port",
+   "hash:ip,port,ip",
+   "hash:ip,port,net",
+   "hash:ip,mark",
+   "hash:net,port,net",
+   "hash:net,iface",
+   "list:set"
+  ],
+  "type": "string"
+ }
 }

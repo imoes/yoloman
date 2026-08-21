@@ -1,324 +1,322 @@
 {
-  "cluster_name": {
-    "type": "string",
-    "default": "my-cluster",
-    "description": "Unique name for the cluster, used for identification and HA coordination."
+ "cluster_name": {
+  "default": "my-cluster",
+  "description": "Unique name for the cluster, used for identification and HA coordination.",
+  "type": "string"
+ },
+ "cman": {
+  "description": "CMAN (Cluster Manager) settings for cluster messaging and membership.",
+  "items": {
+   "consensus_timeout": {
+    "default": 1000,
+    "description": "Time (ms) to wait before consensus is declared lost.",
+    "type": "number"
+   },
+   "join": {
+    "default": 100,
+    "description": "Join timeout (ms) for new nodes joining the ring.",
+    "type": "number"
+   },
+   "join_retransmit": {
+    "default": 50,
+    "description": "Join retransmit interval (ms).",
+    "type": "number"
+   },
+   "max_messages": {
+    "default": 20,
+    "description": "Maximum queued messages in the ring.",
+    "type": "number"
+   },
+   "max_network_delay": {
+    "default": 50,
+    "description": "Maximum network delay (ms) between ring nodes.",
+    "type": "number"
+   },
+   "miss_count": {
+    "default": 5,
+    "description": "Number of missed heartbeats before declaring a node down.",
+    "type": "number"
+   },
+   "rrp_active": {
+    "default": "",
+    "description": "Interface used for redundant ring (e.g., 'eth1').",
+    "type": "string"
+   },
+   "rrp_mode": {
+    "default": "none",
+    "description": "Redundant ring protocol mode: 'none', 'active', or 'passive'.",
+    "type": "string"
+   },
+   "rrp_problem_timeout": {
+    "default": 3000,
+    "description": "Time (ms) before declaring redundant ring problematic.",
+    "type": "number"
+   },
+   "rrp_transport": {
+    "default": "udp",
+    "description": "Transport for redundant ring (usually 'udp').",
+    "type": "string"
+   },
+   "secauth": {
+    "default": "0",
+    "description": "Enable security authentication (0 = off, 1 = on).",
+    "type": "string"
+   },
+   "token": {
+    "default": 10000,
+    "description": "Token timeout in milliseconds before declaring ring failure.",
+    "type": "number"
+   },
+   "token_retransmit": {
+    "default": 400,
+    "description": "Token retransmit timeout (ms).",
+    "type": "number"
+   },
+   "token_retransmits_before_loss": {
+    "default": 10,
+    "description": "Retransmit attempts before token loss is declared.",
+    "type": "number"
+   },
+   "totem_version": {
+    "default": "2",
+    "description": "Totem ring version (usually 2).",
+    "type": "string"
+   },
+   "transport": {
+    "default": "udp",
+    "description": "RPM transport protocol: 'udp' or 'sctp'.",
+    "type": "string"
+   },
+   "two_node": {
+    "default": false,
+    "description": "Enable special handling for 2-node clusters.",
+    "type": "bool"
+   }
   },
-  "config_version": {
-    "type": "number",
-    "default": 1,
-    "description": "Version number of the cluster configuration; must be incremented after changes."
-  },
-  "cman": {
-    "type": "object",
+  "type": "object"
+ },
+ "config_version": {
+  "default": 1,
+  "description": "Version number of the cluster configuration; must be incremented after changes.",
+  "type": "number"
+ },
+ "global_fencedevices": {
+  "default": [],
+  "description": "Fencing devices defined globally for the cluster.",
+  "items": {
+   "agent": {
+    "default": "",
+    "description": "Fencing agent (e.g., 'fence_scsi', 'fence_virsh').",
+    "type": "string"
+   },
+   "name": {
+    "default": "",
+    "description": "Name of the fencing device.",
+    "type": "string"
+   },
+   "options": {
     "default": {},
-    "description": "CMAN (Cluster Manager) settings for cluster messaging and membership.",
-    "items": {
-      "transport": {
-        "type": "string",
-        "default": "udp",
-        "description": "RPM transport protocol: 'udp' or 'sctp'."
-      },
-      "secauth": {
-        "type": "string",
-        "default": "0",
-        "description": "Enable security authentication (0 = off, 1 = on)."
-      },
-      "totem_version": {
-        "type": "string",
-        "default": "2",
-        "description": "Totem ring version (usually 2)."
-      },
-      "token": {
-        "type": "number",
-        "default": 10000,
-        "description": "Token timeout in milliseconds before declaring ring failure."
-      },
-      "consensus_timeout": {
-        "type": "number",
-        "default": 1000,
-        "description": "Time (ms) to wait before consensus is declared lost."
-      },
-      "two_node": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable special handling for 2-node clusters."
-      },
-      "token_retransmit": {
-        "type": "number",
-        "default": 400,
-        "description": "Token retransmit timeout (ms)."
-      },
-      "token_retransmits_before_loss": {
-        "type": "number",
-        "default": 10,
-        "description": "Retransmit attempts before token loss is declared."
-      },
-      "join": {
-        "type": "number",
-        "default": 100,
-        "description": "Join timeout (ms) for new nodes joining the ring."
-      },
-      "join_retransmit": {
-        "type": "number",
-        "default": 50,
-        "description": "Join retransmit interval (ms)."
-      },
-      "max_messages": {
-        "type": "number",
-        "default": 20,
-        "description": "Maximum queued messages in the ring."
-      },
-      "max_network_delay": {
-        "type": "number",
-        "default": 50,
-        "description": "Maximum network delay (ms) between ring nodes."
-      },
-      "miss_count": {
-        "type": "number",
-        "default": 5,
-        "description": "Number of missed heartbeats before declaring a node down."
-      },
-      "rrp_mode": {
-        "type": "string",
-        "default": "none",
-        "description": "Redundant ring protocol mode: 'none', 'active', or 'passive'."
-      },
-      "rrp_problem_timeout": {
-        "type": "number",
-        "default": 3000,
-        "description": "Time (ms) before declaring redundant ring problematic."
-      },
-      "rrp_active": {
-        "type": "string",
-        "default": "",
-        "description": "Interface used for redundant ring (e.g., 'eth1')."
-      },
-      "rrp_transport": {
-        "type": "string",
-        "default": "udp",
-        "description": "Transport for redundant ring (usually 'udp')."
-      }
-    }
+    "description": "Agent-specific options.",
+    "type": "object"
+   }
   },
-  "nodes": {
-    "type": "list",
+  "type": "list"
+ },
+ "nodes": {
+  "default": [],
+  "description": "List of cluster nodes, each with fencing and identity info.",
+  "items": {
+   "fence_methods": {
     "default": [],
-    "description": "List of cluster nodes, each with fencing and identity info.",
+    "description": "Fencing methods for this node, each referencing one or more devices.",
     "items": {
-      "name": {
-        "type": "string",
+     "devices": {
+      "default": [],
+      "description": "List of device names used by this method.",
+      "type": "list"
+     },
+     "name": {
+      "default": "",
+      "description": "Name of the fence method.",
+      "type": "string"
+     }
+    },
+    "type": "list"
+   },
+   "fencedevices": {
+    "default": [],
+    "description": "Fencing devices defined for this node.",
+    "items": {
+     "agent": {
+      "default": "",
+      "description": "Fencing agent (e.g., 'fence_ipmilan', 'fence_xvm').",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "description": "Name of the fencing device.",
+      "type": "string"
+     },
+     "options": {
+      "default": {},
+      "description": "Agent-specific options (e.g., {'ipaddr': '10.0.0.1', 'login': 'admin'}).",
+      "type": "object"
+     }
+    },
+    "type": "list"
+   },
+   "id": {
+    "default": 0,
+    "description": "Unique node ID (1-based integer).",
+    "type": "number"
+   },
+   "name": {
+    "default": "",
+    "description": "Hostname of the node.",
+    "type": "string"
+   }
+  },
+  "type": "list"
+ },
+ "rm": {
+  "description": "Resource manager (RM) settings — typically Pacemaker in integrated mode.",
+  "items": {
+   "dlm_lockspace": {
+    "default": {},
+    "description": "DLM lockspace configuration for GFS2 or similar shared storage.",
+    "items": {
+     "name": {
+      "default": "gfs",
+      "description": "Lockspace name (must match filesystem name).",
+      "type": "string"
+     },
+     "num_plocks": {
+      "default": 1024,
+      "description": "Maximum number of plocks.",
+      "type": "number"
+     },
+     "plocks": {
+      "default": true,
+      "description": "Enable plock (posix lock) support.",
+      "type": "bool"
+     }
+    },
+    "type": "object"
+   },
+   "failover_domains": {
+    "default": [],
+    "description": "Failover domains — defines which nodes can host certain resources.",
+    "items": {
+     "id": {
+      "default": "",
+      "description": "Domain name.",
+      "type": "string"
+     },
+     "nodes": {
+      "default": [],
+      "description": "List of node names in domain (strings or {name,priority} objects).",
+      "items": {
+       "name": {
         "default": "",
-        "description": "Hostname of the node."
-      },
-      "id": {
-        "type": "number",
+        "description": "Node name.",
+        "type": "string"
+       },
+       "priority": {
         "default": 0,
-        "description": "Unique node ID (1-based integer)."
+        "description": "Priority for this node (lower = higher priority).",
+        "type": "number"
+       }
       },
-      "fencedevices": {
-        "type": "list",
-        "default": [],
-        "description": "Fencing devices defined for this node.",
-        "items": {
-          "name": {
-            "type": "string",
-            "default": "",
-            "description": "Name of the fencing device."
-          },
-          "agent": {
-            "type": "string",
-            "default": "",
-            "description": "Fencing agent (e.g., 'fence_ipmilan', 'fence_xvm')."
-          },
-          "options": {
-            "type": "object",
-            "default": {},
-            "description": "Agent-specific options (e.g., {'ipaddr': '10.0.0.1', 'login': 'admin'})."
-          }
-        }
-      },
-      "fence_methods": {
-        "type": "list",
-        "default": [],
-        "description": "Fencing methods for this node, each referencing one or more devices.",
-        "items": {
-          "name": {
-            "type": "string",
-            "default": "",
-            "description": "Name of the fence method."
-          },
-          "devices": {
-            "type": "list",
-            "default": [],
-            "description": "List of device names used by this method."
-          }
-        }
-      }
-    }
-  },
-  "global_fencedevices": {
-    "type": "list",
+      "type": "list"
+     },
+     "ordered": {
+      "default": true,
+      "description": "If true, nodes are tried in priority order.",
+      "type": "bool"
+     },
+     "preferred_node": {
+      "default": "",
+      "description": "Preferred node for this domain (used if ordered=true).",
+      "type": "string"
+     },
+     "restricted": {
+      "default": false,
+      "description": "If true, only nodes in the domain may host resources.",
+      "type": "bool"
+     }
+    },
+    "type": "list"
+   },
+   "groups": {
     "default": [],
-    "description": "Fencing devices defined globally for the cluster.",
+    "description": "Resource groups — collections of resources started/stopped together.",
     "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Name of the fencing device."
-      },
-      "agent": {
-        "type": "string",
-        "default": "",
-        "description": "Fencing agent (e.g., 'fence_scsi', 'fence_virsh')."
-      },
-      "options": {
-        "type": "object",
-        "default": {},
-        "description": "Agent-specific options."
-      }
-    }
+     "id": {
+      "default": "",
+      "description": "Group name.",
+      "type": "string"
+     },
+     "preferred_node": {
+      "default": "",
+      "description": "Preferred node for group placement.",
+      "type": "string"
+     },
+     "priority": {
+      "default": 0,
+      "description": "Priority (higher = preferred).",
+      "type": "number"
+     },
+     "resources": {
+      "default": [],
+      "description": "List of resource IDs in this group.",
+      "type": "list"
+     }
+    },
+    "type": "list"
+   },
+   "pacemaker_startup": {
+    "default": "0",
+    "description": "Enable Pacemaker startup (0 = off, 1 = on).",
+    "type": "string"
+   },
+   "pacemaker_wait_for_all": {
+    "default": true,
+    "description": "Wait for all nodes before starting services.",
+    "type": "bool"
+   },
+   "resources": {
+    "default": [],
+    "description": "Resources to be managed (e.g., IPs, filesystems, services).",
+    "items": {
+     "attrs": {
+      "default": {},
+      "description": "Resource attributes (e.g., {'ip': '10.0.0.10', 'cidr_netmask': '24'}).",
+      "type": "object"
+     },
+     "id": {
+      "default": "",
+      "description": "Unique ID for the resource.",
+      "type": "string"
+     },
+     "meta": {
+      "default": {},
+      "description": "Metadata (e.g., {'priority': '100', 'resource-stickiness': '100'}).",
+      "type": "object"
+     },
+     "type": {
+      "default": "ocf:heartbeat:IPaddr2",
+      "description": "Resource type, usually in agent:provider:typename format.",
+      "type": "string"
+     }
+    },
+    "type": "list"
+   },
+   "shutdown_timeout": {
+    "default": 300,
+    "description": "Timeout (seconds) for graceful shutdown of resources.",
+    "type": "number"
+   }
   },
-  "rm": {
-    "type": "object",
-    "default": {},
-    "description": "Resource manager (RM) settings \u2014 typically Pacemaker in integrated mode.",
-    "items": {
-      "pacemaker_startup": {
-        "type": "string",
-        "default": "0",
-        "description": "Enable Pacemaker startup (0 = off, 1 = on)."
-      },
-      "pacemaker_wait_for_all": {
-        "type": "bool",
-        "default": true,
-        "description": "Wait for all nodes before starting services."
-      },
-      "shutdown_timeout": {
-        "type": "number",
-        "default": 300,
-        "description": "Timeout (seconds) for graceful shutdown of resources."
-      },
-      "resources": {
-        "type": "list",
-        "default": [],
-        "description": "Resources to be managed (e.g., IPs, filesystems, services).",
-        "items": {
-          "type": {
-            "type": "string",
-            "default": "ocf:heartbeat:IPaddr2",
-            "description": "Resource type, usually in agent:provider:typename format."
-          },
-          "id": {
-            "type": "string",
-            "default": "",
-            "description": "Unique ID for the resource."
-          },
-          "attrs": {
-            "type": "object",
-            "default": {},
-            "description": "Resource attributes (e.g., {'ip': '10.0.0.10', 'cidr_netmask': '24'})."
-          },
-          "meta": {
-            "type": "object",
-            "default": {},
-            "description": "Metadata (e.g., {'priority': '100', 'resource-stickiness': '100'})."
-          }
-        }
-      },
-      "groups": {
-        "type": "list",
-        "default": [],
-        "description": "Resource groups \u2014 collections of resources started/stopped together.",
-        "items": {
-          "id": {
-            "type": "string",
-            "default": "",
-            "description": "Group name."
-          },
-          "preferred_node": {
-            "type": "string",
-            "default": "",
-            "description": "Preferred node for group placement."
-          },
-          "priority": {
-            "type": "number",
-            "default": 0,
-            "description": "Priority (higher = preferred)."
-          },
-          "resources": {
-            "type": "list",
-            "default": [],
-            "description": "List of resource IDs in this group."
-          }
-        }
-      },
-      "failover_domains": {
-        "type": "list",
-        "default": [],
-        "description": "Failover domains \u2014 defines which nodes can host certain resources.",
-        "items": {
-          "id": {
-            "type": "string",
-            "default": "",
-            "description": "Domain name."
-          },
-          "ordered": {
-            "type": "bool",
-            "default": true,
-            "description": "If true, nodes are tried in priority order."
-          },
-          "restricted": {
-            "type": "bool",
-            "default": false,
-            "description": "If true, only nodes in the domain may host resources."
-          },
-          "preferred_node": {
-            "type": "string",
-            "default": "",
-            "description": "Preferred node for this domain (used if ordered=true)."
-          },
-          "nodes": {
-            "type": "list",
-            "default": [],
-            "description": "List of node names in domain (strings or {name,priority} objects).",
-            "items": {
-              "name": {
-                "type": "string",
-                "default": "",
-                "description": "Node name."
-              },
-              "priority": {
-                "type": "number",
-                "default": 0,
-                "description": "Priority for this node (lower = higher priority)."
-              }
-            }
-          }
-        }
-      },
-      "dlm_lockspace": {
-        "type": "object",
-        "default": {},
-        "description": "DLM lockspace configuration for GFS2 or similar shared storage.",
-        "items": {
-          "name": {
-            "type": "string",
-            "default": "gfs",
-            "description": "Lockspace name (must match filesystem name)."
-          },
-          "plocks": {
-            "type": "bool",
-            "default": true,
-            "description": "Enable plock (posix lock) support."
-          },
-          "num_plocks": {
-            "type": "number",
-            "default": 1024,
-            "description": "Maximum number of plocks."
-          }
-        }
-      }
-    }
-  }
+  "type": "object"
+ }
 }

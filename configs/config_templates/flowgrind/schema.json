@@ -1,199 +1,198 @@
 {
-  "flows": {
-    "type": "list",
-    "default": [],
-    "description": "List of flow configurations. Each flow defines endpoints and behavior. If empty, defaults to localhost IPv4 test. Index starts at 0 (first flow is flow 0)."
-  },
-  "report_interval": {
-    "type": "number",
-    "default": 0.05,
-    "description": "Reporting interval in seconds. Controls interval between intermediate reports."
-  },
-  "throughput_unit": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, report throughput in MiB/s (2^20 bytes/s); else default Mbit/s (10^6 bit/s)."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to logfile. If empty, use default 'flowgrind-<timestamp>.log'. If non-empty, enable logging to file."
-  },
-  "overwrite_log": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, overwrite existing log files. If false, append or fail."
-  },
-  "dump_prefix": {
-    "type": "string",
-    "default": "flowgrind-",
-    "description": "Prefix prepended to libpcap dump filenames."
-  },
-  "tcp_stack_unit": {
-    "type": "string",
-    "default": "",
-    "description": "Force unit for TCP stack metrics: 'segment' or 'byte'. If empty, auto-detect.",
-    "enum": [
-      "segment",
-      "byte"
-    ]
-  },
-  "random_seed": {
-    "type": "number",
-    "default": -1,
-    "description": "Random seed for reproducible stochastic traffic. -1 means use /dev/urandom."
-  },
-  "one_way_delay": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, compute one-way delay (requires no clock sync)."
-  },
-  "show_columns": {
-    "type": "list",
-    "default": [],
-    "description": "List of column types to show in output beyond the default ones. Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'."
-  },
-  "flows[].id": {
-    "type": "string",
-    "default": "",
-    "description": "Flow identifier (for user reference only)."
-  },
-  "flows[].host_source": {
-    "type": "string",
-    "default": "",
-    "description": "Source endpoint hostname or IP (IPv4 or IPv6)."
-  },
-  "flows[].control_source": {
-    "type": "string",
-    "default": "",
-    "description": "Control connection port or address for source. If omitted, default port is used. Optional; if present, format is ':PORT' or 'HOST:PORT'."
-  },
-  "flows[].host_dest": {
-    "type": "string",
-    "default": "",
-    "description": "Destination endpoint hostname or IP (IPv4 or IPv6)."
-  },
-  "flows[].control_dest": {
-    "type": "string",
-    "default": "",
-    "description": "Control connection port or address for destination. Same format as control_source."
-  },
-  "flows[].duration_source": {
-    "type": "number",
-    "default": 10.0,
-    "description": "Flow duration for source endpoint, in seconds."
-  },
-  "flows[].duration_dest": {
-    "type": "number",
-    "default": 0.0,
-    "description": "Flow duration for destination endpoint, in seconds. 0 = unlimited."
-  },
-  "flows[].block_size": {
-    "type": "number",
-    "default": 8192,
-    "description": "Uniform block size for both endpoints, in bytes. Ignored if stochastic traffic is configured."
-  },
-  "flows[].request_distribution": {
-    "type": "string",
-    "default": "C",
-    "description": "Distribution type for request size (stochastic traffic). One of: C, U, E, N, L, P, W.",
-    "enum": [
-      "C",
-      "U",
-      "E",
-      "N",
-      "L",
-      "P",
-      "W"
-    ]
-  },
-  "flows[].request_params": {
-    "type": "list",
-    "default": [
-      40
-    ],
-    "description": "Distribution parameters for request size. For C: [value]; for U: [min, max]; for N/E: [mean/variance]; for L/P/W: [zeta/kappa, sigma/k]."
-  },
-  "flows[].response_distribution": {
-    "type": "string",
-    "default": "C",
-    "description": "Distribution type for response size. Same options as request_distribution.",
-    "enum": [
-      "C",
-      "U",
-      "E",
-      "N",
-      "L",
-      "P",
-      "W"
-    ]
-  },
-  "flows[].response_params": {
-    "type": "list",
-    "default": [
-      40
-    ],
-    "description": "Distribution parameters for response size. Same semantics as request_params."
-  },
-  "flows[].gap_distribution": {
-    "type": "string",
-    "default": "C",
-    "description": "Distribution type for interpacket gap (seconds). Same options.",
-    "enum": [
-      "C",
-      "U",
-      "E",
-      "N",
-      "L",
-      "P",
-      "W"
-    ]
-  },
-  "flows[].gap_params": {
-    "type": "list",
-    "default": [
-      0.0
-    ],
-    "description": "Distribution parameters for interpacket gap."
-  },
-  "flows[].block_size_limit": {
-    "type": "number",
-    "default": 32768,
-    "description": "Cap for stochastic block sizes, in bytes. Required for unbounded distributions."
-  },
-  "flows[].socket_opts": {
-    "type": "list",
-    "default": [],
-    "description": "List of socket option strings (e.g., ['TCP_NODELAY']). Applies to both endpoints."
-  },
-  "flows[].min_response_size": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, use minimal response size for RTT calculation (same as -A b)."
-  },
-  "flows[].pushy": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, disable select() iteration (pushy sending)."
-  },
-  "flows[].tcp_cork": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, set TCP_CORK on socket."
-  },
-  "flows[].tcp_nodelay": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, set TCP_NODELAY (disable Nagle)."
-  },
-  "flows[].tcp_congestion": {
-    "type": "string",
-    "default": "",
-    "description": "TCP congestion control algorithm (e.g., 'cubic', 'reno'). If empty, use system default."
-  },
-  "flows[].tcp_info_metrics": {
-    "type": "list",
-    "default": [],
-    "description": "List of TCP_INFO metrics to display beyond defaults. Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'."
-  }
+ "dump_prefix": {
+  "default": "flowgrind-",
+  "description": "Prefix prepended to libpcap dump filenames.",
+  "type": "string"
+ },
+ "flows": {
+  "default": [],
+  "description": "List of flow configurations. Each flow defines endpoints and behavior. If empty, defaults to localhost IPv4 test. Index starts at 0 (first flow is flow 0).",
+  "type": "list"
+ },
+ "flows[].block_size": {
+  "default": 8192,
+  "description": "Uniform block size for both endpoints, in bytes. Ignored if stochastic traffic is configured.",
+  "type": "number"
+ },
+ "flows[].block_size_limit": {
+  "default": 32768,
+  "description": "Cap for stochastic block sizes, in bytes. Required for unbounded distributions.",
+  "type": "number"
+ },
+ "flows[].control_dest": {
+  "default": "",
+  "description": "Control connection port or address for destination. Same format as control_source.",
+  "type": "string"
+ },
+ "flows[].control_source": {
+  "default": "",
+  "description": "Control connection port or address for source. If omitted, default port is used. Optional; if present, format is ':PORT' or 'HOST:PORT'.",
+  "type": "string"
+ },
+ "flows[].duration_dest": {
+  "default": 0.0,
+  "description": "Flow duration for destination endpoint, in seconds. 0 = unlimited.",
+  "type": "number"
+ },
+ "flows[].duration_source": {
+  "default": 10.0,
+  "description": "Flow duration for source endpoint, in seconds.",
+  "type": "number"
+ },
+ "flows[].gap_distribution": {
+  "default": "C",
+  "description": "Distribution type for interpacket gap (seconds). Same options.",
+  "enum": [
+   "C",
+   "U",
+   "E",
+   "N",
+   "L",
+   "P",
+   "W"
+  ],
+  "type": "string"
+ },
+ "flows[].gap_params": {
+  "default": [
+   0.0
+  ],
+  "description": "Distribution parameters for interpacket gap.",
+  "type": "list"
+ },
+ "flows[].host_dest": {
+  "default": "",
+  "description": "Destination endpoint hostname or IP (IPv4 or IPv6).",
+  "type": "string"
+ },
+ "flows[].host_source": {
+  "default": "",
+  "description": "Source endpoint hostname or IP (IPv4 or IPv6).",
+  "type": "string"
+ },
+ "flows[].id": {
+  "default": "",
+  "description": "Flow identifier (for user reference only).",
+  "type": "string"
+ },
+ "flows[].min_response_size": {
+  "default": false,
+  "description": "If true, use minimal response size for RTT calculation (same as -A b).",
+  "type": "bool"
+ },
+ "flows[].pushy": {
+  "default": false,
+  "description": "If true, disable select() iteration (pushy sending).",
+  "type": "bool"
+ },
+ "flows[].request_distribution": {
+  "default": "C",
+  "description": "Distribution type for request size (stochastic traffic). One of: C, U, E, N, L, P, W.",
+  "enum": [
+   "C",
+   "U",
+   "E",
+   "N",
+   "L",
+   "P",
+   "W"
+  ],
+  "type": "string"
+ },
+ "flows[].request_params": {
+  "default": [
+   40
+  ],
+  "description": "Distribution parameters for request size. For C: [value]; for U: [min, max]; for N/E: [mean/variance]; for L/P/W: [zeta/kappa, sigma/k].",
+  "type": "list"
+ },
+ "flows[].response_distribution": {
+  "default": "C",
+  "description": "Distribution type for response size. Same options as request_distribution.",
+  "enum": [
+   "C",
+   "U",
+   "E",
+   "N",
+   "L",
+   "P",
+   "W"
+  ],
+  "type": "string"
+ },
+ "flows[].response_params": {
+  "default": [
+   40
+  ],
+  "description": "Distribution parameters for response size. Same semantics as request_params.",
+  "type": "list"
+ },
+ "flows[].socket_opts": {
+  "default": [],
+  "description": "List of socket option strings (e.g., ['TCP_NODELAY']). Applies to both endpoints.",
+  "type": "list"
+ },
+ "flows[].tcp_congestion": {
+  "default": "",
+  "description": "TCP congestion control algorithm (e.g., 'cubic', 'reno'). If empty, use system default.",
+  "type": "string"
+ },
+ "flows[].tcp_cork": {
+  "default": false,
+  "description": "If true, set TCP_CORK on socket.",
+  "type": "bool"
+ },
+ "flows[].tcp_info_metrics": {
+  "default": [],
+  "description": "List of TCP_INFO metrics to display beyond defaults. Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'.",
+  "type": "list"
+ },
+ "flows[].tcp_nodelay": {
+  "default": false,
+  "description": "If true, set TCP_NODELAY (disable Nagle).",
+  "type": "bool"
+ },
+ "log_file": {
+  "default": "",
+  "description": "Path to logfile. If empty, use default 'flowgrind-<timestamp>.log'. If non-empty, enable logging to file.",
+  "type": "string"
+ },
+ "one_way_delay": {
+  "default": false,
+  "description": "If true, compute one-way delay (requires no clock sync).",
+  "type": "bool"
+ },
+ "overwrite_log": {
+  "default": false,
+  "description": "If true, overwrite existing log files. If false, append or fail.",
+  "type": "bool"
+ },
+ "random_seed": {
+  "default": -1,
+  "description": "Random seed for reproducible stochastic traffic. -1 means use /dev/urandom.",
+  "type": "number"
+ },
+ "report_interval": {
+  "default": 0.05,
+  "description": "Reporting interval in seconds. Controls interval between intermediate reports.",
+  "type": "number"
+ },
+ "show_columns": {
+  "default": [],
+  "description": "List of column types to show in output beyond the default ones. Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'.",
+  "type": "list"
+ },
+ "tcp_stack_unit": {
+  "description": "Force unit for TCP stack metrics: 'segment' or 'byte'. If empty, auto-detect.",
+  "enum": [
+   "segment",
+   "byte"
+  ],
+  "type": "string"
+ },
+ "throughput_unit": {
+  "default": false,
+  "description": "If true, report throughput in MiB/s (2^20 bytes/s); else default Mbit/s (10^6 bit/s).",
+  "type": "bool"
+ }
 }

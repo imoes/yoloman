@@ -1,64 +1,64 @@
 {
-  "log_level": "INFO",
-  "log_dir": "/var/log/ceilometer",
-  "keystone": {
-    "auth_url": "https://keystone.example.com:5000/v3",
-    "username": "ceilometer",
-    "password": "ceilometer_secret",
-    "project_name": "services",
-    "domain_name": "Default"
-  },
-  "messaging": {
-    "transport_url": "rabbit://ceilometer:ceilometer@msg.example.com:5672/",
-    "url": ""
-  },
-  "pipeline_manager": "ceilometer.pipeline.manager.PipelineManager",
-  "notification_drivers": [
-    "meter",
-    "event"
+ "agent": {
+  "batch_size": 20,
+  "disabled_pollsters": [
+   "hardware"
   ],
-  "metering_pipeline": "/etc/ceilometer/pipeline.yaml",
-  "events": {
-    "enabled": true,
-    "definitions": [
-      {
-        "name": "compute",
-        "source": "compute"
-      },
-      {
-        "name": "identity",
-        "source": "identity"
-      }
-    ]
+  "polling_interval": 600,
+  "pollster_mapping": {
+   "disk.read.bytes": true,
+   "instance": true,
+   "network.outgoing.packets.delta": true
   },
-  "agent": {
-    "polling_interval": 600,
-    "batch_size": 20,
-    "workers": 2,
-    "disabled_pollsters": [
-      "hardware"
-    ],
-    "pollster_mapping": {
-      "instance": true,
-      "disk.read.bytes": true,
-      "network.outgoing.packets.delta": true
-    }
-  },
-  "storage": {
-    "backend": "mongodb",
-    "options": {
-      "url": "mongodb://ceilometer:ceilometer@db.example.com:27017/ceilometer"
-    }
-  },
-  "keystone_authtoken": {
-    "auth_type": "password",
-    "auth_url": "https://keystone.example.com:5000/v3",
-    "project_domain_name": "Default",
-    "user_domain_name": "Default",
-    "project_name": "services",
-    "username": "ceilometer",
-    "password": "ceilometer_secret",
-    "cafile": "/etc/ssl/certs/ca-certificates.crt",
-    "insecure": false
+  "workers": 2
+ },
+ "events": {
+  "definitions": [
+   {
+    "name": "compute",
+    "source": "compute"
+   },
+   {
+    "name": "identity",
+    "source": "identity"
+   }
+  ],
+  "enabled": true
+ },
+ "keystone": {
+  "auth_url": "https://keystone.example.com:5000/v3",
+  "domain_name": "Default",
+  "password": "ceilometer_secret",
+  "project_name": "services",
+  "username": "ceilometer"
+ },
+ "keystone_authtoken": {
+  "auth_type": "password",
+  "auth_url": "https://keystone.example.com:5000/v3",
+  "cafile": "/etc/ssl/certs/ca-certificates.crt",
+  "insecure": false,
+  "password": "ceilometer_secret",
+  "project_domain_name": "Default",
+  "project_name": "services",
+  "user_domain_name": "Default",
+  "username": "ceilometer"
+ },
+ "log_dir": "/var/log/ceilometer",
+ "log_level": "INFO",
+ "messaging": {
+  "transport_url": "rabbit://ceilometer:ceilometer@msg.example.com:5672/",
+  "url": ""
+ },
+ "metering_pipeline": "/etc/ceilometer/pipeline.yaml",
+ "notification_drivers": [
+  "meter",
+  "event"
+ ],
+ "pipeline_manager": "ceilometer.pipeline.manager.PipelineManager",
+ "storage": {
+  "backend": "mongodb",
+  "options": {
+   "url": "mongodb://ceilometer:ceilometer@db.example.com:27017/ceilometer"
   }
+ }
 }

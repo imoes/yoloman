@@ -1,213 +1,212 @@
 {
-  "git_dir": {
-    "type": "string",
-    "default": "/var/lib/pagure/git",
-    "description": "Absolute path to the directory containing Pagure-managed Git repositories."
+ "allowed_hosts": {
+  "default": [],
+  "description": "List of allowed hostnames for webhook origin verification (e.g., to prevent SSRF).",
+  "items": {
+   "type": "string"
   },
-  "db_path": {
-    "type": "string",
-    "default": "/var/lib/pagure/pagure_webhook.db",
-    "description": "Absolute path to the SQLite database storing webhook registration and delivery metadata."
-  },
-  "host": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address or hostname the webhook server should bind to."
-  },
-  "port": {
-    "type": "number",
-    "default": 5002,
-    "description": "Port number for the webhook server to listen on."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debug logging and developer-friendly error pages."
-  },
-  "workers": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of worker threads/processes to handle webhook delivery."
-  },
-  "webhook_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum time (seconds) to wait for a webhook endpoint to respond."
-  },
-  "webhook_retries": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of times to retry failed webhook deliveries."
-  },
-  "webhook_retry_delay": {
-    "type": "number",
-    "default": 5,
-    "description": "Delay (seconds) between retry attempts for failed webhooks."
-  },
-  "ssl_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable HTTPS using provided certificate and key."
-  },
-  "ssl_cert": {
-    "type": "string",
-    "default": "/etc/ssl/certs/pagure-webhook.crt",
-    "description": "Path to SSL/TLS certificate file (required if SSL enabled).",
-    "condition": "ssl_enabled"
-  },
-  "ssl_key": {
-    "type": "string",
-    "default": "/etc/ssl/private/pagure-webhook.key",
-    "description": "Path to SSL/TLS private key file (required if SSL enabled).",
-    "condition": "ssl_enabled"
-  },
-  "allowed_hosts": {
-    "type": "list",
-    "default": [],
-    "description": "List of allowed hostnames for webhook origin verification (e.g., to prevent SSRF).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level (CRITICAL, ERROR, WARNING, INFO, DEBUG)."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to log file. If empty, logs to stdout."
-  },
-  "webhook_endpoint": {
-    "type": "string",
-    "default": "/webhook",
-    "description": "URL path prefix where webhook endpoints are served."
-  },
-  "webhook_methods": {
-    "type": "list",
-    "default": [
-      "POST"
+  "type": "list"
+ },
+ "custom_headers": {
+  "description": "Map of custom HTTP headers to include in outgoing webhook requests.",
+  "type": "object"
+ },
+ "db_path": {
+  "default": "/var/lib/pagure/pagure_webhook.db",
+  "description": "Absolute path to the SQLite database storing webhook registration and delivery metadata.",
+  "type": "string"
+ },
+ "debug": {
+  "default": false,
+  "description": "Enable verbose debug logging and developer-friendly error pages.",
+  "type": "bool"
+ },
+ "git_dir": {
+  "default": "/var/lib/pagure/git",
+  "description": "Absolute path to the directory containing Pagure-managed Git repositories.",
+  "type": "string"
+ },
+ "host": {
+  "default": "0.0.0.0",
+  "description": "IP address or hostname the webhook server should bind to.",
+  "type": "string"
+ },
+ "log_file": {
+  "default": "",
+  "description": "Path to log file. If empty, logs to stdout.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "INFO",
+  "description": "Logging verbosity level (CRITICAL, ERROR, WARNING, INFO, DEBUG).",
+  "type": "string"
+ },
+ "metrics_enabled": {
+  "default": false,
+  "description": "Enable Prometheus-compatible metrics endpoint.",
+  "type": "bool"
+ },
+ "metrics_endpoint": {
+  "condition": "metrics_enabled",
+  "default": "/metrics",
+  "description": "Path for the metrics endpoint (e.g., /metrics).",
+  "type": "string"
+ },
+ "metrics_port": {
+  "condition": "metrics_enabled",
+  "default": 9090,
+  "description": "Port for the metrics server (only used if metrics enabled).",
+  "type": "number"
+ },
+ "pagure_url": {
+  "default": "http://localhost",
+  "description": "Public base URL of the Pagure forge (used for generating absolute links in payloads).",
+  "type": "string"
+ },
+ "port": {
+  "default": 5002,
+  "description": "Port number for the webhook server to listen on.",
+  "type": "number"
+ },
+ "proxy_url": {
+  "default": "",
+  "description": "HTTP/HTTPS proxy URL for outgoing webhook requests (e.g., http://proxy.example.com:3128).",
+  "type": "string"
+ },
+ "rate_limits": {
+  "default": [
+   {
+    "event": "push",
+    "requests_per_minute": 60
+   },
+   {
+    "event": "pull_request",
+    "requests_per_minute": 30
+   },
+   {
+    "event": "issue",
+    "requests_per_minute": 30
+   }
+  ],
+  "description": "Rate limiting configuration per event type (requests per minute).",
+  "items": {
+   "event": {
+    "description": "Event type to apply rate limit to.",
+    "enum": [
+     "push",
+     "pull_request",
+     "issue",
+     "commit_comment",
+     "tag_created",
+     "tag_deleted"
     ],
-    "description": "HTTP methods accepted for webhook delivery (e.g., POST, GET, PUT).",
-    "items": {
-      "type": "string",
-      "enum": [
-        "POST",
-        "GET",
-        "PUT",
-        "PATCH",
-        "DELETE"
-      ]
-    }
+    "type": "string"
+   },
+   "requests_per_minute": {
+    "description": "Maximum number of webhook deliveries allowed per minute for this event.",
+    "type": "number"
+   }
   },
-  "triggers": {
-    "type": "list",
-    "default": [
-      {
-        "event": "push",
-        "enabled": true
-      },
-      {
-        "event": "pull_request",
-        "enabled": true
-      },
-      {
-        "event": "issue",
-        "enabled": true
-      }
+  "type": "list"
+ },
+ "secret_token": {
+  "default": "",
+  "description": "Secret token used to sign webhook payloads with HMAC-SHA256 (recommended for security).",
+  "type": "string"
+ },
+ "ssl_cert": {
+  "condition": "ssl_enabled",
+  "default": "/etc/ssl/certs/pagure-webhook.crt",
+  "description": "Path to SSL/TLS certificate file (required if SSL enabled).",
+  "type": "string"
+ },
+ "ssl_enabled": {
+  "default": false,
+  "description": "Enable HTTPS using provided certificate and key.",
+  "type": "bool"
+ },
+ "ssl_key": {
+  "condition": "ssl_enabled",
+  "default": "/etc/ssl/private/pagure-webhook.key",
+  "description": "Path to SSL/TLS private key file (required if SSL enabled).",
+  "type": "string"
+ },
+ "triggers": {
+  "default": [
+   {
+    "enabled": true,
+    "event": "push"
+   },
+   {
+    "enabled": true,
+    "event": "pull_request"
+   },
+   {
+    "enabled": true,
+    "event": "issue"
+   }
+  ],
+  "description": "List of event types and whether they trigger webhook delivery.",
+  "items": {
+   "enabled": {
+    "description": "Enable webhook delivery for this event type.",
+    "type": "bool"
+   },
+   "event": {
+    "description": "Event type name (e.g., push, pull_request, issue, commit_comment).",
+    "enum": [
+     "push",
+     "pull_request",
+     "issue",
+     "commit_comment",
+     "tag_created",
+     "tag_deleted"
     ],
-    "description": "List of event types and whether they trigger webhook delivery.",
-    "items": {
-      "event": {
-        "type": "string",
-        "description": "Event type name (e.g., push, pull_request, issue, commit_comment).",
-        "enum": [
-          "push",
-          "pull_request",
-          "issue",
-          "commit_comment",
-          "tag_created",
-          "tag_deleted"
-        ]
-      },
-      "enabled": {
-        "type": "bool",
-        "description": "Enable webhook delivery for this event type."
-      }
-    }
+    "type": "string"
+   }
   },
-  "rate_limits": {
-    "type": "list",
-    "default": [
-      {
-        "event": "push",
-        "requests_per_minute": 60
-      },
-      {
-        "event": "pull_request",
-        "requests_per_minute": 30
-      },
-      {
-        "event": "issue",
-        "requests_per_minute": 30
-      }
-    ],
-    "description": "Rate limiting configuration per event type (requests per minute).",
-    "items": {
-      "event": {
-        "type": "string",
-        "description": "Event type to apply rate limit to.",
-        "enum": [
-          "push",
-          "pull_request",
-          "issue",
-          "commit_comment",
-          "tag_created",
-          "tag_deleted"
-        ]
-      },
-      "requests_per_minute": {
-        "type": "number",
-        "description": "Maximum number of webhook deliveries allowed per minute for this event."
-      }
-    }
+  "type": "list"
+ },
+ "webhook_endpoint": {
+  "default": "/webhook",
+  "description": "URL path prefix where webhook endpoints are served.",
+  "type": "string"
+ },
+ "webhook_methods": {
+  "default": [
+   "POST"
+  ],
+  "description": "HTTP methods accepted for webhook delivery (e.g., POST, GET, PUT).",
+  "items": {
+   "enum": [
+    "POST",
+    "GET",
+    "PUT",
+    "PATCH",
+    "DELETE"
+   ],
+   "type": "string"
   },
-  "proxy_url": {
-    "type": "string",
-    "default": "",
-    "description": "HTTP/HTTPS proxy URL for outgoing webhook requests (e.g., http://proxy.example.com:3128)."
-  },
-  "custom_headers": {
-    "type": "object",
-    "default": {},
-    "description": "Map of custom HTTP headers to include in outgoing webhook requests."
-  },
-  "secret_token": {
-    "type": "string",
-    "default": "",
-    "description": "Secret token used to sign webhook payloads with HMAC-SHA256 (recommended for security)."
-  },
-  "pagure_url": {
-    "type": "string",
-    "default": "http://localhost",
-    "description": "Public base URL of the Pagure forge (used for generating absolute links in payloads)."
-  },
-  "metrics_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable Prometheus-compatible metrics endpoint."
-  },
-  "metrics_port": {
-    "type": "number",
-    "default": 9090,
-    "description": "Port for the metrics server (only used if metrics enabled).",
-    "condition": "metrics_enabled"
-  },
-  "metrics_endpoint": {
-    "type": "string",
-    "default": "/metrics",
-    "description": "Path for the metrics endpoint (e.g., /metrics).",
-    "condition": "metrics_enabled"
-  }
+  "type": "list"
+ },
+ "webhook_retries": {
+  "default": 3,
+  "description": "Number of times to retry failed webhook deliveries.",
+  "type": "number"
+ },
+ "webhook_retry_delay": {
+  "default": 5,
+  "description": "Delay (seconds) between retry attempts for failed webhooks.",
+  "type": "number"
+ },
+ "webhook_timeout": {
+  "default": 30,
+  "description": "Maximum time (seconds) to wait for a webhook endpoint to respond.",
+  "type": "number"
+ },
+ "workers": {
+  "default": 2,
+  "description": "Number of worker threads/processes to handle webhook delivery.",
+  "type": "number"
+ }
 }

@@ -1,49 +1,49 @@
 {
-  "global_settings": {
-    "log_level": "3",
-    "log_file": "/var/log/icinga2/icinga2.log",
-    "pid_file": "/run/icinga2/icinga2.pid",
-    "enable_remote_commands": false,
-    "ignore_on_weekend": false
+ "endpoints": [
+  {
+   "host": "icinga-master.example.com",
+   "name": "icinga-master",
+   "port": 5665
   },
-  "endpoints": [
-    {
-      "name": "icinga-master",
-      "host": "icinga-master.example.com",
-      "port": 5665
-    },
-    {
-      "name": "icinga-slave1",
-      "host": "icinga-slave1.example.com",
-      "port": 5665
-    }
-  ],
-  "zones": [
-    {
-      "name": "master",
-      "endpoints": [
-        "icinga-master"
-      ],
-      "parent": null
-    },
-    {
-      "name": "slaves",
-      "endpoints": [
-        "icinga-slave1"
-      ],
-      "parent": "master"
-    }
-  ],
-  "global_zones": {
-    "global-templates": {
-      "is_global": true,
-      "endpoints": [
-        "icinga-master",
-        "icinga-slave1"
-      ]
-    },
-    "global-hosts": {
-      "is_global": true
-    }
+  {
+   "host": "icinga-slave1.example.com",
+   "name": "icinga-slave1",
+   "port": 5665
   }
+ ],
+ "global_settings": {
+  "enable_remote_commands": false,
+  "ignore_on_weekend": false,
+  "log_file": "/var/log/icinga2/icinga2.log",
+  "log_level": "3",
+  "pid_file": "/run/icinga2/icinga2.pid"
+ },
+ "global_zones": {
+  "global-hosts": {
+   "is_global": true
+  },
+  "global-templates": {
+   "endpoints": [
+    "icinga-master",
+    "icinga-slave1"
+   ],
+   "is_global": true
+  }
+ },
+ "zones": [
+  {
+   "endpoints": [
+    "icinga-master"
+   ],
+   "name": "master",
+   "parent": null
+  },
+  {
+   "endpoints": [
+    "icinga-slave1"
+   ],
+   "name": "slaves",
+   "parent": "master"
+  }
+ ]
 }

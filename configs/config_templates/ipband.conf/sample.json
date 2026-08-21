@@ -1,40 +1,40 @@
 {
-  "maxconn": 2048,
-  "interfaces": [
-    "eth0",
-    "eth1"
+ "bandwidth": {
+  "download_limit": 51200,
+  "rules": [
+   {
+    "description": "Local subnet gets higher bandwidth",
+    "download_limit": 0,
+    "enabled": true,
+    "match_type": "src_ip",
+    "match_value": "10.0.0.0/24",
+    "name": "local_high_priority",
+    "upload_limit": 0
+   },
+   {
+    "description": "Block BitTorrent port",
+    "download_limit": 0,
+    "enabled": true,
+    "match_type": "port",
+    "match_value": "6881",
+    "name": "block_torrent",
+    "upload_limit": 0
+   }
   ],
-  "pidfile": "/var/run/ipband/ipband.pid",
-  "loglevel": 4,
-  "logfile": "/var/log/ipband/ipband.log",
-  "logsyslog": true,
-  "statsfile": "/var/lib/ipband/stats",
-  "statsinterval": 30,
-  "daemonize": true,
-  "user": "ipband",
-  "grp": "ipband",
-  "bandwidth": {
-    "upload_limit": 10240,
-    "download_limit": 51200,
-    "rules": [
-      {
-        "name": "local_high_priority",
-        "enabled": true,
-        "description": "Local subnet gets higher bandwidth",
-        "upload_limit": 0,
-        "download_limit": 0,
-        "match_type": "src_ip",
-        "match_value": "10.0.0.0/24"
-      },
-      {
-        "name": "block_torrent",
-        "enabled": true,
-        "description": "Block BitTorrent port",
-        "upload_limit": 0,
-        "download_limit": 0,
-        "match_type": "port",
-        "match_value": "6881"
-      }
-    ]
-  }
+  "upload_limit": 10240
+ },
+ "daemonize": true,
+ "grp": "ipband",
+ "interfaces": [
+  "eth0",
+  "eth1"
+ ],
+ "logfile": "/var/log/ipband/ipband.log",
+ "loglevel": 4,
+ "logsyslog": true,
+ "maxconn": 2048,
+ "pidfile": "/var/run/ipband/ipband.pid",
+ "statsfile": "/var/lib/ipband/stats",
+ "statsinterval": 30,
+ "user": "ipband"
 }

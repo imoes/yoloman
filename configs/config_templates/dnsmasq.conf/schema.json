@@ -1,124 +1,90 @@
 {
-  "domain_name": {
-    "type": "string",
-    "default": {
-      "value": null
-    },
-    "description": "Local domain name (e.g., 'lan') to append to unqualified hostnames. If not set, domain-less queries won\u2019t be expanded."
-  },
-  "upstream_servers": {
-    "type": "list",
-    "default": {
-      "value": [
-        "8.8.8.8",
-        "8.8.4.4"
-      ]
-    },
-    "description": "List of upstream DNS servers to forward queries to (IP addresses or hostnames). For dnsmasq, this corresponds to the `--server` option. Note that dnsmasq uses `--server`, not `upstream-servers`. The upstream servers specified here are used because `no-resolv` is set, preventing reading from /etc/resolv.conf. Each entry maps to a separate `server=` directive in the config file (equivalent to the `--server` command-line flag). The entries may be IP addresses or resolvable hostnames (though hostname resolution depends on the system resolver at startup). Multiple `server=` directives can be used to specify multiple upstream servers. Per the man page, more than one `--server` flag is allowed, with repeated domain or ipaddr parts as required."
-  },
-  "listen_interfaces": {
-    "type": "list",
-    "default": {
-      "value": null
-    },
-    "description": "List of network interfaces (e.g., ['eth0', 'br0']) to bind to. If omitted, defaults to binding only to 127.0.0.1 for security. Maps to the `--interface` option."
-  },
-  "addn_hosts": {
-    "type": "string",
-    "default": {
-      "value": null
-    },
-    "description": "Path to an additional hosts file (e.g., '/etc/dnsmasq/hosts') to append to the in-memory host table. Maps to the `--addn-hosts` option."
-  },
-  "expand_hosts": {
-    "type": "boolean",
-    "default": {
-      "value": false
-    },
-    "description": "Whether to automatically append the local-domain to unqualified names in /etc/hosts and static-hosts entries. Maps to the `--expand-hosts` option."
-  },
-  "cache_size": {
-    "type": "number",
-    "default": {
-      "value": 150
-    },
-    "description": "Size of the DNS cache (number of records). Set to 0 to disable caching. Maps to `--cache-size` (man page: default 150, max 10000). Type should be integer, not number."
-  },
-  "log_level": {
-    "type": "integer",
-    "default": {
-      "value": 0
-    },
-    "description": "Log verbosity level (0 = quiet, 1+ = enable query logging). When >= 1, enables `log-queries`. Maps to the presence of `--log-queries` rather than a numeric value directly. Note: dnsmasq's `log-queries` doesn't take a numeric argument; setting the directive enables logging. There is no `log-level` option in dnsmasq."
-  },
-  "log_file": {
-    "type": "string",
-    "default": {
-      "value": "-"
-    },
-    "description": "Log file path. Use '-' to log to stderr/syslog, or '/var/log/dnsmasq.log' for a file. Maps to `--log-facility`. If the value contains a '/', it's treated as a filename."
-  },
-  "dns_port": {
-    "type": "integer",
-    "default": {
-      "value": 53
-    },
-    "description": "Port on which dnsmasq listens for DNS queries. Maps to `--port`. Setting to 0 disables DNS."
-  },
-  "dhcp_enabled": {
-    "type": "boolean",
-    "default": {
-      "value": false
-    },
-    "description": "Enable or disable DHCP server functionality."
-  },
-  "dhcp_networks": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of DHCP ranges (subnets). Each defines a range and interface for DHCP assignment. Maps to `--dhcp-range`. The interface is not part of dhcp-range syntax; instead it should be handled via `--interface` or the `set:` tag mechanism. This schema's representation is non-standard but preserved per instructions."
-  },
-  "dhcp_options": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of custom DHCP options (e.g., boot parameters). Maps to `--dhcp-option`. Option codes should follow format: numeric (e.g., '66'), or named (e.g., 'option:router'). The value format depends on the option (IP, string, etc.)."
-  },
-  "dhcp_gateway": {
-    "type": "string",
-    "default": {
-      "value": null
-    },
-    "description": "Gateway IP to assign to DHCP clients (DHCP option 3). If omitted, no gateway is set. Maps to `--dhcp-option=option:router`."
-  },
-  "dhcp_dns": {
-    "type": "list",
-    "default": {
-      "value": null
-    },
-    "description": "List of DNS server IPs to assign to DHCP clients (DHCP option 6). Defaults to dnsmasq\u2019s own address if omitted. Maps to `--dhcp-option=option:dns-server`."
-  },
-  "static_hosts": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of static DHCP leases and DNS mappings (by MAC, IP, and/or hostname). Maps to `--dhcp-host`."
-  },
-  "dhcp_port": {
-    "type": "integer",
-    "default": {
-      "value": 67
-    },
-    "description": "Server port for DHCP. Maps to `--dhcp-port` (man page: changes ports from default 67/68 to specified value). Default is 67."
-  },
-  "ignore_hosts": {
-    "type": "boolean",
-    "default": {
-      "value": false
-    },
-    "description": "Whether to ignore entries in /etc/hosts for DHCP (only use static_hosts). Prevents accidental overrides. Note: There is no direct `ignore_hosts` equivalent in dnsmasq. The closest is using `--dhcp-hostfile=/dev/null` to read DHCP host info from /dev/null instead of /etc/hosts. This schema maps to that behavior."
-  }
+ "addn_hosts": {
+  "default": null,
+  "description": "Path to an additional hosts file (e.g., '/etc/dnsmasq/hosts') to append to the in-memory host table. Maps to the `--addn-hosts` option.",
+  "type": "string"
+ },
+ "cache_size": {
+  "default": 150,
+  "description": "Size of the DNS cache (number of records). Set to 0 to disable caching. Maps to `--cache-size` (man page: default 150, max 10000). Type should be integer, not number.",
+  "type": "number"
+ },
+ "dhcp_dns": {
+  "default": null,
+  "description": "List of DNS server IPs to assign to DHCP clients (DHCP option 6). Defaults to dnsmasq’s own address if omitted. Maps to `--dhcp-option=option:dns-server`.",
+  "type": "list"
+ },
+ "dhcp_enabled": {
+  "default": false,
+  "description": "Enable or disable DHCP server functionality.",
+  "type": "boolean"
+ },
+ "dhcp_gateway": {
+  "default": null,
+  "description": "Gateway IP to assign to DHCP clients (DHCP option 3). If omitted, no gateway is set. Maps to `--dhcp-option=option:router`.",
+  "type": "string"
+ },
+ "dhcp_networks": {
+  "default": [],
+  "description": "List of DHCP ranges (subnets). Each defines a range and interface for DHCP assignment. Maps to `--dhcp-range`. The interface is not part of dhcp-range syntax; instead it should be handled via `--interface` or the `set:` tag mechanism. This schema's representation is non-standard but preserved per instructions.",
+  "type": "list"
+ },
+ "dhcp_options": {
+  "default": [],
+  "description": "List of custom DHCP options (e.g., boot parameters). Maps to `--dhcp-option`. Option codes should follow format: numeric (e.g., '66'), or named (e.g., 'option:router'). The value format depends on the option (IP, string, etc.).",
+  "type": "list"
+ },
+ "dhcp_port": {
+  "default": 67,
+  "description": "Server port for DHCP. Maps to `--dhcp-port` (man page: changes ports from default 67/68 to specified value). Default is 67.",
+  "type": "integer"
+ },
+ "dns_port": {
+  "default": 53,
+  "description": "Port on which dnsmasq listens for DNS queries. Maps to `--port`. Setting to 0 disables DNS.",
+  "type": "integer"
+ },
+ "domain_name": {
+  "default": null,
+  "description": "Local domain name (e.g., 'lan') to append to unqualified hostnames. If not set, domain-less queries won’t be expanded.",
+  "type": "string"
+ },
+ "expand_hosts": {
+  "default": false,
+  "description": "Whether to automatically append the local-domain to unqualified names in /etc/hosts and static-hosts entries. Maps to the `--expand-hosts` option.",
+  "type": "boolean"
+ },
+ "ignore_hosts": {
+  "default": false,
+  "description": "Whether to ignore entries in /etc/hosts for DHCP (only use static_hosts). Prevents accidental overrides. Note: There is no direct `ignore_hosts` equivalent in dnsmasq. The closest is using `--dhcp-hostfile=/dev/null` to read DHCP host info from /dev/null instead of /etc/hosts. This schema maps to that behavior.",
+  "type": "boolean"
+ },
+ "listen_interfaces": {
+  "default": null,
+  "description": "List of network interfaces (e.g., ['eth0', 'br0']) to bind to. If omitted, defaults to binding only to 127.0.0.1 for security. Maps to the `--interface` option.",
+  "type": "list"
+ },
+ "log_file": {
+  "default": "-",
+  "description": "Log file path. Use '-' to log to stderr/syslog, or '/var/log/dnsmasq.log' for a file. Maps to `--log-facility`. If the value contains a '/', it's treated as a filename.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": 0,
+  "description": "Log verbosity level (0 = quiet, 1+ = enable query logging). When >= 1, enables `log-queries`. Maps to the presence of `--log-queries` rather than a numeric value directly. Note: dnsmasq's `log-queries` doesn't take a numeric argument; setting the directive enables logging. There is no `log-level` option in dnsmasq.",
+  "type": "integer"
+ },
+ "static_hosts": {
+  "default": [],
+  "description": "List of static DHCP leases and DNS mappings (by MAC, IP, and/or hostname). Maps to `--dhcp-host`.",
+  "type": "list"
+ },
+ "upstream_servers": {
+  "default": [
+   "8.8.8.8",
+   "8.8.4.4"
+  ],
+  "description": "List of upstream DNS servers to forward queries to (IP addresses or hostnames). For dnsmasq, this corresponds to the `--server` option. Note that dnsmasq uses `--server`, not `upstream-servers`. The upstream servers specified here are used because `no-resolv` is set, preventing reading from /etc/resolv.conf. Each entry maps to a separate `server=` directive in the config file (equivalent to the `--server` command-line flag). The entries may be IP addresses or resolvable hostnames (though hostname resolution depends on the system resolver at startup). Multiple `server=` directives can be used to specify multiple upstream servers. Per the man page, more than one `--server` flag is allowed, with repeated domain or ipaddr parts as required.",
+  "type": "list"
+ }
 }

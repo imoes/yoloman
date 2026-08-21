@@ -1,104 +1,104 @@
 {
-  "global": {
-    "workgroup": "CORP",
-    "netbios_name": "smbhost1",
-    "server_string": "Corporate File Server",
-    "log_level": 2,
-    "log_file": "/var/log/ksmbd/ksmbd.log",
-    "max_log_size": 2048,
-    "printing": false,
-    "protocols": {
-      "min": "SMB2",
-      "max": "SMB3.1.1"
-    },
-    "guest_account": "nobody",
-    "guest_ok": false,
-    "map_to_guest": "Bad User",
-    "username_map": "/etc/ksmbd/smbusers",
-    "passdb_backend": "tdbsam",
-    "security": "user",
-    "winbind_enum_users": false,
-    "winbind_enum_groups": false,
-    "socket_options": "TCP_NODELAY SO_RCVBUF=8192 SO_SNDBUF=8192",
-    "max_connections": 100,
-    "interfaces": [
-      "eth0"
-    ],
-    "listen_addresses": [
-      {
-        "ip": "192.168.1.10"
-      },
-      {
-        "ip": "10.0.0.10",
-        "port": 445
-      }
-    ],
-    "ports": {
-      "smb139": false
-    }
+ "global": {
+  "guest_account": "nobody",
+  "guest_ok": false,
+  "interfaces": [
+   "eth0"
+  ],
+  "listen_addresses": [
+   {
+    "ip": "192.168.1.10"
+   },
+   {
+    "ip": "10.0.0.10",
+    "port": 445
+   }
+  ],
+  "log_file": "/var/log/ksmbd/ksmbd.log",
+  "log_level": 2,
+  "map_to_guest": "Bad User",
+  "max_connections": 100,
+  "max_log_size": 2048,
+  "netbios_name": "smbhost1",
+  "passdb_backend": "tdbsam",
+  "ports": {
+   "smb139": false
   },
-  "shares": [
-    {
-      "name": "data",
-      "comment": "General data repository",
-      "path": "/srv/ksmbd/data",
-      "readonly": false,
-      "create_mask": "0640",
-      "directory_mask": "0750",
-      "guest_ok": false,
-      "browsable": true,
-      "valid_users": [
-        "@engineering",
-        "alice"
-      ],
-      "write_list": [
-        "alice",
-        "bob"
-      ],
-      "locking": true,
-      "strict_locking": true,
-      "oplocks": true,
-      "level2_oplocks": true,
-      "kernel_oplocks": true,
-      "nt_acl_support": true,
-      "vfs_modules": [
-        "acl_xattr",
-        "recycle"
-      ],
-      "vfs_options": {
-        "acl_xattr": {},
-        "recycle": {
-          "repository": ".recycle",
-          "versions": true,
-          "keeptree": true,
-          "exclude": "*.tmp"
-        }
-      }
-    },
-    {
-      "name": "print$",
-      "comment": "Printer drivers",
-      "path": "/srv/ksmbd/printers",
-      "readonly": true,
-      "create_mask": "0644",
-      "directory_mask": "0755",
-      "guest_ok": true,
-      "browsable": false,
-      "valid_users": [
-        "@printadmin"
-      ]
-    },
-    {
-      "name": "homes",
-      "comment": "Home directories",
-      "path": "/home/%U",
-      "readonly": false,
-      "guest_ok": false,
-      "browsable": false,
-      "create_mask": "0700",
-      "directory_mask": "0700",
-      "locking": false,
-      "oplocks": false
+  "printing": false,
+  "protocols": {
+   "max": "SMB3.1.1",
+   "min": "SMB2"
+  },
+  "security": "user",
+  "server_string": "Corporate File Server",
+  "socket_options": "TCP_NODELAY SO_RCVBUF=8192 SO_SNDBUF=8192",
+  "username_map": "/etc/ksmbd/smbusers",
+  "winbind_enum_groups": false,
+  "winbind_enum_users": false,
+  "workgroup": "CORP"
+ },
+ "shares": [
+  {
+   "browsable": true,
+   "comment": "General data repository",
+   "create_mask": "0640",
+   "directory_mask": "0750",
+   "guest_ok": false,
+   "kernel_oplocks": true,
+   "level2_oplocks": true,
+   "locking": true,
+   "name": "data",
+   "nt_acl_support": true,
+   "oplocks": true,
+   "path": "/srv/ksmbd/data",
+   "readonly": false,
+   "strict_locking": true,
+   "valid_users": [
+    "@engineering",
+    "alice"
+   ],
+   "vfs_modules": [
+    "acl_xattr",
+    "recycle"
+   ],
+   "vfs_options": {
+    "acl_xattr": {},
+    "recycle": {
+     "exclude": "*.tmp",
+     "keeptree": true,
+     "repository": ".recycle",
+     "versions": true
     }
-  ]
+   },
+   "write_list": [
+    "alice",
+    "bob"
+   ]
+  },
+  {
+   "browsable": false,
+   "comment": "Printer drivers",
+   "create_mask": "0644",
+   "directory_mask": "0755",
+   "guest_ok": true,
+   "name": "print$",
+   "path": "/srv/ksmbd/printers",
+   "readonly": true,
+   "valid_users": [
+    "@printadmin"
+   ]
+  },
+  {
+   "browsable": false,
+   "comment": "Home directories",
+   "create_mask": "0700",
+   "directory_mask": "0700",
+   "guest_ok": false,
+   "locking": false,
+   "name": "homes",
+   "oplocks": false,
+   "path": "/home/%U",
+   "readonly": false
+  }
+ ]
 }

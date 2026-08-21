@@ -1,73 +1,73 @@
 {
-  "app": {
-    "host": "0.0.0.0",
-    "port": 8080,
-    "data_dir": "/var/lib/email-reminder",
-    "debug": false
-  },
-  "database": {
-    "uri": "sqlite:///var/lib/email-reminder/email-reminder.db"
-  },
-  "worker": {
-    "count": 4,
-    "timeout": 30,
-    "max_retries": 3,
-    "retry_delay": 5
-  },
-  "smtp": {
-    "host": "smtp.example.com",
-    "port": 587,
-    "use_tls": true,
-    "use_starttls": true,
-    "username": "reminders",
-    "password": "s3cr3t",
-    "from_address": "reminders@example.com"
-  },
-  "email": {
-    "default_subject": " Reminder: Upcoming Event",
-    "default_body_lines": [
-      "Hello {{ .Name }},",
-      "",
-      "This is a reminder for your upcoming event:",
-      "  \u2022 Title: {{ .Title }}",
-      "  \u2022 When: {{ .Datetime }}",
-      "  \u2022 Location: {{ .Location }}",
-      "",
-      "Thanks!"
-    ],
-    "embed_images": false
-  },
-  "throttle": {
-    "max_per_minute": 5,
-    "burst_limit": 10
-  },
-  "log": {
-    "level": "INFO",
-    "file": "/var/log/email-reminder/email-reminder.log",
-    "json": false
-  },
-  "health": {
-    "enabled": true,
-    "basic_auth": ""
-  },
-  "schedule": {
-    "timezone": "America/New_York",
-    "lookahead_seconds": 86400,
-    "scan_interval_seconds": 60
-  },
-  "custom_templates": [
-    {
-      "domain": "example.com",
-      "subject_template_lines": [
-        "Reminder: {{ .Title }}"
-      ],
-      "body_lines": [
-        "Hi {{ .Name }},",
-        "",
-        "You have an upcoming event:",
-        "  \u2022 {{ .Title }} at {{ .Datetime }}",
-        ""
-      ]
-    }
-  ]
+ "app": {
+  "data_dir": "/var/lib/email-reminder",
+  "debug": false,
+  "host": "0.0.0.0",
+  "port": 8080
+ },
+ "custom_templates": [
+  {
+   "body_lines": [
+    "Hi {{ .Name }},",
+    "",
+    "You have an upcoming event:",
+    "  • {{ .Title }} at {{ .Datetime }}",
+    ""
+   ],
+   "domain": "example.com",
+   "subject_template_lines": [
+    "Reminder: {{ .Title }}"
+   ]
+  }
+ ],
+ "database": {
+  "uri": "sqlite:///var/lib/email-reminder/email-reminder.db"
+ },
+ "email": {
+  "default_body_lines": [
+   "Hello {{ .Name }},",
+   "",
+   "This is a reminder for your upcoming event:",
+   "  • Title: {{ .Title }}",
+   "  • When: {{ .Datetime }}",
+   "  • Location: {{ .Location }}",
+   "",
+   "Thanks!"
+  ],
+  "default_subject": " Reminder: Upcoming Event",
+  "embed_images": false
+ },
+ "health": {
+  "basic_auth": "",
+  "enabled": true
+ },
+ "log": {
+  "file": "/var/log/email-reminder/email-reminder.log",
+  "json": false,
+  "level": "INFO"
+ },
+ "schedule": {
+  "lookahead_seconds": 86400,
+  "scan_interval_seconds": 60,
+  "timezone": "America/New_York"
+ },
+ "smtp": {
+  "from_address": "reminders@example.com",
+  "host": "smtp.example.com",
+  "password": "s3cr3t",
+  "port": 587,
+  "use_starttls": true,
+  "use_tls": true,
+  "username": "reminders"
+ },
+ "throttle": {
+  "burst_limit": 10,
+  "max_per_minute": 5
+ },
+ "worker": {
+  "count": 4,
+  "max_retries": 3,
+  "retry_delay": 5,
+  "timeout": 30
+ }
 }

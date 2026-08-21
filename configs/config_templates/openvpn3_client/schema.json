@@ -1,192 +1,191 @@
 {
-  "client": {
-    "type": "object",
-    "default": {},
-    "description": "Core client configuration parameters",
-    "properties": {
+ "client": {
+  "description": "Core client configuration parameters",
+  "properties": {
+   "adaptive_compression": {
+    "default": false,
+    "description": "Enable adaptive LZO compression",
+    "type": "bool"
+   },
+   "auth_algorithm": {
+    "default": "SHA256",
+    "description": "Authentication algorithm for control channel (e.g., SHA256, SHA512)",
+    "type": "string"
+   },
+   "ca_file": {
+    "default": "/etc/openvpn3/ca.crt",
+    "description": "Path to CA certificate file",
+    "type": "string"
+   },
+   "cert_file": {
+    "default": "/etc/openvpn3/client.crt",
+    "description": "Path to client certificate file",
+    "type": "string"
+   },
+   "compression": {
+    "default": false,
+    "description": "Enable legacy LZO compression (not recommended for security)",
+    "type": "bool"
+   },
+   "daemonize": {
+    "default": true,
+    "description": "Run as background daemon",
+    "type": "bool"
+   },
+   "dns_servers": {
+    "default": [],
+    "description": "List of DNS servers to push via DHCP (e.g., ['8.8.8.8', '1.1.1.1'])",
+    "items": {
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "fragment": {
+    "default": null,
+    "description": "Fragment size (in bytes) for UDP (e.g., 1300)",
+    "type": "number"
+   },
+   "group": {
+    "default": "nogroup",
+    "description": "Group to drop privileges to",
+    "type": "string"
+   },
+   "key_file": {
+    "default": "/etc/openvpn3/client.key",
+    "description": "Path to client private key file",
+    "type": "string"
+   },
+   "log_file": {
+    "default": "/var/log/openvpn3/client.log",
+    "description": "Path to log file (optional)",
+    "type": "string"
+   },
+   "log_level": {
+    "default": null,
+    "description": "OpenVPN daemon log level (overrides verb_level; 0–9)",
+    "type": "number"
+   },
+   "no_adjust_mss": {
+    "default": true,
+    "description": "Prevent TCP MSS adjustment (helps with broken routers)",
+    "type": "bool"
+   },
+   "no_ipv6": {
+    "default": true,
+    "description": "Disable IPv6 support in client",
+    "type": "bool"
+   },
+   "no_routes_auto": {
+    "default": false,
+    "description": "Disable automatic route injection (for manual routing)",
+    "type": "bool"
+   },
+   "pid_file": {
+    "default": "/run/openvpn3/client.pid",
+    "description": "Path to PID file",
+    "type": "string"
+   },
+   "proto": {
+    "default": "udp",
+    "description": "Protocol used for connection (e.g., udp, tcp-client)",
+    "type": "string"
+   },
+   "redirect_gateway": {
+    "default": true,
+    "description": "Redirect all network traffic through the VPN (include default route)",
+    "type": "bool"
+   },
+   "remote_host": {
+    "default": "vpn.example.com",
+    "description": "Primary remote server hostname or IP",
+    "type": "string"
+   },
+   "remote_port": {
+    "default": 1194,
+    "description": "Port number of the primary remote server",
+    "type": "number"
+   },
+   "remotes": {
+    "default": [],
+    "description": "List of additional remote servers for failover/load balancing",
+    "items": {
+     "properties": {
+      "host": {
+       "default": "",
+       "description": "Remote server hostname or IP",
+       "type": "string"
+      },
+      "port": {
+       "default": 1194,
+       "description": "Remote server port",
+       "type": "number"
+      },
       "proto": {
-        "type": "string",
-        "default": "udp",
-        "description": "Protocol used for connection (e.g., udp, tcp-client)"
-      },
-      "remote_host": {
-        "type": "string",
-        "default": "vpn.example.com",
-        "description": "Primary remote server hostname or IP"
-      },
-      "remote_port": {
-        "type": "number",
-        "default": 1194,
-        "description": "Port number of the primary remote server"
-      },
-      "remotes": {
-        "type": "list",
-        "default": [],
-        "description": "List of additional remote servers for failover/load balancing",
-        "items": {
-          "type": "object",
-          "properties": {
-            "host": {
-              "type": "string",
-              "default": "",
-              "description": "Remote server hostname or IP"
-            },
-            "port": {
-              "type": "number",
-              "default": 1194,
-              "description": "Remote server port"
-            },
-            "proto": {
-              "type": "string",
-              "default": "",
-              "description": "Protocol override (empty = use global proto)"
-            }
-          }
-        }
-      },
-      "auth_algorithm": {
-        "type": "string",
-        "default": "SHA256",
-        "description": "Authentication algorithm for control channel (e.g., SHA256, SHA512)"
-      },
-      "ca_file": {
-        "type": "string",
-        "default": "/etc/openvpn3/ca.crt",
-        "description": "Path to CA certificate file"
-      },
-      "tls_auth_file": {
-        "type": "string",
-        "default": "",
-        "description": "Path to TLS authentication static key file (optional)"
-      },
-      "cert_file": {
-        "type": "string",
-        "default": "/etc/openvpn3/client.crt",
-        "description": "Path to client certificate file"
-      },
-      "key_file": {
-        "type": "string",
-        "default": "/etc/openvpn3/client.key",
-        "description": "Path to client private key file"
-      },
-      "tls_cipher": {
-        "type": "string",
-        "default": "",
-        "description": "Allowed TLS cipher list (e.g., 'TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256')"
-      },
-      "compression": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable legacy LZO compression (not recommended for security)"
-      },
-      "adaptive_compression": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable adaptive LZO compression"
-      },
-      "redirect_gateway": {
-        "type": "bool",
-        "default": true,
-        "description": "Redirect all network traffic through the VPN (include default route)"
-      },
-      "dns_servers": {
-        "type": "list",
-        "default": [],
-        "description": "List of DNS servers to push via DHCP (e.g., ['8.8.8.8', '1.1.1.1'])",
-        "items": {
-          "type": "string"
-        }
-      },
-      "routes": {
-        "type": "list",
-        "default": [],
-        "description": "Additional static routes to install",
-        "items": {
-          "type": "object",
-          "properties": {
-            "network": {
-              "type": "string",
-              "default": "",
-              "description": "Network address (e.g., 192.168.10.0)"
-            },
-            "netmask": {
-              "type": "string",
-              "default": "255.255.255.0",
-              "description": "Netmask (e.g., 255.255.255.0)"
-            },
-            "gateway": {
-              "type": "string",
-              "default": "",
-              "description": "Optional gateway for the route (empty = use VPN interface)"
-            }
-          }
-        }
-      },
-      "log_file": {
-        "type": "string",
-        "default": "/var/log/openvpn3/client.log",
-        "description": "Path to log file (optional)"
-      },
-      "verb_level": {
-        "type": "number",
-        "default": 3,
-        "description": "Verbosity level of log output (0\u201311)"
-      },
-      "log_level": {
-        "type": "number",
-        "default": null,
-        "description": "OpenVPN daemon log level (overrides verb_level; 0\u20139)"
-      },
-      "daemonize": {
-        "type": "bool",
-        "default": true,
-        "description": "Run as background daemon"
-      },
-      "pid_file": {
-        "type": "string",
-        "default": "/run/openvpn3/client.pid",
-        "description": "Path to PID file"
-      },
-      "user": {
-        "type": "string",
-        "default": "nobody",
-        "description": "User to drop privileges to"
-      },
-      "group": {
-        "type": "string",
-        "default": "nogroup",
-        "description": "Group to drop privileges to"
-      },
-      "no_adjust_mss": {
-        "type": "bool",
-        "default": true,
-        "description": "Prevent TCP MSS adjustment (helps with broken routers)"
-      },
-      "no_routes_auto": {
-        "type": "bool",
-        "default": false,
-        "description": "Disable automatic route injection (for manual routing)"
-      },
-      "no_ipv6": {
-        "type": "bool",
-        "default": true,
-        "description": "Disable IPv6 support in client"
-      },
-      "tun_mtu": {
-        "type": "number",
-        "default": 1500,
-        "description": "TUN interface MTU"
-      },
-      "tun_mtu_extra": {
-        "type": "number",
-        "default": 0,
-        "description": "Additional MTU for header space (e.g., 16)"
-      },
-      "fragment": {
-        "type": "number",
-        "default": null,
-        "description": "Fragment size (in bytes) for UDP (e.g., 1300)"
+       "default": "",
+       "description": "Protocol override (empty = use global proto)",
+       "type": "string"
       }
-    }
-  }
+     },
+     "type": "object"
+    },
+    "type": "list"
+   },
+   "routes": {
+    "default": [],
+    "description": "Additional static routes to install",
+    "items": {
+     "properties": {
+      "gateway": {
+       "default": "",
+       "description": "Optional gateway for the route (empty = use VPN interface)",
+       "type": "string"
+      },
+      "netmask": {
+       "default": "255.255.255.0",
+       "description": "Netmask (e.g., 255.255.255.0)",
+       "type": "string"
+      },
+      "network": {
+       "default": "",
+       "description": "Network address (e.g., 192.168.10.0)",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "type": "list"
+   },
+   "tls_auth_file": {
+    "default": "",
+    "description": "Path to TLS authentication static key file (optional)",
+    "type": "string"
+   },
+   "tls_cipher": {
+    "default": "",
+    "description": "Allowed TLS cipher list (e.g., 'TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256')",
+    "type": "string"
+   },
+   "tun_mtu": {
+    "default": 1500,
+    "description": "TUN interface MTU",
+    "type": "number"
+   },
+   "tun_mtu_extra": {
+    "default": 0,
+    "description": "Additional MTU for header space (e.g., 16)",
+    "type": "number"
+   },
+   "user": {
+    "default": "nobody",
+    "description": "User to drop privileges to",
+    "type": "string"
+   },
+   "verb_level": {
+    "default": 3,
+    "description": "Verbosity level of log output (0–11)",
+    "type": "number"
+   }
+  },
+  "type": "object"
+ }
 }

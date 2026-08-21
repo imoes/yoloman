@@ -1,232 +1,228 @@
 {
-  "ldap": {
-    "type": "object",
+ "dns": {
+  "description": "DNS backend configuration",
+  "properties": {
+   "backend": {
+    "default": "bind9",
+    "description": "Target DNS server backend",
+    "enum": [
+     "bind9",
+     "powerdns",
+     "nsd"
+    ],
+    "type": "string"
+   },
+   "bind9": {
     "default": {},
-    "description": "LDAP server connection and search configuration",
+    "description": "BIND9-specific settings (required if backend = bind9)",
     "properties": {
-      "uri": {
-        "type": "string",
-        "default": "ldap://localhost",
-        "description": "LDAP server URI (e.g., ldap://ldap.example.com or ldaps://ldap.example.com)"
-      },
-      "bind_dn": {
-        "type": "string",
-        "default": "",
-        "description": "DN used to bind to the LDAP directory"
-      },
-      "bind_password": {
-        "type": "string",
-        "default": "",
-        "description": "Password for the bind DN (store securely in production)",
-        "format": "password"
-      },
-      "base_dn": {
-        "type": "string",
-        "default": "",
-        "description": "Base DN to start LDAP searches from"
-      },
-      "search_filter": {
-        "type": "string",
-        "default": "objectClass=dnsZone",
-        "description": "LDAP filter to identify DNS zone entries"
-      },
-      "search_depth": {
-        "type": "number",
-        "default": 0,
-        "description": "Maximum search depth (0 = unlimited)"
-      },
-      "tls": {
-        "type": "object",
-        "default": {},
-        "description": "TLS/SSL options for secure LDAP",
-        "properties": {
-          "ca_cert_file": {
-            "type": "string",
-            "default": "",
-            "description": "Path to CA certificate file for TLS verification (optional)"
-          },
-          "cert_file": {
-            "type": "string",
-            "default": "",
-            "description": "Path to client certificate file for TLS client auth (optional)"
-          },
-          "key_file": {
-            "type": "string",
-            "default": "",
-            "description": "Path to client private key file for TLS client auth (optional)"
-          },
-          "start_tls": {
-            "type": "boolean",
-            "default": false,
-            "description": "Upgrade connection to TLS using STARTTLS (for ldap:// URLs)"
-          }
-        }
-      }
-    }
-  },
-  "zones": {
-    "type": "list",
-    "default": [],
-    "description": "List of LDAP-to-DNS zone mappings",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "DNS zone name (e.g., example.com)"
-        },
-        "base_dn": {
-          "type": "string",
-          "default": "",
-          "description": "Base DN in LDAP tree corresponding to this DNS zone"
-        },
-        "template": {
-          "type": "string",
-          "default": "",
-          "description": "Optional Jinja2 template (filename or inline) to generate DNS records"
-        }
-      }
-    }
-  },
-  "dns": {
-    "type": "object",
+     "key_algorithm": {
+      "default": "hmac-md5",
+      "description": "TSIG algorithm to use",
+      "enum": [
+       "hmac-md5",
+       "hmac-sha1",
+       "hmac-sha256",
+       "hmac-sha512"
+      ],
+      "type": "string"
+     },
+     "key_file": {
+      "default": "",
+      "description": "Path to the TSIG key file for secure updates",
+      "type": "string"
+     },
+     "key_name": {
+      "default": "rndc-key",
+      "description": "Name of the TSIG key",
+      "type": "string"
+     },
+     "server": {
+      "default": "127.0.0.1",
+      "description": "BIND9 server address",
+      "type": "string"
+     },
+     "zone_dir": {
+      "default": "",
+      "description": "Directory to write zone files (for debugging or backup)",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "nsd": {
     "default": {},
-    "description": "DNS backend configuration",
+    "description": "NSD-specific settings (required if backend = nsd)",
     "properties": {
-      "backend": {
-        "type": "string",
-        "default": "bind9",
-        "enum": [
-          "bind9",
-          "powerdns",
-          "nsd"
-        ],
-        "description": "Target DNS server backend"
-      },
-      "bind9": {
-        "type": "object",
-        "default": {},
-        "description": "BIND9-specific settings (required if backend = bind9)",
-        "properties": {
-          "server": {
-            "type": "string",
-            "default": "127.0.0.1",
-            "description": "BIND9 server address"
-          },
-          "key_file": {
-            "type": "string",
-            "default": "",
-            "description": "Path to the TSIG key file for secure updates"
-          },
-          "key_name": {
-            "type": "string",
-            "default": "rndc-key",
-            "description": "Name of the TSIG key"
-          },
-          "key_algorithm": {
-            "type": "string",
-            "default": "hmac-md5",
-            "enum": [
-              "hmac-md5",
-              "hmac-sha1",
-              "hmac-sha256",
-              "hmac-sha512"
-            ],
-            "description": "TSIG algorithm to use"
-          },
-          "zone_dir": {
-            "type": "string",
-            "default": "",
-            "description": "Directory to write zone files (for debugging or backup)"
-          }
-        }
-      },
-      "powerdns": {
-        "type": "object",
-        "default": {},
-        "description": "PowerDNS-specific settings (required if backend = powerdns)",
-        "properties": {
-          "api_url": {
-            "type": "string",
-            "default": "http://127.0.0.1:8080/api/v1",
-            "description": "PowerDNS API base URL"
-          },
-          "api_key": {
-            "type": "string",
-            "default": "",
-            "description": "PowerDNS API key (must have write privileges)",
-            "format": "password"
-          },
-          "default_ttl": {
-            "type": "number",
-            "default": 3600,
-            "description": "Default TTL (seconds) for newly created records"
-          }
-        }
-      },
-      "nsd": {
-        "type": "object",
-        "default": {},
-        "description": "NSD-specific settings (required if backend = nsd)",
-        "properties": {
-          "control_socket": {
-            "type": "string",
-            "default": "/var/run/nsdctl.sock",
-            "description": "Path to NSD control socket"
-          },
-          "zone_dir": {
-            "type": "string",
-            "default": "/etc/nsd/zones",
-            "description": "Directory where NSD zone files are stored"
-          }
-        }
-      }
-    }
-  },
-  "log": {
-    "type": "object",
+     "control_socket": {
+      "default": "/var/run/nsdctl.sock",
+      "description": "Path to NSD control socket",
+      "type": "string"
+     },
+     "zone_dir": {
+      "default": "/etc/nsd/zones",
+      "description": "Directory where NSD zone files are stored",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "powerdns": {
     "default": {},
-    "description": "Logging configuration",
+    "description": "PowerDNS-specific settings (required if backend = powerdns)",
     "properties": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "enum": [
-          "debug",
-          "info",
-          "warning",
-          "error",
-          "critical"
-        ],
-        "description": "Minimum log level"
-      },
-      "format": {
-        "type": "string",
-        "default": "text",
-        "enum": [
-          "text",
-          "json"
-        ],
-        "description": "Log output format"
-      }
-    }
+     "api_key": {
+      "default": "",
+      "description": "PowerDNS API key (must have write privileges)",
+      "format": "password",
+      "type": "string"
+     },
+     "api_url": {
+      "default": "http://127.0.0.1:8080/api/v1",
+      "description": "PowerDNS API base URL",
+      "type": "string"
+     },
+     "default_ttl": {
+      "default": 3600,
+      "description": "Default TTL (seconds) for newly created records",
+      "type": "number"
+     }
+    },
+    "type": "object"
+   }
   },
-  "rate_limit": {
-    "type": "object",
+  "type": "object"
+ },
+ "ldap": {
+  "description": "LDAP server connection and search configuration",
+  "properties": {
+   "base_dn": {
+    "default": "",
+    "description": "Base DN to start LDAP searches from",
+    "type": "string"
+   },
+   "bind_dn": {
+    "default": "",
+    "description": "DN used to bind to the LDAP directory",
+    "type": "string"
+   },
+   "bind_password": {
+    "default": "",
+    "description": "Password for the bind DN (store securely in production)",
+    "format": "password",
+    "type": "string"
+   },
+   "search_depth": {
+    "default": 0,
+    "description": "Maximum search depth (0 = unlimited)",
+    "type": "number"
+   },
+   "search_filter": {
+    "default": "objectClass=dnsZone",
+    "description": "LDAP filter to identify DNS zone entries",
+    "type": "string"
+   },
+   "tls": {
     "default": {},
-    "description": "Rate limiting for DNS update requests",
+    "description": "TLS/SSL options for secure LDAP",
     "properties": {
-      "max_updates_per_minute": {
-        "type": "number",
-        "default": 60,
-        "description": "Maximum number of updates allowed per minute"
-      },
-      "burst_size": {
-        "type": "number",
-        "default": 10,
-        "description": "Maximum burst size (for short-term spikes)"
-      }
+     "ca_cert_file": {
+      "default": "",
+      "description": "Path to CA certificate file for TLS verification (optional)",
+      "type": "string"
+     },
+     "cert_file": {
+      "default": "",
+      "description": "Path to client certificate file for TLS client auth (optional)",
+      "type": "string"
+     },
+     "key_file": {
+      "default": "",
+      "description": "Path to client private key file for TLS client auth (optional)",
+      "type": "string"
+     },
+     "start_tls": {
+      "default": false,
+      "description": "Upgrade connection to TLS using STARTTLS (for ldap:// URLs)",
+      "type": "boolean"
+     }
+    },
+    "type": "object"
+   },
+   "uri": {
+    "default": "ldap://localhost",
+    "description": "LDAP server URI (e.g., ldap://ldap.example.com or ldaps://ldap.example.com)",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "log": {
+  "description": "Logging configuration",
+  "properties": {
+   "format": {
+    "default": "text",
+    "description": "Log output format",
+    "enum": [
+     "text",
+     "json"
+    ],
+    "type": "string"
+   },
+   "level": {
+    "default": "info",
+    "description": "Minimum log level",
+    "enum": [
+     "debug",
+     "info",
+     "warning",
+     "error",
+     "critical"
+    ],
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "rate_limit": {
+  "description": "Rate limiting for DNS update requests",
+  "properties": {
+   "burst_size": {
+    "default": 10,
+    "description": "Maximum burst size (for short-term spikes)",
+    "type": "number"
+   },
+   "max_updates_per_minute": {
+    "default": 60,
+    "description": "Maximum number of updates allowed per minute",
+    "type": "number"
+   }
+  },
+  "type": "object"
+ },
+ "zones": {
+  "default": [],
+  "description": "List of LDAP-to-DNS zone mappings",
+  "items": {
+   "properties": {
+    "base_dn": {
+     "default": "",
+     "description": "Base DN in LDAP tree corresponding to this DNS zone",
+     "type": "string"
+    },
+    "name": {
+     "default": "",
+     "description": "DNS zone name (e.g., example.com)",
+     "type": "string"
+    },
+    "template": {
+     "default": "",
+     "description": "Optional Jinja2 template (filename or inline) to generate DNS records",
+     "type": "string"
     }
-  }
+   },
+   "type": "object"
+  },
+  "type": "list"
+ }
 }

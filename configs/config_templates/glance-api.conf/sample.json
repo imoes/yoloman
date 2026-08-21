@@ -1,59 +1,59 @@
 {
-  "debug": false,
-  "log_file": "/var/log/glance/api.log",
-  "log_level": "INFO",
-  "workers": 2,
-  "database": {
-    "connection": "mysql+pymysql://glance:secretpassword@192.168.1.10/glance",
-    "max_retries": 10
+ "database": {
+  "connection": "mysql+pymysql://glance:secretpassword@192.168.1.10/glance",
+  "max_retries": 10
+ },
+ "debug": false,
+ "default_store": "file",
+ "filesystem_store_datadir": "/var/lib/glance/images",
+ "image_cache_dir": "/var/lib/glance/image-cache",
+ "image_formats": [
+  "qcow2",
+  "raw",
+  "vhd",
+  "vdi",
+  "vmdk",
+  "bare",
+  "docker",
+  "aki",
+  "ari",
+  "ami"
+ ],
+ "keystone_authtoken": {
+  "auth_url": "https://keystone.example.com:5000/v3",
+  "cafile": "/etc/ssl/certs/ca-certificates.crt",
+  "insecure": false,
+  "password": "glance_secret_pass",
+  "project_domain_name": "Default",
+  "project_name": "service",
+  "user_domain_name": "Default",
+  "username": "glance"
+ },
+ "log_file": "/var/log/glance/api.log",
+ "log_level": "INFO",
+ "notifications_driver": "routing",
+ "paste_deploy": {
+  "flavor": "keystone"
+ },
+ "stores": [
+  {
+   "description": "Local filesystem (primary store)",
+   "name": "file"
   },
-  "keystone_authtoken": {
-    "auth_url": "https://keystone.example.com:5000/v3",
-    "username": "glance",
-    "password": "glance_secret_pass",
-    "project_name": "service",
-    "project_domain_name": "Default",
-    "user_domain_name": "Default",
-    "insecure": false,
-    "cafile": "/etc/ssl/certs/ca-certificates.crt"
+  {
+   "description": "Swift object storage (backup)",
+   "name": "swift",
+   "region": "RegionOne"
   },
-  "paste_deploy": {
-    "flavor": "keystone"
-  },
-  "stores": [
-    {
-      "name": "file",
-      "description": "Local filesystem (primary store)"
-    },
-    {
-      "name": "swift",
-      "region": "RegionOne",
-      "description": "Swift object storage (backup)"
-    },
-    {
-      "name": "s3",
-      "region": "us-east-1",
-      "description": "S3-compatible storage (DR site)"
-    }
-  ],
-  "default_store": "file",
-  "filesystem_store_datadir": "/var/lib/glance/images",
-  "image_cache_dir": "/var/lib/glance/image-cache",
-  "image_formats": [
-    "qcow2",
-    "raw",
-    "vhd",
-    "vdi",
-    "vmdk",
-    "bare",
-    "docker",
-    "aki",
-    "ari",
-    "ami"
-  ],
-  "task": {
-    "enable": true,
-    "workers": 2
-  },
-  "notifications_driver": "routing"
+  {
+   "description": "S3-compatible storage (DR site)",
+   "name": "s3",
+   "region": "us-east-1"
+  }
+ ],
+ "task": {
+  "enable": true,
+  "workers": 2
+ },
+ "workers": 2
 }

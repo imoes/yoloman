@@ -1,178 +1,173 @@
 {
-  "logging": {
-    "type": "object",
+ "auth": {
+  "description": "Authentication settings",
+  "items": {
+   "authfile": {
+    "default": "/etc/ha.d/authkeys",
+    "description": "Path to authentication keys file",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "auto_failback": {
+  "default": true,
+  "description": "Automatically fail resources back to original node when it recovers",
+  "type": "bool"
+ },
+ "deadtime_interval": {
+  "default": 30,
+  "description": "Seconds to wait before declaring a node dead",
+  "type": "number"
+ },
+ "debug_mode": {
+  "default": false,
+  "description": "Enable verbose debug logging (not recommended for production)",
+  "type": "bool"
+ },
+ "heartbeat": {
+  "description": "Network communication settings",
+  "items": {
+   "serial": {
     "default": {},
-    "description": "Logging configuration for Heartbeat daemon",
     "items": {
-      "logfile": {
-        "type": "string",
-        "default": "",
-        "description": "Path to log file (empty string disables file logging)"
-      },
-      "facility": {
-        "type": "string",
-        "default": "local0",
-        "description": "Syslog facility to use (e.g., local0, daemon)"
-      }
-    }
-  },
-  "debug_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debug logging (not recommended for production)"
-  },
-  "keepalive_interval": {
-    "type": "number",
-    "default": 2,
-    "description": "Seconds between heartbeat packets (must be < deadtime)"
-  },
-  "deadtime_interval": {
-    "type": "number",
-    "default": 30,
-    "description": "Seconds to wait before declaring a node dead"
-  },
-  "warntime_interval": {
-    "type": "number",
-    "default": 10,
-    "description": "Seconds before declaring a node in warning state"
-  },
-  "initdead_interval": {
-    "type": "number",
-    "default": 60,
-    "description": "Seconds to wait on initial startup before assuming peers are dead"
-  },
-  "heartbeat": {
-    "type": "object",
+     "baud_rate": {
+      "default": 19200,
+      "description": "Serial line baud rate",
+      "type": "number"
+     },
+     "device": {
+      "default": "/dev/ttyS0",
+      "description": "Serial device path (e.g., /dev/ttyS0)",
+      "type": "string"
+     },
+     "enabled": {
+      "default": false,
+      "description": "Enable serial-line heartbeat communication",
+      "type": "bool"
+     }
+    },
+    "type": "object"
+   },
+   "udp_broadcast": {
     "default": {},
-    "description": "Network communication settings",
     "items": {
-      "udp_broadcast": {
-        "type": "object",
-        "default": {},
-        "items": {
-          "interfaces": {
-            "type": "list",
-            "default": [],
-            "description": "List of network interfaces to broadcast heartbeats on (e.g., ['eth0', 'bond0'])",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "unicast": {
-        "type": "object",
-        "default": {},
-        "items": {
-          "peers": {
-            "type": "list",
-            "default": [],
-            "description": "List of unicast peer nodes (for non-broadcast environments)",
-            "items": {
-              "type": "object",
-              "items": {
-                "interface": {
-                  "type": "string",
-                  "default": "eth0",
-                  "description": "Network interface for unicast traffic"
-                },
-                "address": {
-                  "type": "string",
-                  "default": "",
-                  "description": "IP address of the peer node"
-                }
-              }
-            }
-          }
-        }
-      },
-      "serial": {
-        "type": "object",
-        "default": {},
-        "items": {
-          "enabled": {
-            "type": "bool",
-            "default": false,
-            "description": "Enable serial-line heartbeat communication"
-          },
-          "device": {
-            "type": "string",
-            "default": "/dev/ttyS0",
-            "description": "Serial device path (e.g., /dev/ttyS0)"
-          },
-          "baud_rate": {
-            "type": "number",
-            "default": 19200,
-            "description": "Serial line baud rate"
-          }
-        }
-      }
-    }
-  },
-  "node_name": {
-    "type": "string",
-    "default": "primary",
-    "description": "Local node's unique name (typically hostname)"
-  },
-  "nodes": {
-    "type": "list",
-    "default": [],
-    "description": "Explicit list of all nodes in the cluster (required for >2 nodes or non-standard names)",
-    "items": {
-      "type": "object",
+     "interfaces": {
+      "default": [],
+      "description": "List of network interfaces to broadcast heartbeats on (e.g., ['eth0', 'bond0'])",
       "items": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Node name (must match actual hostname)"
+       "type": "string"
+      },
+      "type": "list"
+     }
+    },
+    "type": "object"
+   },
+   "unicast": {
+    "default": {},
+    "items": {
+     "peers": {
+      "default": [],
+      "description": "List of unicast peer nodes (for non-broadcast environments)",
+      "items": {
+       "items": {
+        "address": {
+         "default": "",
+         "description": "IP address of the peer node",
+         "type": "string"
+        },
+        "interface": {
+         "default": "eth0",
+         "description": "Network interface for unicast traffic",
+         "type": "string"
         }
-      }
+       },
+       "type": "object"
+      },
+      "type": "list"
+     }
+    },
+    "type": "object"
+   }
+  },
+  "type": "object"
+ },
+ "initdead_interval": {
+  "default": 60,
+  "description": "Seconds to wait on initial startup before assuming peers are dead",
+  "type": "number"
+ },
+ "keepalive_interval": {
+  "default": 2,
+  "description": "Seconds between heartbeat packets (must be < deadtime)",
+  "type": "number"
+ },
+ "logging": {
+  "description": "Logging configuration for Heartbeat daemon",
+  "items": {
+   "facility": {
+    "default": "local0",
+    "description": "Syslog facility to use (e.g., local0, daemon)",
+    "type": "string"
+   },
+   "logfile": {
+    "default": "",
+    "description": "Path to log file (empty string disables file logging)",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "node_name": {
+  "default": "primary",
+  "description": "Local node's unique name (typically hostname)",
+  "type": "string"
+ },
+ "nodes": {
+  "default": [],
+  "description": "Explicit list of all nodes in the cluster (required for >2 nodes or non-standard names)",
+  "items": {
+   "items": {
+    "name": {
+     "default": "",
+     "description": "Node name (must match actual hostname)",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "auth": {
-    "type": "object",
-    "default": {},
-    "description": "Authentication settings",
-    "items": {
-      "authfile": {
-        "type": "string",
-        "default": "/etc/ha.d/authkeys",
-        "description": "Path to authentication keys file"
-      }
-    }
-  },
-  "auto_failback": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically fail resources back to original node when it recovers"
-  },
-  "use_logd": {
-    "type": "bool",
+  "type": "list"
+ },
+ "pacemaker": {
+  "description": "Pacemaker compatibility (legacy)",
+  "items": {
+   "enabled": {
     "default": false,
-    "description": "Enable external logd daemon (recommended for large deployments)"
+    "description": "Enable Pacemaker resource manager (CRM) support (deprecated in Heartbeat 3+)",
+    "type": "bool"
+   }
   },
-  "watchdog": {
-    "type": "object",
-    "default": {},
-    "description": "Watchdog (fencing) device configuration",
-    "items": {
-      "device": {
-        "type": "string",
-        "default": "",
-        "description": "Watchdog device path (e.g., /dev/watchdog); leave empty to disable"
-      }
-    }
+  "type": "object"
+ },
+ "use_logd": {
+  "default": false,
+  "description": "Enable external logd daemon (recommended for large deployments)",
+  "type": "bool"
+ },
+ "warntime_interval": {
+  "default": 10,
+  "description": "Seconds before declaring a node in warning state",
+  "type": "number"
+ },
+ "watchdog": {
+  "description": "Watchdog (fencing) device configuration",
+  "items": {
+   "device": {
+    "default": "",
+    "description": "Watchdog device path (e.g., /dev/watchdog); leave empty to disable",
+    "type": "string"
+   }
   },
-  "pacemaker": {
-    "type": "object",
-    "default": {},
-    "description": "Pacemaker compatibility (legacy)",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable Pacemaker resource manager (CRM) support (deprecated in Heartbeat 3+)"
-      }
-    }
-  }
+  "type": "object"
+ }
 }

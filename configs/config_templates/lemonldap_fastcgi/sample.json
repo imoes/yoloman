@@ -1,42 +1,42 @@
 {
-  "main": {
-    "log_level": "info",
-    "config_storage": {
-      "type": "JSON",
-      "options": {
-        "filename": "/etc/lemonldap-ng/conf/lemonldap-ng.ini"
-      }
-    },
-    "session_storage": {
-      "type": "Redis",
-      "options": {
-        "servers": [
-          "127.0.0.1:6379"
-        ],
-        "keyPrefix": "llng_session_"
-      }
-    },
-    "portal_url": "https://auth.example.com",
-    "management_url": "https://manager.example.com",
-    "request_timeout": 25
+ "fastcgi": {
+  "graceful_reload": true,
+  "group": "www-data",
+  "pid_file": "/run/lemonldap-ng-fastcgi.pid",
+  "ports": [
+   9090
+  ],
+  "sockets": [
+   "/var/run/lemonldap-ng/fastcgi.sock"
+  ],
+  "user": "www-data",
+  "workers": 4
+ },
+ "logger": {
+  "backend": "File",
+  "file": "/var/log/lemonldap-ng/fastcgi.log",
+  "format": "%d %p %m %s",
+  "level": "debug"
+ },
+ "main": {
+  "config_storage": {
+   "options": {
+    "filename": "/etc/lemonldap-ng/conf/lemonldap-ng.ini"
+   },
+   "type": "JSON"
   },
-  "fastcgi": {
-    "workers": 4,
-    "ports": [
-      9090
-    ],
-    "sockets": [
-      "/var/run/lemonldap-ng/fastcgi.sock"
-    ],
-    "user": "www-data",
-    "group": "www-data",
-    "pid_file": "/run/lemonldap-ng-fastcgi.pid",
-    "graceful_reload": true
-  },
-  "logger": {
-    "backend": "File",
-    "level": "debug",
-    "format": "%d %p %m %s",
-    "file": "/var/log/lemonldap-ng/fastcgi.log"
+  "log_level": "info",
+  "management_url": "https://manager.example.com",
+  "portal_url": "https://auth.example.com",
+  "request_timeout": 25,
+  "session_storage": {
+   "options": {
+    "keyPrefix": "llng_session_",
+    "servers": [
+     "127.0.0.1:6379"
+    ]
+   },
+   "type": "Redis"
   }
+ }
 }

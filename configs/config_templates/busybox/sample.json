@@ -1,126 +1,126 @@
 {
-  "inittab": {
-    "entries": [
-      {
-        "id": "1",
-        "runlevels": "",
-        "action": "respawn",
-        "process": "/sbin/getty 115200 tty1"
-      },
-      {
-        "id": "ctrlaltdel",
-        "runlevels": "",
-        "action": "ctrlaltdel",
-        "process": "/sbin/reboot"
-      },
-      {
-        "id": "shutdown",
-        "runlevels": "",
-        "action": "shutdown",
-        "process": "/bin/umount -a -r"
-      }
-    ]
-  },
-  "fstab": {
-    "entries": [
-      {
-        "file": "proc",
-        "dir": "/proc",
-        "type": "proc",
-        "options": [
-          "defaults"
-        ],
-        "dump": 0,
-        "pass": 0
-      },
-      {
-        "file": "tmpfs",
-        "dir": "/tmp",
-        "type": "tmpfs",
-        "options": [
-          "size=32M",
-          "mode=1777"
-        ],
-        "dump": 0,
-        "pass": 0
-      }
-    ]
-  },
-  "network": {
-    "interfaces": [
-      {
-        "name": "eth0",
-        "method": "static",
-        "address": "192.168.1.10",
-        "netmask": "255.255.255.0",
-        "gateway": "192.168.1.1",
-        "post_up": [
-          "ip route add default via 192.168.1.1"
-        ]
-      }
-    ]
-  },
-  "mdev.conf": {
-    "entries": [
-      {
-        "pattern": "sd[a-z]",
-        "uid": "0",
-        "gid": "0",
-        "perm": "0660",
-        "action": "@modprobe -a block-major-$major"
-      },
-      {
-        "pattern": "$MODALIAS=usb*",
-        "uid": "0",
-        "gid": "0",
-        "perm": "0660",
-        "action": "|/sbin/modprobe $MODALIAS"
-      }
-    ]
-  },
-  "hostname": "mydevice",
-  "hosts": {
-    "entries": [
-      {
-        "ip": "127.0.0.1",
-        "hostname": "localhost"
-      },
-      {
-        "ip": "::1",
-        "hostname": "localhost"
-      },
-      {
-        "ip": "192.168.1.10",
-        "hostname": "mydevice",
-        "aliases": [
-          "router"
-        ]
-      }
-    ]
-  },
-  "resolv.conf": {
-    "nameservers": [
-      "8.8.8.8",
-      "8.8.4.4"
+ "fstab": {
+  "entries": [
+   {
+    "dir": "/proc",
+    "dump": 0,
+    "file": "proc",
+    "options": [
+     "defaults"
     ],
-    "search": [
-      "example.com",
-      "local"
+    "pass": 0,
+    "type": "proc"
+   },
+   {
+    "dir": "/tmp",
+    "dump": 0,
+    "file": "tmpfs",
+    "options": [
+     "size=32M",
+     "mode=1777"
+    ],
+    "pass": 0,
+    "type": "tmpfs"
+   }
+  ]
+ },
+ "hostname": "mydevice",
+ "hosts": {
+  "entries": [
+   {
+    "hostname": "localhost",
+    "ip": "127.0.0.1"
+   },
+   {
+    "hostname": "localhost",
+    "ip": "::1"
+   },
+   {
+    "aliases": [
+     "router"
+    ],
+    "hostname": "mydevice",
+    "ip": "192.168.1.10"
+   }
+  ]
+ },
+ "inittab": {
+  "entries": [
+   {
+    "action": "respawn",
+    "id": "1",
+    "process": "/sbin/getty 115200 tty1",
+    "runlevels": ""
+   },
+   {
+    "action": "ctrlaltdel",
+    "id": "ctrlaltdel",
+    "process": "/sbin/reboot",
+    "runlevels": ""
+   },
+   {
+    "action": "shutdown",
+    "id": "shutdown",
+    "process": "/bin/umount -a -r",
+    "runlevels": ""
+   }
+  ]
+ },
+ "mdev.conf": {
+  "entries": [
+   {
+    "action": "@modprobe -a block-major-$major",
+    "gid": "0",
+    "pattern": "sd[a-z]",
+    "perm": "0660",
+    "uid": "0"
+   },
+   {
+    "action": "|/sbin/modprobe $MODALIAS",
+    "gid": "0",
+    "pattern": "$MODALIAS=usb*",
+    "perm": "0660",
+    "uid": "0"
+   }
+  ]
+ },
+ "network": {
+  "interfaces": [
+   {
+    "address": "192.168.1.10",
+    "gateway": "192.168.1.1",
+    "method": "static",
+    "name": "eth0",
+    "netmask": "255.255.255.0",
+    "post_up": [
+     "ip route add default via 192.168.1.1"
     ]
-  },
-  "sysctl.conf": {
-    "settings": {
-      "net.ipv4.ip_forward": "0",
-      "vm.swappiness": "60"
-    }
-  },
-  "nsswitch.conf": {
-    "lines": [
-      "# nsswitch.conf \u2014 minimal config for glibc",
-      "passwd:     files",
-      "group:      files",
-      "shadow:     files",
-      "hosts:      files dns"
-    ]
+   }
+  ]
+ },
+ "nsswitch.conf": {
+  "lines": [
+   "# nsswitch.conf — minimal config for glibc",
+   "passwd:     files",
+   "group:      files",
+   "shadow:     files",
+   "hosts:      files dns"
+  ]
+ },
+ "resolv.conf": {
+  "nameservers": [
+   "8.8.8.8",
+   "8.8.4.4"
+  ],
+  "search": [
+   "example.com",
+   "local"
+  ]
+ },
+ "sysctl.conf": {
+  "settings": {
+   "net.ipv4.ip_forward": "0",
+   "vm.swappiness": "60"
   }
+ }
 }

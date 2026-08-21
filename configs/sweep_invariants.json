@@ -226,25 +226,7 @@
    }
   ],
   "engine": "laguna",
-  "records": 11561,
-  "decisions": {
-   "high-confidence-probe-without-text": {
-    "verdict": "refuted",
-    "why": "text is corpus-relative — all 21 are Debian paths measured against the Debian corpus, absent from the RedHat one"
-   },
-   "low-confidence-config-claim": {
-    "verdict": "refuted",
-    "why": "all 68 have no source at all, so an unmeasured record with low confidence is consistent, not contradictory"
-   },
-   "directory-path-no-extension": {
-    "verdict": "refuted",
-    "why": "2845 hits, but only 19 are really directories in the corpus and all 19 already carry codec none — plausible_target and the probe cover it"
-   },
-   "shell-script-misclassified-as-config": {
-    "verdict": "implemented",
-    "why": "decide_codecs corrects a per-key claim on a script; /etc/ahcp/ahcp-config.sh was the one live case"
-   }
-  }
+  "records": 11561
  },
  "directives": {
   "invariants": [
@@ -401,25 +383,7 @@
    }
   ],
   "engine": "laguna",
-  "records": 22471,
-  "decisions": {
-   "values-without-enum": {
-    "verdict": "refuted",
-    "why": "values on a bool carries the file's surface form (Yes/No, not true/false), on a list the allowed items; converting the 20 string/int cases would turn a mined sample like values=['en'] into a closed dropdown and forbid valid values"
-   },
-   "range-without-numeric-type": {
-    "verdict": "implemented",
-    "why": "min/max dropped on bool, enum and list (60); string spared because 0..128 plausibly bounds its length"
-   },
-   "int-default-with-decimal": {
-    "verdict": "implemented",
-    "why": "56 int fields whose fractional default proves the type wrong, not the value — chrony's maxslewrate 83333.333; type becomes number"
-   },
-   "nonempty_description": {
-    "verdict": "open",
-    "why": "410 fields with no description on 55 paths (lvm.conf 82, lftp.conf 72) — a re-mine list, not a corruption"
-   }
-  }
+  "records": 22471
  },
  "templates": {
   "invariants": [
@@ -430,16 +394,10 @@
     "harm": "Ambiguous intent: consumers cannot know whether the repeated value signals a bug or a deliberate listing, and gonja's Jinja2 engine may silently treat it as either one or two allowed values.",
     "expected_hits": "few",
     "result": {
-     "status": "finding",
-     "hits": 22,
-     "share": 0.004,
-     "examples": [
-      "LocalSettings.php",
-      "acl",
-      "busybox",
-      "cluster-glue",
-      "conntrackd.conf"
-     ],
+     "status": "no-occurrence",
+     "hits": 0,
+     "share": 0.0,
+     "examples": [],
      "predicate_errors": 0,
      "first_error": ""
     }
@@ -485,9 +443,200 @@
      "predicate_errors": 0,
      "first_error": ""
     }
+   },
+   {
+    "name": "schema-sample-type-mismatch",
+    "statement": "Every field present in both schema and sample has a sample value whose Python type is consistent with the type declared in schema.",
+    "predicate": "any(k in schema and k in sample and ((schema[k].get('type') == 'string' and not isinstance(sample[k], str)) or (schema[k].get('type') == 'bool' and not isinstance(sample[k], bool)) or (schema[k].get('type') == 'number' and (isinstance(sample[k], bool) or not isinstance(sample[k], (int, float)))) or (schema[k].get('type') == 'list' and not isinstance(sample[k], list)) or (schema[k].get('type') == 'dict' and not isinstance(sample[k], dict))) for k in sample)",
+    "harm": "When the template renders using the sample, a schema-declared number or bool field receiving a string value (or vice versa) causes Jinja2 type-dependent filters to fail or produces output that downstream schema validators reject. On the host, the service may fail to parse its configuration file and refuse to start, or silently use a coerced-but-wrong value.",
+    "example_record": {
+     "schema": {
+      "port": {
+       "type": "number",
+       "default": 2811
+      }
+     },
+     "sample": {
+      "port": "2811"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 116,
+     "share": 0.0212,
+     "examples": [
+      "ModemManager.conf",
+      "anymeal",
+      "apcupsd",
+      "bip",
+      "boinc_client"
+     ],
+     "predicate_errors": 1,
+     "first_error": "AttributeError: 'str' object has no attribute 'get'"
+    }
+   },
+   {
+    "name": "schema-default-type-mismatch",
+    "statement": "Every schema field that declares a default has a default value whose Python type is consistent with the type declared in schema.",
+    "predicate": "any(k in schema and 'default' in schema[k] and ((schema[k].get('type') == 'string' and not isinstance(schema[k]['default'], str)) or (schema[k].get('type') == 'bool' and not isinstance(schema[k]['default'], bool)) or (schema[k].get('type') == 'number' and (isinstance(schema[k]['default'], bool) or not isinstance(schema[k]['default'], (int, float)))) or (schema[k].get('type') == 'list' and not isinstance(schema[k]['default'], list)) or (schema[k].get('type') == 'dict' and not isinstance(schema[k]['default'], dict))) for k in schema)",
+    "harm": "When the template falls back to the schema default (no sample or user override), a type mismatch — e.g. a bool field whose default is the string 'yes' instead of true/false — renders a value that config parsers interpret inconsistently, silently enabling or disabling features on the host.",
+    "example_record": {
+     "schema": {
+      "enabled": {
+       "type": "bool",
+       "default": "yes"
+      }
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 194,
+     "share": 0.0354,
+     "examples": [
+      "0install",
+      "2ping",
+      "2vcard",
+      "389-ds",
+      "389_directory_server"
+     ],
+     "predicate_errors": 2,
+     "first_error": "TypeError: argument of type 'NoneType' is not iterable"
+    }
+   },
+   {
+    "name": "enum-value-outside-enum",
+    "statement": "For every schema field with a declared enum, both the schema default (if present) and the sample value (if present) are members of that enum.",
+    "predicate": "any(k in schema and 'enum' in schema[k] and 'default' in schema[k] and schema[k]['default'] not in schema[k]['enum'] for k in schema) or any(k in schema and k in sample and 'enum' in schema[k] and sample[k] not in schema[k]['enum'] for k in sample)",
+    "harm": "A default or sample value outside the declared enum produces a configuration directive that the consuming application's own validator rejects, causing the service to fail to start or silently revert to an internal fallback value that may be less secure.",
+    "example_record": {
+     "schema": {
+      "query_class": {
+       "type": "string",
+       "enum": [
+        "A",
+        "AAAA"
+       ],
+       "default": "MX"
+      }
+     },
+     "sample": {
+      "query_class": "MX"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 308,
+     "share": 0.0563,
+     "examples": [
+      "0xffff",
+      "9mount",
+      "ModemManager.conf",
+      "accountsservice",
+      "acl"
+     ],
+     "predicate_errors": 1,
+     "first_error": "TypeError: argument of type 'NoneType' is not iterable"
+    }
+   },
+   {
+    "name": "body-references-undeclared-variable",
+    "statement": "Every variable referenced in a Jinja2 output expression in the body is either a key in schema or a loop variable declared in a Jinja2 for-loop in the same body.",
+    "predicate": "len(set(re.findall(r'\\{\\{\\s*\\(??\\s*([a-zA-Z_]\\w*)', body)) - set(re.findall(r'\\{%\\s*for\\s+(\\w+)\\s+in', body)) - set(schema)) > 0",
+    "harm": "The template body references a variable absent from the schema, so it cannot be configured by users. At render time the variable resolves to nil and the template silently falls back to a hardcoded value instead of the user-supplied one, producing an insecure or non-functional host configuration that ignores administrator intent.",
+    "example_record": {
+     "schema": {
+      "git.path": {
+       "type": "string",
+       "default": "/var/lib/git"
+      }
+     },
+     "body": "{{ (git | default({})).path | default('/var/lib/git') }}"
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1206,
+     "share": 0.2203,
+     "examples": [
+      "2vcard",
+      "389-ds-base",
+      "4g8",
+      "50-server.cnf",
+      "64tass"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "required-field-without-default",
+    "statement": "Every field in schema either has a 'default' key or is present in the sample, so that no schema field is left without a value at render time.",
+    "predicate": "any(k in schema and 'default' not in schema[k] and k not in sample for k in schema)",
+    "harm": "A schema field with no default and no sample value is undefined at render time. If the template body does not independently supply a |default() filter, the rendered configuration directive is empty or nil. On the host, the service may crash on startup, bind to a wrong address, or operate with an insecure empty setting (e.g. an empty secret or missing bind address).",
+    "example_record": {
+     "schema": {
+      "secret": {
+       "type": "string",
+       "description": "Required"
+      }
+     },
+     "sample": {}
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 75,
+     "share": 0.0137,
+     "examples": [
+      "0install",
+      "amanda_server",
+      "appstream-util",
+      "certstream-server-go",
+      "claws-mail-feeds-reader"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
    }
   ],
-  "engine": "qwen35b",
-  "records": 5474
+  "engine": "laguna",
+  "records": 5474,
+  "decisions": {
+   "no-unused-schema-parameters": {
+    "verdict": "implemented",
+    "why": "/config-fields withholds the 2561 fields (341 templates) whose name appears nowhere in the body, and reports the count instead of dropping the values on write"
+   },
+   "list-schema-uses-yaml-list-rendering": {
+    "verdict": "refuted",
+    "why": "1232 hits but only 22 target a YAML file; replaced by a stronger invariant in the render ratchet — if the recorded target is .yaml/.yml the rendered sample must parse (3 of 17 failed)"
+   },
+   "no-duplicate-enum": {
+    "verdict": "implemented",
+    "why": "dedupe_template_enums.py, 27 lists in 22 schemas, first occurrence kept so documentation order survives"
+   },
+   "schema-sample-type-mismatch": {
+    "verdict": "implemented",
+    "why": "the TYPE is corrected from the sample, not the sample from the type — repairing the sample broke anymeal, frr and munin-node.conf outright"
+   },
+   "schema-default-type-mismatch": {
+    "verdict": "implemented",
+    "why": "295 empty {} defaults dropped, 255 {value: X} unwrapped, 20 bool words coerced, 88 empty strings dropped; 482 other dict shapes reported only"
+   },
+   "enum-value-outside-enum": {
+    "verdict": "implemented",
+    "why": "227 defaults dropped; the 304 SAMPLE cases are reported only, because a mined enum and a sample that renders cannot be decided from here"
+   },
+   "body-references-undeclared-variable": {
+    "verdict": "open",
+    "why": "1206 hits, needs loop variables and filter names excluded before it means anything"
+   },
+   "required-field-without-default": {
+    "verdict": "open",
+    "why": "75 hits; a required field without a default is what required means — needs a UI decision, not a data rule"
+   }
+  }
  }
 }

@@ -1,96 +1,95 @@
 {
-  "listen_addr": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address the IPIP service will bind to for incoming connections."
-  },
-  "listen_port": {
-    "type": "number",
-    "default": 5000,
-    "description": "TCP port number for the main IPIP control service."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of logging: one of debug, info, warn, error."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/ipip/ipip.log",
-    "description": "Path to the primary log file for IPIP service events."
-  },
-  "max_workers": {
-    "type": "number",
-    "default": 4,
-    "description": "Maximum number of worker processes for handling tunnel operations."
-  },
-  "enable_auth": {
-    "type": "bool",
+ "auth_method": {
+  "default": "password",
+  "description": "Authentication mechanism: currently only 'password' is supported.",
+  "type": "string"
+ },
+ "enable_auth": {
+  "default": true,
+  "description": "Enable user authentication for service access.",
+  "type": "bool"
+ },
+ "listen_addr": {
+  "default": "0.0.0.0",
+  "description": "IP address the IPIP service will bind to for incoming connections.",
+  "type": "string"
+ },
+ "listen_port": {
+  "default": 5000,
+  "description": "TCP port number for the main IPIP control service.",
+  "type": "number"
+ },
+ "log_file": {
+  "default": "/var/log/ipip/ipip.log",
+  "description": "Path to the primary log file for IPIP service events.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "info",
+  "description": "Verbosity of logging: one of debug, info, warn, error.",
+  "type": "string"
+ },
+ "max_workers": {
+  "default": 4,
+  "description": "Maximum number of worker processes for handling tunnel operations.",
+  "type": "number"
+ },
+ "overrides": {
+  "description": "Dictionary of arbitrary key-value overrides for advanced tuning (not recommended unless advised).",
+  "type": "object"
+ },
+ "tunnels": {
+  "default": [],
+  "description": "List of IPIP tunnel definitions.",
+  "items": {
+   "description": {
+    "default": "",
+    "description": "Optional human-readable description.",
+    "type": "string"
+   },
+   "dst_addr": {
+    "description": "Destination IP address (remote tunnel endpoint).",
+    "type": "string"
+   },
+   "enabled": {
     "default": true,
-    "description": "Enable user authentication for service access."
+    "description": "Whether the tunnel is active.",
+    "type": "bool"
+   },
+   "mtu": {
+    "default": 1480,
+    "description": "Maximum Transmission Unit for the tunnel (typically 20 bytes less than Ethernet MTU).",
+    "type": "number"
+   },
+   "name": {
+    "description": "Unique identifier for the tunnel.",
+    "type": "string"
+   },
+   "src_addr": {
+    "description": "Source IP address for the tunnel endpoint.",
+    "type": "string"
+   }
   },
-  "auth_method": {
-    "type": "string",
-    "default": "password",
-    "description": "Authentication mechanism: currently only 'password' is supported."
+  "type": "list"
+ },
+ "users": {
+  "default": [],
+  "description": "List of named users with permissions to manage IPIP tunnels.",
+  "items": {
+   "name": {
+    "description": "Unique username.",
+    "type": "string"
+   },
+   "password": {
+    "description": "Password for the user (stored in plain text in config — secure deployments should use external auth).",
+    "type": "string"
+   },
+   "scope": {
+    "default": "admin",
+    "description": "Permission level: 'admin' (full access) or 'read' (view-only).",
+    "type": "string"
+   }
   },
-  "users": {
-    "type": "list",
-    "default": [],
-    "description": "List of named users with permissions to manage IPIP tunnels.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique username."
-      },
-      "password": {
-        "type": "string",
-        "description": "Password for the user (stored in plain text in config \u2014 secure deployments should use external auth)."
-      },
-      "scope": {
-        "type": "string",
-        "default": "admin",
-        "description": "Permission level: 'admin' (full access) or 'read' (view-only)."
-      }
-    }
-  },
-  "tunnels": {
-    "type": "list",
-    "default": [],
-    "description": "List of IPIP tunnel definitions.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique identifier for the tunnel."
-      },
-      "src_addr": {
-        "type": "string",
-        "description": "Source IP address for the tunnel endpoint."
-      },
-      "dst_addr": {
-        "type": "string",
-        "description": "Destination IP address (remote tunnel endpoint)."
-      },
-      "mtu": {
-        "type": "number",
-        "default": 1480,
-        "description": "Maximum Transmission Unit for the tunnel (typically 20 bytes less than Ethernet MTU)."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether the tunnel is active."
-      },
-      "description": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable description."
-      }
-    }
-  },
-  "overrides": {
-    "type": "object",
-    "default": {},
-    "description": "Dictionary of arbitrary key-value overrides for advanced tuning (not recommended unless advised)."
-  }
+  "type": "list"
+ }
 }

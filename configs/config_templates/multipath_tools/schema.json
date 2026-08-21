@@ -1,253 +1,249 @@
 {
-  "devices": {
-    "type": "list",
+ "blacklist_devices": {
+  "default": [],
+  "description": "List of device identifiers (e.g., WWIDs or vendor/product strings) to explicitly blacklist.",
+  "type": "list"
+ },
+ "blacklist_devnodes": {
+  "default": [
+   "sda",
+   "sdb"
+  ],
+  "description": "List of devnode patterns (e.g., 'sd[a-z]', 'dm-*') to blacklist.",
+  "type": "list"
+ },
+ "blacklist_exceptions": {
+  "description": "Devices explicitly allowed despite matching blacklist rules.",
+  "fields": {
+   "devices": {
     "default": [],
-    "description": "List of device-specific multipath configurations. Each entry overrides defaults for matching devices.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "vendor": {
-          "type": "string",
-          "default": "",
-          "description": "Device vendor string (e.g., 'IBM', 'DEC', 'HP')."
-        },
-        "product": {
-          "type": "string",
-          "default": "",
-          "description": "Device product string (e.g., 'S/390', 'Ultrastar')."
-        },
-        "path_grouping_policy": {
-          "type": "string",
-          "default": "",
-          "description": "Path grouping policy: 'group_by_prio', 'group_by_serial', 'group_by_node_name', 'failover' (default: failover)."
-        },
-        "prio": {
-          "type": "string",
-          "default": "",
-          "description": "Path priority algorithm: 'const', 'emc', 'alua', 'datadomain', 'ontap', 'rdac', 'hp_sw', 'lower_priority', 'fixed', 'random'."
-        },
-        "prio_args": {
-          "type": "string",
-          "default": "",
-          "description": "Additional arguments for the selected prio algorithm."
-        },
-        "features": {
-          "type": "string",
-          "default": "",
-          "description": "Device-mapper features (e.g., '1 queue_if_no_path')."
-        },
-        "hw_handler": {
-          "type": "string",
-          "default": "",
-          "description": "Hardware-specific handler (e.g., '0' for none, 'emc' for CLARiiON, 'alua' for ALUA)."
-        },
-        "selector": {
-          "type": "string",
-          "default": "",
-          "description": "I/O selector: 'round-robin 0', 'queue-length 0', 'service-time 0'."
-        },
-        "rr_weight": {
-          "type": "string",
-          "default": "",
-          "description": "Round-robin weighting: 'priorities' or 'uniform'."
-        },
-        "no_path_retry": {
-          "type": "string",
-          "default": "",
-          "description": "Action when no paths available: 'fail', 'queue', or number of retries (e.g., '30')."
-        },
-        "retain_hwhandler": {
-          "type": "string",
-          "default": "",
-          "description": "Retain hardware handler from driver: 'yes' or 'no'."
-        },
-        "failback": {
-          "type": "string",
-          "default": "",
-          "description": "Path group failback policy: 'immediate', 'manual', 'random', or number of seconds."
-        },
-        "pg_timeout": {
-          "type": "string",
-          "default": "",
-          "description": "Path group timeout in seconds (0 = disable)."
-        }
-      }
-    }
-  },
-  "defaults_": {
-    "type": "object",
-    "default": {},
-    "description": "Global default settings applied when no device block matches.",
-    "fields": {
-      "path_grouping_policy": {
-        "type": "string",
-        "default": "failover",
-        "description": "Default path grouping policy."
-      },
-      "prio": {
-        "type": "string",
-        "default": "",
-        "description": "Default priority algorithm."
-      },
-      "prio_args": {
-        "type": "string",
-        "default": "",
-        "description": "Default priority arguments."
-      },
-      "features": {
-        "type": "string",
-        "default": "",
-        "description": "Default device-mapper features."
-      },
-      "hw_handler": {
-        "type": "string",
-        "default": "",
-        "description": "Default hardware handler."
-      },
-      "selector": {
-        "type": "string",
-        "default": "queue-length 0",
-        "description": "Default I/O selector."
-      },
-      "rr_weight": {
-        "type": "string",
-        "default": "priorities",
-        "description": "Default round-robin weighting."
-      },
-      "no_path_retry": {
-        "type": "string",
-        "default": "queue",
-        "description": "Default action when no paths available."
-      },
-      "retain_hwhandler": {
-        "type": "string",
-        "default": "no",
-        "description": "Default: retain hardware handler from driver (yes/no)."
-      },
-      "failback": {
-        "type": "string",
-        "default": "immediate",
-        "description": "Default path group failback policy."
-      },
-      "pg_timeout": {
-        "type": "string",
-        "default": "",
-        "description": "Default path group timeout."
-      },
-      "user_friendly_names": {
-        "type": "string",
-        "default": "no",
-        "description": "Use user-friendly device names (e.g., 'mpath1') instead ofWWIDs (yes/no)."
-      },
-      "max_fds": {
-        "type": "string",
-        "default": "",
-        "description": "Maximum number of open file descriptors for multipathd (0 = unlimited)."
-      },
-      "queue_without_daemon": {
-        "type": "string",
-        "default": "no",
-        "description": "Queue I/Os if multipathd is not running (yes/no)."
-      },
-      "checker_timeout": {
-        "type": "string",
-        "default": "",
-        "description": "Path checker timeout in seconds (overrides device-mapper default)."
-      },
-      "io_timeout": {
-        "type": "string",
-        "default": "",
-        "description": "I/O timeout for device-mapper devices in seconds."
-      },
-      "dev_loss": {
-        "type": "string",
-        "default": "",
-        "description": "Maximum time to lose a path before discarding it (seconds)."
-      }
-    }
-  },
-  "blacklist_devices": {
-    "type": "list",
+    "description": "Whitelisted device identifiers.",
+    "type": "list"
+   },
+   "devnodes": {
     "default": [],
-    "description": "List of device identifiers (e.g., WWIDs or vendor/product strings) to explicitly blacklist."
-  },
-  "blacklist_devnodes": {
-    "type": "list",
-    "default": [
-      "sda",
-      "sdb"
-    ],
-    "description": "List of devnode patterns (e.g., 'sd[a-z]', 'dm-*') to blacklist."
-  },
-  "blacklist_wwids": {
-    "type": "list",
+    "description": "Whitelisted devnode patterns.",
+    "type": "list"
+   },
+   "wwids": {
     "default": [],
-    "description": "List of specific WWIDs to exclude from multipathing."
+    "description": "Whitelisted WWIDs.",
+    "type": "list"
+   }
   },
-  "blacklist_exceptions": {
-    "type": "object",
-    "default": {},
-    "description": "Devices explicitly allowed despite matching blacklist rules.",
-    "fields": {
-      "devices": {
-        "type": "list",
-        "default": [],
-        "description": "Whitelisted device identifiers."
-      },
-      "devnodes": {
-        "type": "list",
-        "default": [],
-        "description": "Whitelisted devnode patterns."
-      },
-      "wwids": {
-        "type": "list",
-        "default": [],
-        "description": "Whitelisted WWIDs."
-      }
-    }
+  "type": "object"
+ },
+ "blacklist_wwids": {
+  "default": [],
+  "description": "List of specific WWIDs to exclude from multipathing.",
+  "type": "list"
+ },
+ "defaults_": {
+  "description": "Global default settings applied when no device block matches.",
+  "fields": {
+   "checker_timeout": {
+    "default": "",
+    "description": "Path checker timeout in seconds (overrides device-mapper default).",
+    "type": "string"
+   },
+   "dev_loss": {
+    "default": "",
+    "description": "Maximum time to lose a path before discarding it (seconds).",
+    "type": "string"
+   },
+   "failback": {
+    "default": "immediate",
+    "description": "Default path group failback policy.",
+    "type": "string"
+   },
+   "features": {
+    "default": "",
+    "description": "Default device-mapper features.",
+    "type": "string"
+   },
+   "hw_handler": {
+    "default": "",
+    "description": "Default hardware handler.",
+    "type": "string"
+   },
+   "io_timeout": {
+    "default": "",
+    "description": "I/O timeout for device-mapper devices in seconds.",
+    "type": "string"
+   },
+   "max_fds": {
+    "default": "",
+    "description": "Maximum number of open file descriptors for multipathd (0 = unlimited).",
+    "type": "string"
+   },
+   "no_path_retry": {
+    "default": "queue",
+    "description": "Default action when no paths available.",
+    "type": "string"
+   },
+   "path_grouping_policy": {
+    "default": "failover",
+    "description": "Default path grouping policy.",
+    "type": "string"
+   },
+   "pg_timeout": {
+    "default": "",
+    "description": "Default path group timeout.",
+    "type": "string"
+   },
+   "prio": {
+    "default": "",
+    "description": "Default priority algorithm.",
+    "type": "string"
+   },
+   "prio_args": {
+    "default": "",
+    "description": "Default priority arguments.",
+    "type": "string"
+   },
+   "queue_without_daemon": {
+    "default": "no",
+    "description": "Queue I/Os if multipathd is not running (yes/no).",
+    "type": "string"
+   },
+   "retain_hwhandler": {
+    "default": "no",
+    "description": "Default: retain hardware handler from driver (yes/no).",
+    "type": "string"
+   },
+   "rr_weight": {
+    "default": "priorities",
+    "description": "Default round-robin weighting.",
+    "type": "string"
+   },
+   "selector": {
+    "default": "queue-length 0",
+    "description": "Default I/O selector.",
+    "type": "string"
+   },
+   "user_friendly_names": {
+    "default": "no",
+    "description": "Use user-friendly device names (e.g., 'mpath1') instead ofWWIDs (yes/no).",
+    "type": "string"
+   }
   },
-  "logging": {
-    "type": "object",
-    "default": {},
-    "description": "Logging configuration for multipath and multipathd.",
-    "fields": {
-      "verbosity": {
-        "type": "number",
-        "default": 2,
-        "description": "Logging verbosity level (0\u20135). Higher = more detail."
-      },
-      "log_file": {
-        "type": "string",
-        "default": "/var/log/multipath",
-        "description": "Path to the log file."
-      },
-      "log_priority": {
-        "type": "string",
-        "default": "info",
-        "description": "Priority level for syslog (e.g., 'debug', 'info', 'warning', 'error')."
-      },
-      "daemon_log_level": {
-        "type": "string",
-        "default": "3",
-        "description": "Daemon-specific log level (0\u20134). Higher = more detail."
-      }
+  "type": "object"
+ },
+ "devices": {
+  "default": [],
+  "description": "List of device-specific multipath configurations. Each entry overrides defaults for matching devices.",
+  "items": {
+   "fields": {
+    "failback": {
+     "default": "",
+     "description": "Path group failback policy: 'immediate', 'manual', 'random', or number of seconds.",
+     "type": "string"
+    },
+    "features": {
+     "default": "",
+     "description": "Device-mapper features (e.g., '1 queue_if_no_path').",
+     "type": "string"
+    },
+    "hw_handler": {
+     "default": "",
+     "description": "Hardware-specific handler (e.g., '0' for none, 'emc' for CLARiiON, 'alua' for ALUA).",
+     "type": "string"
+    },
+    "no_path_retry": {
+     "default": "",
+     "description": "Action when no paths available: 'fail', 'queue', or number of retries (e.g., '30').",
+     "type": "string"
+    },
+    "path_grouping_policy": {
+     "default": "",
+     "description": "Path grouping policy: 'group_by_prio', 'group_by_serial', 'group_by_node_name', 'failover' (default: failover).",
+     "type": "string"
+    },
+    "pg_timeout": {
+     "default": "",
+     "description": "Path group timeout in seconds (0 = disable).",
+     "type": "string"
+    },
+    "prio": {
+     "default": "",
+     "description": "Path priority algorithm: 'const', 'emc', 'alua', 'datadomain', 'ontap', 'rdac', 'hp_sw', 'lower_priority', 'fixed', 'random'.",
+     "type": "string"
+    },
+    "prio_args": {
+     "default": "",
+     "description": "Additional arguments for the selected prio algorithm.",
+     "type": "string"
+    },
+    "product": {
+     "default": "",
+     "description": "Device product string (e.g., 'S/390', 'Ultrastar').",
+     "type": "string"
+    },
+    "retain_hwhandler": {
+     "default": "",
+     "description": "Retain hardware handler from driver: 'yes' or 'no'.",
+     "type": "string"
+    },
+    "rr_weight": {
+     "default": "",
+     "description": "Round-robin weighting: 'priorities' or 'uniform'.",
+     "type": "string"
+    },
+    "selector": {
+     "default": "",
+     "description": "I/O selector: 'round-robin 0', 'queue-length 0', 'service-time 0'.",
+     "type": "string"
+    },
+    "vendor": {
+     "default": "",
+     "description": "Device vendor string (e.g., 'IBM', 'DEC', 'HP').",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "watchdog": {
-    "type": "object",
-    "default": {},
-    "description": "Optional watchdog daemon settings (for kernel-based watchdog support).",
-    "fields": {
-      "timeout": {
-        "type": "number",
-        "default": 60,
-        "description": "Watchdog timeout in seconds before reboot."
-      },
-      "interval": {
-        "type": "number",
-        "default": 30,
-        "description": "Interval between watchdog pings in seconds."
-      }
-    }
-  }
+  "type": "list"
+ },
+ "logging": {
+  "description": "Logging configuration for multipath and multipathd.",
+  "fields": {
+   "daemon_log_level": {
+    "default": "3",
+    "description": "Daemon-specific log level (0–4). Higher = more detail.",
+    "type": "string"
+   },
+   "log_file": {
+    "default": "/var/log/multipath",
+    "description": "Path to the log file.",
+    "type": "string"
+   },
+   "log_priority": {
+    "default": "info",
+    "description": "Priority level for syslog (e.g., 'debug', 'info', 'warning', 'error').",
+    "type": "string"
+   },
+   "verbosity": {
+    "default": 2,
+    "description": "Logging verbosity level (0–5). Higher = more detail.",
+    "type": "number"
+   }
+  },
+  "type": "object"
+ },
+ "watchdog": {
+  "description": "Optional watchdog daemon settings (for kernel-based watchdog support).",
+  "fields": {
+   "interval": {
+    "default": 30,
+    "description": "Interval between watchdog pings in seconds.",
+    "type": "number"
+   },
+   "timeout": {
+    "default": 60,
+    "description": "Watchdog timeout in seconds before reboot.",
+    "type": "number"
+   }
+  },
+  "type": "object"
+ }
 }
