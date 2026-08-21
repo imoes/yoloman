@@ -226,7 +226,25 @@
    }
   ],
   "engine": "laguna",
-  "records": 11561
+  "records": 11561,
+  "decisions": {
+   "high-confidence-probe-without-text": {
+    "verdict": "refuted",
+    "why": "text is corpus-relative — all 21 are Debian paths measured against the Debian corpus, absent from the RedHat one"
+   },
+   "low-confidence-config-claim": {
+    "verdict": "refuted",
+    "why": "all 68 have no source at all, so an unmeasured record with low confidence is consistent, not contradictory"
+   },
+   "directory-path-no-extension": {
+    "verdict": "refuted",
+    "why": "2845 hits, but only 19 are really directories in the corpus and all 19 already carry codec none — plausible_target and the probe cover it"
+   },
+   "shell-script-misclassified-as-config": {
+    "verdict": "implemented",
+    "why": "decide_codecs corrects a per-key claim on a script; /etc/ahcp/ahcp-config.sh was the one live case"
+   }
+  }
  },
  "directives": {
   "invariants": [
@@ -383,7 +401,25 @@
    }
   ],
   "engine": "laguna",
-  "records": 22471
+  "records": 22471,
+  "decisions": {
+   "values-without-enum": {
+    "verdict": "refuted",
+    "why": "values on a bool carries the file's surface form (Yes/No, not true/false), on a list the allowed items; converting the 20 string/int cases would turn a mined sample like values=['en'] into a closed dropdown and forbid valid values"
+   },
+   "range-without-numeric-type": {
+    "verdict": "implemented",
+    "why": "min/max dropped on bool, enum and list (60); string spared because 0..128 plausibly bounds its length"
+   },
+   "int-default-with-decimal": {
+    "verdict": "implemented",
+    "why": "56 int fields whose fractional default proves the type wrong, not the value — chrony's maxslewrate 83333.333; type becomes number"
+   },
+   "nonempty_description": {
+    "verdict": "open",
+    "why": "410 fields with no description on 55 paths (lvm.conf 82, lftp.conf 72) — a re-mine list, not a corruption"
+   }
+  }
  },
  "templates": {
   "invariants": [
