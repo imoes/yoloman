@@ -2189,3 +2189,30 @@ a CRL.", das ist der Zeilenkommentar von `crl_extensions`). Etwa jede sechste fa
 Bediener ablesen soll, was ein Daemon tut, zu viel. **Beide Läufe sind zurückgenommen**, das Skript bleibt
 als Messung, die das belegt, und die 410 leeren Beschreibungen bleiben offen für den Mining-Weg mit
 `doc_is_about`-Gate — ein Modell *mit* Prüfung, keine Heuristik über Nachbarzeilen.
+
+### 10. Die leeren Beschreibungen: Modell **mit** Gate schlägt Heuristik
+
+Die 410 Felder ohne Beschreibung sind der Beweis, dass die Reihenfolge zählt. Meine beiden offline-Heuristiken
+haben versagt (Manpage-Absätze: 2 von 3 Fragmente; Kommentarblock: jede sechste über eine andere Einstellung).
+Derselbe Rohstoff, durch den **Miner mit `doc_is_about`-Gate** geschickt, liefert brauchbare Sätze:
+
+| Datei | Direktiven | ohne Beschreibung | Quelle laut Aufzeichnung |
+|---|---|---|---|
+| `/etc/lvm/lvm.conf` | 134 | 82 → **0** | eigene Kommentare (1134 Zeilen) |
+| `/etc/fwupd/fwupd.conf` | 62 | 62 → **0** | `fwupd.conf.5` (13962 Bytes) |
+| `/etc/smbnetfs.conf` | 32 | 17 → **0** | eigene Kommentare (315 Zeilen) |
+| `/etc/lftp.conf` | 174 | 72 → **65** | eigene Kommentare (63 Zeilen) |
+
+Insgesamt **410 → 242**. Damit die Manpages dabei überhaupt greifen, musste zweierlei nachgezogen werden:
+die Seiten kommen jetzt **offline aus dem geernteten Korpus** (kein Lookup kann mehr auf die falsche Software
+landen, wie „redis" auf das Perl-Modul `Redis(3pm)`), und wo Doku und Config in **verschiedenen Paketen einer
+Quelle** liegen — `smb.conf(5)` in `samba`, nicht in `samba-common`; `sysctl.d(5)` in `systemd`, nicht in
+`systemd-udev` — fällt die Suche auf das Basispaket zurück. Das Gate entscheidet weiterhin: bei `lvm.conf` hat
+es die Manpage **abgelehnt** und auf die Kommentare der Datei umgeschaltet.
+
+**Und ein Fehler von mir, den nur der Vorher-Vergleich zeigte:** `--remine` hat den Katalog *ersetzt*.
+`/etc/lftp.conf` fiel damit von 165 auf 20 Direktiven — seine Doppelpunkt-Einstellungen (`cache:enable`,
+`bmk:save-passwords`) sind echt und früher gegen die Datei geprüft, aber ein Mine über 63 Kommentarzeilen
+sieht nur einen Bruchteil. 145 echte Einstellungen gegen 20 Beschreibungen ist ein schlechter Handel. Der
+Miner **merged** jetzt pro Schlüssel (die frische Messung gewinnt, unerwähnte Schlüssel überleben), und die
+verlorenen sind zurückgeholt.
