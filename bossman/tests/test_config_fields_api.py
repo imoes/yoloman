@@ -43,7 +43,8 @@ def _catalogs(tmp_path):
     tpl = tmp_path / "config_templates"
     (tpl / "whole-tpl").mkdir(parents=True)
     (tpl / "whole-tpl" / "template.j2").write_text("setting = {{ setting }}\n")
-    (tpl / "whole-tpl" / "schema.json").write_text(json.dumps({"setting": {"type": "string"}}))
+    (tpl / "whole-tpl" / "schema.json").write_text(json.dumps(
+        {"setting": {"type": "string"}, "ignored_setting": {"type": "string"}}))
     (tpl / "whole-tpl" / "meta.json").write_text(json.dumps(
         {"target_path": "/etc/whole.conf", "witness": "rpm", "source": "rh-parametrize"}))
     # The file's own words. Recorded by scripts/find_generated_files.py from the shipped bytes.
@@ -92,6 +93,11 @@ async def test_the_four_write_states_and_the_file_s_own_advisory(db_session, tmp
     # Measured `none` PLUS a template that records this exact path: whole-file write, fields from its schema.
     assert whole["write"] == "template" and whole["fields"] == {"setting": {"type": "string"}}
     assert whole["provenance"]["measured"] is True
+    # A field the template never places is WITHHELD and counted, not offered and then dropped by the write.
+    # Measured across the library: 2561 of 54026 offered fields (341 templates) appear nowhere in their
+    # body — acme.sh offers 69 and places 5.
+    assert whole["withheld"]["fields"] == ["ignored_setting"]
+    assert "could not reach the file" in whole["withheld"]["reason"]
 
     # Measured `none` and no template claims it. NOT "codec with zero fields" — the states are distinct
     # and the reason is stated, because a refusal without a ground is indistinguishable from a bug.

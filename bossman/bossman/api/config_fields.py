@@ -87,6 +87,28 @@ def _provenance(record: dict) -> dict:
     }
 
 
+def _fields_the_template_places(schema: dict, body: str) -> tuple[dict, list[str]]:
+    """Split a template's schema into the fields its body can actually write, and the rest.
+
+    The test is presence of the field NAME as a word anywhere in the template — deliberately generous, so a
+    field used inside a conditional, a loop or a filter expression still counts. What it catches is the field
+    that occurs nowhere at all, which no rendering path can reach.
+
+    Not the same question as the gate's. template_configures asks "does this template configure ANYTHING"
+    and one placed field is enough for a yes — a documented limit, with a test named after it. This asks it
+    per field, which is what a form needs.
+    """
+    if not isinstance(schema, dict):
+        return {}, []
+    placed, missing = {}, []
+    for name, spec in schema.items():
+        if isinstance(name, str) and name and not re.search(r"\b" + re.escape(name) + r"\b", body or ""):
+            missing.append(name)
+        else:
+            placed[name] = spec
+    return placed, sorted(missing)
+
+
 def _template_for_path(path: str, settings: Settings, family: str = "") -> str | None:
     """Resolve a freeform file to the template that renders THAT file — through the index, not by name.
 
@@ -166,9 +188,17 @@ async def config_fields(
     if tpl:
         t = _load_template(tdir / tpl) or {}
         meta = _load_json(tdir / tpl / "meta.json")
+        schema = t.get("schema") or {}
+        placed, withheld = _fields_the_template_places(schema, t.get("template", ""))
         return {
             "path": path, "write": "template",
             "template": t.get("template", ""),
+            # The NAME and the SAMPLE ride along so the template editor can resolve everything through this
+            # one endpoint. It used to fetch GET /config-templates/<name> itself and read the raw schema,
+            # which meant the withholding below had no effect where it matters — and would have put the same
+            # rule in TypeScript to fix it. One rule, one place.
+            "template_name": tpl,
+            "sample": t.get("sample") or {},
             # A template's provenance is its own: witness "deb"/"rpm" means the target path was read out of
             # the package, "derived" that it was inferred from a name.
             "provenance": {"source": meta.get("source") or "unknown",
@@ -176,7 +206,16 @@ async def config_fields(
                            "confidence": "high" if meta.get("witness") in ("deb", "rpm") else "unknown",
                            "note": "renders {} (witness: {})".format(
                                meta.get("target_path") or path, meta.get("witness") or "none")},
-            "fields": t.get("schema") or {}, "available": True, **advisory,
+            "fields": placed, "available": True,
+            # NOTHING VANISHES SILENTLY. A whole-file render can only honour a value it actually places, and
+            # measured across the library 2561 of 54026 offered fields (341 templates) appear NOWHERE in
+            # their template body — acme.sh offers 69 and places 5. Those were rendered as inputs, filled in
+            # by an operator, and dropped by the write with nothing said. They are withheld now, and the
+            # count is reported rather than the fields quietly disappearing from the form.
+            "withheld": {"count": len(withheld), "fields": withheld,
+                         "reason": "the template never places these fields, so a value set here could not "
+                                   "reach the file"} if withheld else None,
+            **advisory,
         }
     # NO WAY TO EDIT BY FIELD — and the two reasons are different, so they get different names instead of
     # both being called a codec write with zero fields.

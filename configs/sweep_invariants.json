@@ -1,0 +1,241 @@
+{
+ "codecs": {
+  "invariants": [
+   {
+    "name": "high-confidence-probe-without-text",
+    "statement": "A record with source=probe and confidence=high must have non-empty text, because probe means a shipped file was examined and the codec was derived from its actual content",
+    "predicate": "text == '' and source == 'probe' and confidence == 'high'",
+    "harm": "The codec assignment is baseless — no file content was examined despite claiming high confidence. Editing this config via the codec would operate on a hallucinated format.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 21,
+     "share": 0.0018,
+     "examples": [
+      "/etc/courier/pop3d",
+      "/etc/crm/crm.conf",
+      "/etc/default/prometheus-apache-exporter",
+      "/etc/default/prometheus-bind-exporter",
+      "/etc/default/prometheus-bird-exporter"
+     ],
+     "predicate_errors": 3974,
+     "first_error": "NameError: name 'source' is not defined"
+    }
+   },
+   {
+    "name": "shell-script-misclassified-as-config",
+    "statement": "Executable shell scripts (.sh, .bash, .csh, .ksh, .zsh, .fish) must not be assigned any config codec (keyvalue, ini, yaml, json, xml)",
+    "predicate": "path != '' and any(path.endswith('.' + ext) for ext in ['sh','bash','csh','ksh','zsh','fish']) and codec in ['keyvalue','ini','yaml','json','xml']",
+    "harm": "Editing via a config codec would corrupt the shell script — key-value parsing loses control flow, shebangs, and comments. Running the mangled script causes unexpected behavior.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1,
+     "share": 0.0001,
+     "examples": [
+      "/etc/ahcp/ahcp-config.sh"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "low-confidence-config-claim",
+    "statement": "Records with confidence=low should not have a non-none codec, because low confidence means the classifier is uncertain this is even a config file",
+    "predicate": "confidence == 'low' and codec not in ['none']",
+    "harm": "The system acts on uncertain classifications, applying a config codec to files that may not be configuration at all, leading to silent corruption.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 68,
+     "share": 0.0059,
+     "examples": [
+      "/etc/apt/s3auth.conf",
+      "/etc/blends/med/med.conf",
+      "/etc/ciderwebmail/ciderwebmail.conf",
+      "/etc/cron.d/munin-node",
+      "/etc/cron.d/sbws"
+     ],
+     "predicate_errors": 79,
+     "first_error": "NameError: name 'confidence' is not defined"
+    }
+   },
+   {
+    "name": "directory-path-no-extension",
+    "statement": "A path that ends with its package name and has no file extension is likely a directory, not a single config file",
+    "predicate": "path != '' and '/' in path and not any(path.endswith('.' + e) for e in ['sh','bash','csh','ksh','zsh','fish','desktop','conf','cfg','ini','yaml','yml','json','xml','toml','env']) and any(path.endswith('/' + pkg) or path.endswith('/' + pkg + '/') for pkg in packages) and not any(path.endswith('/' + pkg + '.') for pkg in packages)",
+    "harm": "Treating a directory as a single config file causes the codec to attempt parsing an entire directory tree, producing meaningless results and potentially corrupting multiple files.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 2845,
+     "share": 0.2461,
+     "examples": [
+      "/etc/0install",
+      "/etc/0xffff",
+      "/etc/2ping",
+      "/etc/2vcard",
+      "/etc/4g8"
+     ],
+     "predicate_errors": 1,
+     "first_error": "NameError: name 'packages' is not defined"
+    }
+   },
+   {
+    "name": "semantic-codec-extension-mismatch",
+    "statement": "The assigned codec must be semantically consistent with the file extension — yaml files get yaml, xml files get xml, json files get json, conf/cfg files get ini or keyvalue (not yaml/xml)",
+    "predicate": "path != '' and len(path) > 4 and ('.yaml' in path or '.yml' in path) and codec not in ['yaml','none'] and codec not in ['ini','keyvalue','xml','json']",
+    "harm": "A YAML file parsed as INI loses YAML-specific constructs (nested maps, lists, multi-line strings). A YAML file parsed as XML is nonsensical. Either way, the file is corrupted on write.",
+    "expected_hits": "few",
+    "result": {
+     "status": "no-occurrence",
+     "hits": 0,
+     "share": 0.0,
+     "examples": [],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   }
+  ],
+  "engine": "qwen35b",
+  "records": 11561
+ },
+ "directives": {
+  "invariants": [
+   {
+    "name": "string_no_numeric_minmax",
+    "statement": "A record whose type is string must not carry numeric min or max fields, since length bounds are meaningless for directive-value parsing where the parser accepts any string.",
+    "predicate": "spec.get('type') == 'string' and isinstance(spec.get('min'), (int, float)) and isinstance(spec.get('max'), (int, float))",
+    "harm": "The config-writer will attempt to enforce integer length constraints on a string value, either rejecting valid strings or silently comparing string lengths against the wrong bounds, producing wrong configurations on the host.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 21,
+     "share": 0.0009,
+     "examples": [
+      "/etc/cntlm.conf",
+      "/etc/cntlm.conf",
+      "/etc/default/rrdcached",
+      "/etc/default/rrdcached",
+      "/etc/default/rrdcached"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "no_sentinel_default",
+    "statement": "A string-type record whose default is a sentinel placeholder word (empty, none, unset, disabled, not set, notset, n/a, auto) violates the invariant that the default must be the actual value written to the config file, not a human-readable note about the value.",
+    "predicate": "spec.get('default') is not None and isinstance(spec.get('default'), str) and spec.get('default').strip().lower() in ('empty', 'none', 'unset', 'disabled', 'not set', 'notset', 'n/a', 'auto')",
+    "harm": "The config-writer will literally write the placeholder word (e.g. 'empty') into the config file instead of the real default, causing the daemon to misinterpret the setting — Postfix home_mailbox set to 'empty' means a literal directory named 'empty', not 'no mailbox set'.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 113,
+     "share": 0.005,
+     "examples": [
+      "/etc/NetworkManager/NetworkManager.conf",
+      "/etc/NetworkManager/NetworkManager.conf",
+      "/etc/X11/app-defaults/XOsview",
+      "/etc/ahcp/ahcp-config.sh",
+      "/etc/apparmor.d/abstractions/tor"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "nonempty_description",
+    "statement": "Every record's description field must be a non-empty, non-whitespace string, because a blank description means the catalog has no documented semantics for the setting and operators cannot reason about it.",
+    "predicate": "isinstance(spec.get('description', ''), str) and len(spec.get('description', '').strip()) == 0",
+    "harm": "Automated tooling that surfaces settings for review (diff generators, compliance auditors, migration guides) will emit a setting with no context, leading to unreviewed changes or silent acceptance of wrong values on production hosts.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 410,
+     "share": 0.0182,
+     "examples": [
+      "/etc/Muttprintrc",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   }
+  ],
+  "engine": "qwen35b",
+  "records": 22471
+ },
+ "templates": {
+  "invariants": [
+   {
+    "name": "no-duplicate-enum",
+    "statement": "No schema field with an enum list may contain duplicate entries.",
+    "predicate": "any(len(v.get('enum', [])) > len(set(v.get('enum', []))) for v in schema.values() if isinstance(v, dict))",
+    "harm": "Ambiguous intent: consumers cannot know whether the repeated value signals a bug or a deliberate listing, and gonja's Jinja2 engine may silently treat it as either one or two allowed values.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 22,
+     "share": 0.004,
+     "examples": [
+      "LocalSettings.php",
+      "acl",
+      "busybox",
+      "cluster-glue",
+      "conntrackd.conf"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "no-unused-schema-parameters",
+    "statement": "More than half of the declared schema parameters must actually be referenced in the template body.",
+    "predicate": "len(schema) > 0 and sum(1 for k in schema.keys() if not re.search(r'\\b' + re.escape(k) + r'(?=[\\s|:.(\\]])', body)) > len(schema) / 2",
+    "harm": "Users are presented with parameters they cannot use; the schema promises configurability that the template never implements, leading to wasted time, confusion, and potential deployment misconfiguration when defaults (which match the shipped file) diverge from real-world values.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 214,
+     "share": 0.0391,
+     "examples": [
+      "0install",
+      "389-ds-base",
+      "LCDd.conf",
+      "acme.sh",
+      "afio"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "list-schema-uses-yaml-list-rendering",
+    "statement": "When a schema field has type 'list' and the template iterates over it, each item must be rendered as a YAML list entry (starting with '- ').",
+    "predicate": "any(v.get('type') == 'list' and ('{% for' in body and '- ' not in body) for v in schema.values() if isinstance(v, dict))",
+    "harm": "A list-type config field rendered as bare values (one per line, no list markers) produces output that parsers cannot distinguish from a sequence of unrelated scalar directives, causing the consumed application to misread individual items as top-level config keys.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1232,
+     "share": 0.2251,
+     "examples": [
+      "0install",
+      "2ping",
+      "4g8",
+      "50-server.cnf",
+      "81voltd"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   }
+  ],
+  "engine": "qwen35b",
+  "records": 5474
+ }
+}

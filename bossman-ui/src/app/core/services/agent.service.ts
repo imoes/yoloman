@@ -221,7 +221,7 @@ export class AgentService {
    * template?, fields:{key:FieldDef}} — codec⊕directive for codec'd files, the
    * template schema for freeform. The single field-spec source (config-model
    * consolidation); replaces reading the raw directive catalog per file. */
-  configFields(path: string) {
+  configFields(path: string, agentId?: string) {
     return this.http.get<{
       /** codec = per-key merge · template = whole-file render · freeform = measured, no grammar and no
        * template yet (raw text only) · unknown = nothing recorded about this path. `reason` carries the
@@ -236,7 +236,13 @@ export class AgentService {
        * Not a write state and not a refusal — munin.conf is parsable, has directives, and still asks not
        * to be edited. The editor quotes it and the operator decides. */
       machine_written?: { line: number; quote: string; marker: string };
-    }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);
+      /** For a template write: the directory name, its sample values, and the fields the template does NOT
+       * place — offered inputs whose value could never reach the file. */
+      template_name?: string;
+      sample?: Record<string, unknown>;
+      withheld?: { count: number; fields: string[]; reason: string } | null;
+    }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`
+       + (agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''));
   }
 
   /** {path: {line, quote, marker}} for every config file whose own header declares it machine-written.

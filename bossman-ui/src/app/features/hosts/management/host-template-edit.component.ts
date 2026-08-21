@@ -38,6 +38,10 @@ import { HostConfigScopeService } from '../host-config-scope.service';
     } @else {
       <p class="bm-dim">Managed via template <strong>{{ templateName() }}</strong> — edit the values, the
         whole file is rendered from them.</p>
+      @if (withheld(); as w) {
+        <p class="bm-dim" [title]="w.fields.join(', ')">{{ w.count }} further field(s) declared by this
+          template are not shown: {{ w.reason }}.</p>
+      }
       <app-param-form [params]="schema()" [initial]="initial()" [agentId]="agentId()"
                       (valuesChange)="values.set($event)" />
       @if (error(); as e) { <p class="bm-cfg-err">{{ e }}</p> }
@@ -93,6 +97,9 @@ export class HostTemplateEditComponent {
   applied = output<void>();
 
   schema = signal<ParamSchema>({});
+  /** Fields the template declares but never places. Shown as a count with the names on hover: a form that
+   * silently drops an input is the "nothing vanishes" rule broken in the most literal way. */
+  withheld = signal<{ count: number; fields: string[]; reason: string } | null>(null);
   initial = signal<Record<string, unknown>>({});
   values = signal<Record<string, unknown>>({});
   rendered = signal<string | null>(null);
@@ -117,11 +124,17 @@ export class HostTemplateEditComponent {
     this.loading.set(true);
     this.loadError.set(null);
     this.rendered.set(null);
-    this.agentService.configTemplate(this.templateName()).subscribe({
-      next: (tpl) => {
-        this.body = tpl.template;
-        this.schema.set((tpl.schema || {}) as ParamSchema);
-        this.initial.set((tpl.sample || {}) as Record<string, unknown>);
+    // THROUGH describe(), not the raw template catalog. This used to call GET /config-templates/<name> and
+    // hand ParamForm the schema verbatim — which offers every declared field, including the ones the
+    // template never places. Measured across the library: 2561 of 54026 offered fields in 341 templates
+    // appear NOWHERE in their own body (acme.sh offers 69 and places 5), so an operator filled them in and
+    // the whole-file render dropped them without a word. /config-fields withholds those and says how many.
+    this.agentService.configFields(this.path(), this.agentId()).subscribe({
+      next: (spec) => {
+        this.body = spec.template ?? '';
+        this.schema.set((spec.fields || {}) as ParamSchema);
+        this.initial.set((spec.sample || {}) as Record<string, unknown>);
+        this.withheld.set(spec.withheld ?? null);
         this.values.set({});
         this.loading.set(false);
       },
