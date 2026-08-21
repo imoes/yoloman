@@ -2160,3 +2160,32 @@ im Agenten als `ini`, in der Quelle als `none`. Ursache ist `decide_codecs --reg
 Registry ist eine **generierte Projektion** der kanonischen, und wer sie direkt schreibt, lässt beide
 auseinanderlaufen. Genau der Zustand, den „eine Quelle, eine Projektion" beseitigen sollte. `both` ist jetzt
 im Werkzeug als Falle benannt: kanonisch schreiben, dann `unify_codec_registry.py` regeneriert.
+
+### 9. Die Manpages: was sie entscheiden können und was nicht
+
+Die Ernte lädt jedes Paket herunter und warf bisher alles außerhalb von `/etc` weg — inklusive der
+Dokumentation. [`deb_harvest_manpages.py`](../bossman/scripts/deb_harvest_manpages.py) behält Sektion 5, 8
+und 1: **10545 Seiten aus 4079 Paketen**, offline und exakt.
+
+**Was damit entscheidbar wurde:** ob ein Katalogschlüssel eine echte Direktive ist. Aber nur mit
+**Kalibrierung**, und die ist der ganze Trick — „steht nicht in der Manpage" bedeutet nur etwas, wenn diese
+Seite die richtige ist. Dokumentiert das Paket ≥ 60 % der Schlüssel eines Katalogs, beschreibt es
+offensichtlich diese Datei (`postfix` → `main.cf`: 372 Schlüssel, 99 % dokumentiert), und die fehlenden sind
+dann Beweis. Dokumentiert es 5 %, ist es die falsche Quelle und sagt über keinen Schlüssel etwas. Ergebnis:
+**137 Kataloge kalibriert, 209 Schlüssel entfernt**, die *weder* in der Manpage *noch* in der ausgelieferten
+Datei vorkommen — zwei unabhängige Negative auf einem Dokument, das sich für diese Datei bewährt hat. 308
+Kataloge zu schwach gedeckt, 116 Pakete ohne Manpage, 553 Pfade ohne bekanntes Paket: alles Enthaltungen.
+
+**Was der Test nicht sieht**, und er hat es selbst gesagt: `/etc/pam.d/sshd` gilt als „89 Schlüssel, 100 %
+dokumentiert" — weil openssh-server auch `sshd_config(5)` mitbringt. Die Schlüssel sind echt, nur an der
+falschen **Datei** des richtigen Pakets. Das beantwortet `find_foreign_catalogs` aus den Bytes. Zwei Fragen,
+zwei Werkzeuge, keines vertritt das andere.
+
+**Und wofür die Manpages nicht taugen:** Beschreibungen. Roff-Absätze hängen nicht zuverlässig am Namen
+darüber; von drei extrahierten Sätzen waren zwei Fragmente aus dem Nachbarabsatz (`lvm.conf` →
+„configuration parameter."). Der Kommentarblock **in der Datei** klang besser und war es nicht: 11 Treffer,
+davon mindestens zwei über eine *andere* Einstellung (`openssl.cnf`s `default_days` als „Extensions to add to
+a CRL.", das ist der Zeilenkommentar von `crl_extensions`). Etwa jede sechste falsch — für Text, an dem ein
+Bediener ablesen soll, was ein Daemon tut, zu viel. **Beide Läufe sind zurückgenommen**, das Skript bleibt
+als Messung, die das belegt, und die 410 leeren Beschreibungen bleiben offen für den Mining-Weg mit
+`doc_is_about`-Gate — ein Modell *mit* Prüfung, keine Heuristik über Nachbarzeilen.
