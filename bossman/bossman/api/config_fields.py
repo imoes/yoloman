@@ -190,6 +190,13 @@ async def config_fields(
         meta = _load_json(tdir / tpl / "meta.json")
         schema = t.get("schema") or {}
         placed, withheld = _fields_the_template_places(schema, t.get("template", ""))
+        # The same gap from the other side: variables the BODY needs that no field declares, so the operator
+        # cannot supply them and the render writes them empty. Measured with jinja2's parser and recorded by
+        # scripts/find_unsettable_variables.py — 182 templates, 523 variables. The 24 whose body needs more
+        # than their form offers are refused by the gate and never reach this branch; the rest say how many.
+        unsettable = _load_json(Path(settings.config_templates_dir).parent / "template_unsettable.json") \
+            or _load_json(Path(settings.config_templates_dir).parent / "configs" / "template_unsettable.json")
+        needs = unsettable.get(tpl) if isinstance(unsettable, dict) else None
         return {
             "path": path, "write": "template",
             "template": t.get("template", ""),
@@ -215,6 +222,9 @@ async def config_fields(
             "withheld": {"count": len(withheld), "fields": withheld,
                          "reason": "the template never places these fields, so a value set here could not "
                                    "reach the file"} if withheld else None,
+            "unsettable": {"count": len(needs), "variables": needs,
+                           "reason": "the template reads these values and no field offers them, so they "
+                                     "render empty"} if isinstance(needs, list) and needs else None,
             **advisory,
         }
     # NO WAY TO EDIT BY FIELD — and the two reasons are different, so they get different names instead of

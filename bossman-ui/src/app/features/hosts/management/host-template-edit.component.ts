@@ -42,6 +42,11 @@ import { HostConfigScopeService } from '../host-config-scope.service';
         <p class="bm-dim" [title]="w.fields.join(', ')">{{ w.count }} further field(s) declared by this
           template are not shown: {{ w.reason }}.</p>
       }
+      @if (unsettable(); as u) {
+        <p class="bm-dim" [title]="u.variables.join(', ')">This template also reads {{ u.count }} value(s)
+          no field offers ({{ u.variables.slice(0, 3).join(', ') }}@if (u.count > 3) {, …}) — they will
+          render empty.</p>
+      }
       <app-param-form [params]="schema()" [initial]="initial()" [agentId]="agentId()"
                       (valuesChange)="values.set($event)" />
       @if (error(); as e) { <p class="bm-cfg-err">{{ e }}</p> }
@@ -100,6 +105,9 @@ export class HostTemplateEditComponent {
   /** Fields the template declares but never places. Shown as a count with the names on hover: a form that
    * silently drops an input is the "nothing vanishes" rule broken in the most literal way. */
   withheld = signal<{ count: number; fields: string[]; reason: string } | null>(null);
+  /** Values the template reads that this form cannot supply — they render empty. The operator should know
+   * BEFORE pressing Apply that the rendered file will be missing them. */
+  unsettable = signal<{ count: number; variables: string[]; reason: string } | null>(null);
   initial = signal<Record<string, unknown>>({});
   values = signal<Record<string, unknown>>({});
   rendered = signal<string | null>(null);
@@ -135,6 +143,7 @@ export class HostTemplateEditComponent {
         this.schema.set((spec.fields || {}) as ParamSchema);
         this.initial.set((spec.sample || {}) as Record<string, unknown>);
         this.withheld.set(spec.withheld ?? null);
+        this.unsettable.set(spec.unsettable ?? null);
         this.values.set({});
         this.loading.set(false);
       },

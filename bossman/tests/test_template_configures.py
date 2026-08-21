@@ -188,3 +188,28 @@ def test_a_template_that_cannot_render_its_own_sample_is_refused(tmp_path):
     assert template_configures(tpl, "broken") is False
     assert template_configures(tpl, "fine") is True
     _unrenderable.cache_clear()
+
+
+def test_a_template_that_needs_more_than_its_form_offers_is_refused(tmp_path):
+    """The mirror of the withheld-fields rule. gimprc's body reads 75 values against 7 declared fields, so
+    rendering it writes a config whose settings are mostly empty over a working one. Measured with jinja2's
+    own parser: 182 templates need a value no field declares (523 variables), but 142 of those miss only one
+    or two and stay usable — the editor reports the gap instead. Only the 24 that need MORE than they offer
+    are refused, and `little` below is one of the many that must not be.
+    """
+    tpl = tmp_path / "config_templates"
+    for name, fields, missing in (("hopeless", 1, ["a", "b", "c"]), ("little", 3, ["x"])):
+        (tpl / name).mkdir(parents=True)
+        (tpl / name / "template.j2").write_text(
+            "# generated\n" + "".join("f{} = {{{{ f{} }}}}\n".format(i, i) for i in range(fields))
+            + "".join("{} = {{{{ {} }}}}\n".format(m, m) for m in missing))
+        (tpl / name / "schema.json").write_text(json.dumps(
+            {"f{}".format(i): {"type": "string"} for i in range(fields)}))
+    (tmp_path / "template_unsettable.json").write_text(json.dumps(
+        {"hopeless": ["a", "b", "c"], "little": ["x"]}))
+
+    from bossman.services.template_gate import _unexpressible, template_configures
+    _unexpressible.cache_clear()
+    assert template_configures(tpl, "hopeless") is False
+    assert template_configures(tpl, "little") is not False
+    _unexpressible.cache_clear()

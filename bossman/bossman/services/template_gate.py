@@ -164,6 +164,50 @@ def describes_file(fields: set[str], directive_names) -> bool | None:
     return bool({directive_key(f) for f in fields} & {directive_key(d) for d in directive_names})
 
 
+def _record(templates_dir: str, name: str) -> dict:
+    """Read a recorded measurement that lives beside the catalogs.
+
+    TWO PLACES, because the templates directory sits differently in the two deployments: in the repo it is
+    configs/config_templates (so the record is its sibling), while the container mounts it at
+    /app/config-templates with the catalogs beside it in /app/configs. Looking only at the parent found the
+    record in tests and silently found nothing in production, which let all 147 broken templates through.
+    """
+    parent = Path(templates_dir).parent
+    for record in (parent / name, parent / "configs" / name):
+        try:
+            data = json.loads(record.read_text())
+        except (OSError, ValueError):
+            continue
+        return data if isinstance(data, dict) else {}
+    return {}
+
+
+@functools.lru_cache(maxsize=8)
+def _unexpressible(templates_dir: str) -> set:
+    """Templates whose body needs MORE values than their form can supply.
+
+    The mirror of the withheld-fields finding, measured with jinja2's own parser (the sweep's regex answered
+    1206 because it counted loop variables and macro arguments; the real number is 182 templates and 523
+    variables). Most of those miss one or two values and stay usable — the form covers the rest and the
+    editor reports the gap. These 24 do not: gimprc's body needs 75 values against 7 declared fields,
+    prometheus_alertmanager 15 against 2. Rendering one of those writes a file whose settings are mostly
+    empty, over a working config, so the editor is not offered at all.
+    """
+    findings = _record(templates_dir, "template_unsettable.json")
+    out = set()
+    for name, missing in findings.items():
+        if not isinstance(missing, list):
+            continue
+        try:
+            schema = json.loads((Path(templates_dir) / name / "schema.json").read_text())
+        except (OSError, ValueError):
+            continue
+        declared = sum(1 for v in schema.values() if isinstance(v, dict)) or len(schema)
+        if len(missing) > declared:
+            out.add(name)
+    return out
+
+
 @functools.lru_cache(maxsize=8)
 def _unrenderable(templates_dir: str) -> dict:
     """Templates that provably cannot render their own sample, from configs/template_render_broken.json.
@@ -180,15 +224,7 @@ def _unrenderable(templates_dir: str) -> dict:
     # configs/config_templates (so the record is its sibling), while the container mounts it at
     # /app/config-templates with the catalogs beside it in /app/configs. Looking only at the parent found
     # the record in tests and silently found nothing in production — the gate then let all 147 through.
-    parent = Path(templates_dir).parent
-    for record in (parent / "template_render_broken.json",
-                   parent / "configs" / "template_render_broken.json"):
-        try:
-            data = json.loads(record.read_text())
-        except (OSError, ValueError):
-            continue
-        return data if isinstance(data, dict) else {}
-    return {}
+    return _record(templates_dir, "template_render_broken.json")
 
 
 def template_configures(templates_dir: str | Path, name: str) -> bool | None:
@@ -200,6 +236,8 @@ def template_configures(templates_dir: str | Path, name: str) -> bool | None:
     if name in _unrenderable(str(templates_dir)):
         # It cannot render its own sample, so it cannot render a host's values either. False rather than
         # None: this is measured, not unknown.
+        return False
+    if name in _unexpressible(str(templates_dir)):
         return False
 
     head = body_file.read_text(errors="replace")[:400]

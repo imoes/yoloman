@@ -2097,3 +2097,27 @@ Die schärfste Lehre steckt in einem Rückschritt, den die **Render-Ratsche** ge
 `sample.json` an den deklarierten Typ angepasst — und damit `anymeal`, `frr` und `munin-node.conf` sofort
 zerstört (`Can't use Getitem on None`). Das Sample ist mit dem Body erzeugt und rendert nachweislich; der
 Typ ist das, was der Batch geraten hat. **Also wird der Typ korrigiert, nie das Sample.**
+
+### 8. Die andere Hälfte derselben Lücke: Werte, die das Formular nicht liefern kann
+
+`/config-fields` hält seit dem Kehraus die 2561 Felder zurück, die ein Template gar nicht platziert. Die
+Gegenrichtung war offen: der **Body liest** eine Variable, die **kein Feld anbietet** — der Bediener kann sie
+nicht setzen, und der Ganzdatei-Render schreibt sie leer.
+
+Die Zahl des Kehrauses war dafür unbrauchbar. Sein Prädikat suchte jeden Schemaschlüssel als Regex im Body
+und fand 1206 Treffer — mitgezählt waren Schleifenvariablen (`{% for host in hosts %}`), `{% set %}`-Namen,
+Makro-Argumente und `loop.index`. Gemessen mit **Jinjas eigenem Parser**
+([`find_unsettable_variables.py`](../bossman/scripts/find_unsettable_variables.py),
+`meta.find_undeclared_variables`) sind es **182 Templates mit 523 Variablen**; 4714 sind sauber, 428 kann
+jinja2 nicht parsen (gonja rendert sie — ein Befund, der von der Wahl des Parsers abhängt, ist kein Befund
+über die Daten). Nicht gezählt wird außerdem, was das Template selbst auffängt: `{{ workers | default(4) }}`
+braucht kein Feld, und ein Schemaschlüssel `tls.enabled` macht `tls` sehr wohl setzbar.
+
+Die Verteilung entscheidet die Handlung:
+
+- **142 Templates fehlen ein bis zwei Werte** — das Formular deckt den Rest, also wird die **Zahl gemeldet**
+  (`unsettable` auf jeder `/config-fields`-Antwort, plus eine Zeile im Editor). Live: `/etc/frr/frr.conf`
+  meldet `bgp_as`.
+- **24 brauchen mehr, als sie anbieten** — `gimprc` 75 Werte gegen 7 Felder, `prometheus_alertmanager` 15
+  gegen 2. Dort würde der Render eine überwiegend leere Konfiguration über eine funktionierende schreiben,
+  also wird der Editor **nicht angeboten** (`template_configures → False`, weil gemessen).

@@ -241,6 +241,9 @@ export class AgentService {
       template_name?: string;
       sample?: Record<string, unknown>;
       withheld?: { count: number; fields: string[]; reason: string } | null;
+      /** The same gap from the other side: values the template READS that no field offers, so they render
+       * empty. Templates needing more than their form offers are refused outright and never get here. */
+      unsettable?: { count: number; variables: string[]; reason: string } | null;
     }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`
        + (agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''));
   }
