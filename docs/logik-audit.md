@@ -1983,3 +1983,51 @@ Nebenbei geschlossen: `/config-fields` hatte **keinen einzigen Test**, obwohl je
 auflöst. [`test_config_fields_api.py`](../bossman/tests/test_config_fields_api.py) pinnt jetzt alle vier
 Schreibzustände (codec / template / freeform / unknown) plus den Hinweis — inklusive der beiden Defekte, die
 das Fehlen des Tests möglich gemacht hat (`"none"` ist truthy; Template-Auflösung per Basisname).
+
+### 6. Der ganze Korpus, gegen die eigenen Regeln gemessen
+
+Bis hierher waren die Codec-Verdikte aus Teilläufen zusammengesetzt. Ein Durchlauf über **alle** 8163
+Korpusdateien (40815 Proben, 19 s in Go) hat 277 Behauptungen widerlegt, die nie geprüft worden waren:
+243× `xml`, 20× `yaml`, 12× `json`, je einmal `keyvalue`/`ini` — jeweils zu `none`. Der Grund ist keine
+Feinheit: der flache `xml`-Codec würde bei ImageMagicks `policy.xml` **157 Zeilen** verlieren, bei
+`type-apple.xml` **1172**. Diese Dateien boten einen Editor an, der sie zerstört hätte.
+
+**Ein Shebang ist noch kein Programm.** Die Probe hat „ausführbar" bisher als *ein* Signal gemeldet, und
+das trifft die falschen Dateien: `/etc/makepkg.conf` beginnt mit `#!/hint/bash` — einem reinen
+Editor-Hinweis — und enthält 26 Zuweisungen ohne jeden Kontrollfluss. Jetzt berichtet die Messung
+Kontrollfluss, Shebang und Zuweisungen **getrennt**, und die Entscheidung fällt dort, wo alle anderen
+fallen. Gemessene Trennung, mit Abstand:
+
+| Datei | Zuweisungen / aktive Zeilen | | |
+|---|---|---|---|
+| `/etc/kea/keactrl.conf` | 18/18 | 1.00 | Env-Datei |
+| `/etc/sysconfig/raid-check` | 7/7 | 1.00 | Env-Datei |
+| `/etc/makepkg.conf` | 26/35 | 0.74 | Env-Datei (Array-Werte über Fortsetzungszeilen) |
+| `/etc/ppp/ip-up` | 3/8 | 0.38 | **Skript** — pppd führt es aus |
+| `/etc/apcupsd/onbattery` | 2/10 | 0.20 | **Skript** — setzt eine Nachricht, ruft `wall` |
+
+Eine erste Fassung fragte nur „gibt es überhaupt Zuweisungen?" und rettete damit jedes dieser Skripte:
+apcupsds fünf Event-Handler, beide ppp-Hooks, gdms `PreSession/Default` (ein Shebang, sechs Kommentare, **eine**
+Zuweisung — Verhältnis 1.0 und trotzdem ein Skript, daher zusätzlich mindestens drei Zuweisungen für eine
+„Liste").
+
+**Und die Enthaltung war zu breit.** Ein Skript wird nie als Konfigurationsdatei *angelegt* — aber wo die
+Registry für eines **schon** einen Per-Schlüssel-Codec behauptete, ließ die Enthaltung die falsche Behauptung
+stehen: `/etc/mc/edit.indent.rc` (Shebang + `case`, mcs externer Formatierer) trug `ini` und 46 Direktiven,
+`/etc/cron.daily/etckeeper` trug `keyvalue`. Korrigieren gibt keine Schreibstrategie — es nimmt eine, die es
+nie gab.
+
+### 7. 147 Templates, die ihr eigenes Sample nicht rendern
+
+`TestConfigTemplatesRenderWithSample` war rot, und zwar seit langem: **147 von 5474** Templates scheitern
+gegen ihre eigene `sample.json` — 55 parsen nicht, 89 sterben beim Rendern (`isinstance is not callable`:
+das Modell hat Python-Builtins in Jinja geschrieben), 3 rendern leer. Ein roter Gesamttest sagt nichts über
+die Änderung, die vor einem liegt, also ist die bekannte Menge jetzt ein **Datensatz**
+(`configs/template_render_broken.json`) und der Test eine **Ratsche**: nichts außerhalb der Liste darf
+scheitern, und nichts innerhalb darf gelistet bleiben, sobald es rendert.
+
+Derselbe Datensatz speist die serverseitige Sperre (`template_configures` → `False`, weil *gemessen*, nicht
+unbekannt). Der Index verliert damit **62 Bindungen**, deren „Configure"-Knopf ausschließlich eine
+Fehlermeldung erzeugen konnte. Der Lookup musste zwei Orte kennen — im Repo liegt der Datensatz neben dem
+Template-Verzeichnis, im Container daneben in `/app/configs` —, denn die erste Fassung fand ihn im Test und
+in Produktion nicht, und ließ dort alle 147 durch.

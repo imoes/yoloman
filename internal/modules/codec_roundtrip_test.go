@@ -176,6 +176,9 @@ func countSections(text string) int { return len(bracketedSection.FindAllString(
 // shellConstruct: control flow that only exists in a program.
 var shellConstruct = regexp.MustCompile(`(?m)^\s*(if\s|case\s.*\sin\s*$|for\s.*\sin\s|while\s|fi\s*$|esac\s*$|done\s*$|function\s+\w+)`)
 
+// shellAssign: `CFLAGS="-O2"`, `PKGEXT=.pkg.tar.zst` — an assignment and nothing else on the line.
+var shellAssign = regexp.MustCompile(`(?m)^\s*(export\s+)?[A-Za-z_][A-Za-z0-9_]*=`)
+
 // looksExecutable: is this a SCRIPT rather than a settings file?
 //
 // Measured on the harvested RedHat corpus: 286 files that a codec fitted — stably, round-tripping cleanly —
@@ -186,11 +189,32 @@ var shellConstruct = regexp.MustCompile(`(?m)^\s*(if\s|case\s.*\sin\s*$|for\s.*\
 //
 // Executable content therefore refutes every codec, no matter how well the round-trip goes — the same shape
 // of rule as the nesting and positional-section refusals: a property of the file that no grammar can undo.
+// A SHEBANG ALONE IS NOT A PROGRAM. /etc/makepkg.conf opens with `#!/hint/bash` — a marker that exists only
+// to tell editors how to highlight it — and holds 26 plain assignments with no control flow at all. It is a
+// shell ENV file, the same class as /etc/default/*, and it is legitimately edited key by key. Calling it a
+// script would withdraw a working editor from 43 mined directives.
+//
+// So the two halves are reported separately and the decision is made where every other decision is made, in
+// decide_codecs.py: control flow means a program, a shebang without control flow means "sourced, not run".
+// /etc/mc/edit.indent.rc has both a shebang and a `case`, and it really is mc's external formatter — while
+// the registry claimed `ini` for it and carried 46 directives.
 func looksExecutable(text string) bool {
-	if strings.HasPrefix(strings.TrimSpace(text), "#!") {
-		return true
+	return shellConstruct.MatchString(text) || hasShebang(text)
+}
+
+func hasShebang(text string) bool {
+	return strings.HasPrefix(strings.TrimSpace(text), "#!")
+}
+
+// assignmentLines: lines of the form NAME=value, the shape of a shell env file.
+func assignmentLines(text string) int {
+	count := 0
+	for _, line := range strings.Split(text, "\n") {
+		if shellAssign.MatchString(line) {
+			count++
+		}
 	}
-	return shellConstruct.MatchString(text)
+	return count
 }
 
 func isStrictJSON(text string) bool {
@@ -267,6 +291,11 @@ type probeResult struct {
 	StrictJSON    bool   `json:"strict_json"`
 	LinesLost     int    `json:"lines_lost"`
 	Executable    bool   `json:"executable"`
+	// Reported so the decision can tell a PROGRAM from a shell env file: control flow is what makes a file
+	// a program, a shebang alone does not (makepkg.conf's `#!/hint/bash`).
+	ControlFlow   bool   `json:"control_flow"`
+	Shebang       bool   `json:"shebang"`
+	Assignments   int    `json:"assignments"`
 	Sections      int    `json:"sections"`
 	Separator     string `json:"separator"`
 	Error         string `json:"error,omitempty"`
@@ -276,7 +305,9 @@ func probeOne(req probeRequest, format string) probeResult {
 	res := probeResult{Path: req.Path, Codec: format, Separator: req.Separator,
 		Comment: req.Comment, Blocks: countBlocks(req.Text), ActiveLines: activeLines(req.Text),
 		Positional: countPositionalSections(req.Text), StrictJSON: isStrictJSON(req.Text),
-		Executable: looksExecutable(req.Text), Sections: countSections(req.Text)}
+		Executable: looksExecutable(req.Text), Sections: countSections(req.Text),
+		ControlFlow: shellConstruct.MatchString(req.Text), Shebang: hasShebang(req.Text),
+		Assignments: assignmentLines(req.Text)}
 	params := map[string]any{}
 	if req.Separator != "" {
 		params["separator"] = req.Separator

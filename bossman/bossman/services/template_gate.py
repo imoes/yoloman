@@ -34,6 +34,7 @@ verified either.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 from pathlib import Path
@@ -163,12 +164,43 @@ def describes_file(fields: set[str], directive_names) -> bool | None:
     return bool({directive_key(f) for f in fields} & {directive_key(d) for d in directive_names})
 
 
+@functools.lru_cache(maxsize=8)
+def _unrenderable(templates_dir: str) -> dict:
+    """Templates that provably cannot render their own sample, from configs/template_render_broken.json.
+
+    RECORDED IN GO, USED HERE, because rendering IS the Go engine: gonja. Measured on the library, 147 of
+    5474 templates fail against their own sample.json — 55 do not parse at all, 89 die at render time
+    (`isinstance is not callable`, i.e. Python builtins written into Jinja), 3 render empty. Every one of
+    them is offered as a "Configure" button today, and pressing it can only produce an error.
+
+    The record is a ratchet, not a snapshot: internal/modules/template_render_test.go fails if any template
+    outside it breaks, and equally if a listed one starts working. So this file cannot quietly grow.
+    """
+    # TWO PLACES, because the templates directory sits differently in the two deployments: in the repo it is
+    # configs/config_templates (so the record is its sibling), while the container mounts it at
+    # /app/config-templates with the catalogs beside it in /app/configs. Looking only at the parent found
+    # the record in tests and silently found nothing in production — the gate then let all 147 through.
+    parent = Path(templates_dir).parent
+    for record in (parent / "template_render_broken.json",
+                   parent / "configs" / "template_render_broken.json"):
+        try:
+            data = json.loads(record.read_text())
+        except (OSError, ValueError):
+            continue
+        return data if isinstance(data, dict) else {}
+    return {}
+
+
 def template_configures(templates_dir: str | Path, name: str) -> bool | None:
     """True / False / None for the template directory `name` under `templates_dir`."""
     tdir = Path(templates_dir) / name
     body_file, schema_file = tdir / "template.j2", tdir / "schema.json"
     if not body_file.is_file() or not schema_file.is_file():
         return None
+    if name in _unrenderable(str(templates_dir)):
+        # It cannot render its own sample, so it cannot render a host's values either. False rather than
+        # None: this is measured, not unknown.
+        return False
 
     head = body_file.read_text(errors="replace")[:400]
     if _UFW_PROFILE.search(head) and "ports" in head:

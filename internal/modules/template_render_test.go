@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,44 +74,98 @@ func TestTemplateRenderDryRun(t *testing.T) {
 	}
 }
 
+// renderTemplateWithSample: render one template dir against its own sample.json. The error is the finding —
+// a template that cannot render its own sample is not an editor, whatever else is true about it.
+func renderTemplateWithSample(root, name, dest string) error {
+	dir := filepath.Join(root, name)
+	sampleRaw, err := os.ReadFile(filepath.Join(dir, "sample.json"))
+	if err != nil {
+		return fmt.Errorf("read sample.json: %w", err)
+	}
+	var values map[string]any
+	if err := json.Unmarshal(sampleRaw, &values); err != nil {
+		return fmt.Errorf("parse sample.json: %w", err)
+	}
+	res, err := NewTemplateRender().Run(context.Background(), map[string]any{
+		"template_path": filepath.Join(dir, "template.j2"),
+		"dest":          dest,
+		"values":        values,
+	}, false)
+	if err != nil {
+		return err
+	}
+	if rendered, _ := res.Data.(map[string]any)["rendered"].(string); len(rendered) == 0 {
+		return fmt.Errorf("rendered empty")
+	}
+	return nil
+}
+
 // TestConfigTemplatesRenderWithSample renders every shipped Class-B template
 // (configs/config_templates/<name>/template.j2) against its sample.json via the
 // real gonja engine and asserts non-empty output. This guards against
 // Django/pongo2-isms (colon filters, unsupported tests) the LLM bootstrap might
 // emit — they fail under gonja and break here, not silently on a live host.
+//
+// A RATCHET, NOT A PASS/FAIL WALL. Measured on the generated library: 147 of 5474 templates cannot render
+// their own sample — 55 do not parse, 89 die at render time (`isinstance is not callable`: the model wrote
+// Python builtins into Jinja), 3 render empty. Failing the whole test on those made it useless as a guard,
+// because a red test says nothing about the change in front of you.
+//
+// So the known-broken set is a RECORD (configs/template_render_broken.json), and this test asserts two
+// things about it: nothing outside the record may fail, and nothing inside it may still be listed once it
+// renders. The record also feeds the server's gate, so a template that provably cannot render is not
+// offered as an editor at all — the same rule as everywhere else here: an editor that cannot be correct is
+// not offered. Regenerate with TEMPLATE_RENDER_WRITE=1 go test -run TestConfigTemplatesRenderWithSample.
 func TestConfigTemplatesRenderWithSample(t *testing.T) {
 	root := filepath.Join("..", "..", "configs", "config_templates")
+	recordPath := filepath.Join("..", "..", "configs", "template_render_broken.json")
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("read %s: %v", root, err)
 	}
+	known := map[string]string{}
+	if raw, err := os.ReadFile(recordPath); err == nil {
+		if err := json.Unmarshal(raw, &known); err != nil {
+			t.Fatalf("parse %s: %v", recordPath, err)
+		}
+	}
 	dest := filepath.Join(t.TempDir(), "rendered.out")
+	broken := map[string]string{}
+	var regressed, fixed []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
 		name := e.Name()
-		t.Run(name, func(t *testing.T) {
-			dir := filepath.Join(root, name)
-			sampleRaw, err := os.ReadFile(filepath.Join(dir, "sample.json"))
-			if err != nil {
-				t.Fatalf("read sample.json: %v", err)
+		err := renderTemplateWithSample(root, name, dest)
+		_, listed := known[name]
+		switch {
+		case err != nil:
+			reason := err.Error()
+			if len(reason) > 200 {
+				reason = reason[:200]
 			}
-			var values map[string]any
-			if err := json.Unmarshal(sampleRaw, &values); err != nil {
-				t.Fatalf("parse sample.json: %v", err)
+			broken[name] = reason
+			if !listed {
+				regressed = append(regressed, name+": "+reason)
 			}
-			res, err := NewTemplateRender().Run(context.Background(), map[string]any{
-				"template_path": filepath.Join(dir, "template.j2"),
-				"dest":          dest,
-				"values":        values,
-			}, false)
-			if err != nil {
-				t.Fatalf("render %s: %v", name, err)
-			}
-			if rendered, _ := res.Data.(map[string]any)["rendered"].(string); len(rendered) == 0 {
-				t.Fatalf("%s rendered empty", name)
-			}
-		})
+		case listed:
+			fixed = append(fixed, name)
+		}
+	}
+	if os.Getenv("TEMPLATE_RENDER_WRITE") == "1" {
+		out, _ := json.MarshalIndent(broken, "", " ")
+		if err := os.WriteFile(recordPath, append(out, '\n'), 0o644); err != nil {
+			t.Fatalf("write %s: %v", recordPath, err)
+		}
+		t.Logf("recorded %d templates that cannot render their own sample", len(broken))
+		return
+	}
+	for _, r := range regressed {
+		t.Errorf("template no longer renders and is not in the record: %s", r)
+	}
+	if len(fixed) > 0 {
+		t.Errorf("%d recorded templates render fine now — drop them from %s: %v",
+			len(fixed), filepath.Base(recordPath), fixed[:min(len(fixed), 10)])
 	}
 }

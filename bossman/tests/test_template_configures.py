@@ -163,3 +163,28 @@ def test_nothing_to_compare_against_is_not_a_verdict(tpl):
     from bossman.services.template_gate import describes_file
     assert describes_file({"a", "b"}, []) is None
     assert describes_file(set(), ["a"]) is None
+
+
+def test_a_template_that_cannot_render_its_own_sample_is_refused(tmp_path):
+    """Measured in Go (rendering IS gonja) and recorded: 147 of 5474 templates fail against their own
+    sample.json — 55 do not parse, 89 die at render time because the model wrote Python builtins into
+    Jinja (`isinstance is not callable`), 3 render empty. Each one is a Configure button whose only
+    possible outcome is an error, so the gate refuses it: False, because this is measured, not unknown.
+    """
+    tpl = tmp_path / "config_templates"
+    (tpl / "broken").mkdir(parents=True)
+    (tpl / "broken" / "template.j2").write_text("x = {{ isinstance(v, str) }}\n")
+    (tpl / "broken" / "schema.json").write_text(json.dumps({"v": {"type": "string"}}))
+    (tpl / "fine").mkdir()
+    (tpl / "fine" / "template.j2").write_text(
+        "# port: the port to listen on\nport = {{ port }}\nroot = {{ root }}\nlog = {{ log }}\n")
+    (tpl / "fine" / "schema.json").write_text(json.dumps(
+        {"port": {"type": "int"}, "root": {"type": "string"}, "log": {"type": "string"}}))
+    (tmp_path / "template_render_broken.json").write_text(json.dumps(
+        {"broken": "template_render: render: isinstance is not callable"}))
+
+    from bossman.services.template_gate import _unrenderable, template_configures
+    _unrenderable.cache_clear()
+    assert template_configures(tpl, "broken") is False
+    assert template_configures(tpl, "fine") is True
+    _unrenderable.cache_clear()
