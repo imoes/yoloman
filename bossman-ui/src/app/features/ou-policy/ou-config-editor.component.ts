@@ -115,6 +115,10 @@ export interface EditorScope {
             @if (!writesPerKey(sel)) {
               <p class="bm-dim">{{ noPerKeyReason(sel) }}</p>
             }
+            @if (machineWritten(sel); as mw) {
+              <p class="bm-dim">This file says it is machine-written (line {{ mw.line }}):
+                <em>{{ mw.quote }}</em> — a policy on it may be discarded the next time it is generated.</p>
+            }
             <table class="bm-oce-settings">
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
@@ -337,6 +341,10 @@ export class OuConfigEditorComponent implements OnChanges {
         if (target) this.select(target);
       }
     });
+    this.agentService.configGenerated().subscribe({
+      next: (r) => this.generatedFiles.set(r.files || {}),
+      error: () => {},
+    });
     if (!Object.keys(this.directiveCatalog()).length) {
       this.agentService.configDirectives().subscribe({ next: (r) => this.directiveCatalog.set(r.directives || {}), error: () => {} });
     }
@@ -459,6 +467,15 @@ export class OuConfigEditorComponent implements OnChanges {
 
   policyFor(path: string): ScopePolicy | undefined {
     return this.policies().find((p) => p.path === path);
+  }
+
+  /** path -> the file's own sentence about being machine-written (GET /config-generated). A policy is
+   * worse than a host edit here: it is stored, wins at its scope, and gets overwritten on every generator
+   * run, so the console would keep reporting drift it cannot fix. Quoted, not blocked. */
+  generatedFiles = signal<Record<string, { line: number; quote: string; marker: string }>>({});
+
+  machineWritten(path: string): { line: number; quote: string; marker: string } | null {
+    return this.generatedFiles()[path] ?? null;
   }
 
   /** Can this file be written ONE KEY AT A TIME? The measured codec decides — `none` means no codec

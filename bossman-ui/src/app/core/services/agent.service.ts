@@ -232,7 +232,20 @@ export class AgentService {
       provenance?: { source: string; measured: boolean; confidence: string; note: string };
       fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
       available: boolean;
+      /** Present only when the FILE ITSELF says it is machine-written, with the sentence that says so.
+       * Not a write state and not a refusal — munin.conf is parsable, has directives, and still asks not
+       * to be edited. The editor quotes it and the operator decides. */
+      machine_written?: { line: number; quote: string; marker: string };
     }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);
+  }
+
+  /** {path: {line, quote, marker}} for every config file whose own header declares it machine-written.
+   * A map, because the file lists render dozens of paths at once — asking config-fields per row would
+   * trade one small read for forty. */
+  configGenerated() {
+    return this.http.get<{ files: Record<string, { line: number; quote: string; marker: string }>; count: number }>(
+      `${environment.apiUrl}/config-generated`,
+    );
   }
 
   // Block 3 — agent-less devices (snmp|ssh), polled via the co-located poller.
