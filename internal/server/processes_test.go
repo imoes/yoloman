@@ -41,9 +41,9 @@ func TestSystemdUnitForPID(t *testing.T) {
 		}
 	}
 	write("1", "0::/system.slice/sshd.service\n")
-	write("2", "0::/system.slice/system-getty.slice/getty@tty1.service\n") // nested slice
-	write("3", "0::/user.slice/user-1000.slice/session-3.scope\n")          // not a service
-	write("4", "0::/system.slice/docker-abc.scope\n")                       // container scope, not a service
+	write("2", "0::/system.slice/system-getty.slice/getty@tty1.service\n")                   // nested slice
+	write("3", "0::/user.slice/user-1000.slice/session-3.scope\n")                           // not a service
+	write("4", "0::/system.slice/docker-abc.scope\n")                                        // container scope, not a service
 	write("5", "12:pids:/system.slice/cron.service\n11:memory:/system.slice/cron.service\n") // v1 layout
 
 	cases := map[string]string{"1": "sshd", "2": "getty@tty1", "3": "", "4": "", "5": "cron"}

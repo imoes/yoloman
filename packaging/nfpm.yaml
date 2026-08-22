@@ -94,6 +94,40 @@ contents:
     dst: /usr/share/agentic-mcp/configs/config_directives.json
     file_info:
       mode: 0644
+  # The RECORDED answers the standalone field editor serves (config-fields,
+  # config-templates/index). Bossman computes these from the rules; the agent
+  # must not, or one rule would live in two languages — so
+  # bossman/scripts/export_agent_config_projection.py records them and
+  # internal/server/management_config_fields.go looks them up. Agreement is
+  # measured by scripts/diff-agent-config-fields.sh, not assumed.
+  - src: ../configs/config_template_index.json
+    dst: /usr/share/agentic-mcp/configs/config_template_index.json
+    file_info:
+      mode: 0644
+  - src: ../configs/config_directive_keys.json
+    dst: /usr/share/agentic-mcp/configs/config_directive_keys.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_withheld.json
+    dst: /usr/share/agentic-mcp/configs/template_withheld.json
+    file_info:
+      mode: 0644
+  # The three honesty records the editor quotes before Apply: files that declare
+  # themselves machine-written, variables no field offers, and calls the renderer
+  # cannot execute. Small, and each one is a warning the operator would otherwise
+  # only get as a failed write.
+  - src: ../configs/config_generated.json
+    dst: /usr/share/agentic-mcp/configs/config_generated.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_unsettable.json
+    dst: /usr/share/agentic-mcp/configs/template_unsettable.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_renderer_gaps.json
+    dst: /usr/share/agentic-mcp/configs/template_renderer_gaps.json
+    file_info:
+      mode: 0644
   # The whole config-template tree (schema.json + template per role) — enum
   # dropdown settings live in each schema.json.
   - src: ../configs/config_templates/**/*

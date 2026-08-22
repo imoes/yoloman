@@ -117,6 +117,11 @@ Runs on every managed host. Highlights:
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
+- **The same config editor with or without Bossman** — `GET /api/v1/config-fields?path=` answers "what can
+  be set in this file, and how is it written" (per-key codec merge, whole-file template render, or neither
+  with the reason named). A standalone agent serves it from projections recorded by Bossman's own rules
+  rather than a second implementation, and `scripts/diff-agent-config-fields.sh` measures that the two agree
+  key for key.
 - **Local login for the standalone UI** — `POST /api/v1/auth/login` verifies a username/password
   against this host's own accounts and must ALSO find the user in group **`yoloadmin`** (created
   empty by the package's postinst; grant with `gpasswd -a <user> yoloadmin`). A correct password is

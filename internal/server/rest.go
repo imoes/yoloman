@@ -404,6 +404,9 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	// Per-host management surface (network/services/logs/accounts/storage/
 	// updates/virt + config catalog) so the reused fleet UI works standalone.
 	RegisterManagementRoutes(mux, cfg)
+	// The field-spec surface the host Configuration tab reads (config-fields, config-generated,
+	// config-templates/index) — served from recorded artifacts so no rule lives twice.
+	RegisterConfigFieldRoutes(mux)
 
 	// Interactive web shell (Proxmox-style): a PTY running /bin/login, over a
 	// WebSocket. Behind withIdentity + the outer mTLS wrapper; Bossman proxies

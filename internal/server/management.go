@@ -25,7 +25,11 @@ import (
 
 // configsDir is where the .deb ships the bundled config catalog (codecs,
 // directives, templates, package catalog) for the standalone Server Manager.
-const configsDir = "/usr/share/agentic-mcp/configs"
+// configsDir is where the package installs the config catalog (codecs, directives, templates, and the
+// recorded projections the standalone field editor serves). A var, not a const, so a test can point it at a
+// fixture — the alternative is testing the handlers against whatever the build host happens to have
+// installed, which is not a test.
+var configsDir = "/usr/share/agentic-mcp/configs"
 
 // RegisterManagementRoutes mounts the per-host management endpoints on mux.
 // They inherit the same identity/auth wrapper as the rest of /api/v1.
@@ -321,7 +325,9 @@ func getentRows(d any) [][]string {
 	return rows
 }
 
-func mgmtUser(w http.ResponseWriter, r *http.Request, cfg RESTConfig) { mgmtAccountAction(w, r, cfg, "user") }
+func mgmtUser(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	mgmtAccountAction(w, r, cfg, "user")
+}
 func mgmtGroup(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	mgmtAccountAction(w, r, cfg, "group")
 }
