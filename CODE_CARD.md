@@ -67,6 +67,12 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
   (typed fields) + `sample.json` + `capabilities.json`. DB-bound to hosts, edited as VALUES in the WebUI.
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
+- **does the file exist** — `configs/config_path_verdicts.json` (per path: file|directory|dangling-symlink|
+  absent + whether a maintainer script creates it), measured by `bossman/scripts/verify_registry_paths.py`
+  in a container against the real `.deb` and recorded by `record_path_verdicts.py`. Driver:
+  `scripts/verify-registry-paths.sh` (resumable, one process, flock). Separate from the codec registry on
+  purpose: that answers how a file is written, this whether there is a file, and the qualify batch rewrites
+  the former knowing nothing about the latter.
 - **one field spec, two servers** — `GET /api/v1/config-fields?path=` is the single describe() for a config
   file (`write: codec|template|freeform|unknown` + typed `fields`). Bossman computes it from the rules
   (`bossman/bossman/api/config_fields.py`); a STANDALONE agent serves the same answer from recorded

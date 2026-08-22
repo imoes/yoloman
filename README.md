@@ -117,6 +117,14 @@ Runs on every managed host. Highlights:
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
+- **A path that no package ships is named as such** — the codec registry answers *how* a config file is
+  written and says nothing about whether there *is* one. 2248 of its 14599 entries have a path that is
+  exactly their package's own name (`/etc/bind`, `/etc/aide`, `/etc/ttygif`), 1342 of them recorded with
+  confidence "high". Extracting the real `.deb` settles it per path — file, directory, dangling symlink or
+  absent, with "absent but created by a maintainer script" kept apart from "nothing accounts for this" — and
+  `/config-fields` carries the verdict, so a screen says *no file is shipped there* instead of opening an
+  editor on nothing. No entry is deleted: an entry removed would take its own refutation with it, and the
+  next batch run would recreate it.
 - **The same config editor with or without Bossman** — `GET /api/v1/config-fields?path=` answers "what can
   be set in this file, and how is it written" (per-key codec merge, whole-file template render, or neither
   with the reason named). A standalone agent serves it from projections recorded by Bossman's own rules

@@ -191,3 +191,57 @@ func TestConfigTemplateIndex_MissingArtifactSaysSoInsteadOfGuessing(t *testing.T
 			"answer, and must never be replaced by a basename guess", out)
 	}
 }
+
+func TestConfigFields_SaysWhenNoPackageShipsThePath(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		// A measured grammar for a path that is a DIRECTORY. Both facts are true and they are about different
+		// questions: the registry says how such a file would be written, the verdict says there is no file.
+		"config_codecs.json":     `{"/etc/bind": {"codec": "nested_block", "source": "probe"}}`,
+		"config_directives.json": `{}`,
+		"config_path_verdicts.json": `{"/etc/bind": {"verdict": "directory", "package": "bind9",
+			"postinst_mentions": false}}`,
+	})
+	out := getFields(t, "path=/etc/bind")
+	pv, _ := out["path_verdict"].(map[string]any)
+	if pv == nil {
+		t.Fatal("a path no package ships as a file must say so — otherwise the editor opens on nothing")
+	}
+	if pv["verdict"] != "directory" || pv["package"] != "bind9" {
+		t.Errorf("path_verdict = %v, want the measured verdict and the package it was measured in", pv)
+	}
+	if pv["created_at_install"] != false {
+		t.Error("a directory is not a config created at install time")
+	}
+	// The codec is still reported: the measurement refutes the FILE, not the grammar, and hiding the record
+	// would take its own refutation with it.
+	if out["write"] != "codec" {
+		t.Errorf("write = %v; the verdict annotates the answer, it does not replace it", out["write"])
+	}
+}
+
+func TestConfigFields_AnAbsentPathAMaintainerScriptCreatesIsNotAWarning(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json":     `{"/etc/foo.conf": {"codec": "keyvalue"}}`,
+		"config_directives.json": `{}`,
+		"config_path_verdicts.json": `{"/etc/foo.conf": {"verdict": "absent", "package": "foo",
+			"postinst_mentions": true}}`,
+	})
+	pv, _ := getFields(t, "path=/etc/foo.conf")["path_verdict"].(map[string]any)
+	if pv == nil || pv["created_at_install"] != true {
+		// Absent from the archive is not absent from the host. Calling this "nothing to edit" would refuse a
+		// file that exists on every installed machine.
+		t.Errorf("path_verdict = %v, want created_at_install:true", pv)
+	}
+}
+
+func TestConfigFields_NoVerdictMeansNoClaim(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json":     `{"/etc/unmeasured.conf": {"codec": "keyvalue"}}`,
+		"config_directives.json": `{}`,
+	})
+	// An agent installed from an older package has no verdict file at all. Absence of a measurement is not a
+	// measurement of absence — it must produce no annotation rather than a warning.
+	if out := getFields(t, "path=/etc/unmeasured.conf"); out["path_verdict"] != nil {
+		t.Errorf("path_verdict = %v, want none when nothing was measured", out["path_verdict"])
+	}
+}

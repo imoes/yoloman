@@ -238,6 +238,25 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 	if len(advisory) > 0 {
 		add("machine_written", advisory)
 	}
+	// DOES THE FILE EXIST AT ALL — a different question from the codec's, measured by extracting the real
+	// package. Carried on every branch below: a measured grammar for a path nothing ships is still an editor
+	// over nothing.
+	if seen := asMap(asMap(mustJSON("config_path_verdicts.json"))[path]); len(seen) > 0 {
+		if verdict, _ := seen["verdict"].(string); verdict != "file" {
+			// An absent path a maintainer script names is created at install time — a real file on a real
+			// host, legitimately missing from the archive.
+			createdLater := verdict == "absent" && seen["postinst_mentions"] == true
+			pkg, _ := seen["package"].(string)
+			reason := "this path was measured in package " + pkg + " as " + verdict
+			if createdLater {
+				reason += "; a maintainer script creates it at install time"
+			} else {
+				reason += " — no file is shipped there, so there is nothing to edit"
+			}
+			add("path_verdict", map[string]any{"verdict": verdict, "package": pkg,
+				"created_at_install": createdLater, "reason": reason})
+		}
+	}
 
 	if codecKind != "" && codecKind != "none" {
 		directivesRaw, _ := readBundledJSON("config_directives.json")
@@ -341,6 +360,14 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 	add("fields", map[string]any{})
 	add("available", false)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// mustJSON reads a bundled artifact, returning nil when it is absent. Named for what it is NOT: there is no
+// must about it — a projection that has never been exported simply yields no annotation, which is the right
+// behaviour for an agent installed from an older package.
+func mustJSON(name string) any {
+	v, _ := readBundledJSON(name)
+	return v
 }
 
 // readTemplateDir returns a template's body, schema, sample and meta from the bundled catalog. A missing

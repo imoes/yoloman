@@ -177,6 +177,25 @@ async def config_fields(
     # the returning drift then has no visible cause.
     generated = _load_json(settings.config_generated_path).get(path)
     advisory = {"machine_written": generated} if isinstance(generated, dict) else {}
+    # DOES THE FILE EXIST AT ALL. The codec registry answers how a file is written and says nothing about
+    # whether there is one: 2248 of its entries have a path that is exactly their package's own name, and
+    # extracting the real .deb finds /etc/bind is a directory (the file is /etc/named.conf), /etc/aide is a
+    # directory, /etc/ttygif nothing at all. Carried on EVERY branch, because a measured grammar for a
+    # nonexistent path is still a measured grammar — and still an editor over nothing.
+    seen = _load_json(settings.config_path_verdicts_path).get(path)
+    if isinstance(seen, dict) and seen.get("verdict") != "file":
+        # An `absent` path that a maintainer script names is created at install time and is a real file on a
+        # real host — legitimately missing from the archive, so it is reported without the warning.
+        installed_later = seen.get("verdict") == "absent" and seen.get("postinst_mentions")
+        advisory["path_verdict"] = {
+            "verdict": seen.get("verdict"), "package": seen.get("package"),
+            "created_at_install": bool(installed_later),
+            "reason": ("this path was measured in package {} as {}"
+                       .format(seen.get("package"), seen.get("verdict"))
+                       + ("; a maintainer script creates it at install time"
+                          if installed_later else
+                          " — no file is shipped there, so there is nothing to edit")),
+        }
 
     if codec_kind and codec_kind != "none":
         directives = config_schema.load_catalog(settings)

@@ -70,7 +70,7 @@ for p in paths:
     if wf != gf:
         mismatch.append((p, "fields", "±{}".format(len(wf ^ gf)), "bossman-only={} agent-only={}".format(
             sorted(wf - gf)[:3], sorted(gf - wf)[:3])))
-    for k in ("withheld", "unsettable", "renderer_gaps", "machine_written"):
+    for k in ("withheld", "unsettable", "renderer_gaps", "machine_written", "path_verdict"):
         if bool(want.get(k)) != bool(got.get(k)):
             mismatch.append((p, k, bool(want.get(k)), bool(got.get(k))))
 

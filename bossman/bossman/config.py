@@ -116,6 +116,14 @@ class Settings(BaseSettings):
     # it is a trap worth naming, because the next generator run discards the change and the drift comes
     # back with no visible cause. Read-only; served so the editors can quote the file's own sentence.
     config_generated_path: str = "/app/configs/config_generated.json"
+    # Whether the path EXISTS as a file in the package that claims it — measured by extracting the real .deb
+    # (scripts/verify_registry_paths.py, recorded by scripts/record_path_verdicts.py). A different question
+    # from the codec registry's: that one answers how a file is written, this one whether there is a file.
+    # 2248 registry entries have a path that is exactly their package's own name (/etc/bind, /etc/aide,
+    # /etc/ttygif) and the measured ones are overwhelmingly absent — offered until now as config files to
+    # edit, 1342 of them with confidence "high". Read-only; served so a screen can say so instead of
+    # opening an editor on nothing.
+    config_path_verdicts_path: str = "/app/configs/config_path_verdicts.json"
     # Block 3: the co-located poller agent that runs SNMP checks on behalf of
     # agent-less devices (see project-ssh-snmp-checks). SNMP devices are created
     # as satellites of this agent.
