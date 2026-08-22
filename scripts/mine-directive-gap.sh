@@ -63,6 +63,15 @@ while :; do
   # zero ranges, ranges on a bool, fractional int defaults. Measured every single time so far.
   bossman/.venv-host/bin/python bossman/scripts/lint_directive_catalog.py --corpus "$CORPUS" --write \
     >>"$LOG" 2>&1
+  # AND THE HONESTY PASSES, here because this is the one moment nothing else writes the catalog. Each fresh
+  # mine can produce the same two defects the old catalog had: a key that exists in no documentation
+  # (decide_documented_keys, 13 s) and a catalog attached to the wrong file of the right package
+  # (find_foreign_catalogs, 3 s) — the newly mined braille tables were grounded on brltty's man page and came
+  # out carrying brltty.conf's directives, caught the round after they were created. Every chunk, because 16
+  # seconds against a chunk that takes minutes is not worth batching.
+  bossman/.venv-host/bin/python bossman/scripts/decide_documented_keys.py "$CORPUS" "$MAN" --write \
+    >>"$LOG" 2>&1
+  bossman/.venv-host/bin/python bossman/scripts/find_foreign_catalogs.py "$CORPUS" --write >>"$LOG" 2>&1
   # Whatever this chunk asked for and did not get is remembered, so the next round moves on.
   head -n "$CHUNK" "$QUEUE" | bossman/.venv-host/bin/python bossman/scripts/mine_gap_queue.py --failed \
     >>"$SKIP"
