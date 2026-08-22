@@ -211,6 +211,26 @@ Two guards decide when a verdict may not withdraw, and both are recorded fields 
 debian:12's 106 `/etc` files, e.g. `/etc/hostname`). Container-only artifacts are recorded with that label and
 earn no exemption. **A third run is in progress** over the 1500 registry paths that still carry no verdict.
 
+**Is the named owner a package at all** — `configs/codec_package_claims.json`, from
+`bossman/scripts/audit_package_claims.py`. Found while asking why 678 names could not be downloaded: the list
+was full of `LCDd.conf`, `ModemManager.conf`, `Xsession`, `afs.conf`, `config.cfg`. Of **4936** names in the
+registry's `packages` fields:
+
+| | |
+|---|---|
+| known (in `package_universe_real.json`) | 4557 |
+| a configuration FILE, not a package (`.conf`/`.cfg`/…) | 213 |
+| not a legal package name at all (Debian Policy 5.6.1 — capitals) | 25 |
+| unknown — mostly program names (`agetty`, `atd`, `chronyc`, `audit2allow`) | 141 |
+
+238 entries carry at least one such name; **32** would be left with NO owner if those names were simply
+removed, which is a worse claim than a wrong one — it cannot even be refuted. So nothing is removed and the
+number is on the table instead.
+
+The feared consequence did NOT occur and that is worth stating: the ROLE catalog has **0** such names, so no
+role silently fails to be detected as installed. The damage is confined to the codec registry, where it
+means those 238 paths cannot be path-verified — which is exactly part of the 263 above.
+
 **Was the grammar tested** — 7287 registry entries claim a codec the write path acts on. 6259 were decided by
 round-tripping a real file; the remaining **1028 split into three states that used to read alike**:
 
@@ -222,8 +242,7 @@ round-tripping a real file; the remaining **1028 split into three states that us
 | no evidence either way | 263 |
 
 The last 263 are not a task that can be started as it stands, and the reason is recorded rather than guessed:
-**170** name a package `apt-get download` cannot fetch (no verdict may be inferred from a network failure),
-**86** name no package at all, **13** are glob paths — a glob identifies a SET of files, so "does it exist" is
+**170** name a package `apt-get download` cannot fetch, **86** name no package at all, **13** are glob paths — a glob identifies a SET of files, so "does it exist" is
 not a question about it. The middle row is the one worth watching: it says every path where a file demonstrably
 exists has already been probed, so this backlog does not shrink by probing harder, only by reaching those 170
 packages.
