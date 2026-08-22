@@ -110,7 +110,59 @@ func ansibleFilters() map[string]exec.FilterFunction {
 		"count":    filterCount,
 		"yes_no":   filterYesNo,
 		"required": filterMandatory, // Ansible spells it `mandatory`; the same rule, another name
+		// THREE MORE THE RECORD NAMED. modsecurity_crs pipes into regex_escape, stubby into ipversion, and
+		// stenc calls yesno with three arguments. Same argument as the batch before: a filter that does not
+		// exist can only have been failing, so adding it cannot change any other template's output.
+		"regex_escape": filterRegexEscape,
+		"ipversion":    filterIPVersion,
+		"yesno":        filterYesNoMaybe,
 	}
+}
+
+// regex_escape: quote a value so a pattern matches it literally — what `{{ path | regex_escape }}` means
+// when a template builds a rule out of a value someone typed.
+func filterRegexEscape(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	return exec.AsValue(regexp.QuoteMeta(in.String()))
+}
+
+// ipversion: 4 or 6 for an address, EMPTY for anything else — a template asking the version of a hostname
+// wants that branch skipped, not the render aborted.
+func filterIPVersion(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	addr := net.ParseIP(strings.TrimSpace(in.String()))
+	if addr == nil {
+		return exec.AsValue("")
+	}
+	if addr.To4() != nil {
+		return exec.AsValue(4)
+	}
+	return exec.AsValue(6)
+}
+
+// yesno(yes, no, maybe): the three-way form Django carries and stenc uses. "No value at all" is a distinct
+// case in a config file — a flag omitted rather than negated.
+func filterYesNoMaybe(_ *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	pick := func(i int) string {
+		if a := arg(params, i); a != nil {
+			return a.String()
+		}
+		return ""
+	}
+	if in.IsNil() {
+		return exec.AsValue(pick(2))
+	}
+	if in.IsTrue() {
+		return exec.AsValue(pick(0))
+	}
+	return exec.AsValue(pick(1))
 }
 
 // dirname / basename: path.Dir and path.Base, which is what a config template means by them —

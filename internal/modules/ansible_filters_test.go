@@ -202,3 +202,26 @@ func TestPathAndShapeFilters(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordNamedFilters: three filters the render record named by their absence. Same reasoning as the
+// first batch — a filter that does not exist can only have been failing, so adding it changes nothing else.
+func TestRecordNamedFilters(t *testing.T) {
+	values := map[string]any{"host": "10.0.0.1", "v6": "2001:db8::1", "name": "a.b+c", "on": true,
+		"off": false, "nothing": nil}
+	cases := []struct{ tmpl, want string }{
+		{`{{ name | regex_escape }}`, `a\.b\+c`},
+		{`{{ host | ipversion }}`, "4"},
+		{`{{ v6 | ipversion }}`, "6"},
+		// A hostname has no version, and the template wants the branch skipped rather than the render aborted.
+		{`{{ "not-an-address" | ipversion }}`, ""},
+		{`{{ on | yesno("--yes", "--no", "") }}`, "--yes"},
+		{`{{ off | yesno("--yes", "--no", "") }}`, "--no"},
+		// The third arm is the point: "no value at all" is a flag OMITTED, not negated.
+		{`{{ nothing | yesno("--yes", "--no", "") }}`, ""},
+	}
+	for _, c := range cases {
+		if got := renderTmpl(t, c.tmpl, values); got != c.want {
+			t.Errorf("%s = %q, want %q", c.tmpl, got, c.want)
+		}
+	}
+}

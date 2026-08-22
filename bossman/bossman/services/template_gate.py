@@ -233,6 +233,15 @@ def template_configures(templates_dir: str | Path, name: str) -> bool | None:
     body_file, schema_file = tdir / "template.j2", tdir / "schema.json"
     if not body_file.is_file() or not schema_file.is_file():
         return None
+    try:
+        if body_file.stat().st_size == 0:
+            # AN EMPTY FILE IS NOT A TEMPLATE. Six directories ship a zero-byte template.j2
+            # (glusterfs-client, ncdt, toot, trabucco, ttygif, wrapsrv) and the render fails with
+            # "template or template_path is required" — the engine's way of saying there is nothing here.
+            # `is_file()` was true, so they passed as unknown and were offered.
+            return False
+    except OSError:
+        return None
     if name in _unrenderable(str(templates_dir)):
         # It cannot render its own sample, so it cannot render a host's values either. False rather than
         # None: this is measured, not unknown.
