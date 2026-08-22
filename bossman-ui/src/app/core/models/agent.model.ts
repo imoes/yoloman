@@ -508,6 +508,12 @@ export interface ConfigTemplateIndex {
   snapins: Record<string, { snapin: string; snapin_label: string; snapin_exclusive: boolean }>;
   /** Paths claimed by two template dirs at once — reported rather than silently resolved. */
   conflicts: { path: string; chosen: string; chosen_source: string; also: string; also_source: string }[];
+  /** Bindings withdrawn because the package ships no file at that path (measured by extracting the real
+   * .deb). Reported rather than dropped: Configure writes the WHOLE file, so offering one of these would
+   * create a file in /etc that looks configured and that nothing reads — and a binding that just vanished
+   * would be indistinguishable from one that never existed. */
+  withdrawn?: { path: string; template: string | null; source: string; verdict: string; package: string;
+                reason: string }[];
 }
 
 export interface StateRollbackResponse {

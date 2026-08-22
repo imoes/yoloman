@@ -132,6 +132,7 @@ def _template_for_path(path: str, settings: Settings, family: str = "") -> str |
         settings.config_codecs_path,
         settings.config_templates_dir,
         family,
+        settings.config_path_verdicts_path,
     )
     entry = (index.get("paths") or {}).get(path)
     return entry.get("template") if isinstance(entry, dict) else None

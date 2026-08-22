@@ -109,6 +109,11 @@ async def config_template_index(
         settings.config_codecs_path,
         settings.config_templates_dir,
         family,
+        # Passed EXPLICITLY, like every other input: the builder's fallback derives the verdicts from the
+        # catalog's directory, and in the container the catalog sits at /app while the verdicts live under
+        # /app/configs. A silently-not-found verdict file withdraws nothing and looks exactly like a clean
+        # index — the one failure mode this measurement exists to prevent.
+        settings.config_path_verdicts_path,
     )
 
 

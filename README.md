@@ -123,7 +123,10 @@ Runs on every managed host. Highlights:
   confidence "high". Extracting the real `.deb` settles it per path — file, directory, dangling symlink or
   absent, with "absent but created by a maintainer script" kept apart from "nothing accounts for this" — and
   `/config-fields` carries the verdict, so a screen says *no file is shipped there* instead of opening an
-  editor on nothing. No entry is deleted: an entry removed would take its own refutation with it, and the
+  editor on nothing. **1562 of 3563 "Configure this file" offers were withdrawn** on that measurement — the
+  write path is whole-file, so pressing one would have created a file in `/etc` that looks configured and
+  that nothing reads. Withdrawn, not deleted: they are reported with the template, the verdict and the
+  package, because a binding that just vanished is indistinguishable from one that never existed, and the
   next batch run would recreate it.
 - **The same config editor with or without Bossman** — `GET /api/v1/config-fields?path=` answers "what can
   be set in this file, and how is it written" (per-key codec merge, whole-file template render, or neither

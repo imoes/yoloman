@@ -31,6 +31,12 @@ file, the same duplication as the 278 underscore/hyphen twin dirs on a different
 not hide it — `conflicts` reports every case, because a resolution nobody can see is indistinguishable
 from a coincidence.
 
+AND A BINDING WHOSE PATH DOES NOT EXIST IS WITHDRAWN, reported in `withdrawn` rather than dropped. The
+registry says how a file is written, never whether there is one: 1562 of 3563 bindings named a path the
+package ships nothing at, because the path was derived from the package NAME (/etc/aide, /etc/bind,
+/etc/ttygif). Configure writes the whole file, so pressing it would create a new file in /etc that looks
+configured and that no software reads. Measured per path by scripts/verify_registry_paths.py.
+
 Glob paths are excluded on purpose. "/etc/php/*/fpm/pool.d/www.conf" identifies a SET of files; an
 index entry claiming one template for a set would answer a question nobody asked.
 """
@@ -87,7 +93,8 @@ def _signature(catalog_path: Path, codecs_path: Path, tpl_root: Path) -> tuple:
 
 
 def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
-                         templates_dir: str | Path, family: str = "") -> dict:
+                         templates_dir: str | Path, family: str = "",
+                         verdicts_path: str | Path | None = None) -> dict:
     """Return {"paths": {path: {"template": name, "source": "catalog"|"codec"}}, "conflicts": [...]}.
 
     Each input is passed explicitly rather than derived from a configs root: the codec registry has its
@@ -99,8 +106,9 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     the alternative would be resolving by name again.
     """
     tpl_root, cat_p, cod_p = Path(templates_dir), Path(catalog_path), Path(codecs_path)
-    key = (str(cat_p), str(cod_p), str(tpl_root), family)
-    sig = _signature(cat_p, cod_p, tpl_root)
+    ver_p = Path(verdicts_path) if verdicts_path else cat_p.parent / "config_path_verdicts.json"
+    key = (str(cat_p), str(cod_p), str(tpl_root), family, str(ver_p))
+    sig = _signature(cat_p, cod_p, tpl_root) + _signature(ver_p, ver_p, tpl_root)[:1]
     hit = _CACHE.get(key)
     if hit and hit[1] == sig and time.monotonic() - hit[0] < _TTL_SECONDS:
         return hit[2]
@@ -286,6 +294,40 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     snapins = {path: {"snapin": o[0], "snapin_label": o[1], "snapin_exclusive": o[2]}
                for path, o in ((p, snapin_for(p)) for p in SNAPIN_ONLY_PATHS) if o}
 
-    result = {"paths": paths, "conflicts": conflicts, "snapins": snapins}
+    # A BINDING TO A PATH NOTHING SHIPS IS WITHDRAWN. Measured by extracting the real packages
+    # (scripts/verify_registry_paths.py): of 3563 bindings, 1562 named a path that does not exist as a file.
+    # This matters more here than anywhere else, because Configure writes the WHOLE file — pressing it would
+    # CREATE /etc/aide (a directory in the package; the real config is /etc/aide.conf) and fill it with a
+    # rendered text no software reads. Not a cosmetic wrong answer: a new file, in /etc, that looks
+    # configured and is inert.
+    #
+    # THREE VERDICTS WITHDRAW, and one deliberately does not:
+    #   directory / dangling-symlink   there is something there and it is not a writable file
+    #   absent WITHOUT a maintainer script naming it   nothing accounts for this path at all
+    #   absent WITH one                KEPT: a config created at install time is a real file on a real
+    #                                  host, merely missing from the archive.
+    # Unmeasured paths are also kept — absence of a measurement is not a measurement of absence, and
+    # withdrawing everything unproven would remove thousands of working editors.
+    verdicts = _load(ver_p)
+    withdrawn = []
+    for path in sorted(paths):
+        seen = verdicts.get(path)
+        if not isinstance(seen, dict):
+            continue
+        verdict = seen.get("verdict")
+        if verdict in ("directory", "dangling-symlink") or (
+                verdict == "absent" and not seen.get("postinst_mentions")):
+            entry = paths.pop(path)
+            # NOTHING VANISHES SILENTLY: the withdrawal is reported with its template, its reason and the
+            # package it was measured in, exactly like `conflicts`. A binding that just disappeared would be
+            # indistinguishable from one that never existed, and the next batch run would recreate it.
+            withdrawn.append({"path": path, "template": entry.get("template"),
+                              "source": entry.get("source"), "verdict": verdict,
+                              "package": seen.get("package"),
+                              "reason": "package {} ships no file at this path ({}), and Configure writes "
+                                        "the whole file — it would create one nothing reads".format(
+                                            seen.get("package"), verdict)})
+
+    result = {"paths": paths, "conflicts": conflicts, "snapins": snapins, "withdrawn": withdrawn}
     _CACHE[key] = (time.monotonic(), sig, result)
     return result
