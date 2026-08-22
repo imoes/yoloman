@@ -66,3 +66,39 @@ def test_an_unmeasured_path_is_kept(tmp_path):
     r = _fixture(tmp_path, {})
     assert r["paths"]["/etc/thing"]["template"] == "thing"
     assert r["withdrawn"] == []
+
+
+def test_a_file_that_exists_elsewhere_is_not_withdrawn(tmp_path):
+    # The measurement ran on Debian. "Absent from this package on this distro" is not "no such file":
+    # /etc/named.conf is absent from Debian's bind9 (Debian puts it in /etc/bind/) and present on EL.
+    # 51 of 494 real-config-path absences are of this kind — withdrawing them would remove editors for files
+    # that are on every host.
+    r = _fixture(tmp_path, {"/etc/thing": {"verdict": "absent", "package": "thing",
+                                           "postinst_mentions": False, "exists_elsewhere": True}})
+    assert r["paths"]["/etc/thing"]["template"] == "thing"
+    assert r["withdrawn"] == []
+
+
+def test_a_file_no_package_owns_is_not_withdrawn(tmp_path):
+    # /etc/hostname, /etc/fstab, /etc/passwd: created by the installer or the base system, owned by no
+    # package, and therefore "absent" from every archive. Measured by asking the package manager itself
+    # (find_unowned_base_files.py: 34 of debian:12's 106 /etc files). Without this guard the withdrawal
+    # removed the editor for the machine's own hostname.
+    (tmp_path / "config_unowned_paths.json").write_text(json.dumps(
+        {"/etc/thing": {"families": ["debian"], "container_artifact": False, "note": "system-created"}}))
+    r = _fixture(tmp_path, {"/etc/thing": {"verdict": "absent", "package": "thing",
+                                           "postinst_mentions": False, "exists_elsewhere": False}})
+    assert r["paths"]["/etc/thing"]["template"] == "thing"
+    assert r["withdrawn"] == []
+
+
+def test_a_container_artifact_does_not_earn_the_exemption(tmp_path):
+    # A file that exists only in the container image (docker-clean, /etc/BUILDTIME) is real in THAT image and
+    # is no evidence that an installed system creates it. Recorded rather than filtered out, so the
+    # distinction is visible — and it must not act as an exemption.
+    (tmp_path / "config_unowned_paths.json").write_text(json.dumps(
+        {"/etc/thing": {"families": ["debian"], "container_artifact": True, "note": "container only"}}))
+    r = _fixture(tmp_path, {"/etc/thing": {"verdict": "absent", "package": "thing",
+                                           "postinst_mentions": False, "exists_elsewhere": False}})
+    assert "/etc/thing" not in r["paths"]
+    assert len(r["withdrawn"]) == 1

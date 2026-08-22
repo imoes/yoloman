@@ -123,11 +123,17 @@ Runs on every managed host. Highlights:
   confidence "high". Extracting the real `.deb` settles it per path — file, directory, dangling symlink or
   absent, with "absent but created by a maintainer script" kept apart from "nothing accounts for this" — and
   `/config-fields` carries the verdict, so a screen says *no file is shipped there* instead of opening an
-  editor on nothing. **1562 of 3563 "Configure this file" offers were withdrawn** on that measurement — the
+  editor on nothing. **2001 of 3563 "Configure this file" offers were withdrawn** on that measurement — the
   write path is whole-file, so pressing one would have created a file in `/etc` that looks configured and
   that nothing reads. Withdrawn, not deleted: they are reported with the template, the verdict and the
   package, because a binding that just vanished is indistinguishable from one that never existed, and the
   next batch run would recreate it.
+  **Two guards decide when the verdict may not withdraw**, because "not in this package on this distro" is
+  not "no such file": the harvested corpus proves the file exists somewhere (`/etc/named.conf` is absent from
+  Debian's bind9 and present on EL — 51 such cases), and the package manager itself, asked in a base image,
+  disclaims 34 of debian:12's 106 `/etc` files (`/etc/hostname`, `/etc/fstab`, `/etc/passwd`, the `pam.d/
+  common-*` stack) because the system creates them. Without the second guard the measurement withdrew the
+  editor for the machine's own hostname.
 - **The same config editor with or without Bossman** — `GET /api/v1/config-fields?path=` answers "what can
   be set in this file, and how is it written" (per-key codec merge, whole-file template render, or neither
   with the reason named). A standalone agent serves it from projections recorded by Bossman's own rules

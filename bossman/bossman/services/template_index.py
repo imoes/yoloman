@@ -32,10 +32,15 @@ not hide it — `conflicts` reports every case, because a resolution nobody can 
 from a coincidence.
 
 AND A BINDING WHOSE PATH DOES NOT EXIST IS WITHDRAWN, reported in `withdrawn` rather than dropped. The
-registry says how a file is written, never whether there is one: 1562 of 3563 bindings named a path the
-package ships nothing at, because the path was derived from the package NAME (/etc/aide, /etc/bind,
-/etc/ttygif). Configure writes the whole file, so pressing it would create a new file in /etc that looks
-configured and that no software reads. Measured per path by scripts/verify_registry_paths.py.
+registry says how a file is written, never whether there is one: bindings named a path the package ships
+nothing at, because the path was derived from the package NAME (/etc/aide, /etc/bind, /etc/ttygif). Configure
+writes the whole file, so pressing it would create a new file in /etc that looks configured and that no
+software reads. Measured per path by scripts/verify_registry_paths.py.
+
+A verdict only withdraws when the CORPUS also has no file at that path (`exists_elsewhere`). The measurement
+ran on Debian, and "absent from this package on this distro" is not "no such file": /etc/named.conf is absent
+from Debian's bind9 and present on EL. 0 of 1920 name-derived absences appear in the corpus; 51 of 494 real
+config-path absences do.
 
 Glob paths are excluded on purpose. "/etc/php/*/fpm/pool.d/www.conf" identifies a SET of files; an
 index entry claiming one template for a set would answer a question nobody asked.
@@ -309,12 +314,31 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # Unmeasured paths are also kept — absence of a measurement is not a measurement of absence, and
     # withdrawing everything unproven would remove thousands of working editors.
     verdicts = _load(ver_p)
+    # THE SECOND GUARD: files no package owns because the SYSTEM creates them. Measured by asking the package
+    # manager itself in a base image (scripts/find_unowned_base_files.py): 34 of debian:12's 106 /etc files
+    # belong to no package — /etc/hostname, /etc/fstab, /etc/passwd, /etc/shells, /etc/timezone,
+    # /etc/nsswitch.conf, the pam.d/common-* stack. Every one is a real, editable config on every host, and
+    # every one gets an "absent" verdict because no archive contains it. Without this, the withdrawal removed
+    # the editor for the machine's own hostname.
+    unowned = _load(ver_p.parent / "config_unowned_paths.json")
     withdrawn = []
     for path in sorted(paths):
         seen = verdicts.get(path)
         if not isinstance(seen, dict):
             continue
         verdict = seen.get("verdict")
+        # THE FALSIFICATION POINT. A verdict is evidence about ONE package on ONE distribution, and the
+        # measurement ran in a debian:12 container. `exists_elsewhere` says the corpus has real text at this
+        # path, so the file demonstrably exists — under another package, or on the other distro.
+        # /etc/named.conf is absent from Debian's bind9 (Debian puts it in /etc/bind/) and /etc/openldap/
+        # ldap.conf is EL's location for Debian's /etc/ldap/ldap.conf. Measured: 0 of 1920 absent verdicts for
+        # NAME-DERIVED paths appear in the corpus, but 51 of 494 from the real-config-path run do. Without this
+        # guard those 51 editors would have been withdrawn for files that are on every host.
+        if seen.get("exists_elsewhere"):
+            continue
+        owner = unowned.get(path)
+        if isinstance(owner, dict) and not owner.get("container_artifact"):
+            continue
         if verdict in ("directory", "dangling-symlink") or (
                 verdict == "absent" and not seen.get("postinst_mentions")):
             entry = paths.pop(path)
@@ -324,9 +348,11 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
             withdrawn.append({"path": path, "template": entry.get("template"),
                               "source": entry.get("source"), "verdict": verdict,
                               "package": seen.get("package"),
-                              "reason": "package {} ships no file at this path ({}), and Configure writes "
-                                        "the whole file — it would create one nothing reads".format(
-                                            seen.get("package"), verdict)})
+                              "reason": "package {} ships no file at this path ({}, measured on {}) and no "
+                                        "harvested package ships one either; Configure writes the whole "
+                                        "file, so it would create one nothing reads".format(
+                                            seen.get("package"), verdict,
+                                            seen.get("family") or "debian")})
 
     result = {"paths": paths, "conflicts": conflicts, "snapins": snapins, "withdrawn": withdrawn}
     _CACHE[key] = (time.monotonic(), sig, result)

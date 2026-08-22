@@ -276,3 +276,27 @@ func TestConfigFields_DistinguishesNotLookedFromLookedAndUndecidable(t *testing.
 		t.Error("an unprobed path must carry no probe record — that would be a measurement it never had")
 	}
 }
+
+func TestConfigFields_ADisarmedVerdictIsNotAWarning(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json":     `{"/etc/hostname": {"codec": "raw"}, "/etc/named.conf": {"codec": "nested_block"}}`,
+		"config_directives.json": `{}`,
+		"config_path_verdicts.json": `{
+			"/etc/hostname":   {"verdict": "absent", "package": "hostname", "postinst_mentions": false,
+			                    "exists_elsewhere": false},
+			"/etc/named.conf": {"verdict": "absent", "package": "bind9", "postinst_mentions": false,
+			                    "exists_elsewhere": true}}`,
+		// No package on any distribution owns /etc/hostname — the system creates it.
+		"config_unowned_paths.json": `{"/etc/hostname": {"families": ["debian"], "container_artifact": false}}`,
+	})
+	// Both are "absent" and both files exist on every host. Reporting either as "nothing to edit" would be
+	// a false statement about the machine's own hostname and about EL's named.conf.
+	if out := getFields(t, "path=/etc/hostname"); out["path_verdict"] != nil {
+		t.Errorf("path_verdict = %v; a file no package owns is expected to be absent from every archive",
+			out["path_verdict"])
+	}
+	if out := getFields(t, "path=/etc/named.conf"); out["path_verdict"] != nil {
+		t.Errorf("path_verdict = %v; the corpus proves this file exists, just not in the Debian package",
+			out["path_verdict"])
+	}
+}

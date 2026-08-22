@@ -265,7 +265,15 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 	// package. Carried on every branch below: a measured grammar for a path nothing ships is still an editor
 	// over nothing.
 	if seen := asMap(asMap(mustJSON("config_path_verdicts.json"))[path]); len(seen) > 0 {
-		if verdict, _ := seen["verdict"].(string); verdict != "file" {
+		// TWO GUARDS disarm a verdict, and a disarmed one is not a warning at all — the file exists, so "the
+		// package ships nothing here" is an expected and meaningless fact. `exists_elsewhere`: the corpus has
+		// real text at this path, so it exists under another package or on the other distribution
+		// (/etc/named.conf is Debian-absent, EL-present). Unowned-in-base: no package on any distribution
+		// owns it because the system creates it (/etc/hostname, /etc/fstab, /etc/passwd).
+		owner := asMap(asMap(mustJSON("config_unowned_paths.json"))[path])
+		disarmed := seen["exists_elsewhere"] == true ||
+			(len(owner) > 0 && owner["container_artifact"] != true)
+		if verdict, _ := seen["verdict"].(string); verdict != "file" && !disarmed {
 			// An absent path a maintainer script names is created at install time — a real file on a real
 			// host, legitimately missing from the archive.
 			createdLater := verdict == "absent" && seen["postinst_mentions"] == true

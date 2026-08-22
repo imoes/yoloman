@@ -67,6 +67,9 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
   (typed fields) + `sample.json` + `capabilities.json`. DB-bound to hosts, edited as VALUES in the WebUI.
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
+- **who owns it** — `configs/config_unowned_paths.json`, from `find_unowned_base_files.py` run in a base
+  image: the files `dpkg -S` / `rpm -qf` disclaim, i.e. created by the installer or the base system. The
+  guard that keeps `/etc/hostname` editable; container-only artifacts are recorded but earn no exemption.
 - **does the file exist** — `configs/config_path_verdicts.json` (per path: file|directory|dangling-symlink|
   absent + whether a maintainer script creates it), measured by `bossman/scripts/verify_registry_paths.py`
   in a container against the real `.deb` and recorded by `record_path_verdicts.py`. Driver:

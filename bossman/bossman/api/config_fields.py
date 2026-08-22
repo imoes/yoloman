@@ -197,7 +197,14 @@ async def config_fields(
     # directory, /etc/ttygif nothing at all. Carried on EVERY branch, because a measured grammar for a
     # nonexistent path is still a measured grammar — and still an editor over nothing.
     seen = _load_json(settings.config_path_verdicts_path).get(path)
-    if isinstance(seen, dict) and seen.get("verdict") != "file":
+    # A verdict that one of the two guards disarms is not reported as a warning at all: the file exists, and
+    # "the package ships nothing here" is then an expected, meaningless fact. /etc/hostname belongs to no
+    # package on any distribution; /etc/named.conf is Debian-absent and EL-present.
+    owner = _load_json(Path(settings.config_path_verdicts_path).parent
+                       / "config_unowned_paths.json").get(path)
+    disarmed = (isinstance(seen, dict) and seen.get("exists_elsewhere")) or (
+        isinstance(owner, dict) and not owner.get("container_artifact"))
+    if isinstance(seen, dict) and seen.get("verdict") != "file" and not disarmed:
         # An `absent` path that a maintainer script names is created at install time and is a real file on a
         # real host — legitimately missing from the archive, so it is reported without the warning.
         installed_later = seen.get("verdict") == "absent" and seen.get("postinst_mentions")
