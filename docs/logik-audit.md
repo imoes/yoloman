@@ -2342,3 +2342,30 @@ Schlüssel ändern, der Katalog weiß nur nichts über ihre Schlüssel. Der Host
 Die Codec-Messung ist von 7283 auf 10984 Einträge gewachsen, der Direktivenkatalog bei 1114 Pfaden geblieben —
 daher die Schere. Sie zu schließen heißt 5842 Mining-Läufe, und das ist eine Entscheidung über Tage
 Rechenzeit, keine Reparatur, die man nebenbei macht. Deshalb steht hier die Zahl statt eines halben Versuchs.
+
+### 17. Wo die Template-Reparatur ihren Boden erreicht
+
+Nach allen mechanischen Durchgängen bleiben **101** unbrauchbare Templates, und die Klassen sagen, warum
+jeweils nichts mehr geht:
+
+| Anzahl | Klasse | warum hier Schluss ist |
+|---|---|---|
+| 52 | parst nicht | Einzelfehler — fehlendes Anführungszeichen, verirrte Klammer, ein `{% endfor %}` zu viel. Braucht die Absicht des Autors. |
+| 16 | sonstige Renderfehler | je einzeln |
+| 8 | Getitem in tiefer Kette | die Form des Blatts ist Sache eines Filters, den ich nicht klassifizieren kann |
+| 6 | fehlende Methode | gonja kennt sie nicht |
+| 5 | `.items()` / `.split()` | **Python-Methoden**, die Jinja durchreicht und gonja nicht hat — nur mit einem Fork zu lösen |
+| 4 | `default(3306 if x else 5432)` | ein Inline-Konditional als Filterargument; gonjas Validator lehnt es ab. Einen **eingebauten** Filter für vier Fälle zu überschreiben, mit Wirkung auf 5474 Templates, ist der schlechtere Tausch. |
+| 3 | rendert leer · 3 | ungültiges YAML |
+
+Das ist kein Rückstand, sondern eine **Kapazitätsgrenze**: entweder fehlt die Absicht des Autors oder eine
+Fähigkeit der Rendering-Engine. Beides ist eine Entscheidung, keine Fleißarbeit.
+
+### 18. Das Mining zum Selbstlauf gebracht
+
+[`scripts/mine-directive-gap.sh`](../scripts/mine-directive-gap.sh) arbeitet die 2441 belegbaren Pfade in
+Blöcken ab und **liest die Warteschlange nach jedem Block neu aus dem Katalog** — ein Pfad mit Direktiven
+fällt heraus, also kostet Abbrechen und Neustarten nichts. Ein Prozess, und zwar aus **Datensicherheit**:
+zwei Miner schreiben `config_directives.json` nach jedem Pfad und würden sich gegenseitig überschreiben, denn
+diese Datei ist Ausgabe *und* Zustand der Warteschlange. Nach jedem Block läuft der Linter, weil ein frischer
+Mine dieselben Defektklassen mitbringt wie der Altbestand — bisher jedes Mal.
