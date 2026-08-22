@@ -19,7 +19,11 @@ flock -n 9 || { echo "already running (lock $LOCK)"; exit 0; }
 SCRATCH=${SCRATCH:?set SCRATCH to the scratchpad directory}
 CHUNK=${1:-400}
 PROXY=${PROXY:-http://proxy.example.internal:80}
-OUT="$SCRATCH/verify"
+# IN and OUT are overridable because the resumable state is keyed by PACKAGE, not by path: a package already
+# verified for /etc/foo would be skipped when a later work list asks about /etc/foo/bar.conf. A second
+# question therefore gets its own state directory, and record_path_verdicts.py merges the results.
+IN=${IN:-$SCRATCH/verify_in.json}
+OUT=${OUT:-$SCRATCH/verify}
 LOG="$SCRATCH/verify-paths.log"
 mkdir -p "$OUT"
 
@@ -27,7 +31,7 @@ while :; do
   before=$(python3 -c "import json;print(len(json.load(open('$OUT/verify_state.json'))))" 2>/dev/null || echo 0)
   docker run --rm -e http_proxy="$PROXY" -e https_proxy="$PROXY" \
     -v "$PWD/bossman/scripts/verify_registry_paths.py":/verify.py:ro \
-    -v "$SCRATCH/verify_in.json":/in.json:ro -v "$OUT":/out \
+    -v "$IN":/in.json:ro -v "$OUT":/out \
     debian:12 sh -c "apt-get -qq update >/dev/null 2>&1 && \
       apt-get -qq install -y --no-install-recommends python3 >/dev/null 2>&1 && \
       python3 /verify.py --limit $CHUNK" >>"$LOG" 2>&1
