@@ -93,6 +93,19 @@ grep -q '"available":true' <<<"$idx" || fail "the template index is not availabl
 # templates), and a greedy match reported "redhat" on debian:12 — a wrong answer about the host, produced by
 # the test rather than by the agent. Go sorts map keys, so the top-level one comes before "paths".
 echo "ok  config-templates/index available (family: $(grep -o '"family":"[a-z]*"' <<<"$idx" | head -1))"
+# The two guards, asked of the INSTALLED records. /etc/aide is a directory in its package and no harvested
+# package ships a file there, so the editor must warn. /etc/hostname belongs to no package on any
+# distribution because the system creates it — warning about that would be a false statement about the
+# machine's own hostname, and it is the case the guard was built for.
+aide=$(body_of "$(request GET "/api/v1/config-fields?path=/etc/aide" "" "Bearer $TOKEN")")
+grep -q '"path_verdict"' <<<"$aide" || fail "no path_verdict for /etc/aide — the phantom-path guard is not shipped"
+echo "ok  a path no package ships carries its verdict"
+host=$(body_of "$(request GET "/api/v1/config-fields?path=/etc/hostname" "" "Bearer $TOKEN")")
+if grep -q '"path_verdict"' <<<"$host"; then
+  head -c 300 <<<"$host"; fail "/etc/hostname was reported as a nonexistent file"
+fi
+echo "ok  a system-created file is NOT reported as missing"
+
 gen=$(body_of "$(request GET /api/v1/config-generated "" "Bearer $TOKEN")")
 grep -q '"count":[1-9]' <<<"$gen" || fail "config-generated reports nothing"
 echo "ok  config-generated reports $(sed -n 's/.*"count":\([0-9]*\).*/\1/p' <<<"$gen") machine-written files"
