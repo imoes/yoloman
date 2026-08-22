@@ -244,6 +244,10 @@ export class AgentService {
       /** The same gap from the other side: values the template READS that no field offers, so they render
        * empty. Templates needing more than their form offers are refused outright and never get here. */
       unsettable?: { count: number; variables: string[]; reason: string } | null;
+      /** Calls the RENDERER cannot execute (`.items()`, `.get()`, `.append()` — Python methods Jinja passes
+       * through and gonja does not implement). Latent: the sample never enters those branches, so the render
+       * check cannot see them, and a host's real values can. */
+      renderer_gaps?: { calls: string[]; reason: string } | null;
     }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`
        + (agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''));
   }

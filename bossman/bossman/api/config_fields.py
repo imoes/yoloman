@@ -206,6 +206,16 @@ async def config_fields(
         unsettable = _load_json(Path(settings.config_templates_dir).parent / "template_unsettable.json") \
             or _load_json(Path(settings.config_templates_dir).parent / "configs" / "template_unsettable.json")
         needs = unsettable.get(tpl) if isinstance(unsettable, dict) else None
+        # WHAT THE RENDERER CANNOT EXECUTE, named before Apply rather than after. Jinja passes Python objects
+        # through, so a generated template may call `x.items()`, `x.get('k')` or `x.append(v)`; gonja — the
+        # engine that writes the file — implements none of them. Only five templates fail on it today because
+        # the calls sit in branches the SAMPLE never enters, which is exactly why the render ratchet cannot
+        # see it: measured, 125 of the templates still offered carry such a call. Whenever a host's real
+        # values take that branch, the whole-file write fails.
+        gaps = _load_json(Path(settings.config_templates_dir).parent / "template_renderer_gaps.json") \
+            or _load_json(Path(settings.config_templates_dir).parent / "configs"
+                          / "template_renderer_gaps.json")
+        calls = gaps.get(tpl) if isinstance(gaps, dict) else None
         return {
             "path": path, "write": "template",
             "template": t.get("template", ""),
@@ -231,6 +241,10 @@ async def config_fields(
             "withheld": {"count": len(withheld), "fields": withheld,
                          "reason": "the template never places these fields, so a value set here could not "
                                    "reach the file"} if withheld else None,
+            "renderer_gaps": {"calls": calls,
+                              "reason": "this template calls a Python method the renderer does not "
+                                        "implement; a value that reaches that line will fail the write"}
+            if isinstance(calls, list) and calls else None,
             "unsettable": {"count": len(needs), "variables": needs,
                            "reason": "the template reads these values and no field offers them, so they "
                                      "render empty"} if isinstance(needs, list) and needs else None,

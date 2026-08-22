@@ -42,6 +42,10 @@ import { HostConfigScopeService } from '../host-config-scope.service';
         <p class="bm-dim" [title]="w.fields.join(', ')">{{ w.count }} further field(s) declared by this
           template are not shown: {{ w.reason }}.</p>
       }
+      @if (rendererGaps(); as g) {
+        <p class="bm-cfg-err">This template calls {{ g.calls.join(', ') }} — the renderer does not implement
+          {{ g.calls.length > 1 ? 'those' : 'that' }}, so a value reaching that line will make Apply fail.</p>
+      }
       @if (unsettable(); as u) {
         <p class="bm-dim" [title]="u.variables.join(', ')">This template also reads {{ u.count }} value(s)
           no field offers ({{ u.variables.slice(0, 3).join(', ') }}@if (u.count > 3) {, …}) — they will
@@ -108,6 +112,9 @@ export class HostTemplateEditComponent {
   /** Values the template reads that this form cannot supply — they render empty. The operator should know
    * BEFORE pressing Apply that the rendered file will be missing them. */
   unsettable = signal<{ count: number; variables: string[]; reason: string } | null>(null);
+  /** Calls the renderer cannot execute. Shown because the failure is LATENT: the sample renders, and a
+   * value that reaches that line makes Apply fail — better said before than discovered after. */
+  rendererGaps = signal<{ calls: string[]; reason: string } | null>(null);
   initial = signal<Record<string, unknown>>({});
   values = signal<Record<string, unknown>>({});
   rendered = signal<string | null>(null);
@@ -144,6 +151,7 @@ export class HostTemplateEditComponent {
         this.initial.set((spec.sample || {}) as Record<string, unknown>);
         this.withheld.set(spec.withheld ?? null);
         this.unsettable.set(spec.unsettable ?? null);
+        this.rendererGaps.set(spec.renderer_gaps ?? null);
         this.values.set({});
         this.loading.set(false);
       },

@@ -2387,3 +2387,24 @@ Antwort ist in beiden Fällen nein. Nur reparieren sollte man das eine nicht.
 `template.j2`. Der Render scheitert mit *„template or template_path is required"* — so sagt die Engine, dass
 da nichts ist — während die Sperre `is_file()` als wahr sah und sie als *unbekannt* durchließ. Eine leere
 Datei ist kein Template; die Sperre antwortet jetzt `False`.
+
+### 21. Was der Renderer nicht kann — und warum die Ratsche es nicht sieht
+
+Jinja reicht Python-Objekte durch, also ruft ein daraus generiertes Template `x.items()`, `x.get('k')` oder
+`x.append(v)`. **gonja** — die Go-Engine, die diese Dateien wirklich schreibt — implementiert keins davon;
+der Fehler heißt `unknown method 'items'` bzw. `.get is not callable`.
+
+Heute scheitern daran nur **fünf** Templates, und genau das ist die Gefahr: die Aufrufe stehen in Zweigen,
+die die Sample-Werte nie betreten. Die Render-Ratsche beweist **einen** Pfad durch den Body und sagt über die
+anderen nichts. Gemessen über die Templates, die die Sperre weiterhin anbietet: **125** tragen so einen
+Aufruf (`items` 61, `get` 36, `append` 20, `split` 7, `join` 3, `upper`/`format` je 2). Sobald die echten
+Werte eines Hosts diesen Zweig nehmen, scheitert der Ganzdatei-Schreibvorgang.
+
+**Nicht gesperrt, sondern benannt.** Sperren würde 125 Editoren wegnehmen, die für jeden Wert funktionieren,
+der die Zeile nicht erreicht — und das sind vermutlich die meisten. `/config-fields` trägt jetzt
+`renderer_gaps`, und der Editor sagt es **vor** dem Apply statt danach. Live geprüft an
+`/etc/apprise.conf`: `renderer_gaps: {calls: ["get"]}`.
+
+**Und die Engine zu erweitern ist eine Abhängigkeitsentscheidung, keine Reparatur:** `.items()` auf einer Map
+ist ein Methodenlookup auf einem Go-Wert, und eine Map hat keine Methoden. Das hieße gonja forken — eine
+legitime Option, aber keine, die man nebenbei einbaut.
