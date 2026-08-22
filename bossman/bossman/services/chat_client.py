@@ -183,8 +183,24 @@ class ChatClient:
 
         try:
             return json.loads(stripped)
-        except ValueError as exc:
-            raise ChatClientError(f"{self.base_url}: response content is not valid JSON: {exc}") from exc
+        except ValueError:
+            pass
+
+        # THE JSON INSIDE THE PROSE. `response_format: json_schema` is a GRAMMAR on llama.cpp and a request
+        # on OpenRouter — poolside/laguna-s-2.1 sometimes prefixes an explanation or appends a note, and the
+        # whole reply then fails to decode while the object it contains is perfectly good. The caller
+        # retries eight times and gives up on a model that answered correctly. So the outermost {...} or
+        # [...] is extracted and decoded; if THAT fails, the reply really is not JSON.
+        for opener, closer in (("{", "}"), ("[", "]")):
+            start, end = stripped.find(opener), stripped.rfind(closer)
+            if start != -1 and end > start:
+                try:
+                    return json.loads(stripped[start:end + 1])
+                except ValueError:
+                    continue
+        raise ChatClientError(
+            f"{self.base_url}: response content is not valid JSON and contains no JSON object: "
+            f"{stripped[:200]!r}")
 
     async def complete_text(
         self,
