@@ -188,17 +188,22 @@ Every number here comes from a recorded artifact, not from a memory. Re-derive w
 `bossman/scripts/record_path_verdicts.py` (no `--write`), `decide_codecs.py` (no `--apply`) and
 `find_renderer_gaps.py`.
 
-**Does the claimed path exist** — `configs/config_path_verdicts.json`, 2961 paths measured against the real
-`.deb` (`scripts/verify-registry-paths.sh`).
+**Does the claimed path exist** — `configs/config_path_verdicts.json`, **3993** paths measured against the
+real `.deb` in three runs (`scripts/verify-registry-paths.sh`; the driver's state is keyed by PACKAGE, so a
+new question needs its own `OUT=`).
 
 | | |
 |---|---|
-| absent | 2438 |
-| file | 507 |
-| directory | 16 |
-| of the absent: created by a maintainer script | 38 |
+| absent | 2751 |
+| file | 1216 |
+| directory | 26 |
+| of the absent: created by a maintainer script | 54 |
 | **index bindings withdrawn** (both guards applied) | **2001 of 3563** |
 | not downloadable, so NO verdict | 305 packages |
+
+The third run (1069 paths of real config files) withdrew **nothing further** — its paths are registry entries
+that were never index-bound. Control cases that must survive and do: `/etc/hostname`, `/etc/passwd`,
+`/etc/named.conf`, `/etc/ssh/sshd_config`, `/etc/nginx/nginx.conf`, `/etc/samba/smb.conf`.
 
 Two guards decide when a verdict may not withdraw, and both are recorded fields rather than judgement:
 `exists_elsewhere` (the harvested corpus has real text there — 51 cases, e.g. `/etc/named.conf`, EL-only) and
@@ -211,9 +216,17 @@ round-tripping a real file; the remaining **1028 split into three states that us
 
 | | |
 |---|---|
-| moot — no file exists at that path (both guards applied) | 515 |
+| moot — no file exists at that path (both guards applied) | 684 |
 | probed, and the file could not decide: it ships with **no active setting** (`configs/codec_probe_verdicts.json`) | 81 |
-| **genuinely open** — no file in the corpus and no path verdict yet | 432 (keyvalue 219, ini 129, yaml 57, json 15, xml 10) |
+| a file exists there and it has not been probed | **0** |
+| no evidence either way | 263 |
+
+The last 263 are not a task that can be started as it stands, and the reason is recorded rather than guessed:
+**170** name a package `apt-get download` cannot fetch (no verdict may be inferred from a network failure),
+**86** name no package at all, **13** are glob paths — a glob identifies a SET of files, so "does it exist" is
+not a question about it. The middle row is the one worth watching: it says every path where a file demonstrably
+exists has already been probed, so this backlog does not shrink by probing harder, only by reaching those 170
+packages.
 
 The 81 are a dead end for the round-trip method, not a backlog item: `/etc/security/limits.conf`,
 `/etc/sysctl.conf` and 79 others are entirely comments. Their evidence is the **commented** settings —
