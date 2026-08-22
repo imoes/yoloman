@@ -182,6 +182,62 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   forced-commands-only, no]. The supervisor will fill the rest of the ~90
   codec'd files after it finishes the codec/template passes.
 
+## Config-model abstentions — what is measured, what is not (2026-08-22)
+
+Every number here comes from a recorded artifact, not from a memory. Re-derive with
+`bossman/scripts/record_path_verdicts.py` (no `--write`), `decide_codecs.py` (no `--apply`) and
+`find_renderer_gaps.py`.
+
+**Does the claimed path exist** — `configs/config_path_verdicts.json`, 2961 paths measured against the real
+`.deb` (`scripts/verify-registry-paths.sh`).
+
+| | |
+|---|---|
+| absent | 2438 |
+| file | 507 |
+| directory | 16 |
+| of the absent: created by a maintainer script | 38 |
+| **index bindings withdrawn** (both guards applied) | **2001 of 3563** |
+| not downloadable, so NO verdict | 305 packages |
+
+Two guards decide when a verdict may not withdraw, and both are recorded fields rather than judgement:
+`exists_elsewhere` (the harvested corpus has real text there — 51 cases, e.g. `/etc/named.conf`, EL-only) and
+`configs/config_unowned_paths.json` (the package manager itself disclaims the file in a base image — 34 of
+debian:12's 106 `/etc` files, e.g. `/etc/hostname`). Container-only artifacts are recorded with that label and
+earn no exemption. **A third run is in progress** over the 1500 registry paths that still carry no verdict.
+
+**Was the grammar tested** — 7287 registry entries claim a codec the write path acts on. 6259 were decided by
+round-tripping a real file; the remaining **1028 split into three states that used to read alike**:
+
+| | |
+|---|---|
+| moot — no file exists at that path (both guards applied) | 515 |
+| probed, and the file could not decide: it ships with **no active setting** (`configs/codec_probe_verdicts.json`) | 81 |
+| **genuinely open** — no file in the corpus and no path verdict yet | 432 (keyvalue 219, ini 129, yaml 57, json 15, xml 10) |
+
+The 81 are a dead end for the round-trip method, not a backlog item: `/etc/security/limits.conf`,
+`/etc/sysctl.conf` and 79 others are entirely comments. Their evidence is the **commented** settings —
+`activate_commented_settings.py`.
+
+**Templates that cannot render** — `configs/template_render_broken.json`, 98 entries. The reasons are
+truncated at 400 characters and the parser's diagnosis sits after the echoed body, so use
+`TEMPLATE_DIAGNOSE=1 go test ./internal/modules/ -run TemplateDiagnose -v` to read them.
+
+| | |
+|---|---|
+| individual syntax errors (no class; 2 unclosed comment, 2 invalid numeric token) | 46 |
+| `template.j2` is **zero bytes** — never generated, not a syntax error | 6 |
+| renderer gap (`.items()`, `.get()` — gonja implements none) | 12 |
+| renders empty / invalid YAML | 6 |
+
+**Latent renderer gaps** — `configs/template_renderer_gaps.json`: **125** templates the gate still offers call
+a Python method gonja cannot execute. Latent because the calls sit in branches the SAMPLE never enters, so the
+render ratchet cannot see them; a host's real values can. Named on `/config-fields` as `renderer_gaps` rather
+than withdrawn, because withdrawing 125 working editors to prevent a conditional failure is the worse trade.
+
+**Uncalibrated directive catalogs** — 510. "This key is in no documentation" only counts where the page
+documents ≥60% of the catalog; below that the page is the weak witness, not the key.
+
 ## Package catalog: templates never become roles (found 2026-07-28 via "und was ist mit LDAP?")
 
 - **The bottleneck is name matching, not template generation.** `scripts/build_package_catalog.py`
