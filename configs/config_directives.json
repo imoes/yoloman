@@ -4766,6 +4766,52 @@
    "type": "int"
   }
  },
+ "/etc/amanda/amanda-security.conf": {
+  "tcp_port_range": {
+   "default": "512,1024",
+   "description": "Defines the inclusive TCP port range used by Amanda for client-server connections.",
+   "type": "string"
+  },
+  "udp_port_range": {
+   "default": "512,1024",
+   "description": "Defines the inclusive UDP port range used by Amanda for client-server connections.",
+   "type": "string"
+  }
+ },
+ "/etc/amavis/README.l10n": {
+  "-c": {
+   "description": "Use the specified configuration file instead of using run-parts(8) to find config files in /usr/share/amavis/conf.d and /etc/amavis/conf.d",
+   "type": "string"
+  },
+  "-g": {
+   "description": "Try to switch to that group id",
+   "type": "string"
+  },
+  "-u": {
+   "description": "Try to switch to that user id",
+   "type": "string"
+  },
+  "command": {
+   "description": "Action to perform with amavisd-new",
+   "type": "enum",
+   "values": [
+    "start",
+    "stop",
+    "reload",
+    "debug",
+    "debug-sa",
+    "foreground"
+   ]
+  },
+  "cronjob": {
+   "description": "Cronjob routine to execute via amavisd-new-cronjob",
+   "type": "enum",
+   "values": [
+    "sa-sync",
+    "sa-clean"
+   ]
+  }
+ },
  "/etc/amavis/conf.d/30-template_localization": {
   "$bdy_encoding": {
    "default": "iso-8859-1",
@@ -12883,6 +12929,28 @@
    "type": "string"
   }
  },
+ "/etc/backuppc/hosts": {
+  "dhcp": {
+   "description": "Set to 0 for a static IP address host or a machine findable via nmblookup; set to 1 if the client can only be found by looking through the DHCP pool.",
+   "type": "bool",
+   "values": [
+    "0",
+    "1"
+   ]
+  },
+  "host": {
+   "description": "The host name (or IP host name for static IP, netbios name for DHCP) of the machine to back up; spaces should be escaped with backslash.",
+   "type": "string"
+  },
+  "moreUsers": {
+   "description": "Optional comma-separated (no whitespace) additional user names allowed to stop/start/browse/restore backups for this client via the CGI interface; these users are not sent email.",
+   "type": "list"
+  },
+  "user": {
+   "description": "The Unix login/email name of the user who owns or uses this machine; this user is sent email and has permission to stop/start/browse/restore backups for this host.",
+   "type": "string"
+  }
+ },
  "/etc/barman.conf": {
   "barman_home": {
    "default": "/var/lib/barman",
@@ -12931,6 +12999,1306 @@
   "servers_conf_dir": {
    "default": "/etc/barman.d",
    "description": "Subdirectory of /etc/barman.d/ where server configuration files are placed (default: empty string for /etc/barman.d/, or e.g. 'conf.d' for /etc/barman.d/conf.d/).",
+   "type": "string"
+  }
+ },
+ "/etc/barman.d/passive-server.conf-template": {
+  "description": {
+   "description": "Human-readable description of the Barman passive server.",
+   "type": "string"
+  },
+  "primary_ssh_command": {
+   "description": "SSH command used to connect to the Barman 'master' server for backups.",
+   "type": "string"
+  }
+ },
+ "/etc/barman.d/ssh-server.conf-template": {
+  "active": {
+   "default": "true",
+   "description": "When set to true (default), the server is in full operational state; when false, the server is used for diagnostics only.",
+   "type": "bool"
+  },
+  "archiver": {
+   "default": "true",
+   "description": "Activates log file shipping through PostgreSQL's archive_command for a server; defaults to true.",
+   "type": "bool"
+  },
+  "archiver_batch_size": {
+   "description": "Enables batch processing of WAL files for the archiver process, limiting to a maximum WAL segments per run.",
+   "type": "int"
+  },
+  "backup_compression": {
+   "default": "no",
+   "description": "Compression algorithm used for backups; supports gzip, lz4, or zstd (unsupported on older PostgreSQL versions).",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "lz4",
+    "zstd"
+   ]
+  },
+  "backup_compression_format": {
+   "default": "tar",
+   "description": "Format for compressed backups; uses tar by default.",
+   "type": "enum",
+   "values": [
+    "plain",
+    "tar"
+   ]
+  },
+  "backup_compression_level": {
+   "description": "Compression level used during backups (depends on the chosen compression algorithm).",
+   "type": "int"
+  },
+  "backup_compression_location": {
+   "description": "Where compression is performed during backups (server requires PostgreSQL 15+).",
+   "type": "enum",
+   "values": [
+    "client",
+    "server"
+   ]
+  },
+  "backup_compression_workers": {
+   "default": "0",
+   "description": "Number of threads used for compression, applicable only to zstd; defaults to 0.",
+   "type": "int"
+  },
+  "backup_directory": {
+   "description": "Directory where backup data for a server is stored.",
+   "type": "string"
+  },
+  "backup_method": {
+   "default": "rsync",
+   "description": "Method for backup execution: rsync, postgres (pg_basebackup), local-rsync (filesystem copy), or snapshot (cloud API).",
+   "type": "enum",
+   "values": [
+    "rsync",
+    "postgres",
+    "local-rsync",
+    "snapshot"
+   ]
+  },
+  "backup_options": {
+   "default": [
+    "concurrent_backup"
+   ],
+   "description": "Comma-separated list controlling backup interaction methods; concurrent_backup is the default.",
+   "type": "list",
+   "values": [
+    "concurrent_backup",
+    "exclusive_backup",
+    "external_configuration"
+   ]
+  },
+  "bandwidth_limit": {
+   "default": "0",
+   "description": "Maximum transfer rate in kilobytes per second (0 means no limit).",
+   "type": "int"
+  },
+  "barman_home": {
+   "description": "Main data directory for Barman (global configuration).",
+   "type": "string"
+  },
+  "barman_lock_directory": {
+   "default": "%(barman_home)s",
+   "description": "Directory for lock files; defaults to the barman_home directory.",
+   "type": "string"
+  },
+  "basebackup_retry_sleep": {
+   "default": "30",
+   "description": "Seconds to wait after a failed copy before retrying.",
+   "type": "int"
+  },
+  "basebackup_retry_times": {
+   "default": "0",
+   "description": "Number of retries after a base backup error.",
+   "type": "int"
+  },
+  "basebackups_directory": {
+   "description": "Directory where base backups are stored.",
+   "type": "string"
+  },
+  "check_timeout": {
+   "default": "30",
+   "description": " Maximum execution time in seconds per server for barman check.",
+   "type": "int"
+  },
+  "compression": {
+   "description": "Algorithm used to compress WAL files.",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "bzip2",
+    "pigz",
+    "pygzip",
+    "pybzip2"
+   ]
+  },
+  "conninfo": {
+   "description": "Libpq connection string for connecting to PostgreSQL (e.g., host, port, user, password).",
+   "type": "string"
+  },
+  "create_slot": {
+   "default": "manual",
+   "description": "Automatically create replication slots if needed (auto); defaults to manual slot creation.",
+   "type": "enum",
+   "values": [
+    "auto",
+    "manual"
+   ]
+  },
+  "custom_compression_filter": {
+   "description": "Command for custom compression filter of WAL files.",
+   "type": "string"
+  },
+  "custom_compression_magic": {
+   "description": "Magic string checked at the start of a WAL file to select the custom compression filter.",
+   "type": "string"
+  },
+  "custom_decompression_filter": {
+   "description": "Command for custom decompression of WAL files.",
+   "type": "string"
+  },
+  "description": {
+   "description": "Human-readable description of the server.",
+   "type": "string"
+  },
+  "errors_directory": {
+   "description": "Directory for WAL files with errors (e.g., conflicts with existing WAL files).",
+   "type": "string"
+  },
+  "forward_config_path": {
+   "default": "false",
+   "description": "Determines whether a passive node forwards config path to a primary node via cron/sync-info commands.",
+   "type": "bool"
+  },
+  "immediate_checkpoint": {
+   "default": "false",
+   "description": "Controls PostgreSQL's checkpoint urgency at backup start (false limits I/O, true requests immediate).",
+   "type": "bool"
+  },
+  "incoming_wals_directory": {
+   "description": "Directory for incoming WAL files; requires archiver to be enabled.",
+   "type": "string"
+  },
+  "last_backup_maximum_age": {
+   "description": "Time frame for the latest backup validity (e.g., 'i DAYS'); empty means always valid.",
+   "type": "string"
+  },
+  "last_backup_minimum_size": {
+   "description": "Minimum acceptable size of the latest backup (e.g., 'i Gi'); empty means always valid.",
+   "type": "string"
+  },
+  "last_wal_maximum_age": {
+   "description": "Time frame for the latest archived WAL file validity; empty means no age check.",
+   "type": "string"
+  },
+  "log_file": {
+   "description": "Location of Barman's log file (global configuration).",
+   "type": "string"
+  },
+  "log_level": {
+   "description": "Verbosity level for Barman logs.",
+   "type": "enum",
+   "values": [
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL"
+   ]
+  },
+  "max_incoming_wals_queue": {
+   "default": "None",
+   "description": "Maximum number of WAL files allowed in the incoming queue before reporting errors; disabled by default.",
+   "type": "int"
+  },
+  "minimum_redundancy": {
+   "default": "0",
+   "description": "Minimum number of backups to retain.",
+   "type": "int"
+  },
+  "network_compression": {
+   "default": "false",
+   "description": "Enables network compression for transfers (false by default).",
+   "type": "bool"
+  },
+  "parallel_jobs": {
+   "default": "1",
+   "description": "Number of parallel data copy workers.",
+   "type": "int"
+  },
+  "path_prefix": {
+   "description": "Colon-separated paths for executable files, tried before the PATH environment.",
+   "type": "string"
+  },
+  "post_archive_retry_script": {
+   "description": "Retry-hook script executed after a WAL file is archived.",
+   "type": "string"
+  },
+  "post_archive_script": {
+   "description": "Hook script executed after a WAL file is archived.",
+   "type": "string"
+  },
+  "post_backup_retry_script": {
+   "description": "Retry-hook script executed after a base backup.",
+   "type": "string"
+  },
+  "post_backup_script": {
+   "description": "Hook script executed after a base backup.",
+   "type": "string"
+  },
+  "post_delete_retry_script": {
+   "description": "Retry-hook script executed after a backup is deleted.",
+   "type": "string"
+  },
+  "post_delete_script": {
+   "description": "Hook script executed after a backup is deleted.",
+   "type": "string"
+  },
+  "post_recovery_retry_script": {
+   "description": "Retry-hook script executed after recovery.",
+   "type": "string"
+  },
+  "post_recovery_script": {
+   "description": "Hook script executed after recovery.",
+   "type": "string"
+  },
+  "post_wal_delete_retry_script": {
+   "description": "Retry-hook script executed after a WAL file is deleted.",
+   "type": "string"
+  },
+  "post_wal_delete_script": {
+   "description": "Hook script executed after a WAL file is deleted.",
+   "type": "string"
+  },
+  "pre_archive_retry_script": {
+   "description": "Retry-hook script executed before a WAL file is archived.",
+   "type": "string"
+  },
+  "pre_archive_script": {
+   "description": "Hook script executed before a WAL file is archived.",
+   "type": "string"
+  },
+  "pre_backup_retry_script": {
+   "description": "Retry-hook script executed before a base backup.",
+   "type": "string"
+  },
+  "pre_backup_script": {
+   "description": "Hook script executed before a base backup.",
+   "type": "string"
+  },
+  "pre_delete_retry_script": {
+   "description": "Retry-hook script executed before a backup is deleted.",
+   "type": "string"
+  },
+  "pre_delete_script": {
+   "description": "Hook script executed before a backup is deleted.",
+   "type": "string"
+  },
+  "pre_recovery_retry_script": {
+   "description": "Retry-hook script executed before recovery.",
+   "type": "string"
+  },
+  "pre_recovery_script": {
+   "description": "Hook script executed before recovery.",
+   "type": "string"
+  },
+  "pre_wal_delete_retry_script": {
+   "description": "Retry-hook script executed before a WAL file is deleted.",
+   "type": "string"
+  },
+  "pre_wal_delete_script": {
+   "description": "Hook script executed before a WAL file is deleted.",
+   "type": "string"
+  },
+  "primary_conninfo": {
+   "description": "Libpq connection string for the primary PostgreSQL instance during standby backups.",
+   "type": "string"
+  },
+  "primary_ssh_command": {
+   "default": "empty",
+   "description": "Identifies the Barman server as passive; uses this ssh_command to connect to the primary.",
+   "type": "string"
+  },
+  "recovery_options": {
+   "description": "Options for recovery (e.g., get-wal to enable WAL retrieval).",
+   "type": "list",
+   "values": [
+    "get-wal"
+   ]
+  },
+  "recovery_staging_path": {
+   "description": "Required staging path for compressed backups during recovery.",
+   "type": "string"
+  },
+  "retention_policy": {
+   "description": "Policy for backup retention (e.g., REDUNDANCY i or RECOVERY WINDOW OF i ...) or empty (no enforcement).",
+   "type": "string"
+  },
+  "retention_policy_mode": {
+   "description": "Mode for retention policy enforcement (only 'auto' supported).",
+   "type": "enum",
+   "values": [
+    "auto"
+   ]
+  },
+  "reuse_backup": {
+   "default": "off",
+   "description": "Controls incremental backup: off (default), copy, or link (hard links).",
+   "type": "enum",
+   "values": [
+    "off",
+    "copy",
+    "link"
+   ]
+  },
+  "slot_name": {
+   "default": "None",
+   "description": "Physical replication slot used by receive-wal (disabled by default).",
+   "type": "string"
+  },
+  "snapshot_disks": {
+   "description": "Comma-separated list of disks for cloud snapshot backups.",
+   "type": "list"
+  },
+  "snapshot_gcp_project": {
+   "description": "GCP project ID owning the instance and storage volumes for snapshots.",
+   "type": "string"
+  },
+  "snapshot_instance": {
+   "description": "Compute instance name where storage volumes are attached for snapshots.",
+   "type": "string"
+  },
+  "snapshot_provider": {
+   "description": "Cloud provider for snapshots (currently supports gcp).",
+   "type": "enum",
+   "values": [
+    "gcp"
+   ]
+  },
+  "snapshot_zone": {
+   "description": "Availability zone for snapshot instance and disks.",
+   "type": "string"
+  },
+  "ssh_command": {
+   "description": "SSH command used to connect to PostgreSQL.",
+   "type": "string"
+  },
+  "streaming_archiver": {
+   "default": "off",
+   "description": "Use streaming replication protocol for WAL: on (enabled), off (disabled, defaults to off).",
+   "type": "bool"
+  },
+  "streaming_archiver_batch_size": {
+   "description": "Batch processing of WAL files for streaming_archiver.",
+   "type": "int"
+  },
+  "streaming_archiver_name": {
+   "default": "barman_receive_wal",
+   "description": "Application name for the receive-wal command (default: barman_receive_wal).",
+   "type": "string"
+  },
+  "streaming_backup_name": {
+   "default": "barman_streaming_backup",
+   "description": "Application name for the pg_basebackup command (default: barman_streaming_backup).",
+   "type": "string"
+  },
+  "streaming_conninfo": {
+   "default": "conninfo",
+   "description": "Streaming replication connection string (defaults to conninfo).",
+   "type": "string"
+  },
+  "streaming_wals_directory": {
+   "description": "Directory where WAL files are streamed from PostgreSQL to Barman.",
+   "type": "string"
+  },
+  "tablespace_bandwidth_limit": {
+   "description": "Comma-separated TBNAME:BWLIMIT pairs for per-tablespace transfer limits.",
+   "type": "string"
+  },
+  "wal_retention_policy": {
+   "description": "Policy for archive (WAL) file retention (currently only 'MAIN' is supported).",
+   "type": "string"
+  },
+  "wals_directory": {
+   "description": "Directory containing processed WAL files.",
+   "type": "string"
+  }
+ },
+ "/etc/barman.d/streaming-server.conf-template": {
+  "active": {
+   "default": "true",
+   "description": "Server operational state (active or diagnostic-only).",
+   "type": "bool",
+   "values": [
+    "true",
+    "false"
+   ]
+  },
+  "archiver": {
+   "default": "true",
+   "description": "Enables continuous archiving through PostgreSQL's archive_command.",
+   "type": "bool",
+   "values": [
+    "true",
+    "false"
+   ]
+  },
+  "archiver_batch_size": {
+   "description": "Maximum WAL segments per archiver batch process (0 for unlimited).",
+   "type": "int"
+  },
+  "backup_compression": {
+   "description": "Compression algorithm for backups (postgres method only).",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "lz4",
+    "zstd"
+   ]
+  },
+  "backup_compression_format": {
+   "default": "tar",
+   "description": "Format for compressed backups written to disk (postgres method only).",
+   "type": "enum",
+   "values": [
+    "plain",
+    "tar"
+   ]
+  },
+  "backup_compression_level": {
+   "description": "Compression level (algorithm-dependent).",
+   "type": "int"
+  },
+  "backup_compression_location": {
+   "description": "Location where compression is performed during backups.",
+   "type": "enum",
+   "values": [
+    "client",
+    "server"
+   ]
+  },
+  "backup_compression_workers": {
+   "default": "0",
+   "description": "Number of compression threads during backups (requires zstd).",
+   "type": "int"
+  },
+  "backup_directory": {
+   "description": "Directory for server backup data.",
+   "type": "string"
+  },
+  "backup_method": {
+   "default": "rsync",
+   "description": "Backup execution method (ssh/rsync, postgres, local-rsync, snapshot).",
+   "type": "enum",
+   "values": [
+    "rsync",
+    "postgres",
+    "local-rsync",
+    "snapshot"
+   ]
+  },
+  "backup_options": {
+   "default": "concurrent_backup",
+   "description": "Comma-separated options controlling backup interactions (e.g., concurrent_backup).",
+   "type": "list",
+   "values": [
+    "concurrent_backup",
+    "exclusive_backup",
+    "external_configuration"
+   ]
+  },
+  "bandwidth_limit": {
+   "default": "0",
+   "description": "Max transfer rate in KB/s (0 = no limit).",
+   "type": "int"
+  },
+  "barman_home": {
+   "description": "Main Barman data directory (global).",
+   "type": "string"
+  },
+  "barman_lock_directory": {
+   "default": "%(barman_home)s",
+   "description": "Directory for locks (global).",
+   "type": "string"
+  },
+  "basebackup_retry_sleep": {
+   "default": "30",
+   "description": "Seconds to wait after a failed copy (positive integer).",
+   "type": "int"
+  },
+  "basebackup_retry_times": {
+   "default": "0",
+   "description": "Retries for base backup copy (positive integer).",
+   "type": "int"
+  },
+  "basebackups_directory": {
+   "description": "Directory for base backups (server).",
+   "type": "string"
+  },
+  "check_timeout": {
+   "default": "30",
+   "description": "Maximum execution time for barman check (0 = disable).",
+   "type": "int"
+  },
+  "compression": {
+   "description": "Compression algorithm for WAL files.",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "bzip2",
+    "pigz",
+    "pygzip",
+    "pybzip2"
+   ]
+  },
+  "conninfo": {
+   "description": "libpq connection string to PostgreSQL server.",
+   "type": "string"
+  },
+  "create_slot": {
+   "default": "manual",
+   "description": "Whether Barman auto-creates the replication slot if missing.",
+   "type": "enum",
+   "values": [
+    "auto",
+    "manual"
+   ]
+  },
+  "custom_compression_filter": {
+   "description": "Custom compression algorithm for WAL files.",
+   "type": "string"
+  },
+  "custom_compression_magic": {
+   "description": "Magic bytes to detect pre-compressed WALs.",
+   "type": "string"
+  },
+  "custom_decompression_filter": {
+   "description": "Custom decompression algorithm for compressed WALs.",
+   "type": "string"
+  },
+  "description": {
+   "description": "Human-readable description of the server.",
+   "type": "string"
+  },
+  "errors_directory": {
+   "description": "Directory for WAL files with errors (conflicts, etc.).",
+   "type": "string"
+  },
+  "forward_config_path": {
+   "default": "false",
+   "description": "Passive node forwards config path to primary (via cron/sync-info).",
+   "type": "bool",
+   "values": [
+    "true",
+    "false"
+   ]
+  },
+  "immediate_checkpoint": {
+   "default": "false",
+   "description": "Force immediate checkpoint at backup start (true) or rely on PostgreSQL settings (false).",
+   "type": "bool",
+   "values": [
+    "true",
+    "false"
+   ]
+  },
+  "incoming_wals_directory": {
+   "description": "Incoming WAL files directory (requires archiver enabled).",
+   "type": "string"
+  },
+  "last_backup_maximum_age": {
+   "description": "Latest backup must be within 'i DAYS/WEEKS/MONTHS' time frame.",
+   "type": "string"
+  },
+  "last_backup_minimum_size": {
+   "description": "Lower size limit for latest backup (e.g., 'i k|Ki|M|Mi|G|Gi|T|Ti').",
+   "type": "string"
+  },
+  "last_wal_maximum_age": {
+   "description": "Latest archived WAL must be within 'i DAYS/WEEKS/MONTHS' time frame.",
+   "type": "string"
+  },
+  "log_file": {
+   "description": "Barman log file location (global).",
+   "type": "string"
+  },
+  "log_level": {
+   "description": "Logging level for Barman.",
+   "type": "enum",
+   "values": [
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL"
+   ]
+  },
+  "max_incoming_wals_queue": {
+   "default": "None (disabled)",
+   "description": "Maximum WAL files queued before errors (disabled if omitted).",
+   "type": "int"
+  },
+  "minimum_redundancy": {
+   "default": "0",
+   "description": "Minimum number of backups to keep.",
+   "type": "int"
+  },
+  "network_compression": {
+   "default": "false",
+   "description": "Compress network transfers (e.g., rsync).",
+   "type": "bool",
+   "values": [
+    "true",
+    "false"
+   ]
+  },
+  "parallel_jobs": {
+   "default": "1",
+   "description": "Parallel workers for backup/recovery (rsync/ssh method).",
+   "type": "int"
+  },
+  "path_prefix": {
+   "description": "Colon-separated paths for Barman executable lookups.",
+   "type": "string"
+  },
+  "post_archive_retry_script": {
+   "description": "Script after archiving, with retry on exit codes (0, 62, 63).",
+   "type": "string"
+  },
+  "post_archive_script": {
+   "description": "Script after archiving, post-retry stage.",
+   "type": "string"
+  },
+  "post_backup_retry_script": {
+   "description": "Script after backup, with retry on error.",
+   "type": "string"
+  },
+  "post_backup_script": {
+   "description": "Script after backup, post-retry stage.",
+   "type": "string"
+  },
+  "post_delete_retry_script": {
+   "description": "Script after backup deletion, with retry.",
+   "type": "string"
+  },
+  "post_delete_script": {
+   "description": "Script after backup deletion, post-retry.",
+   "type": "string"
+  },
+  "post_recovery_retry_script": {
+   "description": "Script after recovery, with retry.",
+   "type": "string"
+  },
+  "post_recovery_script": {
+   "description": "Script after recovery, post-retry.",
+   "type": "string"
+  },
+  "post_wal_delete_retry_script": {
+   "description": "Script after WAL deletion, with retry.",
+   "type": "string"
+  },
+  "post_wal_delete_script": {
+   "description": "Script after WAL deletion, post-retry.",
+   "type": "string"
+  },
+  "pre_archive_retry_script": {
+   "description": "Script before archiving, with retry (exit codes matter).",
+   "type": "string"
+  },
+  "pre_archive_script": {
+   "description": "Script before archiving WAL.",
+   "type": "string"
+  },
+  "pre_backup_retry_script": {
+   "description": "Script before backup, with retry.",
+   "type": "string"
+  },
+  "pre_backup_script": {
+   "description": "Script before backup.",
+   "type": "string"
+  },
+  "pre_delete_retry_script": {
+   "description": "Script before backup deletion, with retry.",
+   "type": "string"
+  },
+  "pre_delete_script": {
+   "description": "Script before backup deletion.",
+   "type": "string"
+  },
+  "pre_recovery_retry_script": {
+   "description": "Script before recovery, with retry.",
+   "type": "string"
+  },
+  "pre_recovery_script": {
+   "description": "Script before recovery.",
+   "type": "string"
+  },
+  "pre_wal_delete_retry_script": {
+   "description": "Script before WAL deletion, with retry.",
+   "type": "string"
+  },
+  "pre_wal_delete_script": {
+   "description": "Script before WAL deletion.",
+   "type": "string"
+  },
+  "primary_conninfo": {
+   "description": "libpq connection string to primary PostgreSQL (for standby backups).",
+   "type": "string"
+  },
+  "primary_ssh_command": {
+   "default": "empty",
+   "description": "SSH command for passive Barman to primary (empty = not passive).",
+   "type": "string"
+  },
+  "recovery_options": {
+   "default": "empty",
+   "description": "Recovery options list (currently supports get-wal).",
+   "type": "list",
+   "values": [
+    "get-wal"
+   ]
+  },
+  "recovery_staging_path": {
+   "description": "Path to stage files before recovery in compressed backups.",
+   "type": "string"
+  },
+  "retention_policy": {
+   "default": "empty",
+   "description": "Retention rules: 'REDUNDANCY i' or 'RECOVERY WINDOW OF i ...'.",
+   "type": "string"
+  },
+  "retention_policy_mode": {
+   "description": "Retention policy mode (only 'auto' is implemented).",
+   "type": "enum",
+   "values": [
+    "auto"
+   ]
+  },
+  "reuse_backup": {
+   "default": "off",
+   "description": "Incremental backup behavior (off, copy for copy-based, link for hard links).",
+   "type": "enum",
+   "values": [
+    "off",
+    "copy",
+    "link"
+   ]
+  },
+  "slot_name": {
+   "default": "None (disabled)",
+   "description": "Physical replication slot for receive-wal (requires streaming_archiver=on).",
+   "type": "string"
+  },
+  "snapshot_disks": {
+   "description": "Comma-separated list of cloud disks for snapshot backup.",
+   "type": "list"
+  },
+  "snapshot_gcp_project": {
+   "description": "GCP project ID for snapshot instance/disks.",
+   "type": "string"
+  },
+  "snapshot_instance": {
+   "description": "Name of the instance containing snapshot disks.",
+   "type": "string"
+  },
+  "snapshot_provider": {
+   "description": "Cloud provider for snapshots (currently GCP).",
+   "type": "enum",
+   "values": [
+    "gcp"
+   ]
+  },
+  "snapshot_zone": {
+   "description": "Availability zone for snapshot instance/disks.",
+   "type": "string"
+  },
+  "ssh_command": {
+   "description": "SSH command used to connect to PostgreSQL.",
+   "type": "string"
+  },
+  "streaming_archiver": {
+   "default": "off",
+   "description": "Enables PostgreSQL streaming protocol for WAL receipt (on/off).",
+   "type": "enum",
+   "values": [
+    "on",
+    "off"
+   ]
+  },
+  "streaming_archiver_batch_size": {
+   "description": "Maximum WAL segments per streaming batch (0 for unlimited).",
+   "type": "int"
+  },
+  "streaming_archiver_name": {
+   "default": "barman_receive_wal",
+   "description": "Application name used by receive-wal (streaming.",
+   "type": "string"
+  },
+  "streaming_backup_name": {
+   "default": "barman_streaming_backup",
+   "description": "Application name used by pg_basebackup (streaming backups).",
+   "type": "string"
+  },
+  "streaming_conninfo": {
+   "description": "libpq streaming replication connection string (defaults to conninfo).",
+   "type": "string"
+  },
+  "streaming_wals_directory": {
+   "description": "Directory for streamed WAL delivery (requires streaming_archiver=on).",
+   "type": "string"
+  },
+  "tablespace_bandwidth_limit": {
+   "description": "Per-tablespace transfer limits (e.g., 'TB1:128,TB2:0').",
+   "type": "string"
+  },
+  "wal_retention_policy": {
+   "description": "Retention policy for archive logs (currently only 'MAIN').",
+   "type": "enum",
+   "values": [
+    "MAIN"
+   ]
+  },
+  "wals_directory": {
+   "description": "Directory for archived WAL files (server).",
+   "type": "string"
+  }
+ },
+ "/etc/barman/barman.conf": {
+  "active": {
+   "default": "true",
+   "description": "When set to true, the server is fully operational; when false, limited to diagnostics with backups/archives temporarily disabled.",
+   "type": "bool"
+  },
+  "archiver": {
+   "default": "true",
+   "description": "Activates log file shipping via PostgreSQL's archive_command and manages WAL file processing.",
+   "type": "bool"
+  },
+  "archiver_batch_size": {
+   "default": "0",
+   "description": "Limits WAL processing per run to a maximum of this number of segments (0 for unlimited).",
+   "type": "int"
+  },
+  "backup_compression": {
+   "description": "Compression method for PostgreSQL backups (requires backup_method=postgres).",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "lz4",
+    "zstd"
+   ]
+  },
+  "backup_compression_format": {
+   "default": "tar",
+   "description": "Backup file format used by pg_basebackup for compressed backups (method=postgres).",
+   "type": "enum",
+   "values": [
+    "plain",
+    "tar"
+   ]
+  },
+  "backup_compression_level": {
+   "description": "Integer compression level (algorithm-dependent; e.g., 6 for gzip).",
+   "type": "int"
+  },
+  "backup_compression_location": {
+   "description": "Location (client/server) where data is compressed during backup (PG15+ required for server).",
+   "type": "enum",
+   "values": [
+    "client",
+    "server"
+   ]
+  },
+  "backup_compression_workers": {
+   "default": "0",
+   "description": "Number of compression threads (zstd only); 0 uses default.",
+   "type": "int"
+  },
+  "backup_directory": {
+   "description": "Directory storing backup data for a server.",
+   "type": "string"
+  },
+  "backup_method": {
+   "default": "rsync",
+   "description": "Backup execution method (e.g., remote, local, cloud snapshot).",
+   "type": "enum",
+   "values": [
+    "rsync",
+    "postgres",
+    "local-rsync",
+    "snapshot"
+   ]
+  },
+  "backup_options": {
+   "default": [
+    "concurrent_backup"
+   ],
+   "description": "Comma-separated list controlling PostgreSQL interaction (mutually exclusive concurrent/exclusive).",
+   "type": "list",
+   "values": [
+    "concurrent_backup",
+    "exclusive_backup",
+    "external_configuration"
+   ]
+  },
+  "bandwidth_limit": {
+   "default": "0",
+   "description": "Maximum transfer rate in kilobytes per second (0 = no limit).",
+   "type": "int"
+  },
+  "barman_home": {
+   "description": "Main Barman data directory (global setting).",
+   "type": "string"
+  },
+  "barman_lock_directory": {
+   "default": "%(barman_home)s",
+   "description": "Directory for Barman lock files.",
+   "type": "string"
+  },
+  "barman_user": {
+   "description": "System user name that runs Barman",
+   "type": "string"
+  },
+  "basebackup_retry_sleep": {
+   "default": "30",
+   "description": "Seconds to wait before retrying a failed basebackup copy.",
+   "type": "int"
+  },
+  "basebackup_retry_times": {
+   "default": "0",
+   "description": "Number of retry attempts for a failed basebackup copy.",
+   "type": "int"
+  },
+  "basebackups_directory": {
+   "description": "Directory storing base backup files.",
+   "type": "string"
+  },
+  "check_timeout": {
+   "default": "30",
+   "description": "Maximum barman check execution time per server (seconds; 0 = unlimited).",
+   "type": "int"
+  },
+  "compression": {
+   "description": "Standard compression algorithm for WAL file archiving.",
+   "type": "enum",
+   "values": [
+    "gzip",
+    "bzip2",
+    "pigz",
+    "pygzip",
+    "pybzip2"
+   ]
+  },
+  "configuration_files_directory": {
+   "description": "Directory for additional per-server configuration .conf files.",
+   "type": "string"
+  },
+  "conninfo": {
+   "description": "Libpq connection string for PostgreSQL server access.",
+   "type": "string"
+  },
+  "create_slot": {
+   "default": "manual",
+   "description": "Controls automatic replication slot creation (auto requires slot_name).",
+   "type": "enum",
+   "values": [
+    "auto",
+    "manual"
+   ]
+  },
+  "custom_compression_filter": {
+   "description": "Custom compression algorithm for WAL files.",
+   "type": "string"
+  },
+  "custom_compression_magic": {
+   "description": "Magic value identifying predefined compressed WAL files to skip.",
+   "type": "string"
+  },
+  "custom_decompression_filter": {
+   "description": "Custom decompression algorithm matching custom_compression_filter.",
+   "type": "string"
+  },
+  "description": {
+   "description": "Human-readable server description.",
+   "type": "string"
+  },
+  "errors_directory": {
+   "description": "Directory containing WAL files with errors.",
+   "type": "string"
+  },
+  "forward_config_path": {
+   "default": "false",
+   "description": "Forwards configuration path between passive and primary Barman nodes during cron.",
+   "type": "bool"
+  },
+  "immediate_checkpoint": {
+   "default": "false",
+   "description": "Request PostgreSQL to perform an immediate full checkpoint at backup start.",
+   "type": "bool"
+  },
+  "incoming_wals_directory": {
+   "description": "Directory for incoming archived WAL files (archiver=required).",
+   "type": "string"
+  },
+  "last_backup_maximum_age": {
+   "description": "Time window syntax (e.g., '10 DAYS') for latest backup validity.",
+   "type": "string"
+  },
+  "last_backup_minimum_size": {
+   "description": "Size syntax (e.g., '500 Ki') for acceptable latest backup minimum size.",
+   "type": "string"
+  },
+  "last_wal_maximum_age": {
+   "description": "Time window syntax (same as last_backup_maximum_age).",
+   "type": "string"
+  },
+  "log_file": {
+   "description": "Barman log file location.",
+   "type": "string"
+  },
+  "log_level": {
+   "description": "Global logging verbosity level.",
+   "type": "enum",
+   "values": [
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL"
+   ]
+  },
+  "max_incoming_wals_queue": {
+   "default": "None (disabled)",
+   "description": "Maximum allowed incoming WAL files before check errors.",
+   "type": "int"
+  },
+  "minimum_redundancy": {
+   "default": "0",
+   "description": "Minimal number of backups to retain (deletion protection).",
+   "type": "int"
+  },
+  "network_compression": {
+   "default": "false",
+   "description": "Enables compression for network transfers.",
+   "type": "bool"
+  },
+  "parallel_jobs": {
+   "default": "1",
+   "description": "Number of parallel file copy workers (rsync only).",
+   "type": "int"
+  },
+  "path_prefix": {
+   "description": "Colon-separated paths searched before PATH for executables.",
+   "type": "string"
+  },
+  "post_archive_retry_script": {
+   "description": "Retryable hook script after WAL archival.",
+   "type": "string"
+  },
+  "post_archive_script": {
+   "description": "Hook script after WAL is archived (post retry scripts).",
+   "type": "string"
+  },
+  "post_backup_retry_script": {
+   "description": "Retryable hook script after base backup.",
+   "type": "string"
+  },
+  "post_backup_script": {
+   "description": "Hook script after base backup (post retry scripts).",
+   "type": "string"
+  },
+  "post_delete_retry_script": {
+   "description": "Retryable hook script after backup deletion.",
+   "type": "string"
+  },
+  "post_delete_script": {
+   "description": "Hook script after backup deletion (post retry scripts).",
+   "type": "string"
+  },
+  "post_recovery_retry_script": {
+   "description": "Retryable hook script post database recovery.",
+   "type": "string"
+  },
+  "post_recovery_script": {
+   "description": "Hook script after recovery completes (post retry scripts).",
+   "type": "string"
+  },
+  "post_wal_delete_retry_script": {
+   "description": "Retryable hook script after WAL deletion.",
+   "type": "string"
+  },
+  "post_wal_delete_script": {
+   "description": "Hook script after WAL deletion (post retry scripts).",
+   "type": "string"
+  },
+  "pre_archive_retry_script": {
+   "description": "Retryable hook script before WAL archival.",
+   "type": "string"
+  },
+  "pre_archive_script": {
+   "description": "Hook script before WAL archival.",
+   "type": "string"
+  },
+  "pre_backup_retry_script": {
+   "description": "Retryable hook script before backup is executed.",
+   "type": "string"
+  },
+  "pre_backup_script": {
+   "description": "Hook script before base backup.",
+   "type": "string"
+  },
+  "pre_delete_retry_script": {
+   "description": "Retryable hook script before backup deletion.",
+   "type": "string"
+  },
+  "pre_delete_script": {
+   "description": "Hook script before backup deletion.",
+   "type": "string"
+  },
+  "pre_recovery_retry_script": {
+   "description": "Retryable hook script initiating database recovery.",
+   "type": "string"
+  },
+  "pre_recovery_script": {
+   "description": "Hook script before recovery starts.",
+   "type": "string"
+  },
+  "pre_wal_delete_retry_script": {
+   "description": "Retryable hook script before WAL file deletion.",
+   "type": "string"
+  },
+  "pre_wal_delete_script": {
+   "description": "Hook script before WAL file deletion.",
+   "type": "string"
+  },
+  "primary_conninfo": {
+   "description": "Libpq connection string for primary server (for standby backups).",
+   "type": "string"
+  },
+  "primary_ssh_command": {
+   "description": "SSH command connecting Barman to its primary node (marks passive mode).",
+   "type": "string"
+  },
+  "recovery_options": {
+   "description": "Recovery options to include (e.g., get-wal for fetch-based recovery).",
+   "type": "list",
+   "values": [
+    "get-wal"
+   ]
+  },
+  "recovery_staging_path": {
+   "description": "Required path for temporary storage when recovering compressed backups.",
+   "type": "string"
+  },
+  "retention_policy": {
+   "description": "Backup/archival retention policy (e.g., 'RECOVERY WINDOW OF i DAYS').",
+   "type": "string"
+  },
+  "retention_policy_mode": {
+   "description": "Enforced retention policy operation mode.",
+   "type": "enum",
+   "values": [
+    "auto"
+   ]
+  },
+  "reuse_backup": {
+   "default": "off",
+   "description": "Incremental backup method reusing last backup (link needs FS hard link support).",
+   "type": "enum",
+   "values": [
+    "off",
+    "copy",
+    "link"
+   ]
+  },
+  "slot_name": {
+   "description": "Physical replication slot for streaming_archiver (PG receive-wal).",
+   "type": "string"
+  },
+  "snapshot_disks": {
+   "description": "Comma-separated disk list for cloud snapshot backups (requires snapshot backup_method).",
+   "type": "list"
+  },
+  "snapshot_gcp_project": {
+   "description": "Project ID for GCP disks/snapshots (requires snapshot/gcp).",
+   "type": "string"
+  },
+  "snapshot_instance": {
+   "description": "Compute instance name for snapshot backups (requires snapshot backup_method).",
+   "type": "string"
+  },
+  "snapshot_provider": {
+   "description": "Cloud provider for snapshot creation (requires snapshot backup_method).",
+   "type": "enum",
+   "values": [
+    "gcp"
+   ]
+  },
+  "snapshot_zone": {
+   "description": "Availability zone for snapshot disks (requires snapshot backup_method).",
+   "type": "string"
+  },
+  "ssh_command": {
+   "description": "SSH command Barman uses to access PostgreSQL (e.g., 'ssh postgres@pg').",
+   "type": "string"
+  },
+  "streaming_archiver": {
+   "default": "off",
+   "description": "Enable PostgreSQL streaming WAL reception via receive-wal.",
+   "type": "enum",
+   "values": [
+    "on",
+    "off"
+   ]
+  },
+  "streaming_archiver_batch_size": {
+   "description": "Limits WAL segments processed per streaming run (0 enables unlimited).",
+   "type": "int"
+  },
+  "streaming_archiver_name": {
+   "default": "barman_receive_wal",
+   "description": "Application name for streaming receive-wal connections.",
+   "type": "string"
+  },
+  "streaming_backup_name": {
+   "default": "barman_streaming_backup",
+   "description": "Application name for streaming-based backups using pg_basebackup.",
+   "type": "string"
+  },
+  "streaming_conninfo": {
+   "description": "Libpq connection for PostgreSQL streaming replication (defaults to conninfo).",
+   "type": "string"
+  },
+  "streaming_wals_directory": {
+   "description": "Directory for WALs received via streaming_archiver.",
+   "type": "string"
+  },
+  "tablespace_bandwidth_limit": {
+   "description": "Per-tablespace bandwidth limits (pairs like 'tbname:KBPS').",
+   "type": "string"
+  },
+  "wal_retention_policy": {
+   "description": "Policy for archive log/WAL retention (currently MAIN only).",
+   "type": "enum",
+   "values": [
+    "MAIN"
+   ]
+  },
+  "wals_directory": {
+   "description": "Directory containing WAL files for server.",
+   "type": "string"
+  }
+ },
+ "/etc/barman/conf.d/passive-server.conf-template": {
+  "description": {
+   "default": "Example of a Barman passive server",
+   "description": "Human readable description of the Barman passive server.",
+   "type": "string"
+  },
+  "primary_ssh_command": {
+   "description": "SSH command used to connect to the Barman \"master\" server for a passive server.",
    "type": "string"
   }
  },
