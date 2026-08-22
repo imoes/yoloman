@@ -321,9 +321,18 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	return fmt.Errorf("invalid duration %q: want a Go duration string like \"24h\"", value.Value)
 }
 
+// PAM configures interactive human login to this agent's own web UI (POST /api/v1/auth/login) — the way in
+// on a STANDALONE host, where there is no Bossman to authenticate against. Service names a stack under
+// /etc/pam.d/ and is used only by the CGO build; the static packaged binary verifies the password through
+// pam_unix's unix_chkpwd helper instead (see internal/authz/chkpwd.go), which has no service name.
 type PAM struct {
-	Enabled    bool     `yaml:"enabled"`
-	Service    string   `yaml:"service"`
+	Enabled bool   `yaml:"enabled"`
+	Service string `yaml:"service"`
+	// Group is the system group whose members may log in. A correct password is not authorisation: without
+	// this, every local account with a password — backup users, service accounts — could administer the host
+	// through the UI. The package's postinst creates it empty, so granting access is `gpasswd -a <user>
+	// yoloadmin` and is visible in `getent group`. Empty means no group requirement and is not the default.
+	Group      string   `yaml:"group"`
 	SessionTTL Duration `yaml:"session_ttl"`
 }
 
@@ -384,7 +393,8 @@ func Default() Config {
 				Interval: Duration(time.Hour),
 			},
 		},
-		PAM:             PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
+		PAM: PAM{Enabled: true, Service: "agentic-mcp", Group: authz.DefaultLoginGroup,
+			SessionTTL: Duration(12 * time.Hour)},
 		UI:              UI{Enabled: true},
 		Console:         Console{Enabled: true},
 		Piggyback:       Piggyback{Docker: true},

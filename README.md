@@ -117,7 +117,15 @@ Runs on every managed host. Highlights:
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
-- **PAM login + SQLite-backed per-token/user/group ACL** with a per-tool kill switch, enforced
+- **Local login for the standalone UI** — `POST /api/v1/auth/login` verifies a username/password
+  against this host's own accounts and must ALSO find the user in group **`yoloadmin`** (created
+  empty by the package's postinst; grant with `gpasswd -a <user> yoloadmin`). A correct password is
+  not authorisation, so a service account with a password cannot administer the host. Two backends,
+  chosen by the build: real libpam (`CGO_ENABLED=1`, the packaged binary) or pam_unix's own
+  `unix_chkpwd` helper when there is no libpam linked at all — so a fully static build still has a
+  login. `GET /api/v1/auth/methods` says which is available and, when none is, *why*, so the form is
+  not offered on a host that cannot honour it.
+- **SQLite-backed per-token/user/group ACL** with a per-tool kill switch, enforced
   identically over MCP and REST. Every mutating action previews in `check_mode` first; real
   execution requires a global `write: true` switch (default `false` — mutating tools aren't even
   registered otherwise).

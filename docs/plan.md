@@ -377,7 +377,7 @@ Two layers, both manageable via **API and web frontend**, persisted in SQLite:
 
   Wired into **both** protocols against the *same* ACL store: REST (`internal/server/rest.go`)
   resolves identity from a bearer token or a `Session <token>`/cookie (from
-  `POST /api/v1/auth/login`, which calls PAM and creates a session), and enforces ACL in
+  `POST /api/v1/auth/login`, which verifies the password and creates a session), and enforces ACL in
   `handleToolCall`; MCP (`modules.go`/`tasks.go`) enforces the same `Authorize` call for every
   tool dispatch using the fixed `authz.TokenIdentity` (v1 has one shared bearer token — true
   per-connection MCP identity is listed under the v3 roadmap's "RBAC pro Token"). ACL admin REST

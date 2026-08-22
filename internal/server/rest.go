@@ -96,13 +96,20 @@ type RESTConfig struct {
 	// cmd/agentic-mcpd/http.go's MCP bearer-auth wiring, built via
 	// config.Config.TokenEntries().
 	Tokens []authz.TokenEntry
-	// ACL, Sessions, and PAMAuth are all optional (nil disables the
+	// ACL, Sessions, and PasswordAuth are all optional (nil disables the
 	// corresponding feature): with ACL nil, only the write gate applies
-	// (pre-step-8 behavior); with PAMAuth/Sessions nil, /api/v1/auth/login
-	// is unavailable and only the bearer token authenticates.
-	ACL      *authz.ACL
-	Sessions *authz.SessionStore
-	PAMAuth  *authz.PAMAuthenticator
+	// (pre-step-8 behavior); with PasswordAuth/Sessions nil,
+	// /api/v1/auth/login is unavailable and only the bearer token
+	// authenticates.
+	//
+	// PasswordAuth is an INTERFACE, not the PAM type, because there are two
+	// ways to check a local password and the build decides which exists:
+	// real libpam under CGO, pam_unix's unix_chkpwd helper in the static
+	// packaged binary (see authz.NewPasswordLogin). The login endpoint must
+	// not know or care.
+	ACL          *authz.ACL
+	Sessions     *authz.SessionStore
+	PasswordAuth authz.PasswordAuthenticator
 
 	// EBPF is optional (nil if unsupported/disabled on this host — see
 	// docs/plan.md's graceful-degradation requirement); when set, the
@@ -206,7 +213,8 @@ func withIdentity(cfg RESTConfig, next http.Handler) http.Handler {
 		// enroll_secret (see handleEnroll) — there is no bearer token or
 		// session yet at the point a caller is trying to bootstrap trust,
 		// same reasoning as the /api/v1/auth/login bypass below.
-		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/enroll" {
+		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/methods" ||
+			r.URL.Path == "/api/v1/enroll" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -258,6 +266,12 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	mux.HandleFunc("POST /api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		handleLogin(w, r, cfg)
+	})
+	// What this host can actually authenticate, asked BEFORE a form is shown. Without it the standalone UI
+	// offers a username/password box on a host that has no password backend at all (no PAM in the static
+	// build, no unix_chkpwd installed) and the operator learns it only from a failed attempt.
+	mux.HandleFunc("GET /api/v1/auth/methods", func(w http.ResponseWriter, r *http.Request) {
+		handleAuthMethods(w, r, cfg)
 	})
 
 	mux.HandleFunc("GET /api/v1/proc", func(w http.ResponseWriter, r *http.Request) {
@@ -401,9 +415,43 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	return withIdentity(cfg, mux)
 }
 
+// handleAuthMethods reports how a human can sign in to THIS host, so the UI can state the reason instead of
+// failing an attempt. `password` is true only when a backend exists and is usable; `group`, when set, is the
+// membership the login additionally requires — the answer to "why was I refused with the right password".
+func handleAuthMethods(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	available := cfg.PasswordAuth != nil && cfg.Sessions != nil && cfg.PasswordAuth.Available()
+	out := map[string]any{
+		"password": available,
+		"token":    cfg.Token != "" || len(cfg.Tokens) > 0,
+	}
+	if !available {
+		out["password_unavailable_reason"] = passwordUnavailableReason(cfg)
+	}
+	if g, ok := cfg.PasswordAuth.(*authz.GroupRequired); ok && g.Group != "" {
+		out["group"] = g.Group
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// passwordUnavailableReason names WHICH precondition is missing. "not configured" covers three different
+// situations for the operator — pam.enabled false, no session store, no helper on the host — and each has a
+// different fix.
+func passwordUnavailableReason(cfg RESTConfig) string {
+	switch {
+	case cfg.PasswordAuth == nil:
+		return "password login is disabled in the agent configuration (pam.enabled)"
+	case cfg.Sessions == nil:
+		return "no session store is configured, so a login could not issue a token"
+	case !cfg.PasswordAuth.Available():
+		return "no password backend on this host: this binary is built without PAM and unix_chkpwd " +
+			"(libpam-modules on Debian, pam on EL) is not installed"
+	}
+	return ""
+}
+
 func handleLogin(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
-	if cfg.PAMAuth == nil || cfg.Sessions == nil {
-		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("PAM login is not configured"))
+	if cfg.PasswordAuth == nil || cfg.Sessions == nil || !cfg.PasswordAuth.Available() {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("%s", passwordUnavailableReason(cfg)))
 		return
 	}
 	var body struct {
@@ -414,7 +462,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("decoding JSON body: %w", err))
 		return
 	}
-	identity, err := cfg.PAMAuth.Authenticate(body.Username, body.Password)
+	identity, err := cfg.PasswordAuth.Authenticate(body.Username, body.Password)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, fmt.Errorf("login failed"))
 		return

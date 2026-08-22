@@ -33,3 +33,6 @@ func NewPAMAuthenticator(service string) *PAMAuthenticator {
 func (p *PAMAuthenticator) Authenticate(username, password string) (Identity, error) {
 	return Identity{}, fmt.Errorf("PAM login is not available in this build (built without CGO); use token/mTLS auth")
 }
+
+// Available reports that this build has no PAM at all, so no login can be offered through it.
+func (p *PAMAuthenticator) Available() bool { return false }

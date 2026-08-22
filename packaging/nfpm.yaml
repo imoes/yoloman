@@ -11,10 +11,17 @@ platform: linux
 
 # The daemon is built with CGO for PAM login → dynamically links libpam
 # (+ glibc). libpam is a base package everywhere, declared so dpkg/rpm enforce it.
+#
+# libpam-modules is declared as well, and not only for pam_unix.so: it ships
+# unix_chkpwd, the setuid helper a CGO-FREE build of this daemon uses to check
+# passwords when no libpam is linked at all (internal/authz/chkpwd.go). Both
+# builds install from this package, so the dependency belongs here rather than
+# in the one that happens to need it. On EL the `pam` package contains both.
 overrides:
   deb:
     depends:
       - libpam0g
+      - libpam-modules
     replaces:
       - agentic-mcp
     conflicts:

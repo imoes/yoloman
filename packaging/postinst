@@ -12,6 +12,37 @@ CONF_EXAMPLE="$CONF_DIR/config.yaml.example"
 
 mkdir -p "$CONF_DIR/tools.d" "$CONF_DIR/trusted" /var/lib/agentic-mcp/uploads /var/lib/agentic-mcp/modules.d /var/log/agentic-mcp
 
+# The group that may log in to this host's own web UI (POST /api/v1/auth/login).
+#
+# Created EMPTY and never populated by this script: a correct password is not authorisation, so the decision
+# "who administers this host" stays an explicit act by the operator —
+#
+#     gpasswd -a <user> yoloadmin        (then `getent group yoloadmin` shows exactly who can)
+#
+# Without the group the login refuses everyone with "user is not in group yoloadmin", which is the honest
+# state for a freshly installed agent: reachable by its bearer token and mTLS, not yet by a human.
+# `-f`/`|| true` makes this idempotent across upgrades and reinstalls, and a group an operator created by
+# hand (possibly with a chosen GID) is left exactly as it is.
+LOGIN_GROUP=yoloadmin
+if ! getent group "$LOGIN_GROUP" >/dev/null 2>&1; then
+	if command -v groupadd >/dev/null 2>&1; then
+		groupadd -f "$LOGIN_GROUP" || true          # Debian + EL
+	elif command -v addgroup >/dev/null 2>&1; then
+		addgroup --system "$LOGIN_GROUP" || true    # busybox/Alpine-style hosts
+	fi
+	if ! getent group "$LOGIN_GROUP" >/dev/null 2>&1; then
+		echo "agentic-mcp: WARNING could not create group $LOGIN_GROUP; web-UI login will refuse every user" >&2
+	fi
+fi
+
+# Said on EVERY install, not only the first, because this is also an UPGRADE note: the login now requires the
+# group, so a host where a human could sign in before will refuse until somebody is added. Silence would look
+# like a broken login rather than a deliberately closed one.
+if [ -z "$(getent group "$LOGIN_GROUP" 2>/dev/null | cut -d: -f4)" ]; then
+	echo "agentic-mcp: group $LOGIN_GROUP is empty — nobody can sign in to this host's web UI yet."
+	echo "agentic-mcp:   grant access with:  gpasswd -a <user> $LOGIN_GROUP"
+fi
+
 if [ ! -f "$CONF_FILE" ]; then
 	cp "$CONF_EXAMPLE" "$CONF_FILE"
 	TOKEN=$(/usr/bin/agentic-mcpd --generate-token)

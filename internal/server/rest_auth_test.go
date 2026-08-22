@@ -52,12 +52,13 @@ func newAuthTestServer(t *testing.T, allowLogin bool) (*httptest.Server, *authz.
 		t.Fatal(err)
 	}
 
-	pamAuth := &authz.PAMAuthenticator{
-		Service: serviceName,
-		ConfDir: confDir,
-		LookupGroups: func(username string) ([]string, error) {
-			return []string{"testgroup"}, nil
-		},
+	lookupGroups := func(username string) ([]string, error) { return []string{"testgroup"}, nil }
+	// Wrapped exactly as the daemon wires it (authz.NewPasswordLogin): the group requirement in front of the
+	// password backend. Testing the bare backend would leave the shape the daemon actually serves untested.
+	passwordAuth := &authz.GroupRequired{
+		Inner:        &authz.PAMAuthenticator{Service: serviceName, ConfDir: confDir, LookupGroups: lookupGroups},
+		Group:        "testgroup",
+		LookupGroups: lookupGroups,
 	}
 
 	modReg := modules.NewRegistry()
@@ -66,15 +67,15 @@ func newAuthTestServer(t *testing.T, allowLogin bool) (*httptest.Server, *authz.
 
 	const token = "test-token-123"
 	handler := NewRESTHandler(RESTConfig{
-		ProcRoot: "/proc",
-		ModReg:   modReg,
-		Policy:   pipeline.EmptyPolicy(),
-		Store:    st,
-		Write:    true,
-		Token:    token,
-		ACL:      acl,
-		Sessions: authz.NewSessionStore(time.Hour),
-		PAMAuth:  pamAuth,
+		ProcRoot:     "/proc",
+		ModReg:       modReg,
+		Policy:       pipeline.EmptyPolicy(),
+		Store:        st,
+		Write:        true,
+		Token:        token,
+		ACL:          acl,
+		Sessions:     authz.NewSessionStore(time.Hour),
+		PasswordAuth: passwordAuth,
 	})
 	return httptest.NewServer(handler), acl, token
 }
@@ -278,5 +279,65 @@ func TestREST_ACL_RulesEndpoints(t *testing.T) {
 	rules := out["rules"].([]any)
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 rule after PUT, got %d: %+v", len(rules), rules)
+	}
+}
+
+func TestREST_AuthMethodsAnnouncesWhatThisHostCanDo(t *testing.T) {
+	srv, _, _ := newAuthTestServer(t, true)
+	defer srv.Close()
+
+	// Unauthenticated on purpose: it is asked BEFORE anyone has credentials, like /auth/login itself.
+	resp := doJSON(t, "GET", srv.URL+"/api/v1/auth/methods", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200 without credentials", resp.StatusCode)
+	}
+	var out struct {
+		Password bool   `json:"password"`
+		Token    bool   `json:"token"`
+		Group    string `json:"group"`
+		Reason   string `json:"password_unavailable_reason"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.Password || !out.Token {
+		t.Errorf("password=%v token=%v, want both available on this server", out.Password, out.Token)
+	}
+	// The required group is named, so a member-less user is told WHY the right password was refused instead of
+	// being left with "login failed".
+	if out.Group != "testgroup" {
+		t.Errorf("group = %q, want the group the login actually requires", out.Group)
+	}
+	if out.Reason != "" {
+		t.Errorf("reason = %q, want none while password login works", out.Reason)
+	}
+}
+
+func TestREST_AuthMethodsNamesWhyPasswordLoginIsAbsent(t *testing.T) {
+	// A host with no password backend at all: the honest answer is "no", with the reason — not a form.
+	handler := NewRESTHandler(RESTConfig{ProcRoot: "/proc", Policy: pipeline.EmptyPolicy(), Token: "t",
+		Sessions: authz.NewSessionStore(time.Hour)})
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp := doJSON(t, "GET", srv.URL+"/api/v1/auth/methods", nil)
+	var out struct {
+		Password bool   `json:"password"`
+		Reason   string `json:"password_unavailable_reason"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Password {
+		t.Error("password login must not be advertised without a backend")
+	}
+	if out.Reason == "" {
+		t.Error("an unavailable login must state its reason; the operator's fix depends on which one it is")
+	}
+
+	// And the endpoint must agree with the endpoint it describes: 503, not a 401 that reads like bad credentials.
+	login := doJSON(t, "POST", srv.URL+"/api/v1/auth/login", map[string]string{"username": "a", "password": "b"})
+	if login.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("login status = %d, want 503 when there is no backend at all", login.StatusCode)
 	}
 }

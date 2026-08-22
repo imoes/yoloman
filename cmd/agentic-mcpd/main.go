@@ -157,11 +157,21 @@ func run(args []string) error {
 	}
 	defer acl.Close()
 
-	var pamAuth *authz.PAMAuthenticator
+	// Interactive human login for a standalone host. NewPasswordLogin picks whichever backend this build and
+	// host actually have — real libpam under CGO, pam_unix's unix_chkpwd helper in the static packaged binary
+	// — and narrows both to members of cfg.PAM.Group (yoloadmin, created by the package's postinst). It
+	// returns nil when there is none, which is reported as such by GET /api/v1/auth/methods rather than
+	// appearing as a login form that fails every attempt.
+	var passwordAuth authz.PasswordAuthenticator
 	var sessions *authz.SessionStore
 	if cfg.PAM.Enabled {
-		pamAuth = authz.NewPAMAuthenticator(cfg.PAM.Service)
+		passwordAuth = authz.NewPasswordLogin(cfg.PAM.Service, cfg.PAM.Group)
 		sessions = authz.NewSessionStore(cfg.PAM.SessionTTL.Duration())
+		if passwordAuth == nil {
+			slog.Warn("password login is enabled but unavailable on this host",
+				"reason", "this binary is built without PAM and unix_chkpwd is not installed",
+				"install", "libpam-modules (Debian) or pam (EL)")
+		}
 	}
 
 	// Audit entries are written to stderr as JSON lines: under systemd
@@ -191,7 +201,7 @@ func run(args []string) error {
 		Tokens:             cfg.TokenEntries(),
 		ACL:                acl,
 		Sessions:           sessions,
-		PAMAuth:            pamAuth,
+		PasswordAuth:       passwordAuth,
 		EBPF:               collector,
 		DesiredState:       dsApplier,
 		State:              stateStore,
