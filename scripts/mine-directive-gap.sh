@@ -72,6 +72,11 @@ while :; do
   bossman/.venv-host/bin/python bossman/scripts/decide_documented_keys.py "$CORPUS" "$MAN" --write \
     >>"$LOG" 2>&1
   bossman/.venv-host/bin/python bossman/scripts/find_foreign_catalogs.py "$CORPUS" --write >>"$LOG" 2>&1
+  # AND THE PROJECTION THE STANDALONE AGENT SERVES, re-recorded here for the same reason the honesty passes
+  # run here: this is the one moment nothing else writes the catalog. Every mined path can add directive keys,
+  # and a host serving yesterday's projection offers fewer settings than Bossman does for the same file —
+  # a disagreement with no visible cause. 6 seconds against a chunk that takes minutes.
+  bossman/.venv-host/bin/python bossman/scripts/export_agent_config_projection.py --write >>"$LOG" 2>&1
   # Whatever this chunk asked for and did not get is remembered, so the next round moves on.
   head -n "$CHUNK" "$QUEUE" | bossman/.venv-host/bin/python bossman/scripts/mine_gap_queue.py --failed \
     >>"$SKIP"
