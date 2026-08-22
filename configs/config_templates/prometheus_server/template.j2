@@ -1,47 +1,47 @@
 # Global configuration
 # Sets defaults for scrape intervals, evaluation intervals, and external labels
 global:
-  {{ if scrape_interval }}scrape_interval: {{ scrape_interval }}{% endif %}
-  {{ if evaluation_interval }}evaluation_interval: {{ evaluation_interval }}{% endif %}
-  {{ if external_labels }}external_labels:{% for k, v in external_labels.items() %}
+  {% if scrape_interval %}scrape_interval: {{ scrape_interval }}{% endif %}
+  {% if evaluation_interval %}evaluation_interval: {{ evaluation_interval }}{% endif %}
+  {% if external_labels %}external_labels:{% for k, v in external_labels.items() %}
     {{ k }}: {{ v }}{% endfor %}
   {% endif %}
-  {{ if enable_exemplar_storage }}enable_exemplar_storage: true{% endif %}
+  {% if enable_exemplar_storage %}enable_exemplar_storage: true{% endif %}
 
 # Alertmanager configuration
 # Defines where alert notifications should be sent
 {% if alertmanagers %}alerting:
   alertmanagers:{% for am in alertmanagers %}
-    - {{ if am.static_configs }}static_configs:{% for sc in am.static_configs %}
+    - {% if am.static_configs %}static_configs:{% for sc in am.static_configs %}
         - targets:{% for t in sc.targets %}
             - {{ t }}{% endfor %}
-          {{ if sc.labels }}labels:{% for k, v in sc.labels.items() %}
+          {% if sc.labels %}labels:{% for k, v in sc.labels.items() %}
             {{ k }}: {{ v }}{% endfor %}
           {% endif %}
       {% endfor %}{% endif %}
-      {{ if am.scheme }}scheme: {{ am.scheme }}{% endif %}
-      {{ if am.timeout }}timeout: {{ am.timeout }}{% endif %}
-      {{ if am.basic_auth }}basic_auth:{% if am.basic_auth.username %}
+      {% if am.scheme %}scheme: {{ am.scheme }}{% endif %}
+      {% if am.timeout %}timeout: {{ am.timeout }}{% endif %}
+      {% if am.basic_auth %}basic_auth:{% if am.basic_auth.username %}
         username: {{ am.basic_auth.username }}{% endif %}
-        {{ if am.basic_auth.password }}
+        {% if am.basic_auth.password %}
         password: {{ am.basic_auth.password }}{% endif %}
       {% endif %}
-      {{ if am.bearer_token }}bearer_token: {{ am.bearer_token }}{% endif %}
-      {{ if am.bearer_token_file }}bearer_token_file: {{ am.bearer_token_file }}{% endif %}
-      {{ if am.authorization }}authorization:{% if am.authorization.type %}
+      {% if am.bearer_token %}bearer_token: {{ am.bearer_token }}{% endif %}
+      {% if am.bearer_token_file %}bearer_token_file: {{ am.bearer_token_file }}{% endif %}
+      {% if am.authorization %}authorization:{% if am.authorization.type %}
         type: {{ am.authorization.type }}{% endif %}
-        {{ if am.authorization.credentials }}
+        {% if am.authorization.credentials %}
         credentials: {{ am.authorization.credentials }}{% endif %}
       {% endif %}
       {{ if am.oauth2 %}oauth2:{% if am.oauth2.client_id %}
         client_id: {{ am.oauth2.client_id }}{% endif %}
-        {{ if am.oauth2.client_secret }}
+        {% if am.oauth2.client_secret %}
         client_secret: {{ am.oauth2.client_secret }}{% endif %}
-        {{ if am.oauth2.scopes }}
+        {% if am.oauth2.scopes %}
         scopes:{% for s in am.oauth2.scopes %}
           - {{ s }}{% endfor %}
         {% endif %}
-        {{ if am.oauth2.token_url }}
+        {% if am.oauth2.token_url %}
         token_url: {{ am.oauth2.token_url }}{% endif %}
         {{ if am.oauth2.endpoint_params %}
         endpoint_params:{% for k, v in am.oauth2.endpoint_params.items() %}
@@ -62,29 +62,29 @@ global:
 scrape_configs:{% for sc in scrape_configs %}
   - job_name: '{{ sc.job_name }}'
     # Optional: metrics path (default: /metrics)
-    {{ if sc.metrics_path }}metrics_path: {{ sc.metrics_path }}{% endif %}
+    {% if sc.metrics_path %}metrics_path: {{ sc.metrics_path }}{% endif %}
     # Optional: scheme (http/https)
-    {{ if sc.scheme }}scheme: {{ sc.scheme }}{% endif %}
+    {% if sc.scheme %}scheme: {{ sc.scheme }}{% endif %}
     # Optional: HTTP basic auth
-    {{ if sc.basic_auth }}basic_auth:{% if sc.basic_auth.username %}
+    {% if sc.basic_auth %}basic_auth:{% if sc.basic_auth.username %}
       username: {{ sc.basic_auth.username }}{% endif %}
-      {{ if sc.basic_auth.password }}
+      {% if sc.basic_auth.password %}
       password: {{ sc.basic_auth.password }}{% endif %}
     {% endif %}
     # Optional: bearer token
-    {{ if sc.bearer_token }}bearer_token: {{ sc.bearer_token }}{% endif %}
+    {% if sc.bearer_token %}bearer_token: {{ sc.bearer_token }}{% endif %}
     # Optional: bearer token file
-    {{ if sc.bearer_token_file }}bearer_token_file: {{ sc.bearer_token_file }}{% endif %}
+    {% if sc.bearer_token_file %}bearer_token_file: {{ sc.bearer_token_file }}{% endif %}
     # Optional: authorization header
-    {{ if sc.authorization }}authorization:{% if sc.authorization.type %}
+    {% if sc.authorization %}authorization:{% if sc.authorization.type %}
       type: {{ sc.authorization.type }}{% endif %}
-      {{ if sc.authorization.credentials }}
+      {% if sc.authorization.credentials %}
       credentials: {{ sc.authorization.credentials }}{% endif %}
     {% endif %}
     # Optional: OAuth2 config
     {{ if sc.oauth2 %}oauth2:{% if sc.oauth2.client_id %}
       client_id: {{ sc.oauth2.client_id }}{% endif %}
-      {{ if sc.oauth2.client_secret }}
+      {% if sc.oauth2.client_secret %}
       client_secret: {{ sc.oauth2.client_secret }}{% endif %}
       {{ if sc.oauth2.scopes %}
       scopes:{% for s in sc.oauth2.scopes %}
@@ -98,20 +98,20 @@ scrape_configs:{% for sc in scrape_configs %}
       {% endif %}
     {% endif %}
     # Optional: scrape interval override
-    {{ if sc.scrape_interval }}scrape_interval: {{ sc.scrape_interval }}{% endif %}
+    {% if sc.scrape_interval %}scrape_interval: {{ sc.scrape_interval }}{% endif %}
     # Optional: scrape timeout override
-    {{ if sc.scrape_timeout }}scrape_timeout: {{ sc.scrape_timeout }}{% endif %}
+    {% if sc.scrape_timeout %}scrape_timeout: {{ sc.scrape_timeout }}{% endif %}
     # Static targets configuration
-    {{ if sc.static_configs }}static_configs:{% for scfg in sc.static_configs %}
+    {% if sc.static_configs %}static_configs:{% for scfg in sc.static_configs %}
       - targets:{% for t in scfg.targets %}
           - {{ t }}{% endfor %}
-        {{ if scfg.labels }}labels:{% for k, v in scfg.labels.items() %}
+        {% if scfg.labels %}labels:{% for k, v in scfg.labels.items() %}
           {{ k }}: {{ v }}{% endfor %}
         {% endif %}
       {% endfor %}
     {% endif %}
     # Service discovery (e.g., Kubernetes, Consul, etc.)
-    {{ if sc.sd_configs }}service_discovery_configs:{% for sd in sc.sd_configs %}{% for k, v in sd.items() %}
+    {% if sc.sd_configs %}service_discovery_configs:{% for sd in sc.sd_configs %}{% for k, v in sd.items() %}
       - {{ k }}:{% if v is mapping %}{% for kk, vv in v.items() %}
           {{ kk }}: {{ vv }}{% endfor %}{% elif v is iterable and v is not string %}
 {% for item in v %}            - {{ item }}{% endfor %}
@@ -119,23 +119,23 @@ scrape_configs:{% for sc in scrape_configs %}
           {{ v }}{% endif %}{% endfor %}
     {% endfor %}{% endif %}
     # Relabelings: mutate labels during discovery or scraping
-    {{ if sc.relabel_configs }}relabel_configs:{% for rc in sc.relabel_configs %}
+    {% if sc.relabel_configs %}relabel_configs:{% for rc in sc.relabel_configs %}
       - source_labels: [{% for sl in rc.source_labels %}{{ sl }}{% if not loop.last %}, {% endif %}{% endfor %}]
-        {{ if rc.regex }}regex: {{ rc.regex }}{% endif %}
-        {{ if rc.separator }}separator: {{ rc.separator }}{% endif %}
-        {{ if rc.target_label }}target_label: {{ rc.target_label }}{% endif %}
-        {{ if rc.replacement }}replacement: {{ rc.replacement }}{% endif %}
-        {{ if rc.action }}action: {{ rc.action }}{% endif %}
+        {% if rc.regex %}regex: {{ rc.regex }}{% endif %}
+        {% if rc.separator %}separator: {{ rc.separator }}{% endif %}
+        {% if rc.target_label %}target_label: {{ rc.target_label }}{% endif %}
+        {% if rc.replacement %}replacement: {{ rc.replacement }}{% endif %}
+        {% if rc.action %}action: {{ rc.action }}{% endif %}
     {% endfor %}
     {% endif %}
     # Metric relabelings: filter/transform scraped metrics
-    {{ if sc.metric_relabel_configs }}metric_relabel_configs:{% for rc in sc.metric_relabel_configs %}
+    {% if sc.metric_relabel_configs %}metric_relabel_configs:{% for rc in sc.metric_relabel_configs %}
       - source_labels: [{% for sl in rc.source_labels %}{{ sl }}{% if not loop.last %}, {% endif %}{% endfor %}]
-        {{ if rc.regex }}regex: {{ rc.regex }}{% endif %}
-        {{ if rc.separator }}separator: {{ rc.separator }}{% endif %}
-        {{ if rc.target_label }}target_label: {{ rc.target_label }}{% endif %}
-        {{ if rc.replacement }}replacement: {{ rc.replacement }}{% endif %}
-        {{ if rc.action }}action: {{ rc.action }}{% endif %}
+        {% if rc.regex %}regex: {{ rc.regex }}{% endif %}
+        {% if rc.separator %}separator: {{ rc.separator }}{% endif %}
+        {% if rc.target_label %}target_label: {{ rc.target_label }}{% endif %}
+        {% if rc.replacement %}replacement: {{ rc.replacement }}{% endif %}
+        {% if rc.action %}action: {{ rc.action }}{% endif %}
     {% endfor %}
     {% endif %}
 {% endfor %}

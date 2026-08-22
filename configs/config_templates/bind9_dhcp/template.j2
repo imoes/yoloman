@@ -9,14 +9,14 @@ options {
 
     # Forwarders for external resolution
     forwarders {
-        {{ for forwarder in options.forwarders }}
+        {% for forwarder in options.forwarders %}
         {{ forwarder }};
-        {{ endfor }}
+        {% endfor %}
     };
 
     # Listen on specific interfaces and ports
-    listen-on port {{ options.port }} { {{ for addr in options.listen_addresses }}{{ addr }}; {{ endfor }} };
-    listen-on-v6 port {{ options.port }} { {{ for addr6 in options.listen_addresses_v6 }}{{ addr6 }}; {{ endfor }} };
+    listen-on port {{ options.port }} { {% for addr in options.listen_addresses %}{{ addr }}; {% endfor %} };
+    listen-on-v6 port {{ options.port }} { {% for addr6 in options.listen_addresses_v6 %}{{ addr6 }}; {% endfor %} };
 
     # Rate limiting and recursion control
     max-queries-per-connection {{ options.max_queries_per_connection }};
@@ -30,20 +30,20 @@ options {
 
 # Logging configuration
 logging {
-    {{ for channel in logging.channels }}
+    {% for channel in logging.channels %}
     channel {{ channel.name }} {
-        {{ if channel.file }}file "{{ channel.file }}" versions {{ channel.versions }} size {{ channel.size }};{{ endif }}
-        {{ if channel.syslog }}syslog {{ channel.syslog }};{{ endif }}
+        {% if channel.file %}file "{{ channel.file }}" versions {{ channel.versions }} size {{ channel.size }};{% endif %}
+        {% if channel.syslog %}syslog {{ channel.syslog }};{% endif %}
         severity {{ channel.severity }};
         print-time {{ 'yes' if channel.print_time else 'no' }};
         print-severity {{ 'yes' if channel.print_severity else 'no' }};
         print-category {{ 'yes' if channel.print_category else 'no' }};
     };
-    {{ endfor }}
+    {% endfor %}
 
-    {{ for cat in logging.categories }}
+    {% for cat in logging.categories %}
     category {{ cat.name }} { {{ cat.channels | join(', ') }} };
-    {{ endfor }}
+    {% endfor %}
 };
 
 # DLZ (Dynamic Loadable Zone) configuration for DHCP integration
@@ -66,27 +66,27 @@ key "{{ tsig.key_name }}" {
 
 # Zone definitions
 # Primary zones served by this server
-{{ for zone in zones }}
+{% for zone in zones %}
 zone "{{ zone.name }}" {
     type {{ zone.type }};
     file "{{ zone.file }}";
-    {{ if zone.update_policy }}update-policy { {{ zone.update_policy | join(', ') }} };{{ endif }}
-    {{ if zone.masters }}masters { {{ for m in zone.masters }}{{ m }}; {{ endfor }} };{{ endif }}
-    {{ if zone.allow_transfer }}allow-transfer { {{ zone.allow_transfer | join(', ') }} };{{ endif }}
-    {{ if zone.notify }}notify {{ zone.notify }};{{ endif }}
+    {% if zone.update_policy %}update-policy { {{ zone.update_policy | join(', ') }} };{% endif %}
+    {% if zone.masters %}masters { {% for m in zone.masters %}{{ m }}; {% endfor %} };{% endif %}
+    {% if zone.allow_transfer %}allow-transfer { {{ zone.allow_transfer | join(', ') }} };{% endif %}
+    {% if zone.notify %}notify {{ zone.notify }};{% endif %}
     allow-query { {{ zone.allow_query | join(', ') }} };
 };
-{{ endfor }}
+{% endfor %}
 
 # Reverse lookup zones (automated via pattern or manual)
-{{ for reverse in reverse_zones }}
+{% for reverse in reverse_zones %}
 zone "{{ reverse.zone_name }}" {
     type {{ reverse.type }};
     file "{{ reverse.file }}";
-    {{ if reverse.update_policy }}update-policy { {{ reverse.update_policy | join(', ') }} };{{ endif }}
+    {% if reverse.update_policy %}update-policy { {{ reverse.update_policy | join(', ') }} };{% endif %}
     allow-query { {{ reverse.allow_query | join(', ') }} };
 };
-{{ endfor }}
+{% endfor %}
 
 # Trusted key for dynamic updates (used by DHCP to update A/AAAA/PTR records)
 # This key must be trusted by both BIND and the DHCP server (e.g.,ISC DHCP or Kea)
@@ -96,4 +96,4 @@ key "{{ dhcp_key_name }}" {
 };
 
 # Include extra configuration fragments (for modular management)
-{{ if include_extra }}include "{{ include_extra_path }}";{{ endif }}
+{% if include_extra %}include "{{ include_extra_path }}";{% endif %}
