@@ -2282,3 +2282,33 @@ Der erste Lauf blieb bei 204, weil ich nur den *offline* Korpus benutzt hatte �
 Seite, und diese eine Datei trug 65 der Reste. Mit den beiden Spiegeln (`manpages.debian.org/lftp`) fielen
 sie auf **134 Felder in 37 Pfaden**. Was bleibt, ist geballt und ehrlich: `/etc/webcam` 27, `/etc/sysctl.conf`
 25, `/etc/samba/smb.conf` 12 — Dateien, deren Doku die Schlüssel nicht nennt oder gar nicht existiert.
+
+### 14. Das Gerüst, das der Body selbst beschreibt
+
+Von den 150 unbrauchbaren Templates starben 50 an gonjas „Can't use Getitem on None": der Body geht in einen
+Wert hinein, den nichts liefert. Für 45 war die Variable **im Schema gar nicht deklariert** — dieselbe Klasse
+wie die 523 unsetzbaren Variablen, hier aber tödlich statt bloß leer.
+
+Der Body sagt, was für ein Ding es ist: `var.attr` → Objekt, `{% for x in var %}` → Liste, `{{ var }}` →
+String. [`declare_template_vars.py`](../bossman/scripts/declare_template_vars.py) trägt das nach. **Zwei
+Sperren waren nötig**, bevor daraus eine Reparatur wurde:
+
+- **Namen, die die Sprache sind, sind keine Einstellungen.** `{% set _ = opts.append('ro') %}` macht `_` zu
+  einem Wegwerfziel, und jinja2 meldet es als frei — ein Formularfeld `_` ist Unsinn. Dasselbe für `max`,
+  `value`, `values`, `loop`, `item`. Ohne diese Liste hätte der Lauf 24 Templates mit solchen Feldern
+  „repariert", `glances` etwa mit `max`, `percent`, `value`.
+- **Mehr als eine Handvoll ist keine Lücke.** `httping` braucht **64** Namen, die sein Schema nie erwähnt.
+  Das ist ein Template, dessen Schema nie geschrieben wurde; 64 Felder aus dem Gebrauch zu erfinden wäre ein
+  Formular, das niemand entworfen hat. Vier solche bleiben als unbrauchbar stehen.
+
+**Und eine Ebene genügte nicht** — das hat die Ratsche gezeigt. `systemd` als leeres Objekt zu deklarieren
+verschob den Fehler nur auf `systemd.journal.default`, bei `glances` auf `global.refresh`. Der Body nennt die
+**ganze Kette**, also wird die ganze Kette gebaut: `a.b.c` → `{"a":{"b":{"c":""}}}`, `x[0].y` →
+`{"x":[{"y":""}]}`, und nichts Vorhandenes wird überschrieben. Leere Blätter sind der *Anfangszustand* eines
+Formulars, kein gemessener Wert — deshalb ist das Hinzufügen erlaubt, wo das Ändern eines Samples es nicht
+war (das hatte `anymeal`, `frr` und `munin-node.conf` zerstört).
+
+**Ergebnis: 150 → 124 unbrauchbare Templates** (Getitem-on-None von 50 auf 22), stabil über drei Durchgänge —
+ein Fixpunkt. Der Index wächst auf 3548 Pfade, und Bindungen auf unbrauchbare Templates: 0. Beschreibungen
+werden dabei **keine** erfunden: ein deklariertes Feld ohne Beschreibung ist ein Zustand, den der Katalog
+zählt, und `describe_missing_keys.py` kann ihn später aus der Dokumentation füllen.

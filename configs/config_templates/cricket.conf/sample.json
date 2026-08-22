@@ -1,76 +1,78 @@
 {
-  "poll_interval": 300,
-  "worker_threads": 8,
-  "max_snmp_queries": 100,
-  "snmp_timeout": 3,
-  "snmp_retries": 2,
-  "verbose_logging": false,
-  "log_file": "/var/log/cricket.log",
-  "database": {
-    "type": "rrd",
-    "rrd_dir": "/var/lib/cricket/rrd",
-    "rrd_step": 300
-  },
-  "hosts": [
+ "database": {
+  "dsn": "",
+  "rrd_dir": "/var/lib/cricket/rrd",
+  "rrd_step": 300,
+  "table_prefix": "",
+  "type": "rrd"
+ },
+ "hosts": [
+  {
+   "community": "private",
+   "hostname": "router1.example.com",
+   "targets": [
     {
-      "hostname": "router1.example.com",
-      "version": 2,
-      "community": "private",
-      "targets": [
-        {
-          "name": "wan0",
-          "type": "ifDescr",
-          "ifDescr": "eth0",
-          "ds_type": "gauge",
-          "description": "WAN interface",
-          "thresholds": {
-            "warning": 80000,
-            "critical": 95000
-          }
-        },
-        {
-          "name": "CPU",
-          "type": "custom",
-          "oid": "1.3.6.1.4.1.9.9.109.1.1.1.1.5.1",
-          "ds_type": "gauge",
-          "description": "CPU usage (percent)",
-          "thresholds": {
-            "warning": 70,
-            "critical": 90
-          }
-        }
-      ]
+     "description": "WAN interface",
+     "ds_type": "gauge",
+     "ifDescr": "eth0",
+     "name": "wan0",
+     "thresholds": {
+      "critical": 95000,
+      "warning": 80000
+     },
+     "type": "ifDescr"
     },
     {
-      "hostname": "switch1.example.com",
-      "version": 3,
-      "security_level": "authPriv",
-      "auth_protocol": "SHA",
-      "auth_passphrase": "secureauth",
-      "priv_protocol": "AES",
-      "priv_passphrase": "securepriv",
-      "targets": [
-        {
-          "name": "Gi1/0/1",
-          "type": "ifDescr",
-          "ifDescr": "GigabitEthernet1/0/1",
-          "ds_type": "counter",
-          "description": "Port Gi1/0/1 in/out octets"
-        }
-      ]
+     "description": "CPU usage (percent)",
+     "ds_type": "gauge",
+     "name": "CPU",
+     "oid": "1.3.6.1.4.1.9.9.109.1.1.1.1.5.1",
+     "thresholds": {
+      "critical": 90,
+      "warning": 70
+     },
+     "type": "custom"
     }
-  ],
-  "thresholds": {
-    "warning_percent": 70,
-    "critical_percent": 90,
-    "window": 300
+   ],
+   "version": 2
   },
-  "web": {
-    "bind_address": "0.0.0.0",
-    "port": 8080,
-    "base_url": "/",
-    "tls_enabled": false,
-    "tls_key_file": "",
-    "tls_cert_file": ""
+  {
+   "auth_passphrase": "secureauth",
+   "auth_protocol": "SHA",
+   "hostname": "switch1.example.com",
+   "priv_passphrase": "securepriv",
+   "priv_protocol": "AES",
+   "security_level": "authPriv",
+   "targets": [
+    {
+     "description": "Port Gi1/0/1 in/out octets",
+     "ds_type": "counter",
+     "ifDescr": "GigabitEthernet1/0/1",
+     "name": "Gi1/0/1",
+     "type": "ifDescr"
+    }
+   ],
+   "version": 3
   }
+ ],
+ "log_file": "/var/log/cricket.log",
+ "max_snmp_queries": 100,
+ "poll_interval": 300,
+ "snmp_retries": 2,
+ "snmp_timeout": 3,
+ "thresholds": {
+  "critical_percent": 90,
+  "warning_percent": 70,
+  "window": 300
+ },
+ "verbose_logging": false,
+ "web": {
+  "base_url": "/",
+  "bind_address": "0.0.0.0",
+  "port": 8080,
+  "tls_cert_file": "",
+  "tls_enabled": false,
+  "tls_key_file": ""
+ },
+ "worker_threads": 8
 }

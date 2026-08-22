@@ -1,265 +1,269 @@
 {
-  "api.bind_host": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address on which the Aodh API server listens for requests. Use 0.0.0.0 for all interfaces or a specific IP for security."
+ "alarms.action_timeout": {
+  "default": 30,
+  "description": "Maximum time (seconds) to wait for alarm actions to complete.",
+  "type": "number"
+ },
+ "alarms.history.enabled": {
+  "default": true,
+  "description": "Persist alarm state transitions to the database.",
+  "type": "boolean"
+ },
+ "api.bind_host": {
+  "default": "0.0.0.0",
+  "description": "IP address on which the Aodh API server listens for requests. Use 0.0.0.0 for all interfaces or a specific IP for security.",
+  "type": "string"
+ },
+ "api.bind_port": {
+  "default": 8042,
+  "description": "Port number for the Aodh API service.",
+  "type": "number"
+ },
+ "api.ssl.cert_file": {
+  "default": "",
+  "description": "Path to the SSL certificate file (used only if SSL is enabled).",
+  "type": "string"
+ },
+ "api.ssl.enabled": {
+  "default": false,
+  "description": "Whether to enable built-in SSL/TLS (not recommended; prefer proxy termination).",
+  "type": "boolean"
+ },
+ "api.ssl.key_file": {
+  "default": "",
+  "description": "Path to the SSL private key file (used only if SSL is enabled).",
+  "type": "string"
+ },
+ "api.workers": {
+  "default": 1,
+  "description": "Number of worker processes to handle requests. Increase on multi-core systems for higher throughput.",
+  "type": "number"
+ },
+ "auth.strategy": {
+  "default": "keystone",
+  "description": "Authentication strategy. Use 'keystone' in production; 'noauth' only for development/testing.",
+  "type": "string"
+ },
+ "cors.allowed_origins": {
+  "default": [],
+  "description": "List of allowed origins for CORS (Cross-Origin Resource Sharing). Leave empty to disable CORS. Use ['*'] for development only.",
+  "type": "list"
+ },
+ "database.connection": {
+  "default": "sqlite:///var/lib/aodh/aodh.sqlite",
+  "description": "Database connection URL (SQLite for dev, PostgreSQL/MySQL for production).",
+  "type": "string"
+ },
+ "database.connection_retries": {
+  "default": 3,
+  "description": "Number of retry attempts for database connection failures.",
+  "type": "number"
+ },
+ "database.max_overflow": {
+  "default": 10,
+  "description": "Maximum number of connections above pool_size that may be opened in bursts.",
+  "type": "number"
+ },
+ "database.pool_size": {
+  "default": 5,
+  "description": "Base number of database connections in the pool.",
+  "type": "number"
+ },
+ "debug": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "evaluation.enabled": {
+  "default": true,
+  "description": "Enable evaluation of alarms (requires Aodh evaluator service to be running).",
+  "type": "boolean"
+ },
+ "events.sources": {
+  "default": [],
+  "description": "List of event source definitions for event-based alarms.",
+  "items": {
+   "connection": {
+    "description": "Optional connection string (e.g., URL for HTTP source).",
+    "type": "string"
+   },
+   "name": {
+    "description": "Unique identifier for this event source.",
+    "type": "string"
+   },
+   "type": {
+    "description": "Event source type (e.g., 'http', 'gnocchi', 'ceilometer').",
+    "type": "string"
+   }
   },
-  "api.bind_port": {
-    "type": "number",
-    "default": 8042,
-    "description": "Port number for the Aodh API service."
+  "type": "list"
+ },
+ "healthcheck.uri": {
+  "default": "/healthcheck",
+  "description": "Path for HTTP health check endpoint used by load balancers.",
+  "type": "string"
+ },
+ "keystone.auth_url": {
+  "default": "",
+  "description": "Override Keystone auth URL if needed (e.g., for multi-region setups or special DNS).",
+  "type": "string"
+ },
+ "keystone.endpoint_type": {
+  "default": "public",
+  "description": "Keystone endpoint type to use: 'public', 'internal', or 'admin'.",
+  "enum": [
+   "public",
+   "internal"
+  ],
+  "type": "string"
+ },
+ "keystone.password": {
+  "default": "",
+  "description": "Service user password. Use secrets management in production.",
+  "type": "string"
+ },
+ "keystone.project_domain_name": {
+  "default": "Default",
+  "description": "Keystone domain for the service project.",
+  "type": "string"
+ },
+ "keystone.project_name": {
+  "default": "",
+  "description": "Service project (tenant) name for Keystone authentication.",
+  "type": "string"
+ },
+ "keystone.region_name": {
+  "default": "RegionOne",
+  "description": "OpenStack region name where this Aodh API instance operates.",
+  "type": "string"
+ },
+ "keystone.user_domain_name": {
+  "default": "Default",
+  "description": "Keystone domain for the service user (required in Keystone v3).",
+  "type": "string"
+ },
+ "keystone.username": {
+  "default": "",
+  "description": "Service user account name for Keystone auth.",
+  "type": "string"
+ },
+ "legacy.ceilometer_compat": {
+  "default": false,
+  "description": "Enable legacy Ceilometer compatibility mode. Only for migrations from older Ceilometer deployments.",
+  "type": "boolean"
+ },
+ "messaging.transport_url": {
+  "default": "rabbit://guest:guest@localhost:5672/",
+  "description": "Connection URL to the message broker (e.g., RabbitMQ or Redis). Required for coordination with Aodh evaluator.",
+  "type": "string"
+ },
+ "metrics.backend": {
+  "allowed_values": [
+   "",
+   "influxdb",
+   "mongodb",
+   "gnocchi"
+  ],
+  "default": "",
+  "description": "Backend for alarm history/metrics storage (e.g., 'influxdb', 'mongodb', 'gnocchi'). Leave blank to use the main database.",
+  "type": "string"
+ },
+ "metrics.gnocchi.auth_url": {
+  "default": "http://localhost:5000/v3",
+  "description": "Keystone auth URL for Gnocchi service (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.gnocchi.password": {
+  "default": "gnocchi",
+  "description": "Gnocchi service password (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.gnocchi.project_domain_name": {
+  "default": "Default",
+  "description": "Keystone domain for Gnocchi project (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.gnocchi.project_name": {
+  "default": "services",
+  "description": "Project name for Gnocchi service auth (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.gnocchi.user_domain_name": {
+  "default": "Default",
+  "description": "Keystone domain for Gnocchi user (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.gnocchi.username": {
+  "default": "gnocchi",
+  "description": "Gnocchi service username (used if backend = gnocchi).",
+  "type": "string"
+ },
+ "metrics.influxdb.dbname": {
+  "default": "aodh",
+  "description": "InfluxDB database name (used if backend = influxdb).",
+  "type": "string"
+ },
+ "metrics.influxdb.password": {
+  "default": "aodh",
+  "description": "InfluxDB password (used if backend = influxdb).",
+  "type": "string"
+ },
+ "metrics.influxdb.url": {
+  "default": "http://localhost:8086",
+  "description": "InfluxDB URL (used if backend = influxdb).",
+  "type": "string"
+ },
+ "metrics.influxdb.username": {
+  "default": "aodh",
+  "description": "InfluxDB username (used if backend = influxdb).",
+  "type": "string"
+ },
+ "metrics.mongodb.dbname": {
+  "default": "aodh",
+  "description": "MongoDB database name (used if backend = mongodb).",
+  "type": "string"
+ },
+ "metrics.mongodb.url": {
+  "default": "mongodb://localhost:27017",
+  "description": "MongoDB connection URL (used if backend = mongodb).",
+  "type": "string"
+ },
+ "notifications.default_method": {
+  "default": "log",
+  "description": "Default notification method when no method is specified in an alarm definition.",
+  "enum": [
+   "log",
+   "page"
+  ],
+  "type": "string"
+ },
+ "notifications.drivers": {
+  "default": [],
+  "description": "List of notification driver configurations to enable (e.g., for email or webhook integration).",
+  "items": {
+   "config": {
+    "description": "Optional JSON configuration string for the driver (e.g., {'to': ['admin@example.com']} for mailto).",
+    "type": "string"
+   },
+   "name": {
+    "description": "Driver name (e.g., 'log', 'mailto', 'webhook').",
+    "type": "string"
+   }
   },
-  "api.workers": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker processes to handle requests. Increase on multi-core systems for higher throughput."
-  },
-  "api.ssl.enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Whether to enable built-in SSL/TLS (not recommended; prefer proxy termination)."
-  },
-  "api.ssl.cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to the SSL certificate file (used only if SSL is enabled)."
-  },
-  "api.ssl.key_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to the SSL private key file (used only if SSL is enabled)."
-  },
-  "auth.strategy": {
-    "type": "string",
-    "default": "keystone",
-    "description": "Authentication strategy. Use 'keystone' in production; 'noauth' only for development/testing."
-  },
-  "messaging.transport_url": {
-    "type": "string",
-    "default": "rabbit://guest:guest@localhost:5672/",
-    "description": "Connection URL to the message broker (e.g., RabbitMQ or Redis). Required for coordination with Aodh evaluator."
-  },
-  "database.connection": {
-    "type": "string",
-    "default": "sqlite:///var/lib/aodh/aodh.sqlite",
-    "description": "Database connection URL (SQLite for dev, PostgreSQL/MySQL for production)."
-  },
-  "database.connection_retries": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of retry attempts for database connection failures."
-  },
-  "database.max_overflow": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of connections above pool_size that may be opened in bursts."
-  },
-  "database.pool_size": {
-    "type": "number",
-    "default": 5,
-    "description": "Base number of database connections in the pool."
-  },
-  "evaluation.enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable evaluation of alarms (requires Aodh evaluator service to be running)."
-  },
-  "notifications.default_method": {
-    "type": "string",
-    "default": "log",
-    "description": "Default notification method when no method is specified in an alarm definition.",
-    "enum": [
-      "log",
-      "page"
-    ]
-  },
-  "notifications.drivers": {
-    "type": "list",
-    "default": [],
-    "description": "List of notification driver configurations to enable (e.g., for email or webhook integration).",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Driver name (e.g., 'log', 'mailto', 'webhook')."
-      },
-      "config": {
-        "type": "string",
-        "description": "Optional JSON configuration string for the driver (e.g., {'to': ['admin@example.com']} for mailto)."
-      }
-    }
-  },
-  "keystone.endpoint_type": {
-    "type": "string",
-    "default": "public",
-    "description": "Keystone endpoint type to use: 'public', 'internal', or 'admin'.",
-    "enum": [
-      "public",
-      "internal"
-    ]
-  },
-  "keystone.region_name": {
-    "type": "string",
-    "default": "RegionOne",
-    "description": "OpenStack region name where this Aodh API instance operates."
-  },
-  "keystone.auth_url": {
-    "type": "string",
-    "default": "",
-    "description": "Override Keystone auth URL if needed (e.g., for multi-region setups or special DNS)."
-  },
-  "keystone.project_name": {
-    "type": "string",
-    "default": "",
-    "description": "Service project (tenant) name for Keystone authentication."
-  },
-  "keystone.username": {
-    "type": "string",
-    "default": "",
-    "description": "Service user account name for Keystone auth."
-  },
-  "keystone.password": {
-    "type": "string",
-    "default": "",
-    "description": "Service user password. Use secrets management in production."
-  },
-  "keystone.user_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone domain for the service user (required in Keystone v3)."
-  },
-  "keystone.project_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone domain for the service project."
-  },
-  "rate_limit.enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable per-IP request rate limiting to prevent abuse."
-  },
-  "rate_limit.window": {
-    "type": "number",
-    "default": 60,
-    "description": "Rate limiting window duration in seconds."
-  },
-  "rate_limit.requests": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum requests allowed per window before throttling."
-  },
-  "cors.allowed_origins": {
-    "type": "list",
-    "default": [],
-    "description": "List of allowed origins for CORS (Cross-Origin Resource Sharing). Leave empty to disable CORS. Use ['*'] for development only."
-  },
-  "healthcheck.uri": {
-    "type": "string",
-    "default": "/healthcheck",
-    "description": "Path for HTTP health check endpoint used by load balancers."
-  },
-  "metrics.backend": {
-    "type": "string",
-    "default": "",
-    "description": "Backend for alarm history/metrics storage (e.g., 'influxdb', 'mongodb', 'gnocchi'). Leave blank to use the main database.",
-    "allowed_values": [
-      "",
-      "influxdb",
-      "mongodb",
-      "gnocchi"
-    ]
-  },
-  "metrics.influxdb.url": {
-    "type": "string",
-    "default": "http://localhost:8086",
-    "description": "InfluxDB URL (used if backend = influxdb)."
-  },
-  "metrics.influxdb.dbname": {
-    "type": "string",
-    "default": "aodh",
-    "description": "InfluxDB database name (used if backend = influxdb)."
-  },
-  "metrics.influxdb.username": {
-    "type": "string",
-    "default": "aodh",
-    "description": "InfluxDB username (used if backend = influxdb)."
-  },
-  "metrics.influxdb.password": {
-    "type": "string",
-    "default": "aodh",
-    "description": "InfluxDB password (used if backend = influxdb)."
-  },
-  "metrics.mongodb.url": {
-    "type": "string",
-    "default": "mongodb://localhost:27017",
-    "description": "MongoDB connection URL (used if backend = mongodb)."
-  },
-  "metrics.mongodb.dbname": {
-    "type": "string",
-    "default": "aodh",
-    "description": "MongoDB database name (used if backend = mongodb)."
-  },
-  "metrics.gnocchi.project_name": {
-    "type": "string",
-    "default": "services",
-    "description": "Project name for Gnocchi service auth (used if backend = gnocchi)."
-  },
-  "metrics.gnocchi.auth_url": {
-    "type": "string",
-    "default": "http://localhost:5000/v3",
-    "description": "Keystone auth URL for Gnocchi service (used if backend = gnocchi)."
-  },
-  "metrics.gnocchi.username": {
-    "type": "string",
-    "default": "gnocchi",
-    "description": "Gnocchi service username (used if backend = gnocchi)."
-  },
-  "metrics.gnocchi.password": {
-    "type": "string",
-    "default": "gnocchi",
-    "description": "Gnocchi service password (used if backend = gnocchi)."
-  },
-  "metrics.gnocchi.user_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone domain for Gnocchi user (used if backend = gnocchi)."
-  },
-  "metrics.gnocchi.project_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone domain for Gnocchi project (used if backend = gnocchi)."
-  },
-  "legacy.ceilometer_compat": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable legacy Ceilometer compatibility mode. Only for migrations from older Ceilometer deployments."
-  },
-  "events.sources": {
-    "type": "list",
-    "default": [],
-    "description": "List of event source definitions for event-based alarms.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Unique identifier for this event source."
-      },
-      "type": {
-        "type": "string",
-        "description": "Event source type (e.g., 'http', 'gnocchi', 'ceilometer')."
-      },
-      "connection": {
-        "type": "string",
-        "description": "Optional connection string (e.g., URL for HTTP source)."
-      }
-    }
-  },
-  "alarms.action_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum time (seconds) to wait for alarm actions to complete."
-  },
-  "alarms.history.enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Persist alarm state transitions to the database."
-  }
+  "type": "list"
+ },
+ "rate_limit.enabled": {
+  "default": false,
+  "description": "Enable per-IP request rate limiting to prevent abuse.",
+  "type": "boolean"
+ },
+ "rate_limit.requests": {
+  "default": 100,
+  "description": "Maximum requests allowed per window before throttling.",
+  "type": "number"
+ },
+ "rate_limit.window": {
+  "default": 60,
+  "description": "Rate limiting window duration in seconds.",
+  "type": "number"
+ }
 }

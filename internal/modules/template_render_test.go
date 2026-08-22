@@ -172,9 +172,12 @@ func TestConfigTemplatesRenderWithSample(t *testing.T) {
 		_, listed := known[name]
 		switch {
 		case err != nil:
+			// 400, not 200: the record is what a repair pass reads, and gonja puts the useful part LAST —
+			// which filter is missing, which method was called on what. At 200 characters every message
+			// ended mid-sentence and the classes were indistinguishable.
 			reason := err.Error()
-			if len(reason) > 200 {
-				reason = reason[:200]
+			if len(reason) > 400 {
+				reason = reason[:400]
 			}
 			broken[name] = reason
 			if !listed {
