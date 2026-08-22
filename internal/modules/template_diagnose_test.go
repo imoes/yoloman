@@ -2,6 +2,7 @@ package modules
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"sort"
@@ -64,4 +65,27 @@ func TestTemplateDiagnoseBrokenReasons(t *testing.T) {
 	for _, k := range keys {
 		t.Logf("%4d  %s", counts[k], k)
 	}
+}
+
+// Render ONE named template with its sample and print the result — the verification step for a mechanical
+// template repair. The repair scripts render before and after a rewrite and demand byte-identical output:
+// these templates render today, so their sample provably never reaches the rewritten line, and any change in
+// the output means the rewrite touched a path the sample DOES take.
+//
+//	TEMPLATE_RENDER_ONE=apt-cudf go test ./internal/modules/ -run TestTemplateRenderOne
+func TestTemplateRenderOne(t *testing.T) {
+	name := os.Getenv("TEMPLATE_RENDER_ONE")
+	if name == "" {
+		t.Skip("set TEMPLATE_RENDER_ONE to a template directory name")
+	}
+	dest := t.TempDir() + "/out"
+	if err := renderTemplateWithSample("../../configs/config_templates", name, dest); err != nil {
+		t.Fatalf("render %s: %v", name, err)
+	}
+	body, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read rendered file: %v", err)
+	}
+	// Printed rather than logged with the test name, so the caller compares only the CONTENT.
+	fmt.Print(string(body))
 }

@@ -258,14 +258,28 @@ truncated at 400 characters and the parser's diagnosis sits after the echoed bod
 | | |
 |---|---|
 | individual syntax errors (no class; 2 unclosed comment, 2 invalid numeric token) | 46 |
+| of those 52 parse failures, bound in the index and thus reachable by a user | **0** |
+| of those 52, whose body is a shell SCRIPT rather than a config (`${#ARRAY[@]}` reads as `#}`) | 4 |
 | `template.j2` is **zero bytes** — never generated, not a syntax error | 6 |
-| renderer gap (`.items()`, `.get()` — gonja implements none) | 12 |
+| renderer gap (`.get()` — the only method gonja lacks, plus `values`) | 12 |
 | renders empty / invalid YAML | 6 |
 
-**Latent renderer gaps** — `configs/template_renderer_gaps.json`: **125** templates the gate still offers call
-a Python method gonja cannot execute. Latent because the calls sit in branches the SAMPLE never enters, so the
-render ratchet cannot see them; a host's real values can. Named on `/config-fields` as `renderer_gaps` rather
-than withdrawn, because withdrawing 125 working editors to prevent a conditional failure is the worse trade.
+**Latent renderer gaps** — `configs/template_renderer_gaps.json`: **36** templates, of which **9** are still
+offered after the phantom-path withdrawal (`apt-cudf`, `autofs`, `config`, `config.php`, `dnf`, `frr`, `login`,
+`luakit`, `mpd.conf`).
+
+This entry said **125** and that was wrong. The method list was written by hand and never tested against the
+engine; `internal/modules/gonja_methods_test.go` now asks it, and gonja v1.5.3 executes `items`, `keys`,
+`append`, `split`, `join`, `upper`, `strip` and `format` perfectly well. Only **`get`** and **`values`** fail.
+Seven wrong entries in a nine-method list turned a real 27 into a reported 125.
+
+Why it is latent even when the sample supplies the value: `{% if x.get('k') is defined %}` does not fail —
+`is defined` swallows the error and the guard reads false, so the branch silently never fires. That is also
+why a mechanical repair is **abstained** rather than applied: `bossman/scripts/repair_renderer_get.py`
+rewrites `x.get('k')` to `x.k | default(…)` correctly, but its safety criterion (output byte-identical) is the
+wrong one here — a fixed template legitimately renders MORE than the broken one did, and byte-identity cannot
+tell that from damage. All four candidates were reverted by it. `/config-fields` names the gap as
+`renderer_gaps` in the meantime.
 
 **Uncalibrated directive catalogs** — 510. "This key is in no documentation" only counts where the page
 documents ≥60% of the catalog; below that the page is the weak witness, not the key.
