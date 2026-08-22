@@ -339,6 +339,8 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         owner = unowned.get(path)
         if isinstance(owner, dict) and not owner.get("container_artifact"):
             continue
+        if verdict == "not-a-path":
+            continue      # the key is a basename; nothing was measured about a file
         if verdict in ("directory", "dangling-symlink") or (
                 verdict == "absent" and not seen.get("postinst_mentions")):
             entry = paths.pop(path)
