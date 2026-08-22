@@ -177,3 +177,28 @@ func TestAnsibleFilters_ZipAndProduct(t *testing.T) {
 		t.Errorf("zip = %q", got)
 	}
 }
+
+// TestPathAndShapeFilters pins the five filters the generated library needs and gonja does not ship.
+// Measured on the render ratchet before they existed: seven templates failed with "unable to evaluate
+// filter" naming exactly these, and adding them could not change any other template's output — every use of
+// them had been an error, so the only possible effect was those seven starting to work.
+func TestPathAndShapeFilters(t *testing.T) {
+	values := map[string]any{"items": []any{1, 2, 3}, "flag": true, "nope": false}
+	cases := []struct{ tmpl, want string }{
+		{`{{ "/var/run/x.pid" | dirname }}`, "/var/run"},
+		{`{{ "/var/run/x.pid" | basename }}`, "x.pid"},
+		{`{{ items | count }}`, "3"},
+		{`{{ flag | yes_no }}`, "yes"},
+		{`{{ nope | yes_no }}`, "no"},
+		// A file that wants `on` must not be written `yes` — hence the pair as an argument.
+		{`{{ flag | yes_no("on,off") }}`, "on"},
+		{`{{ nope | yes_no("true,false") }}`, "false"},
+		// dirname of a bare name is "." (path.Dir). Pinned so nobody "fixes" it to an empty string.
+		{`{{ "x.conf" | dirname }}`, "."},
+	}
+	for _, c := range cases {
+		if got := renderTmpl(t, c.tmpl, values); got != c.want {
+			t.Errorf("%s = %q, want %q", c.tmpl, got, c.want)
+		}
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"hash"
 	"net"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -100,7 +101,60 @@ func ansibleFilters() map[string]exec.FilterFunction {
 		"ipaddr":        filterIPAddr,
 		"zip":           filterZip,
 		"product":       filterProduct,
+		// PATH AND SHAPE FILTERS THE GENERATED LIBRARY USES. Measured on the render ratchet: seven templates
+		// fail with "unable to evaluate filter" naming exactly these — dirname (3), basename, count, yes_no,
+		// required. Adding a filter cannot change what an existing template writes: until now every use of
+		// them was an error, so the only possible outcome is that those seven start working.
+		"dirname":  filterDirname,
+		"basename": filterBasename,
+		"count":    filterCount,
+		"yes_no":   filterYesNo,
+		"required": filterMandatory, // Ansible spells it `mandatory`; the same rule, another name
 	}
+}
+
+// dirname / basename: path.Dir and path.Base, which is what a config template means by them —
+// `{{ pidfile | dirname }}` to create the directory a daemon writes into.
+func filterDirname(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	return exec.AsValue(path.Dir(in.String()))
+}
+
+func filterBasename(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	return exec.AsValue(path.Base(in.String()))
+}
+
+// count: Jinja's `length` under Ansible's name. A list, a map or a string — anything with a size.
+func filterCount(_ *exec.Evaluator, in *exec.Value, _ *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	return exec.AsValue(in.Len())
+}
+
+// yes_no: a boolean as the word a config file wants. Defaults to yes/no, and takes the pair as an
+// argument ("true,false" / "on,off"), because a file that wants `on` must not be written `yes`.
+func filterYesNo(_ *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
+	if in.IsError() {
+		return in
+	}
+	yes, no := "yes", "no"
+	if a := arg(params, 0); a != nil && a.String() != "" {
+		parts := strings.SplitN(a.String(), ",", 2)
+		yes = strings.TrimSpace(parts[0])
+		if len(parts) > 1 {
+			no = strings.TrimSpace(parts[1])
+		}
+	}
+	if in.IsTrue() {
+		return exec.AsValue(yes)
+	}
+	return exec.AsValue(no)
 }
 
 func filterErr(format string, a ...any) *exec.Value {
