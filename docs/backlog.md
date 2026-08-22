@@ -198,8 +198,18 @@ new question needs its own `OUT=`).
 | file | 1216 |
 | directory | 26 |
 | of the absent: created by a maintainer script | 54 |
-| **index bindings withdrawn** (both guards applied) | **2001 of 3563** |
-| not downloadable, so NO verdict | 305 packages |
+| **index bindings withdrawn** — base (host-independent) | **2001 of 3563** |
+| withdrawn on **debian** (40 more: the file is EL-only) | 2041 |
+| withdrawn on **redhat** (5 more, 1 binding only EL has) | 2005 |
+| not downloadable, so NO verdict | 678 Debian + 149 EL packages |
+
+Measured on both distributions, and **20 of 83** overlapping paths DISAGREE: `/etc/named.conf` is absent from
+Debian's bind9 (which reads `/etc/bind/named.conf`) and a real file on EL; likewise
+`/etc/dovecot/dovecot.conf`, `/etc/hostapd/hostapd.conf`, `/etc/cyrus.conf`. So the verdict lives under
+`by_family` — the same shape the codec registry already uses — and the top level is the conservative aggregate:
+any family that found a file makes it `file`, because a file that exists somewhere must never be withdrawn in
+the host-independent view. The corpus guard yields where the family was measured directly: on a Debian host
+`/etc/named.conf` really is not there, so offering Configure would write a file the daemon ignores.
 
 The third run (1069 paths of real config files) withdrew **nothing further** — its paths are registry entries
 that were never index-bound. Control cases that must survive and do: `/etc/hostname`, `/etc/passwd`,

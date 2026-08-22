@@ -102,3 +102,67 @@ def test_a_container_artifact_does_not_earn_the_exemption(tmp_path):
                                            "postinst_mentions": False, "exists_elsewhere": False}})
     assert "/etc/thing" not in r["paths"]
     assert len(r["withdrawn"]) == 1
+
+
+def test_the_familys_own_verdict_wins(tmp_path):
+    # Of 83 paths measured on both distributions, 20 disagree: /etc/named.conf is absent from Debian's bind9
+    # and a real file on EL. One answer is then wrong for one of them, so the index asked FOR a family must
+    # use that family's measurement.
+    verdicts = {"/etc/thing": {
+        "verdict": "file", "family": "redhat", "exists_elsewhere": False,
+        "by_family": {"debian": {"verdict": "absent", "package": "thing", "postinst_mentions": False},
+                      "redhat": {"verdict": "file", "package": "thing", "postinst_mentions": False}}}}
+    vpath = tmp_path / "verdicts.json"
+    vpath.write_text(json.dumps(verdicts))
+
+    templates = tmp_path / "config_templates"
+    (templates / "thing").mkdir(parents=True)
+    (templates / "thing" / "template.j2").write_text("setting = {{ setting }}\n")
+    (templates / "thing" / "schema.json").write_text(json.dumps({"setting": {"type": "string"}}))
+    (templates / "thing" / "sample.json").write_text(json.dumps({"setting": "x"}))
+    (templates / "thing" / "meta.json").write_text(json.dumps({"target_path": "/etc/thing"}))
+    catalog = tmp_path / "package_catalog.json"
+    catalog.write_text("{}")
+    codecs = tmp_path / "config_codecs.json"
+    codecs.write_text(json.dumps({"/etc/thing": {"codec": "none", "packages": ["thing"]}}))
+
+    from bossman.services.template_index import build_template_index as build
+    debian = build(catalog, codecs, templates, "debian", vpath)
+    assert "/etc/thing" not in debian["paths"], "Debian ships nothing there, so Configure must not be offered"
+
+    redhat = build(catalog, codecs, templates, "redhat", vpath)
+    assert redhat["paths"]["/etc/thing"]["template"] == "thing", "EL ships the file — the editor belongs there"
+
+    # The host-independent view takes the conservative top level: a file that exists somewhere is never
+    # withdrawn, because the base index has no host to be right about.
+    base = build(catalog, codecs, templates, "", vpath)
+    assert base["paths"]["/etc/thing"]["template"] == "thing"
+
+
+def test_the_corpus_guard_yields_to_a_direct_measurement(tmp_path):
+    # exists_elsewhere is a proxy for "we do not know this host's distribution". Where the family WAS measured
+    # directly, we do know: on a Debian host /etc/named.conf is genuinely absent (Debian's bind9 reads
+    # /etc/bind/named.conf), so Configure would write a file the daemon ignores. The corpus proving the file
+    # exists on EL is not a reason to offer it here.
+    verdicts = {"/etc/thing": {
+        "verdict": "file", "exists_elsewhere": True,
+        "by_family": {"debian": {"verdict": "absent", "package": "thing", "postinst_mentions": False},
+                      "redhat": {"verdict": "file", "package": "thing", "postinst_mentions": False}}}}
+    vpath = tmp_path / "verdicts.json"
+    vpath.write_text(json.dumps(verdicts))
+    templates = tmp_path / "config_templates"
+    (templates / "thing").mkdir(parents=True)
+    (templates / "thing" / "template.j2").write_text("setting = {{ setting }}\n")
+    (templates / "thing" / "schema.json").write_text(json.dumps({"setting": {"type": "string"}}))
+    (templates / "thing" / "sample.json").write_text(json.dumps({"setting": "x"}))
+    (templates / "thing" / "meta.json").write_text(json.dumps({"target_path": "/etc/thing"}))
+    catalog = tmp_path / "package_catalog.json"
+    catalog.write_text("{}")
+    codecs = tmp_path / "config_codecs.json"
+    codecs.write_text(json.dumps({"/etc/thing": {"codec": "none", "packages": ["thing"]}}))
+
+    from bossman.services.template_index import build_template_index as build
+    assert "/etc/thing" not in build(catalog, codecs, templates, "debian", vpath)["paths"]
+    assert build(catalog, codecs, templates, "redhat", vpath)["paths"]["/etc/thing"]["template"] == "thing"
+    # Base has no host to be right about, so the corpus guard still holds there.
+    assert build(catalog, codecs, templates, "", vpath)["paths"]["/etc/thing"]["template"] == "thing"

@@ -326,6 +326,15 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         seen = verdicts.get(path)
         if not isinstance(seen, dict):
             continue
+        # THE FAMILY'S OWN MEASUREMENT WINS when this index is being built for a family, exactly as
+        # /config-fields prefers the codec's by_family branch. Of 83 paths measured on both distributions 20
+        # disagree — /etc/named.conf is absent from Debian's bind9 and a real file on EL — so a single answer
+        # is wrong for one of them. The top level is the conservative aggregate (any family that found a file
+        # makes it "file"), which is the right default for the host-independent base index.
+        branch = (seen.get("by_family") or {}).get(family) if family else None
+        measured_here = isinstance(branch, dict) and bool(branch.get("verdict"))
+        if measured_here:
+            seen = {**seen, **branch}
         verdict = seen.get("verdict")
         # THE FALSIFICATION POINT. A verdict is evidence about ONE package on ONE distribution, and the
         # measurement ran in a debian:12 container. `exists_elsewhere` says the corpus has real text at this
@@ -334,7 +343,12 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         # ldap.conf is EL's location for Debian's /etc/ldap/ldap.conf. Measured: 0 of 1920 absent verdicts for
         # NAME-DERIVED paths appear in the corpus, but 51 of 494 from the real-config-path run do. Without this
         # guard those 51 editors would have been withdrawn for files that are on every host.
-        if seen.get("exists_elsewhere"):
+        # ...and it applies ONLY where this family was not measured directly. It was always a proxy for "we do
+        # not know which distribution this host is", and where the branch above answers, we do. On a Debian
+        # host /etc/named.conf really is not there — Debian's bind9 reads /etc/bind/named.conf — so offering
+        # Configure would create a file the daemon ignores. The corpus proving it exists ON EL is not a reason
+        # to offer it HERE.
+        if seen.get("exists_elsewhere") and not measured_here:
             continue
         owner = unowned.get(path)
         if isinstance(owner, dict) and not owner.get("container_artifact"):
