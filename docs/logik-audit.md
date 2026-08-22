@@ -2369,3 +2369,21 @@ fällt heraus, also kostet Abbrechen und Neustarten nichts. Ein Prozess, und zwa
 zwei Miner schreiben `config_directives.json` nach jedem Pfad und würden sich gegenseitig überschreiben, denn
 diese Datei ist Ausgabe *und* Zustand der Warteschlange. Nach jedem Block läuft der Linter, weil ein frischer
 Mine dieselben Defektklassen mitbringt wie der Altbestand — bisher jedes Mal.
+
+### 19. Drei „Fehler", die eine Verweigerung waren
+
+Die drei Templates, die *leer rendern*, sind kein Defekt: ihr Body besteht ausschließlich aus einem
+Jinja-Kommentar, und bei `vainfo` steht darin wörtlich *„This template is intentionally empty."* — der
+Generator hat begründet abgelehnt (ein Diagnosewerkzeug ohne Konfigurationsdatei). Vier Templates der
+Bibliothek sind so, drei sagen es selbst, und **alle vier** lehnt die Sperre ohnehin ab.
+
+Das ist der Unterschied zwischen „kaputt" und „es gibt hier nichts zu konfigurieren", und beide gehören in
+denselben Datensatz — er beantwortet die Frage „kann dieses Template eine brauchbare Datei erzeugen", und die
+Antwort ist in beiden Fällen nein. Nur reparieren sollte man das eine nicht.
+
+### 20. Sechs Verzeichnisse mit null Byte
+
+`glusterfs-client`, `ncdt`, `toot`, `trabucco`, `ttygif` und `wrapsrv` liefern eine **0 Byte** große
+`template.j2`. Der Render scheitert mit *„template or template_path is required"* — so sagt die Engine, dass
+da nichts ist — während die Sperre `is_file()` als wahr sah und sie als *unbekannt* durchließ. Eine leere
+Datei ist kein Template; die Sperre antwortet jetzt `False`.
