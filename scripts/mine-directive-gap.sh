@@ -11,6 +11,13 @@
 # path and clobber each other — the file is the queue's state as well as its output. laguna runs on
 # OpenRouter rather than the shared llama.cpp endpoint, so the reason here is data safety, not politeness.
 #
+# THE QUEUE MUST CARRY THE GATE'S CONDITION, not merely "documentation exists". The first run failed 49 of
+# 50 paths with "documentation is not about this file (0% of its keys appear)" — Apache conf-available
+# fragments grounded against the apache2 man page. A page existing is necessary and nowhere near sufficient:
+# the miner then asks whether that page MENTIONS the file's own keys. Computing doc_is_about offline first cut
+# 2377 candidates to 1087 (224 where the documentation is provably about the file, 863 that fall back to >=20
+# of their own comment lines) and saved 1290 futile model calls.
+#
 #   scripts/mine-directive-gap.sh <work-list> [chunk-size]
 set -u
 cd /home/mutkluge/Dev/code/yolo-man
