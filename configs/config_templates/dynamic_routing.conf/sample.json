@@ -1,64 +1,64 @@
 {
-  "enabled": true,
-  "log_dir": "/var/log/neutron",
-  "log_file": null,
-  "debug": false,
-  "state_path": "/var/lib/neutron",
-  "transport_url": "rabbit://neutron:NEUTRON_RABBIT_PASS@controller:5672//",
-  "keystone_authtoken": {
-    "auth_url": "http://controller:5000/v3",
-    "project_domain_name": "Default",
-    "project_name": "service",
-    "user_domain_name": "Default",
-    "username": "neutron",
-    "password": "NEUTRON_KS_PASSWORD",
-    "auth_type": "password"
+ "bgp": {
+  "bgp_router_id": "10.0.0.10",
+  "local_as": 65001,
+  "retry_interval": 15,
+  "retry_max": 12,
+  "speaker_driver": "ncs"
+ },
+ "bgp_peers": [
+  {
+   "address": "10.0.0.20",
+   "auth_key": "peer-auth-secret",
+   "connect_retry": 10,
+   "hold_time": 90,
+   "name": "edge1",
+   "remote_as": 65002
   },
-  "bgp": {
-    "speaker_driver": "ncs",
-    "local_as": 65001,
-    "bgp_router_id": "10.0.0.10",
-    "retry_max": 12,
-    "retry_interval": 15
+  {
+   "address": "10.0.0.30",
+   "connect_retry": 20,
+   "hold_time": 120,
+   "name": "edge2",
+   "password": "another-secret",
+   "remote_as": 65003
+  }
+ ],
+ "bgp_speakers": [
+  {
+   "advertise_networks": [
+    "192.168.10.0/24",
+    "192.168.20.0/24"
+   ],
+   "peers": [
+    "edge1"
+   ]
   },
-  "bgp_peers": [
-    {
-      "remote_as": 65002,
-      "address": "10.0.0.20",
-      "name": "edge1",
-      "auth_key": "peer-auth-secret",
-      "hold_time": 90,
-      "connect_retry": 10
-    },
-    {
-      "remote_as": 65003,
-      "address": "10.0.0.30",
-      "name": "edge2",
-      "password": "another-secret",
-      "hold_time": 120,
-      "connect_retry": 20
-    }
-  ],
-  "bgp_speakers": [
-    {
-      "peers": [
-        "edge1"
-      ],
-      "advertise_networks": [
-        "192.168.10.0/24",
-        "192.168.20.0/24"
-      ]
-    },
-    {
-      "bgp_router_id": "10.0.0.11",
-      "peers": [
-        "edge1",
-        "edge2"
-      ],
-      "advertise_networks": [
-        "192.168.30.0/24"
-      ],
-      "advertise_default_gateway": true
-    }
-  ]
+  {
+   "advertise_default_gateway": true,
+   "advertise_networks": [
+    "192.168.30.0/24"
+   ],
+   "bgp_router_id": "10.0.0.11",
+   "peers": [
+    "edge1",
+    "edge2"
+   ]
+  }
+ ],
+ "debug": false,
+ "enabled": true,
+ "keystone_authtoken": {
+  "auth_type": "password",
+  "auth_url": "http://controller:5000/v3",
+  "password": "NEUTRON_KS_PASSWORD",
+  "project_domain_name": "Default",
+  "project_name": "service",
+  "user_domain_name": "Default",
+  "username": "neutron"
+ },
+ "log_dir": "/var/log/neutron",
+ "log_file": "",
+ "state_path": "/var/lib/neutron",
+ "transport_url": "rabbit://neutron:NEUTRON_RABBIT_PASS@controller:5672//"
 }

@@ -1,114 +1,114 @@
 {
-  "source_clock": {
-    "type": "string",
-    "default": "CLOCK_REALTIME",
-    "description": "Source clock \u2014 device path (e.g., '/dev/ptp0'), interface (e.g., 'eth0'), or name (e.g., 'CLOCK_REALTIME'). Required for manual mode."
-  },
-  "dest_clock": {
-    "type": "string",
-    "default": "CLOCK_REALTIME",
-    "description": "Destination (time sink) clock \u2014 device path, interface, or name. Default is 'CLOCK_REALTIME'. Use -c in phc2sys; previously named 'dest_clock' in template."
-  },
-  "domain": {
-    "type": "number",
-    "default": null,
-    "description": "PTP domain number (0\u2013127). If omitted, defaults to 0. Corresponds to -n in phc2sys."
-  },
-  "phc_device": {
-    "type": "string",
-    "default": null,
-    "description": "Path to the PHC device (e.g., '/dev/ptp0'). When provided, overrides automatic detection. Corresponds to -s (source device) in manual mode."
-  },
-  "step_threshold": {
-    "type": "number",
-    "default": 0.0,
-    "description": "Maximum offset (seconds) before a clock step is allowed. The clock is stepped on start regardless if offset > 20\u00b5s unless -F (first_step_threshold) is used. Default is 0.0 (disabled stepping after start)."
-  },
-  "freq_limit": {
-    "type": "number",
-    "default": 200000000,
-    "description": "Maximum allowed frequency offset (ppb) for sanity check. When exceeded, warning is logged and servo reset. Default is 200000000 (20%). Set to 0 to disable. Previously named 'freq_range' \u2014 corrected to 'freq_limit'."
-  },
-  "auto_switch": {
-    "type": "boolean",
-    "default": false,
-    "description": "Deprecated. phc2sys has no -A option. Use -a for automatic clock switching. If set, template still emits -A (no-op or error). Not recommended."
-  },
-  "offset_samples": {
-    "type": "number",
-    "default": 5,
-    "description": "Number of PHC readings per sink update. Only the fastest reading is used. Default is 5. Previously named 'offset_samples' \u2014 preserved, maps to -N."
-  },
-  "update_rate": {
-    "type": "number",
-    "default": 1,
-    "description": "Sink update rate (per second) in direct mode. Default is 1. Maps to -R."
-  },
-  "kernel_leap": {
-    "type": "boolean",
-    "default": true,
-    "description": "If true, let the kernel apply leap seconds (default). If false, let phc2sys correct the one-second offset via frequency adjustment (unless step_threshold applies). Maps to -x (no value)."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 6,
-    "description": "Syslog verbosity level (0\u20137). Default is 6 (LOG_INFO). Maps to -l."
-  },
-  "slave_only": {
-    "type": "boolean",
-    "default": false,
-    "description": "Deprecated. phc2sys has no -S flag (it exists but is for step_threshold, not slave mode). Use ptp4l for slave-only behavior."
-  },
-  "transport": {
-    "type": "string",
-    "default": null,
-    "description": "Deprecated. phc2sys does not accept -x for transport type. That flag exists but controls leap second handling, not transport."
-  },
-  "phc_timestamping": {
-    "type": "boolean",
-    "default": false,
-    "description": "Deprecated. phc2sys does not have a -T option for timestamping mode. This directive was hallucinated."
-  },
-  "clock_identity": {
-    "type": "string",
-    "default": null,
-    "description": "Deprecated. phc2sys does not accept a clock identity (-c is reserved for sink device). This directive was hallucinated."
-  },
-  "test_mode": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, run in test mode \u2014 compute offsets but do not adjust the clock. Maps to -n domain-number, but due to conflict, template uses -n only when domain is set. To avoid conflict, test_mode should be handled separately or removed. Per manpage, -n has no test-mode function \u2014 only domain-number. Thus test_mode is unsupported and should be removed or reinterpreted. For clarity, set default false and note limitation."
-  },
-  "first_step_threshold": {
-    "type": "number",
-    "default": 2e-05,
-    "description": "Step threshold applied only on the first update (20\u00b5s by default). Not currently in schema \u2014 added as required by docs."
-  },
-  "clock_servo": {
-    "type": "string",
-    "default": "pi",
-    "description": "Clock servo type: 'pi', 'linreg', 'ntpshm', 'nullf', or 'refclock_sock'. Default is 'pi'. Required for parity with manpage.",
-    "enum": [
-      "pi",
-      "linreg",
-      "ntpshm",
-      "nullf",
-      "refclock_sock"
-    ]
-  },
-  "pi_integral_const": {
-    "type": "number",
-    "default": 0.3,
-    "description": "Integral constant for PI servo. Default 0.3."
-  },
-  "pi_proportional_const": {
-    "type": "number",
-    "default": 0.7,
-    "description": "Proportional constant for PI servo. Default 0.7."
-  },
-  "ntpshm_segment": {
-    "type": "number",
-    "default": 0,
-    "description": "SHM segment number for ntpshm servo. Default 0."
-  }
+ "auto_switch": {
+  "default": false,
+  "description": "Deprecated. phc2sys has no -A option. Use -a for automatic clock switching. If set, template still emits -A (no-op or error). Not recommended.",
+  "type": "boolean"
+ },
+ "clock_identity": {
+  "default": null,
+  "description": "Deprecated. phc2sys does not accept a clock identity (-c is reserved for sink device). This directive was hallucinated.",
+  "type": "string"
+ },
+ "clock_servo": {
+  "default": "pi",
+  "description": "Clock servo type: 'pi', 'linreg', 'ntpshm', 'nullf', or 'refclock_sock'. Default is 'pi'. Required for parity with manpage.",
+  "enum": [
+   "pi",
+   "linreg",
+   "ntpshm",
+   "nullf",
+   "refclock_sock"
+  ],
+  "type": "string"
+ },
+ "dest_clock": {
+  "default": "CLOCK_REALTIME",
+  "description": "Destination (time sink) clock — device path, interface, or name. Default is 'CLOCK_REALTIME'. Use -c in phc2sys; previously named 'dest_clock' in template.",
+  "type": "string"
+ },
+ "domain": {
+  "default": null,
+  "description": "PTP domain number (0–127). If omitted, defaults to 0. Corresponds to -n in phc2sys.",
+  "type": "number"
+ },
+ "first_step_threshold": {
+  "default": 2e-05,
+  "description": "Step threshold applied only on the first update (20µs by default). Not currently in schema — added as required by docs.",
+  "type": "number"
+ },
+ "freq_limit": {
+  "default": 200000000,
+  "description": "Maximum allowed frequency offset (ppb) for sanity check. When exceeded, warning is logged and servo reset. Default is 200000000 (20%). Set to 0 to disable. Previously named 'freq_range' — corrected to 'freq_limit'.",
+  "type": "number"
+ },
+ "kernel_leap": {
+  "default": true,
+  "description": "If true, let the kernel apply leap seconds (default). If false, let phc2sys correct the one-second offset via frequency adjustment (unless step_threshold applies). Maps to -x (no value).",
+  "type": "boolean"
+ },
+ "log_level": {
+  "default": 6,
+  "description": "Syslog verbosity level (0–7). Default is 6 (LOG_INFO). Maps to -l.",
+  "type": "number"
+ },
+ "ntpshm_segment": {
+  "default": 0,
+  "description": "SHM segment number for ntpshm servo. Default 0.",
+  "type": "number"
+ },
+ "offset_samples": {
+  "default": 5,
+  "description": "Number of PHC readings per sink update. Only the fastest reading is used. Default is 5. Previously named 'offset_samples' — preserved, maps to -N.",
+  "type": "number"
+ },
+ "phc_device": {
+  "default": null,
+  "description": "Path to the PHC device (e.g., '/dev/ptp0'). When provided, overrides automatic detection. Corresponds to -s (source device) in manual mode.",
+  "type": "string"
+ },
+ "phc_timestamping": {
+  "default": false,
+  "description": "Deprecated. phc2sys does not have a -T option for timestamping mode. This directive was hallucinated.",
+  "type": "boolean"
+ },
+ "pi_integral_const": {
+  "default": 0.3,
+  "description": "Integral constant for PI servo. Default 0.3.",
+  "type": "number"
+ },
+ "pi_proportional_const": {
+  "default": 0.7,
+  "description": "Proportional constant for PI servo. Default 0.7.",
+  "type": "number"
+ },
+ "slave_only": {
+  "default": false,
+  "description": "Deprecated. phc2sys has no -S flag (it exists but is for step_threshold, not slave mode). Use ptp4l for slave-only behavior.",
+  "type": "boolean"
+ },
+ "source_clock": {
+  "default": "CLOCK_REALTIME",
+  "description": "Source clock — device path (e.g., '/dev/ptp0'), interface (e.g., 'eth0'), or name (e.g., 'CLOCK_REALTIME'). Required for manual mode.",
+  "type": "string"
+ },
+ "step_threshold": {
+  "default": 0.0,
+  "description": "Maximum offset (seconds) before a clock step is allowed. The clock is stepped on start regardless if offset > 20µs unless -F (first_step_threshold) is used. Default is 0.0 (disabled stepping after start).",
+  "type": "number"
+ },
+ "test_mode": {
+  "default": false,
+  "description": "If true, run in test mode — compute offsets but do not adjust the clock. Maps to -n domain-number, but due to conflict, template uses -n only when domain is set. To avoid conflict, test_mode should be handled separately or removed. Per manpage, -n has no test-mode function — only domain-number. Thus test_mode is unsupported and should be removed or reinterpreted. For clarity, set default false and note limitation.",
+  "type": "boolean"
+ },
+ "transport": {
+  "default": null,
+  "description": "Deprecated. phc2sys does not accept -x for transport type. That flag exists but controls leap second handling, not transport.",
+  "type": "string"
+ },
+ "update_rate": {
+  "default": 1,
+  "description": "Sink update rate (per second) in direct mode. Default is 1. Maps to -R.",
+  "type": "number"
+ }
 }

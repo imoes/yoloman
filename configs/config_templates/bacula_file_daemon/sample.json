@@ -1,63 +1,63 @@
 {
-  "fd_name": "bacula-fd-webserver01",
-  "fd_port": 9102,
-  "log_file": "/var/log/bacula/bacula-fd.log",
-  "pid_directory": "/run/bacula",
-  "max_concurrent_jobs": 3,
-  "working_directory": "/var/lib/bacula",
-  "fd_addresses": [
-    "127.0.0.1",
-    "10.0.1.15"
-  ],
-  "directors": [
-    {
-      "name": "Director",
-      "address": "10.0.1.10",
-      "fd_port": 9101,
-      "password": "s3cur3DirP@ss",
-      "tls_enable": true,
-      "tls_ca_cert": "/etc/bacula/ssl/certs/bacula-ca.crt",
-      "tls_cert": "/etc/bacula/ssl/certs/bacula-fd.crt",
-      "tls_key": "/etc/bacula/ssl/private/bacula-fd.key"
-    }
-  ],
-  "catalog": {
-    "name": "MyCatalog",
-    "db_address": "10.0.1.11",
-    "db_port": 5432,
-    "db_name": "bacula",
-    "db_user": "bacula",
-    "db_password": "dbP@ssw0rd!"
+ "autochanger": {},
+ "catalog": {
+  "db_address": "10.0.1.11",
+  "db_name": "bacula",
+  "db_password": "dbP@ssw0rd!",
+  "db_port": 5432,
+  "db_user": "bacula",
+  "name": "MyCatalog"
+ },
+ "directors": [
+  {
+   "address": "10.0.1.10",
+   "fd_port": 9101,
+   "name": "Director",
+   "password": "s3cur3DirP@ss",
+   "tls_ca_cert": "/etc/bacula/ssl/certs/bacula-ca.crt",
+   "tls_cert": "/etc/bacula/ssl/certs/bacula-fd.crt",
+   "tls_enable": true,
+   "tls_key": "/etc/bacula/ssl/private/bacula-fd.key"
+  }
+ ],
+ "fd_addresses": [
+  "127.0.0.1",
+  "10.0.1.15"
+ ],
+ "fd_name": "bacula-fd-webserver01",
+ "fd_port": 9102,
+ "log_file": "/var/log/bacula/bacula-fd.log",
+ "max_concurrent_jobs": 3,
+ "messages": {
+  "AppendToLog": {
+   "target": "/var/log/bacula/audit.log",
+   "type": "append"
   },
-  "messages": {
-    "Standard": {
-      "type": "daemon",
-      "target": "127.0.0.1 9103",
-      "level": "all, !skipped"
-    },
-    "MailToSysadmin": {
-      "type": "mail",
-      "target": "admin@example.com",
-      "level": "error, warning"
-    },
-    "AppendToLog": {
-      "type": "append",
-      "target": "/var/log/bacula/audit.log"
-    }
+  "MailToSysadmin": {
+   "level": "error, warning",
+   "target": "admin@example.com",
+   "type": "mail"
   },
-  "tls_enabled": true,
-  "tls_ca_cert_file": "/etc/bacula/ssl/certs/bacula-ca.crt",
-  "tls_cert_file": "/etc/bacula/ssl/certs/bacula-fd.crt",
-  "tls_key_file": "/etc/bacula/ssl/private/bacula-fd.key",
-  "plugins": [
-    {
-      "name": "vss-win32",
-      "path": "/usr/lib/bacula/plugins/bacula-fd-vss-1.0.so",
-      "options": {
-        "EnableVSS": "yes",
-        "VSSBackupType": "full"
-      }
-    }
-  ],
-  "autochanger": null
+  "Standard": {
+   "level": "all, !skipped",
+   "target": "127.0.0.1 9103",
+   "type": "daemon"
+  }
+ },
+ "pid_directory": "/run/bacula",
+ "plugins": [
+  {
+   "name": "vss-win32",
+   "options": {
+    "EnableVSS": "yes",
+    "VSSBackupType": "full"
+   },
+   "path": "/usr/lib/bacula/plugins/bacula-fd-vss-1.0.so"
+  }
+ ],
+ "tls_ca_cert_file": "/etc/bacula/ssl/certs/bacula-ca.crt",
+ "tls_cert_file": "/etc/bacula/ssl/certs/bacula-fd.crt",
+ "tls_enabled": true,
+ "tls_key_file": "/etc/bacula/ssl/private/bacula-fd.key",
+ "working_directory": "/var/lib/bacula"
 }
