@@ -1,84 +1,88 @@
 {
-  "bind_host": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address or hostname to bind the server to. Use 0.0.0.0 for all interfaces."
-  },
-  "bind_port": {
-    "type": "number",
-    "default": 2628,
-    "description": "Port number to listen on. RFC 2229 reserves port 2628 for DICOD."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of simultaneous client connections allowed."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debugging output (logs extra diagnostics)."
-  },
-  "default_db": {
-    "type": "list",
-    "default": [
-      "gcide"
-    ],
-    "description": "List of dictionary database names to use by default when no DB is specified in a client query."
-  },
-  "dict_dir": {
-    "type": "string",
-    "default": "/usr/share/dictd",
-    "description": "Absolute path to the directory containing dictionary database files."
-  },
-  "client_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Idle timeout (in seconds) before disconnecting a client connection."
-  },
-  "compression": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable gzip compression for large response bodies (supported by RFC 2229 clients)."
-  },
-  "auth_realm": {
-    "type": "string",
-    "default": "",
-    "description": "Authentication realm name (if using RFC 2229 AUTH). Leave empty to disable."
-  },
-  "databases": {
-    "type": "list",
+ "auth_realm": {
+  "default": "",
+  "description": "Authentication realm name (if using RFC 2229 AUTH). Leave empty to disable.",
+  "type": "string"
+ },
+ "bind_host": {
+  "default": "0.0.0.0",
+  "description": "IP address or hostname to bind the server to. Use 0.0.0.0 for all interfaces.",
+  "type": "string"
+ },
+ "bind_port": {
+  "default": 2628,
+  "description": "Port number to listen on. RFC 2229 reserves port 2628 for DICOD.",
+  "type": "number"
+ },
+ "client_timeout": {
+  "default": 30,
+  "description": "Idle timeout (in seconds) before disconnecting a client connection.",
+  "type": "number"
+ },
+ "compression": {
+  "default": true,
+  "description": "Enable gzip compression for large response bodies (supported by RFC 2229 clients).",
+  "type": "bool"
+ },
+ "databases": {
+  "default": [],
+  "description": "List of database definitions with per-database settings. Each entry defines a dictionary source.",
+  "items": {
+   "allow_hosts": {
     "default": [],
-    "description": "List of database definitions with per-database settings. Each entry defines a dictionary source.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Identifier for the database (must match the base filename in dict_dir)."
-      },
-      "path": {
-        "type": "string",
-        "description": "Absolute or relative path to the dictionary file (relative to dict_dir if not absolute)."
-      },
-      "description": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable description of this dictionary (shown in INFO DB command)."
-      },
-      "allow_hosts": {
-        "type": "list",
-        "default": [],
-        "description": "List of allowed IP addresses or CIDR networks. If empty, all hosts are allowed by default."
-      },
-      "deny_hosts": {
-        "type": "list",
-        "default": [],
-        "description": "List of denied IP addresses or CIDR networks. Takes precedence over allow_hosts."
-      },
-      "max_results": {
-        "type": "number",
-        "default": null,
-        "description": "Maximum number of matches to return per query for this database. Omit or null for no limit."
-      }
-    }
-  }
+    "description": "List of allowed IP addresses or CIDR networks. If empty, all hosts are allowed by default.",
+    "type": "list"
+   },
+   "deny_hosts": {
+    "default": [],
+    "description": "List of denied IP addresses or CIDR networks. Takes precedence over allow_hosts.",
+    "type": "list"
+   },
+   "description": {
+    "default": "",
+    "description": "Human-readable description of this dictionary (shown in INFO DB command).",
+    "type": "string"
+   },
+   "max_results": {
+    "default": null,
+    "description": "Maximum number of matches to return per query for this database. Omit or null for no limit.",
+    "type": "number"
+   },
+   "name": {
+    "description": "Identifier for the database (must match the base filename in dict_dir).",
+    "type": "string"
+   },
+   "path": {
+    "description": "Absolute or relative path to the dictionary file (relative to dict_dir if not absolute).",
+    "type": "string"
+   }
+  },
+  "type": "list"
+ },
+ "debug": {
+  "default": false,
+  "description": "Enable verbose debugging output (logs extra diagnostics).",
+  "type": "bool"
+ },
+ "default_db": {
+  "default": [
+   "gcide"
+  ],
+  "description": "List of dictionary database names to use by default when no DB is specified in a client query.",
+  "type": "list"
+ },
+ "dict_dir": {
+  "default": "/usr/share/dictd",
+  "description": "Absolute path to the directory containing dictionary database files.",
+  "type": "string"
+ },
+ "max_connections": {
+  "default": 100,
+  "description": "Maximum number of simultaneous client connections allowed.",
+  "type": "number"
+ },
+ "omit": {
+  "source": "inferred-from-template",
+  "type": "string"
+ }
 }

@@ -2312,3 +2312,33 @@ war (das hatte `anymeal`, `frr` und `munin-node.conf` zerstört).
 ein Fixpunkt. Der Index wächst auf 3548 Pfade, und Bindungen auf unbrauchbare Templates: 0. Beschreibungen
 werden dabei **keine** erfunden: ein deklariertes Feld ohne Beschreibung ist ein Zustand, den der Katalog
 zählt, und `describe_missing_keys.py` kann ihn später aus der Dokumentation füllen.
+
+### 15. Dieselbe Reparatur für die stille Hälfte — und ein Rückschritt, den die Ratsche hätte fangen sollen
+
+Die 183 Templates mit unsetzbaren Variablen **rendern**; ihre Variablen laufen nur leer, und kein Bediener
+konnte sie je setzen. Dieselbe Deklaration aus dem Body, dieselben Sperren: **525 → 374 Variablen, 183 → 74
+Templates**.
+
+Dabei habe ich fünf Templates zerstört, die vorher liefen — `hdparm` und `kdc.conf` rufen `| dict2items` auf
+dem Blatt, `plugin-krb5-connector` und `gnupg-pkcs11-scd` rufen `.items()`, und ein leerer **String** hat
+keine Items. Mein Gerüst setzte jedes Blatt auf `""`. Jetzt entscheidet auch beim Blatt der **Gebrauch**
+(`.items()`/`dict2items`/`keys()` → `{}`, Schleife oder `| join` → `[]`), und wo das nicht reichte, habe ich
+meine Änderung an diesen fünf **zurückgenommen**: sie liefen, mein Eingriff brach sie, und die richtige Form
+ist von hier nicht ableitbar.
+
+**Der Prozessfehler ist der wichtigere Teil:** ich habe die Ratsche mit `TEMPLATE_RENDER_WRITE=1` neu
+geschrieben und damit genau das verdeckt, wovor sie schützt. Eine Ratsche prüft nur, wenn man sie **vor** dem
+Neuschreiben ohne Schreibflag laufen lässt. Der Fehler fiel erst auf, weil die Gesamtzahl von 118 auf 123
+stieg.
+
+### 16. Die größte verbleibende Lücke, benannt
+
+**5842 Pfade** tragen einen an den Bytes gemessenen Per-Schlüssel-Codec und **keinen einzigen
+Direktiveneintrag** (von 7291 schreibbaren Pfaden insgesamt haben 6275 keine Direktiven, 5842 davon sind
+gemessen). Das ist keine Lüge, sondern eine Abdeckungslücke: der Schreibweg *kann* diese Dateien pro
+Schlüssel ändern, der Katalog weiß nur nichts über ihre Schlüssel. Der Host-Editor zeigt dort weiterhin die
+**gelebten** Schlüssel aus dem beobachteten Zustand; was fehlt, sind Typ, erlaubte Werte und Beschreibung.
+
+Die Codec-Messung ist von 7283 auf 10984 Einträge gewachsen, der Direktivenkatalog bei 1114 Pfaden geblieben —
+daher die Schere. Sie zu schließen heißt 5842 Mining-Läufe, und das ist eine Entscheidung über Tage
+Rechenzeit, keine Reparatur, die man nebenbei macht. Deshalb steht hier die Zahl statt eines halben Versuchs.

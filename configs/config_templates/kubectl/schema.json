@@ -1,18 +1,30 @@
 {
-  "contexts": {
-    "type": "list",
-    "description": "List of context objects defining the association between cluster and user for a specific namespace setting, defaulting to 'default' if not provided in the context object itself (though context.namespace is handled by the template default filter, explicit per-context namespace is often preferred in generated configs if available, but here we rely on the template's default for simplicity unless we add it to the item schema. Wait, the prompt asks for 'items' as a FLAT map. Let's add 'namespace' to the items schema to be safe and explicit, or let the template handle defaults. The template uses `context.namespace | default('default')`. So `namespace` is a valid field for the context object in a real kubeconfig. I will add it to the items schema. Actually, standard kubeconfig context object has 'cluster', 'user', 'namespace'. I will include namespace in the items schema to allow override. But the template default handles missing. To be strict about 'real documented setting', namespace is part of the context object in kubeconfig. I will add it to items schema with default 'default'. However, the prompt says `items` is a flat map. So I will define namespace in items schema. Wait, if I define it in items schema, the default should be in the schema. But the template handles the 'default' logic. To avoid redundancy, I'll let the template handle the default filter for namespace, but include namespace in the items schema so users can override it. The default value in the schema should be the fallback. If the template has a default filter, the schema default might be redundant but good for documentation. I'll set schema default to 'default' to match. Actually, if the user doesn't provide it, the template uses 'default'. If the user provides it in the list, it uses that. This is consistent. I will add namespace to the items schema. But wait, the prompt says 'default' in schema is a bare scalar. If I add namespace to items, I need a default. I'll use 'default'.\n      \n      Correction: To keep it simple and strictly follow 'one-line comment above every directive', I will ensure the template renders what is in the values. If `context.namespace` is not in values, it falls back to 'default'. I will add `namespace` to the items schema with default `default`.\n    },\n    "
-  },
-  "items": {
-    "type": "string",
-    "description": "The namespace associated with this context."
-  },
-  "cluster": {
-    "type": "string",
-    "description": "The name of the cluster to associate with this context."
-  },
-  "user": {
-    "type": "string",
-    "description": "The name of the user to associate with this context."
-  }
+ "cluster": {
+  "description": "The name of the cluster to associate with this context.",
+  "type": "string"
+ },
+ "clusters": {
+  "source": "inferred-from-template",
+  "type": "list"
+ },
+ "contexts": {
+  "description": "List of context objects defining the association between cluster and user for a specific namespace setting, defaulting to 'default' if not provided in the context object itself (though context.namespace is handled by the template default filter, explicit per-context namespace is often preferred in generated configs if available, but here we rely on the template's default for simplicity unless we add it to the item schema. Wait, the prompt asks for 'items' as a FLAT map. Let's add 'namespace' to the items schema to be safe and explicit, or let the template handle defaults. The template uses `context.namespace | default('default')`. So `namespace` is a valid field for the context object in a real kubeconfig. I will add it to the items schema. Actually, standard kubeconfig context object has 'cluster', 'user', 'namespace'. I will include namespace in the items schema to allow override. But the template default handles missing. To be strict about 'real documented setting', namespace is part of the context object in kubeconfig. I will add it to items schema with default 'default'. However, the prompt says `items` is a flat map. So I will define namespace in items schema. Wait, if I define it in items schema, the default should be in the schema. But the template handles the 'default' logic. To avoid redundancy, I'll let the template handle the default filter for namespace, but include namespace in the items schema so users can override it. The default value in the schema should be the fallback. If the template has a default filter, the schema default might be redundant but good for documentation. I'll set schema default to 'default' to match. Actually, if the user doesn't provide it, the template uses 'default'. If the user provides it in the list, it uses that. This is consistent. I will add namespace to the items schema. But wait, the prompt says 'default' in schema is a bare scalar. If I add namespace to items, I need a default. I'll use 'default'.\n      \n      Correction: To keep it simple and strictly follow 'one-line comment above every directive', I will ensure the template renders what is in the values. If `context.namespace` is not in values, it falls back to 'default'. I will add `namespace` to the items schema with default `default`.\n    },\n    ",
+  "type": "list"
+ },
+ "current_context": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "items": {
+  "description": "The namespace associated with this context.",
+  "type": "string"
+ },
+ "user": {
+  "description": "The name of the user to associate with this context.",
+  "type": "string"
+ },
+ "users": {
+  "source": "inferred-from-template",
+  "type": "list"
+ }
 }

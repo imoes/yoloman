@@ -1,502 +1,510 @@
 {
-  "port": {
-    "type": "number",
-    "default": 8080,
-    "description": "The TCP port on which the proxy listens for HTTP connections."
-  },
-  "bind_address": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address to bind to. Use 0.0.0.0 to listen on all interfaces."
-  },
-  "children": {
-    "type": "number",
-    "default": 8,
-    "description": "Number of worker processes to spawn for handling requests."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Verbosity level for logging (0\u20134). Higher = more verbose."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/e2guardian/e2guardian.log",
-    "description": "Path to the main log file."
-  },
-  "access_log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Optional path to access-specific log. Leave empty to use main log."
-  },
-  "ssl_intercept": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable SSL/TLS traffic interception (man-in-the-middle)."
-  },
-  "ssl_cert": {
-    "type": "string",
-    "default": "/etc/e2guardian/ssl/e2guardian.crt",
-    "description": "Path to SSL certificate (PEM format). Required if SSL interception is enabled."
-  },
-  "ssl_key": {
-    "type": "string",
-    "default": "/etc/e2guardian/ssl/e2guardian.key",
-    "description": "Path to SSL private key (PEM format). Required if SSL interception is enabled."
-  },
-  "ssl_ca": {
-    "type": "string",
-    "default": "/etc/e2guardian/ssl/ca.crt",
-    "description": "Path to CA certificate for signing intercepted SSL certificates."
-  },
-  "ssl_ca_key": {
-    "type": "string",
-    "default": "/etc/e2guardian/ssl/ca.key",
-    "description": "Path to CA private key for signing intercepted SSL certificates."
-  },
-  "client_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Idle timeout in seconds for client connections."
-  },
-  "max_header_lines": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of HTTP header lines to parse."
-  },
-  "max_body_lines": {
-    "type": "number",
-    "default": 2000,
-    "description": "Maximum number of HTTP body lines to parse."
-  },
-  "content_scan": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable real-time scanning of downloads for malware."
-  },
-  "clamav_socket": {
-    "type": "string",
-    "default": "/var/run/clamav/clamd.ctl",
-    "description": "Path to ClamAV Unix socket. Use 'disabled' to skip scanning."
-  },
-  "clamav_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Timeout (ms) for ClamAV scanning operations."
-  },
-  "url_filter": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable URL-based filtering (blacklists, keywords)."
-  },
-  "url_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/urlfilter.conf",
-    "description": "Path to the URL filtering configuration file."
-  },
-  "content_filter": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable content filtering based on patterns/mime types."
-  },
-  "content_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/contentfilter.conf",
-    "description": "Path to the content filtering rules file."
-  },
-  "blocked_site_list_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/blockedlists.conf",
-    "description": "Path to the file containing blocked site domains."
-  },
-  "whitelist_site_list_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/whitelists.conf",
-    "description": "Path to the file containing whitelisted (allowed) domains."
-  },
-  "group_access": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable per-group access control (requires group membership)."
-  },
-  "group_access_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/groupaccess.conf",
-    "description": "Path to the group access control rules file."
-  },
-  "authentication": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable client authentication (e.g., via PAM, LDAP)."
-  },
-  "auth_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/auth.conf",
-    "description": "Path to the authentication backend configuration file."
-  },
-  "enable_compression": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable GZIP compression for responses."
-  },
-  "enable_pipelining": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable HTTP request pipelining (may improve performance with compatible servers)."
-  },
-  "enable_keepalive": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable HTTP keep-alive connections."
-  },
-  "forward_for": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable insertion of X-Forwarded-For header (for client IP transparency)."
-  },
-  "hsts": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable HTTP Strict Transport Security header injection."
-  },
-  "log_to_syslog": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable sending logs to the system syslog daemon."
-  },
-  "syslog_facility": {
-    "type": "string",
-    "default": "daemon",
-    "description": "Syslog facility to use when logging to syslog (e.g., daemon, local0)."
-  },
-  "pid_file": {
-    "type": "string",
-    "default": "/var/run/e2guardian/e2guardian.pid",
-    "description": "Path to the PID file for the main process."
-  },
-  "run_as_user": {
-    "type": "string",
-    "default": "e2guardian",
-    "description": "System user to drop privileges to after startup (for security)."
-  },
-  "run_as_group": {
-    "type": "string",
-    "default": "e2guardian",
-    "description": "System group to drop privileges to after startup."
-  },
-  "default_language": {
-    "type": "string",
-    "default": "english",
-    "description": "Default language for error and blocking pages (e.g., english, german)."
-  },
-  "language_path": {
-    "type": "string",
-    "default": "/etc/e2guardian/languages",
-    "description": "Path to directory containing language template files."
-  },
-  "language_detect": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable automatic language detection via Accept-Language header."
-  },
-  "regex_filter": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable advanced regex-based filtering rules."
-  },
-  "regex_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/regexfilter.conf",
-    "description": "Path to the regex filtering rules file."
-  },
-  "mime_filter": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable filtering based on MIME types."
-  },
-  "mime_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/mimefilter.conf",
-    "description": "Path to MIME type filtering rules."
-  },
-  "extension_filter": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable filtering based on file extensions."
-  },
-  "extension_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/extensionfilter.conf",
-    "description": "Path to file extension filtering rules."
-  },
-  "referrer_filter": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable filtering based on HTTP referer headers."
-  },
-  "referrer_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/referrerfilter.conf",
-    "description": "Path to referrer filtering rules."
-  },
-  "user_agent_filter": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable filtering based on User-Agent headers."
-  },
-  "user_agent_filter_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/useragentfilter.conf",
-    "description": "Path to User-Agent filtering rules."
-  },
-  "upstream_proxy_host": {
-    "type": "string",
-    "default": "",
-    "description": "Host:port of upstream proxy for chaining (if used)."
-  },
-  "upstream_proxy_port": {
-    "type": "number",
-    "default": 3128,
-    "description": "Port of upstream proxy (if host specified)."
-  },
-  "upstream_proxy_auth": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable authentication to the upstream proxy."
-  },
-  "upstream_proxy_username": {
-    "type": "string",
-    "default": "",
-    "description": "Username for upstream proxy auth (if enabled)."
-  },
-  "upstream_proxy_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for upstream proxy auth (if enabled)."
-  },
-  "chain_proxy": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable transparent proxy mode (chain through another proxy)."
-  },
-  "round_robin": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable round-robin load-balancing across multiple upstream proxies."
-  },
-  "object_cache": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable local HTTP object caching."
-  },
-  "cache_dir": {
-    "type": "string",
-    "default": "/var/cache/e2guardian",
-    "description": "Path to cache directory for cached objects."
-  },
-  "cache_max_size": {
-    "type": "number",
-    "default": 1024,
-    "description": "Maximum cache size in megabytes (MB)."
-  },
-  "cache_max_object_size": {
-    "type": "number",
-    "default": 512,
-    "description": "Maximum size in kilobytes (KB) for individual cached objects."
-  },
-  "cache_expiry": {
-    "type": "number",
-    "default": 3600,
-    "description": "Default cache expiry time in seconds."
-  },
-  "cache_clean_on_start": {
-    "type": "boolean",
-    "default": true,
-    "description": "Clean stale cache entries on startup."
-  },
-  "cache_free_min": {
-    "type": "number",
-    "default": 100,
-    "description": "Minimum free disk space (MB) required to avoid cache corruption."
-  },
-  "cache_mode": {
-    "type": "number",
-    "default": 1,
-    "description": "Cache mode: 0=disabled, 1=local only, 2=shared (if supported)."
-  },
-  "prevent_xxe": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable protection against XML External Entity attacks."
-  },
-  "prevent_ssrf": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable protection against Server-Side Request Forgery."
-  },
-  "prevent_dir_traversal": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable protection against path traversal attacks."
-  },
-  "prevent_http_smuggling": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable protection against HTTP request smuggling."
-  },
-  "ip_rate_limit": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable rate limiting per source IP address."
-  },
-  "ip_rate_limit_max": {
-    "type": "number",
-    "default": 100,
-    "description": "Max allowed requests per IP per minute (if IP rate limiting enabled)."
-  },
-  "user_rate_limit": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable rate limiting per authenticated user."
-  },
-  "user_rate_limit_max": {
-    "type": "number",
-    "default": 500,
-    "description": "Max allowed requests per user per minute (if user rate limiting enabled)."
-  },
-  "content_dlp": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable Data Loss Prevention (e.g., preventing upload of sensitive data)."
-  },
-  "content_dlp_config": {
-    "type": "string",
-    "default": "/etc/e2guardian/dlp.conf",
-    "description": "Path to DLP rules configuration file."
-  },
-  "password_leakage": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable detection of password leakage in uploads."
-  },
-  "credit_card_detection": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable detection of credit card numbers in content."
-  },
-  "web_admin": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable or disable the web-based admin interface."
-  },
-  "web_admin_port": {
-    "type": "number",
-    "default": 8081,
-    "description": "Port for the admin interface (if enabled)."
-  },
-  "web_admin_password": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable password protection for the admin interface."
-  },
-  "web_admin_user_list": {
-    "type": "string",
-    "default": "/etc/e2guardian/adminusers.conf",
-    "description": "Path to file listing admin usernames/passwords."
-  },
-  "web_admin_log_access": {
-    "type": "boolean",
-    "default": true,
-    "description": "Allow admin interface users to view logs."
-  },
-  "web_admin_config_edit": {
-    "type": "boolean",
-    "default": false,
-    "description": "Allow live editing of config via admin interface."
-  },
-  "web_admin_reports": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable report generation via admin interface."
-  },
-  "log_format": {
-    "type": "number",
-    "default": 2,
-    "description": "Log format: 0=standard, 1=common, 2=combined, 3=custom."
-  },
-  "log_custom_format": {
-    "type": "string",
-    "default": "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"",
-    "description": "Custom log format string (only used if log_format=3)."
-  },
-  "log_rotate": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable log rotation and archival."
-  },
-  "log_rotate_count": {
-    "type": "number",
-    "default": 7,
-    "description": "Number of rotated log files to keep."
-  },
-  "log_rotate_size": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum log file size (MB) before rotation."
-  },
-  "log_rotate_compress": {
-    "type": "boolean",
-    "default": true,
-    "description": "Compress rotated log files with gzip."
-  },
-  "max_conn_per_child": {
-    "type": "number",
-    "default": 10000,
-    "description": "Max concurrent connections per worker process."
-  },
-  "max_req_per_conn": {
-    "type": "number",
-    "default": 100,
-    "description": "Max HTTP requests per keep-alive connection."
-  },
-  "tcp_defer_accept": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable TCP_DEFER_ACCEPT to delay accept until data arrives (Linux only)."
-  },
-  "so_reuse_port": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable SO_REUSEPORT for better multi-thread scaling (Linux \u22653.9)."
-  },
-  "tcp_no_delay": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable TCP_NODELAY (disables Nagle\u2019s algorithm) for lower latency."
-  },
-  "keep_alive_timeout": {
-    "type": "number",
-    "default": 15,
-    "description": "Time (seconds) to keep idle connections alive."
-  },
-  "dns_cache": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable or disable internal DNS result caching."
-  },
-  "dns_cache_ttl": {
-    "type": "number",
-    "default": 60,
-    "description": "TTL (seconds) for DNS cache entries."
-  },
-  "dns_timeout": {
-    "type": "number",
-    "default": 5,
-    "description": "Timeout (seconds) for DNS queries."
-  },
-  "dns_use_tcp": {
-    "type": "boolean",
-    "default": true,
-    "description": "Fallback to TCP for DNS queries if UDP fails."
-  }
+ "access_log_file": {
+  "default": "",
+  "description": "Optional path to access-specific log. Leave empty to use main log.",
+  "type": "string"
+ },
+ "auth_config": {
+  "default": "/etc/e2guardian/auth.conf",
+  "description": "Path to the authentication backend configuration file.",
+  "type": "string"
+ },
+ "authentication": {
+  "default": false,
+  "description": "Enable or disable client authentication (e.g., via PAM, LDAP).",
+  "type": "boolean"
+ },
+ "bind_address": {
+  "default": "0.0.0.0",
+  "description": "IP address to bind to. Use 0.0.0.0 to listen on all interfaces.",
+  "type": "string"
+ },
+ "blocked_site_list_config": {
+  "default": "/etc/e2guardian/blockedlists.conf",
+  "description": "Path to the file containing blocked site domains.",
+  "type": "string"
+ },
+ "blockedsitelist": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "cache_clean_on_start": {
+  "default": true,
+  "description": "Clean stale cache entries on startup.",
+  "type": "boolean"
+ },
+ "cache_dir": {
+  "default": "/var/cache/e2guardian",
+  "description": "Path to cache directory for cached objects.",
+  "type": "string"
+ },
+ "cache_expiry": {
+  "default": 3600,
+  "description": "Default cache expiry time in seconds.",
+  "type": "number"
+ },
+ "cache_free_min": {
+  "default": 100,
+  "description": "Minimum free disk space (MB) required to avoid cache corruption.",
+  "type": "number"
+ },
+ "cache_max_object_size": {
+  "default": 512,
+  "description": "Maximum size in kilobytes (KB) for individual cached objects.",
+  "type": "number"
+ },
+ "cache_max_size": {
+  "default": 1024,
+  "description": "Maximum cache size in megabytes (MB).",
+  "type": "number"
+ },
+ "cache_mode": {
+  "default": 1,
+  "description": "Cache mode: 0=disabled, 1=local only, 2=shared (if supported).",
+  "type": "number"
+ },
+ "chain_proxy": {
+  "default": false,
+  "description": "Enable transparent proxy mode (chain through another proxy).",
+  "type": "boolean"
+ },
+ "children": {
+  "default": 8,
+  "description": "Number of worker processes to spawn for handling requests.",
+  "type": "number"
+ },
+ "clamav_socket": {
+  "default": "/var/run/clamav/clamd.ctl",
+  "description": "Path to ClamAV Unix socket. Use 'disabled' to skip scanning.",
+  "type": "string"
+ },
+ "clamav_timeout": {
+  "default": 30,
+  "description": "Timeout (ms) for ClamAV scanning operations.",
+  "type": "number"
+ },
+ "client_timeout": {
+  "default": 30,
+  "description": "Idle timeout in seconds for client connections.",
+  "type": "number"
+ },
+ "content_dlp": {
+  "default": false,
+  "description": "Enable or disable Data Loss Prevention (e.g., preventing upload of sensitive data).",
+  "type": "boolean"
+ },
+ "content_dlp_config": {
+  "default": "/etc/e2guardian/dlp.conf",
+  "description": "Path to DLP rules configuration file.",
+  "type": "string"
+ },
+ "content_filter": {
+  "default": true,
+  "description": "Enable or disable content filtering based on patterns/mime types.",
+  "type": "boolean"
+ },
+ "content_filter_config": {
+  "default": "/etc/e2guardian/contentfilter.conf",
+  "description": "Path to the content filtering rules file.",
+  "type": "string"
+ },
+ "content_scan": {
+  "default": true,
+  "description": "Enable or disable real-time scanning of downloads for malware.",
+  "type": "boolean"
+ },
+ "credit_card_detection": {
+  "default": false,
+  "description": "Enable or disable detection of credit card numbers in content.",
+  "type": "boolean"
+ },
+ "default_language": {
+  "default": "english",
+  "description": "Default language for error and blocking pages (e.g., english, german).",
+  "type": "string"
+ },
+ "dns_cache": {
+  "default": true,
+  "description": "Enable or disable internal DNS result caching.",
+  "type": "boolean"
+ },
+ "dns_cache_ttl": {
+  "default": 60,
+  "description": "TTL (seconds) for DNS cache entries.",
+  "type": "number"
+ },
+ "dns_timeout": {
+  "default": 5,
+  "description": "Timeout (seconds) for DNS queries.",
+  "type": "number"
+ },
+ "dns_use_tcp": {
+  "default": true,
+  "description": "Fallback to TCP for DNS queries if UDP fails.",
+  "type": "boolean"
+ },
+ "enable_compression": {
+  "default": true,
+  "description": "Enable or disable GZIP compression for responses.",
+  "type": "boolean"
+ },
+ "enable_keepalive": {
+  "default": true,
+  "description": "Enable or disable HTTP keep-alive connections.",
+  "type": "boolean"
+ },
+ "enable_pipelining": {
+  "default": false,
+  "description": "Enable HTTP request pipelining (may improve performance with compatible servers).",
+  "type": "boolean"
+ },
+ "extension_filter": {
+  "default": true,
+  "description": "Enable or disable filtering based on file extensions.",
+  "type": "boolean"
+ },
+ "extension_filter_config": {
+  "default": "/etc/e2guardian/extensionfilter.conf",
+  "description": "Path to file extension filtering rules.",
+  "type": "string"
+ },
+ "forward_for": {
+  "default": true,
+  "description": "Enable or disable insertion of X-Forwarded-For header (for client IP transparency).",
+  "type": "boolean"
+ },
+ "group_access": {
+  "default": false,
+  "description": "Enable or disable per-group access control (requires group membership).",
+  "type": "boolean"
+ },
+ "group_access_config": {
+  "default": "/etc/e2guardian/groupaccess.conf",
+  "description": "Path to the group access control rules file.",
+  "type": "string"
+ },
+ "hsts": {
+  "default": false,
+  "description": "Enable or disable HTTP Strict Transport Security header injection.",
+  "type": "boolean"
+ },
+ "ip_rate_limit": {
+  "default": false,
+  "description": "Enable or disable rate limiting per source IP address.",
+  "type": "boolean"
+ },
+ "ip_rate_limit_max": {
+  "default": 100,
+  "description": "Max allowed requests per IP per minute (if IP rate limiting enabled).",
+  "type": "number"
+ },
+ "keep_alive_timeout": {
+  "default": 15,
+  "description": "Time (seconds) to keep idle connections alive.",
+  "type": "number"
+ },
+ "language_detect": {
+  "default": false,
+  "description": "Enable automatic language detection via Accept-Language header.",
+  "type": "boolean"
+ },
+ "language_path": {
+  "default": "/etc/e2guardian/languages",
+  "description": "Path to directory containing language template files.",
+  "type": "string"
+ },
+ "log_custom_format": {
+  "default": "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"",
+  "description": "Custom log format string (only used if log_format=3).",
+  "type": "string"
+ },
+ "log_file": {
+  "default": "/var/log/e2guardian/e2guardian.log",
+  "description": "Path to the main log file.",
+  "type": "string"
+ },
+ "log_format": {
+  "default": 2,
+  "description": "Log format: 0=standard, 1=common, 2=combined, 3=custom.",
+  "type": "number"
+ },
+ "log_level": {
+  "default": 2,
+  "description": "Verbosity level for logging (0–4). Higher = more verbose.",
+  "type": "number"
+ },
+ "log_rotate": {
+  "default": true,
+  "description": "Enable log rotation and archival.",
+  "type": "boolean"
+ },
+ "log_rotate_compress": {
+  "default": true,
+  "description": "Compress rotated log files with gzip.",
+  "type": "boolean"
+ },
+ "log_rotate_count": {
+  "default": 7,
+  "description": "Number of rotated log files to keep.",
+  "type": "number"
+ },
+ "log_rotate_size": {
+  "default": 10,
+  "description": "Maximum log file size (MB) before rotation.",
+  "type": "number"
+ },
+ "log_to_syslog": {
+  "default": false,
+  "description": "Enable or disable sending logs to the system syslog daemon.",
+  "type": "boolean"
+ },
+ "max_body_lines": {
+  "default": 2000,
+  "description": "Maximum number of HTTP body lines to parse.",
+  "type": "number"
+ },
+ "max_conn_per_child": {
+  "default": 10000,
+  "description": "Max concurrent connections per worker process.",
+  "type": "number"
+ },
+ "max_header_lines": {
+  "default": 100,
+  "description": "Maximum number of HTTP header lines to parse.",
+  "type": "number"
+ },
+ "max_req_per_conn": {
+  "default": 100,
+  "description": "Max HTTP requests per keep-alive connection.",
+  "type": "number"
+ },
+ "mime_filter": {
+  "default": true,
+  "description": "Enable or disable filtering based on MIME types.",
+  "type": "boolean"
+ },
+ "mime_filter_config": {
+  "default": "/etc/e2guardian/mimefilter.conf",
+  "description": "Path to MIME type filtering rules.",
+  "type": "string"
+ },
+ "object_cache": {
+  "default": false,
+  "description": "Enable or disable local HTTP object caching.",
+  "type": "boolean"
+ },
+ "password_leakage": {
+  "default": false,
+  "description": "Enable or disable detection of password leakage in uploads.",
+  "type": "boolean"
+ },
+ "pid_file": {
+  "default": "/var/run/e2guardian/e2guardian.pid",
+  "description": "Path to the PID file for the main process.",
+  "type": "string"
+ },
+ "port": {
+  "default": 8080,
+  "description": "The TCP port on which the proxy listens for HTTP connections.",
+  "type": "number"
+ },
+ "prevent_dir_traversal": {
+  "default": true,
+  "description": "Enable or disable protection against path traversal attacks.",
+  "type": "boolean"
+ },
+ "prevent_http_smuggling": {
+  "default": true,
+  "description": "Enable or disable protection against HTTP request smuggling.",
+  "type": "boolean"
+ },
+ "prevent_ssrf": {
+  "default": true,
+  "description": "Enable or disable protection against Server-Side Request Forgery.",
+  "type": "boolean"
+ },
+ "prevent_xxe": {
+  "default": true,
+  "description": "Enable or disable protection against XML External Entity attacks.",
+  "type": "boolean"
+ },
+ "referrer_filter": {
+  "default": false,
+  "description": "Enable or disable filtering based on HTTP referer headers.",
+  "type": "boolean"
+ },
+ "referrer_filter_config": {
+  "default": "/etc/e2guardian/referrerfilter.conf",
+  "description": "Path to referrer filtering rules.",
+  "type": "string"
+ },
+ "regex_filter": {
+  "default": false,
+  "description": "Enable or disable advanced regex-based filtering rules.",
+  "type": "boolean"
+ },
+ "regex_filter_config": {
+  "default": "/etc/e2guardian/regexfilter.conf",
+  "description": "Path to the regex filtering rules file.",
+  "type": "string"
+ },
+ "round_robin": {
+  "default": false,
+  "description": "Enable round-robin load-balancing across multiple upstream proxies.",
+  "type": "boolean"
+ },
+ "run_as_group": {
+  "default": "e2guardian",
+  "description": "System group to drop privileges to after startup.",
+  "type": "string"
+ },
+ "run_as_user": {
+  "default": "e2guardian",
+  "description": "System user to drop privileges to after startup (for security).",
+  "type": "string"
+ },
+ "so_reuse_port": {
+  "default": false,
+  "description": "Enable SO_REUSEPORT for better multi-thread scaling (Linux ≥3.9).",
+  "type": "boolean"
+ },
+ "ssl_ca": {
+  "default": "/etc/e2guardian/ssl/ca.crt",
+  "description": "Path to CA certificate for signing intercepted SSL certificates.",
+  "type": "string"
+ },
+ "ssl_ca_key": {
+  "default": "/etc/e2guardian/ssl/ca.key",
+  "description": "Path to CA private key for signing intercepted SSL certificates.",
+  "type": "string"
+ },
+ "ssl_cert": {
+  "default": "/etc/e2guardian/ssl/e2guardian.crt",
+  "description": "Path to SSL certificate (PEM format). Required if SSL interception is enabled.",
+  "type": "string"
+ },
+ "ssl_intercept": {
+  "default": false,
+  "description": "Enable or disable SSL/TLS traffic interception (man-in-the-middle).",
+  "type": "boolean"
+ },
+ "ssl_key": {
+  "default": "/etc/e2guardian/ssl/e2guardian.key",
+  "description": "Path to SSL private key (PEM format). Required if SSL interception is enabled.",
+  "type": "string"
+ },
+ "syslog_facility": {
+  "default": "daemon",
+  "description": "Syslog facility to use when logging to syslog (e.g., daemon, local0).",
+  "type": "string"
+ },
+ "tcp_defer_accept": {
+  "default": true,
+  "description": "Enable TCP_DEFER_ACCEPT to delay accept until data arrives (Linux only).",
+  "type": "boolean"
+ },
+ "tcp_no_delay": {
+  "default": true,
+  "description": "Enable TCP_NODELAY (disables Nagle’s algorithm) for lower latency.",
+  "type": "boolean"
+ },
+ "upstream_proxy_auth": {
+  "default": false,
+  "description": "Enable authentication to the upstream proxy.",
+  "type": "boolean"
+ },
+ "upstream_proxy_host": {
+  "default": "",
+  "description": "Host:port of upstream proxy for chaining (if used).",
+  "type": "string"
+ },
+ "upstream_proxy_password": {
+  "default": "",
+  "description": "Password for upstream proxy auth (if enabled).",
+  "type": "string"
+ },
+ "upstream_proxy_port": {
+  "default": 3128,
+  "description": "Port of upstream proxy (if host specified).",
+  "type": "number"
+ },
+ "upstream_proxy_username": {
+  "default": "",
+  "description": "Username for upstream proxy auth (if enabled).",
+  "type": "string"
+ },
+ "url_filter": {
+  "default": true,
+  "description": "Enable or disable URL-based filtering (blacklists, keywords).",
+  "type": "boolean"
+ },
+ "url_filter_config": {
+  "default": "/etc/e2guardian/urlfilter.conf",
+  "description": "Path to the URL filtering configuration file.",
+  "type": "string"
+ },
+ "user_agent_filter": {
+  "default": false,
+  "description": "Enable or disable filtering based on User-Agent headers.",
+  "type": "boolean"
+ },
+ "user_agent_filter_config": {
+  "default": "/etc/e2guardian/useragentfilter.conf",
+  "description": "Path to User-Agent filtering rules.",
+  "type": "string"
+ },
+ "user_rate_limit": {
+  "default": false,
+  "description": "Enable or disable rate limiting per authenticated user.",
+  "type": "boolean"
+ },
+ "user_rate_limit_max": {
+  "default": 500,
+  "description": "Max allowed requests per user per minute (if user rate limiting enabled).",
+  "type": "number"
+ },
+ "web_admin": {
+  "default": false,
+  "description": "Enable or disable the web-based admin interface.",
+  "type": "boolean"
+ },
+ "web_admin_config_edit": {
+  "default": false,
+  "description": "Allow live editing of config via admin interface.",
+  "type": "boolean"
+ },
+ "web_admin_log_access": {
+  "default": true,
+  "description": "Allow admin interface users to view logs.",
+  "type": "boolean"
+ },
+ "web_admin_password": {
+  "default": true,
+  "description": "Enable or disable password protection for the admin interface.",
+  "type": "boolean"
+ },
+ "web_admin_port": {
+  "default": 8081,
+  "description": "Port for the admin interface (if enabled).",
+  "type": "number"
+ },
+ "web_admin_reports": {
+  "default": true,
+  "description": "Enable or disable report generation via admin interface.",
+  "type": "boolean"
+ },
+ "web_admin_user_list": {
+  "default": "/etc/e2guardian/adminusers.conf",
+  "description": "Path to file listing admin usernames/passwords.",
+  "type": "string"
+ },
+ "whitelist_site_list_config": {
+  "default": "/etc/e2guardian/whitelists.conf",
+  "description": "Path to the file containing whitelisted (allowed) domains.",
+  "type": "string"
+ },
+ "whitelistsitelist": {
+  "source": "inferred-from-template",
+  "type": "string"
+ }
 }

@@ -1,80 +1,84 @@
 {
-  "modules": {
-    "type": "object",
-    "description": "Top-level container for module configurations; used to enable/disable ejabberd_mod_s2s_log and set its parameters",
+ "filters_list": {
+  "source": "inferred-from-template",
+  "type": "list"
+ },
+ "modules": {
+  "description": "Top-level container for module configurations; used to enable/disable ejabberd_mod_s2s_log and set its parameters",
+  "properties": {
+   "ejabberd_mod_s2s_log": {
+    "description": "Configuration block for the S2S connection logging module",
     "properties": {
-      "ejabberd_mod_s2s_log": {
-        "type": "object",
-        "description": "Configuration block for the S2S connection logging module",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "default": false,
-            "description": "Set to true to enable logging of server-to-server XMPP connections"
-          },
-          "log_file": {
-            "type": "string",
-            "default": "/var/log/ejabberd/s2s.log",
-            "description": "Absolute path to the log file where S2S connection events will be written"
-          },
-          "log_level": {
-            "type": "number",
-            "default": 2,
-            "description": "Verbosity level: 0=none, 1=errors only, 2=errors+info (recommended), 3=debug (verbose, may impact performance)"
-          },
-          "max_days": {
-            "type": "number",
-            "default": 30,
-            "description": "Maximum number of days to retain log files before automatic cleanup (use 0 to disable age-based rotation)"
-          },
-          "max_size": {
-            "type": "number",
-            "default": 10485760,
-            "description": "Maximum size (in bytes) per log file before it is rotated (e.g., 10485760 = 10 MB)"
-          },
-          "format": {
-            "type": "string",
-            "default": "text",
-            "description": "Log entry format: 'text' for human-readable logs, 'json' for structured logging compatible with log aggregators"
-          },
-          "filters": {
-            "type": "list",
-            "description": "Optional list of filter rules to selectively log S2S events",
-            "items": {
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "default": true,
-                  "description": "Whether this filter rule is active"
-                },
-                "name": {
-                  "type": "string",
-                  "default": "",
-                  "description": "Descriptive name for the filter (shown in comments)"
-                },
-                "description": {
-                  "type": "string",
-                  "default": "",
-                  "description": "Explanation of what the filter does"
-                }
-              },
-              "required": [
-                "enabled",
-                "name",
-                "description"
-              ]
-            },
-            "default": []
-          }
+     "enabled": {
+      "default": false,
+      "description": "Set to true to enable logging of server-to-server XMPP connections",
+      "type": "boolean"
+     },
+     "filters": {
+      "default": [],
+      "description": "Optional list of filter rules to selectively log S2S events",
+      "items": {
+       "properties": {
+        "description": {
+         "default": "",
+         "description": "Explanation of what the filter does",
+         "type": "string"
         },
-        "required": [
-          "enabled"
-        ]
-      }
+        "enabled": {
+         "default": true,
+         "description": "Whether this filter rule is active",
+         "type": "boolean"
+        },
+        "name": {
+         "default": "",
+         "description": "Descriptive name for the filter (shown in comments)",
+         "type": "string"
+        }
+       },
+       "required": [
+        "enabled",
+        "name",
+        "description"
+       ],
+       "type": "object"
+      },
+      "type": "list"
+     },
+     "format": {
+      "default": "text",
+      "description": "Log entry format: 'text' for human-readable logs, 'json' for structured logging compatible with log aggregators",
+      "type": "string"
+     },
+     "log_file": {
+      "default": "/var/log/ejabberd/s2s.log",
+      "description": "Absolute path to the log file where S2S connection events will be written",
+      "type": "string"
+     },
+     "log_level": {
+      "default": 2,
+      "description": "Verbosity level: 0=none, 1=errors only, 2=errors+info (recommended), 3=debug (verbose, may impact performance)",
+      "type": "number"
+     },
+     "max_days": {
+      "default": 30,
+      "description": "Maximum number of days to retain log files before automatic cleanup (use 0 to disable age-based rotation)",
+      "type": "number"
+     },
+     "max_size": {
+      "default": 10485760,
+      "description": "Maximum size (in bytes) per log file before it is rotated (e.g., 10485760 = 10 MB)",
+      "type": "number"
+     }
     },
     "required": [
-      "ejabberd_mod_s2s_log"
-    ]
-  }
+     "enabled"
+    ],
+    "type": "object"
+   }
+  },
+  "required": [
+   "ejabberd_mod_s2s_log"
+  ],
+  "type": "object"
+ }
 }

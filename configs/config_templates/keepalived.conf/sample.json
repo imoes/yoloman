@@ -1,58 +1,59 @@
 {
-  "vrrp_instance_name": "VI_LB",
-  "state": "MASTER",
-  "interface": "eth1",
-  "vrid": 100,
-  "priority": 101,
-  "advert_int": 2,
-  "authentication": {
-    "type": "PASS",
-    "pass": "mysecretpass"
-  },
-  "virtual_ipaddress": [
-    "10.0.0.10/24"
-  ],
-  "preempt_delay": 3,
-  "garp_master_delay": 5,
-  "garp_master_refresh": 60,
-  "virtual_server": [
+ "advert_int": 2,
+ "authentication": {
+  "pass": "mysecretpass",
+  "type": "PASS"
+ },
+ "garp_master_delay": 5,
+ "garp_master_refresh": 60,
+ "interface": "eth1",
+ "null": "",
+ "preempt_delay": 3,
+ "priority": 101,
+ "state": "MASTER",
+ "virtual_ipaddress": [
+  "10.0.0.10/24"
+ ],
+ "virtual_server": [
+  {
+   "delay_loop": 10,
+   "ip": "10.0.0.10",
+   "lb_algo": "wlc",
+   "lb_kind": "DR",
+   "persistence": 180,
+   "port": 80,
+   "protocol": "TCP",
+   "real_server": [
     {
-      "ip": "10.0.0.10",
-      "port": 80,
-      "delay_loop": 10,
-      "lb_algo": "wlc",
-      "lb_kind": "DR",
-      "protocol": "TCP",
-      "persistence": 180,
-      "real_server": [
-        {
-          "ip": "10.0.1.10",
-          "port": 80,
-          "weight": 10,
-          "HTTP_GET": {
-            "urls": [
-              {
-                "path": "/"
-              }
-            ],
-            "connect_timeout": 5,
-            "retry": 2,
-            "delay_before_retry": 3
-          }
-        },
-        {
-          "ip": "10.0.1.11",
-          "port": 80,
-          "weight": 5,
-          "TCP_CHECK": {
-            "connect_timeout": 3
-          }
-        }
-      ],
-      "sorry_server": {
-        "ip": "10.0.1.20",
-        "port": 80
-      }
+     "HTTP_GET": {
+      "connect_timeout": 5,
+      "delay_before_retry": 3,
+      "retry": 2,
+      "urls": [
+       {
+        "path": "/"
+       }
+      ]
+     },
+     "ip": "10.0.1.10",
+     "port": 80,
+     "weight": 10
+    },
+    {
+     "TCP_CHECK": {
+      "connect_timeout": 3
+     },
+     "ip": "10.0.1.11",
+     "port": 80,
+     "weight": 5
     }
-  ]
+   ],
+   "sorry_server": {
+    "ip": "10.0.1.20",
+    "port": 80
+   }
+  }
+ ],
+ "vrid": 100,
+ "vrrp_instance_name": "VI_LB"
 }

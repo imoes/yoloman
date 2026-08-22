@@ -1,313 +1,321 @@
 {
-  "ident_name": {
-    "type": "string",
-    "default": "proftpd",
-    "description": "Server identification name used in FTP responses"
+ "allow_override_enabled": {
+  "default": false,
+  "description": "Allow .ftpaccess files in user directories to override config",
+  "type": "bool"
+ },
+ "allow_reconnect": {
+  "default": false,
+  "description": "Allow clients to reconnect after connection drop",
+  "type": "bool"
+ },
+ "allow_reconnect_on": {
+  "default": "all",
+  "description": "Which clients may reconnect (e.g., 'all', 'same_ip', 'none')",
+  "type": "string"
+ },
+ "auth_modules": {
+  "default": [
+   "mod_auth_file.c",
+   "mod_auth_unix.c",
+   "mod_auth_odbc.c"
+  ],
+  "description": "List of auth modules to use (order matters)",
+  "type": "list"
+ },
+ "chroot_enabled": {
+  "default": true,
+  "description": "Enable chroot jail for local users (standard security practice)",
+  "type": "bool"
+ },
+ "custom_directives": {
+  "default": [],
+  "description": "List of arbitrary ProFTPD directives (e.g., 'Include /etc/proftpd/modules.conf')",
+  "type": "list"
+ },
+ "default_dir": {
+  "default": "/srv/ftp",
+  "description": "Root directory for FTP sessions (e.g., for anonymous or non-chrooted users)",
+  "type": "string"
+ },
+ "default_dir_allowed_user": {
+  "default": "ftp",
+  "description": "User allowed access to default directory (for anonymous chroot)",
+  "type": "string"
+ },
+ "default_dir_umask": {
+  "default": "022",
+  "description": "Umask applied in the default directory",
+  "type": "string"
+ },
+ "default_umask": {
+  "default": "022",
+  "description": "Default UMASK for new files and directories (octal)",
+  "type": "string"
+ },
+ "global_access_control": {
+  "default": [],
+  "description": "Global login allow/deny rules",
+  "items": {
+   "allow": {
+    "description": "true to allow, false to deny",
+    "type": "bool"
+   },
+   "host": {
+    "description": "Host pattern (IP, CIDR, or hostname substring)",
+    "type": "string"
+   }
   },
-  "server_name": {
-    "type": "string",
-    "default": "ProFTPD Server",
-    "description": "Server name displayed to users (e.g., in '220' welcome message)"
+  "type": "list"
+ },
+ "ident_name": {
+  "default": "proftpd",
+  "description": "Server identification name used in FTP responses",
+  "type": "string"
+ },
+ "listen_address": {
+  "default": "",
+  "description": "IP address to bind to (empty = all interfaces); supports IPv4 or IPv6",
+  "type": "string"
+ },
+ "listen_port": {
+  "default": 21,
+  "description": "FTP control port",
+  "type": "number"
+ },
+ "log_level": {
+  "default": "info",
+  "description": "Verbosity of server logs",
+  "type": "string"
+ },
+ "max_clients": {
+  "default": 30,
+  "description": "Maximum total number of simultaneous clients allowed",
+  "type": "number"
+ },
+ "max_clients_per_host": {
+  "default": 2,
+  "description": "Maximum number of connections allowed from a single host",
+  "type": "number"
+ },
+ "max_hosts_per_user": {
+  "default": 1,
+  "description": "Maximum number of hosts one user may connect from simultaneously",
+  "type": "number"
+ },
+ "max_login_attempts": {
+  "default": 3,
+  "description": "Maximum failed login attempts before disconnection",
+  "type": "number"
+ },
+ "max_user_per_host": {
+  "default": 1,
+  "description": "Maximum number of connections per user per host",
+  "type": "number"
+ },
+ "odbc_default_gid": {
+  "default": 65534,
+  "description": "GID to assign when no group info found in DB (nogroup)",
+  "type": "number"
+ },
+ "odbc_default_uid": {
+  "default": 65534,
+  "description": "UID to assign when no user info found in DB (nobody)",
+  "type": "number"
+ },
+ "odbc_dsn": {
+  "default": "proftpd",
+  "description": "ODBC DSN name configured in /etc/odbc.ini",
+  "type": "string"
+ },
+ "odbc_enabled": {
+  "default": true,
+  "description": "Enable ODBC authentication and group lookup backend",
+  "type": "bool"
+ },
+ "odbc_get_group_info_query": {
+  "default": "SELECT group_name, gid, members FROM groups WHERE group_name='%G'",
+  "description": "SQL query to fetch group info (supports %G for group placeholder)",
+  "type": "string"
+ },
+ "odbc_get_user_info_query": {
+  "default": "SELECT login, password, uid, gid, shell, homedir FROM users WHERE login='%U'",
+  "description": "SQL query to fetch user info (supports %U for username placeholder)",
+  "type": "string"
+ },
+ "odbc_homedir_query": {
+  "default": "SELECT homedir FROM users WHERE login='%U'",
+  "description": "Alternative SQL query to fetch user home directory only",
+  "type": "string"
+ },
+ "odbc_pass": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "odbc_password": {
+  "default": "",
+  "description": "ODBC database password (leave blank if using trusted auth)",
+  "sensitive": true,
+  "type": "string"
+ },
+ "odbc_username": {
+  "default": "proftpd",
+  "description": "ODBC database username",
+  "type": "string"
+ },
+ "pid_file_path": {
+  "default": "/run/proftpd.pid",
+  "description": "Path to the PID file",
+  "type": "string"
+ },
+ "server_name": {
+  "default": "ProFTPD Server",
+  "description": "Server name displayed to users (e.g., in '220' welcome message)",
+  "type": "string"
+ },
+ "server_type": {
+  "default": "standalone",
+  "description": "Whether the server runs as a daemon or under inetd/xinetd",
+  "type": "string"
+ },
+ "system_log_path": {
+  "default": "/var/log/proftpd/proftpd.log",
+  "description": "Path to the system log file",
+  "type": "string"
+ },
+ "timeout_idle": {
+  "default": 600,
+  "description": "Seconds before idle session disconnect",
+  "type": "number"
+ },
+ "timeout_linger": {
+  "default": 90,
+  "description": "Seconds to wait during graceful shutdown before forced close",
+  "type": "number"
+ },
+ "timeout_no_transfer": {
+  "default": 300,
+  "description": "Seconds before disconnect if no data transfer (idle transfer timeout)",
+  "type": "number"
+ },
+ "tls_ca": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "tls_ca_cert_file": {
+  "default": "",
+  "description": "Path to CA certificate file for client cert verification (optional)",
+  "type": "string"
+ },
+ "tls_cert_file": {
+  "default": "/etc/proftpd/tls/server.crt",
+  "description": "Path to TLS server certificate file",
+  "type": "string"
+ },
+ "tls_cipher_suite": {
+  "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
+  "description": "Allowed TLS cipher suites (modern, secure defaults recommended)",
+  "type": "string"
+ },
+ "tls_enabled": {
+  "default": true,
+  "description": "Enable TLS (FTPS) support for encrypted connections",
+  "type": "bool"
+ },
+ "tls_key_file": {
+  "default": "/etc/proftpd/tls/server.key",
+  "description": "Path to TLS server private key file",
+  "type": "string"
+ },
+ "tls_protocol": {
+  "default": [
+   "TLSv1.2",
+   "TLSv1.3"
+  ],
+  "description": "TLS versions to allow (minimum TLSv1.2 recommended)",
+  "items": {
+   "enum": [
+    "SSLv2",
+    "SSLv3",
+    "TLSv1",
+    "TLSv1.1",
+    "TLSv1.2",
+    "TLSv1.3"
+   ],
+   "type": "string"
   },
-  "server_type": {
-    "type": "string",
-    "default": "standalone",
-    "description": "Whether the server runs as a daemon or under inetd/xinetd"
-  },
-  "default_umask": {
-    "type": "string",
-    "default": "022",
-    "description": "Default UMASK for new files and directories (octal)"
-  },
-  "listen_address": {
-    "type": "string",
-    "default": "",
-    "description": "IP address to bind to (empty = all interfaces); supports IPv4 or IPv6"
-  },
-  "listen_port": {
-    "type": "number",
-    "default": 21,
-    "description": "FTP control port"
-  },
-  "system_log_path": {
-    "type": "string",
-    "default": "/var/log/proftpd/proftpd.log",
-    "description": "Path to the system log file"
-  },
-  "pid_file_path": {
-    "type": "string",
-    "default": "/run/proftpd.pid",
-    "description": "Path to the PID file"
-  },
-  "max_clients": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum total number of simultaneous clients allowed"
-  },
-  "max_clients_per_host": {
-    "type": "number",
-    "default": 2,
-    "description": "Maximum number of connections allowed from a single host"
-  },
-  "max_hosts_per_user": {
-    "type": "number",
-    "default": 1,
-    "description": "Maximum number of hosts one user may connect from simultaneously"
-  },
-  "max_user_per_host": {
-    "type": "number",
-    "default": 1,
-    "description": "Maximum number of connections per user per host"
-  },
-  "max_login_attempts": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum failed login attempts before disconnection"
-  },
-  "timeout_no_transfer": {
-    "type": "number",
-    "default": 300,
-    "description": "Seconds before disconnect if no data transfer (idle transfer timeout)"
-  },
-  "timeout_idle": {
-    "type": "number",
-    "default": 600,
-    "description": "Seconds before idle session disconnect"
-  },
-  "timeout_linger": {
-    "type": "number",
-    "default": 90,
-    "description": "Seconds to wait during graceful shutdown before forced close"
-  },
-  "allow_reconnect": {
-    "type": "bool",
-    "default": false,
-    "description": "Allow clients to reconnect after connection drop"
-  },
-  "allow_reconnect_on": {
-    "type": "string",
-    "default": "all",
-    "description": "Which clients may reconnect (e.g., 'all', 'same_ip', 'none')"
-  },
-  "chroot_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable chroot jail for local users (standard security practice)"
-  },
-  "allow_override_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Allow .ftpaccess files in user directories to override config"
-  },
-  "odbc_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable ODBC authentication and group lookup backend"
-  },
-  "odbc_dsn": {
-    "type": "string",
-    "default": "proftpd",
-    "description": "ODBC DSN name configured in /etc/odbc.ini"
-  },
-  "odbc_username": {
-    "type": "string",
-    "default": "proftpd",
-    "description": "ODBC database username"
-  },
-  "odbc_password": {
-    "type": "string",
-    "default": "",
-    "description": "ODBC database password (leave blank if using trusted auth)",
-    "sensitive": true
-  },
-  "odbc_get_user_info_query": {
-    "type": "string",
-    "default": "SELECT login, password, uid, gid, shell, homedir FROM users WHERE login='%U'",
-    "description": "SQL query to fetch user info (supports %U for username placeholder)"
-  },
-  "odbc_get_group_info_query": {
-    "type": "string",
-    "default": "SELECT group_name, gid, members FROM groups WHERE group_name='%G'",
-    "description": "SQL query to fetch group info (supports %G for group placeholder)"
-  },
-  "odbc_homedir_query": {
-    "type": "string",
-    "default": "SELECT homedir FROM users WHERE login='%U'",
-    "description": "Alternative SQL query to fetch user home directory only"
-  },
-  "odbc_default_gid": {
-    "type": "number",
-    "default": 65534,
-    "description": "GID to assign when no group info found in DB (nogroup)"
-  },
-  "odbc_default_uid": {
-    "type": "number",
-    "default": 65534,
-    "description": "UID to assign when no user info found in DB (nobody)"
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of server logs"
-  },
-  "transfer_log_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable detailed transfer logging in xferlog format"
-  },
-  "transfer_log_path": {
-    "type": "string",
-    "default": "/var/log/proftpd/xferlog",
-    "description": "Path to the transfer log file"
-  },
-  "auth_modules": {
-    "type": "list",
-    "default": [
-      "mod_auth_file.c",
-      "mod_auth_unix.c",
-      "mod_auth_odbc.c"
-    ],
-    "description": "List of auth modules to use (order matters)"
-  },
-  "tls_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable TLS (FTPS) support for encrypted connections"
-  },
-  "tls_protocol": {
-    "type": "list",
-    "default": [
-      "TLSv1.2",
-      "TLSv1.3"
-    ],
-    "items": {
-      "type": "string",
-      "enum": [
-        "SSLv2",
-        "SSLv3",
-        "TLSv1",
-        "TLSv1.1",
-        "TLSv1.2",
-        "TLSv1.3"
-      ]
-    },
-    "description": "TLS versions to allow (minimum TLSv1.2 recommended)"
-  },
-  "tls_required": {
-    "type": "bool",
-    "default": false,
-    "description": "Require TLS for all connections (data and control)"
-  },
-  "tls_cert_file": {
-    "type": "string",
-    "default": "/etc/proftpd/tls/server.crt",
-    "description": "Path to TLS server certificate file"
-  },
-  "tls_key_file": {
-    "type": "string",
-    "default": "/etc/proftpd/tls/server.key",
-    "description": "Path to TLS server private key file"
-  },
-  "tls_ca_cert_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate file for client cert verification (optional)"
-  },
-  "tls_cipher_suite": {
-    "type": "string",
-    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
-    "description": "Allowed TLS cipher suites (modern, secure defaults recommended)"
-  },
-  "default_dir": {
-    "type": "string",
-    "default": "/srv/ftp",
-    "description": "Root directory for FTP sessions (e.g., for anonymous or non-chrooted users)"
-  },
-  "default_dir_umask": {
-    "type": "string",
-    "default": "022",
-    "description": "Umask applied in the default directory"
-  },
-  "default_dir_allowed_user": {
-    "type": "string",
+  "type": "list"
+ },
+ "tls_required": {
+  "default": false,
+  "description": "Require TLS for all connections (data and control)",
+  "type": "bool"
+ },
+ "transfer_log_enabled": {
+  "default": true,
+  "description": "Enable detailed transfer logging in xferlog format",
+  "type": "bool"
+ },
+ "transfer_log_path": {
+  "default": "/var/log/proftpd/xferlog",
+  "description": "Path to the transfer log file",
+  "type": "string"
+ },
+ "virtual_hosts": {
+  "default": [],
+  "description": "List of virtual host blocks (one per domain or IP)",
+  "items": {
+   "address": {
+    "description": "IP address to bind this virtual host to (optional)",
+    "type": "string"
+   },
+   "anonymous_allowed_group": {
     "default": "ftp",
-    "description": "User allowed access to default directory (for anonymous chroot)"
+    "description": "Group allowed to login anonymously (usually 'ftp' or 'anonymous')",
+    "type": "string"
+   },
+   "anonymous_chroot_upload": {
+    "default": false,
+    "description": "Allow anonymous upload to /upload subdirectory",
+    "type": "bool"
+   },
+   "anonymous_enabled": {
+    "default": false,
+    "description": "Enable anonymous login for this host",
+    "type": "bool"
+   },
+   "anonymous_group": {
+    "default": "ftp",
+    "description": "System group for anonymous sessions",
+    "type": "string"
+   },
+   "anonymous_path": {
+    "description": "Root directory for anonymous users (required if anonymous_enabled)",
+    "type": "string"
+   },
+   "anonymous_user": {
+    "default": "ftp",
+    "description": "System user for anonymous sessions",
+    "type": "string"
+   },
+   "chroot": {
+    "default": "~",
+    "description": "Chroot path (use ~ for home directory, or explicit path)",
+    "type": "string"
+   },
+   "hostname": {
+    "description": "DNS hostname for this virtual host (e.g., 'ftp.example.com')",
+    "type": "string"
+   },
+   "name": {
+    "description": "Display name in FTP responses (e.g., 'Example FTP Server')",
+    "type": "string"
+   },
+   "port": {
+    "description": "Port to listen on for this virtual host (overrides global port)",
+    "type": "number"
+   }
   },
-  "virtual_hosts": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "hostname": {
-        "type": "string",
-        "description": "DNS hostname for this virtual host (e.g., 'ftp.example.com')"
-      },
-      "name": {
-        "type": "string",
-        "description": "Display name in FTP responses (e.g., 'Example FTP Server')"
-      },
-      "address": {
-        "type": "string",
-        "description": "IP address to bind this virtual host to (optional)"
-      },
-      "port": {
-        "type": "number",
-        "description": "Port to listen on for this virtual host (overrides global port)"
-      },
-      "chroot": {
-        "type": "string",
-        "default": "~",
-        "description": "Chroot path (use ~ for home directory, or explicit path)"
-      },
-      "anonymous_enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable anonymous login for this host"
-      },
-      "anonymous_path": {
-        "type": "string",
-        "description": "Root directory for anonymous users (required if anonymous_enabled)"
-      },
-      "anonymous_user": {
-        "type": "string",
-        "default": "ftp",
-        "description": "System user for anonymous sessions"
-      },
-      "anonymous_group": {
-        "type": "string",
-        "default": "ftp",
-        "description": "System group for anonymous sessions"
-      },
-      "anonymous_chroot_upload": {
-        "type": "bool",
-        "default": false,
-        "description": "Allow anonymous upload to /upload subdirectory"
-      },
-      "anonymous_allowed_group": {
-        "type": "string",
-        "default": "ftp",
-        "description": "Group allowed to login anonymously (usually 'ftp' or 'anonymous')"
-      }
-    },
-    "description": "List of virtual host blocks (one per domain or IP)"
-  },
-  "global_access_control": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "allow": {
-        "type": "bool",
-        "description": "true to allow, false to deny"
-      },
-      "host": {
-        "type": "string",
-        "description": "Host pattern (IP, CIDR, or hostname substring)"
-      }
-    },
-    "description": "Global login allow/deny rules"
-  },
-  "custom_directives": {
-    "type": "list",
-    "default": [],
-    "description": "List of arbitrary ProFTPD directives (e.g., 'Include /etc/proftpd/modules.conf')"
-  }
+  "type": "list"
+ }
 }

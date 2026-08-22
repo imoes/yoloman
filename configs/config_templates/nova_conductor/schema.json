@@ -1,117 +1,121 @@
 {
-  "log_dir": {
-    "type": "string",
-    "default": "/var/log/nova",
-    "description": "Directory where nova-conductor writes log files."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)."
-  },
-  "conductor_host": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address or hostname the conductor service binds to."
-  },
-  "conductor_port": {
-    "type": "number",
-    "default": 6061,
-    "description": "Port on which the conductor service listens for incoming HTTP requests."
-  },
-  "conductor_workers": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker processes to spawn for handling requests."
-  },
-  "db_max_pool_size": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of pooled database connections."
-  },
-  "database_connection": {
-    "type": "string",
-    "default": "mysql+pymysql://nova:{{ nova_db_password }}@{{ database_host }}/nova",
-    "description": "SQLAlchemy connection URI for the main (cell) database."
-  },
-  "api_database_connection": {
-    "type": "string",
-    "default": "mysql+pymysql://nova_api:{{ nova_api_db_password }}@{{ database_host }}/nova_api",
-    "description": "SQLAlchemy connection URI for the API database."
-  },
-  "keystone_auth_url": {
-    "type": "string",
-    "default": "http://keystone:5000/v3",
-    "description": "Keystone authentication endpoint URL."
-  },
-  "keystone_project_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone project domain name."
-  },
-  "keystone_user_domain_name": {
-    "type": "string",
-    "default": "Default",
-    "description": "Keystone user domain name."
-  },
-  "keystone_project_name": {
-    "type": "string",
-    "default": "service",
-    "description": "Keystone service project name."
-  },
-  "keystone_username": {
-    "type": "string",
-    "default": "nova",
-    "description": "Service user username for authentication with Keystone."
-  },
-  "keystone_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the nova service user in Keystone. Leave blank to inject via secrets (e.g., barbican or file)."
-  },
-  "rabbitmq_host": {
-    "type": "string",
-    "default": "localhost",
-    "description": "Hostname or IP of RabbitMQ server."
-  },
-  "rabbitmq_port": {
-    "type": "number",
-    "default": 5672,
-    "description": "Port on which RabbitMQ listens."
-  },
-  "rabbitmq_userid": {
-    "type": "string",
-    "default": "nova",
-    "description": "RabbitMQ user for nova conductor."
-  },
-  "rabbitmq_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the RabbitMQ user. Use secret injection in production."
-  },
-  "ssl_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS (HTTPS) for conductor API endpoints."
-  },
-  "ssl_certfile": {
-    "type": "string",
-    "default": "/etc/ssl/certs/nova-conductor.crt",
-    "description": "Path to TLS certificate file (requires ssl_enabled=true)."
-  },
-  "ssl_keyfile": {
-    "type": "string",
-    "default": "/etc/ssl/private/nova-conductor.key",
-    "description": "Path to TLS private key file (requires ssl_enabled=true)."
-  },
-  "ssl_ca_file": {
-    "type": "string",
-    "default": "/etc/ssl/certs/ca-certificates.crt",
-    "description": "Path to CA certificate bundle for client verification (optional)."
-  },
-  "conductor_local_mode": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable local mode (handles operations directly instead of via RPC). Should only be used for single-node dev setups."
-  }
+ "api_database_connection": {
+  "default": "mysql+pymysql://nova_api:{{ nova_api_db_password }}@{{ database_host }}/nova_api",
+  "description": "SQLAlchemy connection URI for the API database.",
+  "type": "string"
+ },
+ "conductor_host": {
+  "default": "127.0.0.1",
+  "description": "IP address or hostname the conductor service binds to.",
+  "type": "string"
+ },
+ "conductor_local_mode": {
+  "default": false,
+  "description": "Enable local mode (handles operations directly instead of via RPC). Should only be used for single-node dev setups.",
+  "type": "bool"
+ },
+ "conductor_port": {
+  "default": 6061,
+  "description": "Port on which the conductor service listens for incoming HTTP requests.",
+  "type": "number"
+ },
+ "conductor_workers": {
+  "default": 1,
+  "description": "Number of worker processes to spawn for handling requests.",
+  "type": "number"
+ },
+ "database_connection": {
+  "default": "mysql+pymysql://nova:{{ nova_db_password }}@{{ database_host }}/nova",
+  "description": "SQLAlchemy connection URI for the main (cell) database.",
+  "type": "string"
+ },
+ "database_url": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "db_max_pool_size": {
+  "default": 10,
+  "description": "Maximum number of pooled database connections.",
+  "type": "number"
+ },
+ "keystone_auth_url": {
+  "default": "http://keystone:5000/v3",
+  "description": "Keystone authentication endpoint URL.",
+  "type": "string"
+ },
+ "keystone_password": {
+  "default": "",
+  "description": "Password for the nova service user in Keystone. Leave blank to inject via secrets (e.g., barbican or file).",
+  "type": "string"
+ },
+ "keystone_project_domain_name": {
+  "default": "Default",
+  "description": "Keystone project domain name.",
+  "type": "string"
+ },
+ "keystone_project_name": {
+  "default": "service",
+  "description": "Keystone service project name.",
+  "type": "string"
+ },
+ "keystone_user_domain_name": {
+  "default": "Default",
+  "description": "Keystone user domain name.",
+  "type": "string"
+ },
+ "keystone_username": {
+  "default": "nova",
+  "description": "Service user username for authentication with Keystone.",
+  "type": "string"
+ },
+ "log_dir": {
+  "default": "/var/log/nova",
+  "description": "Directory where nova-conductor writes log files.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "INFO",
+  "description": "Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).",
+  "type": "string"
+ },
+ "rabbitmq_host": {
+  "default": "localhost",
+  "description": "Hostname or IP of RabbitMQ server.",
+  "type": "string"
+ },
+ "rabbitmq_password": {
+  "default": "",
+  "description": "Password for the RabbitMQ user. Use secret injection in production.",
+  "type": "string"
+ },
+ "rabbitmq_port": {
+  "default": 5672,
+  "description": "Port on which RabbitMQ listens.",
+  "type": "number"
+ },
+ "rabbitmq_userid": {
+  "default": "nova",
+  "description": "RabbitMQ user for nova conductor.",
+  "type": "string"
+ },
+ "ssl_ca_file": {
+  "default": "/etc/ssl/certs/ca-certificates.crt",
+  "description": "Path to CA certificate bundle for client verification (optional).",
+  "type": "string"
+ },
+ "ssl_certfile": {
+  "default": "/etc/ssl/certs/nova-conductor.crt",
+  "description": "Path to TLS certificate file (requires ssl_enabled=true).",
+  "type": "string"
+ },
+ "ssl_enabled": {
+  "default": false,
+  "description": "Enable TLS (HTTPS) for conductor API endpoints.",
+  "type": "bool"
+ },
+ "ssl_keyfile": {
+  "default": "/etc/ssl/private/nova-conductor.key",
+  "description": "Path to TLS private key file (requires ssl_enabled=true).",
+  "type": "string"
+ }
 }

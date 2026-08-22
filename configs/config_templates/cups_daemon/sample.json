@@ -1,64 +1,65 @@
 {
-  "cupsd": {
-    "ListenAddress": "*",
-    "ListenPort": 631,
-    "BindLocalhostOnly": false,
-    "AllowFrom": [
-      "127.0.0.1",
-      "192.168.1.0/24"
+ "browse_protocols": "",
+ "cupsd": {
+  "AccessLogFile": "/var/log/cups/access_log",
+  "AllowFrom": [
+   "127.0.0.1",
+   "192.168.1.0/24"
+  ],
+  "BindLocalhostOnly": false,
+  "BrowseProtocols": [
+   "cups",
+   "mdns"
+  ],
+  "BrowsingEnabled": true,
+  "DefaultAuthType": "Basic",
+  "DefaultPrinterName": "HP_LaserJet_Pro",
+  "JobLog": "/var/log/cups/job_log",
+  "KeepFiles": true,
+  "ListenAddress": "*",
+  "ListenPort": 631,
+  "LogFile": "/var/log/cups/error_log",
+  "LogLevel": "warn",
+  "MaxJobTime": 86400,
+  "MaxJobs": 1000,
+  "Policies": [
+   {
+    "AuthInfoRequired": "user",
+    "OperationAllow": [],
+    "OperationDeny": [
+     "Pause-Printer",
+     "Resume-Printer"
     ],
-    "ServerName": "printserver.example.com",
-    "ServerAlias": "",
-    "SSLEnabled": true,
-    "RunAsUser": "root",
-    "RunAsGroup": "lp",
-    "LogLevel": "warn",
-    "LogFile": "/var/log/cups/error_log",
-    "AccessLogFile": "/var/log/cups/access_log",
-    "JobLog": "/var/log/cups/job_log",
-    "MaxJobs": 1000,
-    "MaxJobTime": 86400,
-    "KeepFiles": true,
-    "BrowsingEnabled": true,
-    "BrowseProtocols": [
-      "cups",
-      "mdns"
+    "name": "default"
+   },
+   {
+    "AuthInfoRequired": "user",
+    "OperationAllow": [
+     "Cancel-Jobs",
+     "Validate-Job"
     ],
-    "WebInterfaceEnabled": true,
-    "DefaultAuthType": "Basic",
-    "Policies": [
-      {
-        "name": "default",
-        "AuthInfoRequired": "user",
-        "OperationAllow": [],
-        "OperationDeny": [
-          "Pause-Printer",
-          "Resume-Printer"
-        ]
-      },
-      {
-        "name": "admin",
-        "AuthInfoRequired": "user",
-        "OperationAllow": [
-          "Cancel-Jobs",
-          "Validate-Job"
-        ],
-        "OperationDeny": []
-      },
-      {
-        "name": "system",
-        "AuthInfoRequired": "user",
-        "OperationAllow": [
-          "Restart-Server",
-          "Shutdown-Server"
-        ],
-        "OperationDeny": []
-      }
+    "OperationDeny": [],
+    "name": "admin"
+   },
+   {
+    "AuthInfoRequired": "user",
+    "OperationAllow": [
+     "Restart-Server",
+     "Shutdown-Server"
     ],
-    "DefaultPrinterName": "HP_LaserJet_Pro",
-    "PrintcapFile": "/etc/printcap",
-    "PrintcapFormat": "bsd",
-    "SharePrinters": true,
-    "RemoteAdminEnabled": false
-  }
+    "OperationDeny": [],
+    "name": "system"
+   }
+  ],
+  "PrintcapFile": "/etc/printcap",
+  "PrintcapFormat": "bsd",
+  "RemoteAdminEnabled": false,
+  "RunAsGroup": "lp",
+  "RunAsUser": "root",
+  "SSLEnabled": true,
+  "ServerAlias": "",
+  "ServerName": "printserver.example.com",
+  "SharePrinters": true,
+  "WebInterfaceEnabled": true
+ }
 }

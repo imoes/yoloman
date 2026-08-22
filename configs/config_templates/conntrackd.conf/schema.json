@@ -1,232 +1,236 @@
 {
-  "hash_size": {
-    "type": "number",
-    "default": 32768,
-    "description": "Number of buckets in the cache hashtable."
-  },
-  "hash_limit": {
-    "type": "number",
-    "default": 131072,
-    "description": "Maximum number of conntracks to cache."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable logging to a file. Use 'yes', 'no', or a filename.",
-    "enum": [
-      "no",
-      "yes"
-    ]
-  },
-  "syslog": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable syslog logging. Use 'yes', 'no', or a facility like 'local0'.",
-    "enum": [
-      "no",
-      "yes",
-      "local0",
-      "user",
-      "daemon",
-      "syslog",
-      "ftp",
-      "local0"
-    ]
-  },
-  "lockfile": {
-    "type": "string",
-    "default": "/var/lock/conntrack.lock",
-    "description": "Lockfile path."
-  },
-  "netlink_buffer_size": {
-    "type": "number",
-    "default": 2097152,
-    "description": "Netlink event socket buffer size."
-  },
-  "netlink_buffer_size_max_growth": {
-    "type": "number",
-    "default": 8388608,
-    "description": "Netlink event socket buffer maximum growth size."
-  },
-  "netlink_overrun_resync": {
-    "type": "string",
-    "default": "yes",
-    "description": "Netlink overrun resync interval or 'yes'/'no'.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "netlink_events_reliable": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable reliable event reporting over Netlink.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "event_iteration_limit": {
-    "type": "number",
-    "default": 100,
-    "description": "Maximum number of state-change events to handle before processing others."
-  },
-  "unix_socket_path": {
-    "type": "string",
-    "default": "/var/run/conntrackd.ctl",
-    "description": "Path to the Unix socket."
-  },
-  "scheduler_type": {
-    "type": "string",
-    "default": "RR",
-    "description": "Scheduler type: RR or FIFO.",
-    "enum": [
-      "RR",
-      "FIFO"
-    ]
-  },
-  "scheduler_priority": {
-    "type": "number",
-    "default": 99,
-    "description": "Scheduler priority."
-  },
-  "systemd": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable systemd runtime support.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "sync_mode": {
-    "type": "string",
-    "default": "FTFW",
-    "description": "Synchronization mode: 'FTFW', 'ALARM', or 'NOTRACK'. Must be specified.",
-    "enum": [
-      "FTFW",
-      "ALARM",
-      "NOTRACK"
-    ]
-  },
-  "resend_queue_size": {
-    "type": "number",
-    "default": 131072,
-    "description": "Size of the resend queue (FTFW mode)."
-  },
-  "commit_timeout": {
-    "type": "number",
-    "default": 180,
-    "description": "Initial fixed timeout for committed entries (FTFW/ALARM/NOTRACK modes)."
-  },
-  "purge_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Time to schedule a flush of the table when going from primary to backup."
-  },
-  "ack_window_size": {
-    "type": "number",
-    "default": 300,
-    "description": "Acknowledgement window size (FTFW mode)."
-  },
-  "disable_external_cache": {
-    "type": "string",
-    "default": "no",
-    "description": "Disable external cache.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "startup_resync": {
-    "type": "string",
-    "default": "no",
-    "description": "Request a complete conntrack table resync at startup.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "disable_internal_cache": {
-    "type": "string",
-    "default": "no",
-    "description": "Disable internal cache (NOTRACK mode).",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "refresh_time": {
-    "type": "number",
-    "default": 15,
-    "description": "Refresh time for ALARM mode."
-  },
-  "cache_timeout": {
-    "type": "number",
-    "default": 180,
-    "description": "Cache timeout for ALARM mode."
-  },
-  "sync_interface": {
-    "type": "string",
-    "default": "",
-    "description": "Network interface used for sync traffic."
-  },
-  "sync_multicast_group": {
-    "type": "string",
-    "default": "225.0.0.50",
-    "description": "Multicast IP address."
-  },
-  "sync_port": {
-    "type": "number",
-    "default": 3780,
-    "description": "Port for sync communication."
-  },
-  "sync_bind_address": {
-    "type": "string",
-    "default": "",
-    "description": "Local IP address to bind."
-  },
-  "sync_siblings": {
-    "type": "list",
-    "default": [],
-    "description": "List of peer nodes for unicast synchronization."
-  },
-  "sync_protocol": {
-    "type": "string",
-    "default": "tcp",
-    "description": "Transport protocol: tcp, udp, or multicast.",
-    "enum": [
-      "tcp",
-      "udp",
-      "multicast"
-    ]
-  },
-  "sync_heartbeat_enabled": {
-    "type": "string",
-    "default": "yes",
-    "description": "Enable/Disable message checksumming (Checksum).",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "tcp_window_tracking": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable TCP window tracking.",
-    "enum": [
-      "yes",
-      "no"
-    ]
-  },
-  "expectation_sync": {
-    "type": "string",
-    "default": "no",
-    "description": "Enable expectation sync: 'on' or list of helpers."
-  },
-  "event_filters": {
-    "type": "list",
-    "default": [],
-    "description": "List of event filters."
-  }
+ "ack_window_size": {
+  "default": 300,
+  "description": "Acknowledgement window size (FTFW mode).",
+  "type": "number"
+ },
+ "cache_timeout": {
+  "default": 180,
+  "description": "Cache timeout for ALARM mode.",
+  "type": "number"
+ },
+ "commit_timeout": {
+  "default": 180,
+  "description": "Initial fixed timeout for committed entries (FTFW/ALARM/NOTRACK modes).",
+  "type": "number"
+ },
+ "disable_external_cache": {
+  "default": "no",
+  "description": "Disable external cache.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "disable_internal_cache": {
+  "default": "no",
+  "description": "Disable internal cache (NOTRACK mode).",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "event_filters": {
+  "default": [],
+  "description": "List of event filters.",
+  "type": "list"
+ },
+ "event_iteration_limit": {
+  "default": 100,
+  "description": "Maximum number of state-change events to handle before processing others.",
+  "type": "number"
+ },
+ "expectation_sync": {
+  "default": "no",
+  "description": "Enable expectation sync: 'on' or list of helpers.",
+  "type": "string"
+ },
+ "hash_limit": {
+  "default": 131072,
+  "description": "Maximum number of conntracks to cache.",
+  "type": "number"
+ },
+ "hash_size": {
+  "default": 32768,
+  "description": "Number of buckets in the cache hashtable.",
+  "type": "number"
+ },
+ "lockfile": {
+  "default": "/var/lock/conntrack.lock",
+  "description": "Lockfile path.",
+  "type": "string"
+ },
+ "log_file": {
+  "default": "no",
+  "description": "Enable logging to a file. Use 'yes', 'no', or a filename.",
+  "enum": [
+   "no",
+   "yes"
+  ],
+  "type": "string"
+ },
+ "netlink_buffer_size": {
+  "default": 2097152,
+  "description": "Netlink event socket buffer size.",
+  "type": "number"
+ },
+ "netlink_buffer_size_max_growth": {
+  "default": 8388608,
+  "description": "Netlink event socket buffer maximum growth size.",
+  "type": "number"
+ },
+ "netlink_events_reliable": {
+  "default": "no",
+  "description": "Enable reliable event reporting over Netlink.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "netlink_overrun_resync": {
+  "default": "yes",
+  "description": "Netlink overrun resync interval or 'yes'/'no'.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "proto": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "purge_timeout": {
+  "default": 60,
+  "description": "Time to schedule a flush of the table when going from primary to backup.",
+  "type": "number"
+ },
+ "refresh_time": {
+  "default": 15,
+  "description": "Refresh time for ALARM mode.",
+  "type": "number"
+ },
+ "resend_queue_size": {
+  "default": 131072,
+  "description": "Size of the resend queue (FTFW mode).",
+  "type": "number"
+ },
+ "scheduler_priority": {
+  "default": 99,
+  "description": "Scheduler priority.",
+  "type": "number"
+ },
+ "scheduler_type": {
+  "default": "RR",
+  "description": "Scheduler type: RR or FIFO.",
+  "enum": [
+   "RR",
+   "FIFO"
+  ],
+  "type": "string"
+ },
+ "startup_resync": {
+  "default": "no",
+  "description": "Request a complete conntrack table resync at startup.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "sync_bind_address": {
+  "default": "",
+  "description": "Local IP address to bind.",
+  "type": "string"
+ },
+ "sync_heartbeat_enabled": {
+  "default": "yes",
+  "description": "Enable/Disable message checksumming (Checksum).",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "sync_interface": {
+  "default": "",
+  "description": "Network interface used for sync traffic.",
+  "type": "string"
+ },
+ "sync_mode": {
+  "default": "FTFW",
+  "description": "Synchronization mode: 'FTFW', 'ALARM', or 'NOTRACK'. Must be specified.",
+  "enum": [
+   "FTFW",
+   "ALARM",
+   "NOTRACK"
+  ],
+  "type": "string"
+ },
+ "sync_multicast_group": {
+  "default": "225.0.0.50",
+  "description": "Multicast IP address.",
+  "type": "string"
+ },
+ "sync_port": {
+  "default": 3780,
+  "description": "Port for sync communication.",
+  "type": "number"
+ },
+ "sync_protocol": {
+  "default": "tcp",
+  "description": "Transport protocol: tcp, udp, or multicast.",
+  "enum": [
+   "tcp",
+   "udp",
+   "multicast"
+  ],
+  "type": "string"
+ },
+ "sync_siblings": {
+  "default": [],
+  "description": "List of peer nodes for unicast synchronization.",
+  "type": "list"
+ },
+ "syslog": {
+  "default": "no",
+  "description": "Enable syslog logging. Use 'yes', 'no', or a facility like 'local0'.",
+  "enum": [
+   "no",
+   "yes",
+   "local0",
+   "user",
+   "daemon",
+   "syslog",
+   "ftp",
+   "local0"
+  ],
+  "type": "string"
+ },
+ "systemd": {
+  "default": "no",
+  "description": "Enable systemd runtime support.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "tcp_window_tracking": {
+  "default": "no",
+  "description": "Enable TCP window tracking.",
+  "enum": [
+   "yes",
+   "no"
+  ],
+  "type": "string"
+ },
+ "unix_socket_path": {
+  "default": "/var/run/conntrackd.ctl",
+  "description": "Path to the Unix socket.",
+  "type": "string"
+ }
 }

@@ -1,95 +1,99 @@
 {
-  "apt_periodic_update_package_lists": {
-    "type": "number",
-    "default": 1,
-    "description": "Run `apt update` every N days. Set to `0` to disable."
+ "apt_periodic_autoclean_interval": {
+  "default": 7,
+  "description": "Run `apt autoclean` every N days. Set to `0` to disable.",
+  "type": "number"
+ },
+ "apt_periodic_download_upgradeable_packages": {
+  "default": 1,
+  "description": "Download upgradeable packages every N days. Set to `0` to disable.",
+  "type": "number"
+ },
+ "apt_periodic_update_package_lists": {
+  "default": 1,
+  "description": "Run `apt update` every N days. Set to `0` to disable.",
+  "type": "number"
+ },
+ "apt_periodic_verbose": {
+  "default": 0,
+  "description": "Increase verbosity of APT periodic actions (0–3). Higher = more verbose.",
+  "type": "number"
+ },
+ "automatic_reboot": {
+  "default": false,
+  "description": "Automatically reboot after upgrades if required (e.g., after kernel updates). Use with caution.",
+  "type": "bool"
+ },
+ "automatic_reboot_time": {
+  "default": "02:00",
+  "description": "Time (HH:MM in 24h format) to schedule automatic reboot. Only used if automatic_reboot is true.",
+  "type": "string"
+ },
+ "description": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "email_address": {
+  "default": "",
+  "description": "Email address to send upgrade reports/alerts to. Leave empty to disable email.",
+  "type": "string"
+ },
+ "email_only_on_error": {
+  "default": true,
+  "description": "Send email only when an error occurs. If false, send daily summaries.",
+  "type": "bool"
+ },
+ "email_report": {
+  "default": "on-change",
+  "description": "When to send email reports: 'on-change', 'always', or 'none'.",
+  "type": "string"
+ },
+ "origins_pattern": {
+  "default": [
+   "o=Debian,a=stable",
+   "o=Debian,a=stable-updates",
+   "o=Debian,a=proposed-updates",
+   "o=Debian,a=security"
+  ],
+  "description": "List of origin patterns to allow automatic upgrades from. Each pattern matches metadata from APT sources.",
+  "items": {
+   "description": "An APT Origins-Pattern entry (e.g., `o=Debian,a=security`). Use `apt-cache policy` to inspect available origins.",
+   "type": "string"
   },
-  "apt_periodic_download_upgradeable_packages": {
-    "type": "number",
-    "default": 1,
-    "description": "Download upgradeable packages every N days. Set to `0` to disable."
+  "type": "list"
+ },
+ "package_blacklist": {
+  "default": [],
+  "description": "List of package names that must never be automatically upgraded.",
+  "items": {
+   "description": "Package name to exclude from automatic upgrades.",
+   "type": "string"
   },
-  "apt_periodic_autoclean_interval": {
-    "type": "number",
-    "default": 7,
-    "description": "Run `apt autoclean` every N days. Set to `0` to disable."
-  },
-  "apt_periodic_verbose": {
-    "type": "number",
-    "default": 0,
-    "description": "Increase verbosity of APT periodic actions (0\u20133). Higher = more verbose."
-  },
-  "unattended_upgrade_enable": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable or disable unattended upgrades entirely."
-  },
-  "origins_pattern": {
-    "type": "list",
-    "default": [
-      "o=Debian,a=stable",
-      "o=Debian,a=stable-updates",
-      "o=Debian,a=proposed-updates",
-      "o=Debian,a=security"
-    ],
-    "description": "List of origin patterns to allow automatic upgrades from. Each pattern matches metadata from APT sources.",
-    "items": {
-      "type": "string",
-      "description": "An APT Origins-Pattern entry (e.g., `o=Debian,a=security`). Use `apt-cache policy` to inspect available origins."
-    }
-  },
-  "package_blacklist": {
-    "type": "list",
-    "default": [],
-    "description": "List of package names that must never be automatically upgraded.",
-    "items": {
-      "type": "string",
-      "description": "Package name to exclude from automatic upgrades."
-    }
-  },
-  "unattended_upgrade_auto_fix_interrupted_dpkg": {
-    "type": "bool",
-    "default": true,
-    "description": "Automatically fix interrupted dpkg state (e.g., due to crashes)."
-  },
-  "unattended_upgrade_minimal_steps": {
-    "type": "bool",
-    "default": true,
-    "description": "Minimize interruption by splitting upgrades into smaller steps."
-  },
-  "unattended_upgrade_install_on_shutdown": {
-    "type": "bool",
-    "default": false,
-    "description": "Perform upgrades during shutdown instead of immediately (useful for servers)."
-  },
-  "automatic_reboot": {
-    "type": "bool",
-    "default": false,
-    "description": "Automatically reboot after upgrades if required (e.g., after kernel updates). Use with caution."
-  },
-  "automatic_reboot_time": {
-    "type": "string",
-    "default": "02:00",
-    "description": "Time (HH:MM in 24h format) to schedule automatic reboot. Only used if automatic_reboot is true."
-  },
-  "email_address": {
-    "type": "string",
-    "default": "",
-    "description": "Email address to send upgrade reports/alerts to. Leave empty to disable email."
-  },
-  "email_only_on_error": {
-    "type": "bool",
-    "default": true,
-    "description": "Send email only when an error occurs. If false, send daily summaries."
-  },
-  "email_report": {
-    "type": "string",
-    "default": "on-change",
-    "description": "When to send email reports: 'on-change', 'always', or 'none'."
-  },
-  "unattended_upgrade_verbose": {
-    "type": "number",
-    "default": 3,
-    "description": "Verbosity level for unattended-upgrades log (0\u20134). Higher = more detail."
-  }
+  "type": "list"
+ },
+ "unattended_upgrade_auto_fix_interrupted_dpkg": {
+  "default": true,
+  "description": "Automatically fix interrupted dpkg state (e.g., due to crashes).",
+  "type": "bool"
+ },
+ "unattended_upgrade_enable": {
+  "default": true,
+  "description": "Enable or disable unattended upgrades entirely.",
+  "type": "bool"
+ },
+ "unattended_upgrade_install_on_shutdown": {
+  "default": false,
+  "description": "Perform upgrades during shutdown instead of immediately (useful for servers).",
+  "type": "bool"
+ },
+ "unattended_upgrade_minimal_steps": {
+  "default": true,
+  "description": "Minimize interruption by splitting upgrades into smaller steps.",
+  "type": "bool"
+ },
+ "unattended_upgrade_verbose": {
+  "default": 3,
+  "description": "Verbosity level for unattended-upgrades log (0–4). Higher = more detail.",
+  "type": "number"
+ }
 }
