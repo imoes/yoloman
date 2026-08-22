@@ -1914,16 +1914,6 @@
   }
  },
  "/etc/Pegasus/access.conf": {
-  "+": {
-   "default": true,
-   "description": "Access granted - first field value in the access control table line.",
-   "type": "bool"
-  },
-  "-": {
-   "default": true,
-   "description": "Access denied - first field value in the access control table line.",
-   "type": "bool"
-  },
   "origins": {
    "description": "Third field: 'wbemNetwork' controls access by users from remote hosts; 'wbemLocal' controls access by users from the local host.",
    "type": "enum",
@@ -4575,7 +4565,6 @@
    "type": "string"
   },
   "auth": {
-   "default": "\"bsdtcp\"",
    "description": "Type of authorization to perform between tape server and backup client hosts.",
    "type": "enum",
    "values": [
@@ -4589,7 +4578,6 @@
    ]
   },
   "client-application-name": {
-   "default": "none",
    "description": "Not used on the client.",
    "type": "string"
   },
@@ -4604,7 +4592,6 @@
    "type": "string"
   },
   "comment": {
-   "default": "none",
    "description": "A comment string describing this application or script.",
    "type": "string"
   },
@@ -4679,7 +4666,6 @@
    "type": "int"
   },
   "execute-on": {
-   "default": "No default",
    "description": "When the script must be executed; can specify many values including pre-dle-amcheck, post-dle-amcheck, pre-host-amcheck, post-host-amcheck, pre-dle-estimate, post-dle-estimate, pre-host-estimate, post-host-estimate, pre-dle-backup, post-dle-backup, pre-recover, post-recover, pre-level-recover, post-level-recover, inter-level-recover.",
    "type": "list"
   },
@@ -4712,12 +4698,10 @@
    "type": "string"
   },
   "plugin": {
-   "default": "No default",
    "description": "Must be set to the name of the program.",
    "type": "string"
   },
   "property": {
-   "default": "No default",
    "description": "Adds a global property for this client host; first string is the property name, following strings are the property values.",
    "type": "list"
   },
@@ -4729,15 +4713,14 @@
   "reserved-tcp-port": {
    "default": "--with-low-tcpportrange or 512,1023",
    "description": "Reserved tcp port that will be used (amrecover with bsdtcp).",
-   "type": "int"
+   "type": "string"
   },
   "reserved-udp-port": {
    "default": "--with-udpportrange or 512,1023",
    "description": "Reserved udp port that will be used (amrecover with bsd or bsdudp).",
-   "type": "int"
+   "type": "string"
   },
   "ssh-keys": {
-   "default": "No default",
    "description": "The key file the ssh auth will use; it must be the private key.",
    "type": "string"
   },
@@ -4754,7 +4737,7 @@
   "unreserved-tcp-port": {
    "default": "--with-tcpportrange or 1025,65536",
    "description": "Unreserved tcp port that will be used (bsd, bsdudp).",
-   "type": "int"
+   "type": "string"
   }
  },
  "/etc/amanda/DailySet1/disklist": {
@@ -4985,6 +4968,41 @@
    "default": "${APACHE_RUN_USER}",
    "description": "The user under which the server will run.",
    "type": "string"
+  }
+ },
+ "/etc/apache2/conf-available/security.conf": {
+  "ServerSignature": {
+   "default": "Off",
+   "description": "Adds a line with server version and virtual host name to server-generated pages.",
+   "type": "enum",
+   "values": [
+    "On",
+    "Off",
+    "EMail"
+   ]
+  },
+  "ServerTokens": {
+   "default": "Full",
+   "description": "Configures the Server HTTP response header content revealing OS and module information.",
+   "type": "enum",
+   "values": [
+    "Full",
+    "OS",
+    "Minimal",
+    "Minor",
+    "Major",
+    "Prod"
+   ]
+  },
+  "TraceEnable": {
+   "default": "Off",
+   "description": "Controls whether the TRACE HTTP method is allowed and whether the request body is reflected.",
+   "type": "enum",
+   "values": [
+    "On",
+    "Off",
+    "extended"
+   ]
   }
  },
  "/etc/apg.conf": {
@@ -44259,6 +44277,125 @@
   "template": {
    "default": "template.xsl",
    "description": "Name of the XSLT template file used for HTML generation.",
+   "type": "string"
+  }
+ },
+ "/etc/httpd/conf/httpd.conf": {
+  "AccessFileName": {
+   "default": ".htaccess",
+   "description": "The name of the file looked for in each directory for additional configuration directives.",
+   "type": "string"
+  },
+  "AllowOverride": {
+   "description": "Determines which directives in .htaccess files are allowed to override earlier configuration.",
+   "type": "enum",
+   "values": [
+    "None"
+   ]
+  },
+  "DefaultRuntimeDir": {
+   "default": "${APACHE_RUN_DIR}",
+   "description": "The directory where shared memory and other runtime files will be stored.",
+   "type": "string"
+  },
+  "ErrorLog": {
+   "default": "${APACHE_LOG_DIR}/error.log",
+   "description": "The location of the error log file.",
+   "type": "string"
+  },
+  "Group": {
+   "default": "${APACHE_RUN_GROUP}",
+   "description": "The group under which the server will run.",
+   "type": "string"
+  },
+  "HostnameLookups": {
+   "default": "Off",
+   "description": "Whether to log client names or just IP addresses instead.",
+   "type": "enum",
+   "values": [
+    "On",
+    "Off"
+   ]
+  },
+  "Include": {
+   "description": "Includes the specified configuration file or glob pattern.",
+   "type": "string"
+  },
+  "IncludeOptional": {
+   "description": "Includes configuration files or directories matching the specified path/glob pattern if they exist.",
+   "type": "string"
+  },
+  "KeepAlive": {
+   "default": "On",
+   "description": "Whether to allow persistent connections (more than one request per connection). Set to 'Off' to deactivate.",
+   "type": "enum",
+   "values": [
+    "On",
+    "Off"
+   ]
+  },
+  "KeepAliveTimeout": {
+   "default": "5",
+   "description": "Number of seconds to wait for the next request on the same client connection.",
+   "type": "int"
+  },
+  "LogFormat": {
+   "description": "Defines a log format string and nickname for use with CustomLog directives.",
+   "type": "string"
+  },
+  "LogLevel": {
+   "default": "warn",
+   "description": "Controls the severity of messages logged to the error log.",
+   "type": "enum",
+   "values": [
+    "trace8",
+    "trace7",
+    "trace6",
+    "trace5",
+    "trace4",
+    "trace3",
+    "trace2",
+    "trace1",
+    "debug",
+    "info",
+    "notice",
+    "warn",
+    "error",
+    "crit",
+    "alert",
+    "emerg"
+   ]
+  },
+  "MaxKeepAliveRequests": {
+   "default": "100",
+   "description": "The maximum number of requests allowed during a persistent connection. Set to 0 for unlimited.",
+   "type": "int"
+  },
+  "Options": {
+   "description": "Sets server configuration options for resources in a directory (e.g., FollowSymLinks, Indexes).",
+   "type": "list"
+  },
+  "PidFile": {
+   "default": "${APACHE_PID_FILE}",
+   "description": "The file in which the server records its process identification number when it starts.",
+   "type": "string"
+  },
+  "Require": {
+   "description": "Specifies authorization requirements for accessing a resource in a directory.",
+   "type": "enum",
+   "values": [
+    "all denied",
+    "all granted"
+   ]
+  },
+  "Timeout": {
+   "default": "300",
+   "description": "The number of seconds before receives and sends time out.",
+   "type": "int"
+  },
+  "User": {
+   "default": "${APACHE_RUN_USER}",
+   "description": "The user under which the server will run.",
    "type": "string"
   }
  },
