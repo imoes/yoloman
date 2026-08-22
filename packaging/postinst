@@ -19,8 +19,9 @@ mkdir -p "$CONF_DIR/tools.d" "$CONF_DIR/trusted" /var/lib/agentic-mcp/uploads /v
 #
 #     gpasswd -a <user> yoloadmin        (then `getent group yoloadmin` shows exactly who can)
 #
-# Without the group the login refuses everyone with "user is not in group yoloadmin", which is the honest
-# state for a freshly installed agent: reachable by its bearer token and mTLS, not yet by a human.
+# Without the group the login refuses everyone but root ("user is not in group yoloadmin"), which is the
+# honest state for a freshly installed agent: reachable by its bearer token, by mTLS, and by the account that
+# already owns every file on the host — not yet by anybody else.
 # `-f`/`|| true` makes this idempotent across upgrades and reinstalls, and a group an operator created by
 # hand (possibly with a chosen GID) is left exactly as it is.
 LOGIN_GROUP=yoloadmin
@@ -39,8 +40,8 @@ fi
 # group, so a host where a human could sign in before will refuse until somebody is added. Silence would look
 # like a broken login rather than a deliberately closed one.
 if [ -z "$(getent group "$LOGIN_GROUP" 2>/dev/null | cut -d: -f4)" ]; then
-	echo "agentic-mcp: group $LOGIN_GROUP is empty — nobody can sign in to this host's web UI yet."
-	echo "agentic-mcp:   grant access with:  gpasswd -a <user> $LOGIN_GROUP"
+	echo "agentic-mcp: group $LOGIN_GROUP is empty — only root can sign in to this host's web UI."
+	echo "agentic-mcp:   grant access to others with:  gpasswd -a <user> $LOGIN_GROUP"
 fi
 
 if [ ! -f "$CONF_FILE" ]; then

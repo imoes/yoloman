@@ -89,9 +89,9 @@ func (c *Command) Description() string {
 
 func (c *Command) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
-		"cmd":     stringProp(`Plain command line, split on whitespace (no quoting), e.g. "systemctl daemon-reload". Mutually exclusive with argv.`),
-		"argv":    stringArrayProp(`Explicit argument vector, e.g. ["mkdir", "-p", "/opt/my app"] — required whenever an argument contains spaces. Mutually exclusive with cmd.`),
-		"chdir":   stringProp("Optional working directory to run the command in."),
+		"cmd":   stringProp(`Plain command line, split on whitespace (no quoting), e.g. "systemctl daemon-reload". Mutually exclusive with argv.`),
+		"argv":  stringArrayProp(`Explicit argument vector, e.g. ["mkdir", "-p", "/opt/my app"] — required whenever an argument contains spaces. Mutually exclusive with cmd.`),
+		"chdir": stringProp("Optional working directory to run the command in."),
 		"env": objectMapProp("Extra environment variables for this one call, ADDED to the " +
 			"inherited environment (PATH/HOME stay intact). Values are passed through the process " +
 			"environment, not the command line, so they do not appear in `ps` output or a shell " +

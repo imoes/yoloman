@@ -31,15 +31,15 @@ func TestExecute_RegexModule(t *testing.T) {
 	data, _ := res.Data.(map[string]any)
 
 	checks := map[string]any{
-		"test_start":    true,
-		"test_mid":      true,   // "in" appears anywhere (search semantics)
-		"test_no":       false,
-		"match_start":   true,   // "ng" matches at position 0
+		"test_start":     true,
+		"test_mid":       true, // "in" appears anywhere (search semantics)
+		"test_no":        false,
+		"match_start":    true,  // "ng" matches at position 0
 		"match_notstart": false, // "inx" is present but not at the start
-		"search_hit":    "ngi",  // "n.i" -> "ngi"
-		"search_miss":   nil,    // no digits -> None
-		"sub":           "a_b_c",
-		"escape":        `a\.b\*c`,
+		"search_hit":     "ngi", // "n.i" -> "ngi"
+		"search_miss":    nil,   // no digits -> None
+		"sub":            "a_b_c",
+		"escape":         `a\.b\*c`,
 	}
 	for k, want := range checks {
 		if got := data[k]; got != want {

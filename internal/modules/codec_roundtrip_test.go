@@ -293,12 +293,12 @@ type probeResult struct {
 	Executable    bool   `json:"executable"`
 	// Reported so the decision can tell a PROGRAM from a shell env file: control flow is what makes a file
 	// a program, a shebang alone does not (makepkg.conf's `#!/hint/bash`).
-	ControlFlow   bool   `json:"control_flow"`
-	Shebang       bool   `json:"shebang"`
-	Assignments   int    `json:"assignments"`
-	Sections      int    `json:"sections"`
-	Separator     string `json:"separator"`
-	Error         string `json:"error,omitempty"`
+	ControlFlow bool   `json:"control_flow"`
+	Shebang     bool   `json:"shebang"`
+	Assignments int    `json:"assignments"`
+	Sections    int    `json:"sections"`
+	Separator   string `json:"separator"`
+	Error       string `json:"error,omitempty"`
 }
 
 func probeOne(req probeRequest, format string) probeResult {

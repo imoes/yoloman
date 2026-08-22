@@ -125,7 +125,10 @@ Runs on every managed host. Highlights:
 - **Local login for the standalone UI** — `POST /api/v1/auth/login` verifies a username/password
   against this host's own accounts and must ALSO find the user in group **`yoloadmin`** (created
   empty by the package's postinst; grant with `gpasswd -a <user> yoloadmin`). A correct password is
-  not authorisation, so a service account with a password cannot administer the host. Two backends,
+  not authorisation, so a service account with a password cannot administer the host. **Root is
+  always exempt from the group** — the group starts empty, and the account that already owns every
+  file on the host must not be locked out of the interface whose purpose is being the way in. The
+  exemption is UID 0, not the name, and root's password is still required. Two backends,
   chosen by the build: real libpam (`CGO_ENABLED=1`, the packaged binary) or pam_unix's own
   `unix_chkpwd` helper when there is no libpam linked at all — so a fully static build still has a
   login. `GET /api/v1/auth/methods` says which is available and, when none is, *why*, so the form is

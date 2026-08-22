@@ -184,8 +184,8 @@ func (d *DiskMove) start(params map[string]any, dryRun bool) (Result, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	job := &moveJob{
-		ID:        fmt.Sprintf("mv-%d-%d", time.Now().UnixNano()/1e6, d.seq.Add(1)),
-		Device:    device, SrcOffset: int64(src), DstOffset: int64(dst), Length: int64(length),
+		ID:     fmt.Sprintf("mv-%d-%d", time.Now().UnixNano()/1e6, d.seq.Add(1)),
+		Device: device, SrcOffset: int64(src), DstOffset: int64(dst), Length: int64(length),
 		Backwards: backwards, StartedAt: time.Now().UTC().Format(time.RFC3339),
 		cancelFunc: cancel,
 	}

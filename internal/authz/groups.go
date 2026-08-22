@@ -9,6 +9,15 @@ package authz
 
 import "os/user"
 
+// systemUIDForUser returns username's numeric uid as a string.
+func systemUIDForUser(username string) (string, error) {
+	u, err := user.Lookup(username)
+	if err != nil {
+		return "", err
+	}
+	return u.Uid, nil
+}
+
 // systemGroupsForUser resolves username's group names via the real system user/group database.
 func systemGroupsForUser(username string) ([]string, error) {
 	u, err := user.Lookup(username)

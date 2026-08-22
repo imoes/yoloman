@@ -27,15 +27,15 @@ type L7Event struct {
 	Timestamp   time.Time `json:"timestamp"`
 	PID         uint32    `json:"pid"`
 	Comm        string    `json:"comm,omitempty"`
-	Protocol    string    `json:"protocol"`               // http|dns|postgres|mysql
-	Method      string    `json:"method,omitempty"`       // HTTP method / DNS query type
-	Target      string    `json:"target,omitempty"`       // HTTP path / DNS name / SQL text
-	Status      string    `json:"status"`                 // 2xx|3xx|4xx|5xx / ok|nxdomain|servfail|…
-	StatusCode  int32     `json:"status_code"`            // raw HTTP status / DNS rcode
+	Protocol    string    `json:"protocol"`         // http|dns|postgres|mysql
+	Method      string    `json:"method,omitempty"` // HTTP method / DNS query type
+	Target      string    `json:"target,omitempty"` // HTTP path / DNS name / SQL text
+	Status      string    `json:"status"`           // 2xx|3xx|4xx|5xx / ok|nxdomain|servfail|…
+	StatusCode  int32     `json:"status_code"`      // raw HTTP status / DNS rcode
 	DurationMs  float64   `json:"duration_ms"`
 	DstAddr     string    `json:"dst_addr,omitempty"`
 	DstPort     uint16    `json:"dst_port,omitempty"`
-	Answers     []string  `json:"answers,omitempty"`      // DNS A/AAAA answers
+	Answers     []string  `json:"answers,omitempty"` // DNS A/AAAA answers
 	ContainerID string    `json:"container_id,omitempty"`
 }
 

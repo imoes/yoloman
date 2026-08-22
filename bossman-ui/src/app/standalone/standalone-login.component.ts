@@ -29,7 +29,9 @@ import { setAuth } from './agent-auth';
           <label>Username<input name="u" [(ngModel)]="username" autocomplete="username" autofocus [disabled]="passwordLogin() === null" /></label>
           <label>Password<input name="p" type="password" [(ngModel)]="password" autocomplete="current-password" [disabled]="passwordLogin() === null" /></label>
           <button type="submit" [disabled]="passwordLogin() !== true || busy() || !username().trim() || !password()">{{ busy() ? 'Signing in…' : 'Sign in' }}</button>
-          @if (group()) { <p class="bm-note">Members of group <code>{{ group() }}</code> may sign in.</p> }
+          @if (group()) {
+            <p class="bm-note">Members of group <code>{{ group() }}</code>@if (superuser()) { and <code>root</code>} may sign in.</p>
+          }
         } @else {
           <p class="bm-err">No password login on this host.</p>
           <p class="bm-note">{{ reason() }}</p>
@@ -68,13 +70,17 @@ export class StandaloneLoginComponent {
   /** true = usable, false = this host has none, null = not asked yet (a third state, not a default). */
   passwordLogin = signal<boolean | null>(null);
   reason = signal(''); group = signal('');
+  /** Root bypasses the group requirement. Stated, because the group starts empty and root is then the only
+   * way in — a form that names only the group would read as "you cannot get in from here". */
+  superuser = signal(false);
 
   constructor() {
-    this.http.get<{ password: boolean; group?: string; password_unavailable_reason?: string }>(
-      '/api/v1/auth/methods').subscribe({
+    this.http.get<{ password: boolean; group?: string; superuser_exempt?: boolean;
+                    password_unavailable_reason?: string }>('/api/v1/auth/methods').subscribe({
       next: (m) => {
         this.passwordLogin.set(!!m.password);
         this.group.set(m.group || '');
+        this.superuser.set(!!m.superuser_exempt);
         this.reason.set(m.password_unavailable_reason || '');
       },
       // An older agent has no /auth/methods. Offering the form is the right guess there — it is what that
@@ -93,7 +99,9 @@ export class StandaloneLoginComponent {
         // 401 is deliberately one message: the agent does not tell a caller whether the account exists, the
         // password was wrong, or the group is missing. The group hint above says what to check.
         this.err.set(e?.status === 401
-          ? (this.group() ? `Invalid credentials, or not a member of ${this.group()}.` : 'Invalid username or password.')
+          ? (this.group()
+              ? `Invalid credentials, or not a member of ${this.group()}${this.superuser() ? ' (root is exempt)' : ''}.`
+              : 'Invalid username or password.')
           : (e?.error?.error || 'Login failed.'));
       },
     });

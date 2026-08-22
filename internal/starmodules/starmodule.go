@@ -90,7 +90,6 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 	return out, nil
 }
 
-
 // TargetRootParam asks for the module to be applied to a system mounted elsewhere instead of the
 // running one — the offline pass that configures a machine during its network install, before its
 // single reboot.

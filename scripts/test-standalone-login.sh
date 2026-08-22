@@ -27,10 +27,13 @@ for image in debian:12 almalinux:9; do
     useradd -m outsider 2>/dev/null || adduser -D outsider
     echo "tester:geheim123" | chpasswd
     echo "outsider:geheim123" | chpasswd
+    # Root gets a password and is deliberately NOT added to the group: the exemption is what keeps a freshly
+    # installed host reachable, and it has to hold against a real /etc/shadow, not only against a stub.
+    echo "root:rootpw123" | chpasswd
     gpasswd -a tester yoloadmin >/dev/null 2>&1 || usermod -aG yoloadmin tester
     ls -l /usr/sbin/unix_chkpwd
     AUTHZ_REAL_USER=tester AUTHZ_REAL_PASSWORD=geheim123 \
-      AUTHZ_REAL_GROUP=yoloadmin AUTHZ_REAL_NONMEMBER=outsider \
+      AUTHZ_REAL_GROUP=yoloadmin AUTHZ_REAL_NONMEMBER=outsider AUTHZ_REAL_ROOT_PASSWORD=rootpw123 \
       /authz.test -test.v -test.run "Chkpwd|GroupRequired" 2>&1 | tail -30
   '
 done

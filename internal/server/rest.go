@@ -432,6 +432,10 @@ func handleAuthMethods(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	}
 	if g, ok := cfg.PasswordAuth.(*authz.GroupRequired); ok && g.Group != "" {
 		out["group"] = g.Group
+		// Root is exempt from the group, always (see authz.GroupRequired) — stated here because a screen that
+		// says "members of yoloadmin may sign in" while root also can is telling half the rule, and the empty
+		// group on a fresh install makes root the only way in.
+		out["superuser_exempt"] = true
 	}
 	writeJSON(w, http.StatusOK, out)
 }

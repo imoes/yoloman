@@ -66,3 +66,58 @@ func TestGroupRequiredCannotMakeAnUnavailableBackendUsable(t *testing.T) {
 		t.Error("Available() must follow the backend")
 	}
 }
+
+func uid(n string) func(string) (string, error) {
+	return func(string) (string, error) { return n, nil }
+}
+
+func TestGroupRequiredAdmitsTheSuperuserWithoutTheGroup(t *testing.T) {
+	backend := &stubBackend{password: "geheim123", avail: true}
+	login := &GroupRequired{Inner: backend, Group: "yoloadmin",
+		LookupGroups: groups("root"), LookupUID: uid("0")}
+	// The postinst creates yoloadmin EMPTY, so without this the agent's own web UI is unreachable on a fresh
+	// install and after every upgrade — locked out of the interface whose whole purpose is being the way in.
+	id, err := login.Authenticate("root", "geheim123")
+	if err != nil {
+		t.Fatalf("root with the right password: %v", err)
+	}
+	if id.Name != "root" {
+		t.Errorf("identity = %+v, want root", id)
+	}
+}
+
+func TestGroupRequiredStillWantsTheSuperusersPassword(t *testing.T) {
+	backend := &stubBackend{password: "geheim123", avail: true}
+	login := &GroupRequired{Inner: backend, Group: "yoloadmin", LookupUID: uid("0")}
+	// The exemption widens who may be ASKED, not what counts as an answer.
+	if _, err := login.Authenticate("root", "falsch"); err == nil {
+		t.Fatal("uid 0 is not a password")
+	}
+}
+
+func TestGroupRequiredExemptsUIDZeroNotTheNameRoot(t *testing.T) {
+	backend := &stubBackend{password: "geheim123", avail: true}
+	// An ordinary account somebody named "root" (uid 1001) must NOT inherit the exemption — a name is not an
+	// identity, and the reverse case is real too: a host may call uid 0 "toor".
+	login := &GroupRequired{Inner: backend, Group: "yoloadmin",
+		LookupGroups: groups("users"), LookupUID: uid("1001")}
+	if _, err := login.Authenticate("root", "geheim123"); err == nil {
+		t.Fatal("the exemption must follow uid 0, not the string \"root\"")
+	}
+	login = &GroupRequired{Inner: backend, Group: "yoloadmin",
+		LookupGroups: groups("users"), LookupUID: uid("0")}
+	if _, err := login.Authenticate("toor", "geheim123"); err != nil {
+		t.Fatalf("uid 0 under another name must still be exempt: %v", err)
+	}
+}
+
+func TestGroupRequiredTreatsAFailedUIDLookupAsNotExempt(t *testing.T) {
+	backend := &stubBackend{password: "geheim123", avail: true}
+	login := &GroupRequired{Inner: backend, Group: "yoloadmin", LookupGroups: groups("users"),
+		LookupUID: func(string) (string, error) { return "", fmt.Errorf("no such user") }}
+	// An unknown user is not uid 0. Reading a failed lookup as "cannot rule it out, let them in" would turn
+	// every typo into a superuser exemption.
+	if _, err := login.Authenticate("ghost", "geheim123"); err == nil {
+		t.Fatal("a failed uid lookup must not exempt anyone")
+	}
+}

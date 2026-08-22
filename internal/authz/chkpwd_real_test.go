@@ -39,6 +39,19 @@ func TestChkpwdAgainstTheRealHelper(t *testing.T) {
 	if _, err := login.Authenticate(user, password+"x"); err == nil {
 		t.Error("the wrong password logged in against the real helper")
 	}
+	if rootPassword := os.Getenv("AUTHZ_REAL_ROOT_PASSWORD"); rootPassword != "" {
+		// Root has NOT been added to the group by the setup — that is the point. On a real host with a real
+		// empty yoloadmin, the superuser must still get in, or the first install locks the UI out.
+		id, err := login.Authenticate("root", rootPassword)
+		if err != nil {
+			t.Errorf("root could not log in without the group: %v", err)
+		} else if id.Name != "root" {
+			t.Errorf("root identity = %+v", id)
+		}
+		if _, err := login.Authenticate("root", rootPassword+"x"); err == nil {
+			t.Error("root's wrong password logged in — the exemption is from the group, not the password")
+		}
+	}
 	if other := os.Getenv("AUTHZ_REAL_NONMEMBER"); other != "" {
 		// Same password, no membership: the group must be what refuses, on a real host.
 		if _, err := login.Authenticate(other, password); err == nil {
