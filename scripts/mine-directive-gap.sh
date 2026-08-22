@@ -1,47 +1,58 @@
 #!/usr/bin/env bash
-# Work the directive gap to the end, in chunks, resumable — the honest way to run 2441 mining calls.
+# Work the directive gap to the end, in chunks, resumable — the honest way to run a thousand mining calls.
 #
-# 5842 paths carry a codec decided at the bytes and not one directive. 2441 of those have grounding and are
-# not data tables; at the observed ~1.6 paths a minute that is about 25 hours. A single invocation with 2441
-# arguments would be one long-running process whose failure loses the queue, so this drives the miner in
-# chunks and re-reads the catalog between them: a path that got directives is skipped, so stopping and
-# restarting costs nothing.
+# 5842 paths carry a codec decided at the bytes and not one directive. This drives the miner in chunks and
+# re-reads the queue from the catalog between them, so a path that got directives is skipped and stopping
+# costs nothing.
 #
-# ONE PROCESS AT A TIME, deliberately. The two miners would write configs/config_directives.json after every
-# path and clobber each other — the file is the queue's state as well as its output. laguna runs on
-# OpenRouter rather than the shared llama.cpp endpoint, so the reason here is data safety, not politeness.
+# ONE PROCESS AT A TIME, deliberately. Two miners would write configs/config_directives.json after every path
+# and clobber each other — that file is the queue's state as well as its output. laguna runs on OpenRouter
+# rather than the shared llama.cpp endpoint, so the reason here is data safety, not politeness.
 #
-# THE QUEUE MUST CARRY THE GATE'S CONDITION, not merely "documentation exists". The first run failed 49 of
-# 50 paths with "documentation is not about this file (0% of its keys appear)" — Apache conf-available
-# fragments grounded against the apache2 man page. A page existing is necessary and nowhere near sufficient:
-# the miner then asks whether that page MENTIONS the file's own keys. Computing doc_is_about offline first cut
-# 2377 candidates to 1087 (224 where the documentation is provably about the file, 863 that fall back to >=20
-# of their own comment lines) and saved 1290 futile model calls.
+# THE QUEUE MUST CARRY THE GATE'S CONDITION, not merely "documentation exists". The first run failed 49 of 50
+# paths with "documentation is not about this file (0% of its keys appear)" — Apache conf-available fragments
+# grounded against the apache2 man page. A page existing is necessary and nowhere near sufficient: the miner
+# then asks whether that page MENTIONS the file's own keys. Computing doc_is_about offline first cut 2377
+# candidates to 1087 and saved 1290 futile model calls.
+#
+# AND A FAILURE IS AN ANSWER TOO. The queue is "not in the catalog", so a path that fails PERMANENTLY stays at
+# its head and is asked again every round — measured: 47 of 50 failed, the queue fell by 3, and the next chunk
+# requested the same 47. Failures are therefore remembered in mine-gap-skip.txt and not paid for twice.
+# DELETE that file to retry everything, which is what you want after fixing a cause: the unreachable
+# comment-fallback made 32 paths fail for a reason that no longer exists.
 #
 #   scripts/mine-directive-gap.sh <work-list> [chunk-size]
 set -u
 cd /home/mutkluge/Dev/code/yolo-man
+
+# ONE DRIVER, ENFORCED. I started a second one while the first was still working and had two miners writing
+# configs/config_directives.json after every path — the exact clobbering the comment above warns about, done
+# by hand. A lock file is cheaper than remembering.
+LOCK=/tmp/mine-directive-gap.lock
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  echo "$(date +%H:%M) ein Treiber läuft bereits (Lock $LOCK) — dieser beendet sich" >&2
+  exit 0
+fi
 WORK=${1:?usage: mine-directive-gap.sh <work-list> [chunk]}
 CHUNK=${2:-50}
 SCRATCH=$(dirname "$WORK")
 LOG="$SCRATCH/mine-gap.log"
+SKIP="$SCRATCH/mine-gap-skip.txt"
 CORPUS="$SCRATCH/corpus_both.jsonl"
 MAN="$SCRATCH/deb_man/corpus.jsonl"
+QUEUE="$SCRATCH/mine-gap-queue.txt"
 
 while :; do
-  # The remaining queue, recomputed from the catalog every round — that is what makes this resumable.
-  todo=$(bossman/.venv-host/bin/python - "$WORK" <<'PY'
-import json, sys
-from pathlib import Path
-have = json.loads(Path("configs/config_directives.json").read_text())
-todo = [p for p in Path(sys.argv[1]).read_text().split()
-        if p not in have and p.rsplit("/", 1)[-1] not in have]
-print("\n".join(todo))
-PY
-)
-  count=$(printf '%s\n' "$todo" | grep -c . || true)
-  [ "$count" -eq 0 ] && { echo "$(date +%H:%M) fertig — die Schere ist geschlossen" >>"$LOG"; break; }
-  batch=$(printf '%s\n' "$todo" | head -n "$CHUNK" | tr '\n' ' ')
+  # The remaining queue, recomputed from the catalog and the skip list every round — that is what makes this
+  # resumable and what stops it spinning on a path nothing can mine.
+  bossman/.venv-host/bin/python bossman/scripts/mine_gap_queue.py "$WORK" "$SKIP" >"$QUEUE"
+  count=$(grep -c . "$QUEUE" || true)
+  if [ "$count" -eq 0 ]; then
+    echo "$(date +%H:%M) fertig — die Schere ist geschlossen" >>"$LOG"
+    break
+  fi
+  batch=$(head -n "$CHUNK" "$QUEUE" | tr '\n' ' ')
   echo "$(date +%H:%M) noch $count Pfade, nächste $CHUNK" >>"$LOG"
   ( cd bossman/scripts && env http_proxy=http://proxy.example.internal:80 \
       https_proxy=http://proxy.example.internal:80 \
@@ -52,4 +63,7 @@ PY
   # zero ranges, ranges on a bool, fractional int defaults. Measured every single time so far.
   bossman/.venv-host/bin/python bossman/scripts/lint_directive_catalog.py --corpus "$CORPUS" --write \
     >>"$LOG" 2>&1
+  # Whatever this chunk asked for and did not get is remembered, so the next round moves on.
+  head -n "$CHUNK" "$QUEUE" | bossman/.venv-host/bin/python bossman/scripts/mine_gap_queue.py --failed \
+    >>"$SKIP"
 done
