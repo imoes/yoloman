@@ -2260,3 +2260,25 @@ es zeigen kann. Danach: 0 Platzierungen ohne Namensbezug bei engem Verfolger, ge
 Nebenbei: der Bericht wird jetzt **auch ohne `--write`** geschrieben. Ein Trockenlauf, dessen Zahlen man nicht
 nachrechnen kann, ist eine halbe Messung — und die ersten 16 Zeilen einer 317er-Liste sagen nichts über den
 Rest.
+
+### 13. Die schmale Frage: nur die fehlenden Beschreibungen
+
+`--remine` erzeugt den **ganzen** Katalog einer Datei neu, und für die Reste war das die falsche Frage:
+`/etc/samba/smb.conf` hat Hunderte Parameter, `/etc/sysctl.conf` jeden Kernel-Knopf, und das Modell antwortete
+dreimal „nichts" — nicht weil die Doku fehlte, sondern weil die Antwort riesig gewesen wäre. 217 Felder
+brauchen je *einen Satz*, keinen neuen Katalog.
+
+[`describe_missing_keys.py`](../bossman/scripts/describe_missing_keys.py) fragt genau das: hier die
+Dokumentation, hier die 12 Schlüssel ohne Beschreibung, gib mir einen Satz für die, die du **darin** findest.
+Nichts anderes im Katalog wird angefasst — keine Typen, keine Defaults, keine Schlüssel dazu oder weg.
+
+**Die Antwort wird geprüft**, denn ein Modell, das um Prosa gebeten wird, liefert Prosa, ob es etwas weiß oder
+nicht: der Schlüssel muss im Grundlagentext **vorkommen** (sonst ist der Satz Erfindung, so plausibel er
+klingt), der Satz darf nicht bloß den Namen wiederholen („Sets the ServerRoot." für `ServerRoot` erklärt
+nichts), und er muss ein Satz sein (vier Wörter, 20 Zeichen). Über beide Läufe: **84 gefüllt, 23
+zurückgewiesen**.
+
+Der erste Lauf blieb bei 204, weil ich nur den *offline* Korpus benutzt hatte — `lftp` liefert dort keine
+Seite, und diese eine Datei trug 65 der Reste. Mit den beiden Spiegeln (`manpages.debian.org/lftp`) fielen
+sie auf **134 Felder in 37 Pfaden**. Was bleibt, ist geballt und ehrlich: `/etc/webcam` 27, `/etc/sysctl.conf`
+25, `/etc/samba/smb.conf` 12 — Dateien, deren Doku die Schlüssel nicht nennt oder gar nicht existiert.
