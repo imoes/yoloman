@@ -124,6 +124,12 @@ class Settings(BaseSettings):
     # edit, 1342 of them with confidence "high". Read-only; served so a screen can say so instead of
     # opening an editor on nothing.
     config_path_verdicts_path: str = "/app/configs/config_path_verdicts.json"
+    # What happened when a claimed codec was TESTED against the file the package ships
+    # (scripts/decide_codecs.py --record). Distinguishes "nobody has looked" from "looked, and the file could
+    # not decide": all 81 unmeasured claims with a real file in the corpus came back no-evidence, because the
+    # shipped copy of /etc/security/limits.conf and friends is entirely comments. The first is a task, the
+    # second is a dead end for this method — and they were indistinguishable in the API.
+    codec_probe_verdicts_path: str = "/app/configs/codec_probe_verdicts.json"
     # Block 3: the co-located poller agent that runs SNMP checks on behalf of
     # agent-less devices (see project-ssh-snmp-checks). SNMP devices are created
     # as satellites of this agent.

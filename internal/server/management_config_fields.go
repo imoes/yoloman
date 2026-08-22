@@ -182,21 +182,44 @@ func catalogForPath(path string, catalog map[string]any) map[string]any {
 // provenanceOf reports whether this codec was decided by round-tripping the bytes the package really ships,
 // or merely asserted. A field editor built on an unmeasured grammar can corrupt the file it writes, so the
 // answer travels with the fields rather than being implied by their presence.
-func provenanceOf(codec map[string]any) map[string]any {
+//
+// NOT-MEASURED HAS TWO SHAPES. "Nobody has looked yet" is a task; "probed, and the file could not decide" is
+// a dead end for this method — the shipped /etc/security/limits.conf and /etc/sysctl.conf are entirely
+// comments, so their bytes cannot confirm or refute a grammar. The probe record names which it is.
+func provenanceOf(codec map[string]any, probe map[string]any) map[string]any {
 	source, _ := codec["source"].(string)
 	if source == "" {
 		source = "unrecorded"
 	}
-	measured := source == "probe"
+	measured := source == "probe" || source == "extension"
 	confidence, _ := codec["confidence"].(string)
 	if confidence == "" {
 		confidence = "unknown"
 	}
-	note := "the grammar was never checked against a file this package ships"
-	if measured {
-		note = "the grammar was decided by round-tripping a real file from the package"
+	note, _ := codec["notes"].(string)
+	if note == "" {
+		if measured {
+			note = "the grammar was decided by round-tripping a real file from the package"
+		} else {
+			note = "this grammar has never been checked against a real file"
+		}
 	}
-	return map[string]any{"source": source, "measured": measured, "confidence": confidence, "note": note}
+	out := map[string]any{"source": source, "measured": measured, "confidence": confidence}
+	if !measured && probe["verdict"] == "no-evidence" {
+		active := 0
+		if n, ok := probe["active_lines"].(float64); ok {
+			active = int(n)
+		}
+		note = fmt.Sprintf("probed against the file the package ships: it contains no active setting "+
+			"(%d lines), so the bytes cannot confirm or refute this grammar", active)
+	}
+	out["note"] = note
+	if len(probe) > 0 {
+		out["probe"] = probe
+	} else {
+		out["probe"] = nil
+	}
+	return out
 }
 
 func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +293,7 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 		add("write", "codec")
 		add("format", codecKind)
 		add("separator", orDefault(codec["separator"], ""))
-		add("provenance", provenanceOf(codec))
+		add("provenance", provenanceOf(codec, asMap(asMap(mustJSON("codec_probe_verdicts.json"))[path])))
 		add("fields", fields)
 		add("available", true)
 		writeJSON(w, http.StatusOK, out)

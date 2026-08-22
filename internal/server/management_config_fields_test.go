@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -243,5 +244,35 @@ func TestConfigFields_NoVerdictMeansNoClaim(t *testing.T) {
 	// measurement of absence — it must produce no annotation rather than a warning.
 	if out := getFields(t, "path=/etc/unmeasured.conf"); out["path_verdict"] != nil {
 		t.Errorf("path_verdict = %v, want none when nothing was measured", out["path_verdict"])
+	}
+}
+
+func TestConfigFields_DistinguishesNotLookedFromLookedAndUndecidable(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json": `{"/etc/security/limits.conf": {"codec": "keyvalue", "confidence": "high"},
+			"/etc/never-tried.conf": {"codec": "keyvalue", "confidence": "high"}}`,
+		"config_directives.json": `{}`,
+		// The shipped file is entirely comments, so the bytes cannot confirm or refute the grammar.
+		"codec_probe_verdicts.json": `{"/etc/security/limits.conf": {"verdict": "no-evidence",
+			"active_lines": 0, "keys": 0}}`,
+	})
+	probed, _ := getFields(t, "path=/etc/security/limits.conf")["provenance"].(map[string]any)
+	if probed["measured"] != false {
+		t.Error("no-evidence is not a measurement of the grammar")
+	}
+	if !strings.Contains(probed["note"].(string), "no active setting") {
+		t.Errorf("note = %q, want the reason the probe could not decide", probed["note"])
+	}
+	if probed["probe"] == nil {
+		t.Error("the probe's own answer must travel, so a screen can tell the two states apart")
+	}
+
+	// The other shape: nobody has looked. Same `measured: false`, different work to do.
+	untried, _ := getFields(t, "path=/etc/never-tried.conf")["provenance"].(map[string]any)
+	if !strings.Contains(untried["note"].(string), "never been checked") {
+		t.Errorf("note = %q, want \"never checked\" for a claim nobody probed", untried["note"])
+	}
+	if untried["probe"] != nil {
+		t.Error("an unprobed path must carry no probe record — that would be a measurement it never had")
 	}
 }

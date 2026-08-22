@@ -63,7 +63,7 @@ def _field_from_directive(spec: dict) -> dict:
     return out
 
 
-def _provenance(record: dict) -> dict:
+def _provenance(record: dict, probe: dict | None = None) -> dict:
     """WHERE THIS ANSWER COMES FROM — every state needs a reachable cause (docs/logik-audit.md).
 
     The registry has just learned to distinguish measured answers from asked ones: `source: "probe"` means the
@@ -78,12 +78,25 @@ def _provenance(record: dict) -> dict:
     """
     source = record.get("source") or "unverified"
     measured = source in ("probe", "extension")
+    note = record.get("notes") or ("" if measured else
+                                   "this grammar has never been checked against a real file")
+    # NOT-MEASURED HAS TWO SHAPES and they call for different work. "Nobody has looked yet" is a task; "the
+    # file was probed and could not decide" is a dead end for this method. Measured: all 81 unmeasured claims
+    # whose real file exists in the corpus came back no-evidence — the shipped /etc/security/limits.conf,
+    # /etc/sysctl.conf and 79 others contain nothing but comments, so the bytes cannot say whether the
+    # grammar fits. Naming that stops the same probe being run again forever, and points at the right tool:
+    # the COMMENTED settings are the evidence for such a file.
+    if not measured and isinstance(probe, dict) and probe.get("verdict") == "no-evidence":
+        note = ("probed against the file the package ships: it contains no active setting ({} lines), so the "
+                "bytes cannot confirm or refute this grammar".format(probe.get("active_lines", 0)))
     return {
         "source": source,
         "measured": measured,
         "confidence": record.get("confidence") or "unknown",
-        "note": record.get("notes") or ("" if measured else
-                                       "this grammar has never been checked against a real file"),
+        "note": note,
+        # The probe's own answer, when there is one — so a screen can distinguish "not yet tried" from
+        # "tried, and the file had nothing to say".
+        "probe": probe if isinstance(probe, dict) else None,
     }
 
 
@@ -205,7 +218,7 @@ async def config_fields(
         return {
             "path": path, "write": "codec",
             "format": codec_kind, "separator": codec.get("separator", ""),
-            "provenance": _provenance(codec),
+            "provenance": _provenance(codec, _load_json(settings.codec_probe_verdicts_path).get(path)),
             "fields": fields, "available": True, **advisory,
         }
 

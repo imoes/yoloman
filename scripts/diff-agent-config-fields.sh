@@ -14,6 +14,12 @@ FAMILY=${2:-debian}
 BOSS=${BOSS:-http://localhost:8123}
 WORK=$(mktemp -d)
 
+# Wait for Bossman before asking it anything: a rebuild takes a few seconds to start serving, and a login
+# against a not-yet-listening server produced a JSON parse error that read like a broken script.
+for _ in $(seq 1 40); do
+  curl -fsS -m 5 -o /dev/null "$BOSS/openapi.json" 2>/dev/null && break
+  sleep 1
+done
 TOKEN=$(curl -s -m 10 -X POST "$BOSS/api/v1/auth/login" -H 'content-type: application/json' \
   -d "{\"username\":\"${BOSS_USER:-admin}\",\"password\":\"${BOSS_PASS:-admin123}\"}" \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
@@ -54,6 +60,9 @@ paths = [l.strip() for l in open(paths_file) if l.strip()]
 # What is compared: the CLAIMS. `template` (the body) and `sample` are content the agent reads from the same
 # files Bossman does; comparing them would only test the file copy. These keys are the answer itself.
 KEYS = ("write", "format", "separator", "template_name", "reason", "available")
+# The provenance NOTE too, because it is the sentence a screen shows about how much to trust these fields —
+# "never checked" versus "probed, and the file had nothing to say" is exactly the kind of claim that drifts.
+NESTED = (("provenance", "measured"), ("provenance", "note"))
 mismatch, missing = [], 0
 for p in paths:
     q = urllib.parse.urlencode({"path": p, "family": family})
@@ -73,6 +82,10 @@ for p in paths:
     for k in ("withheld", "unsettable", "renderer_gaps", "machine_written", "path_verdict"):
         if bool(want.get(k)) != bool(got.get(k)):
             mismatch.append((p, k, bool(want.get(k)), bool(got.get(k))))
+    for outer, inner in NESTED:
+        a, b = (want.get(outer) or {}).get(inner), (got.get(outer) or {}).get(inner)
+        if a != b:
+            mismatch.append((p, "{}.{}".format(outer, inner), a, b))
 
 print("compared {} paths".format(len(paths)))
 if not mismatch:

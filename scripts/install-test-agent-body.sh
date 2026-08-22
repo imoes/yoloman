@@ -18,11 +18,11 @@ echo "ok  group yoloadmin exists and is empty"
 # The projections the standalone field editor serves. Absence is silent in the UI, so it is loud here.
 for f in config_template_index.json config_directive_keys.json template_withheld.json \
          config_generated.json template_unsettable.json template_renderer_gaps.json \
-         config_path_verdicts.json \
+         config_path_verdicts.json codec_probe_verdicts.json \
          config_codecs.json config_directives.json; do
   [ -s "/usr/share/agentic-mcp/configs/$f" ] || fail "missing /usr/share/agentic-mcp/configs/$f"
 done
-echo "ok  all nine catalog/projection files installed"
+echo "ok  all ten catalog/projection files installed"
 [ -d /usr/share/agentic-mcp/configs/config_templates ] || fail "the template tree is missing"
 
 # A member and a non-member with the SAME password, plus root — so the group is what makes the difference.

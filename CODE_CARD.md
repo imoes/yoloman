@@ -73,6 +73,11 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
   `scripts/verify-registry-paths.sh` (resumable, one process, flock). Separate from the codec registry on
   purpose: that answers how a file is written, this whether there is a file, and the qualify batch rewrites
   the former knowing nothing about the latter.
+- **was the grammar tested** — `configs/codec_probe_verdicts.json` (per path: verdict + active_lines + keys),
+  written by `decide_codecs.py --record`. Separates "nobody has looked" from "probed, and the file could not
+  decide": all 81 unmeasured claims whose real file is in the corpus came back `no-evidence`, because the
+  shipped `/etc/security/limits.conf`, `/etc/sysctl.conf` and 79 others are entirely comments. First is a
+  task, second is a dead end for this method — and `/config-fields`'s provenance note now says which.
 - **one field spec, two servers** — `GET /api/v1/config-fields?path=` is the single describe() for a config
   file (`write: codec|template|freeform|unknown` + typed `fields`). Bossman computes it from the rules
   (`bossman/bossman/api/config_fields.py`); a STANDALONE agent serves the same answer from recorded
