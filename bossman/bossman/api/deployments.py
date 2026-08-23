@@ -24,7 +24,8 @@ from bossman.db.session import get_session
 from bossman.services import ansible_playbook, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.plan_engine import run_plan
-from bossman.services.plan_loader import PlanError, load_host_vars
+from bossman.services.plan_loader import PlanError
+from bossman.services.scope_vars import resolve_scope_vars
 from bossman.services.plan_store import load_plan as store_load_plan
 from bossman.services.runbook_exec import execute_runbook
 from bossman.services.targets import TargetSpec, resolve_targets
@@ -107,7 +108,9 @@ async def run_deployment(
         try:
             if body.kind == "stored_plan":
                 plan = await store_load_plan(session, body.prefix, body.name)
-                host_vars = load_host_vars(settings.plans_dir, agent.name)
+                # From the DATABASE, GPO-merged — not from plans_dir/host_vars/<hostname>.yaml, which was a
+                # second source for the same fact and keyed by hostname in a filename.
+                host_vars = await resolve_scope_vars(session, agent)
                 run = await run_plan(
                     session, agent, plan, host_vars=host_vars, explicit_params=body.params,
                     dry_run=body.dry_run, client=client, requested_by=identity.name,

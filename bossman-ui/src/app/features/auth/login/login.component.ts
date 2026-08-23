@@ -29,6 +29,8 @@ import { AuthService } from '../../../core/auth/auth.service';
         <div class="bm-login-logo">
           <img src="assets/bossman.jpg" alt="Bossman — Fleet Commander" />
         </div>
+        <p class="bm-beta-note"><strong>Beta.</strong> Pre-1.0: interfaces and stored formats can still
+          change between versions. Not yet a promise you should build a change process on.</p>
         <mat-card-content>
           <!-- FIRST RUN. Asked before anything is offered: an installation with no account cannot be logged
                into, and showing a password prompt there is asking a question that has no answer. -->
@@ -115,6 +117,15 @@ import { AuthService } from '../../../core/auth/auth.service';
         color: var(--bm-red);
         margin-bottom: 8px;
         font-size: 13px;
+      }
+      .bm-beta-note {
+        margin: 0 22px 6px;
+        padding: 7px 9px;
+        border-radius: 6px;
+        border-left: 3px solid var(--bm-gold, #f5c518);
+        background: rgba(245, 197, 24, 0.09);
+        font-size: 12px;
+        line-height: 1.45;
       }
       .bm-setup-lead {
         margin: 0 0 14px;

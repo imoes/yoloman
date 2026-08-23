@@ -15,7 +15,6 @@ from bossman.services.plan_loader import (
     PlanStep,
     chunks_needing_retranslation,
     hash_source_text,
-    load_host_vars,
     load_plan_file,
     load_plans_dir,
     parse_plan,
@@ -154,16 +153,6 @@ def test_load_plans_dir_missing_directory_returns_empty(tmp_path):
     assert load_plans_dir(tmp_path / "nonexistent") == []
 
 
-def test_load_host_vars_missing_file_returns_empty(tmp_path):
-    assert load_host_vars(tmp_path, "web01.example.com") == {}
-
-
-def test_load_host_vars_loads_file(tmp_path):
-    host_vars_dir = tmp_path / "host_vars"
-    host_vars_dir.mkdir()
-    (host_vars_dir / "web01.example.com.yaml").write_text("server_name: web01.internal\n")
-
-    assert load_host_vars(tmp_path, "web01.example.com") == {"server_name": "web01.internal"}
 
 
 def test_resolve_params_precedence_default_then_host_vars_then_explicit(tmp_path):

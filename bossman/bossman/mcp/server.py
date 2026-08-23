@@ -65,7 +65,8 @@ from bossman.services.monitoring import (
     to_view,
 )
 from bossman.services.plan_engine import run_plan as engine_run_plan
-from bossman.services.plan_loader import PlanError, load_host_vars
+from bossman.services.plan_loader import PlanError
+from bossman.services.scope_vars import resolve_scope_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans as search_plans_service
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -812,7 +813,9 @@ def build_mcp_server(
             if not agent.address:
                 raise ValueError(f"host {host!r} has no reachable address")
 
-            host_vars = load_host_vars(settings.plans_dir, agent.name)
+            # From the DATABASE, GPO-merged (see services/scope_vars) — the filesystem host_vars layer is
+            # gone; it was a second source for the same fact.
+            host_vars = await resolve_scope_vars(session, agent)
             client = client_factory(agent, settings)
             try:
                 plan_run = await engine_run_plan(

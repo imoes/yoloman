@@ -5,6 +5,12 @@
 > *"You only live once — but your servers only get one uptime SLA, so let's not get carried
 > away."*
 
+> [!WARNING]
+> **This is a beta.** Pre-1.0: the REST/MCP surface, the config catalog's recorded formats and the database
+> schema can still change between versions, and an upgrade may need a migration that has not been rehearsed
+> on your data. Run it where you can afford to be surprised — a lab, a staging fleet, hosts you can rebuild.
+> It is a real system doing real work, and it is not yet a promise you should build a change process on.
+
 A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
 **observability**, and **configuration management** to an AI — over [MCP](https://modelcontextprotocol.io)
 (stdio or Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime on the
