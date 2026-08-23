@@ -1,116 +1,120 @@
 {
- "allow_plaintext_credentials": {
-  "default": false,
-  "description": "Whether to allow storing passwords in plaintext if secure credential storage fails. Unsafe — disable unless necessary for legacy environments.",
-  "type": "boolean"
- },
- "auth_method": {
-  "allowed": [
-   "Basic",
-   "OAuth2",
-   "Token"
-  ],
-  "default": "Basic",
-  "description": "Authentication method to use: 'Basic' (username/password), 'OAuth2', or custom 'Token' (bearer token).",
-  "type": "string"
- },
- "auto_sync": {
-  "default": true,
-  "description": "Whether to automatically sync calendar events on network change or timer (requires background sync support).",
-  "type": "boolean"
- },
- "collection_path": {
-  "default": "",
-  "description": "Optional URL path prefix for calendar collections. Leave empty to use server defaults or discovery results.",
-  "type": "string"
- },
- "collections": {
-  "default": [
-   {
-    "display_name": "My Calendar",
-    "mime_type": "text/calendar",
-    "name": "default"
-   }
-  ],
-  "description": "List of supported calendar collection profiles to present in the UI. Each defines a named, optional MIME type.",
-  "items": {
-   "properties": {
-    "display_name": {
-     "description": "User-visible label shown in UI.",
-     "type": "string"
-    },
-    "mime_type": {
-     "default": "text/calendar",
-     "description": "MIME type the server advertises for this collection (e.g., 'text/calendar', 'application/calendar+json').",
-     "type": "string"
-    },
-    "name": {
-     "description": "Internal identifier for the collection (e.g., 'default', 'birthdays').",
-     "type": "string"
-    }
-   },
-   "required": [
-    "name",
-    "display_name"
-   ],
-   "type": "object"
+  "allow_plaintext_credentials": {
+    "default": false,
+    "description": "Whether to allow storing passwords in plaintext if secure credential storage fails. Unsafe \u2014 disable unless necessary for legacy environments.",
+    "type": "boolean"
   },
-  "type": "list"
- },
- "custom_headers": {
-  "default": [],
-  "description": "Optional list of custom HTTP headers to send with every CalDAV request (e.g., for proxy authentication or tenant IDs).",
-  "items": {
-   "properties": {
-    "name": {
-     "description": "HTTP header name (e.g., 'X-Tenant-ID', 'X-Device-ID').",
-     "type": "string"
-    },
-    "value": {
-     "description": "Header value (may contain '{{ username }}' placeholder).",
-     "type": "string"
-    }
-   },
-   "required": [
-    "name",
-    "value"
-   ],
-   "type": "object"
+  "auth_method": {
+    "allowed": [
+      "Basic",
+      "OAuth2",
+      "Token"
+    ],
+    "default": "Basic",
+    "description": "Authentication method to use: 'Basic' (username/password), 'OAuth2', or custom 'Token' (bearer token).",
+    "type": "string",
+    "enum": [
+      "Basic",
+      "OAuth2"
+    ]
   },
-  "type": "list"
- },
- "display_name": {
-  "default": "Generic CalDAV",
-  "description": "User-friendly name for the CalDAV account type shown in the account setup list.",
-  "type": "string"
- },
- "enable_discovery": {
-  "default": true,
-  "description": "Whether to attempt WebDAV auto-discovery (e.g., via /.well-known/caldav) before using the explicit ServerURL.",
-  "type": "boolean"
- },
- "request_timeout": {
-  "default": 30,
-  "description": "Maximum seconds to wait for HTTP requests before timing out.",
-  "type": "number"
- },
- "server_url_template": {
-  "default": "https://{{ username }}@caldav.example.com/",
-  "description": "CalDAV server URL template; '{{ username }}' is replaced with the user's account username at login. Should include protocol and trailing slash.",
-  "type": "string"
- },
- "sync_interval": {
-  "default": 900,
-  "description": "Interval in seconds between background syncs. Set to 0 to disable automatic sync (manual-only).",
-  "type": "number"
- },
- "use_ssl": {
-  "default": true,
-  "description": "Whether to enforce SSL/TLS encryption for all server connections.",
-  "type": "boolean"
- },
- "username": {
-  "source": "inferred-from-template",
-  "type": "string"
- }
+  "auto_sync": {
+    "default": true,
+    "description": "Whether to automatically sync calendar events on network change or timer (requires background sync support).",
+    "type": "boolean"
+  },
+  "collection_path": {
+    "default": "",
+    "description": "Optional URL path prefix for calendar collections. Leave empty to use server defaults or discovery results.",
+    "type": "string"
+  },
+  "collections": {
+    "default": [
+      {
+        "display_name": "My Calendar",
+        "mime_type": "text/calendar",
+        "name": "default"
+      }
+    ],
+    "description": "List of supported calendar collection profiles to present in the UI. Each defines a named, optional MIME type.",
+    "items": {
+      "properties": {
+        "display_name": {
+          "description": "User-visible label shown in UI.",
+          "type": "string"
+        },
+        "mime_type": {
+          "default": "text/calendar",
+          "description": "MIME type the server advertises for this collection (e.g., 'text/calendar', 'application/calendar+json').",
+          "type": "string"
+        },
+        "name": {
+          "description": "Internal identifier for the collection (e.g., 'default', 'birthdays').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "display_name"
+      ],
+      "type": "object"
+    },
+    "type": "list"
+  },
+  "custom_headers": {
+    "default": [],
+    "description": "Optional list of custom HTTP headers to send with every CalDAV request (e.g., for proxy authentication or tenant IDs).",
+    "items": {
+      "properties": {
+        "name": {
+          "description": "HTTP header name (e.g., 'X-Tenant-ID', 'X-Device-ID').",
+          "type": "string"
+        },
+        "value": {
+          "description": "Header value (may contain '{{ username }}' placeholder).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "type": "list"
+  },
+  "display_name": {
+    "default": "Generic CalDAV",
+    "description": "User-friendly name for the CalDAV account type shown in the account setup list.",
+    "type": "string"
+  },
+  "enable_discovery": {
+    "default": true,
+    "description": "Whether to attempt WebDAV auto-discovery (e.g., via /.well-known/caldav) before using the explicit ServerURL.",
+    "type": "boolean"
+  },
+  "request_timeout": {
+    "default": 30,
+    "description": "Maximum seconds to wait for HTTP requests before timing out.",
+    "type": "number"
+  },
+  "server_url_template": {
+    "default": "https://{{ username }}@caldav.example.com/",
+    "description": "CalDAV server URL template; '{{ username }}' is replaced with the user's account username at login. Should include protocol and trailing slash.",
+    "type": "string"
+  },
+  "sync_interval": {
+    "default": 900,
+    "description": "Interval in seconds between background syncs. Set to 0 to disable automatic sync (manual-only).",
+    "type": "number"
+  },
+  "use_ssl": {
+    "default": true,
+    "description": "Whether to enforce SSL/TLS encryption for all server connections.",
+    "type": "boolean"
+  },
+  "username": {
+    "source": "inferred-from-template",
+    "type": "string"
+  }
 }

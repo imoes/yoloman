@@ -1,463 +1,469 @@
 {
- "apt": {
-  "description": "APT configuration for mirrors, sources, and proxy.",
-  "type": "object"
- },
- "apt.add_ppa_indeed": {
-  "default": false,
-  "description": "Deprecated; use apt.sources with proper source lines instead.",
-  "type": "bool"
- },
- "apt.preserve_sources_list": {
-  "default": false,
-  "description": "If true, don’t replace existing /etc/apt/sources.list. Useful when customizing existing images.",
-  "type": "bool"
- },
- "apt.primary": {
-  "description": "APT primary repository configuration.",
-  "type": "object"
- },
- "apt.primary.arches": {
-  "default": [
-   "default"
-  ],
-  "description": "List of architectures for which the primary repo applies. Use ['default'] to apply everywhere.",
-  "type": "list"
- },
- "apt.primary.keyid": {
-  "default": "",
-  "description": "GPG key ID for verifying primary repo. Omit if using signed-by=.",
-  "type": "string"
- },
- "apt.primary.keyserver": {
-  "default": "keyserver.ubuntu.com",
-  "description": "Keyserver used to fetch GPG keys for APT.",
-  "type": "string"
- },
- "apt.primary.suite": {
-  "default": "focal",
-  "description": "Suite name (e.g., focal, jammy, noble) — used with primary URI.",
-  "type": "string"
- },
- "apt.primary.uri": {
-  "default": "http://archive.ubuntu.com/ubuntu",
-  "description": "Base URI of the primary APT repository.",
-  "type": "string"
- },
- "apt.proxy": {
-  "default": "",
-  "description": "HTTP/HTTPS proxy URL for APT operations.",
-  "type": "string"
- },
- "apt.sources": {
-  "default": [],
-  "description": "List of additional APT sources (PPAs or custom repos).",
-  "type": "list"
- },
- "apt.sources[].keyid": {
-  "default": "",
-  "description": "GPG key ID to verify this source.",
-  "type": "string"
- },
- "apt.sources[].keyserver": {
-  "default": "keyserver.ubuntu.com",
-  "description": "Keyserver to retrieve the key from.",
-  "type": "string"
- },
- "apt.sources[].name": {
-  "default": "custom-source",
-  "description": "Identifier for the APT source file (e.g., 'my-ppa').",
-  "type": "string"
- },
- "apt.sources[].source": {
-  "default": "deb http://archive.ubuntu.com/ubuntu $RELEASE main",
-  "description": "APT source line. May use $ARCH and $RELEASE substitutions.",
-  "type": "string"
- },
- "bootcmd": {
-  "default": [],
-  "description": "List of shell commands to run at earliest boot stage (before cloud-init modules). Use with caution.",
-  "type": "list"
- },
- "config_version": {
-  "default": 2,
-  "description": "cloud-config version; must be 2 for modern configs.",
-  "type": "number"
- },
- "disable_root": {
-  "default": false,
-  "description": "If true, disable the root account (lock it and prevent password login).",
-  "type": "bool"
- },
- "fqdn": {
-  "default": "",
-  "description": "Fully-qualified domain name. Must be set if hostnamed is to be used.",
-  "type": "string"
- },
- "hostname": {
-  "default": "cloudinit",
-  "description": "System hostname (short name).",
-  "type": "string"
- },
- "locale": {
-  "default": "en_US.UTF-8",
-  "description": "System locale for LANG/LC_* variables.",
-  "type": "string"
- },
- "mounts": {
-  "default": [],
-  "description": "List of filesystem mount points to create and mount on boot.",
-  "type": "list"
- },
- "mounts[].device": {
-  "default": "/dev/xvdb",
-  "description": "Block device or UUID to mount (e.g., /dev/disk/by-uuid/...).",
-  "type": "string"
- },
- "mounts[].freq": {
-  "default": 0,
-  "description": "Dump frequency (0 or 1) — used by dump(8).",
-  "type": "number"
- },
- "mounts[].fstype": {
-  "default": "ext4",
-  "description": "Filesystem type (e.g., ext4, xfs, none).",
-  "type": "string"
- },
- "mounts[].opts": {
-  "default": [
-   "defaults"
-  ],
-  "description": "Mount options (e.g., [noatime, rw]).",
-  "type": "list"
- },
- "mounts[].passno": {
-  "default": 0,
-  "description": "Filesystem pass (0-2) for fsck(8) ordering.",
-  "type": "number"
- },
- "mounts[].point": {
-  "default": "/mnt/data",
-  "description": "Mount point path.",
-  "type": "string"
- },
- "network": {
-  "description": "Network configuration using netplan v2 schema (recommended).",
-  "type": "object"
- },
- "network.config": {
-  "description": "Raw netplan config (interfaces, routes, DNS).",
-  "type": "object"
- },
- "network.config.interfaces": {
-  "default": [],
-  "description": "List of interface definitions.",
-  "type": "list"
- },
- "network.config.interfaces[].accept_ra": {
-  "default": false,
-  "description": "If true, accept IPv6 router advertisements (RA).",
-  "type": "bool"
- },
- "network.config.interfaces[].addresses": {
-  "default": [],
-  "description": "List of static IPv4/IPv6 addresses with prefix (e.g., '10.0.0.5/24').",
-  "type": "list"
- },
- "network.config.interfaces[].auto": {
-  "default": true,
-  "description": "If true, bring interface up at boot.",
-  "type": "bool"
- },
- "network.config.interfaces[].dhcp4": {
-  "default": true,
-  "description": "Enable DHCP for IPv4.",
-  "type": "bool"
- },
- "network.config.interfaces[].dhcp6": {
-  "default": false,
-  "description": "Enable DHCP for IPv6.",
-  "type": "bool"
- },
- "network.config.interfaces[].gateway4": {
-  "default": "",
-  "description": "IPv4 default gateway.",
-  "type": "string"
- },
- "network.config.interfaces[].gateway6": {
-  "default": "",
-  "description": "IPv6 default gateway.",
-  "type": "string"
- },
- "network.config.interfaces[].link_type": {
-  "default": "",
-  "description": "Link type: 'ether', 'bond', 'vlan', 'bridge' — rarely needed.",
-  "type": "string"
- },
- "network.config.interfaces[].mac_address": {
-  "default": "",
-  "description": "Optional MAC address (e.g., '00:11:22:33:44:55').",
-  "type": "string"
- },
- "network.config.interfaces[].mtu": {
-  "default": 1500,
-  "description": "Maximum transmission unit.",
-  "type": "number"
- },
- "network.config.interfaces[].name": {
-  "default": "eth0",
-  "description": "Interface name (e.g., eth0, enp0s31f6).",
-  "type": "string"
- },
- "network.config.interfaces[].nameservers": {
-  "description": "DNS configuration.",
-  "type": "object"
- },
- "network.config.interfaces[].nameservers.addresses": {
-  "default": [
-   "8.8.8.8",
-   "8.8.4.4"
-  ],
-  "description": "DNS server IP addresses.",
-  "type": "list"
- },
- "network.config.interfaces[].nameservers.search": {
-  "default": [
-   "example.com"
-  ],
-  "description": "DNS search domains.",
-  "type": "list"
- },
- "network.config.interfaces[].routes": {
-  "default": [],
-  "description": "List of static routes.",
-  "type": "list"
- },
- "network.config.interfaces[].routes[].metric": {
-  "default": 100,
-  "description": "Route metric (optional).",
-  "type": "number"
- },
- "network.config.interfaces[].routes[].to": {
-  "default": "0.0.0.0/0",
-  "description": "Destination network (CIDR).",
-  "type": "string"
- },
- "network.config.interfaces[].routes[].via": {
-  "default": "",
-  "description": "Next-hop gateway IP.",
-  "type": "string"
- },
- "network.config.interfaces[].type": {
-  "default": "ethernet",
-  "description": "Interface type: ethernet, bond, vlan, bridge.",
-  "type": "string"
- },
- "network.version": {
-  "default": 2,
-  "description": "Must be 2 for netplan v2.",
-  "type": "number"
- },
- "ntp": {
-  "description": "NTP client configuration.",
-  "type": "object"
- },
- "ntp.config": {
-  "default": "",
-  "description": "Raw NTP configuration (e.g., /etc/chrony/chrony.conf content).",
-  "type": "string"
- },
- "ntp.enabled": {
-  "default": true,
-  "description": "If true, configure and enable NTP (via chrony or systemd-timesyncd).",
-  "type": "bool"
- },
- "ntp.pool": {
-  "default": [
-   "0.pool.ntp.org",
-   "1.pool.ntp.org",
-   "2.pool.ntp.org",
-   "3.pool.ntp.org"
-  ],
-  "description": "NTP server pool list.",
-  "type": "list"
- },
- "package_upgrade": {
-  "default": false,
-  "description": "If true, run apt-get upgrade on first boot.",
-  "type": "bool"
- },
- "packages": {
-  "default": [],
-  "description": "List of package names to install via apt.",
-  "type": "list"
- },
- "power_state": {
-  "description": "Poweroff/reboot behavior after cloud-init finishes.",
-  "type": "object"
- },
- "power_state.delay": {
-  "default": "now",
-  "description": "Delay before power action (e.g., 'now', '+2m').",
-  "type": "string"
- },
- "power_state.message": {
-  "default": "Cloud-init completed",
-  "description": "Message written to syslog and console before power action.",
-  "type": "string"
- },
- "power_state.mode": {
-  "default": "poweroff",
-  "description": "Power action: poweroff, reboot, halt, or suspend.",
-  "type": "string"
- },
- "power_state.timeout": {
-  "default": 1800,
-  "description": "Timeout (seconds) for waiting on services before powering off.",
-  "type": "number"
- },
- "repo_update": {
-  "default": false,
-  "description": "Deprecated alias for package_upgrade: true. Prefer package_upgrade.",
-  "type": "bool"
- },
- "repo_upgrade": {
-  "default": false,
-  "description": "Deprecated alias for package_upgrade: true. Prefer package_upgrade.",
-  "type": "bool"
- },
- "resize_rootfs": {
-  "default": true,
-  "description": "If true, automatically resize root filesystem on first boot (if underlying disk is larger).",
-  "type": "bool"
- },
- "runcmd": {
-  "default": [],
-  "description": "List of shell commands to run at first boot (after network is up and users created).",
-  "type": "list"
- },
- "ssh_authorized_keys": {
-  "default": [],
-  "description": "Global list of SSH public keys to add to all users’ authorized_keys unless overridden per-user.",
-  "type": "list"
- },
- "ssh_deletekeys": {
-  "default": true,
-  "description": "If true, delete existing SSH host keys and regenerate them on first boot.",
-  "type": "bool"
- },
- "ssh_genkeytypes": {
-  "default": [
-   "rsa",
-   "ecdsa",
-   "ed25519"
-  ],
-  "description": "List of SSH key types to generate for host keys.",
-  "type": "list"
- },
- "ssh_putkeys": {
-  "description": "Deprecated: Map of key type to private key (e.g., rsa: '...'). Use write_files or ssh_authorized_keys instead.",
-  "type": "object"
- },
- "ssh_pwauth": {
-  "default": false,
-  "description": "If true, enable password authentication for SSH.",
-  "type": "bool"
- },
- "system_info": {
-  "description": "Override system information (rarely needed; used in testing). Use only when building custom images. See cloud-init docs for limitations.",
-  "type": "object"
- },
- "system_info.arch": {
-  "default": "amd64",
-  "description": "Architecture name (e.g., amd64, arm64). Required only when overriding system_info.",
-  "type": "string"
- },
- "system_info.dist": {
-  "default": "ubuntu",
-  "description": "OS distribution name. Required only when overriding system_info.",
-  "type": "string"
- },
- "system_info.release": {
-  "default": "22.04",
-  "description": "OS distribution release codename. Required only when overriding system_info.",
-  "type": "string"
- },
- "timezone": {
-  "default": "Etc/UTC",
-  "description": "System timezone (e.g., America/New_York, Etc/UTC).",
-  "type": "string"
- },
- "users": {
-  "default": [],
-  "description": "List of users to create.",
-  "type": "list"
- },
- "users[].groups": {
-  "default": [
-   "sudo"
-  ],
-  "description": "Supplementary groups for the user (e.g., adm, docker).",
-  "type": "list"
- },
- "users[].lock_passwd": {
-  "default": true,
-  "description": "If true, lock password (disable password auth); requires SSH keys.",
-  "type": "bool"
- },
- "users[].name": {
-  "default": "ubuntu",
-  "description": "Username to create.",
-  "type": "string"
- },
- "users[].shell": {
-  "default": "/bin/bash",
-  "description": "User login shell.",
-  "type": "string"
- },
- "users[].ssh_authorized_keys": {
-  "default": [],
-  "description": "List of SSH public keys to add to authorized_keys for this user.",
-  "type": "list"
- },
- "users[].sudo": {
-  "default": "ALL=(ALL) NOPASSWD:ALL",
-  "description": "Sudoers entry or boolean; if true, grants passwordless sudo.",
-  "type": "string"
- },
- "v1_data": {
-  "default": "",
-  "description": "Raw cloud-config v1 data (deprecated). Use structured keys above instead.",
-  "type": "string"
- },
- "write_files": {
-  "default": [],
-  "description": "List of files to write (including content, ownership, and permissions).",
-  "type": "list"
- },
- "write_files[].append": {
-  "default": false,
-  "description": "If true, append to existing file instead of overwriting.",
-  "type": "bool"
- },
- "write_files[].content": {
-  "default": "# empty config",
-  "description": "File content (multiline YAML/JSON allowed).",
-  "type": "string"
- },
- "write_files[].owner": {
-  "default": "root:root",
-  "description": "Owner:group for the file.",
-  "type": "string"
- },
- "write_files[].path": {
-  "default": "/etc/myapp/config.yaml",
-  "description": "Absolute path of the file to create.",
-  "type": "string"
- },
- "write_files[].permissions": {
-  "default": "0644",
-  "description": "Octal permission bits for the file.",
-  "type": "string"
- }
+  "apt": {
+    "description": "APT configuration for mirrors, sources, and proxy.",
+    "type": "object"
+  },
+  "apt.add_ppa_indeed": {
+    "default": false,
+    "description": "Deprecated; use apt.sources with proper source lines instead.",
+    "type": "bool"
+  },
+  "apt.preserve_sources_list": {
+    "default": false,
+    "description": "If true, don\u2019t replace existing /etc/apt/sources.list. Useful when customizing existing images.",
+    "type": "bool"
+  },
+  "apt.primary": {
+    "description": "APT primary repository configuration.",
+    "type": "object"
+  },
+  "apt.primary.arches": {
+    "default": [
+      "default"
+    ],
+    "description": "List of architectures for which the primary repo applies. Use ['default'] to apply everywhere.",
+    "type": "list"
+  },
+  "apt.primary.keyid": {
+    "default": "",
+    "description": "GPG key ID for verifying primary repo. Omit if using signed-by=.",
+    "type": "string"
+  },
+  "apt.primary.keyserver": {
+    "default": "keyserver.ubuntu.com",
+    "description": "Keyserver used to fetch GPG keys for APT.",
+    "type": "string"
+  },
+  "apt.primary.suite": {
+    "default": "focal",
+    "description": "Suite name (e.g., focal, jammy, noble) \u2014 used with primary URI.",
+    "type": "string"
+  },
+  "apt.primary.uri": {
+    "default": "http://archive.ubuntu.com/ubuntu",
+    "description": "Base URI of the primary APT repository.",
+    "type": "string"
+  },
+  "apt.proxy": {
+    "default": "",
+    "description": "HTTP/HTTPS proxy URL for APT operations.",
+    "type": "string"
+  },
+  "apt.sources": {
+    "default": [],
+    "description": "List of additional APT sources (PPAs or custom repos).",
+    "type": "list"
+  },
+  "apt.sources[].keyid": {
+    "default": "",
+    "description": "GPG key ID to verify this source.",
+    "type": "string"
+  },
+  "apt.sources[].keyserver": {
+    "default": "keyserver.ubuntu.com",
+    "description": "Keyserver to retrieve the key from.",
+    "type": "string"
+  },
+  "apt.sources[].name": {
+    "default": "custom-source",
+    "description": "Identifier for the APT source file (e.g., 'my-ppa').",
+    "type": "string"
+  },
+  "apt.sources[].source": {
+    "default": "deb http://archive.ubuntu.com/ubuntu $RELEASE main",
+    "description": "APT source line. May use $ARCH and $RELEASE substitutions.",
+    "type": "string"
+  },
+  "bootcmd": {
+    "default": [],
+    "description": "List of shell commands to run at earliest boot stage (before cloud-init modules). Use with caution.",
+    "type": "list"
+  },
+  "config_version": {
+    "default": 2,
+    "description": "cloud-config version; must be 2 for modern configs.",
+    "type": "number"
+  },
+  "disable_root": {
+    "default": false,
+    "description": "If true, disable the root account (lock it and prevent password login).",
+    "type": "bool"
+  },
+  "fqdn": {
+    "default": "",
+    "description": "Fully-qualified domain name. Must be set if hostnamed is to be used.",
+    "type": "string"
+  },
+  "hostname": {
+    "default": "cloudinit",
+    "description": "System hostname (short name).",
+    "type": "string"
+  },
+  "locale": {
+    "default": "en_US.UTF-8",
+    "description": "System locale for LANG/LC_* variables.",
+    "type": "string"
+  },
+  "mounts": {
+    "default": [],
+    "description": "List of filesystem mount points to create and mount on boot.",
+    "type": "list"
+  },
+  "mounts[].device": {
+    "default": "/dev/xvdb",
+    "description": "Block device or UUID to mount (e.g., /dev/disk/by-uuid/...).",
+    "type": "string"
+  },
+  "mounts[].freq": {
+    "default": 0,
+    "description": "Dump frequency (0 or 1) \u2014 used by dump(8).",
+    "type": "number"
+  },
+  "mounts[].fstype": {
+    "default": "ext4",
+    "description": "Filesystem type (e.g., ext4, xfs, none).",
+    "type": "string"
+  },
+  "mounts[].opts": {
+    "default": [
+      "defaults"
+    ],
+    "description": "Mount options (e.g., [noatime, rw]).",
+    "type": "list"
+  },
+  "mounts[].passno": {
+    "default": 0,
+    "description": "Filesystem pass (0-2) for fsck(8) ordering.",
+    "type": "number"
+  },
+  "mounts[].point": {
+    "default": "/mnt/data",
+    "description": "Mount point path.",
+    "type": "string"
+  },
+  "network": {
+    "description": "Network configuration using netplan v2 schema (recommended).",
+    "type": "object"
+  },
+  "network.config": {
+    "description": "Raw netplan config (interfaces, routes, DNS).",
+    "type": "object"
+  },
+  "network.config.interfaces": {
+    "default": [],
+    "description": "List of interface definitions.",
+    "type": "list"
+  },
+  "network.config.interfaces[].accept_ra": {
+    "default": false,
+    "description": "If true, accept IPv6 router advertisements (RA).",
+    "type": "bool"
+  },
+  "network.config.interfaces[].addresses": {
+    "default": [],
+    "description": "List of static IPv4/IPv6 addresses with prefix (e.g., '10.0.0.5/24').",
+    "type": "list"
+  },
+  "network.config.interfaces[].auto": {
+    "default": true,
+    "description": "If true, bring interface up at boot.",
+    "type": "bool"
+  },
+  "network.config.interfaces[].dhcp4": {
+    "default": true,
+    "description": "Enable DHCP for IPv4.",
+    "type": "bool"
+  },
+  "network.config.interfaces[].dhcp6": {
+    "default": false,
+    "description": "Enable DHCP for IPv6.",
+    "type": "bool"
+  },
+  "network.config.interfaces[].gateway4": {
+    "default": "",
+    "description": "IPv4 default gateway.",
+    "type": "string"
+  },
+  "network.config.interfaces[].gateway6": {
+    "default": "",
+    "description": "IPv6 default gateway.",
+    "type": "string"
+  },
+  "network.config.interfaces[].link_type": {
+    "default": "",
+    "description": "Link type: 'ether', 'bond', 'vlan', 'bridge' \u2014 rarely needed.",
+    "type": "string",
+    "enum": [
+      "ether",
+      "bond",
+      "vlan",
+      "bridge"
+    ]
+  },
+  "network.config.interfaces[].mac_address": {
+    "default": "",
+    "description": "Optional MAC address (e.g., '00:11:22:33:44:55').",
+    "type": "string"
+  },
+  "network.config.interfaces[].mtu": {
+    "default": 1500,
+    "description": "Maximum transmission unit.",
+    "type": "number"
+  },
+  "network.config.interfaces[].name": {
+    "default": "eth0",
+    "description": "Interface name (e.g., eth0, enp0s31f6).",
+    "type": "string"
+  },
+  "network.config.interfaces[].nameservers": {
+    "description": "DNS configuration.",
+    "type": "object"
+  },
+  "network.config.interfaces[].nameservers.addresses": {
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "DNS server IP addresses.",
+    "type": "list"
+  },
+  "network.config.interfaces[].nameservers.search": {
+    "default": [
+      "example.com"
+    ],
+    "description": "DNS search domains.",
+    "type": "list"
+  },
+  "network.config.interfaces[].routes": {
+    "default": [],
+    "description": "List of static routes.",
+    "type": "list"
+  },
+  "network.config.interfaces[].routes[].metric": {
+    "default": 100,
+    "description": "Route metric (optional).",
+    "type": "number"
+  },
+  "network.config.interfaces[].routes[].to": {
+    "default": "0.0.0.0/0",
+    "description": "Destination network (CIDR).",
+    "type": "string"
+  },
+  "network.config.interfaces[].routes[].via": {
+    "default": "",
+    "description": "Next-hop gateway IP.",
+    "type": "string"
+  },
+  "network.config.interfaces[].type": {
+    "default": "ethernet",
+    "description": "Interface type: ethernet, bond, vlan, bridge.",
+    "type": "string"
+  },
+  "network.version": {
+    "default": 2,
+    "description": "Must be 2 for netplan v2.",
+    "type": "number"
+  },
+  "ntp": {
+    "description": "NTP client configuration.",
+    "type": "object"
+  },
+  "ntp.config": {
+    "default": "",
+    "description": "Raw NTP configuration (e.g., /etc/chrony/chrony.conf content).",
+    "type": "string"
+  },
+  "ntp.enabled": {
+    "default": true,
+    "description": "If true, configure and enable NTP (via chrony or systemd-timesyncd).",
+    "type": "bool"
+  },
+  "ntp.pool": {
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org",
+      "3.pool.ntp.org"
+    ],
+    "description": "NTP server pool list.",
+    "type": "list"
+  },
+  "package_upgrade": {
+    "default": false,
+    "description": "If true, run apt-get upgrade on first boot.",
+    "type": "bool"
+  },
+  "packages": {
+    "default": [],
+    "description": "List of package names to install via apt.",
+    "type": "list"
+  },
+  "power_state": {
+    "description": "Poweroff/reboot behavior after cloud-init finishes.",
+    "type": "object"
+  },
+  "power_state.delay": {
+    "default": "now",
+    "description": "Delay before power action (e.g., 'now', '+2m').",
+    "type": "string"
+  },
+  "power_state.message": {
+    "default": "Cloud-init completed",
+    "description": "Message written to syslog and console before power action.",
+    "type": "string"
+  },
+  "power_state.mode": {
+    "default": "poweroff",
+    "description": "Power action: poweroff, reboot, halt, or suspend.",
+    "type": "string"
+  },
+  "power_state.timeout": {
+    "default": 1800,
+    "description": "Timeout (seconds) for waiting on services before powering off.",
+    "type": "number"
+  },
+  "repo_update": {
+    "default": false,
+    "description": "Deprecated alias for package_upgrade: true. Prefer package_upgrade.",
+    "type": "bool"
+  },
+  "repo_upgrade": {
+    "default": false,
+    "description": "Deprecated alias for package_upgrade: true. Prefer package_upgrade.",
+    "type": "bool"
+  },
+  "resize_rootfs": {
+    "default": true,
+    "description": "If true, automatically resize root filesystem on first boot (if underlying disk is larger).",
+    "type": "bool"
+  },
+  "runcmd": {
+    "default": [],
+    "description": "List of shell commands to run at first boot (after network is up and users created).",
+    "type": "list"
+  },
+  "ssh_authorized_keys": {
+    "default": [],
+    "description": "Global list of SSH public keys to add to all users\u2019 authorized_keys unless overridden per-user.",
+    "type": "list"
+  },
+  "ssh_deletekeys": {
+    "default": true,
+    "description": "If true, delete existing SSH host keys and regenerate them on first boot.",
+    "type": "bool"
+  },
+  "ssh_genkeytypes": {
+    "default": [
+      "rsa",
+      "ecdsa",
+      "ed25519"
+    ],
+    "description": "List of SSH key types to generate for host keys.",
+    "type": "list"
+  },
+  "ssh_putkeys": {
+    "description": "Deprecated: Map of key type to private key (e.g., rsa: '...'). Use write_files or ssh_authorized_keys instead.",
+    "type": "object"
+  },
+  "ssh_pwauth": {
+    "default": false,
+    "description": "If true, enable password authentication for SSH.",
+    "type": "bool"
+  },
+  "system_info": {
+    "description": "Override system information (rarely needed; used in testing). Use only when building custom images. See cloud-init docs for limitations.",
+    "type": "object"
+  },
+  "system_info.arch": {
+    "default": "amd64",
+    "description": "Architecture name (e.g., amd64, arm64). Required only when overriding system_info.",
+    "type": "string"
+  },
+  "system_info.dist": {
+    "default": "ubuntu",
+    "description": "OS distribution name. Required only when overriding system_info.",
+    "type": "string"
+  },
+  "system_info.release": {
+    "default": "22.04",
+    "description": "OS distribution release codename. Required only when overriding system_info.",
+    "type": "string"
+  },
+  "timezone": {
+    "default": "Etc/UTC",
+    "description": "System timezone (e.g., America/New_York, Etc/UTC).",
+    "type": "string"
+  },
+  "users": {
+    "default": [],
+    "description": "List of users to create.",
+    "type": "list"
+  },
+  "users[].groups": {
+    "default": [
+      "sudo"
+    ],
+    "description": "Supplementary groups for the user (e.g., adm, docker).",
+    "type": "list"
+  },
+  "users[].lock_passwd": {
+    "default": true,
+    "description": "If true, lock password (disable password auth); requires SSH keys.",
+    "type": "bool"
+  },
+  "users[].name": {
+    "default": "ubuntu",
+    "description": "Username to create.",
+    "type": "string"
+  },
+  "users[].shell": {
+    "default": "/bin/bash",
+    "description": "User login shell.",
+    "type": "string"
+  },
+  "users[].ssh_authorized_keys": {
+    "default": [],
+    "description": "List of SSH public keys to add to authorized_keys for this user.",
+    "type": "list"
+  },
+  "users[].sudo": {
+    "default": "ALL=(ALL) NOPASSWD:ALL",
+    "description": "Sudoers entry or boolean; if true, grants passwordless sudo.",
+    "type": "string"
+  },
+  "v1_data": {
+    "default": "",
+    "description": "Raw cloud-config v1 data (deprecated). Use structured keys above instead.",
+    "type": "string"
+  },
+  "write_files": {
+    "default": [],
+    "description": "List of files to write (including content, ownership, and permissions).",
+    "type": "list"
+  },
+  "write_files[].append": {
+    "default": false,
+    "description": "If true, append to existing file instead of overwriting.",
+    "type": "bool"
+  },
+  "write_files[].content": {
+    "default": "# empty config",
+    "description": "File content (multiline YAML/JSON allowed).",
+    "type": "string"
+  },
+  "write_files[].owner": {
+    "default": "root:root",
+    "description": "Owner:group for the file.",
+    "type": "string"
+  },
+  "write_files[].path": {
+    "default": "/etc/myapp/config.yaml",
+    "description": "Absolute path of the file to create.",
+    "type": "string"
+  },
+  "write_files[].permissions": {
+    "default": "0644",
+    "description": "Octal permission bits for the file.",
+    "type": "string"
+  }
 }

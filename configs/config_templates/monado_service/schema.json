@@ -1,109 +1,113 @@
 {
- "composition_resolution": {
-  "default": "auto",
-  "description": "Composition resolution: either 'auto' (derived from headset resolution) or 'WxH' (e.g., '2160x2160').",
-  "type": "string"
- },
- "composition_scale": {
-  "default": 1.0,
-  "description": "Composition scaling factor (0.1–1.0). Lower values improve performance at slight quality cost.",
-  "type": "number"
- },
- "enable_composition": {
-  "default": true,
-  "description": "Enable GPU-accelerated composition for rendered output (required for VR headsets).",
-  "type": "bool"
- },
- "enable_vulkan_composition": {
-  "default": true,
-  "description": "Use Vulkan-based composition backend (requires compatible GPU/driver).",
-  "type": "bool"
- },
- "gpu_devices": {
-  "default": [
-   {
-    "description": "Default discrete GPU",
-    "path": "/dev/dri/renderD128"
-   },
-   {
-    "description": "Integrated GPU fallback",
-    "path": "/dev/dri/card0"
-   }
-  ],
-  "description": "List of GPU device paths to use for composition/rendering (ordered by preference).",
-  "items": {
-   "fields": {
-    "description": {
-     "default": "",
-     "description": "Optional human-readable description (shown in config UI).",
-     "type": "string"
+  "composition_resolution": {
+    "default": "auto",
+    "description": "Composition resolution: either 'auto' (derived from headset resolution) or 'WxH' (e.g., '2160x2160').",
+    "type": "string",
+    "enum": [
+      "auto",
+      "WxH"
+    ]
+  },
+  "composition_scale": {
+    "default": 1.0,
+    "description": "Composition scaling factor (0.1\u20131.0). Lower values improve performance at slight quality cost.",
+    "type": "number"
+  },
+  "enable_composition": {
+    "default": true,
+    "description": "Enable GPU-accelerated composition for rendered output (required for VR headsets).",
+    "type": "bool"
+  },
+  "enable_vulkan_composition": {
+    "default": true,
+    "description": "Use Vulkan-based composition backend (requires compatible GPU/driver).",
+    "type": "bool"
+  },
+  "gpu_devices": {
+    "default": [
+      {
+        "description": "Default discrete GPU",
+        "path": "/dev/dri/renderD128"
+      },
+      {
+        "description": "Integrated GPU fallback",
+        "path": "/dev/dri/card0"
+      }
+    ],
+    "description": "List of GPU device paths to use for composition/rendering (ordered by preference).",
+    "items": {
+      "fields": {
+        "description": {
+          "default": "",
+          "description": "Optional human-readable description (shown in config UI).",
+          "type": "string"
+        },
+        "path": {
+          "default": "/dev/dri/renderD128",
+          "description": "Device node path (e.g., /dev/dri/renderD128).",
+          "type": "string"
+        }
+      },
+      "type": "object"
     },
-    "path": {
-     "default": "/dev/dri/renderD128",
-     "description": "Device node path (e.g., /dev/dri/renderD128).",
-     "type": "string"
-    }
-   },
-   "type": "object"
+    "type": "list"
   },
-  "type": "list"
- },
- "hmd_event_device": {
-  "default": "",
-  "description": "Path to HMD input event device (e.g., /dev/input/event5). Leave empty to auto-detect.",
-  "type": "string"
- },
- "log_level": {
-  "allowed_values": [
-   "none",
-   "error",
-   "warn",
-   "info",
-   "debug",
-   "trace"
-  ],
-  "default": "warn",
-  "description": "Logging verbosity: none, error, warn, info, debug, trace.",
-  "type": "string"
- },
- "max_sessions": {
-  "default": 3,
-  "description": "Maximum number of concurrent XR sessions (clients) allowed.",
-  "type": "number"
- },
- "openxr_enabled_extensions": {
-  "source": "inferred-from-template",
-  "type": "string"
- },
- "raw_input": {
-  "default": true,
-  "description": "Enable raw input device handling (e.g., for HTC Vive controllers). Disable only if using alternative input drivers.",
-  "type": "bool"
- },
- "runtime_path": {
-  "default": "/usr/lib/x86_64-linux-gnu/monado",
-  "description": "Directory containing Monado XR runtime modules (e.g., 'openxr-monado-provider.so').",
-  "type": "string"
- },
- "runtimes": {
-  "default": [
-   "openxr-monado-provider"
-  ],
-  "description": "List of XR runtime modules to load (by basename, without .so).",
-  "items": {
-   "description": "Runtime module name.",
-   "type": "string"
+  "hmd_event_device": {
+    "default": "",
+    "description": "Path to HMD input event device (e.g., /dev/input/event5). Leave empty to auto-detect.",
+    "type": "string"
   },
-  "type": "list"
- },
- "stderr": {
-  "default": false,
-  "description": "Output logs to stderr (useful when running manually in foreground for debugging).",
-  "type": "bool"
- },
- "syslog": {
-  "default": true,
-  "description": "Send log messages to system syslog (recommended for production services).",
-  "type": "bool"
- }
+  "log_level": {
+    "allowed_values": [
+      "none",
+      "error",
+      "warn",
+      "info",
+      "debug",
+      "trace"
+    ],
+    "default": "warn",
+    "description": "Logging verbosity: none, error, warn, info, debug, trace.",
+    "type": "string"
+  },
+  "max_sessions": {
+    "default": 3,
+    "description": "Maximum number of concurrent XR sessions (clients) allowed.",
+    "type": "number"
+  },
+  "openxr_enabled_extensions": {
+    "source": "inferred-from-template",
+    "type": "string"
+  },
+  "raw_input": {
+    "default": true,
+    "description": "Enable raw input device handling (e.g., for HTC Vive controllers). Disable only if using alternative input drivers.",
+    "type": "bool"
+  },
+  "runtime_path": {
+    "default": "/usr/lib/x86_64-linux-gnu/monado",
+    "description": "Directory containing Monado XR runtime modules (e.g., 'openxr-monado-provider.so').",
+    "type": "string"
+  },
+  "runtimes": {
+    "default": [
+      "openxr-monado-provider"
+    ],
+    "description": "List of XR runtime modules to load (by basename, without .so).",
+    "items": {
+      "description": "Runtime module name.",
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "stderr": {
+    "default": false,
+    "description": "Output logs to stderr (useful when running manually in foreground for debugging).",
+    "type": "bool"
+  },
+  "syslog": {
+    "default": true,
+    "description": "Send log messages to system syslog (recommended for production services).",
+    "type": "bool"
+  }
 }

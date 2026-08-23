@@ -1,177 +1,184 @@
 {
- "database": {
-  "description": "Database connection settings (required for stateful deployments).",
-  "items": {
-   "connection": {
-    "default": "sqlite:////var/lib/glance/glance.sqlite",
-    "description": "SQLAlchemy database connection URL (e.g., 'mysql+pymysql://glance:PASS@db/glance').",
-    "type": "string"
-   },
-   "max_retries": {
-    "default": -1,
-    "description": "Maximum database connection retry attempts. -1 = unlimited.",
-    "type": "integer"
-   }
+  "database": {
+    "description": "Database connection settings (required for stateful deployments).",
+    "items": {
+      "connection": {
+        "default": "sqlite:////var/lib/glance/glance.sqlite",
+        "description": "SQLAlchemy database connection URL (e.g., 'mysql+pymysql://glance:PASS@db/glance').",
+        "type": "string"
+      },
+      "max_retries": {
+        "default": -1,
+        "description": "Maximum database connection retry attempts. -1 = unlimited.",
+        "type": "integer"
+      }
+    },
+    "type": "object"
   },
-  "type": "object"
- },
- "debug": {
-  "default": false,
-  "description": "Enable verbose debug logging. Disable in production unless troubleshooting.",
-  "type": "boolean"
- },
- "default_store": {
-  "default": "file",
-  "description": "Default storage backend name (must match one in 'stores').",
-  "enum": [
-   "file",
-   "http"
-  ],
-  "type": "string"
- },
- "filesystem_store_datadir": {
-  "default": "/var/lib/glance/images",
-  "description": "Local directory path for the 'file' store (only required if using file backend).",
-  "type": "string"
- },
- "image_cache_dir": {
-  "default": "/var/lib/glance/image-cache",
-  "description": "Directory for caching transformed images (e.g., converted formats).",
-  "type": "string"
- },
- "image_formats": {
-  "default": [
-   "qcow2",
-   "raw",
-   "vhd",
-   "vdi",
-   "vmdk",
-   "bare",
-   "docker",
-   "aki",
-   "ari",
-   "ami"
-  ],
-  "description": "List of allowed image formats (for validation).",
-  "type": "list"
- },
- "keystone_authtoken": {
-  "description": "Keystone authentication settings (required for production deployments).",
-  "items": {
-   "auth_url": {
-    "default": "http://localhost:5000/v3",
-    "description": "Keystone identity endpoint URL.",
-    "type": "string"
-   },
-   "cafile": {
-    "default": "",
-    "description": "Path to CA certificate bundle for TLS verification.",
-    "type": "string"
-   },
-   "insecure": {
+  "debug": {
     "default": false,
-    "description": "Disable TLS certificate verification. Set to false in production.",
+    "description": "Enable verbose debug logging. Disable in production unless troubleshooting.",
     "type": "boolean"
-   },
-   "password": {
-    "default": "",
-    "description": "Password for the service user (sensitive—use secrets management in production).",
-    "type": "string"
-   },
-   "project_domain_name": {
-    "default": "Default",
-    "description": "Domain name for the project.",
-    "type": "string"
-   },
-   "project_name": {
-    "default": "service",
-    "description": "Project (tenant) name for the Glance service user.",
-    "type": "string"
-   },
-   "user_domain_name": {
-    "default": "Default",
-    "description": "Domain name for the user.",
-    "type": "string"
-   },
-   "username": {
-    "default": "glance",
-    "description": "Service user name in Keystone.",
-    "type": "string"
-   }
   },
-  "type": "object"
- },
- "log_file": {
-  "default": "",
-  "description": "Path to log file. Leave empty to log to stderr or use syslog if configured.",
-  "type": "string"
- },
- "log_level": {
-  "default": "INFO",
-  "description": "Minimum log level. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.",
-  "type": "string"
- },
- "notifications_driver": {
-  "default": "noop",
-  "description": "Notification driver(s) for event logging (e.g., 'noop', 'routing', 'log').",
-  "type": "string"
- },
- "paste_deploy": {
-  "description": "PasteDeploy configuration (controls middleware pipeline).",
-  "items": {
-   "flavor": {
-    "default": "keystone",
-    "description": "Pipeline flavor. Typically 'keystone' for production with auth.",
+  "default_store": {
+    "default": "file",
+    "description": "Default storage backend name (must match one in 'stores').",
+    "enum": [
+      "file",
+      "http"
+    ],
     "type": "string"
-   }
   },
-  "type": "object"
- },
- "stores": {
-  "default": [
-   {
-    "description": "Local filesystem storage",
-    "name": "file"
-   }
-  ],
-  "description": "List of image storage backends (e.g., file, swift, s3, ceph). Must include at least one store.",
-  "items": {
-   "description": {
-    "default": "",
-    "description": "Optional human-readable description of the store.",
+  "filesystem_store_datadir": {
+    "default": "/var/lib/glance/images",
+    "description": "Local directory path for the 'file' store (only required if using file backend).",
     "type": "string"
-   },
-   "name": {
-    "description": "Store backend name (e.g., file, swift, s3, ceph, vsphere).",
-    "type": "string"
-   },
-   "region": {
-    "default": "",
-    "description": "Region name (for cloud stores like Swift or S3).",
-    "type": "string"
-   }
   },
-  "type": "list"
- },
- "task": {
-  "description": "Task processor settings (used for import/export and image conversion).",
-  "items": {
-   "enable": {
-    "default": true,
-    "description": "Enable the task system.",
-    "type": "boolean"
-   },
-   "workers": {
+  "image_cache_dir": {
+    "default": "/var/lib/glance/image-cache",
+    "description": "Directory for caching transformed images (e.g., converted formats).",
+    "type": "string"
+  },
+  "image_formats": {
+    "default": [
+      "qcow2",
+      "raw",
+      "vhd",
+      "vdi",
+      "vmdk",
+      "bare",
+      "docker",
+      "aki",
+      "ari",
+      "ami"
+    ],
+    "description": "List of allowed image formats (for validation).",
+    "type": "list"
+  },
+  "keystone_authtoken": {
+    "description": "Keystone authentication settings (required for production deployments).",
+    "items": {
+      "auth_url": {
+        "default": "http://localhost:5000/v3",
+        "description": "Keystone identity endpoint URL.",
+        "type": "string"
+      },
+      "cafile": {
+        "default": "",
+        "description": "Path to CA certificate bundle for TLS verification.",
+        "type": "string"
+      },
+      "insecure": {
+        "default": false,
+        "description": "Disable TLS certificate verification. Set to false in production.",
+        "type": "boolean"
+      },
+      "password": {
+        "default": "",
+        "description": "Password for the service user (sensitive\u2014use secrets management in production).",
+        "type": "string"
+      },
+      "project_domain_name": {
+        "default": "Default",
+        "description": "Domain name for the project.",
+        "type": "string"
+      },
+      "project_name": {
+        "default": "service",
+        "description": "Project (tenant) name for the Glance service user.",
+        "type": "string"
+      },
+      "user_domain_name": {
+        "default": "Default",
+        "description": "Domain name for the user.",
+        "type": "string"
+      },
+      "username": {
+        "default": "glance",
+        "description": "Service user name in Keystone.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "log_file": {
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stderr or use syslog if configured.",
+    "type": "string"
+  },
+  "log_level": {
+    "default": "INFO",
+    "description": "Minimum log level. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL.",
+    "type": "string",
+    "enum": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ]
+  },
+  "notifications_driver": {
+    "default": "noop",
+    "description": "Notification driver(s) for event logging (e.g., 'noop', 'routing', 'log').",
+    "type": "string"
+  },
+  "paste_deploy": {
+    "description": "PasteDeploy configuration (controls middleware pipeline).",
+    "items": {
+      "flavor": {
+        "default": "keystone",
+        "description": "Pipeline flavor. Typically 'keystone' for production with auth.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "stores": {
+    "default": [
+      {
+        "description": "Local filesystem storage",
+        "name": "file"
+      }
+    ],
+    "description": "List of image storage backends (e.g., file, swift, s3, ceph). Must include at least one store.",
+    "items": {
+      "description": {
+        "default": "",
+        "description": "Optional human-readable description of the store.",
+        "type": "string"
+      },
+      "name": {
+        "description": "Store backend name (e.g., file, swift, s3, ceph, vsphere).",
+        "type": "string"
+      },
+      "region": {
+        "default": "",
+        "description": "Region name (for cloud stores like Swift or S3).",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "task": {
+    "description": "Task processor settings (used for import/export and image conversion).",
+    "items": {
+      "enable": {
+        "default": true,
+        "description": "Enable the task system.",
+        "type": "boolean"
+      },
+      "workers": {
+        "default": 1,
+        "description": "Number of task worker processes.",
+        "type": "integer"
+      }
+    },
+    "type": "object"
+  },
+  "workers": {
     "default": 1,
-    "description": "Number of task worker processes.",
+    "description": "Number of worker processes for the API service. Increase for higher concurrency.",
     "type": "integer"
-   }
-  },
-  "type": "object"
- },
- "workers": {
-  "default": 1,
-  "description": "Number of worker processes for the API service. Increase for higher concurrency.",
-  "type": "integer"
- }
+  }
 }

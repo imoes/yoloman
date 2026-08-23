@@ -1,138 +1,144 @@
 {
- "apply_interval": {
-  "default": 1000,
-  "description": "Minimum time (in milliseconds) between apply cycles. Lower values reduce replication lag but increase CPU usage.",
-  "type": "number"
- },
- "conflict_resolution": {
-  "default": "none",
-  "description": "Conflict resolution strategy for updatable subscriptions. Options: 'none', 'apply_first', 'remote_first', 'log'.",
-  "type": "string"
- },
- "conflict_resolver": {
-  "default": "",
-  "description": "Name of a custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit'). Leave blank unless using custom logic.",
-  "type": "string"
- },
- "debug_logging": {
-  "default": false,
-  "description": "Enable pglogical-specific debug logging (same as log_level_debug in newer versions).",
-  "type": "bool"
- },
- "extra_params": {
-  "default": [],
-  "description": "Map of extra PostgreSQL config parameters to include verbatim (e.g., {wal_level: 'logical'}).",
-  "items": {
-   "key": {
-    "description": "Parameter name",
-    "type": "string"
-   },
-   "value": {
-    "description": "Parameter value",
-    "type": "string"
-   }
+  "apply_interval": {
+    "default": 1000,
+    "description": "Minimum time (in milliseconds) between apply cycles. Lower values reduce replication lag but increase CPU usage.",
+    "type": "number"
   },
-  "type": "object"
- },
- "log_apply_stats": {
-  "default": false,
-  "description": "Log periodic apply statistics (e.g., latency, rows applied). Helps monitor replication health.",
-  "type": "bool"
- },
- "log_level": {
-  "default": "INFO",
-  "description": "Logging level for pglogical operations. Use 'DEBUG' only for troubleshooting.",
-  "type": "string"
- },
- "log_remote_commands": {
-  "default": false,
-  "description": "Log remote SQL commands executed by pglogical. Useful for auditing but increases log volume.",
-  "type": "bool"
- },
- "max_slots": {
-  "default": 10,
-  "description": "Maximum number of replication slots pglogical may create (per node). Must be ≥ number of active subscriptions.",
-  "type": "number"
- },
- "max_workers": {
-  "default": 4,
-  "description": "Maximum number of pglogical worker processes (publisher/subscriber workers). Increase for higher replication throughput.",
-  "type": "number"
- },
- "replicated_tables": {
-  "default": [],
-  "description": "List of tables to replicate (for subscriber configuration). Each entry must specify schema and table name.",
-  "items": {
-   "description": {
-    "default": "",
-    "description": "Optional description (shown in comments)",
-    "type": "string"
-   },
-   "name": {
-    "description": "Table name",
-    "type": "string"
-   },
-   "schema": {
-    "description": "Schema name of the table",
-    "type": "string"
-   }
+  "conflict_resolution": {
+    "default": "none",
+    "description": "Conflict resolution strategy for updatable subscriptions. Options: 'none', 'apply_first', 'remote_first', 'log'.",
+    "type": "string",
+    "enum": [
+      "none",
+      "apply_first",
+      "remote_first",
+      "log"
+    ]
   },
-  "type": "list"
- },
- "replication_sets": {
-  "default": [
-   {
-    "description": "Default replication set",
-    "name": "default",
-    "tables": []
-   }
-  ],
-  "description": "Publisher-side list of replication sets. Each set groups tables for selective replication.",
-  "items": {
-   "description": {
+  "conflict_resolver": {
     "default": "",
-    "description": "Optional description",
+    "description": "Name of a custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit'). Leave blank unless using custom logic.",
     "type": "string"
-   },
-   "name": {
-    "description": "Name of the replication set",
-    "type": "string"
-   },
-   "tables": {
-    "description": "List of tables in this replication set",
+  },
+  "debug_logging": {
+    "default": false,
+    "description": "Enable pglogical-specific debug logging (same as log_level_debug in newer versions).",
+    "type": "bool"
+  },
+  "extra_params": {
+    "default": [],
+    "description": "Map of extra PostgreSQL config parameters to include verbatim (e.g., {wal_level: 'logical'}).",
     "items": {
-     "name": {
-      "description": "Table name",
-      "type": "string"
-     },
-     "schema": {
-      "description": "Schema name",
-      "type": "string"
-     }
+      "key": {
+        "description": "Parameter name",
+        "type": "string"
+      },
+      "value": {
+        "description": "Parameter value",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "log_apply_stats": {
+    "default": false,
+    "description": "Log periodic apply statistics (e.g., latency, rows applied). Helps monitor replication health.",
+    "type": "bool"
+  },
+  "log_level": {
+    "default": "INFO",
+    "description": "Logging level for pglogical operations. Use 'DEBUG' only for troubleshooting.",
+    "type": "string"
+  },
+  "log_remote_commands": {
+    "default": false,
+    "description": "Log remote SQL commands executed by pglogical. Useful for auditing but increases log volume.",
+    "type": "bool"
+  },
+  "max_slots": {
+    "default": 10,
+    "description": "Maximum number of replication slots pglogical may create (per node). Must be \u2265 number of active subscriptions.",
+    "type": "number"
+  },
+  "max_workers": {
+    "default": 4,
+    "description": "Maximum number of pglogical worker processes (publisher/subscriber workers). Increase for higher replication throughput.",
+    "type": "number"
+  },
+  "replicated_tables": {
+    "default": [],
+    "description": "List of tables to replicate (for subscriber configuration). Each entry must specify schema and table name.",
+    "items": {
+      "description": {
+        "default": "",
+        "description": "Optional description (shown in comments)",
+        "type": "string"
+      },
+      "name": {
+        "description": "Table name",
+        "type": "string"
+      },
+      "schema": {
+        "description": "Schema name of the table",
+        "type": "string"
+      }
     },
     "type": "list"
-   }
   },
-  "type": "list"
- },
- "shared_preload_libraries": {
-  "default": "pglogical",
-  "description": "Comma-separated list of shared libraries to preload (must include 'pglogical'). PostgreSQL requires restart to change this.",
-  "type": "string"
- },
- "sync_structure_timeout": {
-  "default": 300,
-  "description": "Timeout (in seconds) for schema synchronization during initial subscription setup. Increase for large databases.",
-  "type": "number"
- },
- "synchronous": {
-  "default": false,
-  "description": "Whether to use synchronous replication for subscriber commit acknowledgment. Reduces latency but may increase failure risk.",
-  "type": "bool"
- },
- "verbose": {
-  "default": false,
-  "description": "Enable verbose per-operation logging (e.g., row-level replication events). Increases log volume significantly.",
-  "type": "bool"
- }
+  "replication_sets": {
+    "default": [
+      {
+        "description": "Default replication set",
+        "name": "default",
+        "tables": []
+      }
+    ],
+    "description": "Publisher-side list of replication sets. Each set groups tables for selective replication.",
+    "items": {
+      "description": {
+        "default": "",
+        "description": "Optional description",
+        "type": "string"
+      },
+      "name": {
+        "description": "Name of the replication set",
+        "type": "string"
+      },
+      "tables": {
+        "description": "List of tables in this replication set",
+        "items": {
+          "name": {
+            "description": "Table name",
+            "type": "string"
+          },
+          "schema": {
+            "description": "Schema name",
+            "type": "string"
+          }
+        },
+        "type": "list"
+      }
+    },
+    "type": "list"
+  },
+  "shared_preload_libraries": {
+    "default": "pglogical",
+    "description": "Comma-separated list of shared libraries to preload (must include 'pglogical'). PostgreSQL requires restart to change this.",
+    "type": "string"
+  },
+  "sync_structure_timeout": {
+    "default": 300,
+    "description": "Timeout (in seconds) for schema synchronization during initial subscription setup. Increase for large databases.",
+    "type": "number"
+  },
+  "synchronous": {
+    "default": false,
+    "description": "Whether to use synchronous replication for subscriber commit acknowledgment. Reduces latency but may increase failure risk.",
+    "type": "bool"
+  },
+  "verbose": {
+    "default": false,
+    "description": "Enable verbose per-operation logging (e.g., row-level replication events). Increases log volume significantly.",
+    "type": "bool"
+  }
 }

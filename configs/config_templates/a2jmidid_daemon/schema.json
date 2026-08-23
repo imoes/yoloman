@@ -1,83 +1,92 @@
 {
- "enabled": {
-  "default": false,
-  "description": "Whether the a2jmidid daemon should be enabled (start on boot).",
-  "type": "bool"
- },
- "exclude_ports": {
-  "default": [],
-  "description": "ALSA MIDI ports (client:port) to exclude from bridging.",
-  "items": {
-   "description": "ALSA MIDI port identifier in the form `client:port`, e.g., `20:0`.",
-   "type": "string"
+  "enabled": {
+    "default": false,
+    "description": "Whether the a2jmidid daemon should be enabled (start on boot).",
+    "type": "bool"
   },
-  "type": "list"
- },
- "jack_buffer_size": {
-  "description": "JACK period size (frames/period). Leave blank to inherit from JACK server.",
-  "type": "number"
- },
- "jack_sample_rate": {
-  "description": "JACK sample rate (Hz). Leave blank to inherit from JACK server.",
-  "type": "number"
- },
- "log_file": {
-  "default": "",
-  "description": "Path to write logs. Leave blank to log to stderr instead.",
-  "type": "string"
- },
- "log_level": {
-  "default": 2,
-  "description": "Verbosity: 0 (none), 1 (error), 2 (warning), 3 (info), 4 (debug).",
-  "type": "number"
- },
- "max_ports": {
-  "default": 0,
-  "description": "Maximum number of MIDI ports per client (0 = unlimited). Prevents runaway port creation.",
-  "type": "number"
- },
- "port_idle_timeout": {
-  "default": 30000,
-  "description": "Time in milliseconds to wait before automatically closing unused ALSA→JACK or JACK→ALSA ports.",
-  "type": "number"
- },
- "ports": {
-  "default": [],
-  "description": "Specific ALSA MIDI ports (client:port) to expose. Leave empty to expose all ports.",
-  "items": {
-   "description": "ALSA MIDI port identifier in the form `client:port`, e.g., `20:0` for FluidSynth.",
-   "type": "string"
+  "exclude_ports": {
+    "default": [],
+    "description": "ALSA MIDI ports (client:port) to exclude from bridging.",
+    "items": {
+      "description": "ALSA MIDI port identifier in the form `client:port`, e.g., `20:0`.",
+      "type": "string"
+    },
+    "type": "list"
   },
-  "type": "list"
- },
- "priority": {
-  "default": 10,
-  "description": "Real-time priority level (1–99); higher values = higher priority. Only used if `realtime=true`.",
-  "type": "number"
- },
- "realtime": {
-  "default": true,
-  "description": "Enable real-time scheduling for lower MIDI latency (requires CAP_SYS_RESOURCE or running as root).",
-  "type": "bool"
- },
- "startup_timeout": {
-  "default": 5000,
-  "description": "Time in milliseconds to wait for JACK to start; if exceeded, daemon exits (0 = wait forever).",
-  "type": "number"
- },
- "timing_source": {
-  "default": "alsa",
-  "description": "Source of timing and transport info: `alsa` (ALSA sequencer) or `jack` (JACK transport).",
-  "type": "string"
- },
- "transport_mode": {
-  "default": "slave",
-  "description": "Transport role when `transport_sync=true`: `none`, `slave` (follow JACK), or `master` (control JACK).",
-  "type": "string"
- },
- "transport_sync": {
-  "default": false,
-  "description": "Whether to synchronize JACK transport (play/stop/position) with ALSA MIDI transport messages (if supported by client).",
-  "type": "bool"
- }
+  "jack_buffer_size": {
+    "description": "JACK period size (frames/period). Leave blank to inherit from JACK server.",
+    "type": "number"
+  },
+  "jack_sample_rate": {
+    "description": "JACK sample rate (Hz). Leave blank to inherit from JACK server.",
+    "type": "number"
+  },
+  "log_file": {
+    "default": "",
+    "description": "Path to write logs. Leave blank to log to stderr instead.",
+    "type": "string"
+  },
+  "log_level": {
+    "default": 2,
+    "description": "Verbosity: 0 (none), 1 (error), 2 (warning), 3 (info), 4 (debug).",
+    "type": "number"
+  },
+  "max_ports": {
+    "default": 0,
+    "description": "Maximum number of MIDI ports per client (0 = unlimited). Prevents runaway port creation.",
+    "type": "number"
+  },
+  "port_idle_timeout": {
+    "default": 30000,
+    "description": "Time in milliseconds to wait before automatically closing unused ALSA\u2192JACK or JACK\u2192ALSA ports.",
+    "type": "number"
+  },
+  "ports": {
+    "default": [],
+    "description": "Specific ALSA MIDI ports (client:port) to expose. Leave empty to expose all ports.",
+    "items": {
+      "description": "ALSA MIDI port identifier in the form `client:port`, e.g., `20:0` for FluidSynth.",
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "priority": {
+    "default": 10,
+    "description": "Real-time priority level (1\u201399); higher values = higher priority. Only used if `realtime=true`.",
+    "type": "number"
+  },
+  "realtime": {
+    "default": true,
+    "description": "Enable real-time scheduling for lower MIDI latency (requires CAP_SYS_RESOURCE or running as root).",
+    "type": "bool"
+  },
+  "startup_timeout": {
+    "default": 5000,
+    "description": "Time in milliseconds to wait for JACK to start; if exceeded, daemon exits (0 = wait forever).",
+    "type": "number"
+  },
+  "timing_source": {
+    "default": "alsa",
+    "description": "Source of timing and transport info: `alsa` (ALSA sequencer) or `jack` (JACK transport).",
+    "type": "string",
+    "enum": [
+      "alsa",
+      "jack"
+    ]
+  },
+  "transport_mode": {
+    "default": "slave",
+    "description": "Transport role when `transport_sync=true`: `none`, `slave` (follow JACK), or `master` (control JACK).",
+    "type": "string",
+    "enum": [
+      "none",
+      "slave",
+      "master"
+    ]
+  },
+  "transport_sync": {
+    "default": false,
+    "description": "Whether to synchronize JACK transport (play/stop/position) with ALSA MIDI transport messages (if supported by client).",
+    "type": "bool"
+  }
 }

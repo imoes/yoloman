@@ -1,113 +1,120 @@
 {
- "allow_open_registration": {
-  "default": true,
-  "description": "If true, users may create rooms without requiring pre-registration or admin approval.",
-  "type": "bool"
- },
- "allowed_domains": {
-  "default": [],
-  "description": "List of XMPP domains whose users may create rooms. Empty = allow all.",
-  "type": "list"
- },
- "disabled_features": {
-  "default": [],
-  "description": "List of MUC features to disable (e.g., 'muc_public', 'muc_passwordprotected'). See XEP-0045 for feature names.",
-  "type": "list"
- },
- "jid": {
-  "default": "muc.example.com",
-  "description": "Jabber ID (JID) of the MUC component; must be unique within the XMPP domain.",
-  "type": "string"
- },
- "log": {
-  "default": "/var/log/jabber/muc.log",
-  "description": "Path to log file. Use 'stdout' or 'stderr' for console logging.",
-  "type": "string"
- },
- "log_level": {
-  "default": "info",
-  "description": "Minimum log level; options: debug, info, warn, error, critical.",
-  "type": "string"
- },
- "max_occupants": {
-  "default": 100,
-  "description": "Default maximum number of users allowed per MUC room.",
-  "type": "number"
- },
- "min_password_length": {
-  "default": 6,
-  "description": "Minimum length required for passwords on password-protected rooms.",
-  "type": "number"
- },
- "namespace_prefix": {
-  "default": "muc",
-  "description": "XMPP namespace prefix for room JIDs (e.g., 'muc' → rooms at 'room@muc.example.com').",
-  "type": "string"
- },
- "port": {
-  "default": 5347,
-  "description": "Port number for component-to-server communication (commonly 5347).",
-  "type": "number"
- },
- "room_presets": {
-  "default": [],
-  "description": "List of named room presets to configure different room behavior profiles.",
-  "items": {
-   "announcement_services": {
+  "allow_open_registration": {
+    "default": true,
+    "description": "If true, users may create rooms without requiring pre-registration or admin approval.",
+    "type": "bool"
+  },
+  "allowed_domains": {
     "default": [],
-    "description": "List of service JIDs allowed to send announcements to rooms using this preset.",
+    "description": "List of XMPP domains whose users may create rooms. Empty = allow all.",
+    "type": "list"
+  },
+  "disabled_features": {
+    "default": [],
+    "description": "List of MUC features to disable (e.g., 'muc_public', 'muc_passwordprotected'). See XEP-0045 for feature names.",
+    "type": "list"
+  },
+  "jid": {
+    "default": "muc.example.com",
+    "description": "Jabber ID (JID) of the MUC component; must be unique within the XMPP domain.",
+    "type": "string"
+  },
+  "log": {
+    "default": "/var/log/jabber/muc.log",
+    "description": "Path to log file. Use 'stdout' or 'stderr' for console logging.",
+    "type": "string"
+  },
+  "log_level": {
+    "default": "info",
+    "description": "Minimum log level; options: debug, info, warn, error, critical.",
+    "type": "string",
+    "enum": [
+      "debug",
+      "info",
+      "warn",
+      "error",
+      "critical"
+    ]
+  },
+  "max_occupants": {
+    "default": 100,
+    "description": "Default maximum number of users allowed per MUC room.",
+    "type": "number"
+  },
+  "min_password_length": {
+    "default": 6,
+    "description": "Minimum length required for passwords on password-protected rooms.",
+    "type": "number"
+  },
+  "namespace_prefix": {
+    "default": "muc",
+    "description": "XMPP namespace prefix for room JIDs (e.g., 'muc' \u2192 rooms at 'room@muc.example.com').",
+    "type": "string"
+  },
+  "port": {
+    "default": 5347,
+    "description": "Port number for component-to-server communication (commonly 5347).",
+    "type": "number"
+  },
+  "room_presets": {
+    "default": [],
+    "description": "List of named room presets to configure different room behavior profiles.",
     "items": {
-     "type": "string"
+      "announcement_services": {
+        "default": [],
+        "description": "List of service JIDs allowed to send announcements to rooms using this preset.",
+        "items": {
+          "type": "string"
+        },
+        "type": "list"
+      },
+      "max_occupants": {
+        "default": null,
+        "description": "Override for max occupants per room of this preset type (uses global default if omitted).",
+        "type": "number"
+      },
+      "name": {
+        "default": "default",
+        "description": "Unique name for this preset (e.g., 'public', 'private', 'announcements').",
+        "type": "string"
+      },
+      "persistent": {
+        "default": false,
+        "description": "If true, rooms created with this preset are stored persistently (survive restarts).",
+        "type": "bool"
+      },
+      "title_required": {
+        "default": false,
+        "description": "Require room title before creation.",
+        "type": "bool"
+      }
     },
     "type": "list"
-   },
-   "max_occupants": {
-    "default": null,
-    "description": "Override for max occupants per room of this preset type (uses global default if omitted).",
-    "type": "number"
-   },
-   "name": {
-    "default": "default",
-    "description": "Unique name for this preset (e.g., 'public', 'private', 'announcements').",
-    "type": "string"
-   },
-   "persistent": {
-    "default": false,
-    "description": "If true, rooms created with this preset are stored persistently (survive restarts).",
-    "type": "bool"
-   },
-   "title_required": {
-    "default": false,
-    "description": "Require room title before creation.",
-    "type": "bool"
-   }
   },
-  "type": "list"
- },
- "secret": {
-  "default": "",
-  "description": "Secret shared secret used to authenticate this component to the Jabber server. Must be strong and kept confidential.",
-  "type": "string"
- },
- "ssl": {
-  "description": "SSL/TLS settings for component-to-server communication (if using encrypted XMPP component protocol).",
-  "items": {
-   "ca_cert": {
+  "secret": {
     "default": "",
-    "description": "Optional path to CA certificate bundle for verifying server certificate.",
+    "description": "Secret shared secret used to authenticate this component to the Jabber server. Must be strong and kept confidential.",
     "type": "string"
-   },
-   "cert": {
-    "default": "",
-    "description": "Path to SSL certificate file.",
-    "type": "string"
-   },
-   "key": {
-    "default": "",
-    "description": "Path to SSL private key file.",
-    "type": "string"
-   }
   },
-  "type": "object"
- }
+  "ssl": {
+    "description": "SSL/TLS settings for component-to-server communication (if using encrypted XMPP component protocol).",
+    "items": {
+      "ca_cert": {
+        "default": "",
+        "description": "Optional path to CA certificate bundle for verifying server certificate.",
+        "type": "string"
+      },
+      "cert": {
+        "default": "",
+        "description": "Path to SSL certificate file.",
+        "type": "string"
+      },
+      "key": {
+        "default": "",
+        "description": "Path to SSL private key file.",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
 }
