@@ -125,51 +125,35 @@ Installing a `.deb` by hand installs it once and never mentions the next version
 `apt upgrade` work. The tree is built by `scripts/build-repo.sh`, signed, and published to the **`gh-pages`
 branch** by `scripts/publish-repo.sh`.
 
-**How you reach it depends on this repository's visibility, and right now it is private.** That is not a
-detail to paper over — a package source nobody can fetch is not a package source:
-
-| | works today? | |
-|---|---|---|
-| `https://imoes.github.io/yoloman/...` (GitHub Pages) | **no** | Pages is not available for a private repository on this plan (`gh api ... /pages` → *"Your current plan does not support GitHub Pages for this repository"*). Making the repository public enables it for free. |
-| `https://raw.githubusercontent.com/...` **unauthenticated** | **no** | 404 while the repository is private |
-| `https://raw.githubusercontent.com/...` **with a token** | **yes** (verified) | each host needs a read-only PAT; apt and dnf both support that |
-
-With a token, on Debian/Ubuntu:
+The tree is built by `scripts/build-repo.sh`, signed, and published by `scripts/publish-repo.sh` to
+**[imoes/yoloman-packages](https://github.com/imoes/yoloman-packages)** — a repository of its own, not a
+branch of this one. A branch holding 250 MB of packages is dragged along by every `git clone` of the source:
+measured, a full clone went from 74 MB to 302 MB the moment it existed. Packages are release artifacts, not
+source history.
 
 ```bash
-RAW=https://raw.githubusercontent.com/imoes/yoloman/gh-pages
-sudo install -m 0600 /dev/null /etc/apt/auth.conf.d/yoloman.conf
-sudo tee /etc/apt/auth.conf.d/yoloman.conf >/dev/null <<AUTH
-machine raw.githubusercontent.com login x-access-token password <YOUR_READ_ONLY_PAT>
-AUTH
-curl -fsSL -H "Authorization: token <YOUR_READ_ONLY_PAT>" $RAW/yoloman-archive-keyring.asc \
+# Debian / Ubuntu
+curl -fsSL https://imoes.github.io/yoloman-packages/yoloman-archive-keyring.asc \
   | sudo gpg --dearmor -o /usr/share/keyrings/yoloman-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] $RAW/deb stable main" \
+echo "deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] https://imoes.github.io/yoloman-packages/deb stable main" \
   | sudo tee /etc/apt/sources.list.d/yoloman.list
 sudo apt update && sudo apt install yoloman-agent
+
+# RHEL / AlmaLinux / Rocky / Fedora
+sudo rpm --import https://imoes.github.io/yoloman-packages/rpm/repodata/repomd.xml.key
+sudo tee /etc/yum.repos.d/yoloman.repo <<'REPO'
+[yoloman]
+name=YOLO-MANager
+baseurl=https://imoes.github.io/yoloman-packages/rpm
+enabled=1
+repo_gpgcheck=1
+gpgkey=https://imoes.github.io/yoloman-packages/rpm/repodata/repomd.xml.key
+REPO
+sudo dnf install yoloman-agent
 ```
 
-and on RHEL-family hosts the same with `username=x-access-token` / `password=<PAT>` in the `.repo` file.
-
-If the repository is made **public**, all of that collapses to the two commands the generated landing page
-shows — no token, and Pages serves the tree directly:
-
-```bash
-curl -fsSL https://imoes.github.io/yoloman/yoloman-archive-keyring.asc \
-  | sudo gpg --dearmor -o /usr/share/keyrings/yoloman-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] https://imoes.github.io/yoloman/deb stable main" \
-  | sudo tee /etc/apt/sources.list.d/yoloman.list
-```
-
-**Meanwhile the release assets need no repository at all** — they are the simplest path and they work now:
-
-```bash
-gh release download v<version> -R imoes/yoloman -p 'yoloman-agent*.deb'
-sudo apt install ./yoloman-agent_<version>_amd64.deb
-```
-
-The repository is **signed** either way — apt verifies through `signed-by`, dnf through `repo_gpgcheck`, so
-neither needs `trusted=yes` or `gpgcheck=0`. The signing key:
+The repository is **signed** — apt verifies through `signed-by`, dnf through `repo_gpgcheck`, so neither
+needs `trusted=yes` or `gpgcheck=0`. The signing key:
 
 ```
 YOLO-MANager package signing (apt/yum repository) <yoloman@users.noreply.github.com>

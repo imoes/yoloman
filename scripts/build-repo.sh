@@ -22,7 +22,7 @@ REPO="$ROOT/deploy-artifacts/repo"
 KEY="${YOLOMAN_GPG_KEY:-}"
 # The public base URL the generated instructions use. Overridable, because a repo hosted anywhere else needs
 # the same tree with a different address.
-BASE="${YOLOMAN_REPO_URL:-https://imoes.github.io/yoloman}"
+BASE="${YOLOMAN_REPO_URL:-https://imoes.github.io/yoloman-packages}"
 
 need() { [ -f "$1" ] || { echo "missing $1 — run $2 first" >&2; exit 1; }; }
 need deploy-artifacts/agent.deb   "scripts/build-agent-deb.sh"
