@@ -12,7 +12,7 @@
 # The package is ~150 MB and installs on anything with glibc >= 2.28, which is the trade this buys.
 #
 # WHY THE BUILD RUNS IN A CONTAINER. A virtualenv records the absolute path it was created at. Building it at
-# /usr/share/yoloman-bossman/venv on the build host would mean writing outside the repo as root; building it
+# /opt/yoloman-bossman/venv on the build host would mean writing outside the repo as root; building it
 # somewhere else and moving it leaves every script's shebang pointing at a path that does not exist on the
 # target. In a container the final path IS available, so the venv is created where it will live and copied
 # out afterwards. (uv's --relocatable would also work for the shebangs, but not for the interpreter's own
@@ -33,8 +33,8 @@ STAGE="$ROOT/deploy-artifacts/bossman-stage"
 if [ -d "$STAGE" ] && ! rm -rf "$STAGE" 2>/dev/null; then
   docker run --rm -v "$ROOT/deploy-artifacts":/out debian:12 rm -rf /out/bossman-stage
 fi
-mkdir -p "$STAGE/usr/share/yoloman-bossman"
-SHARE="$STAGE/usr/share/yoloman-bossman"
+mkdir -p "$STAGE/opt/yoloman-bossman"
+SHARE="$STAGE/opt/yoloman-bossman"
 
 # ── 1. the web console ──────────────────────────────────────────────────────────────────────────────────
 # Built here rather than taken from a previous run: a package that ships whatever happened to be in dist/
@@ -45,7 +45,9 @@ cp -r bossman-ui/dist/bossman-ui/browser "$SHARE/ui"
 
 # ── 2. the application ──────────────────────────────────────────────────────────────────────────────────
 echo ">> assembling the application"
-cp -r bossman/bossman bossman/alembic bossman/scripts "$SHARE/"
+# bossman/scripts is local operating equipment and not in the repository; the eight scripts the
+# product actually runs live in bossman/bossman/tools and come along with the package.
+cp -r bossman/bossman bossman/alembic "$SHARE/"
 cp bossman/alembic.ini bossman/pyproject.toml bossman/uv.lock "$SHARE/"
 # The render-check binary (the enum-enrich gate for the on-demand qualify endpoint), same as the image.
 install -Dm755 bossman/bin/render-check "$SHARE/bin/render-check"
@@ -78,18 +80,18 @@ docker run --rm \
   -e BUILD_UID="$(id -u)" -e BUILD_GID="$(id -g)" \
   --entrypoint sh ghcr.io/astral-sh/uv:debian-slim -c '
     set -e
-    mkdir -p /usr/share/yoloman-bossman
-    cp /src/pyproject.toml /src/uv.lock /usr/share/yoloman-bossman/
-    cd /usr/share/yoloman-bossman
+    mkdir -p /opt/yoloman-bossman
+    cp /src/pyproject.toml /src/uv.lock /opt/yoloman-bossman/
+    cd /opt/yoloman-bossman
     # only-managed: never link the container'"'"'s own python, or the venv would point at an interpreter the
     # target host does not have.
-    export UV_PYTHON_INSTALL_DIR=/usr/share/yoloman-bossman/python
+    export UV_PYTHON_INSTALL_DIR=/opt/yoloman-bossman/python
     uv python install --python-preference only-managed 3.12
-    uv venv --python-preference only-managed --python 3.12 /usr/share/yoloman-bossman/venv
-    VIRTUAL_ENV=/usr/share/yoloman-bossman/venv uv sync --frozen --no-dev --active
+    uv venv --python-preference only-managed --python 3.12 /opt/yoloman-bossman/venv
+    VIRTUAL_ENV=/opt/yoloman-bossman/venv uv sync --frozen --no-dev --active
     # Copy the result out, INCLUDING the interpreter the venv points at.
-    cp -a /usr/share/yoloman-bossman/venv /build/venv
-    cp -a /usr/share/yoloman-bossman/python /build/python
+    cp -a /opt/yoloman-bossman/venv /build/venv
+    cp -a /opt/yoloman-bossman/python /build/python
     # HANDED BACK TO THE CALLER. Files the container writes are root-owned, and the next build could then
     # not even delete its own staging directory ("rm: Keine Berechtigung" on a few thousand files).
     chown -R "$BUILD_UID:$BUILD_GID" /build
@@ -98,8 +100,8 @@ docker run --rm \
 # running it from the staging directory fails by design — that path only exists once installed. The check
 # therefore mounts the tree at the final prefix, which is exactly what the target does, in an image that has
 # no python of its own so nothing else can answer.
-docker run --rm -v "$SHARE":/usr/share/yoloman-bossman:ro debian:12 \
-  /usr/share/yoloman-bossman/venv/bin/python -c \
+docker run --rm -v "$SHARE":/opt/yoloman-bossman:ro debian:12 \
+  /opt/yoloman-bossman/venv/bin/python -c \
   'import sys, fastapi, asyncpg, sqlalchemy, alembic; print(">> bundled python", sys.version.split()[0], "— deps import cleanly")' \
   || { echo "the bundled runtime does not work at its installed path — build aborted" >&2; exit 1; }
 

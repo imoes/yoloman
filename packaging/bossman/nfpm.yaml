@@ -5,6 +5,10 @@
 # is a requirement it cannot satisfy, and pretending otherwise in a postinst would either fail or point at
 # the wrong database. The README's Quick start is the three commands that create it.
 #
+# /opt, not /usr/share. FHS reserves /opt for an add-on application package that brings its own tree, and
+# /usr/share is for architecture-INDEPENDENT data — this tree contains an ELF interpreter and compiled .so
+# files, which it is not. It is also what Datadog's agent does (/opt/datadog-agent) for the same reason: a
+# bundled runtime is a self-contained application, not shared data.
 # A TEMPLATE, not a finished config: scripts/build-bossman-deb.sh substitutes ${STAGE} (the assembled tree:
 # bundled CPython, venv, app, web console, config catalog) and ${PKGDIR} (this directory) and runs nfpm on the
 # result. nfpm expands environment variables in `version` but NOT in `contents.src` — it globs the literal
@@ -34,8 +38,8 @@ overrides:
       - glibc
 
 contents:
-  - src: ${STAGE}/usr/share/yoloman-bossman
-    dst: /usr/share/yoloman-bossman
+  - src: ${STAGE}/opt/yoloman-bossman
+    dst: /opt/yoloman-bossman
 
   - src: ${PKGDIR}/bossman.service
     dst: /usr/lib/systemd/system/yoloman-bossman.service
@@ -55,11 +59,11 @@ contents:
   # The two operator commands, on PATH. Migrations and the first account are deliberately manual: a
   # migration is a decision with a rollback plan, and running it from a unit would race two nodes pointed
   # at one database.
-  - src: ${STAGE}/usr/share/yoloman-bossman/bin/bossman-migrate
+  - src: ${STAGE}/opt/yoloman-bossman/bin/bossman-migrate
     dst: /usr/bin/bossman-migrate
     file_info:
       mode: 0755
-  - src: ${STAGE}/usr/share/yoloman-bossman/bin/bossman-create-admin
+  - src: ${STAGE}/opt/yoloman-bossman/bin/bossman-create-admin
     dst: /usr/bin/bossman-create-admin
     file_info:
       mode: 0755

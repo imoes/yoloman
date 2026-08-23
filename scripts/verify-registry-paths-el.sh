@@ -15,7 +15,7 @@ flock -n 9 || { echo "already running (lock $LOCK)"; exit 0; }
 
 SCRATCH=${SCRATCH:?set SCRATCH to the scratchpad directory}
 CHUNK=${1:-100}
-PROXY=${PROXY:-http://proxy.example.internal:80}
+PROXY=${PROXY:-${YOLOMAN_HTTP_PROXY}}
 IN=${IN:-$SCRATCH/verify_in_el.json}
 OUT=${OUT:-$SCRATCH/verify_el}
 LOG="$SCRATCH/verify-paths-el.log"

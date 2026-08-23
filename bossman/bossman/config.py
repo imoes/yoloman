@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     # The built bossman-ui, served by this app when the directory exists. Empty (the default) means
     # "somebody else serves it" — which is the DOCKER deployment, where an nginx container serves the SPA and
     # reverse-proxies /api/v1 here. The native .deb/.rpm has no nginx, so the package points this at
-    # /usr/share/yoloman-bossman/ui and the whole console is reachable on one port. Two deployments, one app,
+    # /opt/yoloman-bossman/ui and the whole console is reachable on one port. Two deployments, one app,
     # and the difference is a path rather than a second code path.
     ui_dir: str = ""
 
@@ -312,7 +312,12 @@ class Settings(BaseSettings):
     # comparison, for source chunks that don't hash-match anything already
     # translated. embedding_token is "" when the endpoint requires no auth
     # (true for the current bge-m3 deployment).
-    embedding_base_url: str = "https://llm.example.internal/embed"
+    # EMPTY BY DEFAULT, like the three endpoint fields below it. These pointed at one company's internal
+    # llama.cpp host, so a fresh clone of this repository tried to reach a machine nobody else has — and the
+    # address of that machine was published with the source. An endpoint is per-installation configuration:
+    # it belongs in docker-compose.override.yml (see the .example) or in the environment, and empty here
+    # means "not configured", which is a state the callers already handle.
+    embedding_base_url: str = ""
     embedding_model: str = "bge-m3"
     embedding_dim: int = 1024
     embedding_token: str = ""
@@ -338,7 +343,7 @@ class Settings(BaseSettings):
     # dialog's AI briefing) and the translator go to the fast qwen35b — the
     # conversational console uses hermes_web/qwen79b below, which is often
     # overloaded for short, high-frequency utility calls.
-    chat_base_url: str = "https://llm.example.internal/qwen35b"
+    chat_base_url: str = ""
     chat_model: str = "/models/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"
     chat_token: str = ""
 
@@ -354,7 +359,7 @@ class Settings(BaseSettings):
     # the DB (chat_preferences), configured from the Settings → AI Assistant
     # card — not in the environment.
     chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web | openrouter
-    hermes_web_base_url: str = "https://llm.example.internal/laguna"
+    hermes_web_base_url: str = ""
     hermes_web_model: str = "laguna"
     # OpenRouter: OpenAI-compatible aggregator (function-calling identical), so it
     # reuses the hermes/OpenAI client. base_url is the /api root — the client
@@ -374,7 +379,7 @@ class Settings(BaseSettings):
     docker_extract_model: str = "poolside/laguna-s-2.1"
     # SearXNG metasearch (co-located with the LLM host) — backs the package-doc
     # verification batch and the web_search MCP tool.
-    searxng_base_url: str = "http://llm.example.internal:8080"
+    searxng_base_url: str = ""
     hermes_web_token: str = ""
     codex_base_url: str = "https://chatgpt.com/backend-api/codex"
     codex_model: str = "gpt-5.5"

@@ -3,13 +3,34 @@
 #
 #   bossman-create-admin <username> <password>
 #
-# The password is an argument rather than a prompt so this works in a provisioning script; it lands in the
-# shell history of whoever runs it, which is why the README says to change it at first login.
+# FOR AN UNATTENDED INSTALL ONLY. The normal way is the web console's first-run form, which asks for the
+# first administrator and closes for good once an account exists — no password on a command line. This exists
+# because a provisioning run has no browser, and it goes through the same service layer the API does rather
+# than through a script: there is one place that hashes a password and creates a user.
 set -e
 [ $# -eq 2 ] || { echo "usage: bossman-create-admin <username> <password>" >&2; exit 2; }
-SHARE=/usr/share/yoloman-bossman
+SHARE=/opt/yoloman-bossman
 . /etc/yoloman/bossman.env
 export BOSSMAN_DATABASE_URL
 cd "$SHARE"
-SEED_ADMIN_USERNAME="$1" SEED_ADMIN_PASSWORD="$2" \
-  PYTHONPATH="$SHARE" exec "$SHARE/venv/bin/python" "$SHARE/scripts/seed_admin.py"
+PYTHONPATH="$SHARE" exec "$SHARE/venv/bin/python" -c '
+import asyncio, sys
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from bossman.config import get_settings
+from bossman.db.models import BossmanUser
+from bossman.services.auth import hash_password
+
+async def main(username, password):
+    engine = create_async_engine(get_settings().database_url)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+        if await session.scalar(select(BossmanUser).where(BossmanUser.username == username)):
+            print(f"user {username!r} already exists, leaving it untouched")
+        else:
+            session.add(BossmanUser(username=username, password_hash=hash_password(password), role="admin"))
+            await session.commit()
+            print(f"created admin user {username!r}")
+    await engine.dispose()
+
+asyncio.run(main(sys.argv[1], sys.argv[2]))
+' "$1" "$2"

@@ -46,15 +46,15 @@ start_db() { # start_db <name>
   exit 1
 }
 
-run() { # run <image> <install-cmd> <package-file> <extension> <db-container>
-  local image=$1 install=$2 pkg=$3 ext=$4 db=$5
+run() { # run <image> <install-cmd> <package-file> <extension> <db-container> <reinstall-cmd>
+  local image=$1 install=$2 pkg=$3 ext=$4 db=$5 reinstall=$6
   echo; echo "===== $image ====="
   start_db "$db"
   docker run --rm --network "$NET" \
     -v "$PWD/$pkg":/pkg.$ext:ro -v "$PWD/scripts/install-test-bossman-body.sh":/body.sh:ro \
-    -e INSTALL_CMD="$install" -e DB_HOST="$db" -e DB_NAME=bossman \
+    -e INSTALL_CMD="$install" -e REINSTALL_CMD="$reinstall" -e DB_HOST="$db" -e DB_NAME=bossman \
     "$image" bash /body.sh
 }
 
-run debian:12   "dpkg -i /pkg.deb"  "$DEB" deb bossman-installtest-deb
-run almalinux:9 "rpm -Uvh /pkg.rpm" "$RPM" rpm bossman-installtest-rpm
+run debian:12   "dpkg -i /pkg.deb"  "$DEB" deb bossman-installtest-deb "dpkg -i /pkg.deb"
+run almalinux:9 "rpm -Uvh /pkg.rpm" "$RPM" rpm bossman-installtest-rpm "rpm -Uvh --replacepkgs /pkg.rpm"

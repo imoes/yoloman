@@ -54,9 +54,9 @@ while :; do
   fi
   batch=$(head -n "$CHUNK" "$QUEUE" | tr '\n' ' ')
   echo "$(date +%H:%M) noch $count Pfade, nächste $CHUNK" >>"$LOG"
-  ( cd bossman/scripts && env http_proxy=http://proxy.example.internal:80 \
-      https_proxy=http://proxy.example.internal:80 \
-      no_proxy=llm.example.internal,localhost,127.0.0.1 QUALIFY_NO_SEARXNG=1 \
+  ( cd bossman/scripts && env http_proxy=${YOLOMAN_HTTP_PROXY} \
+      https_proxy=${YOLOMAN_HTTP_PROXY} \
+      no_proxy=llamacpp03${YOLOMAN_NO_PROXY_SUFFIX},localhost,127.0.0.1 QUALIFY_NO_SEARXNG=1 \
       ../.venv-host/bin/python rh_mine_directives.py --engine laguna \
       --corpus "$CORPUS" --man-corpus "$MAN" --remine $batch ) >>"$LOG" 2>&1
   # The linter after every chunk, because a fresh mine carries the same defect classes as the old catalog:

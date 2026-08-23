@@ -13,7 +13,7 @@ exec 9>"$LOCK"
 flock -n 9 || { echo "already running (lock $LOCK)"; exit 0; }
 SCRATCH=${SCRATCH:?set SCRATCH}
 CHUNK=${1:-150}
-PROXY=${PROXY:-http://proxy.example.internal:80}
+PROXY=${PROXY:-${YOLOMAN_HTTP_PROXY}}
 OUT="$SCRATCH/services"
 LOG="$SCRATCH/find-services.log"
 mkdir -p "$OUT"

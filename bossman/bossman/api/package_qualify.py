@@ -1,9 +1,9 @@
 """On-demand package qualification — the "create all config files for a package"
 endpoint (Block: new-package pipeline).
 
-Runs the SAME qualify pipeline the host batch runs (`scripts/qualify_packages.py`
+Runs the SAME qualify pipeline the host batch runs (`bossman.tools.qualify_packages`
 → codec, directives, template, enum), then rebuilds the catalog
-(`scripts/build_package_catalog.py`) so the package is CATEGORIZED (einsortiert)
+(`bossman.tools.build_package_catalog`) so the package is CATEGORIZED (einsortiert)
 the same way — the category lives in the catalog builder, not the template stage.
 
 Both scripts run in-process-adjacent via a subprocess using the app's own venv,
@@ -27,7 +27,7 @@ from bossman.config import get_settings
 router = APIRouter()
 
 # Repo root inside the container: this file is /app/bossman/api/package_qualify.py,
-# so parents[2] == /app, which holds scripts/ and the RW-mounted configs/.
+# so parents[2] == /app, which holds the RW-mounted configs/.
 _APP_ROOT = Path(__file__).resolve().parents[2]
 _CONFIGS_DIR = _APP_ROOT / "configs"
 _SCRIPTS = _APP_ROOT / "scripts"
@@ -105,11 +105,11 @@ async def run_qualify(name: str) -> QualifyResult:
 
     # 1) The full per-package pipeline (codec → directives → template → enum).
     rc, log = await _run(
-        [sys.executable, "-u", "scripts/qualify_packages.py", "--only", name, "--concurrency", "1"],
+        [sys.executable, "-u", "-m", "bossman.tools.qualify_packages", "--only", name, "--concurrency", "1"],
         env, timeout=900.0,
     )
     # 2) Categorize / sort into the catalog (this is where "einsortiert" happens).
-    _rc2, log2 = await _run([sys.executable, "-u", "scripts/build_package_catalog.py"], env, timeout=300.0)
+    _rc2, log2 = await _run([sys.executable, "-u", "-m", "bossman.tools.build_package_catalog"], env, timeout=300.0)
 
     tdir = _CONFIGS_DIR / "config_templates" / name
     template_created = (tdir / "template.j2").exists() or (tdir / "schema.json").exists()

@@ -18,7 +18,7 @@ flock -n 9 || { echo "already running (lock $LOCK)"; exit 0; }
 
 SCRATCH=${SCRATCH:?set SCRATCH to the scratchpad directory}
 CHUNK=${1:-400}
-PROXY=${PROXY:-http://proxy.example.internal:80}
+PROXY=${PROXY:-${YOLOMAN_HTTP_PROXY}}
 # IN and OUT are overridable because the resumable state is keyed by PACKAGE, not by path: a package already
 # verified for /etc/foo would be skipped when a later work list asks about /etc/foo/bar.conf. A second
 # question therefore gets its own state directory, and record_path_verdicts.py merges the results.

@@ -14,7 +14,7 @@
 #   scripts/patch-agent-collect-config.sh [--dry-run] [--user root] host [host…]
 #
 # Verify one host first:
-#   scripts/patch-agent-collect-config.sh --dry-run host.example.internal
+#   scripts/patch-agent-collect-config.sh --dry-run vpp0221
 
 set -euo pipefail
 

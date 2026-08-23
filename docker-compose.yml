@@ -31,17 +31,10 @@ services:
       db:
         condition: service_healthy
 
-  seed:
-    build: ./bossman
-    environment:
-      BOSSMAN_DATABASE_URL: postgresql+asyncpg://bossman:bossman@db:5432/bossman
-      SEED_ADMIN_USERNAME: admin
-      SEED_ADMIN_PASSWORD: admin123
-    command: ["uv", "run", "python", "scripts/seed_admin.py"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
+  # THE SEED SERVICE IS GONE. It ran seed_admin.py to plant admin/admin123, which meant every fresh stack
+  # started with a published default password and an operator who might never change it. The web console now
+  # asks for the first administrator itself (GET/POST /api/v1/auth/setup) and that route refuses once any
+  # account exists — a one-shot, not a default credential.
   bossman:
     build: ./bossman
     environment:
@@ -115,8 +108,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       migrate:
-        condition: service_completed_successfully
-      seed:
         condition: service_completed_successfully
 
   bossman-ui:

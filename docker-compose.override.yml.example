@@ -1,0 +1,178 @@
+# EXAMPLE override — copy to docker-compose.override.yml and put YOUR values in.
+#
+# WHY THIS IS THE EXAMPLE AND NOT THE FILE. docker-compose.override.yml is the layer for what is true of ONE
+# installation: its LLM endpoint, its proxy, its hosts, its addresses. It was tracked, so this repository
+# carried 190 references to one company's internal infrastructure — hostnames, and a 10.32.x address plan —
+# in 79 files and 97 commits. That is not configuration a repository should hold, and it is precisely what an
+# override file exists to keep out of it.
+#
+# Every address below is from a documentation range (RFC 2606 .example / RFC 5737 192.0.2.0/24), so nothing
+# here resolves to anybody's machine.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   $EDITOR docker-compose.override.yml        # then it is yours, and git ignores it
+
+# Local/environment-specific overrides, merged automatically by
+# `docker compose up` alongside docker-compose.yml (no -f flag needed) —
+# the canonical file stays portable, everything specific to this network
+# (a corporate proxy) and this host (ports 80/443 taken by other services,
+# and 4200 by the unrelated centralstation-frontend container, so the UI
+# is published on 4201 instead) lives here instead.
+services:
+  db:
+    ports:
+      - "55433:5432" # separate from the manually-run bossman-dev-db container (55432)
+
+  migrate:
+    build:
+      args:
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+
+  seed:
+    build:
+      args:
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+
+  bossman:
+    build:
+      args:
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+    ports:
+      - "8123:8000" # matches bossman-ui's dev-mode environment.ts expectation
+    environment:
+      # The address a real Duppy (e.g. host1.example.internal) actually
+      # reaches this Bossman at, for `agentic-mcpd register` — this host's
+      # own real hostname, not a docker-internal one. Surfaced verbatim by
+      # GET /api/v1/enroll/info for the Settings page's register command.
+      BOSSMAN_PUBLIC_URL: http://host4.example.internal:8123
+      # PXE lab: drive QEMU + the image import in the pxe container (needs the docker socket, mounted in
+      # the base compose). BOSSMAN_PUBLIC_URL above is what the import script calls back on (host-routable).
+      BOSSMAN_PXE_CONTAINER: agentic-mcp-pxe
+      BOSSMAN_IMAGE_BASE_URL: http://192.0.2.10:8080
+      # The corporate proxy (injected into containers here) must be bypassed
+      # for docker-internal service names, or Bossman's pulls to the in-stack
+      # poller get 403'd by the proxy. `host.example.internal` already covers real
+      # hosts; add the compose service names for the poller.
+      no_proxy: localhost,127.0.0.1,host.example.internal,bossman-poller,bossman,db,bossman-ui
+      NO_PROXY: localhost,127.0.0.1,host.example.internal,bossman-poller,bossman,db,bossman-ui
+      # Server-driven SSH deploy (Block N-enroll). Secrets are passed through
+      # from the shell at `docker compose up` time (never committed here) —
+      # e.g. BOSSMAN_DEPLOY_SSH_USER=marvin BOSSMAN_DEPLOY_SSH_PASSWORD=... .
+      # With a user + the mounted .deb below, GET /enroll/info reports
+      # deploy_configured:true and the Settings page shows the deploy field.
+      BOSSMAN_DEPLOY_SSH_USER: ${BOSSMAN_DEPLOY_SSH_USER:-}
+      BOSSMAN_DEPLOY_SSH_PASSWORD: ${BOSSMAN_DEPLOY_SSH_PASSWORD:-}
+      BOSSMAN_DEPLOY_SUDO_PASSWORD: ${BOSSMAN_DEPLOY_SUDO_PASSWORD:-}
+      BOSSMAN_AGENT_DEB_PATH: /app/deploy/agent.deb
+      BOSSMAN_AGENT_RPM_PATH: /app/deploy/agent.rpm
+      # Proxy baked into a PXE-provisioned target (env + apt/dnf/yum/zypper) so it reaches package mirrors +
+      # the internet from its destination segment — the same corporate proxy the pxe container uses.
+      # no_proxy keeps corp/host.example.internal + local traffic direct. Empty = no proxy written.
+      BOSSMAN_TARGET_HTTP_PROXY: http://proxy.example.internal:80
+      BOSSMAN_TARGET_HTTPS_PROXY: http://proxy.example.internal:80
+      BOSSMAN_TARGET_NO_PROXY: localhost,127.0.0.1,::1,host.example.internal,192.0.2.10/24
+      # Block K — root of per-user chat home dirs (bind-mounted below), where
+      # the claude/codex CLIs keep each user's OAuth credentials.
+      BOSSMAN_CHAT_HOME_ROOT: /app/chat-homes
+      # LLM endpoints/models are no longer pinned here: the console's backend +
+      # model (and the hermes endpoint URL) are configured per user from the DB
+      # via Settings → AI Assistant, and the code defaults in bossman/config.py
+      # point at the live qwen79b/qwen35b endpoints for a working out-of-box.
+      # OpenRouter API key — read from the gitignored .env (NEVER commit the key);
+      # enables the 'openrouter' backend so small models can drive Bossman.
+      BOSSMAN_OPENROUTER_TOKEN: ${OPENROUTER_TOKEN:-}
+    volumes:
+      # Per-user AI-console home dirs (Block K): OAuth tokens persist here per
+      # username; the claude subprocess runs with HOME set into this tree.
+      - ${PWD}/deploy-artifacts/chat-homes:/app/chat-homes
+      # The agent .deb Bossman copies onto + installs on each deployed host
+      # (staged on the host via `nfpm package ... -t deploy-artifacts/agent.deb`).
+      - ${PWD}/deploy-artifacts/agent.deb:/app/deploy/agent.deb:ro
+      # The matching RPM for RHEL/Fedora/SUSE hosts (update-bundled picks by OS family).
+      - ${PWD}/deploy-artifacts/agent.rpm:/app/deploy/agent.rpm:ro
+      # Starlark module library (Block G8): modules written by the
+      # submit_module MCP tool land directly in the repo working tree
+      # (committable); the pre-dumped translation templates are read-only;
+      # the statically linked validator binary is built on the host via
+      # `CGO_ENABLED=0 go build -o bin/starlark-check ./cmd/starlark-check`.
+      - ${PWD}/configs/modules.d:/etc/bossman/modules.d
+      - ${PWD}/configs/module_sources:/etc/bossman/module_sources:ro
+      # Check library (Block G9): translated Checkmk + custom checks, flat,
+      # written by the submit_check MCP tool — committable working-tree path.
+      - ${PWD}/configs/checks.d:/etc/bossman/checks.d
+      # Checkmk's discovery inputs (check -> sections, section -> emitting
+      # platform), generated by scripts/extract_checkmk_sections.py. Discovery
+      # uses it to drop checks this host's platform could never satisfy.
+      - ${PWD}/configs/checkmk_sections.json:/etc/bossman/checkmk_sections.json:ro
+      - ${PWD}/bin/starlark-check:/usr/local/bin/starlark-check:ro
+      # Help/docs (Block G10): the README + docs, served as the in-app Help
+      # page, searchable by the AI (search_help) and its stuck-fallback.
+      - ${PWD}/README.md:/etc/bossman/help/README.md:ro
+      - ${PWD}/docs:/etc/bossman/help/docs:ro
+
+  bossman-ui:
+    build:
+      args:
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+    ports:
+      - "4201:80" # 80/443 and 4200 (centralstation-frontend) already taken on this host
+
+  bossman-poller:
+    build:
+      args:
+        # apt-get in the poller image needs the corporate proxy to reach the
+        # Debian mirrors — export http_proxy=http://proxy.example.internal:80 before
+        # `docker compose build` (same pattern as the other services).
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+    # The poller talks to Bossman over the docker network for enrollment, and
+    # out to SNMP/SSH targets which may sit behind the proxy for name lookups;
+    # SNMP itself is UDP and won't use the HTTP proxy.
+    environment:
+      ENROLL_URL: http://bossman:8000
+      POLLER_NAME: bossman-poller
+      POLLER_ADDRESS: bossman-poller:8010
+
+  # PXE bare-metal lab (profile "pxe"). Host-net on ens19 (bridged as br-ens19 for the QEMU test VM),
+  # /dev/kvm for nested virt. Reaches Bossman at the host-published address (host network can't resolve
+  # the compose DNS name `bossman`).
+  pxe:
+    build:
+      args:
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
+    environment:
+      # debootstrap + the PE's chroot apt reach the Debian mirror through the corporate proxy at RUNTIME
+      # (the container only had it at build time otherwise). host.example.internal stays direct so the agent/
+      # netboot calls to hal don't get proxied.
+      http_proxy: http://proxy.example.internal:80
+      https_proxy: http://proxy.example.internal:80
+      no_proxy: localhost,127.0.0.1,host.example.internal,192.0.2.10
+      BOSSMAN_URL: http://192.0.2.10:8123
+      ENROLL_URL: http://192.0.2.10:8123
+      # FULL DHCP: hand out addresses on the isolated ens19 lab segment (proxy mode hands out none,
+      # so the PE hangs at "Configuring network"). Tiny pool; only served while a job is armed.
+      DHCP_MODE: full
+      DHCP_RANGE: 192.0.2.10,192.0.2.10,12h
+      DHCP_ROUTER: 192.0.2.10
+      PXE_HTTP_PORT: 8080
+      PXE_INTERFACE: br-ens19
+      PXE_AGENT_ADDRESS: 192.0.2.10:8051
+      # Netboot secret is NOT set here — it is entered + enabled in the WebUI (Settings → PXE netboot);
+      # the container fetches it from GET /netboot/config with its agent token.
+    volumes:
+      # The agent binary + .deb are bind-mounted (not baked into the image), so rebuilding the package on
+      # the host (scripts/build-agent-deb.sh) refreshes what the PE bakes and what the target installs
+      # without an image rebuild — the same staging Bossman uses for its own agent.deb.
+      - ${PWD}/deploy-artifacts/agentic-mcpd:/usr/bin/agentic-mcpd:ro
+      - ${PWD}/deploy-artifacts/agent.deb:/srv/http/agent.deb:ro

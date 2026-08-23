@@ -1313,7 +1313,9 @@ class SystemSettings(Base):
     helm_http_proxy: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     helm_no_proxy: Mapped[str] = mapped_column(
         String, nullable=False, default="",
-        server_default=".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local",
+        # No company's own domain in a shipped default: an operator adds theirs in Admin Settings, and the
+        # RFC1918 ranges plus the cluster suffixes are the part that is true everywhere.
+        server_default="localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local",
     )
     # PXE netboot gate, DB-backed so the operator sets/rotates the shared secret and turns netboot on/off
     # from the WebUI without redeploying. `netboot_enabled` off → /netboot/* refuse regardless of the

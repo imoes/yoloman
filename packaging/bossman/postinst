@@ -11,7 +11,7 @@ set -e
 
 CONF_DIR=/etc/yoloman
 ENV_FILE="$CONF_DIR/bossman.env"
-SHARE=/usr/share/yoloman-bossman
+SHARE=/opt/yoloman-bossman
 STATE=/var/lib/yoloman-bossman
 
 if ! getent group yoloman >/dev/null 2>&1; then
@@ -26,6 +26,16 @@ fi
 mkdir -p "$STATE/tls" "$STATE/plans" /var/log/yoloman-bossman
 chown -R yoloman:yoloman "$STATE" /var/log/yoloman-bossman
 chmod 0750 "$STATE" "$STATE/tls"
+
+# PATH MIGRATION for an installation from before the move to /opt. bossman.env is config|noreplace — as it
+# must be, it holds the operator's DATABASE_URL — so an upgrade keeps their file, and their file still points
+# BOSSMAN_UI_DIR and every catalog path at /usr/share/yoloman-bossman, which the new package no longer
+# creates. The result would be a server that starts and serves no console and an empty config catalog:
+# healthy-looking and wrong. Rewritten in place, and only that one prefix.
+if grep -q "/usr/share/yoloman-bossman" "$ENV_FILE" 2>/dev/null; then
+	sed -i "s|/usr/share/yoloman-bossman|$SHARE|g" "$ENV_FILE"
+	echo "yoloman-bossman: moved the paths in $ENV_FILE from /usr/share to $SHARE"
+fi
 
 # The signing key for operator sessions. Generated once, never regenerated: rewriting it on every upgrade
 # would log everybody out for no reason. An operator who sets it in the env file keeps their value.

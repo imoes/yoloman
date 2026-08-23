@@ -9,6 +9,21 @@ grep -q "needs a database before it can start" /tmp/install.log \
   || fail "the postinst did not say what is still missing (the database)"
 echo "ok  installs and says the database is still missing"
 
+[ -x /opt/yoloman-bossman/venv/bin/python ] || fail "the tree is not at /opt/yoloman-bossman"
+[ ! -e /usr/share/yoloman-bossman ] || fail "the old /usr/share tree is still there"
+echo "ok  installed under /opt (FHS: a bundled runtime is not /usr/share data)"
+
+# THE PATH MIGRATION. bossman.env is config|noreplace, so an upgrade keeps the operator's file — with the OLD
+# prefix in every catalog path and in BOSSMAN_UI_DIR. A server that starts, serves no console and reads an
+# empty catalog looks healthy and is wrong.
+sed -i "s|/opt/yoloman-bossman|/usr/share/yoloman-bossman|g" /etc/yoloman/bossman.env
+eval "$REINSTALL_CMD" >/tmp/reinstall.log 2>&1 || { tail -10 /tmp/reinstall.log; fail "reinstall"; }
+! grep -q "/usr/share/yoloman-bossman" /etc/yoloman/bossman.env \
+  || fail "the postinst left the old prefix in the env file"
+grep -q "^BOSSMAN_UI_DIR=/opt/yoloman-bossman/ui" /etc/yoloman/bossman.env \
+  || fail "the migration did not rewrite BOSSMAN_UI_DIR"
+echo "ok  an old env file's paths are migrated to /opt"
+
 getent passwd yoloman >/dev/null || fail "no yoloman service account"
 [ -f /etc/yoloman/bossman.env ] || fail "no /etc/yoloman/bossman.env"
 grep -q "^BOSSMAN_JWT_SECRET=..*" /etc/yoloman/bossman.env || fail "the postinst generated no session secret"
@@ -16,7 +31,7 @@ echo "ok  service account and a generated session secret"
 
 # The bundled runtime, on a host with no python of its own. This is the whole reason the package is 100 MB.
 command -v python3 >/dev/null && echo "    (note: this image has a python3 of its own: $(python3 -V 2>&1))"
-/usr/share/yoloman-bossman/venv/bin/python -c 'import sys, fastapi, asyncpg; print("    bundled", sys.version.split()[0])' \
+/opt/yoloman-bossman/venv/bin/python -c 'import sys, fastapi, asyncpg; print("    bundled", sys.version.split()[0])' \
   || fail "the bundled runtime does not work here"
 echo "ok  bundled runtime + dependencies"
 
@@ -29,8 +44,8 @@ echo "ok  bossman-migrate created the schema"
 # THE FIRST-RUN FORM, proven where it matters: a migrated database with no account. Done BEFORE
 # bossman-create-admin, because that is the only moment this state exists.
 set -a; . /etc/yoloman/bossman.env; set +a
-cd /usr/share/yoloman-bossman
-/usr/share/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host 127.0.0.1 --port "$BOSSMAN_PORT" \
+cd /opt/yoloman-bossman
+/opt/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host 127.0.0.1 --port "$BOSSMAN_PORT" \
   >/tmp/setup.log 2>&1 &
 SETUP_APP=$!
 setup_request() {   # defined early; the full request() below supersedes it
@@ -77,8 +92,8 @@ echo "ok  bossman-create-admin still works for a scripted install"
 # The unit's own ExecStart, run by hand: there is no systemd in a container, and the command line is the part
 # worth testing anyway.
 set -a; . /etc/yoloman/bossman.env; set +a
-cd /usr/share/yoloman-bossman
-/usr/share/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host 127.0.0.1 --port "$BOSSMAN_PORT" \
+cd /opt/yoloman-bossman
+/opt/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host 127.0.0.1 --port "$BOSSMAN_PORT" \
   >/tmp/app.log 2>&1 &
 APP=$!
 
