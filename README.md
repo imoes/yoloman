@@ -122,26 +122,35 @@ Installing a `.deb` by hand installs it once and never mentions the next version
 
 ```bash
 # Debian / Ubuntu
-echo "deb [trusted=yes] https://imoes.github.io/yoloman/deb stable main" \
+curl -fsSL https://imoes.github.io/yoloman/yoloman-archive-keyring.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/yoloman-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] https://imoes.github.io/yoloman/deb stable main" \
   | sudo tee /etc/apt/sources.list.d/yoloman.list
 sudo apt update && sudo apt install yoloman-agent
 
 # RHEL / AlmaLinux / Rocky / Fedora
+sudo rpm --import https://imoes.github.io/yoloman/rpm/repodata/repomd.xml.key
 sudo tee /etc/yum.repos.d/yoloman.repo <<'REPO'
 [yoloman]
 name=YOLO-MANager
 baseurl=https://imoes.github.io/yoloman/rpm
 enabled=1
-gpgcheck=0
+repo_gpgcheck=1
+gpgkey=https://imoes.github.io/yoloman/rpm/repodata/repomd.xml.key
 REPO
 sudo dnf install yoloman-agent
 ```
 
-> **The repository is not signed yet, and `trusted=yes` / `gpgcheck=0` is what that costs:** your package
-> manager will install whatever that address serves without verifying who built it. Fine for a trial on a
-> network you trust; not what you want in production. Signing needs a maintainer key —
-> `YOLOMAN_GPG_KEY=<keyid> scripts/build-repo.sh` produces a signed tree and publishes the public key, and
-> the generated landing page then shows the verifying commands instead of these.
+The repository is **signed** — apt verifies it through `signed-by` and dnf through `repo_gpgcheck`, so neither
+needs `trusted=yes` or `gpgcheck=0`. The signing key:
+
+```
+YOLO-MANager package signing (apt/yum repository) <yoloman@users.noreply.github.com>
+ed25519, fingerprint C052 E324 E1E6 0722 5EFF  6B73 ADEC 047E 24F8 F241
+```
+
+`scripts/test-repo.sh` installs from the tree with that verification switched ON — a signed repository tested
+with `trusted=yes` would prove nothing about the signature, which is the entire point of having one.
 
 Building and proving the repository locally:
 

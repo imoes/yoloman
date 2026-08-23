@@ -19,13 +19,33 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
+# SIGNED OR NOT decides the client commands, so the test uses the ones the repo actually earns. A signed repo
+# tested with trusted=yes would prove nothing about the signature — which is the whole point of having one.
+if [ -f "$REPO/deb/dists/stable/InRelease" ] && [ -f "$REPO/yoloman-archive-keyring.asc" ]; then
+  SIGNED=1; echo ">> the repository is signed — verifying with the published key"
+else
+  SIGNED=0; echo ">> the repository is UNSIGNED — testing with trusted=yes, which verifies nothing"
+fi
+
 echo; echo "===== debian:12 (apt) ====="
-# no_proxy so apt reaches the sibling container directly; the repo is unsigned, hence trusted=yes — the
-# generated page says what that costs.
+# no_proxy so apt reaches the sibling container directly.
 docker run --rm --network "$NET" -e http_proxy="${http_proxy:-}" -e https_proxy="${https_proxy:-}" \
-  -e no_proxy="$WEB,localhost,127.0.0.1" debian:12 sh -c "
+  -e no_proxy="$WEB,localhost,127.0.0.1" -e SIGNED="$SIGNED" debian:12 sh -c "
     set -e
-    echo 'deb [trusted=yes] http://$WEB/deb stable main' > /etc/apt/sources.list.d/yoloman.list
+    if [ \"\$SIGNED\" = 1 ]; then
+      # gpg and a downloader must be INSTALLED first — debian:12 has neither, and the earlier version
+      # swallowed that with `|| true` and then failed on the next line about the wrong thing. apt needs the
+      # distro's own repositories for this, hence the proxy.
+      apt-get update -qq
+      apt-get install -y -qq --no-install-recommends gpg curl ca-certificates >/dev/null
+      curl -fsSL http://$WEB/yoloman-archive-keyring.asc \
+        | gpg --dearmor -o /usr/share/keyrings/yoloman-archive-keyring.gpg
+      echo 'deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] http://$WEB/deb stable main' \
+        > /etc/apt/sources.list.d/yoloman.list
+    else
+      echo 'deb [trusted=yes] http://$WEB/deb stable main' > /etc/apt/sources.list.d/yoloman.list
+    fi
+    # Only OUR list, so the update proves this repository parses and verifies rather than the distro's.
     apt-get update -qq -o Dir::Etc::sourcelist=sources.list.d/yoloman.list -o Dir::Etc::sourceparts=- \
        -o APT::Get::List-Cleanup=0 2>&1 | tail -3
     apt-get install -y -qq --no-install-recommends yoloman-agent >/dev/null
@@ -35,14 +55,22 @@ docker run --rm --network "$NET" -e http_proxy="${http_proxy:-}" -e https_proxy=
 
 echo; echo "===== almalinux:9 (dnf) ====="
 docker run --rm --network "$NET" -e http_proxy="${http_proxy:-}" -e https_proxy="${https_proxy:-}" \
-  -e no_proxy="$WEB,localhost,127.0.0.1" almalinux:9 sh -c "
+  -e no_proxy="$WEB,localhost,127.0.0.1" -e SIGNED="$SIGNED" almalinux:9 sh -c "
     set -e
+    if [ \"\$SIGNED\" = 1 ]; then
+      rpm --import http://$WEB/rpm/repodata/repomd.xml.key
+      GPG='repo_gpgcheck=1
+gpgkey=http://$WEB/rpm/repodata/repomd.xml.key'
+    else
+      GPG='gpgcheck=0'
+    fi
     cat > /etc/yum.repos.d/yoloman.repo <<REPO
 [yoloman]
 name=YOLO-MANager
 baseurl=http://$WEB/rpm
 enabled=1
 gpgcheck=0
+\$GPG
 REPO
     dnf install -y -q --disablerepo='*' --enablerepo=yoloman yoloman-agent >/dev/null
     rpm -q yoloman-agent
