@@ -182,6 +182,32 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   forced-commands-only, no]. The supervisor will fill the rest of the ~90
   codec'd files after it finishes the codec/template passes.
 
+## Two architecture questions the packaging work surfaced (2026-08-23)
+
+**The agent should not ship the whole template catalog.** It carries `configs/config_templates` — 5474
+directories, 142 MB uncompressed, MORE than the bundled Python interpreter (104 MB) — and Bossman ships the
+same tree a second time. A managed node needs the templates for the roles IT has, which is a handful.
+
+The mechanism already exists and is proven for a sibling problem: **checks are pushed on demand**
+(`services/discovery.py` → `POST /api/v1/modules/apply`, with `sidecar_format`, a sha256 and the agent
+persisting them under `/var/lib/agentic-mcp/modules.d`). Templates should travel the same way: Bossman knows
+which roles a host has (`installed_roles`) and which template renders each of its files (the path→template
+index), so it can deliver exactly those and nothing else. That removes ~140 MB from the agent package, ends
+the duplication, and — the part that matters more — means a host's template set follows its roles instead of
+being a snapshot of the catalog at package build time.
+
+**`host_vars` has two sources of truth.** The database has `scope_vars` (scope_type ou|group|host, GPO-merged
+host < group < OU root→leaf by `resolve_scope_vars`) — and beside it `plan_loader.load_host_vars()` reads
+`plans_dir/host_vars/<hostname>.yaml`, called from `runbook_exec`, `mcp/server` and `api/deployments`:
+
+    magic facts  <  FILE host_vars  <  DB scope vars  <  explicit request vars
+
+So the file layer is not inert: it outranks the facts and loses to the database, deciding in the middle with
+no UI, no audit and no scope. Two ways to the same result, which the project's own rules call a logic error
+rather than a preference. It is also how a customer's hostname became a FILENAME in git history
+(`docker-test.…yaml`), which is what forced the rewrite. The fix is one import of the existing file content
+as `scope_type: host` rows and the removal of three call sites.
+
 ## Measured but not yet shown (the other half of "nothing vanishes silently")
 
 `/config-fields` carries measured statements about a file that no screen showed. Displaying them is the point

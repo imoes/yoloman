@@ -48,6 +48,11 @@ echo ">> assembling the application"
 # bossman/scripts is local operating equipment and not in the repository; the eight scripts the
 # product actually runs live in bossman/bossman/tools and come along with the package.
 cp -r bossman/bossman bossman/alembic "$SHARE/"
+# NO __pycache__. A compiled cache is stale by construction — and it leaked the source it was compiled FROM:
+# a .pyc built before the infrastructure names were removed still carried one of them into the package, which
+# is how this line came to exist. Interpreter caches are not build output.
+find "$SHARE" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+find "$SHARE" -name "*.pyc" -delete 2>/dev/null || true
 cp bossman/alembic.ini bossman/pyproject.toml bossman/uv.lock "$SHARE/"
 # The render-check binary (the enum-enrich gate for the on-demand qualify endpoint), same as the image.
 install -Dm755 bossman/bin/render-check "$SHARE/bin/render-check"
