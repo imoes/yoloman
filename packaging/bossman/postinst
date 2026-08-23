@@ -1,0 +1,77 @@
+#!/bin/sh
+# yoloman-bossman postinstall: a service account, a generated JWT secret, and an honest word about the one
+# thing this package cannot install for you.
+#
+# WHAT IS NOT DONE HERE, deliberately:
+#   - Postgres is not installed, created or migrated. It is a separate service that may well be on another
+#     host, and a postinst that guesses would either fail or quietly point at the wrong database.
+#   - The service is enabled but NOT started on a fresh install: without a reachable DATABASE_URL it would
+#     crash-loop, and a crash-looping unit is a worse first impression than a clear instruction.
+set -e
+
+CONF_DIR=/etc/yoloman
+ENV_FILE="$CONF_DIR/bossman.env"
+SHARE=/usr/share/yoloman-bossman
+STATE=/var/lib/yoloman-bossman
+
+if ! getent group yoloman >/dev/null 2>&1; then
+	groupadd --system yoloman 2>/dev/null || addgroup --system yoloman 2>/dev/null || true
+fi
+if ! getent passwd yoloman >/dev/null 2>&1; then
+	useradd --system --gid yoloman --home-dir "$STATE" --shell /usr/sbin/nologin \
+		--comment "YOLO-MANager Bossman" yoloman 2>/dev/null \
+	|| adduser --system --ingroup yoloman --home "$STATE" --no-create-home yoloman 2>/dev/null || true
+fi
+
+mkdir -p "$STATE/tls" "$STATE/plans" /var/log/yoloman-bossman
+chown -R yoloman:yoloman "$STATE" /var/log/yoloman-bossman
+chmod 0750 "$STATE" "$STATE/tls"
+
+# The signing key for operator sessions. Generated once, never regenerated: rewriting it on every upgrade
+# would log everybody out for no reason. An operator who sets it in the env file keeps their value.
+if ! grep -q "^BOSSMAN_JWT_SECRET=..*" "$ENV_FILE" 2>/dev/null; then
+	SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+	if grep -q "^# BOSSMAN_JWT_SECRET=" "$ENV_FILE" 2>/dev/null; then
+		sed -i "s|^# BOSSMAN_JWT_SECRET=.*|BOSSMAN_JWT_SECRET=$SECRET|" "$ENV_FILE"
+	else
+		echo "BOSSMAN_JWT_SECRET=$SECRET" >>"$ENV_FILE"
+	fi
+	echo "yoloman-bossman: generated a session signing secret in $ENV_FILE"
+fi
+chown root:yoloman "$ENV_FILE" 2>/dev/null || true
+chmod 0640 "$ENV_FILE" 2>/dev/null || true
+
+# THE INSTRUCTIONS COME FIRST, and outside the systemd block. They were inside it, so a host without
+# systemd — a container, or anything not running it — installed the package and was told nothing at all
+# about the database it still needs. The service management below is what depends on systemd; the operator's
+# next three steps do not.
+if [ ! -e "$STATE/.started-once" ]; then
+	cat <<'NEXT'
+yoloman-bossman is installed. It needs a database before it can start:
+
+  1. PostgreSQL with BOTH the timescaledb and pgvector extensions available
+     (the schema uses hypertables for metrics and vectors for search), then:
+       sudo -u postgres createuser bossman --pwprompt
+       sudo -u postgres createdb -O bossman bossman
+     The migration enables both extensions itself; it cannot install them.
+  2. Put that password into BOSSMAN_DATABASE_URL in /etc/yoloman/bossman.env
+  3. Create the schema and the first operator:
+       sudo bossman-migrate
+       sudo bossman-create-admin <user> <password>
+  4. sudo systemctl start yoloman-bossman   ->  http://127.0.0.1:8000
+
+The full walk-through is in the README's Quick start.
+NEXT
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl daemon-reload || true
+	systemctl enable yoloman-bossman.service || true
+	# Restarted only if it was ALREADY running, i.e. this is an upgrade. A fresh install has no database yet,
+	# and a crash-looping unit is a worse first impression than a clear instruction.
+	if systemctl is-active --quiet yoloman-bossman.service; then
+		systemctl restart yoloman-bossman.service || true
+		touch "$STATE/.started-once" 2>/dev/null || true
+	fi
+fi
+exit 0

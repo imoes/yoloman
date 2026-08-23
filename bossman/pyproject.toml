@@ -7,6 +7,16 @@ dependencies = [
     "alembic>=1.18.5",
     "asyncpg>=0.31.0",
     "asyncssh>=2.21.2",
+    # passlib's bcrypt scheme needs a BACKEND, and passlib ships none. Debian's libxcrypt provides one
+    # through os_crypt, EL 9's does not — so the .rpm could create no operator account
+    # ("MissingBackendError: bcrypt: no backends available") while the .deb worked. Depending on the host's
+    # crypt implementation for password hashing is not a dependency worth having.
+    # PINNED BELOW 4.1 because passlib 1.7.4 is not compatible with the newer API: bcrypt >= 4.1 refuses a
+    # secret longer than 72 bytes, and passlib's backend probe hands it exactly that ("ValueError: password
+    # cannot be longer than 72 bytes"). Measured on both distributions. passlib is unmaintained upstream, so
+    # the real fix is to stop using it for hashing — a code change, not a pin, and not one to make while
+    # packaging.
+    "bcrypt>=4.0,<4.1",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.4",

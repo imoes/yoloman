@@ -1,0 +1,101 @@
+# nfpm package definition for yoloman-bossman — the fleet controller, installed natively.
+#
+# Docker (docker-compose.yml) stays the primary deployment. This package exists for a host without a
+# container runtime, and it is deliberately self-contained EXCEPT for the database: Postgres with pgvector
+# is a requirement it cannot satisfy, and pretending otherwise in a postinst would either fail or point at
+# the wrong database. The README's Quick start is the three commands that create it.
+#
+# A TEMPLATE, not a finished config: scripts/build-bossman-deb.sh substitutes ${STAGE} (the assembled tree:
+# bundled CPython, venv, app, web console, config catalog) and ${PKGDIR} (this directory) and runs nfpm on the
+# result. nfpm expands environment variables in `version` but NOT in `contents.src` — it globs the literal
+# string and fails with "no matching files", which is how this was found.
+name: yoloman-bossman
+arch: amd64
+platform: linux
+version: "${VERSION}"
+section: admin
+priority: optional
+maintainer: "mutkluge"
+homepage: "https://github.com/imoes/yoloman"
+license: MIT
+description: |
+  YOLO-MANager Bossman — the fleet controller: inventory, monitoring, config
+  policy and orchestration for a fleet of yoloman-agent nodes, with its web
+  console. Brings its own Python runtime; needs PostgreSQL with pgvector.
+
+# NOTHING is depended on but libc and a Postgres client library. The Python runtime and every wheel are in
+# the package, which is why it installs on both Debian 12/13 and EL 9 without a python3.12 to be found.
+overrides:
+  deb:
+    depends:
+      - libc6
+  rpm:
+    depends:
+      - glibc
+
+contents:
+  - src: ${STAGE}/usr/share/yoloman-bossman
+    dst: /usr/share/yoloman-bossman
+
+  - src: ${PKGDIR}/bossman.service
+    dst: /usr/lib/systemd/system/yoloman-bossman.service
+    file_info:
+      mode: 0644
+
+  # config|noreplace: an upgrade must never overwrite the operator's DATABASE_URL or the generated session
+  # secret. 0640 root:yoloman because it holds both.
+  - src: ${PKGDIR}/bossman.env
+    dst: /etc/yoloman/bossman.env
+    type: config|noreplace
+    file_info:
+      mode: 0640
+      owner: root
+      group: yoloman
+
+  # The two operator commands, on PATH. Migrations and the first account are deliberately manual: a
+  # migration is a decision with a rollback plan, and running it from a unit would race two nodes pointed
+  # at one database.
+  - src: ${STAGE}/usr/share/yoloman-bossman/bin/bossman-migrate
+    dst: /usr/bin/bossman-migrate
+    file_info:
+      mode: 0755
+  - src: ${STAGE}/usr/share/yoloman-bossman/bin/bossman-create-admin
+    dst: /usr/bin/bossman-create-admin
+    file_info:
+      mode: 0755
+
+  # State that must survive an upgrade: the mTLS client keypair used to reach the agents, the vault key that
+  # encrypts stored credentials, and the runbooks. postrm keeps them for exactly that reason.
+  - dst: /var/lib/yoloman-bossman
+    type: dir
+    file_info:
+      mode: 0750
+      owner: yoloman
+      group: yoloman
+  - dst: /var/lib/yoloman-bossman/tls
+    type: dir
+    file_info:
+      mode: 0700
+      owner: yoloman
+      group: yoloman
+  - dst: /var/lib/yoloman-bossman/plans
+    type: dir
+    file_info:
+      mode: 0750
+      owner: yoloman
+      group: yoloman
+  - dst: /var/log/yoloman-bossman
+    type: dir
+    file_info:
+      mode: 0750
+      owner: yoloman
+      group: yoloman
+
+scripts:
+  postinstall: ${PKGDIR}/postinst
+  postremove: ${PKGDIR}/postrm
+
+rpm:
+  compression: gzip
+deb:
+  compression: gzip

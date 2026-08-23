@@ -9,8 +9,11 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -380,7 +383,63 @@ def create_app() -> FastAPI:
     app.include_router(deploy.router, tags=["enroll"])
     # Enrollment is open (no secret) — always mounted.
     app.include_router(enroll.router, tags=["enroll"])
+    _mount_ui(app, settings.ui_dir)
     return app
+
+
+#: Prefixes the SPA fallback must never answer for. A mistyped API path is a caller's mistake and has to look
+#: like one; returning the web app with HTTP 200 would hide it.
+_API_PREFIXES = ("api/", "mcp/", "healthz", "docs", "openapi.json", "redoc")
+
+
+class _SpaFiles(StaticFiles):
+    """StaticFiles with an Angular-router fallback: an unknown path serves index.html instead of 404ing."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            # StaticFiles RAISES 404 rather than returning it, so checking the returned status code caught
+            # nothing — the exception went straight past to Starlette's handler, which is why a deep link
+            # answered with FastAPI's own {"detail":"Not Found"} instead of the app.
+            if exc.status_code != 404 or path.startswith(_API_PREFIXES):
+                raise
+        # The router owns the URL space below "/", so anything the filesystem does not have is a client-side
+        # route. Serving index.html lets the app resolve it — which is what a browser reload of a deep link
+        # needs, and what the shipped .deb is tested for.
+        return await super().get_response("index.html", scope)
+
+
+def _mount_ui(app: FastAPI, ui_dir: str) -> None:
+    """Serve the built bossman-ui from this app, when a directory is configured and present.
+
+    WHY IT IS OPTIONAL. In Docker an nginx container serves the SPA and reverse-proxies /api/v1 here, so this
+    must stay off — mounting "/" would shadow nothing there but would duplicate a job somebody else already
+    does. The native .deb/.rpm ships no nginx, so it sets ui_dir and the whole console answers on one port.
+
+    LAST, after every router. A StaticFiles mount at "/" matches everything, so registering it earlier would
+    swallow /api/v1 and /mcp — the routes are tried in order.
+
+    THE SPA FALLBACK IS NOT html=True. That flag only makes a DIRECTORY serve its index.html; an unknown
+    path still 404s, so a deep link like /hosts/<id>?tab=config died on reload — caught by the package's
+    install test, which asks for exactly that. _SpaFiles adds the real fallback.
+
+    AND IT MUST NOT SWALLOW THE API. A catch-all at "/" would answer a mistyped /api/v1/... with the app's
+    index.html and HTTP 200, turning a client's bug into a silent success. The API prefixes are therefore
+    excluded from the fallback and keep returning 404 — the same test asserts that too.
+    """
+    if not ui_dir:
+        return
+    root = Path(ui_dir)
+    # A missing directory is a configuration mistake worth SAYING. Silently serving no UI is how the docker
+    # note above got written in the first place: a bind mount created an empty directory and the server came
+    # up looking healthy with an empty catalog.
+    if not (root / "index.html").is_file():
+        logging.getLogger(__name__).warning(
+            "ui_dir=%s has no index.html — the web console will not be served from this process", ui_dir)
+        return
+    app.mount("/", _SpaFiles(directory=str(root), html=True), name="ui")
+    logging.getLogger(__name__).info("serving the web console from %s", root)
 
 
 app = create_app()

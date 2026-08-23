@@ -133,6 +133,13 @@ class Settings(BaseSettings):
     # Block 3: the co-located poller agent that runs SNMP checks on behalf of
     # agent-less devices (see project-ssh-snmp-checks). SNMP devices are created
     # as satellites of this agent.
+    # The built bossman-ui, served by this app when the directory exists. Empty (the default) means
+    # "somebody else serves it" — which is the DOCKER deployment, where an nginx container serves the SPA and
+    # reverse-proxies /api/v1 here. The native .deb/.rpm has no nginx, so the package points this at
+    # /usr/share/yoloman-bossman/ui and the whole console is reachable on one port. Two deployments, one app,
+    # and the difference is a path rather than a second code path.
+    ui_dir: str = ""
+
     poller_agent_name: str = "bossman-poller"
 
     # The Starlark module library (docs/plan.md Blocks G7/G8): translated

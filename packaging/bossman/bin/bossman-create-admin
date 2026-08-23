@@ -1,0 +1,15 @@
+#!/bin/sh
+# Create the first operator account.
+#
+#   bossman-create-admin <username> <password>
+#
+# The password is an argument rather than a prompt so this works in a provisioning script; it lands in the
+# shell history of whoever runs it, which is why the README says to change it at first login.
+set -e
+[ $# -eq 2 ] || { echo "usage: bossman-create-admin <username> <password>" >&2; exit 2; }
+SHARE=/usr/share/yoloman-bossman
+. /etc/yoloman/bossman.env
+export BOSSMAN_DATABASE_URL
+cd "$SHARE"
+SEED_ADMIN_USERNAME="$1" SEED_ADMIN_PASSWORD="$2" \
+  PYTHONPATH="$SHARE" exec "$SHARE/venv/bin/python" "$SHARE/scripts/seed_admin.py"

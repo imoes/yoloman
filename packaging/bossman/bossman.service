@@ -1,0 +1,36 @@
+[Unit]
+# YOLO-MANager Bossman — the fleet controller, run natively rather than in Docker.
+#
+# Docker stays the primary deployment (docker-compose.yml). This unit exists for a host where a container
+# runtime is not wanted, and it deliberately does NOT try to be the whole compose file: Postgres is a
+# requirement, not a dependency this package can satisfy. `After=postgresql.service` orders the two when
+# the database happens to be local, and means nothing when it is remote — which is the honest behaviour for
+# something that reads a DATABASE_URL it cannot inspect.
+Description=YOLO-MANager Bossman (fleet controller)
+Documentation=https://github.com/imoes/yoloman
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=yoloman
+Group=yoloman
+# Every setting comes from here. The file is 0640 root:yoloman because it holds DATABASE_URL with a password
+# and the JWT secret — readable by the service, not by every account on the box.
+EnvironmentFile=/etc/yoloman/bossman.env
+WorkingDirectory=/usr/share/yoloman-bossman
+ExecStart=/usr/share/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host ${BOSSMAN_BIND} --port ${BOSSMAN_PORT}
+Restart=on-failure
+RestartSec=5s
+# The app writes its own mTLS client keypair and the plans directory; nothing else needs to be writable.
+StateDirectory=yoloman-bossman
+LogsDirectory=yoloman-bossman
+# Hardening that costs nothing here: the process needs its state directory, the config file and the network.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/yoloman-bossman /var/log/yoloman-bossman
+
+[Install]
+WantedBy=multi-user.target

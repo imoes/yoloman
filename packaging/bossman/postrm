@@ -1,0 +1,11 @@
+#!/bin/sh
+# yoloman-bossman postremove. The service account, /var/lib and the database are LEFT ALONE on purpose:
+# the vault key under /var/lib encrypts every stored credential, so deleting it on a package removal would
+# destroy data the operator never asked to lose. `apt purge` does not change that — this is state, not
+# configuration.
+set -e
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl disable yoloman-bossman.service 2>/dev/null || true
+	systemctl daemon-reload || true
+fi
+exit 0

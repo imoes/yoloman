@@ -1,0 +1,28 @@
+#!/bin/sh
+# Create or upgrade the Bossman schema. Separate from the service on purpose: a migration is an operator's
+# decision with a rollback plan, not something a package start should do behind their back — and running it
+# from a unit would race two nodes pointed at one database.
+#
+# ONE RETRY, for one named reason. TimescaleDB intermittently answers "tuple concurrently deleted" while a
+# continuous aggregate is dropped, because its background workers touch the same catalog rows. Measured: the
+# identical migration against an identical fresh database succeeded and then failed on the next run. Alembic
+# records every revision it completes, so a retry resumes rather than repeats — which is what makes retrying safe
+# here and would not be safe for an arbitrary command.
+set -e
+SHARE=/usr/share/yoloman-bossman
+. /etc/yoloman/bossman.env
+export BOSSMAN_DATABASE_URL
+cd "$SHARE"
+
+LOG=$(mktemp)
+if "$SHARE/venv/bin/alembic" upgrade head 2>&1 | tee "$LOG"; then
+	rm -f "$LOG"
+	exit 0
+fi
+if grep -q "tuple concurrently deleted" "$LOG"; then
+	echo "bossman-migrate: TimescaleDB reported a catalog race; resuming (alembic continues where it stopped)"
+	rm -f "$LOG"
+	exec "$SHARE/venv/bin/alembic" upgrade head
+fi
+rm -f "$LOG"
+exit 1
