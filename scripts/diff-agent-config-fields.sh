@@ -62,7 +62,11 @@ paths = [l.strip() for l in open(paths_file) if l.strip()]
 KEYS = ("write", "format", "separator", "template_name", "reason", "available")
 # The provenance NOTE too, because it is the sentence a screen shows about how much to trust these fields —
 # "never checked" versus "probed, and the file had nothing to say" is exactly the kind of claim that drifts.
-NESTED = (("provenance", "measured"), ("provenance", "note"))
+NESTED = (("provenance", "measured"), ("provenance", "note"),
+          # The path verdict's own family and verdict, not merely whether one is present: the conservative top
+          # level and the family branch disagree for 20 paths, and reading the wrong one is exactly the bug
+          # this comparison exists to catch.
+          ("path_verdict", "verdict"), ("path_verdict", "family"), ("path_verdict", "package"))
 mismatch, missing = [], 0
 for p in paths:
     q = urllib.parse.urlencode({"path": p, "family": family})

@@ -300,3 +300,30 @@ func TestConfigFields_ADisarmedVerdictIsNotAWarning(t *testing.T) {
 			out["path_verdict"])
 	}
 }
+
+func TestConfigFields_TheFamilysOwnPathVerdictWins(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json":     `{"/etc/named.conf": {"codec": "nested_block"}}`,
+		"config_directives.json": `{}`,
+		// Measured on both distributions and they disagree — 20 of 83 such paths do. The conservative top
+		// level says "file" so a host-independent view never withdraws it; a host that knows its family must
+		// not settle for that.
+		"config_path_verdicts.json": `{"/etc/named.conf": {"verdict": "file", "package": "bind",
+			"family": "redhat", "exists_elsewhere": true,
+			"by_family": {"debian": {"verdict": "absent", "package": "bind9", "postinst_mentions": false},
+			              "redhat": {"verdict": "file",   "package": "bind",  "postinst_mentions": true}}}}`,
+	})
+	// On Debian the file genuinely is not there — Debian's bind9 reads /etc/bind/named.conf — so a whole-file
+	// write would create a file the daemon ignores. That must be said.
+	deb, _ := getFields(t, "path=/etc/named.conf&family=debian")["path_verdict"].(map[string]any)
+	if deb == nil {
+		t.Fatal("Debian ships no file there and the answer stayed silent about it")
+	}
+	if deb["verdict"] != "absent" || deb["package"] != "bind9" || deb["family"] != "debian" {
+		t.Errorf("path_verdict = %v, want Debian's own measurement", deb)
+	}
+	// On EL it is a real file: no warning at all.
+	if el := getFields(t, "path=/etc/named.conf&family=redhat")["path_verdict"]; el != nil {
+		t.Errorf("path_verdict = %v; EL ships this file", el)
+	}
+}

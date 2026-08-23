@@ -265,26 +265,47 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 	// package. Carried on every branch below: a measured grammar for a path nothing ships is still an editor
 	// over nothing.
 	if seen := asMap(asMap(mustJSON("config_path_verdicts.json"))[path]); len(seen) > 0 {
+		// THE FAMILY'S OWN MEASUREMENT WINS, like the codec's by_family branch above: of 83 paths measured on
+		// both distributions 20 disagree (/etc/named.conf is absent on Debian, a file on EL), so the
+		// conservative top level is wrong for one of them. This host knows which it is.
+		measuredHere := false
+		if own := asMap(asMap(seen["by_family"])[family]); own["verdict"] != nil {
+			merged := map[string]any{}
+			for k, v := range seen {
+				merged[k] = v
+			}
+			for k, v := range own {
+				merged[k] = v
+			}
+			merged["family"] = family
+			seen, measuredHere = merged, true
+		}
 		// TWO GUARDS disarm a verdict, and a disarmed one is not a warning at all — the file exists, so "the
 		// package ships nothing here" is an expected and meaningless fact. `exists_elsewhere`: the corpus has
 		// real text at this path, so it exists under another package or on the other distribution
 		// (/etc/named.conf is Debian-absent, EL-present). Unowned-in-base: no package on any distribution
 		// owns it because the system creates it (/etc/hostname, /etc/fstab, /etc/passwd).
 		owner := asMap(asMap(mustJSON("config_unowned_paths.json"))[path])
-		disarmed := seen["exists_elsewhere"] == true ||
+		// The corpus guard yields to a direct measurement — it was only ever a proxy for not knowing the
+		// distribution.
+		disarmed := (seen["exists_elsewhere"] == true && !measuredHere) ||
 			(len(owner) > 0 && owner["container_artifact"] != true)
 		if verdict, _ := seen["verdict"].(string); verdict != "file" && !disarmed {
 			// An absent path a maintainer script names is created at install time — a real file on a real
 			// host, legitimately missing from the archive.
 			createdLater := verdict == "absent" && seen["postinst_mentions"] == true
 			pkg, _ := seen["package"].(string)
-			reason := "this path was measured in package " + pkg + " as " + verdict
+			fam, _ := seen["family"].(string)
+			if fam == "" {
+				fam = "debian"
+			}
+			reason := "this path was measured in package " + pkg + " on " + fam + " as " + verdict
 			if createdLater {
 				reason += "; a maintainer script creates it at install time"
 			} else {
 				reason += " — no file is shipped there, so there is nothing to edit"
 			}
-			add("path_verdict", map[string]any{"verdict": verdict, "package": pkg,
+			add("path_verdict", map[string]any{"verdict": verdict, "package": pkg, "family": fam,
 				"created_at_install": createdLater, "reason": reason})
 		}
 	}

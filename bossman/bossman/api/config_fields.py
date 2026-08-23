@@ -197,12 +197,26 @@ async def config_fields(
     # directory, /etc/ttygif nothing at all. Carried on EVERY branch, because a measured grammar for a
     # nonexistent path is still a measured grammar — and still an editor over nothing.
     seen = _load_json(settings.config_path_verdicts_path).get(path)
+    # THE FAMILY'S OWN MEASUREMENT WINS, as it does for the codec above and in the template index: of 83 paths
+    # measured on both distributions 20 disagree, so the conservative top level is wrong for one of them. This
+    # request knows its family (from the host's facts), so it must not settle for the host-independent answer.
+    if isinstance(seen, dict):
+        own = (seen.get("by_family") or {}).get(family) if family else None
+        if isinstance(own, dict) and own.get("verdict"):
+            # `family` must be overwritten, not inherited: the branch carries no family of its own, and the
+            # top level's is the aggregate's ("redhat" for a path only EL ships). Leaving it would report
+            # Debian's verdict under EL's label — an answer inconsistent with itself. The differential against
+            # the agent caught exactly that on /etc/radvd.conf and /etc/kbd.
+            seen = {**seen, **own, "family": family, "measured_here": True}
     # A verdict that one of the two guards disarms is not reported as a warning at all: the file exists, and
     # "the package ships nothing here" is then an expected, meaningless fact. /etc/hostname belongs to no
     # package on any distribution; /etc/named.conf is Debian-absent and EL-present.
     owner = _load_json(Path(settings.config_path_verdicts_path).parent
                        / "config_unowned_paths.json").get(path)
-    disarmed = (isinstance(seen, dict) and seen.get("exists_elsewhere")) or (
+    # The corpus guard yields to a direct measurement — it was only ever a proxy for "we do not know this
+    # host's distribution", and `measured_here` says we do.
+    disarmed = (isinstance(seen, dict) and seen.get("exists_elsewhere")
+                and not seen.get("measured_here")) or (
         isinstance(owner, dict) and not owner.get("container_artifact"))
     if isinstance(seen, dict) and seen.get("verdict") != "file" and not disarmed:
         # An `absent` path that a maintainer script names is created at install time and is a real file on a
@@ -210,9 +224,9 @@ async def config_fields(
         installed_later = seen.get("verdict") == "absent" and seen.get("postinst_mentions")
         advisory["path_verdict"] = {
             "verdict": seen.get("verdict"), "package": seen.get("package"),
-            "created_at_install": bool(installed_later),
-            "reason": ("this path was measured in package {} as {}"
-                       .format(seen.get("package"), seen.get("verdict"))
+            "family": seen.get("family"), "created_at_install": bool(installed_later),
+            "reason": ("this path was measured in package {} on {} as {}"
+                       .format(seen.get("package"), seen.get("family") or "debian", seen.get("verdict"))
                        + ("; a maintainer script creates it at install time"
                           if installed_later else
                           " — no file is shipped there, so there is nothing to edit")),
