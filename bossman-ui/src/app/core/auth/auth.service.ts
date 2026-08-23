@@ -43,6 +43,21 @@ export class AuthService {
       .pipe(tap((res) => this.setToken(res.access_token)));
   }
 
+  /** Does this installation still have NO account at all? Asked before the login form is shown, so a fresh
+   * install offers "create the first administrator" instead of a password prompt nobody can satisfy. */
+  needsSetup() {
+    return this.http.get<{ needs_setup: boolean }>(`${environment.apiUrl}/auth/setup`);
+  }
+
+  /** Create the first operator. The server refuses with 409 the moment any account exists, so this is a
+   * one-shot rather than a signup route — and it returns a token, so the operator is signed in immediately
+   * instead of typing the password a second time. */
+  setup(username: string, password: string) {
+    return this.http
+      .post<LoginResponse>(`${environment.apiUrl}/auth/setup`, { username, password })
+      .pipe(tap((res) => this.setToken(res.access_token)));
+  }
+
   logout(): void {
     this.setToken(null);
     this.router.navigate(['/login']);

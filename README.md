@@ -83,14 +83,18 @@ sudo -u postgres createdb -O bossman bossman
 # 2. the controller
 sudo apt install ./yoloman-bossman_<version>_amd64.deb
 
-# 3. point it at the database, then create the schema and the first operator
+# 3. point it at the database and create the schema
 sudo sed -i 's|CHANGE_ME|<the password from step 1>|' /etc/yoloman/bossman.env
 sudo bossman-migrate
-sudo bossman-create-admin admin '<a real password>'
 
 # 4. start it
 sudo systemctl start yoloman-bossman
 ```
+
+Then open the console and **it asks you to create the first administrator** — no password on a command line,
+and nothing to type into a shell you may not even have on that host. That form is a one-shot: the endpoint
+behind it refuses with 409 the moment any account exists, so it closes behind itself rather than being a
+signup route somebody forgot to protect. (`bossman-create-admin` still exists for a scripted install.)
 
 The console is then on **http://127.0.0.1:8000** — served by the same process, since a native install has no
 nginx. It binds to localhost on purpose: this console manages your fleet, and a fresh install should not be
