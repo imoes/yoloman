@@ -46,7 +46,7 @@ fi
 
 if [ ! -f "$CONF_FILE" ]; then
 	cp "$CONF_EXAMPLE" "$CONF_FILE"
-	TOKEN=$(/usr/bin/agentic-mcpd --generate-token)
+	TOKEN=$(/usr/bin/yoloman-agent --generate-token)
 	sed -i "s/^token: \"\"/token: \"$TOKEN\"/" "$CONF_FILE"
 	chmod 0600 "$CONF_FILE"
 	echo "agentic-mcp: generated a new bearer token in $CONF_FILE (mode 0600)"
@@ -54,8 +54,20 @@ fi
 
 if command -v systemctl >/dev/null 2>&1; then
 	systemctl daemon-reload || true
-	systemctl enable agentic-mcp.service || true
-	systemctl restart agentic-mcp.service || true
+	# THE RENAME, handled rather than assumed. An install from before this change is running
+	# agentic-mcp.service; enabling the new unit while the old one still runs would leave two daemons
+	# fighting over port 8010, and disabling the old one without enabling the new leaves none. So: stop and
+	# disable the old unit FIRST, then enable the new one — whose [Install] Alias makes `systemctl status
+	# agentic-mcp` keep working afterwards.
+	if [ -e /usr/lib/systemd/system/agentic-mcp.service ] || \
+	   systemctl list-unit-files agentic-mcp.service >/dev/null 2>&1; then
+		systemctl stop agentic-mcp.service 2>/dev/null || true
+		systemctl disable agentic-mcp.service 2>/dev/null || true
+		rm -f /usr/lib/systemd/system/agentic-mcp.service /etc/systemd/system/agentic-mcp.service
+		systemctl daemon-reload || true
+	fi
+	systemctl enable yoloman-agent.service || true
+	systemctl restart yoloman-agent.service || true
 fi
 
 exit 0

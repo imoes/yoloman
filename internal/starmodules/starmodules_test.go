@@ -164,7 +164,9 @@ func TestLoadDir_LoadsPairsAndSkipsInvalid(t *testing.T) {
 	os.WriteFile(filepath.Join(col, "writer.yaml"), writerSidecar("true"), 0o644)
 	// valid, nt sidecar
 	os.WriteFile(filepath.Join(col, "prober.star"), []byte(runStar), 0o644)
-	os.WriteFile(filepath.Join(col, "prober.nt"), []byte("name: prober\nfqcn: test.prober\ncollection: test\nshort_description: p\noptions:\nwrites: false\nruntime: starlark\n"), 0o644)
+	// A YAML sidecar. This fixture was .nt — the format is gone, and the loader used to PREFER it, so the
+	// test was the last thing keeping that preference alive.
+	os.WriteFile(filepath.Join(col, "prober.yaml"), []byte("name: prober\nfqcn: test.prober\ncollection: test\nshort_description: p\noptions: {}\nwrites: false\nruntime: starlark\n"), 0o644)
 	// invalid .star (no main) → skipped with a warning
 	os.WriteFile(filepath.Join(col, "broken.star"), []byte("x = 1\n"), 0o644)
 	os.WriteFile(filepath.Join(col, "broken.yaml"), []byte("name: broken\nfqcn: test.broken\ncollection: test\nshort_description: b\noptions: {}\nwrites: false\nruntime: starlark\n"), 0o644)

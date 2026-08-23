@@ -1128,14 +1128,6 @@ def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
             return str(meta["fqcn"])
     except yaml.YAMLError:
         pass
-    try:
-        import nestedtext
-
-        meta = nestedtext.loads(sidecar, top="dict")
-        if isinstance(meta, dict) and meta.get("fqcn"):
-            return str(meta["fqcn"])
-    except Exception:  # noqa: BLE001 — NestedText fallback; any parse failure → literal fallback
-        pass
     return fallback
 
 

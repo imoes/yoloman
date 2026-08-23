@@ -1,4 +1,4 @@
-# nfpm package definition for agentic-mcpd — builds both .deb and .rpm from
+# nfpm package definition for the yoloman node agent — builds both .deb and .rpm from
 # this single config (nfpm package -f packaging/nfpm.yaml -p rpm|deb -t <out>).
 # See docs/plan.md's packaging section for the build/install-test workflow.
 # Package renamed agentic-mcp → yoloman-agent. The binary, systemd unit and all
@@ -41,7 +41,7 @@ priority: optional
 maintainer: "mutkluge"
 homepage: "https://github.com/imoes/yoloman"
 description: |
-  YOLO-MANager (agentic-mcpd) — an AI-native Linux node agent exposing
+  YOLO-MANager (yoloman-agent) — an AI-native Linux node agent exposing
   system state and management over MCP (Streamable HTTP) and REST,
   reimplementing ansible.builtin modules natively in Go. The daemon is
   nicknamed "Duppy".
@@ -49,12 +49,19 @@ license: MIT
 
 contents:
   - src: ../agentic-mcpd
-    dst: /usr/bin/agentic-mcpd
+    dst: /usr/bin/yoloman-agent
     file_info:
       mode: 0755
 
-  - src: ./agentic-mcp.service
-    dst: /usr/lib/systemd/system/agentic-mcp.service
+  # THE OLD NAME STAYS, as a symlink. Bossman's self-update and SSH deploy, the PXE image and every runbook
+  # written so far invoke /usr/bin/agentic-mcpd; removing it would break a running fleet the moment it
+  # upgraded. The package therefore renames what it PRESENTS and keeps what it PROMISED.
+  - src: /usr/bin/yoloman-agent
+    dst: /usr/bin/agentic-mcpd
+    type: symlink
+
+  - src: ./yoloman-agent.service
+    dst: /usr/lib/systemd/system/yoloman-agent.service
     file_info:
       mode: 0644
 

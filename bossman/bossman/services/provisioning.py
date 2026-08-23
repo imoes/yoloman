@@ -2,7 +2,7 @@
 
 Some checks need an account to monitor with (a MySQL monitoring user, an
 SNMP community, …). A check MAY ship a provisioning recipe alongside it —
-`checks.d/<name>.provision.nt` (NestedText, like the module metadata) —
+`checks.d/<name>.provision.yaml` (YAML, like the module metadata) —
 describing how to create that account on the host and which of the check's
 params the result fills. The wizard runs it: the operator supplies the
 *admin* credentials (used only to create the monitoring account), the recipe
@@ -11,7 +11,7 @@ agent's `command` module, and returns the check params (monitoring user +
 generated password) to store on the assignment. The admin credentials are
 never persisted.
 
-Recipe shape (checks.d/mysql.provision.nt) — NestedText, all values are
+Recipe shape (checks.d/mysql.provision.yaml) — YAML, all values are
 strings/lists/dicts (no quoting, no YAML):
 
     check: mysql
@@ -40,16 +40,12 @@ import secrets
 from pathlib import Path
 from typing import Any
 
-import nestedtext
 import yaml
 
 
 def recipe_path(checks_dir: str | Path, name: str) -> Path:
-    """The recipe sidecar: `.provision.yaml`, or the legacy `.provision.nt` while a tree is unconverted."""
-    base = Path(checks_dir)
-    yml = base / f"{name}.provision.yaml"
-    nt = base / f"{name}.provision.nt"
-    return nt if not yml.exists() and nt.exists() else yml
+    """The recipe sidecar: `.provision.yaml`. NestedText is gone (docs/nestedtext-removal.md)."""
+    return Path(checks_dir) / f"{name}.provision.yaml"
 
 
 def load_recipe(checks_dir: str | Path, name: str) -> dict[str, Any] | None:
@@ -59,8 +55,8 @@ def load_recipe(checks_dir: str | Path, name: str) -> dict[str, Any] | None:
         return None
     try:
         text = p.read_text(encoding="utf-8")
-        r = nestedtext.loads(text, top="dict") if p.suffix == ".nt" else yaml.safe_load(text)
-    except (OSError, yaml.YAMLError, nestedtext.NestedTextError):
+        r = yaml.safe_load(text)
+    except (OSError, yaml.YAMLError):
         return None
     return r if isinstance(r, dict) else None
 

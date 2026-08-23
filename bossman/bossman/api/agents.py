@@ -674,7 +674,9 @@ async def sync_agent_modules(
                 "fqcn": fqcn,
                 "star": star_code,
                 "sidecar": sidecar_text,
-                "sidecar_format": "nt" if meta_path.suffix == ".nt" else "yaml",
+                # Always yaml — the only sidecar format left. Deriving it from the suffix kept a branch alive
+                # for a file type nothing writes any more.
+                "sidecar_format": "yaml",
                 "sha256": hashlib.sha256(star_code.encode()).hexdigest(),
             }
         )

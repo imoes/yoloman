@@ -164,7 +164,7 @@ def _delivery(fqcn: str, star: str, sidecar: str, sidecar_format: str) -> dict[s
 async def run_check_discovery(client, checks: list[dict[str, Any]], progress=None) -> list[CheckProposal]:
     """Push `checks` to the agent and run each in discovery mode.
 
-    `checks` is a list of {name, star, sidecar, sidecar_format, options,
+    `checks` is a list of {name, star, sidecar, sidecar_format ("yaml"), options,
     short_description} (from the check library). `client` is an AgentClient
     (needs push_modules + call_tool). Returns one CheckProposal per check that
     discovered at least one item; checks that error or find nothing are
@@ -178,7 +178,9 @@ async def run_check_discovery(client, checks: list[dict[str, Any]], progress=Non
         return []
 
     deliveries = [
-        _delivery(c.get("fqcn") or f"checks.{c['name']}", c["star"], c.get("sidecar", ""), c.get("sidecar_format") or "nt")
+        # "yaml" as the default, not "nt": NestedText is gone, and defaulting to it made an entry with no
+        # explicit format arrive at the agent labelled as a format the agent no longer parses.
+        _delivery(c.get("fqcn") or f"checks.{c['name']}", c["star"], c.get("sidecar", ""), c.get("sidecar_format") or "yaml")
         for c in checks
     ]
     try:

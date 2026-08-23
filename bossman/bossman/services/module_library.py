@@ -29,7 +29,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import nestedtext
 import yaml
 
 # Collections in translation scope (the 71 ansible.builtin modules stay
@@ -303,26 +302,19 @@ def module_paths(modules_dir: str | Path, fqcn: str) -> tuple[Path, Path]:
 
 
 def metadata_path(modules_dir: str | Path, fqcn: str) -> Path:
-    """The metadata sidecar to READ for one fqcn: the `.yaml`, falling back to a legacy `.nt`.
+    """The metadata sidecar to READ for one fqcn: the `.yaml`.
 
-    The preference used to be the other way round, which quietly cost type information: the `.nt` files in
-    configs/modules.d were generated FROM these `.yaml` originals by an additive pass, and NestedText is
-    all-strings — so preferring them meant reading `true` as the string "true" and `8080` as "8080" for
-    modules whose real argspec had a bool and an int. Reading the original is both more correct and one
-    format less. Returns the `.yaml` path when neither exists (callers check .exists())."""
+    NestedText is gone (docs/nestedtext-removal.md) and so is the fallback: measured before removing, the
+    library held 0 `.nt` files against 1431 `.yaml`, and the Go agent's loader PREFERRED `.nt` — so a stray
+    one would have beaten the file Bossman actually writes.
+    """
     collection, _, name = fqcn.rpartition(".")
-    base = Path(modules_dir) / collection
-    yml = base / f"{name}.yaml"
-    if yml.exists():
-        return yml
-    nt = base / f"{name}.nt"
-    return nt if nt.exists() else yml
+    return Path(modules_dir) / collection / f"{name}.yaml"
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
-    """Coerce a metadata boolean. YAML gives a real bool; NestedText gives a
-    string ("true"/"false"/…), so `bool("false")` would be wrongly truthy —
-    this is why NestedText metadata must never be read with a bare bool()."""
+    """Coerce a metadata boolean. YAML gives a real bool, but a hand-written or older sidecar can carry the
+    STRING "false" — and `bool("false")` is True, which would turn a read-only module into a writing one."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -335,9 +327,8 @@ def _as_bool(value: Any, default: bool = False) -> bool:
 
 
 def _coerce_metadata(meta: dict[str, Any]) -> dict[str, Any]:
-    """Coerce the schema's boolean fields (writes, each option's required)
-    from NestedText's all-strings form. Everything else (type, default,
-    choices, descriptions) is legitimately string/list data already."""
+    """Coerce the schema's boolean fields (writes, each option's required) from a possible string form.
+    Everything else (type, default, choices, descriptions) is legitimately string/list data already."""
     if "writes" in meta:
         meta["writes"] = _as_bool(meta["writes"], True)
     options = meta.get("options")
@@ -349,18 +340,12 @@ def _coerce_metadata(meta: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_metadata(path: str | Path) -> dict[str, Any]:
-    """Read a metadata sidecar in either format (chosen by extension),
-    returning a dict with the schema's booleans coerced. NestedText's
-    all-strings values are otherwise preserved verbatim."""
-    p = Path(path)
-    text = p.read_text(encoding="utf-8")
-    if p.suffix.lower() == ".nt":
-        try:
-            meta = nestedtext.loads(text, top="dict")
-        except nestedtext.NestedTextError as exc:
-            raise ModuleLibraryError(f"metadata is not valid NestedText: {exc}") from exc
-        return _coerce_metadata(meta if isinstance(meta, dict) else {})
-    return yaml.safe_load(text) or {}
+    """Read a YAML metadata sidecar, with the schema's booleans coerced."""
+    meta = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    # The coercion STAYS even though YAML gives real booleans: a sidecar written by hand, or produced by an
+    # older tool, can still carry `writes: "false"` as a string, and `bool("false")` is True. It costs
+    # nothing and it is the difference between a read-only module and one that writes.
+    return _coerce_metadata(meta if isinstance(meta, dict) else {})
 
 
 def submit(

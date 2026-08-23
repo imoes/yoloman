@@ -24,11 +24,12 @@ path without a new agent runtime.
 
 from __future__ import annotations
 
+import yaml
+
 import json
 import re
 from typing import Any
 
-import nestedtext
 
 from bossman.services.starlark_translation import (  # reuse the shared, tested helpers
     SOURCE_CHAR_BUDGET,
@@ -456,7 +457,7 @@ def prompt_fingerprint() -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
 
 
-def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> str:
+def build_checkmk_metadata(record: dict[str, Any], star_code: str = "") -> str:
     """Catalog metadata for a translated check module, as NestedText (project
     convention — no YAML). Always read-only (writes: false) and marked kind:
     check so the UI/agent treat its `data.state`/`data.metrics` as a
@@ -512,9 +513,10 @@ def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> st
     examples = record.get("examples")
     if examples:
         meta["examples"] = examples
-    # NestedText: all leaves must be strings — default=str coerces the bool
-    # (writes) and any numeric defaults; nested option dicts are preserved.
-    return nestedtext.dumps(meta, default=str)
+    # YAML, because that is the only sidecar format left. NestedText required every leaf to be a string
+    # (hence a default=str coercion that turned `writes: false` into the STRING "False"); YAML keeps the bool
+    # a bool and the numbers numbers, which is what every reader of these files already expects.
+    return yaml.safe_dump(meta, sort_keys=True, allow_unicode=True, default_flow_style=False)
 
 
 def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[str, str]]:

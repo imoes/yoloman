@@ -32,7 +32,20 @@ gpasswd -a tester yoloadmin >/dev/null
 
 TOKEN=$(sed -n 's/^token: "\(.*\)"$/\1/p' /etc/agentic-mcp/config.yaml)
 [ -n "$TOKEN" ] || fail "postinst did not generate a bearer token"
-/usr/bin/agentic-mcpd --config /etc/agentic-mcp/config.yaml >/tmp/daemon.log 2>&1 &
+# THE NEW NAME, and then the old one as a symlink: a fleet's runbooks and Bossman's own self-update invoke
+# /usr/bin/agentic-mcpd, so the rename must not break them.
+[ -x /usr/bin/yoloman-agent ] || fail "the binary is not installed as /usr/bin/yoloman-agent"
+[ -L /usr/bin/agentic-mcpd ] || fail "the compatibility symlink /usr/bin/agentic-mcpd is missing"
+[ "$(readlink /usr/bin/agentic-mcpd)" = "/usr/bin/yoloman-agent" ] \
+  || fail "the symlink points at $(readlink /usr/bin/agentic-mcpd)"
+/usr/bin/agentic-mcpd --version >/dev/null 2>&1 || fail "the old name no longer runs"
+echo "ok  installed as yoloman-agent, reachable as agentic-mcpd"
+[ -f /usr/lib/systemd/system/yoloman-agent.service ] || fail "no yoloman-agent.service"
+grep -q "^Alias=agentic-mcp.service" /usr/lib/systemd/system/yoloman-agent.service \
+  || fail "the unit does not alias the old name"
+echo "ok  unit yoloman-agent.service, aliasing agentic-mcp.service"
+
+/usr/bin/yoloman-agent --config /etc/agentic-mcp/config.yaml >/tmp/daemon.log 2>&1 &
 DAEMON=$!
 
 # request METHOD PATH [JSON-BODY] [AUTH-HEADER-VALUE] -> "<status>\n<body>"

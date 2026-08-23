@@ -1,12 +1,12 @@
 [Unit]
-Description=YOLO-MANager (agentic-mcp) — AI-native Linux node agent (MCP/REST), daemon nicknamed "Duppy"
-Documentation=https://github.com/mutkluge/agentic-mcp
+Description=YOLO-MANager node agent (yoloman-agent) — AI-native Linux node agent (MCP/REST), nicknamed "Duppy"
+Documentation=https://github.com/imoes/yoloman
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/agentic-mcpd --config /etc/agentic-mcp/config.yaml
+ExecStart=/usr/bin/yoloman-agent --config /etc/agentic-mcp/config.yaml
 Restart=on-failure
 RestartSec=2s
 
@@ -61,4 +61,9 @@ RemoveIPC=true
 #   allow-list of operations instead of open-ended system management.
 
 [Install]
+# THE OLD UNIT NAME STAYS REACHABLE. Installs before this rename ran agentic-mcp.service, and a fleet's
+# runbooks, monitoring checks and muscle memory all say that name. An Alias makes `systemctl status
+# agentic-mcp` keep working — created by `systemctl enable`, which the postinst runs.
+Alias=agentic-mcp.service
+
 WantedBy=multi-user.target

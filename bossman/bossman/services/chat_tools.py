@@ -481,10 +481,10 @@ async def _check_tool(session, name, args, settings, client_factory) -> dict[str
         catalog = {c["name"]: c for c in checks_library.list_checks(settings.checks_dir)}
         checks = []
         for cname, entry in catalog.items():
-            nt_path, star_path = checks_library.check_paths(settings.checks_dir, cname)
+            meta_path, star_path = checks_library.check_paths(settings.checks_dir, cname)
             try:
                 checks.append({"name": cname, "star": star_path.read_text(encoding="utf-8"),
-                               "sidecar": nt_path.read_text(encoding="utf-8"), "sidecar_format": "nt",
+                               "sidecar": meta_path.read_text(encoding="utf-8"), "sidecar_format": "yaml",
                                "options": entry.get("options", {}), "short_description": entry.get("short_description", "")})
             except OSError:
                 continue
