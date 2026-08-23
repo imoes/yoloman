@@ -182,6 +182,24 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   forced-commands-only, no]. The supervisor will fill the rest of the ~90
   codec'd files after it finishes the codec/template passes.
 
+## Measured but not yet shown (the other half of "nothing vanishes silently")
+
+`/config-fields` carries measured statements about a file that no screen showed. Displaying them is the point
+of measuring them; JSON nobody reads is the same as not knowing.
+
+- **DONE** — `shared/config-advisories/`: one component, shown above the form in the TEMPLATE editor (the
+  whole-file write, where the harm is worst). Says: the package ships no file at this path (per family), the
+  file declares itself generated, and the grammar was never verified — including the third state, "probed and
+  the file has no active setting, so its bytes cannot decide".
+- **OPEN** — the codec Settings editor shows `machine_written` from its own bulk `/config-generated` read but
+  not `path_verdict` or `provenance`. It works from bulk catalogs rather than a per-file `/config-fields`
+  call, so wiring it means either a per-selection call or a bulk verdict endpoint. It also carries its own
+  copy of the machine-written sentence — the same text in two places, which the shared component exists to
+  end.
+- **OPEN** — the index's `withdrawn` list (2001 entries, with template/verdict/package/reason) is returned and
+  displayed nowhere. A withdrawn binding is currently indistinguishable from one that never existed, which is
+  exactly what the list was created to prevent.
+
 ## Config-model abstentions — what is measured, what is not (2026-08-22)
 
 Every number here comes from a recorded artifact, not from a memory. Re-derive with

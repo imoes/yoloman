@@ -2,6 +2,7 @@ import { Component, effect, inject, input, output, signal } from '@angular/core'
 import { MatButtonModule } from '@angular/material/button';
 import { ConfigResource } from '../../../core/models/agent.model';
 import { AgentService } from '../../../core/services/agent.service';
+import { ConfigAdvisories, ConfigAdvisoriesComponent } from '../../../shared/config-advisories/config-advisories.component';
 import { ParamFormComponent } from '../../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../../shared/param-form/param-form.types';
 import { HostConfigScopeService } from '../host-config-scope.service';
@@ -28,7 +29,7 @@ import { HostConfigScopeService } from '../host-config-scope.service';
 @Component({
   selector: 'app-host-template-edit',
   standalone: true,
-  imports: [MatButtonModule, ParamFormComponent],
+  imports: [ConfigAdvisoriesComponent, MatButtonModule, ParamFormComponent],
   template: `
     @if (loading()) {
       <p class="bm-empty">Loading template <strong>{{ templateName() }}</strong>…</p>
@@ -38,6 +39,9 @@ import { HostConfigScopeService } from '../host-config-scope.service';
     } @else {
       <p class="bm-dim">Managed via template <strong>{{ templateName() }}</strong> — edit the values, the
         whole file is rendered from them.</p>
+      <!-- FIRST, above the form. The write here is whole-file, so "the package ships no file at this path"
+           means Apply would CREATE one nothing reads — that has to be read before the fields, not after. -->
+      <app-config-advisories [spec]="spec()" />
       @if (withheld(); as w) {
         <p class="bm-dim" [title]="w.fields.join(', ')">{{ w.count }} further field(s) declared by this
           template are not shown: {{ w.reason }}.</p>
@@ -115,6 +119,9 @@ export class HostTemplateEditComponent {
   /** Calls the renderer cannot execute. Shown because the failure is LATENT: the sample renders, and a
    * value that reaches that line makes Apply fail — better said before than discovered after. */
   rendererGaps = signal<{ calls: string[]; reason: string } | null>(null);
+  /** The whole /config-fields answer, kept for the advisories component: what is known ABOUT the file
+   * (no such path / declares itself generated / unverified grammar) rather than about its fields. */
+  spec = signal<ConfigAdvisories | null>(null);
   initial = signal<Record<string, unknown>>({});
   values = signal<Record<string, unknown>>({});
   rendered = signal<string | null>(null);
@@ -152,6 +159,7 @@ export class HostTemplateEditComponent {
         this.withheld.set(spec.withheld ?? null);
         this.unsettable.set(spec.unsettable ?? null);
         this.rendererGaps.set(spec.renderer_gaps ?? null);
+        this.spec.set(spec);
         this.values.set({});
         this.loading.set(false);
       },

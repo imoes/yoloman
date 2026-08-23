@@ -229,13 +229,23 @@ export class AgentService {
       path: string; write: string; reason?: string; format?: string; separator?: string; template?: string;
       /** Where this answer comes from: measured=true means the grammar was decided by round-tripping the
        * file the package really ships; false means it was never checked against a real file. */
-      provenance?: { source: string; measured: boolean; confidence: string; note: string };
+      provenance?: { source: string; measured: boolean; confidence: string; note: string;
+                     /** What happened when the grammar was TESTED against the shipped file.
+                      * `no-evidence` = the file has no active setting, so its bytes cannot decide — a
+                      * different state from "nobody has looked". */
+                     probe?: { verdict?: string; active_lines?: number; keys?: number } | null };
       fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
       available: boolean;
       /** Present only when the FILE ITSELF says it is machine-written, with the sentence that says so.
        * Not a write state and not a refusal — munin.conf is parsable, has directives, and still asks not
        * to be edited. The editor quotes it and the operator decides. */
       machine_written?: { line: number; quote: string; marker: string };
+      /** The package ships no file at this path — measured by extracting the real .deb/.rpm. Per family,
+       * because 20 of 83 paths measured on both distributions disagree (/etc/named.conf is absent on Debian
+       * and a real file on EL). `created_at_install` marks the one absence that is NOT a problem: a config a
+       * maintainer script writes exists on every installed host, just not in the archive. */
+      path_verdict?: { verdict: string; package?: string; family?: string; created_at_install?: boolean;
+                       reason: string } | null;
       /** For a template write: the directory name, its sample values, and the fields the template does NOT
        * place — offered inputs whose value could never reach the file. */
       template_name?: string;
