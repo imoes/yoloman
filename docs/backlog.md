@@ -330,7 +330,32 @@ measured the residue over its first 36 of 1217 candidate templates:
 | the schema's own default contradicts the grounded set | 5 |
 
 **Yield: +2 enum fields over 36 templates**, so the pass was stopped rather than run for hours at that rate.
-Two findings are worth more than the enums it would have added:
+
+### What actually closed part of it: the description already says the values — DONE 2026-08-23
+
+`tools/enums_from_descriptions.py`. No model, no man page, no web search: the value set was recorded when the
+template was generated and never turned into an `enum`.
+
+| | |
+|---|---|
+| templates with an enum | 1371 → **1622** (25.0% → 29.6%) |
+| fields with an enum | 2844 → **3272** |
+| existing enums **repaired** (missing values their own description states) | **86** |
+| refusals, each with a recorded reason | 25 318 |
+
+The gates are the interesting part, because each is a measured mistake and each cost a count:
+**508** fields refused as *examples* ("(e.g., 'amd64', 'arm64')" is an open set — a dropdown from it removes
+i386 from reach); the hedge "Common values: …"; two distinct **truncation** bugs (a comma *and* an "or"
+before the last item, and a per-value gloss between value and separator — the latter gave
+`openssh_server/address_family` `any, inet` for a set that is `any, inet, inet6`); and the stopword list that
+was itself deleting `on`, `any` and `default` — the words that most often *are* the values. Idempotent; a
+second run adds 0.
+
+Still open here: the numeric form (`0=error, 1=warn`) yields the numbers, which is right for the file but
+means the dropdown shows `0`/`1` with the meanings only in the description. A label/value pair in the field
+spec would fix that, and no editor supports one yet.
+
+Two findings from the LLM pass are worth more than the enums it would have added:
 
 - **The 2072-field "gap" is over-selected by the name heuristic.** `cache_dir`, `feeds.items.url`, `*_version`
   are genuinely free text, which is why 82% got no proposal. The gap is real but much smaller than 2072.
