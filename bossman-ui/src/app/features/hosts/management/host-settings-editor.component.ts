@@ -9,6 +9,7 @@ import { ServiceState } from '../../../core/models/monitoring.model';
 import { MonitoringService } from '../../../core/services/monitoring.service';
 import { OrchestrationService } from '../../../core/services/orchestration.service';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../../shared/config-categories';
+import { ConfigAdvisories, ConfigAdvisoriesComponent } from '../../../shared/config-advisories/config-advisories.component';
 import { ResourceNodeComponent } from '../../../shared/resource-node/resource-node.component';
 import { HostConfigScopeService } from '../host-config-scope.service';
 import { driftRows as driftRowsOf, scalarText } from './drift-rows';
@@ -50,7 +51,7 @@ import { HostThresholdsComponent } from './host-thresholds.component';
   standalone: true,
   imports: [
     DatePipe, FormsModule, MatButtonModule, MatIconModule,
-    ResourceNodeComponent,
+    ConfigAdvisoriesComponent, ResourceNodeComponent,
     HostConfigGenerationsComponent, HostDriftBannerComponent, HostFileEditComponent,
     HostSettingDialogComponent, HostTemplateEditComponent, HostThresholdsComponent,
   ],
@@ -181,10 +182,11 @@ import { HostThresholdsComponent } from './host-thresholds.component';
             <p class="bm-dim">Template <strong>{{ w.template }}</strong> renders this path but is not offered:
               {{ w.reason }}.</p>
           }
-          @if (machineWritten(r.path); as mw) {
-            <p class="bm-dim">This file says it is machine-written (line {{ mw.line }}):
-              <em>{{ mw.quote }}</em> — a value set here may be discarded the next time it is generated.</p>
-          }
+          <!-- The SAME component the template editor uses. This pane carried its own copy of the
+               machine-written sentence, so one fact had two wordings that could drift apart — and it showed
+               neither the path verdict nor the grammar's provenance, both of which bear on a per-key merge
+               just as much as on a whole-file render. -->
+          <app-config-advisories [spec]="selSpec()" />
           <table class="bm-gpo-settings">
             <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
             <tbody>
@@ -401,12 +403,6 @@ export class HostSettingsEditorComponent {
       next: (r) => this.directiveCatalog.set(r.directives || {}),
       error: () => { this.configCatalogsLoaded = false; },
     });
-    // What each file says ABOUT ITSELF (a few kB). Loaded with the other catalogs because the pane renders
-    // whole lists of files: asking config-fields per row would trade one read for dozens.
-    this.agentService.configGenerated().subscribe({
-      next: (r) => this.generatedFiles.set(r.files || {}),
-      error: () => {},
-    });
     // Host-independent codec catalog: every config file we know how to parse.
     // Lets the operator add a file this host doesn't have yet (e.g. apt.conf)
     // and define it as policy — parity with the OU policy editor (#5).
@@ -502,8 +498,23 @@ export class HostSettingsEditorComponent {
   // ---- Block G: GPO-style settings editor (gpedit model: category tree left,
   // settings list right, per-setting Not configured / Configured / Removed) ----
   selectedPane = signal<string>('::thresholds');
+  /** What is known ABOUT the selected file (no such path / declares itself generated / unverified grammar).
+   * Fetched per selection rather than in bulk: there is one selected file and 2500 known ones, and the two
+   * bulk catalogs this editor already loads are 2.5 MB as it is. */
+  selSpec = signal<ConfigAdvisories | null>(null);
   selectPane(p: string): void {
     this.selectedPane.set(p);
+    // Cleared FIRST. Leaving the previous file's advisory up while the new one loads would attach "no file
+    // here" to a file that has one — a warning about the wrong subject is worse than a late one.
+    this.selSpec.set(null);
+    if (p.startsWith('/')) {
+      this.agentService.configFields(p, this.agentId()).subscribe({
+        next: (spec) => { if (this.selectedPane() === p) { this.selSpec.set(spec); } },
+        // Silence on error: an advisory that cannot be fetched is not an advisory, and inventing one from a
+        // failed request is the opposite of what this pane is for.
+        error: () => this.selSpec.set(null),
+      });
+    }
     this.closeSetting();
     // No cancelEdit() here any more: the raw editor is app-host-file-edit, which sits inside the pane
     // and is DESTROYED when the pane changes — its open/dirty state goes with it. Same reasoning as the
@@ -595,15 +606,11 @@ export class HostSettingsEditorComponent {
   }
 
   /** path -> the file's own sentence about being machine-written, from GET /config-generated. */
-  generatedFiles = signal<Record<string, { line: number; quote: string; marker: string }>>({});
 
   /** The file's own words, when it says it is generated. Shown, never enforced: "DO NOT EDIT THIS FILE"
    * and "don't edit this EXAMPLE config, create one in conf.d/" ask for different actions, and the file is
    * the only thing here that knows which. Without this the editor lets an operator apply a value that the
    * next generator run discards — and the drift comes back with nothing to explain it. */
-  machineWritten(path: string): { line: number; quote: string; marker: string } | null {
-    return this.generatedFiles()[path] ?? null;
-  }
 
   /** Can this file be written ONE KEY AT A TIME, or only as a whole?
    *

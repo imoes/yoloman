@@ -191,14 +191,15 @@ of measuring them; JSON nobody reads is the same as not knowing.
   whole-file write, where the harm is worst). Says: the package ships no file at this path (per family), the
   file declares itself generated, and the grammar was never verified — including the third state, "probed and
   the file has no active setting, so its bytes cannot decide".
-- **OPEN** — the codec Settings editor shows `machine_written` from its own bulk `/config-generated` read but
-  not `path_verdict` or `provenance`. It works from bulk catalogs rather than a per-file `/config-fields`
-  call, so wiring it means either a per-selection call or a bulk verdict endpoint. It also carries its own
-  copy of the machine-written sentence — the same text in two places, which the shared component exists to
-  end.
-- **OPEN** — the index's `withdrawn` list (2001 entries, with template/verdict/package/reason) is returned and
-  displayed nowhere. A withdrawn binding is currently indistinguishable from one that never existed, which is
-  exactly what the list was created to prevent.
+- **DONE** — all three editors (host template, host Settings, OU policy) now use that one component. The
+  machine-written sentence existed in three wordings; the two host editors showed nothing about the path
+  verdict or the grammar's provenance, and the OU editor was already FETCHING `/config-fields` and throwing
+  that part of the reply away while reading a separate bulk catalog for one of the three statements.
+- **DONE** — the index's `withdrawn` list is shown in the Configuration tab's file pane, at the point of the
+  absence: "Template X renders this path but is not offered: package Y ships no file at this path".
+- `GET /config-generated` now has **no client**. The endpoint stays (both servers, covered by the package
+  install test) because a list view annotating dozens of files at once is its real use; the per-file advisory
+  replaced its only caller. The service wrapper was deleted rather than left as dead TypeScript.
 
 ## Config-model abstentions — what is measured, what is not (2026-08-22)
 

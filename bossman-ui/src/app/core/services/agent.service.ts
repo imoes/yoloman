@@ -262,14 +262,6 @@ export class AgentService {
        + (agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''));
   }
 
-  /** {path: {line, quote, marker}} for every config file whose own header declares it machine-written.
-   * A map, because the file lists render dozens of paths at once — asking config-fields per row would
-   * trade one small read for forty. */
-  configGenerated() {
-    return this.http.get<{ files: Record<string, { line: number; quote: string; marker: string }>; count: number }>(
-      `${environment.apiUrl}/config-generated`,
-    );
-  }
 
   // Block 3 — agent-less devices (snmp|ssh), polled via the co-located poller.
   devices() {

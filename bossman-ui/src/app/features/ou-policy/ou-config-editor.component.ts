@@ -10,6 +10,7 @@ import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DirectiveSpec } from '../../core/models/agent.model';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
+import { ConfigAdvisories, ConfigAdvisoriesComponent } from '../../shared/config-advisories/config-advisories.component';
 import { ConditionsEditorComponent } from '../../shared/components/conditions-editor/conditions-editor.component';
 
 interface ScopePolicy {
@@ -66,7 +67,7 @@ export interface EditorScope {
 @Component({
   selector: 'app-ou-config-editor',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ConditionsEditorComponent],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ConfigAdvisoriesComponent, ConditionsEditorComponent],
   template: `
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
@@ -115,10 +116,9 @@ export interface EditorScope {
             @if (!writesPerKey(sel)) {
               <p class="bm-dim">{{ noPerKeyReason(sel) }}</p>
             }
-            @if (machineWritten(sel); as mw) {
-              <p class="bm-dim">This file says it is machine-written (line {{ mw.line }}):
-                <em>{{ mw.quote }}</em> — a policy on it may be discarded the next time it is generated.</p>
-            }
+            <!-- The same component the two host editors use. This was the THIRD wording of one fact, and
+                 the only one that also had to be right about a policy rather than a host. -->
+            <app-config-advisories [spec]="selSpec()" />
             <table class="bm-oce-settings">
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
@@ -341,10 +341,6 @@ export class OuConfigEditorComponent implements OnChanges {
         if (target) this.select(target);
       }
     });
-    this.agentService.configGenerated().subscribe({
-      next: (r) => this.generatedFiles.set(r.files || {}),
-      error: () => {},
-    });
     if (!Object.keys(this.directiveCatalog()).length) {
       this.agentService.configDirectives().subscribe({ next: (r) => this.directiveCatalog.set(r.directives || {}), error: () => {} });
     }
@@ -445,6 +441,11 @@ export class OuConfigEditorComponent implements OnChanges {
    * read ({type, values:[…]}). This is what makes the OU editor's controls typed
    * from the same source as the host gpedit (and picks up codec⊕directive merges
    * + template-schema fields the raw directive catalog alone doesn't carry). */
+  /** What is known ABOUT the selected file, from the same /config-fields reply the field specs come from.
+   * A POLICY is the worse case for all three warnings: it is stored, wins at its scope, and would keep
+   * reporting drift it cannot fix — on a path where no file exists at all, forever. */
+  selSpec = signal<ConfigAdvisories | null>(null);
+
   private loadFields(path: string): void {
     this.agentService.configFields(path).subscribe({
       next: (r) => {
@@ -460,8 +461,11 @@ export class OuConfigEditorComponent implements OnChanges {
           };
         }
         this.fieldsForSelected.set({ path, specs });
+        // The same reply already carries what is known ABOUT the file. This editor was fetching it and
+        // throwing it away, then reading a separate bulk catalog for one of the three statements.
+        this.selSpec.set(r);
       },
-      error: () => this.fieldsForSelected.set({ path, specs: {} }),
+      error: () => { this.fieldsForSelected.set({ path, specs: {} }); this.selSpec.set(null); },
     });
   }
 
@@ -469,14 +473,7 @@ export class OuConfigEditorComponent implements OnChanges {
     return this.policies().find((p) => p.path === path);
   }
 
-  /** path -> the file's own sentence about being machine-written (GET /config-generated). A policy is
-   * worse than a host edit here: it is stored, wins at its scope, and gets overwritten on every generator
-   * run, so the console would keep reporting drift it cannot fix. Quoted, not blocked. */
-  generatedFiles = signal<Record<string, { line: number; quote: string; marker: string }>>({});
 
-  machineWritten(path: string): { line: number; quote: string; marker: string } | null {
-    return this.generatedFiles()[path] ?? null;
-  }
 
   /** Can this file be written ONE KEY AT A TIME? The measured codec decides — `none` means no codec
    * reproduced the shipped bytes, so there is no per-key writer and a per-key policy could never be
