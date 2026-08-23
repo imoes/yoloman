@@ -317,7 +317,45 @@ tell that from damage. All four candidates were reverted by it. `/config-fields`
 **Uncalibrated directive catalogs** — 510. "This key is in no documentation" only counts where the page
 documents ≥60% of the catalog; below that the page is the weak witness, not the key.
 
-## Package catalog: templates never become roles (found 2026-07-28 via "und was ist mit LDAP?")
+## Package catalog: templates never become roles — DONE 2026-08-23
+
+The cause named below (codec keys are full PATHS, template dirs are package-ish NAMES, intersection 54 of
+1982) is gone: the path->template index IS that join, measured from each template's own `meta.json`
+`target_path`. What remained was promotion, and promotion needed one more measurement.
+
+`bossman/scripts/promote_index_to_catalog.py --write` promoted **398** entries (catalog 89 -> 487) behind four
+measured conditions: bound in the index and not already curated, exactly ONE bound path (two would mean
+guessing which is "the" config file), the path measured as a real `file`, and at least one REAL package name
+(165 candidates fail this — `packages` sometimes holds a filename).
+
+**`kind` is measured, not defaulted.** Promoting everything as `config` would have bought a single listing
+table: the add-roles wizard, the provision wizard and the blueprint palette all skip `config` entries on
+purpose. `bossman/scripts/find_package_services.py` extracts each candidate package and reads its systemd
+units, so `feature` is claimed only where a unit exists that can actually be enabled:
+
+| | |
+|---|---|
+| packages measured | 396 |
+| ship an enableable unit | 160 |
+| ship units, none enableable directly (`apt-daily.service`, `acmetool.service`) | 20 |
+| ship no unit at all | 216 |
+| **promoted as `feature` with a measured service** | **156** |
+| promoted as `config` | 242 |
+
+Never `role`: a role also carries a monitoring check in this vocabulary and nothing here measures a check.
+Where several units are enableable and none matches the package name, the service is an ABSTENTION rather than
+the first alphabetically — that rule was added after `autosuspend` was given
+`autosuspend-detect-suspend.service`.
+
+`category` is empty on derived entries and the UI resolves it from the path (`catalogCategory()`, one reader of
+`shared/config-categories.ts`), so the rule does not exist twice. Verified in the browser: the wizard went
+from ~75 installable entries in 10 categories to **252 in 21**.
+
+Still open here: the new categories (Backup, Cloud, Cluster, Directory, Telephony, …) render with a generic
+folder icon because the wizard's own `CAT_META` has no entry for them; and 111 templates were rejected for
+having two bound paths, which is a real question (which one is the config file?) rather than a bug.
+
+## Original finding (2026-07-28, via "und was ist mit LDAP?")
 
 - **The bottleneck is name matching, not template generation.** `scripts/build_package_catalog.py`
   is codec-driven: a config file in the codec registry that *has* a template becomes a catalog

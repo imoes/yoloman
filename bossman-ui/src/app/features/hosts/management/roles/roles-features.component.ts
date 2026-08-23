@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
-import { CatalogPackage, PackageCatalogService } from '../../../../core/services/package-catalog.service';
+import { catalogCategory, CatalogPackage, PackageCatalogService } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardService } from '../../../../core/services/wizard.service';
 import { AgentService } from '../../../../core/services/agent.service';
 import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.component';
@@ -119,7 +119,7 @@ export class RolesFeaturesComponent implements OnInit {
     return Object.entries(this.catalog())
       .filter(([, e]) => e.kind !== 'config') // base-system config files live in the Configuration tab
       .map(([name, e]) => ({
-        name, label: e.label, category: e.category, icon: e.icon, template: e.template,
+        name, label: e.label, category: catalogCategory(e), icon: e.icon, template: e.template,
         kind: e.kind === 'role' ? 'role' : 'feature',   // installed catalog entries are role or feature; config lives elsewhere
         installed: !!ctx && name in ctx.installed,
         version: ctx?.installed[name] ?? '',

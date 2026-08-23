@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
-import { CatalogPackage } from '../../../../core/services/package-catalog.service';
+import { catalogCategory, CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
 import { CheckService } from '../../../../core/services/check.service';
 import { AgentService } from '../../../../core/services/agent.service';
@@ -361,7 +361,10 @@ export class AddRolesWizardComponent {
       if (entry.kind === 'config') continue; // base-system files aren't installable roles
       if (q && !name.toLowerCase().includes(q) && !entry.label.toLowerCase().includes(q)
           && !(entry.description || '').toLowerCase().includes(q)) continue;
-      const cat = entry.category || 'other';
+      // Derived entries carry no category; the path->category rule lives in shared/config-categories.ts and
+      // catalogCategory() is the single reader of it, so 398 promoted entries group properly instead of all
+      // landing in "Other".
+      const cat = catalogCategory(entry);
       (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push({ ...entry, name });
     }
     return [...groups.entries()].map(([category, items]) => ({ category, items: items.sort((a, b) => a.label.localeCompare(b.label)) }));
