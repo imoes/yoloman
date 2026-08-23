@@ -35,6 +35,133 @@ Two cooperating components:
 
 ---
 
+## Install
+
+Three ways in, and they are not equivalent — pick by what the host should be.
+
+| | what it gives you | when |
+|---|---|---|
+| **Docker Compose** *(primary)* | the whole stack — Bossman, its database, the web console, the poller — in one command | evaluating, and the normal way to run the controller |
+| **`yoloman-bossman` package** | the controller natively: bundled Python runtime, systemd unit, web console on one port. **You provide PostgreSQL.** | a host where a container runtime is not wanted |
+| **`yoloman-agent` package** | one managed node: a single static Go binary + systemd unit | every machine you want to manage |
+
+The Docker deployment stays the primary one, and that is a statement about support rather than taste: it is
+what the project is developed and tested against every day. The packages exist because a controller is
+sometimes not allowed to be a container, and because a managed node should never need one.
+
+### Quick start — Docker (5 minutes)
+
+```bash
+git clone https://github.com/imoes/yoloman && cd yoloman
+docker compose up -d --build          # Bossman + TimescaleDB + web console + poller
+```
+
+Open **http://localhost:4201** and log in with `admin` / `admin123` (seeded on first start — change it).
+Then add your first node:
+
+```bash
+# ON THE MACHINE TO MANAGE — the agent dials nothing; Bossman connects to it.
+curl -fsSL https://github.com/imoes/yoloman/releases/latest/download/agent.deb -o agent.deb
+sudo apt install ./agent.deb          # or: dnf install ./agent.rpm
+```
+
+In the console: **Hosts → Add host**, give it the address (`<host>:8010`) and the bearer token the agent's
+postinst generated in `/etc/agentic-mcp/config.yaml`. The host appears with its facts, services and config
+files within a minute.
+
+### Quick start — packages, no Docker
+
+The controller needs a database first. This is the one thing the package cannot install for you: PostgreSQL
+with **timescaledb** (hypertables and continuous aggregates for the metric store) and **pgvector** (search
+embeddings). The migration enables both extensions; it cannot install them.
+
+```bash
+# 1. the database (example: Debian, with Timescale's own repository already set up)
+sudo -u postgres createuser bossman --pwprompt
+sudo -u postgres createdb -O bossman bossman
+
+# 2. the controller
+sudo apt install ./yoloman-bossman_<version>_amd64.deb
+
+# 3. point it at the database, then create the schema and the first operator
+sudo sed -i 's|CHANGE_ME|<the password from step 1>|' /etc/yoloman/bossman.env
+sudo bossman-migrate
+sudo bossman-create-admin admin '<a real password>'
+
+# 4. start it
+sudo systemctl start yoloman-bossman
+```
+
+The console is then on **http://127.0.0.1:8000** — served by the same process, since a native install has no
+nginx. It binds to localhost on purpose: this console manages your fleet, and a fresh install should not be
+reachable from the network before you have changed the password. Put it behind a TLS reverse proxy, or set
+`BOSSMAN_BIND=0.0.0.0` in `/etc/yoloman/bossman.env` once you have.
+
+Every setting lives in that one file; each is a `BOSSMAN_`-prefixed field of
+[`bossman/bossman/config.py`](bossman/bossman/config.py). `systemctl restart yoloman-bossman` applies it.
+
+**The agent, on each managed node:**
+
+```bash
+sudo apt install ./yoloman-agent_<version>_amd64.deb    # or dnf install ./…rpm
+```
+
+It starts read-only. Two things it does at install time are worth knowing:
+
+- **it generates a bearer token** into `/etc/agentic-mcp/config.yaml` (mode 0600) — that is what you paste
+  into Bossman when adding the host;
+- **it creates the group `yoloman-agent` is administered through**, `yoloadmin`, **empty**. Members of that
+  group — and `root`, always — can sign in to the agent's own standalone web console on
+  `https://<host>:8010/ui/`. Empty means nobody but root can, which is the honest state for a fresh install:
+  `sudo gpasswd -a <user> yoloadmin` when you want a human in there.
+
+### Package repository (apt / dnf)
+
+Installing a `.deb` by hand installs it once and never mentions the next version. The repository is what makes
+`apt upgrade` work.
+
+```bash
+# Debian / Ubuntu
+echo "deb [trusted=yes] https://imoes.github.io/yoloman/deb stable main" \
+  | sudo tee /etc/apt/sources.list.d/yoloman.list
+sudo apt update && sudo apt install yoloman-agent
+
+# RHEL / AlmaLinux / Rocky / Fedora
+sudo tee /etc/yum.repos.d/yoloman.repo <<'REPO'
+[yoloman]
+name=YOLO-MANager
+baseurl=https://imoes.github.io/yoloman/rpm
+enabled=1
+gpgcheck=0
+REPO
+sudo dnf install yoloman-agent
+```
+
+> **The repository is not signed yet, and `trusted=yes` / `gpgcheck=0` is what that costs:** your package
+> manager will install whatever that address serves without verifying who built it. Fine for a trial on a
+> network you trust; not what you want in production. Signing needs a maintainer key —
+> `YOLOMAN_GPG_KEY=<keyid> scripts/build-repo.sh` produces a signed tree and publishes the public key, and
+> the generated landing page then shows the verifying commands instead of these.
+
+Building and proving the repository locally:
+
+```bash
+scripts/build-agent-deb.sh          # yoloman-agent .deb + .rpm
+scripts/build-bossman-deb.sh        # yoloman-bossman .deb + .rpm (bundled runtime; ~100 MB)
+scripts/build-repo.sh               # the apt + yum tree under deploy-artifacts/repo
+scripts/test-repo.sh                # serves it and installs FROM it on debian:12 and almalinux:9
+```
+
+Every one of those is install-tested against real distributions rather than assumed:
+
+| script | what it proves |
+|---|---|
+| `scripts/install-test-agent-deb.sh` | the agent installs on debian:12 + almalinux:9, creates `yoloadmin`, ships all eleven catalog files, and four real logins behave (root without the group, a member, a non-member with the same password, a wrong password) |
+| `scripts/install-test-bossman.sh` | the controller installs against a real TimescaleDB, migrates, creates an operator, answers `/healthz`, logs that operator in, serves the console, survives a deep link, and does **not** shadow `/api/v1` |
+| `scripts/test-repo.sh` | `apt install` and `dnf install` both work off the generated repository |
+
+---
+
 ## Why Starlark, and why Ansible syntax?
 
 Two deliberate language choices sit at the centre of this project. They're worth explaining up
@@ -621,6 +748,11 @@ CGO_ENABLED=0 go build -o bin/starlark-check ./cmd/starlark-check
 
 # Bossman stack
 docker compose up -d --build
+
+# Packages (see Install above for what each one is tested to do)
+scripts/build-agent-deb.sh          # yoloman-agent .deb + .rpm
+scripts/build-bossman-deb.sh        # yoloman-bossman .deb + .rpm
+scripts/build-repo.sh               # the apt + yum repository tree
 ```
 
 Without a config file the agent falls back to built-in defaults (`127.0.0.1:8010`, write disabled).
