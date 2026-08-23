@@ -135,6 +135,13 @@ const CATEGORIES: (ConfigCategory & { match: RegExp })[] = [
 
 const OTHER: ConfigCategory = { key: 'other', label: 'Other applications', icon: 'folder' };
 
+/** A category by its key, or null. The wizard needs the LABEL and ICON for a key it was handed, and it kept
+ * its own second table (CAT_META) for that — so a category this file knows about rendered as a generic folder
+ * there. One vocabulary, one lookup. */
+export function categoryByKey(key: string): ConfigCategory | null {
+  return CATEGORIES.find((c) => c.key === key) ?? (key === OTHER.key ? OTHER : null);
+}
+
 export function categorizeConfigPath(path: string): ConfigCategory {
   for (const c of CATEGORIES) if (c.match.test(path)) return c;
   return OTHER;

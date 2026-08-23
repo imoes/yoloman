@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
+import { categoryByKey } from '../../../../shared/config-categories';
 import { catalogCategory, CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
 import { CheckService } from '../../../../core/services/check.service';
@@ -387,8 +388,14 @@ export class AddRolesWizardComponent {
   });
   // Miller column 2: packages in the active category.
   catItems = computed(() => this.catsOrdered().find((c) => c.category === this.effectiveCat())?.items ?? []);
-  catIcon(c: string): string { return CAT_META[c]?.icon ?? 'folder'; }
-  catName(c: string): string { return CAT_META[c]?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
+  // CAT_META first (it names the wizard's own curated roles), then the shared config-category vocabulary,
+  // then the key itself. The middle step is the new one: 398 promoted entries land in categories this
+  // component never had a row for — Backup, Cloud, Cluster, Directory, Telephony — and they rendered as a
+  // generic folder while shared/config-categories.ts had a label and an icon for every one of them.
+  catIcon(c: string): string { return CAT_META[c]?.icon ?? categoryByKey(c)?.icon ?? 'folder'; }
+  catName(c: string): string {
+    return CAT_META[c]?.label ?? categoryByKey(c)?.label ?? (c.charAt(0).toUpperCase() + c.slice(1));
+  }
 
   catLabel(p: string): string { return this.data.catalog[p]?.label ?? p; }
   isInstalled(p: string): boolean { return p in this.data.context.installed; }

@@ -284,6 +284,36 @@ The 81 are a dead end for the round-trip method, not a backlog item: `/etc/secur
 `/etc/sysctl.conf` and 79 others are entirely comments. Their evidence is the **commented** settings —
 `activate_commented_settings.py`.
 
+**Directive mining: the file existing is not the same as being minable.** I sized a work list as "223 paths
+whose file is measured to exist, therefore immediately minable" and that was too optimistic by an order of
+magnitude: **24** were mined, **199** were refused, and the refusals are honest rather than broken. What the
+run measured:
+
+| class of the 199 | n | why the miner refuses |
+|---|---|---|
+| `/etc/default/*` | 68 | shell variables; the man page of the daemon documents flags, not the file |
+| other | 82 | mixed; each says "documentation is not about this file (0% of its keys appear)" |
+| cron fragments | 25 | a schedule, not settings |
+| XDG `.desktop` | 11 | documented by the freedesktop **spec**, not by any man page |
+| Apache fragments | 6 | grounded on apache2(8), which documents none of their keys |
+| AppArmor profiles | 4 | a policy language |
+| X resources (`.ad`) | 3 | an X resource database |
+
+So the constraint is not "has a file" but "has documentation ABOUT this file", and `doc_is_about` is doing
+exactly its job — 0% of keys appearing means the page is about something else, and inventing values from it is
+the failure this gate exists to prevent. The evidence these classes need is a SPEC (freedesktop, AppArmor,
+Xrm) rather than a man page, which is a different source, not a harder prompt.
+
+**111 templates bound to two paths** cannot be resolved from what is recorded, and the attempt is worth writing
+down so it is not repeated: none of the 111 has a `target_path` in its `meta.json`, and re-running
+`attribute_templates_by_text.py` over the full corpus places **0** of them (196 contested, 4236 with too few
+distinctive lines). Several are basename-named dirs bound across unrelated software — `main.conf` to BOTH
+`/etc/iwd/main.conf` and `/etc/bluetooth/main.conf` — so this is a NAME COLLISION, not a choice between two
+candidates. Picking "the one that exists" would attach a whole-file renderer to a file it may not render,
+which is the aardvark-dns damage class. The mechanism that fixes it exists: `qualify_packages._record_target`
+now writes `target_path` at generation time; these are legacy dirs from before it, and a batch re-run for their
+packages would record the answer instead of guessing it.
+
 **Templates that cannot render** — `configs/template_render_broken.json`, 98 entries. The reasons are
 truncated at 400 characters and the parser's diagnosis sits after the echoed body, so use
 `TEMPLATE_DIAGNOSE=1 go test ./internal/modules/ -run TemplateDiagnose -v` to read them.
