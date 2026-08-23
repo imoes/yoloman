@@ -85,6 +85,64 @@ from bossman.tools.build_package_catalog import (  # noqa: E402
 )
 
 
+#: The measured EL name list — "does a package with this name exist on Enterprise Linux", from
+#: bossman.tools.record_el_package_names run in an almalinux:9 container over baseos/appstream/crb/epel.
+EL_NAMES = CONFIGS / "package_names_el.json"
+
+
+def _attested_el_names() -> tuple[set[str], list[str]]:
+    """The names that count as attested on EL, and which records said so.
+
+    THE UNION OF TWO RECORDS, because they answer two different questions and only one of them is about
+    existence:
+
+      package_names_el.json     does this NAME exist on EL — 33898 names, four real repos, unfiltered
+      package_universe_real.json[redhat]  is this a configurable-service CANDIDATE — 1902, and the number
+                                is small for two reasons: only BaseOS+AppStream, then a section/description
+                                filter
+
+    The second was the ONLY source, and it was being read as existence. Measured consequence: `sssd` (BaseOS)
+    and `nginx` (AppStream) are both absent from it — `nginx` survived only via the builder's CORE table and
+    `sssd`'s redhat branch was dropped, for the canonical RHEL identity client. Keeping it in the union costs
+    nothing and preserves whatever it attested that a name list would not.
+
+    A missing name list is reported, not defaulted: with no attestation at all only CORRECTIONS and CORE
+    survive, which silently drops every other redhat branch. Nothing about that should be quiet.
+    """
+    names: set[str] = set()
+    sources: list[str] = []
+    try:
+        el = json.loads(EL_NAMES.read_text())
+        # THE DISTRIBUTION'S OWN REPOS ONLY — not EPEL, even though the record carries it.
+        #
+        # The question here is not "can this be installed on an EL box", it is "is this role's redhat branch
+        # a real translation or a copied Debian guess". EPEL answers the first and not the second: measured,
+        # EPEL ships `apt` and `ufw`, so counting it as attestation would KEEP exactly the copied branches
+        # this pass exists to remove — `ufw` even has a curated UNAVAILABLE entry saying firewalld is the
+        # supported front end there. A tool packaged in EPEL because someone wanted it is not the platform's
+        # answer to what Debian's package does.
+        found = {n for n, repos in (el.get("names") or {}).items()
+                 if set(repos) - {"epel"}}
+        if found:
+            names |= found
+            sources.append(f"{EL_NAMES.name} ({len(found)} names in baseos/appstream/crb; "
+                           f"EPEL recorded but not attesting)")
+    except (OSError, ValueError):
+        print(f"! no {EL_NAMES.name} — run `python -m bossman.tools.record_el_package_names` in an EL "
+              f"container; without it only the filtered service-candidate listing attests", file=sys.stderr)
+    try:
+        cand = set(json.loads(UNIVERSE.read_text()).get("redhat") or {})
+        if cand:
+            names |= cand
+            sources.append(f"{UNIVERSE.name}[redhat] ({len(cand)} service candidates)")
+    except (OSError, ValueError):
+        print(f"! no {UNIVERSE.name}", file=sys.stderr)
+    if not names:
+        print("! NOTHING attests an EL package name — only CORRECTIONS/CORE branches will survive",
+              file=sys.stderr)
+    return names, sources
+
+
 def _load_codecs() -> dict:
     """The codec registry — the witness main_config_path checks a claimed path against."""
     try:
@@ -142,8 +200,12 @@ CORRECTIONS: dict[str, dict] = {
 UNAVAILABLE: dict[str, dict] = {
     "apparmor": {"unavailable": "RHEL and its rebuilds ship SELinux; AppArmor is not packaged.",
                  "instead": "SELinux (selinux-policy, enabled by default)"},
-    "ufw":      {"unavailable": "ufw is not packaged for RHEL; firewalld is the supported front end "
-                                "for netfilter there.",
+    # "not packaged for RHEL" was imprecise, and the EL name record (baseos/appstream/crb/epel) is what
+    # showed it: ufw IS in EPEL. The operational statement is unchanged — firewalld is the platform's front
+    # end — but a claim that a package does not exist, when it does, is the kind an operator disproves in one
+    # `dnf install` and then trusts nothing else here.
+    "ufw":      {"unavailable": "ufw is not in RHEL itself (only in EPEL); firewalld is the supported "
+                                "front end for netfilter there.",
                  "instead": "firewalld"},
     "ntp":      {"unavailable": "The ntp daemon was dropped after RHEL 7; chrony replaces it and is "
                                 "a separate role in this catalog.",
@@ -410,12 +472,8 @@ def run(dry_run: bool = False) -> int:
     apache2 losing `httpd-core` and its `user`, and adminer having an intentionally EMPTY config_path
     replaced by a guess."""
     catalog = json.loads(CATALOG.read_text())
-    try:
-        attested = set(json.loads(UNIVERSE.read_text()).get("redhat") or {})
-    except (OSError, ValueError):
-        attested = set()
-        print(f"! no {UNIVERSE.name} — nothing can be attested, so only CORRECTIONS/CORE survive",
-              file=sys.stderr)
+    attested, sources = _attested_el_names()
+    print(f"attestation: {len(attested)} EL package names from {', '.join(sources) or 'NOTHING'}")
 
     catalog, report = curate(catalog, attested, _core_keys())
 

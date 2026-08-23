@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # sibling import
 
 from classify_config_codecs import man_page  # noqa: E402 — reuse the exact man-page lookup
 from bossman.services.chat_client import ChatClient  # noqa: E402
+from bossman.tools._jsonio import write_catalog
 
 QWEN79B = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/laguna", "laguna")
 
@@ -178,7 +179,7 @@ async def run(args) -> None:
         # Persist after each file so a restart resumes at file granularity
         # (a 92-file pass is hours of LLM work — don't risk losing it all).
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(json.dumps(existing, indent=2, sort_keys=True))
+        write_catalog(dest, existing, sort=True)
         print(f"[{i}/{len(keys)}] {key}: {len(directives)} directives")
 
     print(f"\nwrote {dest} ({len(existing)} files)")

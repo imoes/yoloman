@@ -66,7 +66,7 @@ for f in package_catalog.json config_codecs.json config_directives.json config_g
          config_path_verdicts.json codec_probe_verdicts.json config_unowned_paths.json \
          config_template_index.json config_directive_keys.json template_withheld.json \
          template_unsettable.json template_renderer_gaps.json package_services.json \
-         package_doc_audit.json; do
+         package_doc_audit.json package_names_el.json; do
   [ -f "configs/$f" ] && cp "configs/$f" "$SHARE/configs/$f"
 done
 cp -r configs/config_templates "$SHARE/configs/config_templates"

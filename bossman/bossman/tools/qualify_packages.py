@@ -44,6 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))          # scripts/ — enrich_gates
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))       # bossman/ — services
 
+from bossman.tools._jsonio import write_catalog  # noqa: E402
 from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 import enrich_gates as EG  # noqa: E402
 from mine_directive_values import mine_one  # noqa: E402 — the per-directive value miner, reused as a stage
@@ -210,16 +211,14 @@ def _hash(schema: dict) -> str:
 
 
 def _write_json(path: Path, data, *, sort: bool) -> None:
-    """Write JSON atomically: temp file in the same directory, then os.replace().
+    """Write a shared catalog — the one writer, in _jsonio.
 
-    These files are bind-mounted into the running server and read live. A plain write_text is
-    visible in its half-written state, so a reader can catch a truncated catalog and conclude a
-    path has no codec. os.replace() is atomic within a filesystem, so a reader sees either the old
-    file or the new one.
+    Kept as a name here because a dozen call sites use it, but the FORMAT and the atomicity live in one
+    place now: ~17 writers touch config_codecs.json and config_directives.json and they disagreed on indent
+    AND on ensure_ascii, so the two groups took turns rewriting 200 000 lines and a real one-key change was
+    indistinguishable from a reformat. See _jsonio for the measurement.
     """
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2, sort_keys=sort) + "\n")
-    os.replace(tmp, path)
+    write_catalog(path, data, sort=sort)
 
 
 class TrackedDict(dict):

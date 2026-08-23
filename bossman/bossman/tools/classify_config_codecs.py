@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the dir holding 
 from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 
 from bossman.services.chat_client import ChatClient  # noqa: E402
+from bossman.tools._jsonio import write_catalog
 
 QWEN79B = (os.environ.get("YOLOMAN_LLM_BASE", "") + "/laguna", "laguna")
 
@@ -243,7 +244,7 @@ async def run(args) -> None:
     existing.update(registry)
     # Pinned bespoke-codec configs always win (the LLM can't produce these).
     existing.update(PINNED)
-    dest.write_text(json.dumps(existing, indent=2, sort_keys=True))
+    write_catalog(dest, existing, sort=True)
     print(f"\nwrote {dest} ({len(existing)} entries total)")
 
 
