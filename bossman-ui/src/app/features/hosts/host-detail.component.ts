@@ -25,7 +25,7 @@ import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
 import { Agent, ConfigResource, ConfigTemplateIndexEntry, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
-import { HostEdge } from '../../core/models/edge.model';
+import { HostEdgeGroup } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { BM_GREEN, BM_GOLD, BM_RED, BM_UNKNOWN } from '../../shared/bm-colors';
@@ -526,28 +526,39 @@ function familyMembers(metric: string): string[] {
               <div class="bm-rel-map"><app-topology [agentId]="agent.id" /></div>
               <h3 class="bm-rel-h">Connections</h3>
               @if (edges().length) {
+                <p class="bm-dim">
+                  {{ edges().length }} of {{ edgeTotals().groups }} process→destination pair(s),
+                  from {{ edgeTotals().edges }} recorded connection(s).
+                  @if (edgeTotals().truncated) { Showing the busiest. }
+                </p>
                 <table class="bm-table">
                   <thead>
                     <tr>
                       <th>Process</th>
                       <th>Destination</th>
+                      <th>Ports</th>
                       <th>Events</th>
-                      <th>Latency (p50)</th>
+                      <th>Latency (p50, busiest)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (edge of edges(); track edge.dst_addr + edge.dst_port) {
+                    <!-- track by the GROUP KEY. It used to be dst_addr + dst_port, which is not unique —
+                         the same destination appears for every process talking to it. -->
+                    @for (edge of edges(); track edge.src_comm + '|' + edge.dst_addr + '|' + edge.dst_port) {
                       <tr>
                         <td>{{ edge.src_comm }}</td>
-                        <td>{{ edge.dst_addr }}:{{ edge.dst_port }}</td>
+                        <td>{{ edge.dst_addr }}@if (edge.dst_port !== null) {:{{ edge.dst_port }}}</td>
+                        <td>{{ edge.ports > 1 ? edge.ports : (edge.dst_port !== null ? 1 : '—') }}</td>
                         <td>{{ edge.event_count }}</td>
-                        <td>{{ edge.latency_ms_p50 !== null ? (edge.latency_ms_p50 | number: '1.1-1') + ' ms' : '—' }}</td>
+                        <td>{{ edge.latency_ms_p50_busiest !== null ? (edge.latency_ms_p50_busiest | number: '1.1-3') + ' ms' : '—' }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
-              } @else {
+              } @else if (edgesLoaded()) {
                 <p class="bm-empty">No connections recorded for this host yet.</p>
+              } @else {
+                <p class="bm-dim">Loading connections…</p>
               }
             </div>
           </ng-template></mat-tab>
@@ -1656,7 +1667,9 @@ export class HostDetailComponent implements OnInit {
       return { group, rows: grpRows, state };
     }).filter((g) => g.rows.length > 0);
   });
-  edges = signal<HostEdge[]>([]);
+  edges = signal<HostEdgeGroup[]>([]);
+  edgesLoaded = signal(false);
+  edgeTotals = signal({ groups: 0, edges: 0, truncated: false });
   runs = signal<PlanRun[]>([]);
   /** Host Runs tab (unified): runbook executions against this host, merged
    * with plan runs into one host-scoped timeline. Deployments stay on the
@@ -1853,11 +1866,15 @@ export class HostDetailComponent implements OnInit {
 
     this.loadLatest(id);
 
-    this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
+    // NOT here. The relationships fetch moved to loadEdges(), called when the Relationships tab opens:
+    // every host page used to pay for it whether or not the operator ever looked (measured, 5.46 MB), and
+    // it was one of six requests that then queued behind the page's own asset downloads.
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
     this.runService.runbookRuns(100, id).subscribe((res) => this.runbookRuns.set(res.runs ?? []));
     this.reloadServices(id);
-    this.monitoringService.fleetHosts().subscribe((hosts) => this.overview.set(hosts.find((h) => h.id === id) ?? null));
+    // ONE row, asked for by id. This used to fetch the whole fleet table — every agent, EVERY SERVICE OF
+    // EVERY HOST, three fleet-wide metric lookups — and then .find() the one row this page shows.
+    this.monitoringService.fleetHosts(id).subscribe((hosts) => this.overview.set(hosts[0] ?? null));
   }
 
   /** Both latest-data shapes in one go: the per-METRIC list for the raw table,
@@ -2145,6 +2162,29 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'eBPF' && !this.ebpfLoaded() && !this.ebpfLoading()) {
       this.loadEbpf();
     }
+    if (event.tab.textLabel === 'Relationships' && !this.edgesLoaded()) {
+      this.loadEdges();
+    }
+  }
+
+  /** What this host talks to — fetched when the Relationships tab opens, not on page load.
+   *
+   * Grouped by (process, destination) server-side: the raw edges are one row per PORT, and ephemeral-port
+   * traffic turns that into 28 203 rows / 5.46 MB on one measured host — for a table whose 87 real lines
+   * fit on a screen. */
+  loadEdges(): void {
+    const agent = this.agent();
+    if (!agent) return;
+    this.relationshipService.list(agent.id).subscribe({
+      next: (res) => {
+        this.edges.set(res.groups ?? []);
+        this.edgeTotals.set({
+          groups: res.total_groups ?? 0, edges: res.total_edges ?? 0, truncated: !!res.truncated,
+        });
+        this.edgesLoaded.set(true);
+      },
+      error: () => this.edgesLoaded.set(true),
+    });
   }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +

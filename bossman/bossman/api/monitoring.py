@@ -1053,6 +1053,7 @@ class FleetHostOut(BaseModel):
 
 @router.get("/api/v1/fleet/hosts", response_model=list[FleetHostOut])
 async def fleet_hosts_route(
+    agent_id: UUID | None = Query(None, description="Return only this host's row"),
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[FleetHostOut]:
@@ -1061,7 +1062,7 @@ async def fleet_hosts_route(
     directly enrolled agent and every satellite discovered behind a
     proxy — with real CPU/memory/disk values and a CheckMK-style state
     rollup, in a single call instead of a per-host metrics fan-out."""
-    hosts = await fleet_hosts(session)
+    hosts = await fleet_hosts(session, agent_id)
     return [
         FleetHostOut(
             id=h.id,

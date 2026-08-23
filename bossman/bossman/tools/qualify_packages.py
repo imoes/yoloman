@@ -879,6 +879,31 @@ async def _review_template(name: str, man_text: str | None, web_text: str, qwen:
     return f"corrected (removed {len(removed)}: {', '.join(removed[:5])})" if removed else "corrected"
 
 
+#: Why each string field has NO dropdown, per template. Shipped and served, not a debug log: the field
+#: editor's job is to say why a setting is free text, and "nobody looked" / "looked, and no documentation
+#: contains these values" / "the default contradicts the documented set" are three different answers an
+#: operator would act on differently.
+ENUM_ABSTENTIONS = _CONFIGS / "schema_enum_abstentions.json"
+
+
+def _record_enum_abstentions(name: str, fields: dict[str, dict]) -> None:
+    """Merge this template's abstentions into the shared record.
+
+    Read-modify-write per template rather than accumulated in memory: the pass is resumable and may be killed
+    at any point, and an abstention that only exists in a dead process's heap is the silent absence this
+    record exists to end. An EMPTY dict is written too — that is the positive statement "every candidate
+    field here got an enum", which is not the same as "this template was never processed".
+    """
+    try:
+        have = json.loads(ENUM_ABSTENTIONS.read_text())
+        if not isinstance(have, dict):
+            have = {}
+    except (OSError, ValueError):
+        have = {}
+    have[name] = fields
+    write_catalog(ENUM_ABSTENTIONS, have, sort=True)
+
+
 async def _mine_enums(
     name: str, entry: dict, man_text: str | None, web_text: str,
     sample_text: str, searx: SearxngClient, qwen: ChatClient,
@@ -981,6 +1006,11 @@ async def _mine_enums(
     added = 0
     dropped = 0
     field_searches = 0
+    # WHY A FIELD STAYED FREE TEXT, per field. Without this the only recoverable fact was "there is no
+    # dropdown", and the three reasons a field ends up that way are not the same thing at all: nothing was
+    # proposed, values were proposed but no source contains them, or exactly one grounded — which is not a
+    # choice. 25 917 of 28 760 string fields have no enum, and until now not one of them could say why.
+    abstained: dict[str, dict] = {}
     for item in out.get("enums", []):
         field, values = item.get("field"), item.get("values")
         if field not in props or not isinstance(props[field], dict):
@@ -989,8 +1019,10 @@ async def _mine_enums(
             continue
         grounded = _grounded_in(values, source_blob)
         # Gap → one targeted per-field search (capped per package), re-ground.
+        searched = False
         if len(grounded) < 2 and field_searches < 6:
             field_searches += 1
+            searched = True
             extra = await _field_blob(field)
             if extra:
                 grounded = _grounded_in(values, source_blob + "\n" + extra)
@@ -1000,6 +1032,15 @@ async def _mine_enums(
         # 'y'). Reject: better free-text than a nonsensical single-option
         # dropdown. Enums need at least two grounded values.
         if len(grounded) < 2:
+            abstained[field] = {
+                "reason": "no source contains any proposed value" if not grounded
+                          else "only one value grounded — a single option is not a choice",
+                "proposed": values[:12],
+                "grounded": grounded,
+                "sources": [k for k, v in (("man", man_text), ("shipped_config", sample_text),
+                                           ("web", web_text)) if v],
+                "field_search": searched,
+            }
             continue
         cur = props[field].get("default")
         if cur in (None, "", *grounded):
@@ -1007,6 +1048,29 @@ async def _mine_enums(
             if cur in (None, "") and item.get("default") in grounded:
                 props[field]["default"] = item["default"]
             added += 1
+        else:
+            # The default is not among the grounded values, so one of the two is wrong and this pass cannot
+            # tell which. Offering the dropdown would silently change the file's current setting on the
+            # first Apply.
+            abstained[field] = {
+                "reason": f"the recorded default {cur!r} is not among the grounded values",
+                "proposed": values[:12], "grounded": grounded,
+                "sources": [k for k, v in (("man", man_text), ("shipped_config", sample_text),
+                                           ("web", web_text)) if v],
+                "field_search": searched,
+            }
+
+    # Every candidate the model said nothing about — the largest group, and previously the most invisible.
+    for field in cands:
+        if field not in abstained and not props.get(field, {}).get("enum"):
+            abstained[field] = {
+                "reason": "the model proposed no values for this field",
+                "proposed": [], "grounded": [],
+                "sources": [k for k, v in (("man", man_text), ("shipped_config", sample_text),
+                                           ("web", web_text)) if v],
+                "field_search": False,
+            }
+    _record_enum_abstentions(name, abstained)
 
     if added:
         (tdir / "schema.json").write_text(json.dumps(schema, indent=2) + "\n")

@@ -1797,18 +1797,30 @@ async def _latest_disk_used_pct_max(session: AsyncSession, agent_ids: list[UUID]
     return out
 
 
-async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
+async def fleet_hosts(session: AsyncSession, agent_id: UUID | None = None) -> list[FleetHostSummary]:
     """One row per host — every directly enrolled agent *and* every
     satellite discovered via a proxy's own GET /api/v1/hosts/overview
     (services/poller.py's _find_or_create_satellite) — with a CheckMK-
     style worst-service-wins state rollup and the at-a-glance CPU/memory/
     disk values a real fleet cockpit needs. Exactly 5 queries total
     (agents, services, and 3 latest-metric lookups), never one per host:
-    the concrete fix for "no bulk endpoint for a host-overview table"."""
+    the concrete fix for "no bulk endpoint for a host-overview table".
+
+    `agent_id` narrows it to ONE host, and that is not a convenience: the host detail page called this and
+    then did `hosts.find(h => h.id === id)`, so opening one host loaded every agent, EVERY SERVICE OF EVERY
+    HOST (`select(Service)`, unfiltered) and three fleet-wide metric lookups to render a single row. The
+    agent NAMES are still read in full, because a satellite's row names its parent and that lookup has to
+    resolve — one indexed column for the whole fleet is not the cost here.
+    """
     agents = [a for a in (await session.scalars(select(Agent).order_by(Agent.name))).all() if not is_infra_agent(a)]
     names_by_id = {a.id: a.name for a in agents}
+    if agent_id is not None:
+        agents = [a for a in agents if a.id == agent_id]
 
-    services = (await session.scalars(select(Service))).all()
+    svc_stmt = select(Service)
+    if agent_id is not None:
+        svc_stmt = svc_stmt.where(Service.agent_id == agent_id)
+    services = (await session.scalars(svc_stmt)).all()
     services_by_agent: dict[UUID, list[Service]] = {}
     for s in services:
         services_by_agent.setdefault(s.agent_id, []).append(s)

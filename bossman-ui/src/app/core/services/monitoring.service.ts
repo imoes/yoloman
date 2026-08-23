@@ -233,7 +233,17 @@ export class MonitoringService {
     return this.http.get<FleetSummary>(`${this.base}/fleet/summary`);
   }
 
-  fleetHosts() {
+  /** The fleet table, or ONE host's row when agentId is given.
+   *
+   * The host detail page used to call this without an id and then `.find()` its row, so opening one host
+   * loaded every agent, every service of every host and three fleet-wide metric lookups. A single-host
+   * answer deliberately does NOT touch the fleet cache — caching one row as "the fleet" would empty the
+   * fleet table on the next visit. */
+  fleetHosts(agentId?: string) {
+    if (agentId) {
+      return this.http.get<FleetHost[]>(
+        `${this.base}/fleet/hosts?agent_id=${encodeURIComponent(agentId)}`);
+    }
     const net = this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`)
       .pipe(tap((h) => (this.fleetCache = h)));
     return this.cacheFirst(this.fleetCache ?? undefined, net);
