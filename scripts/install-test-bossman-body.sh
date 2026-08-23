@@ -26,9 +26,53 @@ bossman-migrate >/tmp/migrate.log 2>&1 || { tail -20 /tmp/migrate.log; fail "bos
 grep -qE "Running upgrade|already at" /tmp/migrate.log || { tail -5 /tmp/migrate.log; fail "no migration ran"; }
 echo "ok  bossman-migrate created the schema"
 
+# THE FIRST-RUN FORM, proven where it matters: a migrated database with no account. Done BEFORE
+# bossman-create-admin, because that is the only moment this state exists.
+set -a; . /etc/yoloman/bossman.env; set +a
+cd /usr/share/yoloman-bossman
+/usr/share/yoloman-bossman/venv/bin/uvicorn bossman.main:app --host 127.0.0.1 --port "$BOSSMAN_PORT" \
+  >/tmp/setup.log 2>&1 &
+SETUP_APP=$!
+setup_request() {   # defined early; the full request() below supersedes it
+  local method=$1 path=$2 body=${3:-} out
+  exec 3<>/dev/tcp/127.0.0.1/"$BOSSMAN_PORT" || return 1
+  {
+    printf '%s %s HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n' "$method" "$path"
+    if [ -n "$body" ]; then
+      printf 'Content-Type: application/json\r\nContent-Length: %d\r\n\r\n%s' "${#body}" "$body"
+    else
+      printf '\r\n'
+    fi
+  } >&3
+  out=$(cat <&3); exec 3<&-
+  printf '%s\n%s\n' "$(printf '%s' "$out" | head -1 | awk '{print $2}')" \
+                      "$(printf '%s' "$out" | sed -n '/^\r$/,$p' | tail -n +2)"
+}
+for _ in $(seq 1 90); do
+  r=$(setup_request GET /healthz 2>/dev/null) && [ "$(printf '%s' "$r" | head -1)" = "200" ] && break
+  sleep 1
+done
+state=$(setup_request GET /api/v1/auth/setup)
+grep -q '"needs_setup":true' <<<"$(printf '%s' "$state" | tail -n +2)" \
+  || { printf '%s' "$state" | head -c 200; fail "a migrated, accountless database does not report needs_setup"; }
+echo "ok  a fresh installation reports that it needs setup"
+created=$(setup_request POST /api/v1/auth/setup '{"username":"chief","password":"a-long-enough-pw"}')
+[ "$(printf '%s' "$created" | head -1)" = "200" ] \
+  || { printf '%s' "$created" | head -c 300; fail "the setup form could not create the first administrator"; }
+grep -q 'access_token' <<<"$(printf '%s' "$created" | tail -n +2)" \
+  || fail "setup returned no token — the operator would have to log in again"
+echo "ok  the setup form created the first administrator and signed them in"
+again=$(setup_request POST /api/v1/auth/setup '{"username":"sneak","password":"another-long-pw"}')
+[ "$(printf '%s' "$again" | head -1)" = "409" ] \
+  || fail "setup is still open after an account exists (got $(printf '%s' "$again" | head -1))"
+echo "ok  setup closed behind itself (409)"
+short=$(setup_request GET /api/v1/auth/setup)
+grep -q '"needs_setup":false' <<<"$(printf '%s' "$short" | tail -n +2)" || fail "needs_setup did not flip"
+kill $SETUP_APP 2>/dev/null; wait $SETUP_APP 2>/dev/null
+
 bossman-create-admin operator testpassword >/tmp/admin.log 2>&1 \
   || { tail -20 /tmp/admin.log; fail "bossman-create-admin"; }
-echo "ok  bossman-create-admin created the first operator"
+echo "ok  bossman-create-admin still works for a scripted install"
 
 # The unit's own ExecStart, run by hand: there is no systemd in a container, and the command line is the part
 # worth testing anyway.
