@@ -288,7 +288,20 @@ func mgmtConfigFields(w http.ResponseWriter, r *http.Request) {
 		owner := asMap(asMap(mustJSON("config_unowned_paths.json"))[path])
 		// The corpus guard yields to a direct measurement — it was only ever a proxy for not knowing the
 		// distribution.
-		disarmed := (seen["exists_elsewhere"] == true && !measuredHere) ||
+		// A verdict measured in a package that does not SHIP this path is about the wrong subject: it answers
+		// "does distrobox contain /etc/os-release" (no) while the file belongs to base-files and is on every
+		// host. Measured: 72 of 79 non-file verdicts whose path is in the corpus name the wrong package.
+		wrongSubject := false
+		if shipped := asSlice(seen["shipped_by"]); len(shipped) > 0 {
+			wrongSubject = true
+			for _, s := range shipped {
+				if name, ok := s.(string); ok && name == seen["package"] {
+					wrongSubject = false
+					break
+				}
+			}
+		}
+		disarmed := wrongSubject || (seen["exists_elsewhere"] == true && !measuredHere) ||
 			(len(owner) > 0 && owner["container_artifact"] != true)
 		if verdict, _ := seen["verdict"].(string); verdict != "file" && !disarmed {
 			// An absent path a maintainer script names is created at install time — a real file on a real

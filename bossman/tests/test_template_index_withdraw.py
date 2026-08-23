@@ -166,3 +166,25 @@ def test_the_corpus_guard_yields_to_a_direct_measurement(tmp_path):
     assert build(catalog, codecs, templates, "redhat", vpath)["paths"]["/etc/thing"]["template"] == "thing"
     # Base has no host to be right about, so the corpus guard still holds there.
     assert build(catalog, codecs, templates, "", vpath)["paths"]["/etc/thing"]["template"] == "thing"
+
+
+def test_a_verdict_about_the_wrong_package_decides_nothing(tmp_path):
+    # A verdict answers "does package P contain path X". When P is not the package that ships X, the answer is
+    # true about P and says nothing about X. Measured: 72 of 79 non-file verdicts whose path is in the corpus
+    # name the wrong package — /etc/os-release was measured in `distrobox` (it belongs to base-files),
+    # /etc/crontab in `cronie` (crontabs). Those produced "no file here" on files present on every host.
+    r = _fixture(tmp_path, {"/etc/thing": {"verdict": "absent", "package": "distrobox",
+                                           "postinst_mentions": False, "exists_elsewhere": True,
+                                           "shipped_by": ["base-files"]}})
+    assert r["paths"]["/etc/thing"]["template"] == "thing"
+    assert r["withdrawn"] == []
+
+
+def test_a_verdict_about_the_right_package_still_withdraws(tmp_path):
+    # The guard must not swallow the sound case: same shape, and the measured package IS the one that ships
+    # the path, so the absence is evidence about the path.
+    r = _fixture(tmp_path, {"/etc/thing": {"verdict": "absent", "package": "thing",
+                                           "postinst_mentions": False, "exists_elsewhere": False,
+                                           "shipped_by": ["thing"]}})
+    assert "/etc/thing" not in r["paths"]
+    assert len(r["withdrawn"]) == 1

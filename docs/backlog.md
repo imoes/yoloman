@@ -218,8 +218,8 @@ new question needs its own `OUT=`).
 | directory | 26 |
 | of the absent: created by a maintainer script | 54 |
 | **index bindings withdrawn** — base (host-independent) | **2001 of 3563** |
-| withdrawn on **debian** (40 more: the file is EL-only) | 2041 |
-| withdrawn on **redhat** (5 more, 1 binding only EL has) | 2005 |
+| withdrawn on **debian** (12 more: the file is EL-only) | 2013 |
+| withdrawn on **redhat** (2 more, 1 binding only EL has) | 2002 |
 | not downloadable, so NO verdict | 678 Debian + 149 EL packages |
 
 Measured on both distributions, and **20 of 83** overlapping paths DISAGREE: `/etc/named.conf` is absent from
@@ -234,11 +234,15 @@ The third run (1069 paths of real config files) withdrew **nothing further** —
 that were never index-bound. Control cases that must survive and do: `/etc/hostname`, `/etc/passwd`,
 `/etc/named.conf`, `/etc/ssh/sshd_config`, `/etc/nginx/nginx.conf`, `/etc/samba/smb.conf`.
 
-Two guards decide when a verdict may not withdraw, and both are recorded fields rather than judgement:
+THREE guards decide when a verdict may not withdraw, and all are recorded fields rather than judgement:
 `exists_elsewhere` (the harvested corpus has real text there — 51 cases, e.g. `/etc/named.conf`, EL-only) and
 `configs/config_unowned_paths.json` (the package manager itself disclaims the file in a base image — 34 of
 debian:12's 106 `/etc` files, e.g. `/etc/hostname`). Container-only artifacts are recorded with that label and
-earn no exemption. **A third run is in progress** over the 1500 registry paths that still carry no verdict.
+earn no exemption. The third is `shipped_by`: a verdict answers "does package P contain path X", so when P is
+not the package that ships X the answer is true about P and says nothing about X. **72 of 79** non-file
+verdicts whose path is in the corpus name the wrong package — `/etc/os-release` was measured in `distrobox`
+(it belongs to base-files), `/etc/crontab` in `cronie` (crontabs), `/etc/bind/named.conf` in a puppet module
+(bind9). Caught in the browser: the Configuration tab warned "no file here" on `/etc/os-release`. **A third run is in progress** over the 1500 registry paths that still carry no verdict.
 
 **Is the named owner a package at all** — `configs/codec_package_claims.json`, from
 `bossman/scripts/audit_package_claims.py`. Found while asking why 678 names could not be downloaded: the list

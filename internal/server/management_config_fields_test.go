@@ -327,3 +327,17 @@ func TestConfigFields_TheFamilysOwnPathVerdictWins(t *testing.T) {
 		t.Errorf("path_verdict = %v; EL ships this file", el)
 	}
 }
+
+func TestConfigFields_AVerdictAboutTheWrongPackageIsNotAWarning(t *testing.T) {
+	fixtureCatalog(t, map[string]string{
+		"config_codecs.json":     `{"/etc/os-release": {"codec": "keyvalue", "packages": ["distrobox"]}}`,
+		"config_directives.json": `{}`,
+		// The registry named distrobox; /etc/os-release belongs to base-files. The measurement is true about
+		// distrobox and says nothing about the path — and the file is on every host.
+		"config_path_verdicts.json": `{"/etc/os-release": {"verdict": "absent", "package": "distrobox",
+			"postinst_mentions": false, "exists_elsewhere": true, "shipped_by": ["base-files"]}}`,
+	})
+	if out := getFields(t, "path=/etc/os-release"); out["path_verdict"] != nil {
+		t.Errorf("path_verdict = %v; the verdict is about distrobox, not about this path", out["path_verdict"])
+	}
+}

@@ -350,6 +350,14 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
         # to offer it HERE.
         if seen.get("exists_elsewhere") and not measured_here:
             continue
+        # THE VERDICT MUST BE ABOUT THIS PATH. It answers "does package P contain X", so when P is not the
+        # package that ships X the answer is true about P and says nothing about X. Measured: 72 of 79
+        # non-file verdicts whose path is in the corpus name the wrong package — /etc/os-release was measured
+        # in `distrobox` (it belongs to base-files), /etc/crontab in `cronie` (crontabs). A direct measurement
+        # of the wrong subject is not evidence, so it must not beat the corpus.
+        shipped_by = seen.get("shipped_by")
+        if isinstance(shipped_by, list) and shipped_by and seen.get("package") not in shipped_by:
+            continue
         owner = unowned.get(path)
         if isinstance(owner, dict) and not owner.get("container_artifact"):
             continue

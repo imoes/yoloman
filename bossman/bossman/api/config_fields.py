@@ -215,7 +215,11 @@ async def config_fields(
                        / "config_unowned_paths.json").get(path)
     # The corpus guard yields to a direct measurement — it was only ever a proxy for "we do not know this
     # host's distribution", and `measured_here` says we do.
-    disarmed = (isinstance(seen, dict) and seen.get("exists_elsewhere")
+    # A verdict measured in a package that does not ship this path is about the wrong subject: it answers
+    # "does distrobox contain /etc/os-release" (no) while the file belongs to base-files and is on every host.
+    wrong_subject = (isinstance(seen, dict) and isinstance(seen.get("shipped_by"), list)
+                     and seen["shipped_by"] and seen.get("package") not in seen["shipped_by"])
+    disarmed = wrong_subject or (isinstance(seen, dict) and seen.get("exists_elsewhere")
                 and not seen.get("measured_here")) or (
         isinstance(owner, dict) and not owner.get("container_artifact"))
     if isinstance(seen, dict) and seen.get("verdict") != "file" and not disarmed:
