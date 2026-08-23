@@ -4,6 +4,20 @@ Running list of open work, so nothing is lost between sessions. Newest themes
 on top. See docs/ui-parity.md for the original walkthrough findings and
 [[project-*]] memories for the standing decisions.
 
+## Running the DB-backed tests (2026-08-23)
+
+16 tests "failed environmentally" for weeks because `settings.database_url` defaults to
+`localhost:5432` and the only database lives in the compose stack. It is PUBLISHED on 55433, and the settings
+prefix is `BOSSMAN_`, so they do run:
+
+    BOSSMAN_DATABASE_URL="postgresql+asyncpg://bossman:bossman@127.0.0.1:55433/bossman" \
+      .venv-host/bin/python -m pytest tests/test_relationships_api.py
+
+That found two real defects in tests I had just written (a float compared exactly, and an assertion that only
+held because an endpoint had no cap) which the skip would have hidden. Note this is the REAL database — the
+tests create and delete their own `owned_name()` rows, but a run of the whole suite against it has not been
+tried and should not be assumed safe.
+
 ## SNMP / off-host monitoring (active feature — "dummy poller agent on Bossman")
 
 Decision: a normal agentic-mcpd co-located with Bossman polls agent-less
@@ -270,20 +284,86 @@ And two findings the deletion exposed:
   builder's source file for `^    "name": {"label"` and imports the `CORE` dict instead — that regex returned
   an empty set, silently curating away every CORE decision, the moment the file moved.)
 
-**Still open — two writers, two indents, 200 000 lines of churn.** `config_codecs.json` and
-`config_directives.json` are written with `indent=2` by the qualify pipeline's `_write_json` and with
-`indent=1` by the recording scripts (`record_path_verdicts.py`, `promote_index_to_catalog.py`). So they
-alternate, and every pass rewrites the whole file: a one-key change and a reformat produce the same diff, which
-means a real change to these catalogs cannot be reviewed. One indent, chosen anywhere, fixes it.
+**~~Two writers, two indents~~ DONE 2026-08-23.** `config_codecs.json` and `config_directives.json` were
+written from ~17 places disagreeing on `indent` (2 vs 1) AND `ensure_ascii` (True vs False), so the two groups
+took turns rewriting 200 000 lines and a one-key change was indistinguishable from a reformat.
+`bossman/bossman/tools/_jsonio.py` is the single writer now (indent=2, `ensure_ascii=False`, sorted, atomic)
+and all 17 call sites use it. The one-time cost was 918 lines — the 1966 `\uXXXX` escapes becoming readable
+UTF-8, which is man-page prose no reviewer could check as `’`. Two things the unification exposed, both from
+writing once from the container and then looking: `mkstemp` creates 0600 and `os.replace()` replaces the MODE
+with the contents, so the catalogs became root-only and the host user could not even `md5sum` them; and
+OWNERSHIP moved the same way, leaving a root-owned file the host batch could no longer update. Both are
+carried over now, and five state files damaged before the fix landed were repaired.
 
-**Still open — the RedHat attestation source is incomplete.** The curation drops a redhat branch that is
-identical to Debian and not attested in `package_universe_real.json`. That listing has 1902 entries and
-contains neither `sssd` nor `nginx`, both of which RHEL certainly ships; `nginx` survives only because it is
-in `CORE`, and `sssd`'s branch was dropped. The rule itself is right — a fabricated branch satisfies
-`fams.get(family)`, so the wizard's honest `family_match="fallback"` never runs — and the drop IS reported.
-What is wrong is the evidence: absence from a partial snapshot is being read as absence from RHEL, which is an
-incomplete disjunction. The fix is a real EL repo listing, not a weaker rule (treating the branch's own
-`source: verified` marker as attestation would be the curation confirming itself).
+**~~The RedHat attestation source is incomplete~~ DONE 2026-08-23**, and the diagnosis was an equivocation
+rather than a gap. `curate_catalog` asked `package_universe_real.json["redhat"]` whether an EL package exists.
+That record answers a different question: built from two Rocky repos and then FILTERED to
+configurable-service candidates, so "absent" meant "not a service candidate in BaseOS or AppStream". Neither
+`sssd` (BaseOS) nor `nginx` (AppStream) is in its 1902 entries — `nginx` survived only via the builder's
+`CORE` table and `sssd`'s branch was dropped, for the canonical RHEL identity client.
+`bossman/bossman/tools/record_el_package_names.py` now measures the real thing in an almalinux:9 container:
+**33 898 names** across baseos+appstream+crb+epel, with the repos each name lives in.
+
+And **EPEL does not attest**, deliberately: the question is whether a role's redhat branch is a real
+translation or a copied Debian guess, and EPEL answers "can this be installed". Measured, EPEL ships `apt` and
+`ufw` — counting it would KEEP exactly the copied branches the pass removes. Attestation is therefore the
+distribution's own repos (7477 names) unioned with the old candidate listing, and EPEL is recorded so it can
+be STATED. That already corrected a curated claim: "ufw is not packaged for RHEL" was false as written, and a
+claim an operator disproves with one `dnf install` costs every other claim here its credibility.
+
+## The enum dropdowns: the gap is mostly not a gap (2026-08-23)
+
+"Why are enums still missing when the qualify batch mines them?" Measured, they are not missing wholesale —
+the stage ran for 9570 of 9584 packages, and **2843 fields across 1371 templates DO carry an enum**. What was
+missing was the REASON for the rest: 25 917 string fields with no dropdown and nothing recorded about why.
+
+`_mine_enums` now writes one reason per field to `configs/schema_enum_abstentions.json` — nothing proposed /
+no source contains any proposed value / only one value grounded (not a choice) / the recorded default
+contradicts the documented set. With that record, `tools/mine_enum_gap.py` (resumable, one process, laguna)
+measured the residue over its first 36 of 1217 candidate templates:
+
+| | |
+|---|---|
+| the model proposed nothing | **236 of 286 (82%)** — and mostly correct |
+| proposed, grounded nowhere | 31 |
+| only one value grounded | 13 |
+| the schema's own default contradicts the grounded set | 5 |
+
+**Yield: +2 enum fields over 36 templates**, so the pass was stopped rather than run for hours at that rate.
+Two findings are worth more than the enums it would have added:
+
+- **The 2072-field "gap" is over-selected by the name heuristic.** `cache_dir`, `feeds.items.url`, `*_version`
+  are genuinely free text, which is why 82% got no proposal. The gap is real but much smaller than 2072.
+- **The recurring names are SHARED, and their documentation is not in the package's man page.** `log_level`
+  appears in **302** templates, `log_format`/`syslog_facility`/`log_facility` in 58; and the 31 that grounded
+  nowhere are systemd unit directives (`restart_policy`, `protect_home`, `protect_system`) whose value sets
+  are real and are documented in `systemd.exec(5)`. Asking a package's own man page about them 302 times
+  cannot work. **Next step: one grounded vocabulary of recurring directive value sets, fetched once from the
+  source that documents each, applied by name** — grounded, not model knowledge, with the man page recorded
+  as the witness. That is the ADMX-parity work, aimed at the 30% of fields that 22 names cover.
+
+Also visible in the record and not yet acted on: **five schemas whose own `default` contradicts their
+declared type** (`rd_mode`: `type: "string"`, `default: False`; `rd_flags`: `type: "string"`, `default: []`).
+Those are broken schema entries, not enum problems, and the record is the first time they were countable.
+
+## Host page payloads — DONE 2026-08-23, and what it left open
+
+The note this replaces said "the Overview loads too slowly, serve it from the DB instead of a live
+pass-through". Measured in the browser, that was the wrong diagnosis: the observed-state cache had already
+landed (15 ms), and the same endpoints answer in 16–97 ms asked alone while taking 930–1029 ms on first load.
+The causes were payload and fan-out, not query cost — `relationships` at **5.46 MB**, the whole fleet table
+fetched to render one row, and a tab's data fetched for every visitor. Result: **5.06 MB → 109 KB**, last call
+**1162 ms → 506 ms**. Details in commit 36d3ab47.
+
+Still open from that work:
+
+- **The poller records one permanent row per ephemeral destination port.** `host_edges` is keyed by
+  (comm, addr, port), so one host has 14 158 distinct `dst_port` values and 28 203 rows that only grow. The
+  API groups them now, so nobody sees it — which is exactly why it should be written down. The fix is a
+  retention or aggregation decision at write time (does a connection to an ephemeral port deserve a permanent
+  row?), and that is a data decision, not a display one.
+- **`metrics/snapshot` is requested twice on first load** (t=131 ms and t=184 ms), 13 KB each. Small, and the
+  second caller was not identified — the two user-triggered `loadLatest()` sites are Poll-now, not load.
 
 ## Measured but not yet shown (the other half of "nothing vanishes silently")
 
