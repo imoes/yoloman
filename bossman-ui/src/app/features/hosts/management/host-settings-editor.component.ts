@@ -172,6 +172,15 @@ import { HostThresholdsComponent } from './host-thresholds.component';
           @if (!writesPerKey(r)) {
             <p class="bm-dim">{{ noPerKeyReason(r) }}</p>
           }
+          <!-- WHY THERE IS NO TEMPLATE EDITOR for this file. A template does exist and was WITHDRAWN: the
+               package ships no file at this path, and Configure writes the whole file, so pressing it would
+               create one nothing reads. Said here, at the point of the absence — a binding that merely
+               vanished is indistinguishable from one that never existed, which is what the withdrawal list
+               was recorded to prevent. -->
+          @if (withdrawnBinding()[r.path]; as w) {
+            <p class="bm-dim">Template <strong>{{ w.template }}</strong> renders this path but is not offered:
+              {{ w.reason }}.</p>
+          }
           @if (machineWritten(r.path); as mw) {
             <p class="bm-dim">This file says it is machine-written (line {{ mw.line }}):
               <em>{{ mw.quote }}</em> — a value set here may be discarded the next time it is generated.</p>
@@ -349,6 +358,8 @@ export class HostSettingsEditorComponent {
                 next: (res) => {
               this.templateIndex.set(res.paths ?? {});
               this.snapinOwned.set(res.snapins ?? {});
+              this.withdrawnBinding.set(Object.fromEntries(
+                (res.withdrawn ?? []).map((w) => [w.path, w])));
             },
             error: () => { this.templateIndex.set({}); this.snapinOwned.set({}); },
           });
@@ -358,6 +369,11 @@ export class HostSettingsEditorComponent {
     });
   }
 
+  /** Bindings the index withdrew for THIS host's family, by path: a template renders the file, and the
+   * package ships nothing there. Kept so the absence of a Configure button has a reachable cause. 2001 of
+   * 3563 bindings are in this state, so the silent version of it would be the common case. */
+  withdrawnBinding = signal<Record<string, { path: string; template: string | null; verdict: string;
+                                             package: string; reason: string }>>({});
   observed = signal<ObservedState | null>(null);
   observedLoading = signal(false);
   observedError = signal<string | null>(null);
@@ -460,7 +476,12 @@ export class HostSettingsEditorComponent {
       // Same reason as the other call site: on a host, the index must be asked FOR that host, or a path that
       // exists on both families resolves to the authoring default.
       this.agentService.configTemplateIndex(agent.id).subscribe({
-        next: (res) => this.templateIndex.set(res.paths ?? {}),
+        // The withdrawal list too, or which call site loaded the index would decide whether the absence of a
+        // Configure button is explained. Two readers of one reply must take the same fields from it.
+        next: (res) => {
+          this.templateIndex.set(res.paths ?? {});
+          this.withdrawnBinding.set(Object.fromEntries((res.withdrawn ?? []).map((w) => [w.path, w])));
+        },
         error: () => this.templateIndex.set({}),
       });
     }
