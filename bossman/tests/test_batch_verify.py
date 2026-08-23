@@ -22,10 +22,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]          # repo root (…/yolo-man)
 BOSSMAN = ROOT / "bossman"
-sys.path.insert(0, str(BOSSMAN / "scripts"))
+sys.path.insert(0, str(BOSSMAN / "scripts"))  # _mcp_pipeline is local-only tooling
 
-import batch_verify as bv                                     # noqa: E402
-import qualify_packages as q                                 # noqa: E402
+# The tools live in the PACKAGE (bossman.tools), not in bossman/scripts/ — that directory held a
+# patched duplicate of each, is untracked, and these tests were green only because it happened to
+# exist on this machine. A clone could not run them.
+from bossman.tools import batch_verify as bv
+from bossman.tools import qualify_packages as q
 from _mcp_pipeline import translate_one                      # noqa: E402
 from bossman.services.checkmk_translation import (           # noqa: E402
     build_checkmk_messages, detect_check_execution,

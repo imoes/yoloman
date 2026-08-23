@@ -29,10 +29,13 @@ from pathlib import Path
 # jinja2 is Ansible's engine; ansible-core is installed, so we load ITS real filter set (no stubs).
 from jinja2 import Environment, StrictUndefined, TemplateError, UndefinedError
 
+from bossman.tools._paths import configs_dir, repo_root
+
 _HERE = Path(__file__).resolve()
-ROOT = _HERE.parents[2]  # repo root (…/yolo-man)
-TEMPLATES = ROOT / "configs" / "config_templates"
-VOCAB_PATH = ROOT / "configs" / "capability_vocabulary.json"
+# parents[2] was the repo root in the container and one level short in a checkout — see _paths.repo_root.
+ROOT = repo_root(__file__)
+TEMPLATES = configs_dir(__file__) / "config_templates"
+VOCAB_PATH = configs_dir(__file__) / "capability_vocabulary.json"
 
 # The delimiters that split the model's single reply into its two artifacts.
 T_MARK = "===TEMPLATE==="

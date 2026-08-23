@@ -22,8 +22,10 @@ live configs/ would make the test fail whenever the catalog grows, which teaches
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_package_catalog import main_config_path  # noqa: E402
+# The tools live in the PACKAGE (bossman.tools), not in bossman/scripts/ — that directory held a
+# patched duplicate of each, is untracked, and these tests were green only because it happened to
+# exist on this machine. A clone could not run them.
+from bossman.tools.build_package_catalog import main_config_path
 
 
 def _seed(pkg: str, path: str) -> dict:

@@ -17,14 +17,18 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the dir holding the `bossman` package —
+# correct in both layouts (unlike the configs path, which is why _paths exists)
+
+from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 from bossman.services.template_gate import template_configures  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[2]
+# FOUND, not counted — parents[2] is one level short in a checkout. See _paths.repo_root.
+ROOT = repo_root(__file__)
 # Configs root is env-overridable (AGENTIC_CONFIGS_DIR) so Bossman can run the
 # catalog/categorization step in-container against the RW-mounted configs — same
 # knob as qualify_packages.py.
-_CONFIGS = Path(os.environ.get("AGENTIC_CONFIGS_DIR", str(ROOT / "configs")))
+_CONFIGS = configs_dir(__file__)
 TEMPLATES_DIR = _CONFIGS / "config_templates"
 CODECS = _CONFIGS / "config_codecs.json"
 DEST = _CONFIGS / "package_catalog.json"
@@ -441,7 +445,26 @@ def main() -> int:
     with_tpl = sum(1 for e in catalog.values() if e["template"])
     print(f"wrote {DEST} ({len(catalog)} packages, {with_tpl} with a template, "
           f"{preserved} classified entries preserved)")
-    return 0
+
+    # THE SECOND HALF OF THE SAME OPERATION, not an optional extra pass.
+    #
+    # This build regenerates every entry from the generators, and the generators do not know the checked
+    # RedHat facts — so a rebuild on its own STRIPS them. Measured on a real run: 24 entries lost their
+    # curation, `apache2` lost the second package `httpd-core` and both `user` fields, and `adminer`'s
+    # intentionally EMPTY redhat config_path (shipped by nothing, and saying so is the point) was replaced
+    # by a guessed /etc/httpd/conf.d/adminer.conf.
+    #
+    # It used to be a separate script invoked after this one by the batch supervisor — so the batch was
+    # right and the on-demand qualify endpoint, which called only this builder, silently de-curated the
+    # catalog on every request. Two steps that must always both run are one operation; leaving the caller
+    # to remember the second is how one caller forgets.
+    #
+    # Imported here rather than at module scope: curate_catalog imports THIS module for the single
+    # definition of "does this template configure its own file", and at module scope that is a cycle.
+    from bossman.tools import curate_catalog
+
+    print("\n-- curation (checked RedHat branches, users, path witnesses) --")
+    return curate_catalog.run()
 
 
 if __name__ == "__main__":

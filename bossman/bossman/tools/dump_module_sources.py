@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from bossman.tools._paths import configs_dir
+
 COLLECTIONS = ["posix", "community.crypto", "community.docker", "community.general"]
 
 # ansible-doc -j for hundreds of names at once is fine, but keep chunks
@@ -70,7 +72,7 @@ def find_source(roots: list[Path], fqcn: str, doc: dict | None = None) -> str | 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "configs" / "module_sources"))
+    parser.add_argument("--out", default=str(configs_dir(__file__) / "module_sources"))
     parser.add_argument("--collections", nargs="*", default=COLLECTIONS)
     parser.add_argument(
         "--only",

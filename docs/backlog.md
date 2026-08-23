@@ -228,6 +228,63 @@ rather than a preference. It is also how a customer's hostname became a FILENAME
 (`docker-test.…yaml`), which is what forced the rewrite. The fix is one import of the existing file content
 as `scope_type: host` rows and the removal of three call sites.
 
+## The on-demand qualify endpoint — DONE 2026-08-23, and it had never worked
+
+`POST /api/v1/packages/{name}/qualify` spawned `python -m bossman.tools.qualify_packages --only <name>` and
+rebuilt the outcome from a 40-line log tail. It now calls `qualify_one()` in this process. Extracting it
+uncovered four defects, three of which returned a plausible answer rather than an error — the kind that
+survives because nothing looks broken:
+
+1. **The endpoint was dead.** It guarded on `/app/scripts/qualify_packages.py`, a path that stopped existing
+   when the tools moved into the package, so every call returned 500 "qualify scripts not available in this
+   deployment". A guard for a file nobody runs is worse than no guard: it fails the working thing.
+2. **It reported the wrong answer.** `codec` and `directives_keys` came from `codecs.get("packages", {})` —
+   and `config_codecs.json` has no top-level `packages` key; it is keyed by PATH, each entry carrying the
+   packages that ship it. So `codec` was always null and `directives_keys` always 0, including for a package
+   whose codec the run had just classified. The values were in `process_package`'s return the whole time.
+3. **An already-current package was reported as a build.** It fell out of the batch's `pending` list, nothing
+   ran, and the caller got `ok: true, template_created: true` — indistinguishable from a fresh build. Now
+   `already_current` says so and `?force=true` asks for the rebuild.
+4. **THE PACKAGED TOOLS COULD NOT FIND `configs/`.** Every one used `Path(__file__).parents[2]`, which is the
+   repo root in the container and ONE SHORT in a checkout — so run from a clone they looked for
+   `bossman/configs/config_templates` and died in `iterdir()`. That is why a patched duplicate of each of the
+   seven tools still sat in the untracked `bossman/scripts/`, one line apart, with the batch running the copy
+   while the product imported the original. `_paths.repo_root()` FINDS the root (the nearest ancestor whose
+   `configs/` holds a catalog) instead of counting directories; the seven duplicates are deleted and the local
+   supervisors invoke `-m bossman.tools.<name>`. It also fixes `enrich_gates`' `go build ./cmd/render-check`,
+   whose cwd was `bossman/` on the host — where `cmd/` does not exist.
+
+And two findings the deletion exposed:
+
+- **Four TRACKED tests were green only because of an UNTRACKED directory.** `test_enrich_gates`,
+  `test_batch_verify`, `test_main_config_path` and `test_qualify_enrich` did `import enrich_gates` off
+  `bossman/scripts/`. A clone could never have run them. Now they import from `bossman.tools`.
+- **The catalog rebuild was half an operation.** `build_package_catalog` regenerates every entry from the
+  generators, which do not know the checked RedHat facts — so a rebuild alone STRIPS them. Measured on a real
+  run: 24 entries lost their curation, `apache2` lost the package `httpd-core` and both `user` fields, and
+  `adminer`'s intentionally EMPTY redhat `config_path` (shipped by nothing, and saying so is the point) was
+  replaced by a guessed `/etc/httpd/conf.d/adminer.conf`. The second half, `curate_catalog`, was an untracked
+  LOCAL script the batch supervisor called and the product could not — so the batch was right and every
+  on-demand qualify de-curated the catalog. It is now in `bossman.tools` and `build_package_catalog.main()`
+  calls it: two steps that must always both run are one operation. (`_core_keys()` also stopped REGEXING the
+  builder's source file for `^    "name": {"label"` and imports the `CORE` dict instead — that regex returned
+  an empty set, silently curating away every CORE decision, the moment the file moved.)
+
+**Still open — two writers, two indents, 200 000 lines of churn.** `config_codecs.json` and
+`config_directives.json` are written with `indent=2` by the qualify pipeline's `_write_json` and with
+`indent=1` by the recording scripts (`record_path_verdicts.py`, `promote_index_to_catalog.py`). So they
+alternate, and every pass rewrites the whole file: a one-key change and a reformat produce the same diff, which
+means a real change to these catalogs cannot be reviewed. One indent, chosen anywhere, fixes it.
+
+**Still open — the RedHat attestation source is incomplete.** The curation drops a redhat branch that is
+identical to Debian and not attested in `package_universe_real.json`. That listing has 1902 entries and
+contains neither `sssd` nor `nginx`, both of which RHEL certainly ships; `nginx` survives only because it is
+in `CORE`, and `sssd`'s branch was dropped. The rule itself is right — a fabricated branch satisfies
+`fams.get(family)`, so the wizard's honest `family_match="fallback"` never runs — and the drop IS reported.
+What is wrong is the evidence: absence from a partial snapshot is being read as absence from RHEL, which is an
+incomplete disjunction. The fix is a real EL repo listing, not a weaker rule (treating the branch's own
+`source: verified` marker as attestation would be the curation confirming itself).
+
 ## Measured but not yet shown (the other half of "nothing vanishes silently")
 
 `/config-fields` carries measured statements about a file that no screen showed. Displaying them is the point

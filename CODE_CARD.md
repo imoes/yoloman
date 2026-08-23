@@ -86,6 +86,16 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
   decide": all 81 unmeasured claims whose real file is in the corpus came back `no-evidence`, because the
   shipped `/etc/security/limits.conf`, `/etc/sysctl.conf` and 79 others are entirely comments. First is a
   task, second is a dead end for this method — and `/config-fields`'s provenance note now says which.
+- **the qualify pipeline** — `bossman/bossman/tools/` (in the package, shipped): `qualify_packages` (codec →
+  directives → template → enum, per-package, resumable), `build_package_catalog` (which calls
+  `curate_catalog` itself — a rebuild without the curation strips the checked RedHat facts from 24 entries),
+  `enrich_gates`, `mine_directive_values`, `classify_config_codecs`, `batch_verify`. Run the batch with
+  `python -u -m bossman.tools.<name>`; ONE package on demand goes through `qualify_one()`, which
+  `POST /api/v1/packages/{name}/qualify` (+ the MCP tool) calls IN PROCESS and reports from its return —
+  `already_current`, the codec, enums/directives mined, and `detail` for a skip or an unreachable LLM.
+  `?force=true` clears that package's markers first. Paths come from `tools/_paths.py`, which FINDS the repo
+  root rather than counting `parents[2]` — that constant differed between the container and a checkout, which
+  is why a patched duplicate of every tool used to live in the untracked `bossman/scripts/`.
 - **one field spec, two servers** — `GET /api/v1/config-fields?path=` is the single describe() for a config
   file (`write: codec|template|freeform|unknown` + typed `fields`). Bossman computes it from the rules
   (`bossman/bossman/api/config_fields.py`); a STANDALONE agent serves the same answer from recorded

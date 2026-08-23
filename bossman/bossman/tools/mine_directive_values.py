@@ -24,7 +24,10 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the dir holding the `bossman` package —
+# correct in both layouts (unlike the configs path, which is why _paths exists)
+
+from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # sibling import
 
 from classify_config_codecs import man_page  # noqa: E402 — reuse the exact man-page lookup
@@ -122,7 +125,7 @@ async def mine_one(key: str, doc: str, chat: ChatClient) -> dict[str, dict]:
 
 
 async def run(args) -> None:
-    root = Path(__file__).resolve().parents[2]
+    root = repo_root(__file__)
     codecs_path = root / "configs" / "config_codecs.json"
     if not codecs_path.exists():
         print("no config_codecs.json — run classify_config_codecs.py first")

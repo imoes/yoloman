@@ -23,7 +23,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the dir holding the `bossman` package —
+# correct in both layouts (unlike the configs path, which is why _paths exists)
+
+from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 
 from bossman.services.chat_client import ChatClient  # noqa: E402
 
@@ -182,7 +185,7 @@ async def run(args) -> None:
     # Resume: skip man keys already in the registry so a re-run only spends the
     # LLM on NEW configs (from newly-installed packages), not the whole set
     # again. --force re-classifies everything; --only <names> always wins.
-    dest_path = Path(__file__).resolve().parents[2] / "configs" / "config_codecs.json"
+    dest_path = configs_dir(__file__) / "config_codecs.json"
     already = set(json.loads(dest_path.read_text())) if dest_path.exists() else set()
     keys = sorted(by_man)
     if not args.force and not only:
@@ -231,7 +234,7 @@ async def run(args) -> None:
         }
         print(f"[{i}/{len(keys)}] {key}: {cls.get('codec')} sep={cls.get('separator','')!r} ({cls.get('confidence')})")
 
-    outdir = Path(__file__).resolve().parents[2] / "configs"
+    outdir = configs_dir(__file__)
     outdir.mkdir(parents=True, exist_ok=True)
     dest = outdir / "config_codecs.json"
     existing = {}

@@ -44,6 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))          # scripts/ — enrich_gates
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))       # bossman/ — services
 
+from bossman.tools._paths import configs_dir, repo_root  # noqa: E402
 import enrich_gates as EG  # noqa: E402
 from mine_directive_values import mine_one  # noqa: E402 — the per-directive value miner, reused as a stage
 from bossman.services.chat_client import ChatClient, ChatClientError  # noqa: E402
@@ -70,13 +71,15 @@ SEARXNG = os.environ.get("YOLOMAN_SEARX_BASE", "")
 # drive the Management snapins.
 _CURATED = frozenset({"nginx-vhost", "apache-vhost", "caddy", "haproxy", "traefik",
                       "apt-proxy", "suse-proxy"})
-ROOT = Path(__file__).resolve().parents[2]
+# FOUND, not counted: parents[2] is the repo root in the container and one level short in a checkout,
+# which is why a patched duplicate of this file used to live in bossman/scripts/. See _paths.
+ROOT = repo_root(__file__)
 # The configs/ root holds every artifact + state file. Default to the repo's
 # configs/ (host batch); env-override with AGENTIC_CONFIGS_DIR so Bossman can run
 # this in-container against the RW bind-mounted configs (the on-demand qualify
 # endpoint sets it). One knob moves templates, codecs, directives, catalog AND
 # the .state files together, so an in-container run shares the host's state.
-_CONFIGS = Path(os.environ.get("AGENTIC_CONFIGS_DIR", str(ROOT / "configs")))
+_CONFIGS = configs_dir(__file__)
 TEMPLATES_DIR = _CONFIGS / "config_templates"
 CATALOG = _CONFIGS / "package_catalog.json"
 UNIVERSE = _CONFIGS / "package_universe_real.json"
@@ -1329,6 +1332,148 @@ async def process_package(
     return result
 
 
+def build_entry_map(catalog: dict) -> dict[str, dict]:
+    """name → the catalog entry that describes it, keyed by TEMPLATE and by PACKAGE.
+
+    Extracted from main() so the on-demand path resolves a package exactly the way the batch does. It is
+    not a lookup dressed up as a function: the second loop is the fix for a measured bug, and an endpoint
+    that skipped it would silently produce a different template for the same package.
+    """
+    entry_by_name: dict[str, dict] = {}
+    for pkg_name, pkg_info in catalog.items():
+        tpl = pkg_info.get("template")
+        if tpl:
+            entry_by_name.setdefault(tpl, {"name": pkg_name, **pkg_info})
+    # …and by PACKAGE name, so a worklist item that is a package rather than a template still
+    # inherits its role's config_path. Without this, `libvirt-daemon` arrived with no catalog entry,
+    # so cfg_path was empty, so the picker fell back to the shallowest conffile and templated
+    # /etc/default/libvirtd (6 SysV variables) instead of /etc/libvirt/libvirtd.conf (17 kB). The
+    # role knows the path; the package just had no way to ask. setdefault keeps the template
+    # mapping above authoritative where both apply.
+    for pkg_name, pkg_info in catalog.items():
+        for dep in ((pkg_info.get("families") or {}).get("debian") or {}).get("packages") or []:
+            if isinstance(dep, str) and dep:
+                entry_by_name.setdefault(dep, {"name": pkg_name, **pkg_info})
+    return entry_by_name
+
+
+class SharedCatalogs:
+    """The five files every qualify run reads and writes, with the MERGING flush.
+
+    Why a class rather than five locals: the on-demand endpoint writes the same files as the batch service,
+    and the safety of that is entirely in `flush()` — re-read, apply only the keys this process touched,
+    write. Given as five separate dicts, the second caller reimplements the flush, and the first wholesale
+    overwrite silently discards the other's pass. One object means one flush.
+
+    The window is not closed (this is read-modify-write, not a transaction) but it shrinks from "the whole
+    pass" — minutes — to "the flush", milliseconds.
+    """
+
+    def __init__(self) -> None:
+        self.state = TrackedDict(_load(STATE, {}))
+        self.pipeline_done = TrackedDict(_load(PIPELINE_STATE, {}))
+        self.directives_done = TrackedDict(_load(DIRECTIVES_STATE, {}))
+        self.skip_set = _load_skip_set()
+        self.codecs = TrackedDict(_load(CODECS, {}))
+        self.directives = TrackedDict(_load(DIRECTIVES, {}))
+
+    def flush(self) -> None:
+        _write_json(STATE, self.state.merged_with_disk(STATE), sort=False)
+        _write_json(PIPELINE_STATE, self.pipeline_done.merged_with_disk(PIPELINE_STATE), sort=False)
+        _write_json(DIRECTIVES_STATE, self.directives_done.merged_with_disk(DIRECTIVES_STATE), sort=False)
+        _write_json(CODECS, self.codecs.merged_with_disk(CODECS), sort=True)
+        _write_json(DIRECTIVES, self.directives.merged_with_disk(DIRECTIVES), sort=True)
+        # The skip-set only ever grows, so a union is the whole merge it needs.
+        _save_skip_set(self.skip_set | _load_skip_set())
+
+    def stale(self, name: str) -> tuple[bool, bool]:
+        """(codec/template/enum is behind, directives are behind) — the two independently versioned halves."""
+        return (self.pipeline_done.get(name) != PIPELINE_VERSION,
+                self.directives_done.get(name) != DIRECTIVES_VERSION)
+
+    def mark_done(self, name: str) -> None:
+        self.pipeline_done[name] = PIPELINE_VERSION
+        self.directives_done[name] = DIRECTIVES_VERSION
+
+    def clear(self, name: str) -> list[str]:
+        """Forget every marker for one name so the next run redoes it. What `--rebuild --only` does,
+        scoped to a single package: a global rebuild would re-run ~5400 packages for days."""
+        cleared = []
+        for data in (self.state, self.pipeline_done, self.directives_done):
+            for key in [k for k in list(data) if k == name or Path(k).name == name]:
+                del data[key]
+                cleared.append(key)
+        self.skip_set.discard(name)
+        return cleared
+
+
+def llm_client(llm_url: str = "", llm_model: str = "", llm_token: str = "",
+               preset: str = "qwen79b") -> ChatClient:
+    """The LLM backend: an explicit endpoint wins over the baked-in preset.
+
+    The AI endpoint must be CONFIGURABLE and not hardwired — Bossman passes its own configured backend, and
+    a caller that forgot to would silently talk to whatever host the preset names.
+    """
+    if llm_url and llm_model:
+        return ChatClient(llm_url, llm_model, token=llm_token, timeout=900.0)
+    base_url, model_id = MODELS[preset]
+    return ChatClient(base_url, model_id, token="", timeout=900.0)
+
+
+async def qualify_one(
+    name: str, *, llm_url: str = "", llm_model: str = "", llm_token: str = "",
+    preset: str = "qwen79b", force: bool = False,
+) -> dict:
+    """Run the pipeline for ONE package, IN THIS PROCESS, and return what it did.
+
+    The on-demand endpoint used to spawn `python -m bossman.tools.qualify_packages --only <name>` and then
+    reconstruct the outcome from a 40-line log tail plus a re-read of the config files. Two things were wrong
+    with that beyond the cost of an interpreter:
+
+      * process_package ALREADY RETURNS the outcome — status, codec, whether a template was written, how many
+        enums and directives were mined, whether the enrich gates passed. Parsing prose to recover a value
+        the callee handed back is a self-inflicted loss of information, and it is why the endpoint reported
+        `codec: null` for packages whose codec it had just classified.
+      * An already-current package fell out of the batch's `pending` list, so NOTHING ran and the caller was
+        told `ok: true` — indistinguishable from having just built it. Here that is `already_current`, a
+        stated answer, and `force=True` is how a caller asks for the rebuild instead.
+
+    Returns process_package's dict plus `already_current`, `cleared` and `flushed`.
+    """
+    catalog = _load(CATALOG, {})
+    universe_deb: dict[str, dict] = _load(UNIVERSE, {}).get("debian", {})
+    shared = SharedCatalogs()
+
+    cleared: list[str] = []
+    if force:
+        cleared = shared.clear(name)
+    run_full, run_directives = shared.stale(name)
+    if not (run_full or run_directives):
+        return {"status": "ok", "already_current": True, "cleared": cleared, "flushed": False,
+                "pipeline_version": PIPELINE_VERSION, "directives_version": DIRECTIVES_VERSION}
+
+    entry = build_entry_map(catalog).get(name) or {**universe_deb.get(name, {}), "name": name}
+    qwen = llm_client(llm_url, llm_model, llm_token, preset)
+    searx = SearxngClient(SEARXNG)
+    # Blocking: it may compile the gonja render-check binary. Off the loop, or a single qualify request
+    # stalls every other request this Bossman is serving — which the subprocess never had to think about.
+    await asyncio.to_thread(EG.render_check_bin)
+
+    result = await process_package(
+        name, entry, searx, qwen, shared.codecs, shared.state, shared.directives,
+        run_full, run_directives, asyncio.Lock(),
+    )
+    if result.get("status") == "skip":
+        shared.skip_set.add(name)
+    elif result.get("status") != "failed":
+        # A "failed" package is a step whose LLM was down. NOT marking it done is the whole reason the batch
+        # is resumable — marking it would record a package as qualified that never was.
+        shared.mark_done(name)
+    await asyncio.to_thread(shared.flush)
+    return {**result, "already_current": False, "cleared": cleared, "flushed": True,
+            "pipeline_version": PIPELINE_VERSION, "directives_version": DIRECTIVES_VERSION}
+
+
 async def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--limit", type=int, default=0, help="max packages processed this pass")
@@ -1393,30 +1538,14 @@ async def main() -> int:
         print("rebuild: cleared enum state, pipeline state, directive state and skip-set", flush=True)
 
     # TrackedDict, not dict: a pass runs for minutes and another writer may touch the same files
-    # meanwhile. See TrackedDict for the measurement — flush() below merges instead of overwriting.
-    state = TrackedDict(_load(STATE, {}))
-    pipeline_done = TrackedDict(_load(PIPELINE_STATE, {}))
-    directives_done = TrackedDict(_load(DIRECTIVES_STATE, {}))
-    skip_set = _load_skip_set()
-    codecs = TrackedDict(_load(CODECS, {}))
-    directives = TrackedDict(_load(DIRECTIVES, {}))
+    # meanwhile. See TrackedDict and SharedCatalogs.flush for the measurement — the flush MERGES
+    # rather than overwriting, and it is the same object the on-demand endpoint uses.
+    shared = SharedCatalogs()
+    state, codecs, directives = shared.state, shared.codecs, shared.directives
+    pipeline_done, directives_done, skip_set = shared.pipeline_done, shared.directives_done, shared.skip_set
 
     # Package entry map: catalog templates + universe metadata (section/desc).
-    entry_by_name: dict[str, dict] = {}
-    for pkg_name, pkg_info in catalog.items():
-        tpl = pkg_info.get("template")
-        if tpl:
-            entry_by_name.setdefault(tpl, {"name": pkg_name, **pkg_info})
-    # …and by PACKAGE name, so a worklist item that is a package rather than a template still
-    # inherits its role's config_path. Without this, `libvirt-daemon` arrived with no catalog entry,
-    # so cfg_path was empty, so the picker fell back to the shallowest conffile and templated
-    # /etc/default/libvirtd (6 SysV variables) instead of /etc/libvirt/libvirtd.conf (17 kB). The
-    # role knows the path; the package just had no way to ask. setdefault keeps the template
-    # mapping above authoritative where both apply.
-    for pkg_name, pkg_info in catalog.items():
-        for dep in ((pkg_info.get("families") or {}).get("debian") or {}).get("packages") or []:
-            if isinstance(dep, str) and dep:
-                entry_by_name.setdefault(dep, {"name": pkg_name, **pkg_info})
+    entry_by_name = build_entry_map(catalog)
 
     # Work list: existing template dirs first (fix/regrade), then universe.
     existing_names = sorted(d.name for d in TEMPLATES_DIR.iterdir() if d.is_dir())
@@ -1480,39 +1609,23 @@ async def main() -> int:
     if args.limit:
         pending = pending[: args.limit]
 
-    # Explicit endpoint (Bossman-configured / on-demand) wins over the preset.
+    # Explicit endpoint (Bossman-configured / on-demand) wins over the preset — decided by llm_client(),
+    # the same function the on-demand path calls, so "which backend answered" cannot differ between them.
     if args.llm_url and args.llm_model:
-        base_url, model_id, token = args.llm_url, args.llm_model, args.llm_token
-        print(f"qualify LLM backend: {model_id} @ {base_url} (explicit)", flush=True)
+        print(f"qualify LLM backend: {args.llm_model} @ {args.llm_url} (explicit)", flush=True)
     else:
-        base_url, model_id = MODELS[args.model]
-        token = ""
-        print(f"qualify LLM backend: {args.model} ({model_id})", flush=True)
-    qwen = ChatClient(base_url, model_id, token=token, timeout=900.0)
+        print(f"qualify LLM backend: {args.model} ({MODELS[args.model][1]})", flush=True)
+    qwen = llm_client(args.llm_url, args.llm_model, args.llm_token, args.model)
     searx = SearxngClient(SEARXNG)
     # Build the gonja render-check binary ONCE up front — lazily building it inside concurrent workers
     # would race two `go build`s onto the same output path.
     EG.render_check_bin()
 
     lock = asyncio.Lock()   # guards the shared state dicts + flush against concurrent workers
-
-    def flush() -> None:
-        """Write this pass's changes WITHOUT discarding anyone else's.
-
-        Every one of these files is shared: a second pass, the on-demand qualify endpoint and an
-        operator all write them. Re-reading immediately before writing and applying only the keys
-        this process touched turns a wholesale overwrite into a merge. The window is not closed
-        entirely — this is read-modify-write, not a transaction — but it shrinks from "the whole
-        pass" (minutes) to "the flush" (milliseconds), and the flush is already serialised by
-        `lock` against this pass's own workers.
-        """
-        _write_json(STATE, state.merged_with_disk(STATE), sort=False)
-        _write_json(PIPELINE_STATE, pipeline_done.merged_with_disk(PIPELINE_STATE), sort=False)
-        _write_json(DIRECTIVES_STATE, directives_done.merged_with_disk(DIRECTIVES_STATE), sort=False)
-        _write_json(CODECS, codecs.merged_with_disk(CODECS), sort=True)
-        _write_json(DIRECTIVES, directives.merged_with_disk(DIRECTIVES), sort=True)
-        # The skip-set only ever grows, so a union is the whole merge it needs.
-        _save_skip_set(skip_set | _load_skip_set())
+    # The merging write lives on SharedCatalogs, shared with the on-demand endpoint — see its docstring for
+    # why a second copy of it would be the bug it prevents. Here it is additionally serialised by `lock`
+    # against this pass's own concurrent workers.
+    flush = shared.flush
 
     total = len(pending)
     conc = max(1, args.concurrency)
@@ -1537,8 +1650,7 @@ async def main() -> int:
             else:
                 # A directives-only fast pass leaves pipeline_done as it already
                 # was (still == PIPELINE_VERSION); a full pass (re)affirms it.
-                pipeline_done[name] = PIPELINE_VERSION
-                directives_done[name] = DIRECTIVES_VERSION
+                shared.mark_done(name)
                 bits = []
                 if r.get("codec"):
                     bits.append(f"codec={r['codec']}")

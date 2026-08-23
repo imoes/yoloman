@@ -1518,20 +1518,26 @@ def build_mcp_server(
         return out
 
     @mcp.tool()
-    async def qualify_package(name: str) -> dict[str, Any]:
+    async def qualify_package(name: str, force: bool = False) -> dict[str, Any]:
         """Create ALL config artifacts for a package — codec classification,
         per-directive value catalog, the Jinja2 template + values schema, and enum
         enrichment — then categorize it into the package catalog (einsortiert).
 
-        Runs the SAME qualify pipeline the host batch uses (scripts/qualify_packages.py
-        + build_package_catalog.py), against the RW-mounted configs and Bossman's
+        Runs the SAME pipeline the host batch uses (bossman.tools.qualify_packages +
+        build_package_catalog), against the RW-mounted configs and Bossman's
         CONFIGURED AI endpoint. Use this to onboard a new package/service so it shows
-        up in the wizard, Roles & Features and the gpedit config editor. Returns
-        whether the template was created, the assigned category, the codec, and a
-        log tail. Takes a couple of minutes."""
+        up in the wizard, Roles & Features and the gpedit config editor. Takes a
+        couple of minutes.
+
+        Returns what the run DID: `already_current` (every marker was up to date, so
+        nothing ran — pass force=True to rebuild anyway), the codec it classified, how
+        many enums and directives it mined, whether the Lego enrich gates passed, the
+        assigned category, and `detail` — the reason behind a skip, a failure or a
+        gate that stopped the enrich step. The pipeline's progress output goes to
+        Bossman's log rather than into this reply."""
         from bossman.api.package_qualify import run_qualify
 
-        res = await run_qualify(name)
+        res = await run_qualify(name, force=force)
         return res.model_dump()
 
     @mcp.tool()
