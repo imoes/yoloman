@@ -479,6 +479,20 @@ export interface ConfigTemplate {
   sample: Record<string, unknown>;
 }
 
+/** One entry of GET /config-templates — the LISTING, which deliberately carries no body.
+ *
+ * A separate type from ConfigTemplate rather than making its fields optional: with `template?: string` the
+ * compiler accepts a listing entry wherever a body is required and the mistake surfaces as an empty render
+ * at runtime. Two shapes, because they answer two questions — "which templates are there" and "what does
+ * this one say". */
+export interface ConfigTemplateListing {
+  name: string;
+  /** The file it renders, from the template's own meta.json. Null when the template records no target. */
+  target_path?: string | null;
+  /** Why the claim exists: `deb`/`rpm` = a real package shipped this file, `man` = mined from documentation. */
+  source?: string | null;
+}
+
 /** One entry of GET /config-templates/index — "this exact path is rendered by this template".
  *
  * `source` is the reason the claim exists and is shown to the user: `catalog` means a role declares

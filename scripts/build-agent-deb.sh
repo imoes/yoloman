@@ -26,6 +26,11 @@ ROOT="$(pwd)"
 CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o agentic-mcpd ./cmd/agentic-mcpd
 
 mkdir -p deploy-artifacts
+# The config templates the package carries: the reachable subset, not the whole tree. This also ASSERTS
+# closure — if the index or the catalog names a template that is not on disk, the build stops here rather
+# than shipping a console that offers a path it cannot serve. See the script's header for the measurement.
+python3 scripts/stage-agent-templates.py
+
 # nfpm resolves the config's relative src paths (../agentic-mcpd, ../configs/…)
 # against the CWD, so run it from packaging/. Output to absolute paths. We build
 # BOTH a .deb (Debian/Ubuntu) and a .rpm (RHEL/Fedora/SUSE) from the one config.

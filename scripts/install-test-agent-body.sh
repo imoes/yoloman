@@ -119,6 +119,42 @@ if grep -q '"path_verdict"' <<<"$host"; then
 fi
 echo "ok  a system-created file is NOT reported as missing"
 
+# THE TEMPLATE SURFACE, on a real installed host.
+#
+# 1. The listing must carry no bodies. It used to return every template's j2 source in one reply — 36 MB
+#    across 5474 directories — and the regression is invisible: the UI still works, each request just costs
+#    36 MB again. So the shape is asserted here, where the reply comes off a real package.
+# 2. It must state what it withholds. The package ships the ~1050 templates the index or the catalog names
+#    and leaves out 4424 that nothing can ask for; a shorter list with no explanation is indistinguishable
+#    from a broken build.
+# 3. And the one that actually matters: EVERY path the index binds must have its template installed. A bound
+#    path with no body is offered in the editor and fails on Apply — the failure mode that made shipping a
+#    subset worth checking at all rather than trusting the build's own closure test.
+tpls=$(body_of "$(request GET /api/v1/config-templates "" "Bearer $TOKEN")")
+grep -q '"template":' <<<"$tpls" && fail "the listing carries template bodies again"
+grep -q '"withheld":[0-9]' <<<"$tpls" || fail "the listing does not say how many templates were withheld"
+grep -q '"criterion":"' <<<"$tpls" || fail "templates are withheld without stating the criterion"
+echo "ok  listing has no bodies, withholds $(sed -n 's/.*"withheld":\([0-9]*\).*/\1/p' <<<"$tpls") with a stated reason"
+
+# One template fetched by name, chosen from the index rather than hard-coded: a name that is bound on THIS
+# host's family is the one whose absence would matter.
+BOUND=$(grep -o '"template":"[^"]*"' <<<"$idx" | head -1 | cut -d'"' -f4)
+[ -n "$BOUND" ] || fail "the index binds no template at all"
+one=$(body_of "$(request GET "/api/v1/config-templates/$BOUND" "" "Bearer $TOKEN")")
+grep -q '"template":"' <<<"$one" || fail "GET /config-templates/$BOUND returned no body"
+echo "ok  the index-bound template $BOUND has a body"
+
+# Closure, checked against the filesystem: every distinct template the installed index names must be a
+# directory with a template.j2. Done in bash over the installed record — no python in either image.
+MISSING=0
+for name in $(grep -o '"template":"[^"]*"' /usr/share/agentic-mcp/configs/config_template_index.json \
+              | cut -d'"' -f4 | sort -u); do
+  [ -s "/usr/share/agentic-mcp/configs/config_templates/$name/template.j2" ] || {
+    MISSING=$((MISSING + 1)); [ "$MISSING" -le 5 ] && echo "   bound but not installed: $name"; }
+done
+[ "$MISSING" -eq 0 ] || fail "$MISSING index-bound templates have no body on this host"
+echo "ok  every template the installed index binds has its body installed"
+
 gen=$(body_of "$(request GET /api/v1/config-generated "" "Bearer $TOKEN")")
 grep -q '"count":[1-9]' <<<"$gen" || fail "config-generated reports nothing"
 echo "ok  config-generated reports $(sed -n 's/.*"count":\([0-9]*\).*/\1/p' <<<"$gen") machine-written files"

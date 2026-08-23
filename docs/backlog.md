@@ -184,17 +184,37 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
 
 ## Two architecture questions the packaging work surfaced (2026-08-23)
 
-**The agent should not ship the whole template catalog.** It carries `configs/config_templates` — 5474
-directories, 142 MB uncompressed, MORE than the bundled Python interpreter (104 MB) — and Bossman ships the
-same tree a second time. A managed node needs the templates for the roles IT has, which is a handful.
+**~~The agent should not ship the whole template catalog.~~ DONE 2026-08-23, and NOT the way this entry
+proposed.** The entry called for pushing templates on demand "the way checks are pushed"
+(`services/discovery.py` → `POST /api/v1/modules/apply`). Measuring first said something better, and the
+correction is the interesting part:
 
-The mechanism already exists and is proven for a sibling problem: **checks are pushed on demand**
-(`services/discovery.py` → `POST /api/v1/modules/apply`, with `sidecar_format`, a sha256 and the agent
-persisting them under `/var/lib/agentic-mcp/modules.d`). Templates should travel the same way: Bossman knows
-which roles a host has (`installed_roles`) and which template renders each of its files (the path→template
-index), so it can deliver exactly those and nothing else. That removes ~140 MB from the agent package, ends
-the duplication, and — the part that matters more — means a host's template set follows its roles instead of
-being a snapshot of the catalog at package build time.
+1. **The managed write path never reads that tree.** A template resource carries its Jinja2 source INLINE —
+   `internal/state/state.go:43` and `:145` hand the body straight to `template_render`. Bossman renders from
+   the document it sent. So the tree exists for ONE consumer: the standalone console, on a host with no
+   Bossman — which is exactly the host a push could never reach.
+2. **That console can only reach a template something NAMES.** It opens one because a path in
+   `config_template_index.json` binds it or a `package_catalog.json` entry references it. Measured: 1037
+   index-bound + 472 catalog-referenced = **1050 distinct, 7.2 MB**. The other **4424** are named by nothing;
+   no request can return them.
+
+So a delivery mechanism would have been a SECOND way to get a template onto a host, with no caller — the
+managed path already carries the body and the standalone path cannot name these. The fix was to stop shipping
+what cannot be asked for: `scripts/stage-agent-templates.py` computes the reachable set, **asserts closure**
+(a bound path whose body is missing would be offered and then fail on Apply) and records what it withheld in
+`configs/config_templates_manifest.json`, which `GET /api/v1/config-templates` quotes.
+
+Measured on the package: **22.5 MB → 15.4 MB**, installed **82.8 MB → 55.2 MB**, files **28 037 → 5 563**.
+Closure is re-checked on a real installed host by the install test (every template the installed index binds
+has a body), and the agent↔Bossman `/config-fields` differential still AGREES on 199 paths.
+
+The same measurement found the listing endpoint returning **every** template's body in one reply — ~36 MB, on
+both sides — while its seven callers each wanted one hard-coded name. Now name + `target_path` only, with
+`GET /config-templates/{name}` for the body: **197 KB / 164 ms** for 5474 entries, 8.2 KB for the one a
+snapin opens.
+
+*Still open, and smaller than it looked:* Bossman ships the whole tree a second time in its own package
+(~36 MB of ~98 MB). That one is correct — Bossman serves the authoring view and must have all of it.
 
 **`host_vars` has two sources of truth.** The database has `scope_vars` (scope_type ou|group|host, GPO-merged
 host < group < OU root→leaf by `resolve_scope_vars`) — and beside it `plan_loader.load_host_vars()` reads

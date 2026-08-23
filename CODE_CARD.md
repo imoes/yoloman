@@ -65,6 +65,11 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
 
 - **config-templates** — `configs/config_templates/<name>/` = `template.j2` (gonja/Jinja2) + `schema.json`
   (typed fields) + `sample.json` + `capabilities.json`. DB-bound to hosts, edited as VALUES in the WebUI.
+  `GET /api/v1/config-templates` LISTS them (name + `target_path`, no bodies); `…/{name}` returns the one.
+  Bossman serves the whole tree; the AGENT PACKAGE ships only what a request can name — 1050 of 5474, staged
+  by `scripts/stage-agent-templates.py`, which asserts closure and records the rest in
+  `configs/config_templates_manifest.json` so the listing can say what it withheld. The managed write path
+  needs none of it: a template resource carries its body inline (`internal/state/state.go:43`).
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
 - **who owns it** — `configs/config_unowned_paths.json`, from `find_unowned_base_files.py` run in a base

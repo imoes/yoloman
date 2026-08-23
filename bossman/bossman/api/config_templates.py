@@ -63,17 +63,41 @@ async def list_config_templates(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict:
-    """Every Class-B template: [{name, template, schema, sample}]. `schema`
-    drives the edit form; `template` is sent inline to the agent on apply."""
+    """Every Class-B template as [{name, target_path, source}] — NO BODIES.
+
+    It used to return each template's body, schema and sample: measured against this catalog, a 36 MB JSON
+    document assembled in memory on every call. The host page was moved off it once already (see the note on
+    /config-templates/index, "replaces a 33.7 MB download"), but seven package snapins still called it — each
+    to pull the whole catalog and then `.find()` ONE hard-coded name. They now ask for that name directly.
+
+    A listing is a listing: what a caller choosing a template needs is the name, the file it renders and why
+    the claim exists. The body comes from GET /config-templates/{name}, for the one that was chosen.
+
+    NO withheld COUNT HERE, deliberately. Bossman serves the whole tree, so there is nothing withheld to
+    report; the agent's reply carries that number because the PACKAGE ships only the reachable subset. Adding
+    a permanent "withheld: 0" to this reply would be a second place claiming to answer a question only the
+    agent has.
+    """
     root = Path(settings.config_templates_dir)
     templates = []
     if root.is_dir():
         for d in sorted(root.iterdir()):
-            if d.is_dir():
-                t = _load_template(d)
-                if t is not None:
-                    templates.append(t)
-    return {"templates": templates}
+            # is_file() rather than loading it: the listing must not read 7 MB off disk to count.
+            if not d.is_dir() or not (d / "template.j2").is_file():
+                continue
+            entry: dict = {"name": d.name}
+            meta = d / "meta.json"
+            if meta.is_file():
+                try:
+                    m = json.loads(meta.read_text())
+                except ValueError:
+                    m = {}
+                if isinstance(m, dict):
+                    entry["target_path"] = m.get("target_path")
+                    entry["source"] = m.get("source")
+            templates.append(entry)
+    return {"templates": templates,
+            "detail": "GET /api/v1/config-templates/{name} for a template's body and schema"}
 
 
 @router.get("/api/v1/config-templates/index")

@@ -140,11 +140,11 @@ export class ApacheVhostsComponent {
   reload(): void {
     this.loading.set(true); this.msg.set(''); this.err.set('');
     forkJoin({
-      tpls: this.agentService.configTemplates(),
+      tpl: this.agentService.configTemplate('apache-vhost'),
       avail: this.agentService.callTool(this.agentId(), 'find', { paths: [DEB_AVAIL], file_type: 'file', pattern: '*.conf' }),
     }).subscribe({
-      next: ({ tpls, avail }) => {
-        const tpl = tpls.templates.find((t) => t.name === 'apache-vhost');
+      next: ({ tpl: { tpl, missing }, avail }) => {
+        if (missing) this.err.set(missing);
         this.tplBody = tpl?.template || '';
         if (tpl?.schema) this.schema.set(tpl.schema as ParamSchema);
         const list = ((avail.result as { data?: { path: string }[] })?.data) || [];

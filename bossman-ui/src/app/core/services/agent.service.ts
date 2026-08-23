@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, concat, of, tap } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, concat, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, ConfigTemplateIndex, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, ConfigTemplateListing, ConfigTemplateIndex, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -154,13 +154,19 @@ export class AgentService {
     );
   }
 
-  /** Block K2 — the Class-B config template catalog (name + j2 text + schema +
-   * sample). Bossman-level, not agent-scoped.
+  /** Block K2 — the Class-B config template catalog: name, the file it renders, and why the claim exists.
    *
-   * 33.7 MB across 5460 templates. Use configTemplateIndex() to ask "which template renders this
-   * file" and configTemplate(name) to fetch the one the user actually opened. */
+   * NO BODIES. It used to return every template's j2 text and schema — 36 MB across 5474 directories, for
+   * callers that each wanted exactly one. Use configTemplateIndex() to ask "which template renders this
+   * file" and configTemplate(name) for the body of the one that was chosen.
+   *
+   * `withheld` appears when talking to a standalone AGENT: its package ships only the templates something
+   * can name (~1050 of 5474), and the count plus `criterion` are how that reads as a stated fact rather
+   * than a shorter list than expected. Bossman serves the whole tree and sends neither. */
   configTemplates() {
-    return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
+    return this.http.get<{
+      templates: ConfigTemplateListing[]; withheld?: number; criterion?: string;
+    }>(`${environment.apiUrl}/config-templates`);
   }
 
   /** path → template, built from the role catalog's config_path plus the codec registry.
@@ -176,10 +182,31 @@ export class AgentService {
     return this.http.get<ConfigTemplateIndex>(`${environment.apiUrl}/config-templates/index${q}`);
   }
 
-  /** One template with its body, schema and sample — fetched when the user opens the editor. */
-  configTemplate(name: string) {
-    return this.http.get<ConfigTemplate>(
-      `${environment.apiUrl}/config-templates/${encodeURIComponent(name)}`);
+  /** One template with its body, schema and sample — fetched when the user opens the editor.
+   *
+   * ABSENCE IS AN ANSWER, not an error, and it is a NAMED one. Seven package snapins each need exactly one
+   * template and previously found it with `.find()` over the whole catalog: a missing name yielded undefined,
+   * the snapin carried on with an empty body, and Apply failed later with nothing pointing back to the cause.
+   * So the reply is `{tpl, missing}` — `missing` carries the sentence to show, and a caller that treats it as
+   * fatal can still do so. The catalog genuinely may not carry a name: a standalone agent ships only the
+   * templates its own index or catalog references.
+   *
+   * A non-404 (auth, network, a broken server) is NOT swallowed — that is a failure, not an absence, and
+   * turning it into "this template does not exist" would state something false. */
+  configTemplate(name: string): Observable<{ tpl: ConfigTemplate | null; missing: string }> {
+    return this.http
+      .get<ConfigTemplate>(`${environment.apiUrl}/config-templates/${encodeURIComponent(name)}`)
+      .pipe(
+        map((tpl) => ({ tpl, missing: '' })),
+        catchError((e: HttpErrorResponse) => {
+          if (e.status !== 404) throw e;
+          return of({
+            tpl: null,
+            missing: `This catalog does not carry the "${name}" config template, so the form and Apply are `
+              + `unavailable here. A standalone agent ships only the templates its index or role catalog names.`,
+          });
+        }),
+      );
   }
 
   /** Block F5 — the guests this host reports via piggyback (Docker containers,

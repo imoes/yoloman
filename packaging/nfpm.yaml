@@ -157,10 +157,27 @@ contents:
     dst: /usr/share/agentic-mcp/configs/config_unowned_paths.json
     file_info:
       mode: 0644
-  # The whole config-template tree (schema.json + template per role) — enum
-  # dropdown settings live in each schema.json.
-  - src: ../configs/config_templates/**/*
+  # The config templates a surface on THIS host can reach (schema.json + template
+  # per role; the enum dropdown settings live in each schema.json).
+  #
+  # NOT the whole tree. All 5474 directories used to ship — 36 MB of content in
+  # ~124 MB of blocks and ~22 000 files on every managed host — and 4424 of them
+  # are named by nothing: no path in config_template_index.json binds them and no
+  # package_catalog.json entry references them, and those are the only two ways
+  # the standalone console can ask for one. The Bossman-managed write path never
+  # reads this tree at all — a template resource carries its Jinja2 source inline
+  # (internal/state/state.go:43). scripts/stage-agent-templates.py computes the
+  # reachable set, ASSERTS closure (a bound path whose body is missing would be
+  # offered and then fail) and records what it withheld in the manifest below.
+  - src: ../deploy-artifacts/agent-templates/**/*
     dst: /usr/share/agentic-mcp/configs/config_templates
+    file_info:
+      mode: 0644
+  # How many were shipped, how many withheld, and by which criterion — quoted by
+  # GET /api/v1/config-templates, so an operator comparing the agent's list with
+  # Bossman's finds the difference stated instead of discovering it.
+  - src: ../configs/config_templates_manifest.json
+    dst: /usr/share/agentic-mcp/configs/config_templates_manifest.json
     file_info:
       mode: 0644
 
