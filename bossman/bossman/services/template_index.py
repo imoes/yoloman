@@ -31,6 +31,25 @@ file, the same duplication as the 278 underscore/hyphen twin dirs on a different
 not hide it — `conflicts` reports every case, because a resolution nobody can see is indistinguishable
 from a coincidence.
 
+AND A BINDING WHOSE TARGET IS NOT A CONFIG FILE IS WITHDRAWN TOO. The path measurement answers "is there a
+file", never "is it a SETTING". Measured on the bindings the editor offers today: 27 of them target something
+that is not configuration —
+
+    /etc/cron.daily/logrotate, /etc/X11/Xsession.d/90xbrlapi   run-parts EXECUTES these; a whole-file render
+                                                               replaces a working script with a rendered one
+    /etc/apparmor.d/local/README, /etc/arp-scan/mac-vendor.txt  documentation and a vendor table
+
+That is the same damage class as the sshd/pam.d case the catalog already guards against: the write path is
+whole-file, so pressing Configure on /etc/cron.daily/logrotate breaks daily log rotation. The refusal is a
+DECISION recorded in `withdrawn`, not an accident of the index not looking — 225 further templates in the
+corpus record such a target and are unreachable today only because nothing binds them, which a later
+improvement to this resolver would silently undo.
+
+Deliberately NOT refused: /etc/cron.d/* (a crontab fragment IS config, unlike /etc/cron.daily/* which holds
+scripts), /etc/logrotate.d/*, and config written in a programming language — /etc/phpmyadmin/config.inc.php,
+/etc/prosody/prosody.cfg.lua and LocalSettings.php are the applications' real configuration, and a rule that
+refused ".php" would remove correct bindings to win an argument about file extensions.
+
 AND A BINDING WHOSE PATH DOES NOT EXIST IS WITHDRAWN, reported in `withdrawn` rather than dropped. The
 registry says how a file is written, never whether there is one: bindings named a path the package ships
 nothing at, because the path was derived from the package NAME (/etc/aide, /etc/bind, /etc/ttygif). Configure
@@ -95,6 +114,55 @@ def _signature(catalog_path: Path, codecs_path: Path, tpl_root: Path) -> tuple:
     except OSError:
         count = -1
     return (_stat(catalog_path), _stat(codecs_path), _stat(tpl_root), count)
+
+
+#: Directories whose contents run-parts (or an equivalent) EXECUTES. Membership is by directory, not by
+#: extension, because that is what makes it certain: a file in /etc/cron.daily is a program by contract,
+#: whatever it is called.
+#:
+#: /etc/cron.d is NOT here and the difference is the whole point — it holds crontab FRAGMENTS (schedule plus
+#: command), which are configuration. Nor are /etc/logrotate.d or /etc/apparmor.d, which hold real config
+#: grammars.
+_RUN_PARTS_DIRS = re.compile(
+    r"^/etc/(?:"
+    r"cron\.(?:daily|hourly|weekly|monthly)"
+    r"|init\.d|rc\d?\.d|rcS\.d"
+    r"|network/if-(?:up|down|pre-up|post-down)\.d"
+    r"|kernel/(?:postinst|postrm|header_postinst)\.d"
+    r"|initramfs/post-update\.d|initramfs-tools/hooks"
+    r"|dhcp/dhclient-(?:enter|exit)-hooks\.d"
+    r"|apm/(?:event|scripts|suspend|resume)\.d"
+    r"|X11/Xsession\.d|update-motd\.d|grub\.d"
+    r"|NetworkManager/dispatcher\.d"
+    r")/")
+
+#: Documentation and data tables. You do not configure a README, and rendering one over it loses the text.
+_NOT_A_SETTING = re.compile(
+    r"(?:^|/)(?:README|readme|CHANGELOG|Changelog|ChangeLog|NEWS|COPYING|LICENSE|AUTHORS|TODO)[^/]*$"
+    r"|\.(?:md|rst|txt|html?)$")
+
+#: A Perl module — code a program imports. Kept narrow ON PURPOSE: .php/.lua/.py are how several applications
+#: WRITE their configuration (config.inc.php, prosody.cfg.lua, LocalSettings.php), and refusing an extension
+#: would remove correct bindings to win an argument about file names.
+_SOURCE_CODE = re.compile(r"\.pm$")
+
+
+def unsuitable_target(path: str) -> str | None:
+    """Why this path must not be offered as an editable config file, or None when it may be.
+
+    Separate from the path VERDICT, which answers whether a file exists there. Both questions have to be
+    asked: /etc/cron.daily/logrotate exists, is measured `file`, and is a program.
+    """
+    if _NOT_A_SETTING.search(path):
+        return ("this is documentation, not a setting — Configure writes the whole file, so it would "
+                "replace the text with a rendered template")
+    if _SOURCE_CODE.search(path):
+        return ("this is program source code (a Perl module), not a config file — a whole-file render "
+                "would replace code the program imports")
+    if _RUN_PARTS_DIRS.search(path):
+        return ("run-parts EXECUTES the files in this directory, so this is a program rather than a "
+                "setting — a whole-file render would replace a working script with a rendered one")
+    return None
 
 
 def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
@@ -322,6 +390,18 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # the editor for the machine's own hostname.
     unowned = _load(ver_p.parent / "config_unowned_paths.json")
     withdrawn = []
+    # NOT A CONFIG FILE — asked BEFORE the path verdict, and it has to be asked separately: the verdict
+    # answers "is there a file here", and /etc/cron.daily/logrotate exists, measures `file`, and is a program.
+    # Same withdrawal shape as the verdict below, so the UI that already shows one shows this too.
+    for path in sorted(paths):
+        why = unsuitable_target(path)
+        if not why:
+            continue
+        entry = paths.pop(path)
+        withdrawn.append({"path": path, "template": entry.get("template"),
+                          "source": entry.get("source"), "verdict": "not-configuration",
+                          "package": None, "reason": why})
+
     for path in sorted(paths):
         seen = verdicts.get(path)
         if not isinstance(seen, dict):

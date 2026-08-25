@@ -386,9 +386,57 @@ but:
 | with an enum | **708 (6.0%)** |
 | string fields | 5834, of them enumerated **707 (12.1%)** |
 
-Which reframes the next step: **the lever is reachability, not more mining.** 2723 enums are already written
-on templates no path binds. The open items that move the reachable number are the 111 two-path templates and
-the 2001 withdrawn index bindings recorded below — not another pass over 5474 schemas.
+Which reframed the next step as **reachability** — and measuring that showed the reframing was wrong too.
+
+### The reachability gap is correct — 2026-08-25
+
+"4425 templates are bound by nothing" sounds like 4425 missing editors. Measured, it is not:
+
+| why a template is unreachable | |
+|---|---|
+| **withdrawn** — the package ships no file at that path (measured) | 1920 |
+| no `meta.json` at all, and of those the 370 with a derivable path: 255 measured **absent** | 1751 |
+| **lost a path conflict** to a better template for the same file (recorded) | 266 |
+| `meta.json` records no `target_path` | 239 |
+| has a target, yet nothing binds it | 249 |
+
+Following the last two buckets to their paths: `/etc/cron.daily/acct`, `/etc/init.d/apparmor`,
+`/etc/kernel/postinst.d/dracut`, `/etc/pam.d/away`, `/etc/jabber-querybot/Querymodule.pm`,
+`/etc/fenrirscreenreader/keyboard/Readme.md`. **205 init/rc scripts, 49 cron fragments, 13 hook scripts, 9 PAM
+stacks and 9 documentation files** — for 197 of which the file really exists. Binding those would be the
+sshd/pam.d damage class, not a gain.
+
+Of the 102 unreachable templates that DO target a shipped config file, most are duplicates whose path is
+already bound to a better template (`conky-cli`, `conky-std` and `conky.conf` all target
+`/etc/conky/conky.conf`, bound to `conky-all`) and are recorded as conflicts. After removing withdrawals,
+conflicts, scripts and documentation, the **genuine** gap is **26 paths — and 20 of those are still hooks or
+scripts**. So roughly six.
+
+**So neither "mine more enums" nor "bind more paths" is the lever, and the corpus is not hiding 4000 editors.**
+
+### What that measurement DID find: 27 live bindings that are not settings — DONE 2026-08-25
+
+The path verdict answers "is there a file", never "is it a SETTING", and those are different questions:
+`/etc/cron.daily/logrotate` exists, measures `file`, and is a program. The editor was offering **27** such
+paths — 21 in run-parts/hook directories (`/etc/cron.daily/*`, `/etc/X11/Xsession.d/*`) and 6 documentation
+files (`/etc/apparmor.d/local/README`, `/etc/arp-scan/mac-vendor.txt`). Configure writes the WHOLE file, so
+pressing it on `/etc/cron.daily/logrotate` breaks daily log rotation.
+
+`template_index.unsuitable_target()` now withdraws them with a stated reason, in the same `withdrawn` list the
+UI already surfaces — a decision rather than the accident it was, because 225 further templates in the corpus
+record such a target and are unreachable today only because nothing binds them, which a later improvement to
+the resolver would silently undo.
+
+The line is drawn by DIRECTORY, not extension, and the exclusions carry as much weight as the refusals:
+`/etc/cron.d/*` stays (a crontab fragment IS config, unlike `/etc/cron.daily/*` which holds scripts), so do
+`/etc/logrotate.d/*`, `/etc/apparmor.d/*.profile`, and configuration written in a programming language —
+`config.inc.php`, `prosody.cfg.lua` and `LocalSettings.php` are how those applications are configured, and a
+rule refusing `.php` would delete correct bindings to win an argument about file names.
+
+Verified: 1538 paths bound, 27 withdrawn as `not-configuration` with their reasons in the index the UI reads,
+`/etc/cron.daily/logrotate` no longer bound while `/etc/cron.d/anacron` still is, `/config-fields` for a
+withdrawn path falls back to `freeform` instead of offering a whole-file render, and the agent↔Bossman
+differential still agrees on 198 paths after re-exporting the projection.
 
 Two findings from the LLM pass are worth more than the enums it would have added:
 
