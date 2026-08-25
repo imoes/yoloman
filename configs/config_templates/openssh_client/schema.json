@@ -1,199 +1,198 @@
 {
- "add_keys_to_agent": {
-  "default": "no",
-  "description": "Whether to add identity files to ssh-agent on connection (e.g., 'yes', 'confirm', 'ask').",
-  "type": "string"
- },
- "address_family": {
-  "default": "any",
-  "description": "IP address family to use. 'any' = dual-stack; 'inet' = IPv4 only; 'inet6' = IPv6 only.",
-  "type": "string"
- },
- "ciphers": {
-  "default": [],
-  "description": "List of allowed ciphers (comma-separated in config). Only set if strict cipher policies required.",
-  "items": {
-   "type": "string"
+  "add_keys_to_agent": {
+    "default": "no",
+    "description": "Whether to add identity files to ssh-agent on connection (e.g., 'yes', 'confirm', 'ask').",
+    "type": "string"
   },
-  "type": "list"
- },
- "compression": {
-  "default": true,
-  "description": "Enable compression for slow connections. Usually safe to leave enabled.",
-  "type": "bool"
- },
- "connect_timeout": {
-  "default": 10,
-  "description": "Maximum time (seconds) to wait for connection establishment.",
-  "type": "number"
- },
- "control_master": {
-  "default": false,
-  "description": "Enable SSH connection sharing (multiplexing) to reuse connections.",
-  "type": "string"
- },
- "control_path": {
-  "default": "~/.ssh/sockets/%r@%h-%p",
-  "description": "Path template for control sockets (used with ControlMaster). %r=%user, %h=%host, %p=%port.",
-  "type": "string"
- },
- "control_persist": {
-  "default": 0,
-  "description": "Time (seconds) to keep master connection alive after last session ends. 0 disables persistence.",
-  "type": "number"
- },
- "default_port": {
-  "default": 22,
-  "description": "Default port for SSH connections when not specified.",
-  "type": "number"
- },
- "exit_on_forward_failure": {
-  "default": false,
-  "description": "Whether to exit with error if port forwarding fails during connection setup.",
-  "type": "bool"
- },
- "extra_hosts": {
-  "default": [],
-  "description": "List of predefined host blocks with custom settings (e.g., jump hosts, dev servers). Each object defines a Host block.",
-  "items": {
-   "forward_agent": {
-    "description": "Enable agent forwarding for this host",
+  "address_family": {
+    "default": "any",
+    "description": "IP address family to use. 'any' = dual-stack; 'inet' = IPv4 only; 'inet6' = IPv6 only.",
+    "type": "string"
+  },
+  "ciphers": {
+    "default": [],
+    "description": "List of allowed ciphers (comma-separated in config). Only set if strict cipher policies required.",
+    "items": {
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "compression": {
+    "default": true,
+    "description": "Enable compression for slow connections. Usually safe to leave enabled.",
     "type": "bool"
-   },
-   "forward_x11": {
-    "description": "Enable X11 forwarding for this host",
-    "type": "bool"
-   },
-   "hostname": {
-    "description": "Actual server hostname/IP",
-    "type": "string"
-   },
-   "identity_file": {
-    "description": "Specific identity file for this host",
-    "type": "string"
-   },
-   "name": {
-    "description": "Host pattern (e.g., 'dev-*' or 'staging')",
-    "type": "string"
-   },
-   "port": {
-    "description": "SSH port (if non-default)",
+  },
+  "connect_timeout": {
+    "default": 10,
+    "description": "Maximum time (seconds) to wait for connection establishment.",
     "type": "number"
-   },
-   "user": {
-    "description": "Login username",
+  },
+  "control_master": {
+    "description": "Enable SSH connection sharing (multiplexing) to reuse connections.",
     "type": "string"
-   }
   },
-  "type": "list"
- },
- "forward_agent": {
-  "default": false,
-  "description": "Whether to forward your SSH agent to remote hosts. Enable only for trusted targets.",
-  "type": "bool"
- },
- "forward_x11": {
-  "default": false,
-  "description": "Whether to enable X11 forwarding. Required for GUI apps over SSH.",
-  "type": "bool"
- },
- "gssapi_authentication": {
-  "default": false,
-  "description": "Enable GSSAPI authentication (e.g., Kerberos). Only needed in enterprise environments.",
-  "type": "bool"
- },
- "identity_files": {
-  "default": [
-   "~/.ssh/id_rsa",
-   "~/.ssh/id_ed25519"
-  ],
-  "description": "List of private key files to try for public key authentication, in order of preference.",
-  "items": {
-   "type": "string"
+  "control_path": {
+    "default": "~/.ssh/sockets/%r@%h-%p",
+    "description": "Path template for control sockets (used with ControlMaster). %r=%user, %h=%host, %p=%port.",
+    "type": "string"
   },
-  "type": "list"
- },
- "identity_only": {
-  "default": false,
-  "description": "Only use identity files explicitly listed in IdentityFile/ssh-add (ignore other keys in agent).",
-  "type": "bool"
- },
- "log_level": {
-  "default": "INFO",
-  "description": "Verbosity of logging. Use DEBUG for troubleshooting; INFO for production.",
-  "enum": [
-   "ERROR",
-   "INFO",
-   "DEBUG"
-  ],
-  "type": "string"
- },
- "macs": {
-  "default": [],
-  "description": "List of allowed MACs (comma-separated in config). Only set if strict MAC policies required.",
-  "items": {
-   "type": "string"
+  "control_persist": {
+    "default": 0,
+    "description": "Time (seconds) to keep master connection alive after last session ends. 0 disables persistence.",
+    "type": "number"
   },
-  "type": "list"
- },
- "password_authentication": {
-  "default": "yes",
-  "description": "Whether to allow password authentication. Can be overridden per-host. Use 'no' for key-only auth.",
-  "type": "string"
- },
- "preferred_authentications": {
-  "default": "publickey,keyboard-interactive,password",
-  "description": "Comma-separated list of authentication methods in order of preference. Common: 'publickey,password'.",
-  "type": "string"
- },
- "proxy_command": {
-  "default": "",
-  "description": "Shell command to establish connection via proxy (e.g., 'nc -X 5 -x proxy.example.com %h %p'). Leave empty to disable.",
-  "type": "string"
- },
- "pubkey_authentication": {
-  "default": true,
-  "description": "Enable public key authentication globally (overrides per-host settings).",
-  "type": "bool"
- },
- "quiet_mode": {
-  "default": false,
-  "description": "Suppress informational messages. Useful for scripts.",
-  "type": "bool"
- },
- "request_tty": {
-  "default": "no",
-  "description": "Request a TTY for remote commands (e.g., for sudo). 'force' always allocates TTY.",
-  "type": "string"
- },
- "server_alive_count_max": {
-  "default": 3,
-  "description": "Maximum keepalive messages without response before disconnecting.",
-  "type": "number"
- },
- "server_alive_interval": {
-  "default": 0,
-  "description": "Seconds between keepalive messages to server. Non-zero helps prevent timeout on idle connections.",
-  "type": "number"
- },
- "stream_local_bind_unlink": {
-  "default": false,
-  "description": "Unlink existing Unix socket before binding (for StreamLocalBindPath). Needed if socket left by stale process.",
-  "type": "bool"
- },
- "strict_host_key_checking": {
-  "default": "ask",
-  "description": "Whether to ask before adding a new host key (ask), reject unknown hosts (no), or auto-add (yes). 'ask' is recommended for security.",
-  "type": "string"
- },
- "tcp_keep_alive": {
-  "default": true,
-  "description": "Send TCP keepalive packets to detect dead connections.",
-  "type": "bool"
- },
- "user_known_hosts_file": {
-  "default": "~/.ssh/known_hosts",
-  "description": "Path to the file storing known host public keys. Use per-user or global (e.g., '/etc/ssh/ssh_known_hosts').",
-  "type": "string"
- }
+  "default_port": {
+    "default": 22,
+    "description": "Default port for SSH connections when not specified.",
+    "type": "number"
+  },
+  "exit_on_forward_failure": {
+    "default": false,
+    "description": "Whether to exit with error if port forwarding fails during connection setup.",
+    "type": "bool"
+  },
+  "extra_hosts": {
+    "default": [],
+    "description": "List of predefined host blocks with custom settings (e.g., jump hosts, dev servers). Each object defines a Host block.",
+    "items": {
+      "forward_agent": {
+        "description": "Enable agent forwarding for this host",
+        "type": "bool"
+      },
+      "forward_x11": {
+        "description": "Enable X11 forwarding for this host",
+        "type": "bool"
+      },
+      "hostname": {
+        "description": "Actual server hostname/IP",
+        "type": "string"
+      },
+      "identity_file": {
+        "description": "Specific identity file for this host",
+        "type": "string"
+      },
+      "name": {
+        "description": "Host pattern (e.g., 'dev-*' or 'staging')",
+        "type": "string"
+      },
+      "port": {
+        "description": "SSH port (if non-default)",
+        "type": "number"
+      },
+      "user": {
+        "description": "Login username",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "forward_agent": {
+    "default": false,
+    "description": "Whether to forward your SSH agent to remote hosts. Enable only for trusted targets.",
+    "type": "bool"
+  },
+  "forward_x11": {
+    "default": false,
+    "description": "Whether to enable X11 forwarding. Required for GUI apps over SSH.",
+    "type": "bool"
+  },
+  "gssapi_authentication": {
+    "default": false,
+    "description": "Enable GSSAPI authentication (e.g., Kerberos). Only needed in enterprise environments.",
+    "type": "bool"
+  },
+  "identity_files": {
+    "default": [
+      "~/.ssh/id_rsa",
+      "~/.ssh/id_ed25519"
+    ],
+    "description": "List of private key files to try for public key authentication, in order of preference.",
+    "items": {
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "identity_only": {
+    "default": false,
+    "description": "Only use identity files explicitly listed in IdentityFile/ssh-add (ignore other keys in agent).",
+    "type": "bool"
+  },
+  "log_level": {
+    "default": "INFO",
+    "description": "Verbosity of logging. Use DEBUG for troubleshooting; INFO for production.",
+    "enum": [
+      "ERROR",
+      "INFO",
+      "DEBUG"
+    ],
+    "type": "string"
+  },
+  "macs": {
+    "default": [],
+    "description": "List of allowed MACs (comma-separated in config). Only set if strict MAC policies required.",
+    "items": {
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "password_authentication": {
+    "default": "yes",
+    "description": "Whether to allow password authentication. Can be overridden per-host. Use 'no' for key-only auth.",
+    "type": "string"
+  },
+  "preferred_authentications": {
+    "default": "publickey,keyboard-interactive,password",
+    "description": "Comma-separated list of authentication methods in order of preference. Common: 'publickey,password'.",
+    "type": "string"
+  },
+  "proxy_command": {
+    "default": "",
+    "description": "Shell command to establish connection via proxy (e.g., 'nc -X 5 -x proxy.example.com %h %p'). Leave empty to disable.",
+    "type": "string"
+  },
+  "pubkey_authentication": {
+    "default": true,
+    "description": "Enable public key authentication globally (overrides per-host settings).",
+    "type": "bool"
+  },
+  "quiet_mode": {
+    "default": false,
+    "description": "Suppress informational messages. Useful for scripts.",
+    "type": "bool"
+  },
+  "request_tty": {
+    "default": "no",
+    "description": "Request a TTY for remote commands (e.g., for sudo). 'force' always allocates TTY.",
+    "type": "string"
+  },
+  "server_alive_count_max": {
+    "default": 3,
+    "description": "Maximum keepalive messages without response before disconnecting.",
+    "type": "number"
+  },
+  "server_alive_interval": {
+    "default": 0,
+    "description": "Seconds between keepalive messages to server. Non-zero helps prevent timeout on idle connections.",
+    "type": "number"
+  },
+  "stream_local_bind_unlink": {
+    "default": false,
+    "description": "Unlink existing Unix socket before binding (for StreamLocalBindPath). Needed if socket left by stale process.",
+    "type": "bool"
+  },
+  "strict_host_key_checking": {
+    "default": "ask",
+    "description": "Whether to ask before adding a new host key (ask), reject unknown hosts (no), or auto-add (yes). 'ask' is recommended for security.",
+    "type": "string"
+  },
+  "tcp_keep_alive": {
+    "default": true,
+    "description": "Send TCP keepalive packets to detect dead connections.",
+    "type": "bool"
+  },
+  "user_known_hosts_file": {
+    "default": "~/.ssh/known_hosts",
+    "description": "Path to the file storing known host public keys. Use per-user or global (e.g., '/etc/ssh/ssh_known_hosts').",
+    "type": "string"
+  }
 }

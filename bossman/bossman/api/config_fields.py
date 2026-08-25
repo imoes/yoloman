@@ -46,11 +46,38 @@ def _load_json(path_str: str | Path) -> dict:
         return {}
 
 
+#: ONE SPELLING PER TYPE, translated here beside values->enum. The generated template schemas use
+#: JSON-Schema words (`boolean`, `integer`, `array`) while the renderer and the directive catalog use this
+#: project's (`bool`, `int`, `list`) — measured, 427 fields say `boolean` and 62 say `integer`, and the form
+#: renderer knows neither, so every one of them renders as a TEXT BOX where a checkbox or a number field
+#: belongs. A union like `bool|string` resolves to the permissive side: a text box accepts everything a
+#: checkbox would, the reverse is not true.
+_TYPE_SPELLINGS = {
+    "boolean": "bool", "integer": "int", "array": "list", "number": "number",
+    "bool|string": "string", "string|bool": "string", "flat_map": "object",
+    None: "string", "": "string",
+}
+
+
+def _spell_types(fields: dict) -> dict:
+    """Apply the one spelling per type to a TEMPLATE schema's fields.
+
+    The template branch returns the schema's properties as they are — they already have the FieldDef shape —
+    so the only thing needing translation is the type word, and it needs it here too: the 427 `boolean` fields
+    live in template schemas, not in the directive catalog.
+    """
+    for spec in fields.values():
+        if isinstance(spec, dict) and spec.get("type") in _TYPE_SPELLINGS:
+            spec["type"] = _TYPE_SPELLINGS[spec["type"]]
+    return fields
+
+
 def _field_from_directive(spec: dict) -> dict:
     """Directive spec {type, values?, default?, min?, max?, description?} ->
     unified FieldDef {type, enum?, default?, description?, min?, max?}."""
     values = spec.get("values") or spec.get("enum")
-    out: dict[str, Any] = {"type": "enum" if isinstance(values, list) and values else spec.get("type", "string")}
+    out: dict[str, Any] = {"type": "enum" if isinstance(values, list) and values
+                           else _TYPE_SPELLINGS.get(spec.get("type"), spec.get("type", "string"))}
     if isinstance(values, list) and values:
         out["enum"] = [str(v) for v in values]
         # value -> what it MEANS, for a set whose values are opaque on their own. A `log_level` of 0..3 is a
@@ -306,7 +333,7 @@ async def config_fields(
                            "confidence": "high" if meta.get("witness") in ("deb", "rpm") else "unknown",
                            "note": "renders {} (witness: {})".format(
                                meta.get("target_path") or path, meta.get("witness") or "none")},
-            "fields": placed, "available": True,
+            "fields": _spell_types(placed), "available": True,
             # NOTHING VANISHES SILENTLY. A whole-file render can only honour a value it actually places, and
             # measured across the library 2561 of 54026 offered fields (341 templates) appear NOWHERE in
             # their template body — acme.sh offers 69 and places 5. Those were rendered as inputs, filled in

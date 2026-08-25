@@ -401,6 +401,36 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## Two vocabularies for one thing — DONE 2026-08-25
+
+Auditing type and default agreement between the two catalogs (337 type differences, 639 default differences)
+turned up two defects with the same shape: a value that is correct in one vocabulary and meaningless in the one
+that reads it.
+
+**427 fields say `type: "boolean"` and 62 say `"integer"`** — JSON-Schema's words, written by the template
+generator. The form renderer knows only this project's (`bool`, `int`, `list`), so **every one of them rendered
+as a text box where a checkbox or a number field belongs.** Normalised in the two places that already
+translate `values`→`enum` and `number`→`int`, and in the template branch too, which returns its schema
+properties as they are — that is where the 427 live. A union (`bool|string`) resolves to the permissive side:
+a text box accepts everything a checkbox would, not the reverse.
+
+Of the 337 "type differences", **218 were `directive: enum` vs `template: string`** — the same setting, two
+conventions, already reconciled at serve time by the values→enum rule. Not a defect; noise in the audit.
+
+**25 fields are typed `string` with `default: true`** — a JSON boolean, which `template_render` substitutes
+verbatim, so the file receives `True` with a capital T and shell, INI and YAML parsers alike reject it.
+`sample.json` knows what the file wants, and all 25 had a string there:
+
+    heimdal-kdc/kdc_enabled    default True   sample 'yes'    ->  "yes"
+    parsec-service/allow_root  default False  sample 'false'  ->  "false"
+    apcupsd/nis_enabled        default True   sample 'on'     ->  "on"
+
+The PAIR is learned, not copied: `dyn-netconf/dhcp` has `default: true` beside `sample: 'false'`, so the
+sample is an example of the syntax and the truth value still comes from the default. 23 fixed; the 2 whose
+sample is not a boolean word (`gallery-dl/zip` → `'gallery-dl-{id}.zip'`, `openssh_client/control_master` →
+`'auto'`) are not two-state fields at all, so their default is dropped — an empty field is honest where a
+wrong word is not.
+
 ## One setting, one value set — DONE 2026-08-25
 
 The larger half of the "do the three fit" question was not the 9 contradictions but the **38 keys where only

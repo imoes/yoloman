@@ -117,9 +117,23 @@ func mgmtConfigGenerated(w http.ResponseWriter, _ *http.Request) {
 func fieldFromDirective(spec map[string]any) map[string]any {
 	out := map[string]any{}
 	typ, _ := spec["type"].(string)
+	// ONE SPELLING PER TYPE. The generated template schemas use JSON-Schema words (`boolean`, `integer`,
+	// `array`) and the renderer knows only this project's (`bool`, `int`, `list`): measured, 427 fields say
+	// `boolean` and 62 `integer`, and every one of them rendered as a TEXT BOX where a checkbox belongs.
+	// A union resolves to the permissive side — a text box accepts everything a checkbox would.
 	switch typ {
 	case "number":
 		out["type"] = "int"
+	case "boolean":
+		out["type"] = "bool"
+	case "integer":
+		out["type"] = "int"
+	case "array":
+		out["type"] = "list"
+	case "flat_map":
+		out["type"] = "object"
+	case "bool|string", "string|bool":
+		out["type"] = "string"
 	case "":
 		out["type"] = "string"
 	default:
