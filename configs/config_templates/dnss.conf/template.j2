@@ -33,14 +33,14 @@ forwarders:
 # === Rate Limiting ===
 # Rate-limiting to protect against DNS floods and resource exhaustion.
 rate_limit:
-  enabled: {{ (rate_limit | default({'enabled': true})).enabled | default(true) }}
+  enabled: {{ (rate_limit | default({'enabled': true})).enabled | default(true) | lower }}
   max_queries_per_second: {{ (rate_limit | default({'max_queries_per_second': 100})).max_queries_per_second | default(100) }}
   burst_size: {{ (rate_limit | default({'burst_size': 150})).burst_size | default(150) }}
 
 # === Caching ===
 # Caching behavior for responses to reduce upstream load and improve latency.
 cache:
-  enabled: {{ (cache | default({'enabled': true})).enabled | default(true) }}
+  enabled: {{ (cache | default({'enabled': true})).enabled | default(true) | lower }}
   size_mb: {{ (cache | default({'size_mb': 64})).size_mb | default(64) }}
   ttl_min: {{ (cache | default({'ttl_min': 60})).ttl_min | default(60) }}
   ttl_max: {{ (cache | default({'ttl_max': 86400})).ttl_max | default(86400) }}
@@ -56,8 +56,8 @@ logging:
 # === Security ===
 # Security hardening options for the DNS service.
 security:
-  recursion: {{ (security | default({'recursion': true})).recursion | default(true) }}
-  dnssec_validation: {{ (security | default({'dnssec_validation': true})).dnssec_validation | default(true) }}
+  recursion: {{ (security | default({'recursion': true})).recursion | default(true) | lower }}
+  dnssec_validation: {{ (security | default({'dnssec_validation': true})).dnssec_validation | default(true) | lower }}
   allow_query:
 {%- for allow in (security | default({'allow_query': ['any']}) ).allow_query | default(['any']) %}    - {{ allow }}
 {%- endfor %}

@@ -401,6 +401,42 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## "Do the three fit?" is now one command — 2026-08-25
+
+`python -m bossman.tools.check_catalog_fit`. Five passes and a nightly LLM batch write the same catalogs, and
+every rule the check enforces was learned from a defect that had already reached the editor. It separates two
+kinds of finding on purpose:
+
+- **INVARIANT** — must be zero. A value set with fewer than two options, a duplicate, a label for a value that
+  is gone, `enum_open` without values, a JSON boolean default on a text field, an unknown type word, a type
+  that is not a word, a set that is open on one side and closed on the other, a bound path whose template has
+  no body.
+- **BUDGET** — cannot be zero yet and must not GROW. Recorded in `configs/catalog_fit_baseline.json`; a rise
+  fails, a fall rewrites the file. That is the honest half: "115 templates render a Python-cased boolean" is
+  not something to assert away, and a check that only reported zero-or-not would have had nothing to say for
+  the two days it took to drive that from 214 to 9.
+
+**Its first run found 19 violations nobody had looked for**, because every previous pass had asked about
+values and none about the type:
+
+    designate-agent.conf  description  type = "Port the agent listens on for incoming requests."
+    designate-agent.conf  bind_port    type = ":{"
+    81voltd               port         type = "number|list"
+    pagure_ci             builders.items  type = {"type": "string", "default": "docker", …}
+
+27 repaired by `tools/fix_broken_types.py`, in that order of evidence: a nested spec is UNWRAPPED (the
+generator wrote the field twice, so the inner one is the field), a union resolves to its permissive member,
+otherwise the JSON type of the field's own default decides, and failing that `string` — which is the control
+the editor was already falling back to, now said out loud.
+
+And 4 settings were **open on one side and closed on the other**: `mark_open_enums` works per catalog and
+marks whichever side's own description hedges, so the same setting was "suggestions" in one editor and "the
+whole range" in the other. Openness now propagates in `sync_value_sets` — a hedge on either side opens both,
+because evidence that a set is incomplete does not stop being evidence in the other catalog.
+
+State: **all invariants clear**, settings with a one-sided value set **0** (was 38), value sets that disagree
+**5** — each recorded with its unconfirmed values and no source able to settle it.
+
 ## Two vocabularies for one thing — DONE 2026-08-25
 
 Auditing type and default agreement between the two catalogs (337 type differences, 639 default differences)

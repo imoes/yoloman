@@ -30,7 +30,12 @@ var (
 	// EVERY substitution, not only the bare ones. Measured: the bulk of the remaining Python booleans come
 	// from `{{ x | default(True) }}` — already piped, so a rule keyed on bare names never sees them, and
 	// 50-server.cnf alone has 54 of that shape. `| lower` appends to whatever is already there.
-	subst   = regexp.MustCompile(`\{\{([^{}]*)\}\}`)
+	//
+	// NON-GREEDY, AND NOT `[^{}]*`: an expression may CONTAIN braces — `{{ (config | default({})).color |
+	// default(true) }}` is the idiom the generator emits for a nested field, and a pattern forbidding inner
+	// braces skipped every one of them. That left multispeech.conf, rebuildctl and restic still writing
+	// True/False after a pass that reported success.
+	subst   = regexp.MustCompile(`\{\{(.*?)\}\}`)
 	pyBool  = regexp.MustCompile(`\b(True|False)\b`)
 	tmpRoot string
 )

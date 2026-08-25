@@ -132,7 +132,7 @@ users:
     # Sudoers rule — quoted to handle empty-string (no sudo) safely
     sudo: "{{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).sudo }}"
     # Lock the Unix password slot to prevent password-based logins
-    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd }}
+    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd | lower }}
 {% if (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).ssh_authorized_keys %}
     # SSH public keys pre-authorized for this user
     ssh_authorized_keys:
@@ -190,7 +190,7 @@ datasource:
 system_info:
   default_user:
     name: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).name }}
-    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd }}
+    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd | lower }}
     gecos: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).gecos }}
     groups:
 {% for g in (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).groups %}

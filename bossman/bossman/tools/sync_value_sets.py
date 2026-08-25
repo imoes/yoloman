@@ -106,6 +106,20 @@ def run() -> tuple[list[dict], list[dict]]:
             tspec = props.get(key)
             if not isinstance(tspec, dict):
                 continue
+            # AN OPEN SET IS OPEN ON BOTH SIDES. mark_open_enums works per catalog and marks whichever
+            # side's own description hedges its values — so the same setting ended up "suggestions" in one
+            # editor and "the whole range" in the other, which is the contradiction this pass exists to
+            # remove. Openness propagates in one direction only: a hedge on either side opens both, because
+            # evidence that a set is incomplete does not stop being evidence in the other catalog.
+            if dspec.get("enum_open") or tspec.get("enum_open"):
+                if not (dspec.get("enum_open") and tspec.get("enum_open")):
+                    copied.append({"path": path, "key": key, "direction": "open mark propagated",
+                                   "template": tname, "values": [], "open": True})
+                dspec["enum_open"] = True
+                tspec["enum_open"] = True
+                dirty_directives = True
+                dirty_templates.add(tname)
+
             d_values, t_values = _dset(dspec), tspec.get("enum")
             if d_values and not t_values:
                 tspec["enum"] = list(d_values)

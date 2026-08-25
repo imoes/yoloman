@@ -134,7 +134,7 @@ log_to: {{ rule.log_to | default('syslog') }}
 # ==============================================================================
 [alerts]
 # [Alerts] Whether to send audit alerts via email.
-email_enabled: {{ (alerts | default({})).email_enabled | default(false) }}
+email_enabled: {{ (alerts | default({})).email_enabled | default(false) | lower }}
 
 {% if ((alerts | default({})).email_enabled | default(false)) %}
 # [Alerts] SMTP server hostname for sending alerts.
@@ -151,7 +151,7 @@ to_addrs: {{ (alerts.to_addrs | default([])) | join(', ') }}
 {% endif %}
 
 # [Alerts] Whether to send audit alerts to HTTP(S) webhooks.
-webhook_enabled: {{ (alerts | default({})).webhook_enabled | default(false) }}
+webhook_enabled: {{ (alerts | default({})).webhook_enabled | default(false) | lower }}
 
 {% if ((alerts | default({})).webhook_enabled | default(false)) %}
 {% for wh in (alerts.webhooks | default([])) %}

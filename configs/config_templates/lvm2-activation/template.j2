@@ -24,7 +24,7 @@ activation {
       Disable only in minimal environments or debug.
       Default: true
     #}
-    monitoring = {{ (activation | default({})).monitoring | default(true) }}
+    monitoring = {{ (activation | default({})).monitoring | default(true) | lower }}
 
     {#
       Minimum free space (in MiB) required in a volume group before activating logical volumes.
@@ -45,14 +45,14 @@ activation {
       Avoid unless dm-notify is unavailable.
       Default: false
     #}
-    use_polling = {{ (activation | default({})).use_polling | default(false) }}
+    use_polling = {{ (activation | default({})).use_polling | default(false) | lower }}
 
     {#
       Activate all logical volumes in read-only mode by default.
       Useful for disaster recovery or testing scenarios.
       Default: false
     #}
-    read_only = {{ (activation | default({})).read_only | default(false) }}
+    read_only = {{ (activation | default({})).read_only | default(false) | lower }}
 
     {#
       List of volume or LV names (patterns or exact) that should auto-activate on boot.
@@ -88,14 +88,14 @@ activation {
           Helps diagnose mirror inconsistencies.
           Default: true
         #}
-        log_failures = {{ ((activation | default({})).mirror | default({})).log_failures | default(true) }}
+        log_failures = {{ ((activation | default({})).mirror | default({})).log_failures | default(true) | lower }}
 
         {#
           Automatically recover failed mirror images (if possible) after activation.
           Disable if manual intervention preferred.
           Default: true
         #}
-        auto_recovery = {{ ((activation | default({})).mirror | default({})).auto_recovery | default(true) }}
+        auto_recovery = {{ ((activation | default({})).mirror | default({})).auto_recovery | default(true) | lower }}
 
         {#
           Minimum number of mirror images required to be healthy before mirror LV activates.
@@ -127,7 +127,7 @@ activation {
           Set false to allow activation in degraded mode.
           Default: true
         #}
-        error_when_full = {{ ((activation | default({})).thin_pool | default({})).error_when_full | default(true) }}
+        error_when_full = {{ ((activation | default({})).thin_pool | default({})).error_when_full | default(true) | lower }}
     }
 }
 
@@ -152,13 +152,13 @@ device {
       Disable only for debugging or trusted environments.
       Default: true
     #}
-    filtering = {{ (device | default({})).filtering | default(true) }}
+    filtering = {{ (device | default({})).filtering | default(true) | lower }}
 
     {#
       Detect and exclude Linux MD RAID components to avoid confusion between LVM PVs and MD arrays.
       Default: true
     #}
-    md_component_detection = {{ (device | default({})).md_component_detection | default(true) }}
+    md_component_detection = {{ (device | default({})).md_component_detection | default(true) | lower }}
 
     {#
       Optional device alias mappings (e.g., multipath wwid → /dev/mapper/...) for consistent naming.
@@ -175,7 +175,7 @@ backup {
       Enable automatic backup of LVM metadata before modifications (e.g., lvcreate, vgreduce).
       Default: true
     #}
-    backup = {{ (backup | default({})).backup | default(true) }}
+    backup = {{ (backup | default({})).backup | default(true) | lower }}
 
     {#
       Directory to store per-VG metadata backups. Should be on a reliable filesystem.
@@ -238,7 +238,7 @@ log {
       Send LVM logs to system syslog (true) or to a file (false).
       Default: true
     #}
-    syslog = {{ (log | default({})).syslog | default(true) }}
+    syslog = {{ (log | default({})).syslog | default(true) | lower }}
 
     {#
       Path to file for logs when syslog=false. Requires write permission.
@@ -250,7 +250,7 @@ log {
       Overwrite log file (true) or append (false) when logging to a file.
       Default: true
     #}
-    overwrite = {{ (log | default({})).overwrite | default(true) }}
+    overwrite = {{ (log | default({})).overwrite | default(true) | lower }}
 
     {#
       Global minimum log level (0=error, 1=warn, 2=info, 3=debug).
