@@ -42,7 +42,7 @@ import re
 from bossman.services.websearch import SearxngClient
 from bossman.tools._jsonio import write_catalog
 from bossman.tools._paths import configs_dir
-from bossman.tools.qualify_packages import SEARXNG, _deb_config, _resolve_man
+from bossman.tools.qualify_packages import SEARXNG, _deb_config, _resolve_man, deb_doc_samples
 
 CONFIGS = configs_dir(__file__)
 DISAGREEMENTS = CONFIGS / "value_set_disagreements.json"
@@ -74,12 +74,46 @@ def grounded(values: list[str], blob: str) -> list[str]:
     return out
 
 
+def _package_candidates(path: str) -> list[str]:
+    """Package names to try for a path, registry first and then derived from the path itself.
+
+    THE REGISTRY OFTEN CANNOT ANSWER. Measured on the four unsettled disagreements: /etc/ddclient.conf and
+    /etc/xdg/swaync/config.json carry `packages: []`, and /etc/xrdp/xrdp.ini carries `["xrdp.ini"]` — a
+    FILENAME, which is the 213-entry class audit_package_claims.py recorded. So a fallback is derived from the
+    path: the directory under /etc, and the basename without its extension. A wrong guess costs one failed
+    `apt-get download` and grounds nothing; a missing guess costs the whole witness.
+    """
+    codecs = json.loads((CONFIGS / "config_codecs.json").read_text())
+    named = [p for p in ((codecs.get(path) or {}).get("packages") or []) if isinstance(p, str)]
+    # A name containing a dot or a slash is a file, not a package (Debian Policy 5.6.1 allows neither).
+    named = [p for p in named if p and "/" not in p and "." not in p]
+    parts = [seg for seg in path.strip("/").split("/") if seg not in ("etc", "xdg")]
+    derived = []
+    if len(parts) > 1:
+        derived.append(parts[0])                     # /etc/xrdp/xrdp.ini  -> xrdp
+    if parts:
+        derived.append(parts[-1].split(".")[0])      # /etc/ddclient.conf  -> ddclient
+    seen: set[str] = set()
+    out = []
+    for cand in [*named, *derived]:
+        if cand and cand not in seen:
+            seen.add(cand)
+            out.append(cand)
+    return out[:4]
+
+
+async def _doc_samples(path: str) -> str:
+    """The commented sample configs the package ships under /usr/share/doc. Blocking, so off the loop."""
+    for pkg in _package_candidates(path):
+        text = await asyncio.to_thread(deb_doc_samples, pkg)
+        if text and len(text) > 400:
+            return text
+    return ""
+
+
 async def _shipped_config(path: str, base: str) -> str:
     """The config file the package ships, or "". Blocking (apt/dpkg), so off the event loop."""
-    codecs = json.loads((CONFIGS / "config_codecs.json").read_text())
-    entry = codecs.get(path) or {}
-    packages = [p for p in (entry.get("packages") or []) if isinstance(p, str)][:3]
-    for pkg in packages:
+    for pkg in _package_candidates(path):
         text, _ships, _real = await asyncio.to_thread(_deb_config, pkg, base, pkg, path)
         if text and len(text) > 200:
             return text
@@ -112,6 +146,14 @@ async def settle(rows: list[dict], only: str = "") -> list[dict]:
         if shipped:
             parts.append(shipped)
             names.append("the config file the package ships")
+        # …AND THE PACKAGE'S OWN DOCUMENTED SAMPLE, which is a different file and usually the better witness:
+        # /etc/hostapd/hostapd.conf as shipped says almost nothing, while
+        # /usr/share/doc/hostapd/examples/hostapd.conf is 128 kB and mentions hw_mode ten times. Nothing had
+        # been looking there, which is part of why "both sources are silent" happened as often as it did.
+        docs = await _doc_samples(path)
+        if docs:
+            parts.append(docs)
+            names.append("the sample config the package documents")
         source = "\n".join(parts)
         origin = " and ".join(names)
         if not source:

@@ -401,6 +401,32 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## A source nothing had looked at: the package's own documented sample — 2026-08-25
+
+`/etc/hostapd/hostapd.conf` as Debian ships it says almost nothing. `/usr/share/doc/hostapd/examples/
+hostapd.conf` is **128 kB and mentions `hw_mode` ten times**. The batch had never looked there — it read the
+man page, the working config under `/etc`, and the web — which is part of why "both sources are silent"
+happened as often as it did.
+
+`qualify_packages.deb_doc_samples()` extracts them (gzipped included, sorted so a grounding decision cannot
+depend on directory order), and both the value-set settlement and the enum/directive mining now see them.
+Immediate result: `/etc/hostapd/hostapd.conf hw_mode` settled to the union `a b g be`.
+
+**And the registry often cannot name the package to fetch.** Measured on the unsettled disagreements:
+`/etc/ddclient.conf` and `/etc/xdg/swaync/config.json` carry `packages: []`, and `/etc/xrdp/xrdp.ini` carries
+`["xrdp.ini"]` — a FILENAME, the 213-entry class `audit_package_claims.py` recorded. So candidates are also
+derived from the path (the directory under `/etc`, then the basename without its extension): a wrong guess
+costs one failed `apt-get download` and grounds nothing, a missing guess costs the whole witness. With that,
+ddclient went from "nothing consulted" to 16 of 21 values confirmed.
+
+Four disagreements remain, each because a value is genuinely absent from every source — `CALLBACK` for
+freeipmi's privilege levels, `x509` for xrdp's security layer — and the rule holds: an absent word is not an
+illegal value, so nothing is deleted on it.
+
+**The check now runs itself.** `check_catalog_fit` is invoked by the qualify supervisor after every pass
+(reported, not fatal — the pass must not stop because a budget grew, but the log has to say so) and by
+`tests/test_catalog_fit_holds.py` against the real catalogs. A tool nobody invokes is a rule nobody enforces.
+
 ## "Do the three fit?" is now one command — 2026-08-25
 
 `python -m bossman.tools.check_catalog_fit`. Five passes and a nightly LLM batch write the same catalogs, and

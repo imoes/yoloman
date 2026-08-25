@@ -477,6 +477,76 @@ def _pick_primary_config(
     return min(conffiles, key=rank)
 
 
+#: Where a Debian package keeps the FULLY COMMENTED sample of its config — the file that documents every
+#: option, as opposed to the working config under /etc, which is usually nearly empty.
+#:
+#: Measured on hostapd: /etc/hostapd/hostapd.conf as shipped says almost nothing, while
+#: /usr/share/doc/hostapd/examples/hostapd.conf is 128 kB and mentions hw_mode ten times. The batch had never
+#: looked there, which is part of why "the man page and the shipped config are both silent" happened as often
+#: as it did.
+_DOC_SAMPLE_DIRS = ("usr/share/doc",)
+_DOC_SAMPLE_SUFFIXES = (".conf", ".cfg", ".conf.gz", ".cfg.gz", ".sample", ".sample.gz",
+                        ".ini", ".ini.gz", ".yaml", ".yml", ".toml", ".example", ".example.gz")
+
+
+def _read_maybe_gzipped(path: Path, limit: int = 200000) -> str:
+    """The doc tree gzips almost everything, and a gzipped sample is still a sample."""
+    try:
+        if path.suffix == ".gz":
+            import gzip
+
+            with gzip.open(path, "rt", errors="replace") as fh:
+                return fh.read(limit)
+        return path.read_text(errors="replace")[:limit]
+    except (OSError, ValueError):
+        return ""
+
+
+def deb_doc_samples(pkg: str, limit: int = 200000) -> str:
+    """The commented sample configs a package ships under /usr/share/doc, concatenated.
+
+    A separate source from _deb_config, and a stronger one for VALUE SETS: the working config under /etc is
+    what the daemon reads, while the doc sample is what the project wrote to explain itself. Returns "" when
+    the package cannot be fetched — an unreachable package is not a package with no documentation.
+    """
+    if not pkg or not _ensure_debian_apt():
+        return ""
+    work = Path(tempfile.mkdtemp(dir=str(DEB_TMP)))
+    try:
+        subprocess.run(["apt-get", *_apt_opts(), "download", pkg], cwd=str(work),
+                       capture_output=True, env=os.environ.copy(), timeout=180)
+        debs = list(work.glob("*.deb"))
+        if not debs:
+            return ""
+        root = work / "root"
+        subprocess.run(["dpkg-deb", "-x", str(debs[0]), str(root)], capture_output=True, timeout=60)
+        parts: list[str] = []
+        total = 0
+        for base in _DOC_SAMPLE_DIRS:
+            top = root / base
+            if not top.is_dir():
+                continue
+            # Sorted so the result is the same on every run: a source that shuffles makes a grounding
+            # decision depend on directory order.
+            for f in sorted(top.rglob("*")):
+                if not f.is_file() or not f.name.endswith(_DOC_SAMPLE_SUFFIXES):
+                    continue
+                text = _read_maybe_gzipped(f, limit - total)
+                if len(text) < 200:
+                    continue
+                parts.append(f"=== {f.relative_to(root)} ===\n{text}")
+                total += len(text)
+                if total >= limit:
+                    break
+            if total >= limit:
+                break
+        return "\n\n".join(parts)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def _deb_config(pkg: str, cfg_base: str, name: str, cfg_path: str = "") -> tuple[str | None, bool, str | None]:
     """Download the DEBIAN .deb (no install), extract it, and return
     (primary_config_text, ships_etc_config, real_config_path). `ships_etc_config`
@@ -1313,6 +1383,14 @@ async def process_package(
             sample_text = Path(cfg).read_text(errors="replace")[:60000]
         except OSError:
             pass
+    # …AND THE PACKAGE'S DOCUMENTED SAMPLE, appended rather than substituted. It is a DIFFERENT file from the
+    # working config and usually the better witness for VALUE SETS: /etc/hostapd/hostapd.conf as shipped says
+    # almost nothing, while /usr/share/doc/hostapd/examples/hostapd.conf is 128 kB and mentions hw_mode ten
+    # times. Nothing looked there until the value-set settlement needed a third source, which is part of why
+    # "the man page and the shipped config are both silent" happened as often as it did.
+    doc_text = await asyncio.to_thread(deb_doc_samples, pkg)
+    if doc_text:
+        sample_text = (sample_text + "\n\n=== documented sample ===\n" + doc_text)[:120000]
 
     # ── Directives-only fast path ─────────────────────────────────────────────
     # codec/template/enum/enrich are already at PIPELINE_VERSION; only the
