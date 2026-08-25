@@ -42,7 +42,7 @@ import re
 from bossman.services.websearch import SearxngClient
 from bossman.tools._jsonio import write_catalog
 from bossman.tools._paths import configs_dir
-from bossman.tools.qualify_packages import SEARXNG, _resolve_man
+from bossman.tools.qualify_packages import SEARXNG, _deb_config, _resolve_man
 
 CONFIGS = configs_dir(__file__)
 DISAGREEMENTS = CONFIGS / "value_set_disagreements.json"
@@ -74,6 +74,18 @@ def grounded(values: list[str], blob: str) -> list[str]:
     return out
 
 
+async def _shipped_config(path: str, base: str) -> str:
+    """The config file the package ships, or "". Blocking (apt/dpkg), so off the event loop."""
+    codecs = json.loads((CONFIGS / "config_codecs.json").read_text())
+    entry = codecs.get(path) or {}
+    packages = [p for p in (entry.get("packages") or []) if isinstance(p, str)][:3]
+    for pkg in packages:
+        text, _ships, _real = await asyncio.to_thread(_deb_config, pkg, base, pkg, path)
+        if text and len(text) > 200:
+            return text
+    return ""
+
+
 async def settle(rows: list[dict], only: str = "") -> list[dict]:
     searx = SearxngClient(SEARXNG)
     results = []
@@ -86,25 +98,33 @@ async def settle(rows: list[dict], only: str = "") -> list[dict]:
         # the batch uses: the page is called sshd_config for the template `openssh_server`.
         man = await _resolve_man(searx, row.get("template") or base, base)
         both = list(dict.fromkeys([*row["directive_values"], *row["template_values"]]))
-        if not man:
+        # BOTH WITNESSES, NOT ONE. The config the package ships is where a project usually writes its value
+        # set — redis.conf lists "debug / verbose / notice / warning" in a comment beside the setting — and
+        # its man page can be real, long, and silent on that particular key. Preferring the man page BECAUSE
+        # it loaded was measured to abstain on exactly that: redis's 43 kB page does not contain `verbose` or
+        # `notice`, while its own config file does. A value confirmed by EITHER source is confirmed; taking
+        # the union can only enlarge the confirmed set, never delete from it.
+        parts, names = [], []
+        if man and len(man) >= _MIN_MAN_CHARS:
+            parts.append(man)
+            names.append("the man page")
+        shipped = await _shipped_config(path, base)
+        if shipped:
+            parts.append(shipped)
+            names.append("the config file the package ships")
+        source = "\n".join(parts)
+        origin = " and ".join(names)
+        if not source:
             results.append({**row, "settled": None,
-                            "reason": "no man page could be fetched for this file — nothing was consulted"})
+                            "reason": "no man page and no shipped config could be fetched for this file — "
+                                      "nothing was consulted"})
             continue
-        # A SUBSTANTIAL page, not merely a successful fetch. _resolve_man accepts anything over 800
-        # characters, which is the right bar for the batch (a weak page simply grounds nothing) and the wrong
-        # one here, because this tool NARROWS two existing catalogs and a stub would do it confidently.
-        # The ddclient stub was 1548 characters; a real section-5 config page is tens of thousands.
-        if len(man) < _MIN_MAN_CHARS:
-            results.append({**row, "settled": None,
-                            "reason": f"the fetched page is only {len(man)} characters — a navigation stub "
-                                      f"rather than a man page, and narrowing a catalog needs a real one"})
-            continue
-        keep = grounded(both, man)
+        keep = grounded(both, source)
         if len(keep) < 2:
-            results.append({**row, "settled": None, "grounded": keep,
-                            "reason": f"only {len(keep)} of {len(both)} candidate values appear in the man "
-                                      f"page; a set of one is not a choice, and an empty one would delete "
-                                      f"both catalogs' answers on the strength of one fetch"})
+            results.append({**row, "settled": None, "grounded": keep, "source": origin,
+                            "reason": f"only {len(keep)} of {len(both)} candidate values appear in {origin}; "
+                                      f"a set of one is not a choice, and an empty one would delete both "
+                                      f"catalogs' answers on the strength of one fetch"})
             continue
         # THE SETTLED SET MUST CONTAIN AT LEAST ONE CATALOG'S SET ENTIRELY. Anything less is not a decision
         # between the two, it is a third answer invented by whatever page was fetched — and that is not a
@@ -132,15 +152,16 @@ async def settle(rows: list[dict], only: str = "") -> list[dict]:
         remaining = [v for v in unconfirmed if v not in truncations]
         if remaining:
             results.append({**row, "settled": None, "grounded": keep, "unconfirmed": remaining,
-                            "reason": "{} of {} values do not appear in the man page ({}) — and an absent "
-                                      "word is not an illegal value, so nothing is deleted on it"
-                                      .format(len(remaining), len(both), ", ".join(remaining[:6]))})
+                            "source": origin,
+                            "reason": "{} of {} values do not appear in {} ({}) — and an absent word is not "
+                                      "an illegal value, so nothing is deleted on it"
+                                      .format(len(remaining), len(both), origin, ", ".join(remaining[:6]))})
             continue
         settled = [v for v in both if v in kept]
-        results.append({**row, "settled": settled, "dropped": sorted(truncations),
-                        "reason": "the man page confirms every value; the union of both catalogs is the "
-                                  "answer" + (" (empty strings and truncated duplicates dropped)"
-                                              if truncations else "")})
+        results.append({**row, "settled": settled, "dropped": sorted(truncations), "source": origin,
+                        "reason": f"{origin} confirms every value; the union of both catalogs is the "
+                                  f"answer" + (" (empty strings and truncated duplicates dropped)"
+                                               if truncations else "")})
     return results
 
 

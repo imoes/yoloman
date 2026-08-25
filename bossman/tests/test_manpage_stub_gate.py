@@ -66,3 +66,39 @@ async def test_the_acceptance_boundary(body, expected_none):
     mirror = _Mirror({"thing": body})
     got = await _online_manpage(mirror, "thing", "thing.conf")
     assert (got is None) is expected_none
+
+
+# --------------------------------------------------------------------------- the settlement's witnesses
+
+def test_grounding_is_whole_token():
+    """Without the lookarounds `USER` would ground on `USERNAME` and hostapd's `b` on every word with a b."""
+    from bossman.tools.settle_value_disagreements import grounded
+
+    blob = "Set the USERNAME here. Valid: OPERATOR, ADMIN. See also the b-flag."
+    assert grounded(["USER", "OPERATOR", "ADMIN"], blob) == ["OPERATOR", "ADMIN"]
+    assert grounded(["b"], "a bright blob") == []
+    assert grounded(["b"], "hw_mode=b is 11b") == ["b"]
+
+
+def test_the_settled_set_never_shrinks_below_a_catalog():
+    """The rule that took two wrong versions to find: absence of a word is not illegality. Only an empty
+    value and a truncation (a strict prefix of a grounded value) may be dropped."""
+    from bossman.tools.settle_value_disagreements import settle
+    import asyncio
+
+    row = {"path": "/etc/x.conf", "key": "k", "template": "x",
+           "directive_values": ["a", "b"], "template_values": ["a", "b", "zzz"]}
+
+    async def go(monkeyed_source):
+        import bossman.tools.settle_value_disagreements as mod
+        mod._resolve_man = lambda *a, **k: _async(monkeyed_source)          # noqa: SLF001
+        mod._shipped_config = lambda *a, **k: _async("")                    # noqa: SLF001
+        return await settle([row])
+
+    async def _async(v):
+        return v
+
+    # `zzz` is absent and is not a truncation -> abstain rather than delete it.
+    out = asyncio.run(go("a b " * 3000))
+    assert out[0]["settled"] is None
+    assert out[0]["unconfirmed"] == ["zzz"]

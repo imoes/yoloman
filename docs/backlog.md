@@ -373,7 +373,18 @@ manpages.debian.org) so "which man page" cannot have two answers. `tools/settle_
 | `/etc/default/console-setup` CODESET | settled — `Arm` dropped as a truncation of `Armenian` |
 | `/etc/default/console-setup` FONTSIZE | settled — the empty string dropped |
 | `/etc/freeipmi/ipmiseld.conf` authentication-type | settled — the union, nothing deleted |
-| the other **6** | abstained, each naming the unconfirmed values |
+| `/etc/redis/redis.conf` loglevel | settled — the union `debug verbose notice warning nothing`, confirmed by redis.conf's own comments |
+| the other **5** | abstained, each naming the unconfirmed values |
+
+**TWO WITNESSES, NOT ONE.** Preferring the man page *because it loaded* was measured to abstain on exactly the
+case the config file answers: redis's 43 kB man page contains neither `verbose` nor `notice`, while
+`redis.conf`'s own comments list all five. The config the package ships is consulted alongside the man page
+now, and a value confirmed by either counts — taking the union can only enlarge the confirmed set, never
+delete from it.
+
+Still open, each with its reason recorded: `ddclient.conf protocol` (neither source fetched),
+`ipmiseld privilege-level` (CALLBACK absent from both), `hostapd hw_mode`, `swaync layer`,
+`xrdp security_layer` (x509 absent).
 
 **THE RULE IS UNION-ONLY: NEVER DELETE ON A MISSING WORD**, and it took two wrong versions to get there:
 
@@ -389,6 +400,33 @@ manpages.debian.org) so "which man page" cannot have two answers. `tools/settle_
 So the only deletions are the two the page cannot be wrong about: an empty string is not a value, and a value
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
+
+## One setting, one value set — DONE 2026-08-25
+
+The larger half of the "do the three fit" question was not the 9 contradictions but the **38 keys where only
+ONE catalog had a value set at all**: the same setting was a dropdown in one editor and a text box in the
+other, and which one the operator met depended on the codec classification. 39 sets copied across
+(`tools/sync_value_sets.py`) — safe in a way deciding is not, because nothing is deleted, nothing invented and
+the evidence already existed. `enum_open` and the labels travel WITH the values: copying an open set as a
+closed menu would turn "these are suggestions" into "these are the only values".
+
+**And the passes were interacting.** The dry run offered to copy `GLOBUS_GATEKEEPER_LOG_FACILITY:
+['LOG_DAEMON']` — a one-option set, out of a catalog whose one-option sets had already been dropped 361 at a
+time. Cause: `mark_open_enums` deduplicated `['LOG_DAEMON','LOG_DAEMON']` down to one AFTER that pass ran. Two
+correct rules in the wrong order produced the thing both forbid, and it only surfaced because a third pass
+offered to spread it.
+
+So the invariants live in one place (`tools/_valuesets.py`) and every writer calls `normalise` last: no
+duplicates; fewer than two options is not a choice; **and rule 2 is asked after rule 1**, which is the whole
+reason the file exists. Labels and the open mark travel with the values or die with them.
+
+Corpus-wide: **0 one-option sets** remain in either catalog (was 361 + 6), 39 settings that disagreed by
+omission now agree, 5 real disagreements remain recorded and undecided.
+
+| | |
+|---|---|
+| directives | 4392 value sets, 101 marked open |
+| templates | 3460 enums, 396 marked open |
 
 ## The enum dropdowns: the gap is mostly not a gap (2026-08-23)
 
