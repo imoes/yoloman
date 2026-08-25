@@ -34,6 +34,7 @@ import re
 
 from bossman.tools._jsonio import write_catalog
 from bossman.tools._paths import configs_dir
+from bossman.tools._valuesets import dedupe as _dedupe, normalise
 
 CONFIGS = configs_dir(__file__)
 TEMPLATES = CONFIGS / "config_templates"
@@ -62,18 +63,6 @@ def hedged(description: str, values: list) -> str:
     return ""
 
 
-def _dedupe(values: list) -> list:
-    """First occurrence wins, order preserved. `['r--','r--','rw-']` is a menu with two identical entries."""
-    seen: set[str] = set()
-    out = []
-    for v in values:
-        key = str(v)
-        if key not in seen:
-            seen.add(key)
-            out.append(v)
-    return out
-
-
 def sweep() -> tuple[list[dict], list[dict]]:
     """(opened, deduped) — the decisions, applied to the files on disk by the caller."""
     opened: list[dict] = []
@@ -87,12 +76,18 @@ def sweep() -> tuple[list[dict], list[dict]]:
             values = spec.get(key_of_set)
             if not isinstance(values, list) or not values:
                 continue
-            clean = _dedupe(values)
-            if len(clean) != len(values):
-                spec[key_of_set] = clean
-                deduped.append({"where": where, "key": key, "was": values, "now": clean})
-                values = clean
+            # THE SHARED INVARIANT, not a local dedupe. Deduplicating on its own CREATED one-option sets:
+            # ['LOG_DAEMON','LOG_DAEMON'] became ['LOG_DAEMON'] after the pass that removes those had
+            # already run, so two correct rules in the wrong order produced the thing both forbid.
+            before = list(values)
+            why = normalise(spec, "directive" if key_of_set == "values" else "template")
+            values = spec.get(key_of_set)
+            if why:
+                deduped.append({"where": where, "key": key, "was": before,
+                                "now": list(values) if isinstance(values, list) else None, "reason": why})
                 touched = True
+            if not isinstance(values, list) or not values:
+                continue
             phrase = hedged(spec.get("description") or "", values)
             if phrase and not spec.get("enum_open"):
                 spec["enum_open"] = True
