@@ -56,7 +56,11 @@ def _field_from_directive(spec: dict) -> dict:
         # value -> what it MEANS, for a set whose values are opaque on their own. A `log_level` of 0..3 is a
         # menu of nothing without them: the numbers are what gets written to the file, and the words live in
         # the description, where a dropdown cannot show them.
-        labels = spec.get("enum_labels")
+        # BOTH SPELLINGS, translated HERE. The directive catalog calls the set `values` and its labels
+        # `value_labels`; a template schema calls them `enum` and `enum_labels`. This normaliser already
+        # translates values->enum and int->number, so the label key belongs in the same one place rather
+        # than as a second name the two catalogs have to agree on.
+        labels = spec.get("value_labels") or spec.get("enum_labels")
         if isinstance(labels, dict) and labels:
             out["enum_labels"] = {str(k): str(v) for k, v in labels.items()}
     if spec.get("default") not in (None, ""):

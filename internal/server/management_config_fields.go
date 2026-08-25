@@ -133,7 +133,11 @@ func fieldFromDirective(spec map[string]any) map[string]any {
 	// value -> what it MEANS. A numeric enum (log_level 0..3) is a menu of nothing without it: the number is
 	// what gets written, and the word only exists in the description, where a dropdown cannot show it.
 	// Passed through, not derived — Bossman writes these into the schema and the agent must not disagree.
-	if labels, ok := spec["enum_labels"].(map[string]any); ok && len(labels) > 0 {
+	// Both spellings: the directive catalog says `value_labels` beside its `values`, a template schema says
+	// `enum_labels` beside its `enum`. Translated here, where values->enum and int->number already are.
+	if labels, ok := spec["value_labels"].(map[string]any); ok && len(labels) > 0 {
+		out["enum_labels"] = labels
+	} else if labels, ok := spec["enum_labels"].(map[string]any); ok && len(labels) > 0 {
 		out["enum_labels"] = labels
 	}
 	def := spec["default"]

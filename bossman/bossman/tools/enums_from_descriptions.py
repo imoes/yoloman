@@ -74,7 +74,7 @@ INTRODUCERS = (
 NUMERIC = re.compile(r"(?<![\w.\-])(-?\d+)\s*=\s*(?=\S)")
 
 #: A value token: short, no sentence punctuation, not a sentence fragment. Quoted forms are unwrapped first.
-VALUE = re.compile(r"^[A-Za-z0-9][\w.+/@-]{0,31}$")
+VALUE = re.compile(r"^[A-Za-z0-9][\w.+/@-]{0,23}(?:\ [A-Za-z0-9][\w.+/@-]{0,15})?$")
 
 #: Words that mean the "list" is prose rather than values. Every entry here is a word that cannot stand alone
 #: as a config value.
@@ -109,9 +109,14 @@ _SEP = r"""(?:\s*,\s*(?:or\s+|and\s+)?|\s*[;|]\s*|\s+(?:or|and)\s+)"""
 #: ("'unmanaged' (default), 'all', 'any', or 'none'") was refused outright. Bounded to 40 characters so it
 #: stays a gloss and cannot swallow a sentence.
 _GLOSS = r"""(?:\s*\([^)]{0,40}\))?"""
-QUOTED = re.compile(r"""(?:^|[\s:=(])(['"`])(?P<first>[A-Za-z0-9][\w.+/@-]{0,31})\1"""
-                    + r"""(?:""" + _GLOSS + _SEP + r"""(['"`])[A-Za-z0-9][\w.+/@-]{0,31}\3)+""", re.I)
-QUOTED_TOKEN = re.compile(r"""(['"`])([A-Za-z0-9][\w.+/@-]{0,31})\1""")
+#: A quoted value MAY contain a space. `Require: 'all denied' or 'all granted'` is Apache's real value set,
+#: `map to guest: 'bad user'` is Samba's, `isolation_level: 'repeatable read'` is SQL's — and with a
+#: space-free token pattern none of them could be read, only preserved where someone had already written
+#: them. Bounded to TWO words: the quotes plus a two-word limit is what keeps a quoted sentence out.
+_QVAL = r"""[A-Za-z0-9][\w.+/@-]{0,23}(?:\ [A-Za-z0-9][\w.+/@-]{0,15})?"""
+QUOTED = re.compile(r"""(?:^|[\s:=(])(['"`])(?P<first>""" + _QVAL + r""")\1"""
+                    + r"""(?:""" + _GLOSS + _SEP + r"""(['"`])""" + _QVAL + r"""\3)+""", re.I)
+QUOTED_TOKEN = re.compile(r"""(['"`])(""" + _QVAL + r""")\1""")
 
 #: The phrases that mark what follows as an EXAMPLE. Looked for in the 40 characters before a quoted list.
 #: NO TRAILING \b. "e.g." ends in a period and the next character is usually a comma — between two
@@ -157,6 +162,19 @@ def _numeric_pairs(description: str) -> list[tuple[str, str]]:
         # THE LABEL ENDS WHERE THE SENTENCE DOES. Without this the last mapping swallowed whatever followed:
         # "3=debug. Recommend 1 for production" became the label of value 3.
         label = re.split(r"[.;]\s+|[;,]\s*$|\.\s*$", label.strip())[0].strip().rstrip(",;.").strip()
+        # …AND AT A TOP-LEVEL COMMA, because the thing after it is usually the next mapping in a form this
+        # loop does not recognise. Measured: "(1=DROP, 0=ACCEPT, empty=automatic)" gave value 0 the label
+        # "ACCEPT, empty=automatic" — `empty=` is a mapping too, just not a numeric one. Commas inside
+        # parentheses are kept: "Traditional Chinese (Big5, legacy)" is one label.
+        depth = 0
+        for pos, char in enumerate(label):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth = max(0, depth - 1)
+            elif char == "," and depth == 0:
+                label = label[:pos].strip()
+                break
         # An UNBALANCED closing bracket, from a mapping that lived inside a parenthetical:
         # "(0 = once; -1 = none)" ends the last label with the paren that opened before the first mapping.
         while label.endswith((")", "]")) and label.count("(") < label.count(")") + label.count("["):
@@ -188,7 +206,7 @@ def _values_from_list(text: str) -> list[str]:
 
 
 def extract(description: str, field_names: set[str] | None = None,
-            labels: dict[str, str] | None = None) -> tuple[list[str], str]:
+            labels: dict[str, str] | None = None, own_name: str = "") -> tuple[list[str], str]:
     """(values, reason). Empty values with the reason it refused — that is the point, not a side effect.
 
     `labels`, when a dict is passed in, is filled with value -> what it MEANS. Only the numeric form has
@@ -228,7 +246,7 @@ def extract(description: str, field_names: set[str] | None = None,
             # nothing — "Detection method: 'threshold' or 'stddev'. Must be one of these two values." — and
             # returning on the first match let that trailing sentence veto the real list before it.
             continue
-        ok, why = _plausible(values, field_names)
+        ok, why = _plausible(values, field_names, own_name)
         if ok:
             return values, "introduced list in the description"
         refusal = why   # remembered, but keep looking: a later introducer may find the real list
@@ -247,16 +265,31 @@ def extract(description: str, field_names: set[str] | None = None,
         if EXAMPLE.search(lead):
             return [], "the quoted values are introduced as an example, not as the allowed set"
         values = [m.group(2) for m in QUOTED_TOKEN.finditer(span.group(0))]
-        ok, why = _plausible(values, field_names)
+        ok, why = _plausible(values, field_names, own_name)
         if ok:
             return values, "two or more quoted literals in the description"
         refusal = refusal or why
     return [], refusal or "no phrase in the description introduces a list of two or more value-shaped tokens"
 
 
-def _plausible(values: list[str], field_names: set[str] | None) -> tuple[bool, str]:
-    """The three gates that separate a value list from a sentence. Each one is a measured false positive."""
+def _plausible(values: list[str], field_names: set[str] | None,
+               own_name: str = "") -> tuple[bool, str]:
+    """The gates that separate a value list from a sentence. Each one is a measured false positive."""
     low = [v.lower() for v in values]
+    # A TWO-WORD TOKEN WHOSE FIRST WORD IS PROSE is prose, however neatly it was quoted. Allowing a space in
+    # quoted values (so Apache's "all denied" and SQL's "repeatable read" can be read) let one phrase in:
+    # mom/log_destination offered `'stdio' or 'a filename'`, and "a filename" is a description of a value,
+    # not a value. Checked on the FIRST word only — "all denied" starts with a real token, "a filename"
+    # starts with an article.
+    for token in low:
+        head = token.split(" ", 1)[0]
+        if " " in token and head in PROSE:
+            return False, f"a value reads as a description ({token})"
+    if own_name and own_name.lower() in low:
+        # "Target username for 'user' or 'direct' actions" on the key `user`: the quoted words are the values
+        # of a DIFFERENT setting (which action to take), and this one holds a username. A setting whose legal
+        # value is its own name would be a curiosity; a description mentioning the setting's name is normal.
+        return False, f"a value equals the field's own name ({own_name}) — the quoted words belong to another setting"
     if any(v in PROSE for v in low):
         return False, f"the list reads as prose ({', '.join(v for v in low if v in PROSE)})"
     if field_names and sum(1 for v in low if v in field_names) >= 2:
@@ -308,7 +341,7 @@ def apply_to(schema: dict, *, relabel_existing: bool = False) -> tuple[dict, lis
                               "labels": spec["enum_labels"], "reason": "labels for an existing numeric enum"})
             continue
         found = {}
-        values, reason = extract(spec.get("description") or "", names, found)
+        values, reason = extract(spec.get("description") or "", names, found, key)
         if not values:
             decisions.append({"field": key, "accepted": False, "reason": reason})
             continue
