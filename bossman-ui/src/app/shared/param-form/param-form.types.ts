@@ -13,6 +13,13 @@ export interface ParamSpec {
    * 109 enums in the template corpus are all-numeric. The option shows the label and still submits the
    * value. */
   enum_labels?: Record<string, string>;
+  /** The values are SUGGESTIONS, not the whole legal range.
+   *
+   * Set when the field's own description introduces them with "e.g." or "common values" — 497 fields
+   * measured. `apcupsd_cgi/syslog` lists daemon and user while its description says "'daemon',
+   * 'local0'-'local7'": a closed menu there removes every other facility from reach, and the write path is
+   * whole-file. Rendered as an input with a datalist: suggestions kept, typing still possible. */
+  enum_open?: boolean;
   items?: Record<string, ParamSpec>; // element schema for a list-of-objects
   hidden?: boolean;
   required?: boolean;

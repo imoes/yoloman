@@ -331,8 +331,37 @@ shipped `.deb` config and the web docs, both better witnesses than chrome.
 navigation, so a version of this gate that rejected on "Skip Quicknav" threw away redis (43 kB), dnsmasq
 (138 kB) and ntp (60 kB). Length alone separates them — stubs 1.5–4.7 kB, real pages 12–200 kB.
 
-*Worth a re-run:* every enum the batch has ever mined for one of those packages was grounded against chrome,
-so the abstentions recorded for them are not evidence about the package.
+*A re-run was measured and is NOT worth it.* Controlled A/B over the same 37 templates the stopped laguna pass
+had already asked: 8 of them lost their "man page" to the new gate (it was chrome), and the enum yield went
+**2 → 2** — one lost (`0xffff/hw_revision`, which had grounded on the stub) and one gained (`agetty`). So the
+fix makes the grounding honest without unlocking enums, and a 1214-template re-run at that rate is not
+justified. Four minutes of measurement instead of hours of batch.
+
+### What the A/B did find: 497 closed menus built from open sets — FIXED 2026-08-25
+
+`0xffff/hw_revision` got its enum `['2101','2102']` from a description reading **"Hardware revision string
+(e.g., '2101,2102')"**. The description extractor REFUSES that — an example is not an enumeration — but the
+LLM enum stage has no such gate and ran first. Audited across the corpus: **497 fields** carry a closed menu
+whose own description hedges the values.
+
+| field | menu | its own description |
+|---|---|---|
+| `alien/target_arch` | `all, source, any` | "e.g., 'amd64', 'i386', 'all'" |
+| `apcupsd_cgi/syslog` | `daemon, user` | "Common values: 'daemon', 'local0'–'local7'" |
+| `0install/…items.type` | `version, trust` | "e.g., 'version', 'rating', 'age', 'trust', 'priority'" |
+
+A syslog-facility dropdown without local0–local7 does not look thin — it makes the needed value **untypable**,
+and the write path is whole-file.
+
+**Deleting them would be wrong too**: several are correct sets that happen to be introduced with a hedge
+(`ansible_core/defaults_fact_caching: jsonfile|memory|redis|yaml` really is Ansible's set, described as
+"Common options"). So the fields are MARKED — `enum_open` travels through both servers into the one form
+renderer, which shows an input with a datalist and the note "suggestions — other values are allowed". The
+suggestions stay and an unlisted legal value can still be typed.
+
+Also fixed in the same pass: **34 enums containing the same value twice** — `acl/permissions: ['r--', 'r--',
+'rw-']`, and busybox's `mdev.conf` uid/gid lists which repeated `operator`, `list`, `proxy` and `backup`
+several times each.
 
 ## The nine value-set disagreements: 3 settled, 6 abstained — 2026-08-25
 

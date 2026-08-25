@@ -63,6 +63,12 @@ def _field_from_directive(spec: dict) -> dict:
         labels = spec.get("value_labels") or spec.get("enum_labels")
         if isinstance(labels, dict) and labels:
             out["enum_labels"] = {str(k): str(v) for k, v in labels.items()}
+        # AN OPEN SET: the values are suggestions, not the whole legal range, because the field's own
+        # description introduces them with "e.g." or "common values". 497 fields measured. The editor renders
+        # an input with a datalist rather than a select, so the suggestions stay and a value the catalog never
+        # learned can still be typed — a closed menu there would remove local0-local7 from a syslog facility.
+        if spec.get("enum_open"):
+            out["enum_open"] = True
     if spec.get("default") not in (None, ""):
         out["default"] = spec["default"]
     if isinstance(spec.get("description"), str) and spec["description"]:

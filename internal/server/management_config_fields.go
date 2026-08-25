@@ -140,6 +140,12 @@ func fieldFromDirective(spec map[string]any) map[string]any {
 	} else if labels, ok := spec["enum_labels"].(map[string]any); ok && len(labels) > 0 {
 		out["enum_labels"] = labels
 	}
+	// An OPEN set: the values are suggestions because the description introduces them with "e.g." or
+	// "common values". The editor offers an input with a datalist instead of a select — a closed menu would
+	// remove local0-local7 from a syslog facility and leave no way to type it.
+	if open_, ok := spec["enum_open"].(bool); ok && open_ {
+		out["enum_open"] = true
+	}
 	def := spec["default"]
 	if dm, ok := def.(map[string]any); ok {
 		if inner, has := dm["value"]; has {
