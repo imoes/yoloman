@@ -53,6 +53,12 @@ def _field_from_directive(spec: dict) -> dict:
     out: dict[str, Any] = {"type": "enum" if isinstance(values, list) and values else spec.get("type", "string")}
     if isinstance(values, list) and values:
         out["enum"] = [str(v) for v in values]
+        # value -> what it MEANS, for a set whose values are opaque on their own. A `log_level` of 0..3 is a
+        # menu of nothing without them: the numbers are what gets written to the file, and the words live in
+        # the description, where a dropdown cannot show them.
+        labels = spec.get("enum_labels")
+        if isinstance(labels, dict) and labels:
+            out["enum_labels"] = {str(k): str(v) for k, v in labels.items()}
     if spec.get("default") not in (None, ""):
         out["default"] = spec["default"]
     if isinstance(spec.get("description"), str) and spec["description"]:

@@ -62,7 +62,16 @@ INTRODUCERS = (
 
 #: `0=error, 1=warn, 2=info` — the numeric form, where the VALUE is the number and the word explains it.
 #: Handled separately because splitting it on commas like a word list would yield "0=error" as a value.
-NUMERIC = re.compile(r"(?<![\w.])(\d+)\s*=\s*([A-Za-z][\w -]{0,20})")
+#:
+#: THE SIGN IS PART OF THE NUMBER. Without `-?` this matched "1" inside "-1", so
+#: argus-client/ra_print_labels ("0 = once; -1 = none") got the enum `0, 1` — and 1 is not a legal value
+#: there. A wrong VALUE is the worst outcome this whole module is built to avoid, and it came from a missing
+#: character class.
+#:
+#: The label is NOT matched here. It is the text between one mapping and the next (see _numeric_pairs):
+#: a charset stopped "Traditional Chinese (Big5)" at "Traditional Chinese" and "mm/dd/yyyy" at "mm", which
+#: gave drbl/default_language two DIFFERENT values the SAME label.
+NUMERIC = re.compile(r"(?<![\w.\-])(-?\d+)\s*=\s*(?=\S)")
 
 #: A value token: short, no sentence punctuation, not a sentence fragment. Quoted forms are unwrapped first.
 VALUE = re.compile(r"^[A-Za-z0-9][\w.+/@-]{0,31}$")
@@ -131,6 +140,37 @@ def _unquote(token: str) -> str:
     return token.strip("'\"`").strip()
 
 
+def _numeric_pairs(description: str) -> list[tuple[str, str]]:
+    """[(value, label)] for a `0=error, 1=warn` description.
+
+    The LABEL IS BOUNDED BY THE NEXT MAPPING, not by a character class. A charset ended
+    "Traditional Chinese (Big5)" at "Traditional Chinese" and "mm/dd/yyyy" at "mm" — so two distinct values
+    got the same label, and a date format lost the part that made it a date format. Taking the text between
+    one `N=` and the next keeps whatever the author wrote there.
+    """
+    marks = list(NUMERIC.finditer(description))
+    pairs: list[tuple[str, str]] = []
+    for index, mark in enumerate(marks):
+        end = marks[index + 1].start() if index + 1 < len(marks) else len(description)
+        label = description[mark.end():end]
+        # Trim the separator that led to the next item, and the closing punctuation of the sentence.
+        # THE LABEL ENDS WHERE THE SENTENCE DOES. Without this the last mapping swallowed whatever followed:
+        # "3=debug. Recommend 1 for production" became the label of value 3.
+        label = re.split(r"[.;]\s+|[;,]\s*$|\.\s*$", label.strip())[0].strip().rstrip(",;.").strip()
+        # An UNBALANCED closing bracket, from a mapping that lived inside a parenthetical:
+        # "(0 = once; -1 = none)" ends the last label with the paren that opened before the first mapping.
+        while label.endswith((")", "]")) and label.count("(") < label.count(")") + label.count("["):
+            label = label[:-1].strip()
+        # A label that swallowed a whole trailing sentence — or a JSON fragment — is not a label. The quote
+        # and bracket test is not paranoia: measured, clsync/clsync_ionice_class's DESCRIPTION ends
+        # `3=idle).", "enum": ["0", "1", "2", "3"]` — a generation pass leaked its own JSON into the string,
+        # and the label extraction is what made that visible.
+        if not label or len(label) > 48 or any(c in label for c in '"[]{}'):
+            return []
+        pairs.append((mark.group(1), label))
+    return pairs
+
+
 def _values_from_list(text: str) -> list[str]:
     """Split an introduced list into value tokens, or return [] if it does not look like one."""
     # Stop at the end of the clause: a description continues past its list ("…, error. Defaults to info").
@@ -147,17 +187,31 @@ def _values_from_list(text: str) -> list[str]:
     return best
 
 
-def extract(description: str, field_names: set[str] | None = None) -> tuple[list[str], str]:
-    """(values, reason). Empty values with the reason it refused — that is the point, not a side effect."""
+def extract(description: str, field_names: set[str] | None = None,
+            labels: dict[str, str] | None = None) -> tuple[list[str], str]:
+    """(values, reason). Empty values with the reason it refused — that is the point, not a side effect.
+
+    `labels`, when a dict is passed in, is filled with value -> what it MEANS. Only the numeric form has
+    that: "0=error, 1=warn" writes the numbers to the file, so the dropdown must offer `0` — and a dropdown
+    reading `0, 1, 2, 3` with the meanings buried in a description below it is a menu of nothing. The words
+    were being discarded here; they are the labels.
+    """
     if not description or len(description) > 600:
         return [], "no description" if not description else "description too long to read as a list"
 
     refusal = ""
-    numeric = NUMERIC.findall(description)
+    numeric = _numeric_pairs(description)
     if len(numeric) >= 2:
-        # The numbers are the values. The words are what they mean, and they belong in the description that
-        # already carries them — putting "1 (error)" in the dropdown would write "1 (error)" into the file.
-        return [n for n, _word in numeric], "numeric mapping in the description"
+        # The number is the VALUE — it is what gets written to the file — and the words are its LABEL. Putting
+        # "1 (error)" in the dropdown would write that string into the config.
+        seen_labels = [lab for _num, lab in numeric]
+        if len(set(seen_labels)) != len(seen_labels):
+            # Two values, one label. The distinguishing part was lost (measured: "1=Traditional Chinese
+            # (Big5), 2=Traditional Chinese (UTF-8)"), and a menu with two identical entries cannot be used.
+            return [], "the numeric mapping gives two values the same label"
+        if labels is not None:
+            labels.update(dict(numeric))
+        return [n for n, _lab in numeric], "numeric mapping in the description"
 
     for pattern in INTRODUCERS:
         match = pattern.search(description)
@@ -213,17 +267,48 @@ def _plausible(values: list[str], field_names: set[str] | None) -> tuple[bool, s
     return True, ""
 
 
-def apply_to(schema: dict) -> tuple[dict, list[dict]]:
-    """Fill in enums where the description supports one. Returns (schema, decisions)."""
+def apply_to(schema: dict, *, relabel_existing: bool = False) -> tuple[dict, list[dict]]:
+    """Fill in enums where the description supports one. Returns (schema, decisions).
+
+    `relabel_existing` also visits fields that ALREADY have a numeric enum, to attach the labels their
+    description carries. Those enums were written before labels existed, and a dropdown reading `0, 1, 2, 3`
+    is a menu of nothing — measured, 109 of them.
+    """
     props = schema.get("properties", schema) if isinstance(schema, dict) else {}
     if not isinstance(props, dict):
         return schema, []
     names = {k.lower() for k in props}
     decisions: list[dict] = []
     for key, spec in props.items():
-        if not isinstance(spec, dict) or spec.get("type") != "string" or spec.get("enum"):
+        if not isinstance(spec, dict) or spec.get("type") != "string":
             continue
-        values, reason = extract(spec.get("description") or "", names)
+        if spec.get("enum"):
+            if not relabel_existing or spec.get("enum_labels"):
+                continue
+            # NEVER NARROW AN EXISTING ENUM FROM A DESCRIPTION. Tried once and it made two of four "repairs"
+            # worse: dnssec-trigger/verbosity lost 3 and 4 because the description writes them as "3/4 debug"
+            # rather than "3=debug", and sphinx_searchd/binlog_flush lost the legal value 2 that its
+            # description simply does not mention. A description names SOME values; an enum mined from the man
+            # page may know more. Widening is safe, narrowing is a guess with the same shape as a fix.
+            # Only where the WHOLE set is numeric: a word-valued enum labels itself, and inventing prose for
+            # `debug`/`info` would be a second name for a thing that already has one.
+            existing = [str(v) for v in spec["enum"]]
+            if not all(v.isdigit() for v in existing):
+                continue
+            found: dict[str, str] = {}
+            values, _reason = extract(spec.get("description") or "", names, found)
+            # Every value must be labelled, or the dropdown is half words and half bare numbers — a worse
+            # menu than all numbers, because the unlabelled ones read as missing.
+            if not found or set(existing) - set(found):
+                decisions.append({"field": key, "accepted": False, "values": existing,
+                                  "reason": "numeric enum, but the description does not name every value"})
+                continue
+            spec["enum_labels"] = {v: found[v] for v in existing}
+            decisions.append({"field": key, "accepted": True, "values": existing,
+                              "labels": spec["enum_labels"], "reason": "labels for an existing numeric enum"})
+            continue
+        found = {}
+        values, reason = extract(spec.get("description") or "", names, found)
         if not values:
             decisions.append({"field": key, "accepted": False, "reason": reason})
             continue
@@ -235,7 +320,11 @@ def apply_to(schema: dict) -> tuple[dict, list[dict]]:
                               "reason": f"the recorded default {default!r} is not in the extracted set"})
             continue
         spec["enum"] = values
-        decisions.append({"field": key, "accepted": True, "values": values, "reason": reason})
+        decision = {"field": key, "accepted": True, "values": values, "reason": reason}
+        if found and not set(values) - set(found):
+            spec["enum_labels"] = {v: found[v] for v in values}
+            decision["labels"] = spec["enum_labels"]
+        decisions.append(decision)
     return schema, decisions
 
 
@@ -244,6 +333,9 @@ def main() -> int:
     ap.add_argument("--write", action="store_true", help="write the schemas (default: report only)")
     ap.add_argument("--only", default="", help="comma-separated template names")
     ap.add_argument("--show", type=int, default=15, help="how many accepted examples to print")
+    ap.add_argument("--relabel", action="store_true",
+                    help="also attach labels to existing NUMERIC enums (0/1/2 dropdowns with the meanings "
+                         "only in the description)")
     args = ap.parse_args()
     only = {s.strip() for s in args.only.split(",") if s.strip()}
 
@@ -257,7 +349,7 @@ def main() -> int:
             schema = json.loads((d / "schema.json").read_text())
         except (OSError, ValueError):
             continue
-        schema, decisions = apply_to(schema)
+        schema, decisions = apply_to(schema, relabel_existing=args.relabel)
         if not decisions:
             continue
         got = [x for x in decisions if x["accepted"]]
@@ -269,7 +361,8 @@ def main() -> int:
             if args.write:
                 (d / "schema.json").write_text(json.dumps(schema, indent=2) + "\n")
             for x in got[: max(0, args.show - shown)]:
-                print(f"  {d.name}/{x['field']}: {x['values']}")
+                shape = x["labels"] if x.get("labels") else x["values"]
+                print(f"  {d.name}/{x['field']}: {shape}")
                 shown += 1
 
     print(f"\n{accepted} enum(s) from descriptions across {touched} template(s); {refused} field(s) refused")

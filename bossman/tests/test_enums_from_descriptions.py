@@ -89,12 +89,57 @@ def test_a_list_of_other_FIELDS_is_not_a_list_of_values():
     assert extract("Set one of 'dns_manual' or 'dns_hook'.")[0] == ["dns_manual", "dns_hook"]
 
 
-def test_the_numeric_form_yields_the_NUMBERS():
-    """"0=error, 1=warn" — the number is what gets written to the file; the word explains it and belongs in
-    the description that already carries it. Putting "1 (error)" in the dropdown would write that string."""
-    values, reason = extract("Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.")
+def test_the_numeric_form_yields_the_NUMBERS_and_their_LABELS():
+    """"0=error, 1=warn" — the number is what gets written to the file, and the word is its LABEL. Putting
+    "1 (error)" in the enum would write that string into the config; dropping the word leaves a dropdown
+    reading 0, 1, 2, 3, which is a menu of nothing."""
+    labels: dict[str, str] = {}
+    values, reason = extract("Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.", None, labels)
     assert values == ["0", "1", "2", "3"]
+    assert labels == {"0": "error", "1": "warn", "2": "info", "3": "debug"}
     assert "numeric" in reason
+
+
+def test_the_sign_belongs_to_the_number():
+    """Without it, "1" was captured out of "-1": argus-client/ra_print_labels got the enum 0, 1 for a setting
+    whose legal values are 0 and -1. A wrong VALUE is the worst thing this module can produce."""
+    labels: dict[str, str] = {}
+    values, _ = extract("Number of lines between repeated headers (0 = once; -1 = none)", None, labels)
+    assert values == ["0", "-1"]
+    # And the unbalanced closing paren does not become part of the last label.
+    assert labels == {"0": "once", "-1": "none"}
+
+
+@pytest.mark.parametrize("description, expected", [
+    # The label is bounded by the NEXT MAPPING, not by a character class — a charset stopped
+    # "Traditional Chinese (Big5)" at "Traditional Chinese", which gave two values the same label.
+    ("Default language code: 0=English, 1=Traditional Chinese (Big5), 2=Traditional Chinese (UTF-8)",
+     {"0": "English", "1": "Traditional Chinese (Big5)", "2": "Traditional Chinese (UTF-8)"}),
+    # …and it stopped "mm/dd/yyyy" at "mm", losing the part that made it a date format.
+    ("Input date format: 1=mm/dd/yyyy, 2=dd/mm/yyyy", {"1": "mm/dd/yyyy", "2": "dd/mm/yyyy"}),
+    # The label ends where the SENTENCE does: "3=debug. Recommend 1 for production" is not a label.
+    ("Level (0=errors, 1=warnings, 2=info, 3=debug. Recommend 1 for production)",
+     {"0": "errors", "1": "warnings", "2": "info", "3": "debug"}),
+])
+def test_a_label_keeps_what_the_author_wrote_and_no_more(description, expected):
+    labels: dict[str, str] = {}
+    extract(description, None, labels)
+    assert labels == expected
+
+
+def test_two_values_with_the_same_label_are_refused():
+    """A menu with two identical entries cannot be used, and identical labels mean the distinguishing part
+    was lost rather than that the author wrote it twice."""
+    values, reason = extract("Language: 1=Chinese, 2=Chinese")
+    assert values == []
+    assert "same label" in reason
+
+
+def test_a_leaked_json_fragment_is_not_a_label():
+    """Measured: clsync/clsync_ionice_class's DESCRIPTION ends `3=idle).", "enum": ["0", "1", "2", "3"]` — a
+    generation pass leaked its own JSON into the string. The label extraction is what made that visible."""
+    values, _ = extract('ionice class (0=none, 1=realtime, 2=best-effort, 3=idle).", "enum": ["0", "1"]')
+    assert values == []
 
 
 def test_a_parenthetical_explains_a_value_and_is_not_part_of_it():

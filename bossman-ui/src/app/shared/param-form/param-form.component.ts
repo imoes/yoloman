@@ -42,7 +42,10 @@ interface Field { key: string; spec: ParamSpec; }
             }
             @case ('enum') {
               <select class="bm-pf-in" [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)">
-                @for (o of f.spec.enum; track o) { <option [value]="o">{{ o }}</option> }
+                <!-- The LABEL is shown, the VALUE is submitted. A numeric enum without labels reads as
+                     "0, 1, 2, 3" and tells the operator nothing; with them the option says what it does and
+                     the file still receives the number. -->
+                @for (o of f.spec.enum; track o) { <option [value]="o">{{ optionLabel(f.spec, o) }}</option> }
               </select>
             }
             @case ('number') {
@@ -186,6 +189,17 @@ export class ParamFormComponent implements OnInit {
 
   essential = computed(() => this.fields().filter((f) => f.spec.required || f.spec.default === undefined));
   advanced = computed(() => this.fields().filter((f) => !(f.spec.required || f.spec.default === undefined)));
+
+  /** What to SHOW for an enum option. The value is what gets submitted either way.
+   *
+   * `label (value)` rather than the label alone: for `0 = error` the operator often needs to know which
+   * number lands in the file — the config they are editing may already contain it, and a menu that hides
+   * the value makes the two views of the same setting unrecognisable to each other. */
+  optionLabel(spec: ParamSpec, option: unknown): string {
+    const value = String(option);
+    const label = spec.enum_labels?.[value];
+    return label ? `${label} (${value})` : value;
+  }
 
   control(spec: ParamSpec, value?: unknown): string {
     if (spec.widget === 'file') return 'file';

@@ -351,9 +351,44 @@ before the last item, and a per-value gloss between value and separator — the 
 was itself deleting `on`, `any` and `default` — the words that most often *are* the values. Idempotent; a
 second run adds 0.
 
-Still open here: the numeric form (`0=error, 1=warn`) yields the numbers, which is right for the file but
-means the dropdown shows `0`/`1` with the meanings only in the description. A label/value pair in the field
-spec would fix that, and no editor supports one yet.
+### `enum_labels` — DONE 2026-08-25, and the count that matters is 21% of what I was counting
+
+The numeric form (`0=error, 1=warn`) yields the numbers, which is right for the file and a menu of nothing for
+the operator. `enum_labels` (value → meaning) now travels from the schema through BOTH servers
+(`api/config_fields.py`, `internal/server/management_config_fields.go`) into the one form renderer, which
+shows `error (0)` and submits `0`. Extracting the labels found three defects in the extractor, all of the
+worst kind — a wrong VALUE:
+
+- **The sign was not part of the number.** `-?` was missing, so `1` was captured out of `-1` and
+  `argus-client/ra_print_labels` got the enum `0, 1` for a setting whose legal values are `0` and `-1`.
+- **The label was bounded by a character class**, so "Traditional Chinese (Big5)" stopped at "Traditional
+  Chinese" and "mm/dd/yyyy" at "mm" — giving `drbl/default_language` two different values the SAME label.
+  Labels are now bounded by the next mapping, and duplicates are refused outright.
+- **A leaked JSON fragment**: `clsync/clsync_ionice_class`'s *description* ends
+  `3=idle).", "enum": ["0", "1", "2", "3"]` — a generation pass wrote its own JSON into the string. Refused,
+  and worth a corpus sweep of its own.
+
+**And one tried repair made things worse, which is the lesson.** Re-deriving existing numeric enums from
+their descriptions "fixed" four and broke two: `dnssec-trigger/verbosity` lost the legal values 3 and 4
+because its description writes them as "3/4 debug" rather than "3=debug", and `sphinx_searchd/binlog_flush`
+lost the value 2 that its description simply does not mention. **A description names SOME values; an enum
+mined from a man page may know more. Widening is safe, narrowing is a guess with the same shape as a fix.**
+Only the sign correction was kept.
+
+**THE MEASURE WAS WRONG.** Of 3431 enums in the corpus, only **708 (21%)** sit on a template that any surface
+can open — the rest are on the 4425 templates nothing names (the same set the agent package stopped shipping).
+Of the labelled ones, **1 of 14** is reachable. So the honest ADMX-parity number is not "5.3% of all fields"
+but:
+
+| on REACHABLE templates | |
+|---|---|
+| fields | 11 713 |
+| with an enum | **708 (6.0%)** |
+| string fields | 5834, of them enumerated **707 (12.1%)** |
+
+Which reframes the next step: **the lever is reachability, not more mining.** 2723 enums are already written
+on templates no path binds. The open items that move the reachable number are the 111 two-path templates and
+the 2001 withdrawn index bindings recorded below — not another pass over 5474 schemas.
 
 Two findings from the LLM pass are worth more than the enums it would have added:
 
