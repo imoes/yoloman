@@ -67,7 +67,7 @@ num_tiles: {{ num_tiles | default(None) }}
 # Use additional phases to avoid broken ways and polygons across tile borders.
 # Recommended for high-quality maps.
 # (Corresponds to --keep-complete)
-keep_complete: {{ keep_complete | default(true) }}
+keep_complete: {{ keep_complete | default(true) | lower }}
 
 # Lowest admin_level value of boundary relations to keep complete.
 # Boundary relations below this level might be cut across tile borders.
@@ -140,11 +140,11 @@ problem_report: {{ problem_report | default(None) }}
 
 # Specify if input OSM file has nodes, ways, and relations intermingled.
 # (Corresponds to --mixed)
-mixed: {{ mixed | default(false) }}
+mixed: {{ mixed | default(false) | lower }}
 
 # Do not trim empty space off the edges of tiles.
 # (Corresponds to --no-trim)
-no_trim: {{ no_trim | default(false) }}
+no_trim: {{ no_trim | default(false) | lower }}
 
 # Path to a bounding polygon file in osmosis polygon format.
 # Limits the split to a specific geographic area.
@@ -174,7 +174,7 @@ mkgmap-splitter {{ input_file | default('planet.osm') }} \\
     --max-threads={{ max_threads | default(4) }} \\
     --resolution={{ resolution | default(13) }} \\
 {% if (num_tiles | default(None)) is not none %}    --num-tiles={{ num_tiles | default(None) }} \\
-{% endif %}    --keep-complete={{ keep_complete | default(true) }} \\
+{% endif %}    --keep-complete={{ keep_complete | default(true) | lower }} \\
     --wanted-admin-level={{ wanted_admin_level | default(5) }} \\
 {% if (split_file | default(None)) is not none %}    --split-file={{ split_file | default(None) }} \\
 {% endif %}{% if (problem_file | default(None)) is not none %}    --problem-file={{ problem_file | default(None) }} \\
@@ -187,8 +187,8 @@ mkgmap-splitter {{ input_file | default('planet.osm') }} \\
 {% if (precomp_sea | default(None)) is not none %}    --precomp-sea={{ precomp_sea | default(None) }} \\
 {% endif %}{% if (write_kml | default(None)) is not none %}    --write-kml={{ write_kml | default(None) }} \\
 {% endif %}{% if (problem_report | default(None)) is not none %}    --problem-report={{ problem_report | default(None) }} \\
-{% endif %}    --mixed={{ mixed | default(false) }} \\
-    --no-trim={{ no_trim | default(false) }} \\
+{% endif %}    --mixed={{ mixed | default(false) | lower }} \\
+    --no-trim={{ no_trim | default(false) | lower }} \\
 {% if (polygon_file | default(None)) is not none %}    --polygon-file={{ polygon_file | default(None) }} \\
 {% endif %}{% if (polygon_desc_file | default(None)) is not none %}    --polygon-desc-file={{ polygon_desc_file | default(None) }} \\
 {% endif %} > splitter.log

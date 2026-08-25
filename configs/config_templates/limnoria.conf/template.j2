@@ -19,9 +19,9 @@ bot:
   # Server connection password (if required by the network)
   password: {{ bot.password | default('') }}
   # Enable SSL/TLS for the server connection
-  use_ssl: {{ bot.use_ssl | default(false) }}
+  use_ssl: {{ bot.use_ssl | default(false) | lower }}
   # Use a SOCKS/HTTP proxy for the connection
-  use_proxy: {{ bot.use_proxy | default(false) }}
+  use_proxy: {{ bot.use_proxy | default(false) | lower }}
   # Proxy server hostname
   proxy_host: {{ bot.proxy_host | default('') }}
   # Proxy server port
@@ -64,7 +64,7 @@ timezone: {{ timezone | default('UTC') }}
 {% set logging = logging | default({}) %}
 logging:
   # Enable logging to the specified path
-  enabled: {{ logging.enabled | default(true) }}
+  enabled: {{ logging.enabled | default(true) | lower }}
   # Log file path
   path: {{ logging.path | default('/var/log/limnoria/limnoria.log') }}
   # Log message format string
@@ -80,7 +80,7 @@ plugins:
   # Plugin name
   - name: {{ plugin.name | default('') }}
     # Whether the plugin is enabled
-    enabled: {{ plugin.enabled | default(false) }}
+    enabled: {{ plugin.enabled | default(false) | lower }}
 {% endfor %}
 
 # Per-plugin configuration blocks (optional, omitted if no config present).
@@ -122,4 +122,4 @@ language: {{ language | default('en_US') }}
 # Enable debug mode (verbose output, stack traces).
 # Schema field: debug (boolean)
 # Note: The original template accessed .enabled; here we treat the field itself as the boolean flag.
-debug: {{ debug | default(false) }}
+debug: {{ debug | default(false) | lower }}

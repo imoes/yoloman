@@ -11,10 +11,10 @@ log_file = {{ log_file | default('/var/log/designate/designate-worker.log') }}
 log_dir = {{ log_dir | default('/var/log/designate') }}
 
 # Enable debug-level logging.
-debug = {{ debug | default(false) }}
+debug = {{ debug | default(false) | lower }}
 
 # Enable verbose logging output.
-verbose = {{ verbose | default(true) }}
+verbose = {{ verbose | default(true) | lower }}
 
 # Hostname for this worker instance. Leave empty to auto-detect.
 host = {{ host | default('') }}
@@ -56,7 +56,7 @@ max_concurrent_updates = {{ max_concurrent_updates | default(10) }}
 max_retries = {{ max_retries | default(3) }}
 
 # Enable zone export to local files.
-enabled_export = {{ enabled_export | default(false) }}
+enabled_export = {{ enabled_export | default(false) | lower }}
 
 # Directory where zone export files are stored when enabled.
 export_dir = {{ export_dir | default('/var/lib/designate/exports') }}
@@ -77,7 +77,7 @@ pool_timeout = {{ storage_pool_timeout | default(30) }}
 # Optional: Backend-specific configuration for external storage
 [backend:bind9]
 # Enable BIND9 backend integration (if used).
-enabled = {{ bind9_enabled | default(false) }}
+enabled = {{ bind9_enabled | default(false) | lower }}
 
 # List of BIND9 DNS servers to manage (only needed if using BIND9 backend).
 # Each server is rendered as a separate subsection.
@@ -96,7 +96,7 @@ tsig_key_name = {{ server.tsig_key_name }}
 
 [rpc_notifier]
 # Enable custom event notifications (e.g., for external monitoring or audit).
-enabled = {{ notifier_enabled | default(false) }}
+enabled = {{ notifier_enabled | default(false) | lower }}
 
 # List of custom notifier endpoints with their configuration.
 {% for endpoint in notifier_endpoints | default([]) %}

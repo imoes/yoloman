@@ -34,15 +34,15 @@ scratch_dir: {{ scratch_dir | default('/var/tmp') }}
 
 # Start virtual machine if it is offline.
 # If true, virtnbdbackup will attempt to start the domain before backing up.
-start_domain: {{ start_domain | default(false) }}
+start_domain: {{ start_domain | default(false) | lower }}
 
 # Include full provisioned disk images in backup.
 # If true, includes all allocated space, not just used blocks.
-raw: {{ raw | default(false) }}
+raw: {{ raw | default(false) | lower }}
 
 # Compress with lz4 compression level.
 # If true, applies lz4 compression to the backup stream.
-compress: {{ compress | default(false) }}
+compress: {{ compress | default(false) | lower }}
 
 # Amount of concurrent workers used to backup multiple disks.
 # Empty string uses the default (usually number of disks).
@@ -75,7 +75,7 @@ nbd_ip: {{ nbd_ip | default('') }}
 
 # Enable and use TLS for NBD connection.
 # Encrypts NBD traffic if enabled.
-tls: {{ tls | default(false) }}
+tls: {{ tls | default(false) | lower }}
 
 # Path to TLS certificates used during offline backup and restore.
 # Directory or file path containing TLS keys/certs.
@@ -95,37 +95,37 @@ ssh_port: {{ ssh_port | default(22) }}
 
 # Additionally send log messages to syslog.
 # Enables dual logging to syslog in addition to local logs.
-syslog: {{ syslog | default(false) }}
+syslog: {{ syslog | default(false) | lower }}
 
 # Disable logging to stderr.
 # If true, suppresses output on the terminal.
-quiet: {{ quiet | default(false) }}
+quiet: {{ quiet | default(false) | lower }}
 
 # Disable colored output.
 # If true, outputs plain text without ANSI color codes.
-nocolor: {{ nocolor | default(false) }}
+nocolor: {{ nocolor | default(false) | lower }}
 
 # --- Advanced Operation Flags ---
 
 # Use Qemu tools to query extents.
 # If true, uses qemu-img/qemu-io to determine block allocation.
-qemu: {{ qemu | default(false) }}
+qemu: {{ qemu | default(false) | lower }}
 
 # Only initialize backup job via libvirt, do not backup any data.
 # Useful for testing job creation without performing the actual I/O.
-startonly: {{ startonly | default(false) }}
+startonly: {{ startonly | default(false) | lower }}
 
 # Kill any running block job.
 # If true, attempts to abort existing backup jobs on the domain.
-killonly: {{ killonly | default(false) }}
+killonly: {{ killonly | default(false) | lower }}
 
 # Quit after printing estimated checkpoint size.
 # Diagnostic mode to estimate space requirements.
-printonly: {{ printonly | default(false) }}
+printonly: {{ printonly | default(false) | lower }}
 
 # Enable debug output.
 # If true, enables verbose debugging information.
-verbose: {{ verbose | default(false) }}
+verbose: {{ verbose | default(false) | lower }}
 
 # Execute backup only if threshold is reached.
 # 0 disables check. Used for conditional backups based on usage metrics.
@@ -133,7 +133,7 @@ threshold: {{ threshold | default(0) }}
 
 # Skip detection of sparse ranges during incremental or differential backup.
 # Improves performance but may increase backup size.
-no_sparse_detection: {{ no_sparse_detection | default(false) }}
+no_sparse_detection: {{ no_sparse_detection | default(false) | lower }}
 
 # If qemu agent available, freeze only filesystems on specified mountpoints within virtual machine.
 # Comma-separated list of mountpoints. Empty string freezes all.
@@ -153,11 +153,11 @@ exclude_disks: {{ exclude_disks | default([]) | tojson }}
 
 # Change exit code if warnings occur during backup operation.
 # If true, warnings result in a non-zero exit status.
-strict: {{ strict | default(false) }}
+strict: {{ strict | default(false) | lower }}
 
 # Disable progress bar.
 # If true, suppresses the interactive progress indicator.
-noprogress: {{ noprogress | default(false) }}
+noprogress: {{ noprogress | default(false) | lower }}
 
 # Socket file for NBD Server.
 # Local socket path used for NBD server communication.

@@ -2,7 +2,7 @@
 [main]
 
 # Enable or disable the web interface
-enabled = {{ web_enabled }}
+enabled = {{ web_enabled | lower }}
 
 # Path to the HTML output directory
 htmldir = {{ htmldir }}
@@ -26,7 +26,7 @@ graph_periods = {{ graph_periods | join(', ') }}
 contact.admin.address = {{ contact_addresses | join(', ') }}
 
 # How often (in seconds) to send alerts
-contact.admin.always_send = {{ contact_always_send }}
+contact.admin.always_send = {{ contact_always_send | lower }}
 
 # Path to the Munin master executable
 munin_master = {{ munin_master }}
@@ -61,7 +61,7 @@ include = {{ include_dir }}
     plugins = {{ nodes[0].plugins | join(', ') }}
     
     # Custom attributes for the node
-    use_node_name = {{ nodes[0].use_node_name }}
+    use_node_name = {{ nodes[0].use_node_name | lower }}
 
 {% for node in nodes[1:] %}
 # Node: {{ node.name }}
@@ -69,5 +69,5 @@ include = {{ include_dir }}
     address = {{ node.address }}
     port = {{ node.port }}
     plugins = {{ node.plugins | join(', ') if node.plugins else 'null' }}
-    use_node_name = {{ node.use_node_name }}
+    use_node_name = {{ node.use_node_name | lower }}
 {% endfor %}

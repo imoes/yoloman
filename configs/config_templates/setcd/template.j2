@@ -6,23 +6,23 @@
 DEVICE="{{ device | default('/dev/cdrom') }}"
 
 # Auto-close flag: close tray upon mounting data cd (-c)
-AUTO_CLOSE={{ auto_close | default(1) }}
+AUTO_CLOSE={{ auto_close | default(1) | lower }}
 
 # Auto-open flag: eject tray upon unmounting (-o)
-AUTO_OPEN={{ auto_open | default(0) }}
+AUTO_OPEN={{ auto_open | default(0) | lower }}
 
 # Use f-flags: do not block open, no type checking (-f)
-USE_FFLAGS={{ use_fflags | default(1) }}
+USE_FFLAGS={{ use_fflags | default(1) | lower }}
 
 # Locking flag: lock drive door while mounted (-l)
-LOCKING={{ locking | default(1) }}
+LOCKING={{ locking | default(1) | lower }}
 
 # Type checking flag: check cd type upon operation (-t)
-TYPE_CHECKING={{ type_checking | default(1) }}
+TYPE_CHECKING={{ type_checking | default(1) | lower }}
 
 # Eject switch: enables both auto-close and auto-open (-e)
 # Note: If EJECT_SW is set, it overrides -c and -o behavior in the driver
-EJECT_SW={{ eject_sw | default(0) }}
+EJECT_SW={{ eject_sw | default(0) | lower }}
 
 # Playback speed: multiplier of 150KB/s (0 for auto) (-x)
 PLAYBACK_SPEED={{ playback_speed | default(0) }}
@@ -35,12 +35,12 @@ JUKEBOX_DRIVE={{ jukebox_drive | default(1) }}
 # Flags: -c, -e, -f, -l, -o, -t, -x, -d
 
 setcd \
-    {% if not use_fflags %}-f {{ use_fflags }} {% endif %}
-    {% if not locking %}-l {{ locking }} {% endif %}
-    {% if not type_checking %}-t {{ type_checking }} {% endif %}
-    {% if auto_open %}-o {{ auto_open }} {% endif %}
-    {% if auto_close %}-c {{ auto_close }} {% endif %}
-    {% if not eject_sw %}{% if not auto_close and not auto_open %}{% else %}-e {{ eject_sw }}{% endif %}{% endif %}
+    {% if not use_fflags %}-f {{ use_fflags | lower }} {% endif %}
+    {% if not locking %}-l {{ locking | lower }} {% endif %}
+    {% if not type_checking %}-t {{ type_checking | lower }} {% endif %}
+    {% if auto_open %}-o {{ auto_open | lower }} {% endif %}
+    {% if auto_close %}-c {{ auto_close | lower }} {% endif %}
+    {% if not eject_sw %}{% if not auto_close and not auto_open %}{% else %}-e {{ eject_sw | lower }}{% endif %}{% endif %}
     {% if playback_speed != 0 %}-x {{ playback_speed }}{% endif %}
     {% if jukebox_drive != 1 %}-d {{ jukebox_drive }}{% endif %}
     {{ device }}

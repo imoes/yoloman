@@ -26,10 +26,10 @@ key = {{ (https_key | default('/etc/nginx/ssl/server.key')) }}
 
 [app]
 # Set to true to install pprof debug handlers.
-debug = {{ (app_debug | default(False)) }}
+debug = {{ (app_debug | default(False)) | lower }}
 
 # Set to true to allow subscribing any streams.
-allowsubscribeany = {{ (app_allowsubscribeany | default(False)) }}
+allowsubscribeany = {{ (app_allowsubscribeany | default(False)) | lower }}
 
 [sessions]
 # Secret value used to generate checksums of sessions.
@@ -53,7 +53,7 @@ backends = {{ (backend_backends | default('backend-id, another-backend')) }}
 backendprefix = {{ (backend_backendprefix | default('/signaling/backend')) }}
 
 # Allow any hostname as backend endpoint.
-allowall = {{ (backend_allowall | default(False)) }}
+allowall = {{ (backend_allowall | default(False)) | lower }}
 
 # Common shared secret for requests from and to the backend servers.
 secret = {{ (backend_secret | default('the-shared-secret-for-allowall')) }}
@@ -65,7 +65,7 @@ timeout = {{ (backend_timeout | default(10)) }}
 connectionsperhost = {{ (backend_connectionsperhost | default(8)) }}
 
 # Skip certificate validation of backend endpoints.
-skipverify = {{ (backend_skipverify | default(False)) }}
+skipverify = {{ (backend_skipverify | default(False)) | lower }}
 
 # For backendtype "static": Backend configurations.
 {% set backends_raw = (backend_backends | default('backend-id, another-backend')) %}
@@ -115,7 +115,7 @@ proxytimeout = {{ (mcu_proxytimeout | default(2)) }}
 urltype = {{ (mcu_urltype | default('static')) }}
 
 # Skip certificate validation of proxy servers.
-skipverify = {{ (mcu_skipverify | default(False)) }}
+skipverify = {{ (mcu_skipverify | default(False)) | lower }}
 
 # The id of the token to use when connecting to proxy servers.
 token_id = {{ (mcu_token_id | default('server1')) }}
@@ -124,7 +124,7 @@ token_id = {{ (mcu_token_id | default('server1')) }}
 token_key = {{ (mcu_token_key | default('privkey.pem')) }}
 
 # Enable DNS discovery on hostname of configured URL.
-dnsdiscovery = {{ (mcu_dnsdiscovery | default(True)) }}
+dnsdiscovery = {{ (mcu_dnsdiscovery | default(True)) | lower }}
 
 # Key prefix of MCU proxy entries for etcd URL type.
 keyprefix = {{ (mcu_keyprefix | default('/signaling/proxy/server')) }}
@@ -212,7 +212,7 @@ targettype = {{ (grpc_targettype | default('static')) }}
 targets = {{ (grpc_targets | default('192.168.0.1:9090, 192.168.0.2:9090')) }}
 
 # Enable DNS discovery on hostnames of GRPC target.
-dnsdiscovery = {{ (grpc_dnsdiscovery | default(True)) }}
+dnsdiscovery = {{ (grpc_dnsdiscovery | default(True)) | lower }}
 
 # Key prefix of GRPC target entries for etcd target type.
 targetprefix = {{ (grpc_targetprefix | default('/signaling/cluster/grpc')) }}

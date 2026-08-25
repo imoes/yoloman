@@ -18,7 +18,7 @@ sslKey={{ ssl_key_path | default('/etc/ssl/private/mumble-server.key') }}
 sslCA={{ ssl_ca_path | default('') }}
 
 # Enable SSLv3/TLSv1.2+ only; disable legacy protocols
-sslVerifyPeers={{ ssl_verify_peers | default(1) }}
+sslVerifyPeers={{ ssl_verify_peers | default(1) | lower }}
 
 # Password required to connect to the server (empty = no password)
 password={{ server_password | default('') }}
@@ -39,7 +39,7 @@ loglevel={{ log_level | default(2) }}
 logfile={{ log_file_path | default('') }}
 
 # Enable Web UI (requires mumble-website or similar backend)
-web_enable={{ web_enable | default(false) }}
+web_enable={{ web_enable | default(false) | lower }}
 web_port={{ web_port | default(0) }}
 web_host={{ web_host | default('127.0.0.1') }}
 web_cert={{ web_cert_path | default('') }}
@@ -73,22 +73,22 @@ locale={{ locale | default('en_US') }}
 tz={{ timezone | default('') }}
 
 # Enable Bonjour/Zeroconf service discovery
-bonjour={{ bonjour_enabled | default(false) }}
+bonjour={{ bonjour_enabled | default(false) | lower }}
 
 # Allow clients to change their own channel permissions (0=never, 1=always, 2=admin-only)
 allow_reload_config_changes={{ config_reload_policy | default(2) }}
 
 # Enable user registration via client (dangerous in public deployments)
-enable_registration={{ enable_registration | default(false) }}
+enable_registration={{ enable_registration | default(false) | lower }}
 
 # Enable recording (controls whether recordings are allowed)
-enable_recording={{ enable_recording | default(true) }}
+enable_recording={{ enable_recording | default(true) | lower }}
 
 # Opus encoding mode: 0=auto, 1=voice, 2=music
 opus_threshold={{ opus_mode | default(0) }}
 
 # Opus DTX (discontinuous transmission) — saves bandwidth during silence
-opus_dtx={{ opus_dtx | default(false) }}
+opus_dtx={{ opus_dtx | default(false) | lower }}
 
 # Silence suppression threshold (0.0–1.0); lower = more aggressive
 silence_threshold={{ silence_threshold | default(0.03) }}
@@ -97,7 +97,7 @@ silence_threshold={{ silence_threshold | default(0.03) }}
 udpPacketSize={{ udp_packet_size | default(0) }}
 
 # Enable legacy ICE protocol (for very old clients)
-ice_no_tcp={{ ice_no_tcp | default(false) }}
+ice_no_tcp={{ ice_no_tcp | default(false) | lower }}
 
 {% for user in static_users %}
 # Static user account: {{ user.name }}
@@ -112,5 +112,5 @@ channel_{{ loop.index }}_name={{ channel.name }}
 channel_{{ loop.index }}_parent={{ channel.parent | default('') }}
 channel_{{ loop.index }}_description={{ channel.description | default('') }}
 channel_{{ loop.index }}_max_users={{ channel.max_users | default(0) }}
-channel_{{ loop.index }}_temp={{ channel.temp | default(false) }}
+channel_{{ loop.index }}_temp={{ channel.temp | default(false) | lower }}
 {% endfor %}

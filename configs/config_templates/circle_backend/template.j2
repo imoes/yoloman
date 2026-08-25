@@ -27,7 +27,7 @@ write_buffer_size = {{ connection.write_buffer_size }}
 # Rate limiting
 rate_limit_messages = {{ rate_limit.messages }}
 rate_limit_burst = {{ rate_limit.burst }}
-rate_limit_per_ip = {{ rate_limit.per_ip }}
+rate_limit_per_ip = {{ rate_limit.per_ip | lower }}
 
 # Authentication and user management
 {% if auth.enabled %}
@@ -60,7 +60,7 @@ log_enabled = false
 # Upstream server: {{ upstream.name }}
 {% if upstream.ssl %}
 {% if upstream.cert_verify is not none %}
-{{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }};ssl;verify={{ upstream.cert_verify }}
+{{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }};ssl;verify={{ upstream.cert_verify | lower }}
 {% else %}
 {{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }};ssl
 {% endif %}
@@ -72,7 +72,7 @@ log_enabled = false
 # Channel auto-join settings (optional per-user or global)
 {% if auto_join.enabled %}
 [auto_join]
-enabled = {{ auto_join.enabled }}
+enabled = {{ auto_join.enabled | lower }}
 {% if auto_join.channels is not none %}
 channels = {{ auto_join.channels | join(', ') }}
 {% endif %}

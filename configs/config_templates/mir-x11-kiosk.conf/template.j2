@@ -12,7 +12,7 @@
 {% if server_port %}server-port: {{ server_port }}{% endif %}
 {% if display %}display: :{{ display }}{% endif %}
 {% if kiosk_user %}kiosk-user: {{ kiosk_user }}{% endif %}
-{% if auto_start_x_server %}auto-start-x-server: {{ auto_start_x_server }}{% endif %}
+{% if auto_start_x_server %}auto-start-x-server: {{ auto_start_x_server | lower }}{% endif %}
 
 applications:
 {% for app in applications %}  - name: {{ app.name }}
@@ -21,10 +21,10 @@ applications:
     {% if app.args %}    args:
 {% for arg in app.args %}      - {{ arg }}{% endfor %}    {% endif %}
     {% if app.working_dir %}    working-dir: {{ app.working_dir }}{% endif %}
-    {% if app.autostart is defined %}    autostart: {{ app.autostart }}{% else %}    autostart: true{% endif %}
+    {% if app.autostart is defined %}    autostart: {{ app.autostart | lower }}{% else %}    autostart: true{% endif %}
 {% endfor %}
 {% if x_server_args %}x-server-args:
 {% for arg in x_server_args %}  - {{ arg }}{% endfor %}{% endif %}
 
 {% if wayland_socket_path %}wayland-socket-path: {{ wayland_socket_path }}{% endif %}
-{% if enable_touch %}enable-touch: {{ enable_touch }}{% endif %}
+{% if enable_touch %}enable-touch: {{ enable_touch | lower }}{% endif %}

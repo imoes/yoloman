@@ -28,7 +28,7 @@ set tkabber::config::visual "{{ visual | default('default') }}"
 # Use synchronous mode for display server interactions.
 # 1 = synchronous (slower, easier debugging), 0 = asynchronous (normal).
 # Note: This expects a string "1" or "0" in Tcl config.
-set tkabber::config::sync "{{ sync | default('0') }}"
+set tkabber::config::sync "{{ sync | default('0') | lower }}"
 
 # Display the initial splash screen.
 # Valid values in Tkabber Tcl are typically "yes" or "no" (or 1/0 depending on version).
@@ -80,6 +80,6 @@ set tkabber::accounts::{{ uname | default('anonymous') }}::tls "{{ (account | de
 
 {% for plugin in (plugins | default([])) %}
 # Plugin: {{ plugin.name | default('unknown') }}
-# Enabled: {{ plugin.enabled | default(0) }}
-set tkabber::plugins::{{ plugin.name | default('unknown') }}::enabled {{ plugin.enabled | default(0) }}
+# Enabled: {{ plugin.enabled | default(0) | lower }}
+set tkabber::plugins::{{ plugin.name | default('unknown') }}::enabled {{ plugin.enabled | default(0) | lower }}
 {% endfor %}

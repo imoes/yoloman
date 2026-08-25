@@ -26,7 +26,7 @@ log_level = {{ log_level | default(3) }}
 
 # Run pmacctd as a background daemon (true) or foreground (false).
 # Default: true
-daemonize = {{ daemonize | default(true) }}
+daemonize = {{ daemonize | default(true) | lower }}
 
 # Path to PID file for daemon control.
 # Default: '/run/pmacct/pmacctd.pid'
@@ -42,7 +42,7 @@ interface = {{ interface | default('any') }}
 
 # Enable promiscuous mode to capture all traffic on the interface.
 # Default: true
-promisc = {{ promisc | default(true) }}
+promisc = {{ promisc | default(true) | lower }}
 
 # Maximum number of bytes to capture per packet (min 96, max 65535).
 # Default: 1500
@@ -146,4 +146,4 @@ NFACCTD_CONF={{ nfacctd_conf | default('nfacctd.conf') }}
 # Additional options that are passed to nfacctd.
 # This block is generated for compatibility with legacy initscripts.
 # It constructs the command-line arguments dynamically based on the config values.
-DAEMON_OPTS="{{ log_file | default('/var/log/pmacct/pmacctd.log') }} --log-level={{ log_level | default(3) }} --daemonize={{ daemonize | default(true) }} --pidfile={{ pidfile | default('/run/pmacct/pmacctd.pid') }} --interface={{ interface | default('any') }} --promisc={{ promisc | default(true) }} --snaplen={{ snaplen | default(1500) }} --aggregate={{ aggregate | default('src_host, dst_host') }} --memory_limit={{ memory_limit | default('1024M') }} --accounting_interval={{ accounting_interval | default(60) }}{{ plugins | default(['memory']) | join(', ') }}"
+DAEMON_OPTS="{{ log_file | default('/var/log/pmacct/pmacctd.log') }} --log-level={{ log_level | default(3) }} --daemonize={{ daemonize | default(true) | lower }} --pidfile={{ pidfile | default('/run/pmacct/pmacctd.pid') }} --interface={{ interface | default('any') }} --promisc={{ promisc | default(true) | lower }} --snaplen={{ snaplen | default(1500) }} --aggregate={{ aggregate | default('src_host, dst_host') }} --memory_limit={{ memory_limit | default('1024M') }} --accounting_interval={{ accounting_interval | default(60) }}{{ plugins | default(['memory']) | join(', ') }}"

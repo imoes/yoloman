@@ -41,7 +41,7 @@ Port: {{ port | default(5432) }}
 # UsePasswordPrompt: Force the tool to prompt for a password interactively.
 # Corresponds to: -W
 # Set to 'true' if you do not want to embed passwords in this file.
-UsePasswordPrompt: {{ use_password_prompt | default(false) }}
+UsePasswordPrompt: {{ use_password_prompt | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # Schema Configuration
@@ -92,7 +92,7 @@ BBox: {{ bbox | default('') }}
 # ------------------------------------------------------------------------------
 
 # SlimMode: Enable 'slim' mode. Required for subsequent updates (-a).
-SlimMode: {{ slim_mode | default(true) }}
+SlimMode: {{ slim_mode | default(true) | lower }}
 
 # CacheSizeMB: Amount of RAM (in MB) to use for caching geometry data.
 # Increase this for faster imports if memory allows.
@@ -100,7 +100,7 @@ CacheSizeMB: {{ cache_size_mb | default(800) }}
 
 # DropSlimTablesAfterImport: Drop the temporary slim tables after a 'create' import.
 # Corresponds to: --drop
-DropSlimTablesAfterImport: {{ drop_slime_tables | default(false) }}
+DropSlimTablesAfterImport: {{ drop_slime_tables | default(false) | lower }}
 
 # FlatNodesFile: Path to an external file for storing node coordinates.
 # Useful when RAM is limited and slim mode is used.
@@ -110,7 +110,7 @@ FlatNodesFile: {{ flat_nodes_file | default('') }}
 # MiddleWithNodes: Store node coordinates in the middle database.
 # Required if you plan to use 'flat-nodes'.
 # Corresponds to: --middle-with-nodes
-MiddleWithNodes: {{ middle_with_nodes | default(false) }}
+MiddleWithNodes: {{ middle_with_nodes | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # Output Configuration
@@ -143,14 +143,14 @@ LogProgress: {{ log_progress | default('true') }}
 
 # LogSQL: Log all SQL queries executed. Useful for debugging database issues.
 # Corresponds to: --log-sql
-LogSQL: {{ log_sql | default(false) }}
+LogSQL: {{ log_sql | default(false) | lower }}
 
 # LogSQLData: Log all data rows inserted. Very verbose, use for deep debugging.
 # Corresponds to: --log-sql-data
-LogSQLData: {{ log_sql_data | default(false) }}
+LogSQLData: {{ log_sql_data | default(false) | lower }}
 
 # Verbose: Enable general verbose output (-v).
-Verbose: {{ verbose | default(false) }}
+Verbose: {{ verbose | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # PostgreSQL Output Specifics (Relevant for OutputType='pgsql')
@@ -159,7 +159,7 @@ Verbose: {{ verbose | default(false) }}
 
 # UseMercator: Use Web Mercator projection (EPSG:3857).
 # Corresponds to: -m / --merc
-UseMercator: {{ use_mercator | default(true) }}
+UseMercator: {{ use_mercator | default(true) | lower }}
 
 # ProjectionSRID: Explicitly set the EPSG SRID for the output geometry.
 # Usually 3857 (Mercator) or 4326 (WGS84 Lat/Lon).
@@ -174,20 +174,20 @@ ProjectionSRID: {{ projection_srid | default(3857) }}
 # ------------------------------------------------------------------------------
 
 # UseHstore: Add a single hstore column for all tags that don't fit in standard columns.
-UseHstore: {{ use_hstore | default(false) }}
+UseHstore: {{ use_hstore | default(false) | lower }}
 
 # UseHstoreAll: Put ALL tags into the hstore column, ignoring standard column mapping.
-UseHstoreAll: {{ use_hstore_all | default(false) }}
+UseHstoreAll: {{ use_hstore_all | default(false) | lower }}
 
 # HstoreColumnPrefix: Prefix for the hstore column (default 'tags').
 # Corresponds to: -z / --hstore-column
 HstoreColumnPrefix: {{ hstore_column_prefix | default('') }}
 
 # HstoreMatchOnly: Only use hstore for objects that have values in non-hstore columns.
-HstoreMatchOnly: {{ hstore_match_only | default(false) }}
+HstoreMatchOnly: {{ hstore_match_only | default(false) | lower }}
 
 # HstoreAddIndex: Create a GIN index on the hstore column for faster querying.
-HstoreAddIndex: {{ hstore_add_index | default(false) }}
+HstoreAddIndex: {{ hstore_add_index | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # Additional Attribute Options
@@ -196,7 +196,7 @@ HstoreAddIndex: {{ hstore_add_index | default(false) }}
 # ------------------------------------------------------------------------------
 
 # IncludeExtraAttributes: Store OSM object metadata (user, changeset, etc.).
-IncludeExtraAttributes: {{ include_extra_attributes | default(false) }}
+IncludeExtraAttributes: {{ include_extra_attributes | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # Geometry Options
@@ -206,15 +206,15 @@ IncludeExtraAttributes: {{ include_extra_attributes | default(false) }}
 
 # MultiGeometry: Generate multi-geometry features (POLYGON/MULTIPOLYGON).
 # Better for rendering, but increases DB size.
-MultiGeometry: {{ multi_geometry | default(false) }}
+MultiGeometry: {{ multi_geometry | default(false) | lower }}
 
 # KeepCoastlines: Keep coastline data which might otherwise be filtered out.
 # Corresponds to: -K / --keep-coastlines
-KeepCoastlines: {{ keep_coastlines | default(false) }}
+KeepCoastlines: {{ keep_coastlines | default(false) | lower }}
 
 # ReprojectArea: Compute area using Web Mercator coordinates (for --reproject-area).
 # Note: Area calculations in Mercator are distorted at high latitudes.
-ReprojectArea: {{ reproject_area | default(false) }}
+ReprojectArea: {{ reproject_area | default(false) | lower }}
 
 # ------------------------------------------------------------------------------
 # Tablespace Options
@@ -263,4 +263,4 @@ ExpireBBoxSize: {{ expire_bbox_size | default(20000) }}
 NumberProcesses: {{ number_processes | default(0) }}
 
 # DisableParallelIndexing: Disable parallel indexing, forcing sequential indexing.
-DisableParallelIndexing: {{ disable_parallel_indexing | default(false) }}
+DisableParallelIndexing: {{ disable_parallel_indexing | default(false) | lower }}

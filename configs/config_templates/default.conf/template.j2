@@ -6,7 +6,7 @@ realm = {{ realm | default('') }}
 server = {{ server | default('') }}
 
 # Whether to automatically create a home directory for IPA users on first login.
-create_homedir = {{ create_homedir | default(true) }}
+create_homedir = {{ create_homedir | default(true) | lower }}
 
 # Custom text to prepend before password prompts (leave blank for default).
 prompt_password = {{ prompt_password | default('') }}
@@ -16,10 +16,10 @@ prompt_password = {{ prompt_password | default('') }}
 dns_lookup_max_depth = {{ dns_lookup_max_depth | default(1) }}
 
 # Whether to use DNS to discover IPA realm (Kerberos realm discovery via SRV records).
-dns_lookup_realm = {{ dns_lookup_realm | default(true) }}
+dns_lookup_realm = {{ dns_lookup_realm | default(true) | lower }}
 
 # Whether to use DNS SRV records to discover IPA domain controllers.
-dns_discovery = {{ dns_discovery | default(true) }}
+dns_discovery = {{ dns_discovery | default(true) | lower }}
 
 # Explicit Kerberos realm name if different from the IPA realm. Defaults to 'realm'.
 krb5_realm = {{ krb5_realm | default(realm | default('')) }}
@@ -38,19 +38,19 @@ admin_server = {{ admin_server }}
 krb5_conf = {{ krb5_conf | default('/etc/krb5.conf') }}
 
 # Whether to enable retrieval and use of SSH public keys for IPA users.
-ssh_keys = {{ ssh_keys | default(false) }}
+ssh_keys = {{ ssh_keys | default(false) | lower }}
 
 # Whether to automatically update ~/.ssh/config with IPA host keys on login.
-update_ssh_client_config = {{ update_ssh_client_config | default(true) }}
+update_ssh_client_config = {{ update_ssh_client_config | default(true) | lower }}
 
 # Whether to automatically add IPA-managed hosts to ~/.ssh/known_hosts.
-add_to_known_hosts = {{ add_to_known_hosts | default(true) }}
+add_to_known_hosts = {{ add_to_known_hosts | default(true) | lower }}
 
 # Whether to configure the SSH daemon to use SSSD for IPA authentication.
-configure_sshd = {{ configure_sshd | default(true) }}
+configure_sshd = {{ configure_sshd | default(true) | lower }}
 
 # Whether to configure the system to use SSSD for user/group lookups and authentication.
-use_sssd = {{ use_sssd | default(true) }}
+use_sssd = {{ use_sssd | default(true) | lower }}
 
 [domain/{{ (realm | default('')) | lower }}]
 # Enable IPA provider for user and group lookups
@@ -69,7 +69,7 @@ access_provider = ipa
 {% endif %}
 
 # Whether to cache user credentials for offline authentication.
-cache_credentials = {{ cache_credentials | default(true) }}
+cache_credentials = {{ cache_credentials | default(true) | lower }}
 
 # Minimum UID/GID to consider valid (prevents conflicts with local accounts).
 min_id = {{ min_id | default(1000) }}
@@ -78,14 +78,14 @@ min_id = {{ min_id | default(1000) }}
 max_id = {{ max_id | default(1999999999) }}
 
 # Whether to enumerate all IPA users and groups (may impact performance on large directories).
-enumerate = {{ enumerate | default(false) }}
+enumerate = {{ enumerate | default(false) | lower }}
 
 # Whether to allow authentication from trusted Active Directory domains (if configured in IPA).
-allow_trusted_domains = {{ allow_trusted_domains | default(false) }}
+allow_trusted_domains = {{ allow_trusted_domains | default(false) | lower }}
 
 # DNS forwarder IP for dynamic DNS updates (e.g., '8.8.8.8').
 # Leave blank to disable.
 dns_forwarder = {{ dns_forwarder | default('') }}
 
 # Whether to enable one-time password (OTP) authentication for IPA users.
-use_otp = {{ use_otp | default(false) }}
+use_otp = {{ use_otp | default(false) | lower }}

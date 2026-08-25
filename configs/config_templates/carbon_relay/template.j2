@@ -17,7 +17,7 @@ LOG_FLUSH_INTERVAL = {{ log_flush_interval }}
 {# Listener configuration for incoming metrics #}
 [listener:tcp]
 {# Enable TCP listener #}
-ENABLE_LISTENER = {{ listeners.tcp.enabled }}
+ENABLE_LISTENER = {{ listeners.tcp.enabled | lower }}
 {# IP address to bind to #}
 LINE_RECEIVER_HOSTNAME = {{ listeners.tcp.bind_address }}
 {# Port to listen on #}
@@ -51,7 +51,7 @@ match = {{ rule.match }}
 {% for cluster in destination_clusters %}
 [cluster:{{ cluster.name | replace(' ', '_') | lower }}]
 {# Enable or disable this cluster #}
-ENABLE = {{ cluster.enabled }}
+ENABLE = {{ cluster.enabled | lower }}
 {# Hostname prefix for servers (e.g., `server-` → server-1.example.com, etc.) #}
 SERVERS = {{ cluster.servers | join(', ') }}
 {# Port for all servers in this cluster (default: 2003) #}
@@ -71,7 +71,7 @@ HASH_FUNCTION = {{ cluster.hash_function }}
 {# Caching — buffer metrics before forwarding #}
 [cache]
 {# Enable or disable the local write cache #}
-ENABLE_CACHE = {{ cache.enabled }}
+ENABLE_CACHE = {{ cache.enabled | lower }}
 {# Maximum number of metrics in the cache #}
 MAX_CACHE_SIZE = {{ cache.max_size }}
 {# Threshold to start aggressive flushing (percent of max cache) #}

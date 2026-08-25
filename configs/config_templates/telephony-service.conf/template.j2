@@ -33,7 +33,7 @@ sip:
     username: "{{ sip.auth.username }}"
     password: "{{ sip.auth.password }}"
   # Enable TLS for SIP (SIPS)
-  tls_enabled: {{ sip.tls_enabled }}
+  tls_enabled: {{ sip.tls_enabled | lower }}
   # Path to CA certificate bundle for TLS
   ca_cert_path: "{{ sip.ca_cert_path }}"
   # Path to client certificate for TLS (optional)
@@ -46,7 +46,7 @@ sip:
   # Max simultaneous calls
   max_calls: {{ calling.max_calls }}
   # Enable call waiting
-  call_waiting_enabled: {{ calling.call_waiting_enabled }}
+  call_waiting_enabled: {{ calling.call_waiting_enabled | lower }}
   # Default codec order (first = highest preference)
   codecs:
     - {{ calling.codecs | join(', ') }}
@@ -63,7 +63,7 @@ pstn_gateways:
     host: "{{ gw.host }}"
     port: {{ gw.port }}
     trunk_id: "{{ gw.trunk_id }}"
-    enabled: {{ gw.enabled }}
+    enabled: {{ gw.enabled | lower }}
 {% endfor %}
 {% endif %}
 
@@ -84,4 +84,4 @@ device:
 {% endif %}
 
 # Optional systemd socket activation (auto-enabled if socket is present)
-socket_activation: {{ socket_activation }}
+socket_activation: {{ socket_activation | lower }}

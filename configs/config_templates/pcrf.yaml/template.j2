@@ -54,10 +54,10 @@ gy:
 # Charging function (offline/online)
 charging:
   offline:
-    enabled: {{ charging_offline_enabled }}
+    enabled: {{ charging_offline_enabled | lower }}
     file_path: "{{ charging_offline_file_path }}"
   online:
-    enabled: {{ charging_online_enabled }}
+    enabled: {{ charging_online_enabled | lower }}
     server:
 {% for srv in charging_online_servers %}
       - host: "{{ srv.host }}"
@@ -71,12 +71,12 @@ session:
   max_rate_uplink_kbps: {{ session_max_rate_uplink_kbps }}
   max_rate_downlink_kbps: {{ session_max_rate_downlink_kbps }}
   bearer_qos:
-    enabled: {{ bearer_qos_enabled }}
+    enabled: {{ bearer_qos_enabled | lower }}
 {% if bearer_qos_enabled %}
     default:
       priority_level: {{ bearer_qos_default_priority_level }}
-      preemption_capability: {{ bearer_qos_preemption_capability }}
-      preemption_vulnerability: {{ bearer_qos_preemption_vulnerability }}
+      preemption_capability: {{ bearer_qos_preemption_capability | lower }}
+      preemption_vulnerability: {{ bearer_qos_preemption_vulnerability | lower }}
 {% endif %}
 
 # Default charging rules (if not provided by OCS)
@@ -89,19 +89,19 @@ default_charging_rules:
       qci: {{ rule.qos_qci }}
       arp:
         priority_level: {{ rule.arp_priority_level }}
-        preemption_capability: {{ rule.arp_preemption_capability }}
-        preemption_vulnerability: {{ rule.arp_preemption_vulnerability }}
+        preemption_capability: {{ rule.arp_preemption_capability | lower }}
+        preemption_vulnerability: {{ rule.arp_preemption_vulnerability | lower }}
 {% endfor %}
 
 # Real-time billing mode toggle
 realtime_billing:
-  enabled: {{ realtime_billing_enabled }}
+  enabled: {{ realtime_billing_enabled | lower }}
 
 # Optional debug features
 debug:
-  enable_s6a_logging: {{ debug_enable_s6a_logging }}
-  enable_gx_logging: {{ debug_enable_gx_logging }}
-  enable_charging_logging: {{ debug_enable_charging_logging }}
+  enable_s6a_logging: {{ debug_enable_s6a_logging | lower }}
+  enable_gx_logging: {{ debug_enable_gx_logging | lower }}
+  enable_charging_logging: {{ debug_enable_charging_logging | lower }}
 
 # Identity and realm configuration
 realm: "{{ realm }}"

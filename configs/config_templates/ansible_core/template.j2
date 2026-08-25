@@ -15,7 +15,7 @@ remote_user = {{ defaults_remote_user | default('') }}
 connection = {{ defaults_connection | default('smart') }}
 
 # Enable SSH command pipelining to reduce connection overhead. Requires passwordless sudo if used with privilege escalation.
-pipelining = {{ defaults_pipelining | default(False) | ternary('True', 'False') }}
+pipelining = {{ defaults_pipelining | default(False) | ternary('True', 'False') | lower }}
 
 # Fact caching method. Common options: 'jsonfile', 'memory', 'redis', 'yaml'.
 fact_caching = {{ defaults_fact_caching | default('jsonfile') }}
@@ -37,7 +37,7 @@ become_method = {{ privilege_escalation_become_method | default('sudo') }}
 become_user = {{ privilege_escalation_become_user | default('root') }}
 
 # Prompt for privilege escalation password if needed.
-become_ask_pass = {{ privilege_escalation_become_ask_pass | default(True) | ternary('True', 'False') }}
+become_ask_pass = {{ privilege_escalation_become_ask_pass | default(True) | ternary('True', 'False') | lower }}
 
 [ssh_connection]
 # Directory and filename template for SSH control sockets used in connection reuse.
@@ -54,7 +54,7 @@ retries = {{ ssh_connection_retries | default(0) }}
 enable_plugins = {{ inventory_enable_plugins | default(['host_list', 'script', 'yaml', 'ini']) | join(', ') }}
 
 # If true, SSH will check and verify host keys (recommended for security).
-host_key_checking = {{ inventory_host_key_checking | default(False) | ternary('True', 'False') }}
+host_key_checking = {{ inventory_host_key_checking | default(False) | ternary('True', 'False') | lower }}
 
 # Timeout in seconds for dynamic inventory scripts before they are killed.
 inventory_timeout = {{ inventory_timeout | default(30) }}

@@ -107,12 +107,12 @@
     <!-- Connect to upstream brokers via static or dynamic discovery -->
     <networkConnectors>
       {% for nc in (network_connectors | default([])) %}
-      <!-- Network connector: {{ nc.name }} → {{ nc.uri }} (dynamicOnly={{ nc.dynamic_only }}, prefetch={{ nc.prefetch }}, decrease_priority={{ nc.decrease_priority }}) -->
+      <!-- Network connector: {{ nc.name }} → {{ nc.uri }} (dynamicOnly={{ nc.dynamic_only | lower }}, prefetch={{ nc.prefetch }}, decrease_priority={{ nc.decrease_priority | lower }}) -->
       <networkConnector name="{{ nc.name }}"
                         uri="{{ nc.uri }}"
-                        dynamicOnly="{{ nc.dynamic_only | default(false) }}"
+                        dynamicOnly="{{ nc.dynamic_only | default(false) | lower }}"
                         prefetchCount="{{ nc.prefetch | default(1000) }}"
-                        decreaseNetworkConsumerPriority="{{ nc.decrease_priority | default(false) }}"/>
+                        decreaseNetworkConsumerPriority="{{ nc.decrease_priority | default(false) | lower }}"/>
       {% endfor %}
     </networkConnectors>
     {% endif %}

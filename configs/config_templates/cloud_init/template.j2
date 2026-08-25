@@ -14,17 +14,17 @@
 # Disable direct root login via SSH and console. Strongly recommended in production.
 # Type: boolean
 # Default: true
-disable_root: {{ disable_root | default(true) }}
+disable_root: {{ disable_root | default(true) | lower }}
 
 # Keep the OS hostname as-is and ignore the hostname provided by the cloud datasource.
 # Type: boolean
 # Default: false
-preserve_hostname: {{ preserve_hostname | default(false) }}
+preserve_hostname: {{ preserve_hostname | default(false) | lower }}
 
 # Rewrite /etc/hosts on each boot so the instance hostname resolves to 127.0.1.1.
 # Type: boolean
 # Default: true
-manage_etc_hosts: {{ manage_etc_hosts | default(true) }}
+manage_etc_hosts: {{ manage_etc_hosts | default(true) | lower }}
 
 # ===========================================================================
 # SSH Configuration
@@ -33,12 +33,12 @@ manage_etc_hosts: {{ manage_etc_hosts | default(true) }}
 # Allow SSH password authentication. Set to false to enforce key-only access (recommended).
 # Type: boolean
 # Default: false
-ssh_pwauth: {{ ssh_pwauth | default(false) }}
+ssh_pwauth: {{ ssh_pwauth | default(false) | lower }}
 
 # Delete any pre-baked SSH host keys from the image and regenerate them on first boot.
 # Type: boolean
 # Default: true
-ssh_deletekeys: {{ ssh_deletekeys | default(true) }}
+ssh_deletekeys: {{ ssh_deletekeys | default(true) | lower }}
 
 # SSH host key algorithms to generate on first boot.
 # Type: list
@@ -69,7 +69,7 @@ timezone: {{ timezone | default('UTC') }}
 # Expand the root filesystem to fill the partition after growpart widens it.
 # Type: boolean
 # Default: true
-resize_rootfs: {{ resize_rootfs | default(true) }}
+resize_rootfs: {{ resize_rootfs | default(true) | lower }}
 
 # Partition growth backend: auto (detect tool automatically), growpart, gpart, or off to disable.
 # Type: string
@@ -87,7 +87,7 @@ growpart:
 # Run a full package upgrade on first boot. Increases boot time but ensures day-0 security patches.
 # Type: boolean
 # Default: false
-package_upgrade: {{ package_upgrade | default(false) }}
+package_upgrade: {{ package_upgrade | default(false) | lower }}
 
 # Extra packages to install during first boot via the distro package manager.
 # Type: list
@@ -150,7 +150,7 @@ users:
     shell: {{ u.shell }}
     groups: {{ u.groups | join(', ') }}
     sudo: "{{ u.sudo }}"
-    lock_passwd: {{ u.lock_passwd }}
+    lock_passwd: {{ u.lock_passwd | lower }}
 {% if u.ssh_authorized_keys %}
     ssh_authorized_keys:
 {% for key in u.ssh_authorized_keys %}

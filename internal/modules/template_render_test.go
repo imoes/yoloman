@@ -203,3 +203,70 @@ func TestConfigTemplatesRenderWithSample(t *testing.T) {
 			len(fixed), filepath.Base(recordPath), fixed[:min(len(fixed), 10)])
 	}
 }
+
+// WHY A BOOLEAN DEFAULT BELONGS IN THE CATALOG AS A WORD, not as a bool — the two halves of the reason,
+// characterised here so a change in either is noticed.
+//
+// Half one: gonja renders a bool PYTHON-CASED, because Jinja2 does. `debug={{ debug }}` with false writes
+// "False", which shell, INI and YAML all reject (or read as a non-empty string, i.e. always true). 13 381
+// template fields in the catalog carry a JSON-boolean default, so this is not a corner.
+func TestGonjaRendersBooleansPythonCased(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "app.conf")
+	_, err := NewTemplateRender().Run(context.Background(), map[string]any{
+		"template": "debug={{ debug }} verbose={{ verbose }} workers={{ workers }}",
+		"dest":     dest,
+		"values":   map[string]any{"debug": false, "verbose": true, "workers": float64(4)},
+	}, false)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got, _ := os.ReadFile(dest)
+	// The number IS normalised (that is what normalizeValues does); the booleans deliberately are not.
+	if string(got) != "debug=False verbose=True workers=4" {
+		t.Errorf("rendered %q — if this changed, revisit tools/bool_vocabulary.py and this comment", got)
+	}
+}
+
+// Half two: WHY the fix cannot live here. Coercing the bool to the string "false" on the way in was tried,
+// and it broke boolean semantics — a non-empty string is truthy, so `false | yes_no` rendered "yes" and every
+// `{% if flag %}` took the wrong branch. Silently inverting a template's logic is far worse than a
+// capitalised literal, so this is the guard against trying it again.
+func TestBooleanSemanticsSurviveTheValuePipeline(t *testing.T) {
+	dir := t.TempDir()
+	for _, c := range []struct{ tmpl, want string }{
+		{"{{ flag | ternary('on','off') }}", "off"},
+		{"{{ flag | yes_no }}", "no"},
+		{"{% if flag %}yes{% else %}no{% endif %}", "no"},
+	} {
+		dest := filepath.Join(dir, strings.ReplaceAll(c.tmpl, "/", "_"))
+		_, err := NewTemplateRender().Run(context.Background(), map[string]any{
+			"template": c.tmpl, "dest": dest, "values": map[string]any{"flag": false},
+		}, false)
+		if err != nil {
+			t.Fatalf("%s: %v", c.tmpl, err)
+		}
+		got, _ := os.ReadFile(dest)
+		if string(got) != c.want {
+			t.Errorf("%s with false rendered %q, want %q — a bool must stay a bool through the pipeline",
+				c.tmpl, got, c.want)
+		}
+	}
+}
+
+// And the shape the catalog now produces for a yes/no file: the value IS the word, so it renders as the word.
+func TestAWordValuedFieldRendersTheWord(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "sarg.conf")
+	_, err := NewTemplateRender().Run(context.Background(), map[string]any{
+		"template": "overwrite_report {{ overwrite_report }}",
+		"dest":     dest,
+		"values":   map[string]any{"overwrite_report": "yes"},
+	}, false)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got, _ := os.ReadFile(dest)
+	if string(got) != "overwrite_report yes" {
+		t.Errorf("rendered %q", got)
+	}
+}

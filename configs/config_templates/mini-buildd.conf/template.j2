@@ -35,7 +35,7 @@ daemon:
   # Number of worker processes for background tasks
   worker_count: {{ daemon.worker_count }}
   # Enable HTTPS for API (requires certificate & key)
-  use_https: {{ daemon.use_https }}
+  use_https: {{ daemon.use_https | lower }}
   # Path to SSL certificate (used if use_https: true)
   cert_file: {{ daemon.cert_file }}
   # Path to SSL private key (used if use_https: true)
@@ -44,19 +44,19 @@ daemon:
 # Notification settings (optional; empty if not used)
 notifications:
   # Enable email alerts on build success/failure
-  email_enabled: {{ notifications.email_enabled }}
+  email_enabled: {{ notifications.email_enabled | lower }}
   # Email addresses to notify (list)
   email_recipients: [{%- for addr in notifications.email_recipients %}{{ addr }}{{ ', ' if not loop.last else '' }}{%- endfor %}]
   # SMTP server for outbound mail
   smtp_host: {{ notifications.smtp_host }}
   smtp_port: {{ notifications.smtp_port }}
-  smtp_use_tls: {{ notifications.smtp_use_tls }}
+  smtp_use_tls: {{ notifications.smtp_use_tls | lower }}
 
 # Build options
 build:
   # Time limit (seconds) per build job
   timeout: {{ build.timeout }}
   # Whether to keep successful build artifacts (chroot snapshots)
-  keep_success_artifacts: {{ build.keep_success_artifacts }}
+  keep_success_artifacts: {{ build.keep_success_artifacts | lower }}
   # Default builder package to install in chroots
   default_packages: [{%- for pkg in build.default_packages %}{{ pkg }}{{ ', ' if not loop.last else '' }}{%- endfor %}]

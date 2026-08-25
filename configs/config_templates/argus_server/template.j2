@@ -19,7 +19,7 @@ log_level: {{ log_level | default('info') }}
 log_dir: {{ log_dir | default('/var/log/argus') }}
 
 # [Security] Whether to enable TLS encryption for client connections.
-ssl_enabled: {{ ssl_enabled | default(false) }}
+ssl_enabled: {{ ssl_enabled | default(false) | lower }}
 
 {% if (ssl_enabled | default(false)) %}
 # [Security] Path to the SSL certificate file (PEM format).
@@ -108,7 +108,7 @@ uri: {{ (db_cfg.uri | default('mongodb://localhost:27017/argus')) }}
 {% for rule in (audit_rules | default([])) %}
 # Rule: {{ rule.name | default('unnamed') }} — {{ rule.description | default('No description provided') }}
 [rule:{{ rule.name | default('unnamed') }}]
-enabled: {{ rule.enabled | default(true) }}
+enabled: {{ rule.enabled | default(true) | lower }}
 protocol: {{ rule.protocol | default('tcp') }}
 
 {% if rule.protocol | default('tcp') == 'tcp' %}

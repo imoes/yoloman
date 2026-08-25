@@ -95,12 +95,12 @@ worker.query_timeout = {{ worker_query_timeout | default(60) }}
 
 # Automatically create required pgq tables and extensions on startup if missing.
 # Requires the database user to have superuser or DDL permissions.
-auto.create_tables = {{ auto_create_tables | default(true) }}
+auto.create_tables = {{ auto_create_tables | default(true) | lower }}
 
 # Enable the coordinator process.
 # The coordinator is required for queue maintenance, ticker tasks, and high availability.
 # Set to false to run in worker-only mode (if supported by deployment).
-coordinator.enabled = {{ coordinator_enabled | default(true) }}
+coordinator.enabled = {{ coordinator_enabled | default(true) | lower }}
 
 # Coordinator tick interval in seconds.
 # How often the coordinator checks for work and manages queue state.
@@ -124,7 +124,7 @@ coordinator.tick_timeout = {{ coordinator_tick_timeout | default(5) }}
 # This section configures a specific pgq queue named {{ queue.name }}.
 
 # Enable or disable this specific queue.
-pgq.queue.{{ queue.name }}.enabled = {{ queue.enabled | default(true) }}
+pgq.queue.{{ queue.name }}.enabled = {{ queue.enabled | default(true) | lower }}
 
 # Worker count for this specific queue.
 # Overrides the global worker.count if specified.
@@ -139,7 +139,7 @@ pgq.queue.{{ queue.name }}.max_lag_ms = {{ queue.max_lag_ms | default(5000) }}
 
 # Ticker enabled for this queue.
 # If not explicitly set, inherits the global coordinator.ticker_enabled state.
-pgq.queue.{{ queue.name }}.ticker_enabled = {{ queue.ticker_enabled | default(coordinator_enabled | default(true)) }}
+pgq.queue.{{ queue.name }}.ticker_enabled = {{ queue.ticker_enabled | default(coordinator_enabled | default(true)) | lower }}
 
 # Consumer prefix (optional).
 # If set, consumers must use this prefix for queue names.
