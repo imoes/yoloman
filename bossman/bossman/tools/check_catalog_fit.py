@@ -132,6 +132,29 @@ def check() -> tuple[dict[str, list[str]], dict[str, int]]:
     budget["value sets that disagree between the catalogs"] = disagreements
     budget["settings with a value set on only one side"] = one_sided
 
+    # A template body that writes a bare Python-cased boolean as a value. NOT rendered here — that needs the
+    # Go engine (cmd/fix-bool-render) — so this counts the STATIC shape: a `{{ x }}` whose schema default is a
+    # bool, with nothing piped. An approximation on purpose: the exact number needs a render, and a check
+    # that needs a Go build to run would not run.
+    #
+    # AND IT CANNOT GO TO ZERO, because for a Python-ecosystem config `True` is the CORRECT literal:
+    # glances, mopidy, carbon, ceph-mgr and every OpenStack .conf are read by Python's configparser. 13
+    # templates hardcode True/False in their bodies and all 13 are that case. The budget exists to notice a
+    # RISE — a new template written the wrong way — not to reach zero.
+    unpiped = 0
+    for name, props in _walk_templates():
+        try:
+            body = (TEMPLATES / name / "template.j2").read_text()
+        except OSError:
+            continue
+        for key, spec in props.items():
+            if not isinstance(spec, dict) or not isinstance(spec.get("default"), bool):
+                continue
+            base = re.escape(key.split(".")[0].split("[")[0])
+            if re.search(r"\{\{\s*" + base + r"\s*\}\}", body):
+                unpiped += 1
+    budget["boolean fields substituted bare, so they render True/False"] = unpiped
+
     # ---- closure: every bound template must exist and have a body ---------------------------------
     for path, entry in paths.items():
         tname = (entry or {}).get("template")

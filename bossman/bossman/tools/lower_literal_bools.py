@@ -19,9 +19,11 @@ For the 540, `{{ var }}` becomes `{{ var | lower }}`: measured through gonja, th
 Nothing is guessed — no vocabulary invented, no default rewritten, the value stays a bool so any future
 conditional still works.
 
-THE 60 ARE LEFT ALONE AND RECORDED. A field used both bare and in a conditional cannot be fixed this way: the
-same variable would have to be a word in one place and a boolean in the other. Those need the value set that
-names the file's words, which is a decision with evidence, not an edit.
+A FIELD USED BOTH BARE AND IN A CONDITIONAL IS ALSO FIXED, and refusing those first was a mistake worth
+recording: piping rewrites only the `{{ x }}` substitution, while `{% if x %}` is a different occurrence that
+is left alone — so the conditional still receives the boolean and only one output site changes. The
+render-proof pass (cmd/fix-bool-render) demonstrated it by fixing 18 of the 20 templates this rule had
+refused, each edit proven by a render.
 
 And a file that wants `yes`/`no` is still not served by `lower` — that is what tools/bool_vocabulary.py is
 for, and it has the directive catalog's own default as its witness.
@@ -104,14 +106,13 @@ def run() -> tuple[list[dict], list[dict]]:
             if not isinstance(spec, dict) or not isinstance(spec.get("default"), bool):
                 continue
             kind = classify(body, key)
-            if kind == "both":
-                skipped.append({"template": d.name, "key": key,
-                                "reason": "used bare AND inside a block or behind a filter — piping it would "
-                                          "change what the conditional receives; this one needs the file's "
-                                          "words as a value set instead"})
+            if kind not in ("bare", "both"):
                 continue
-            if kind != "bare":
-                continue
+            # "BOTH" IS ALSO SAFE, and refusing it was my mistake. Piping rewrites only the `{{ x }}`
+            # substitution; a `{% if x %}` block is a different occurrence and is left untouched, so the
+            # conditional still receives the boolean. The value never changes — only what one output site
+            # prints. Measured: the render-proof pass (cmd/fix-bool-render) went ahead and fixed 18 of the 20
+            # templates this rule had refused, and each of its edits is proven by a render.
             base = key.split(".")[0].split("[")[0]
             pattern = re.compile(r"\{\{\s*" + re.escape(base) + r"\s*\}\}")
             replaced, n = pattern.subn("{{ " + base + " | lower }}", new_body)

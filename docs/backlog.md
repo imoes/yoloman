@@ -401,6 +401,28 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## `True` is sometimes the RIGHT literal — 2026-08-25
+
+Chasing the boolean residue to the end produced a negative result worth writing down, because the next person
+will otherwise "fix" it: **13 templates hardcode `True`/`False` in their bodies, and all 13 are correct.**
+glances, mopidy, carbon-cache, ceph-mgr-dashboard and every OpenStack `.conf` are read by Python's
+`configparser`, for which `True` is the idiomatic literal. Of the 9 reachable templates still rendering one,
+four or five are that case.
+
+One was genuinely wrong and is fixed: `realmd.conf`. Its man page shows `fully-qualified-names = no` and
+contains **no** `true`/`false` at all, so `use_fully_qualified_names = True` — a literal in the body, not a
+substitution — became `yes`/`no`.
+
+The residue is now a watched budget rather than an open question: `check_catalog_fit` counts boolean fields
+substituted bare (statically — the exact number needs a render, and a check that needed a Go build would not
+run). It is at 0 and **cannot be expected to stay there**; its job is to notice a RISE, i.e. a new template
+written the wrong way.
+
+Also corrected: `lower_literal_bools` refused fields used both bare AND in a conditional, reasoning that the
+variable would have to be a word in one place and a boolean in the other. That was wrong — piping rewrites
+only the `{{ x }}` substitution, while `{% if x %}` is a different occurrence left untouched. The render-proof
+pass demonstrated it by fixing 18 of the 20 templates the rule had refused.
+
 ## A source nothing had looked at: the package's own documented sample — 2026-08-25
 
 `/etc/hostapd/hostapd.conf` as Debian ships it says almost nothing. `/usr/share/doc/hostapd/examples/
