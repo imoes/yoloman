@@ -143,7 +143,10 @@ function familyMembers(metric: string): string[] {
               <!-- Cockpit view (same component as the standalone console): live
                    gauges + filterable services grid + alerts, from this agent's
                    metrics. -->
-              <app-standalone-overview [agentId]="agent.id" [hostName]="agent.name" />
+              <!-- The snapshot this page already fetched: two components asking the same endpoint made the
+                   host page request the same 13 kB twice, 50 ms apart. -->
+              <app-standalone-overview [agentId]="agent.id" [hostName]="agent.name"
+                                       [metricsFrom]="seriesSnapshot()" />
               @if (overview(); as ov) {
                 @if (ov.parent_name) {
                   <p class="bm-parent-note">

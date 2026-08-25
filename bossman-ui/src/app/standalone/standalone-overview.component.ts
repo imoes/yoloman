@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, input, OnInit } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { NgxEchartsDirective } from 'ngx-echarts';
@@ -166,6 +166,15 @@ export class StandaloneOverviewComponent implements OnInit {
   // agent's own same-origin /api/v1/metrics. hostName overrides the title.
   agentId = input<string>('');
   hostName = input<string>('');
+  /** The parent's already-fetched snapshot, when it has one.
+   *
+   * This component is embedded in the FLEET host page, which fetches
+   * /agents/<id>/metrics/snapshot for its own use — so the page requested the same 13 kB twice, 50 ms apart,
+   * because two components each asked for it. Given the data, this one does not fetch and does not poll: the
+   * parent already refreshes on its own timer, and a second timer against the same URL is the duplicate
+   * again, just later. Left empty (the standalone console, where there is no parent) it behaves exactly as
+   * before. */
+  metricsFrom = input<unknown | null>(null);
   loading = signal(true);
   live = signal(false);
   hostname = signal('');
@@ -173,8 +182,21 @@ export class StandaloneOverviewComponent implements OnInit {
   private metrics = signal<Record<string, { timestamp: string; value: number; labels?: Record<string, string> }[]>>({});
   private cpuCount = 4;
 
+  constructor() {
+    // REACTIVELY, not once in ngOnInit. The parent binds its snapshot signal, which is EMPTY at
+    // construction and fills when its own request lands — reading the input once showed "no metrics yet"
+    // for ever. An effect re-absorbs on every change, and the parent's 15-second refresh becomes this
+    // panel's refresh too, so the page holds one timer against one URL instead of two.
+    effect(() => {
+      const fed = this.metricsFrom();
+      if (fed !== null) this.absorb(fed);
+    });
+  }
+
   ngOnInit(): void {
     this.hostname.set(this.hostName() || location.hostname);
+    // `null` means the input was never bound — the standalone console, where this component owns the fetch.
+    if (this.metricsFrom() !== null) return;
     this.load();
     setInterval(() => this.load(true), 15000);
   }
@@ -191,19 +213,39 @@ export class StandaloneOverviewComponent implements OnInit {
     this.http.get<{ metrics: Record<string, Pt[]> | LatestRow[] }>(url).subscribe({
       next: (r) => {
         this.loading.set(false); this.live.set(true);
-        const raw = r.metrics;
-        let m: Record<string, Pt[]>;
-        if (Array.isArray(raw)) {
-          m = {};
-          for (const x of raw) { (m[x.metric] ||= []).push({ timestamp: x.time, value: x.value, labels: x.labels }); }
-        } else {
-          m = raw || {};
-        }
-        this.metrics.set(m);
-        const cc = this.latest(m['cpu_count']); if (cc) this.cpuCount = cc;
+        this.absorb(r.metrics);
       },
       error: () => { this.loading.set(false); this.live.set(false); },
     });
+  }
+
+  /** Reshape whichever of the two shapes arrived, from a fetch or from the parent.
+   *
+   * Standalone: the agent's own /metrics returns {name: [points…]}. Fleet: Bossman returns the newest sample
+   * of every metric as a flat list [{metric, time, value, labels}]. Extracted from `load` so a caller that
+   * ALREADY HAS the data can use it without a second request — the fleet host page fetched the same 13 kB
+   * twice, 50 ms apart, because two components each asked the same endpoint.
+   */
+  private absorb(raw: unknown): void {
+    // An empty feed is the parent still loading, not an answer: keep the spinner rather than claiming
+    // "no metrics yet" about a host whose metrics are on their way.
+    if (Array.isArray(raw) && raw.length === 0) return;
+    type Pt = { timestamp: string; value: number; labels?: Record<string, string> };
+    type LatestRow = { metric: string; time: string; value: number; labels?: Record<string, string> };
+    let m: Record<string, Pt[]>;
+    if (Array.isArray(raw)) {
+      m = {};
+      for (const x of raw as LatestRow[]) {
+        (m[x.metric] ||= []).push({ timestamp: x.time, value: x.value, labels: x.labels });
+      }
+    } else {
+      m = (raw as Record<string, Pt[]>) || {};
+    }
+    this.metrics.set(m);
+    this.loading.set(false);
+    this.live.set(true);
+    const cc = this.latest(m['cpu_count']);
+    if (cc) this.cpuCount = cc;
   }
 
   private latest(series?: { value: number }[]): number | null {

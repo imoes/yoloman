@@ -17,19 +17,6 @@ import { ParamFormComponent } from '../../../../shared/param-form/param-form.com
 
 // Category column ordering + display for the role browser (Miller column 1).
 const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
-const CAT_META: Record<string, { label: string; icon: string }> = {
-  web: { label: 'Web', icon: 'language' },
-  database: { label: 'Database', icon: 'storage' },
-  services: { label: 'Services', icon: 'apps' },
-  network: { label: 'Network', icon: 'lan' },
-  security: { label: 'Security', icon: 'security' },
-  storage: { label: 'Storage', icon: 'save' },
-  virtualization: { label: 'Virtualization', icon: 'dns' },
-  logging: { label: 'Logging', icon: 'article' },
-  time: { label: 'Time', icon: 'schedule' },
-  system: { label: 'System', icon: 'settings' },
-  other: { label: 'Other', icon: 'folder' },
-};
 
 export interface AddRolesWizardData {
   agentId: string;
@@ -392,9 +379,9 @@ export class AddRolesWizardComponent {
   // then the key itself. The middle step is the new one: 398 promoted entries land in categories this
   // component never had a row for — Backup, Cloud, Cluster, Directory, Telephony — and they rendered as a
   // generic folder while shared/config-categories.ts had a label and an icon for every one of them.
-  catIcon(c: string): string { return CAT_META[c]?.icon ?? categoryByKey(c)?.icon ?? 'folder'; }
+  catIcon(c: string): string { return categoryByKey(c)?.icon ?? categoryByKey(c)?.icon ?? 'folder'; }
   catName(c: string): string {
-    return CAT_META[c]?.label ?? categoryByKey(c)?.label ?? (c.charAt(0).toUpperCase() + c.slice(1));
+    return categoryByKey(c)?.label ?? categoryByKey(c)?.label ?? (c.charAt(0).toUpperCase() + c.slice(1));
   }
 
   catLabel(p: string): string { return this.data.catalog[p]?.label ?? p; }

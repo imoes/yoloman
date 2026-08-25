@@ -135,11 +135,37 @@ const CATEGORIES: (ConfigCategory & { match: RegExp })[] = [
 
 const OTHER: ConfigCategory = { key: 'other', label: 'Other applications', icon: 'folder' };
 
+/** Category words the CATALOG uses that this file spells differently or does not list.
+ *
+ * `package_catalog.json` is written by the catalog builder and the promotion pass, and its vocabulary grew
+ * separately: measured, it emits `virtualization` where this file says `virt`, and `monitoring`, `directory`
+ * and `backup`, which it has no entry for at all. Those rendered as a generic folder in the wizard.
+ *
+ * An ALIAS rather than a rename, in both directions of caution: renaming this file's key would break the
+ * path->category matching that every editor uses, and rewriting 400 catalog entries to match would put the
+ * same word in two places again. The catalog's words are the ones that arrive at the UI, so this is where
+ * they are met. */
+const KEY_ALIASES: Record<string, string> = {
+  virtualization: 'virt',
+  monitoring: 'logging',          // this file's entry is labelled "Logging & monitoring"
+  containers: 'virt',
+};
+
+/** Categories the catalog emits that have no path RULE — so they cannot be matched from a path, only handed
+ * over by name. They carry a label and an icon and nothing else. */
+const BY_NAME_ONLY: ConfigCategory[] = [
+  { key: 'directory', label: 'Directory & identity', icon: 'badge' },
+  { key: 'backup', label: 'Backup & recovery', icon: 'backup' },
+];
+
 /** A category by its key, or null. The wizard needs the LABEL and ICON for a key it was handed, and it kept
  * its own second table (CAT_META) for that — so a category this file knows about rendered as a generic folder
  * there. One vocabulary, one lookup. */
 export function categoryByKey(key: string): ConfigCategory | null {
-  return CATEGORIES.find((c) => c.key === key) ?? (key === OTHER.key ? OTHER : null);
+  const wanted = KEY_ALIASES[key] ?? key;
+  return CATEGORIES.find((c) => c.key === wanted)
+    ?? BY_NAME_ONLY.find((c) => c.key === wanted)
+    ?? (wanted === OTHER.key ? OTHER : null);
 }
 
 export function categorizeConfigPath(path: string): ConfigCategory {
