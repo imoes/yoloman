@@ -311,6 +311,56 @@ distribution's own repos (7477 names) unioned with the old candidate listing, an
 be STATED. That already corrected a curated claim: "ufw is not packaged for RHEL" was false as written, and a
 claim an operator disproves with one `dnf install` costs every other claim here its credibility.
 
+## The man page the batch grounds on is often a navigation stub — FIXED 2026-08-25
+
+`_online_manpage` accepted any fetch over 800 characters. Measured on 15 packages, **7 of 15** came back as
+site chrome and passed: manpages.debian.org answers `/ddclient` with a **1548-character index page**,
+`/nginx` with 4271 and `/smb` with 4065 — while the real `smb.conf(5)` is **200 kB**.
+
+The grounding gate then does its job perfectly and rejects every correct value the model proposed, because a
+table of contents does not contain them. **Not a hallucination — a silent UNDER-grounding** that reads as
+"this package documents no values", and part of what earlier in this session looked like a systemd-directive
+problem.
+
+Fixed with a length floor (6000 characters; a section-5 page documenting a config file's directives is not
+2 kB). It also RECOVERS pages: the loop no longer stops at the first thin hit, so `smb` went from a 4 kB stub
+to the real 200 kB page — 9 real pages accepted where 8 were before, and the 6 rejected fall back to the
+shipped `.deb` config and the web docs, both better witnesses than chrome.
+
+**No chrome-detection test**, and that is measured too: `manpages.debian.org` wraps EVERY page in the same
+navigation, so a version of this gate that rejected on "Skip Quicknav" threw away redis (43 kB), dnsmasq
+(138 kB) and ntp (60 kB). Length alone separates them — stubs 1.5–4.7 kB, real pages 12–200 kB.
+
+*Worth a re-run:* every enum the batch has ever mined for one of those packages was grounded against chrome,
+so the abstentions recorded for them are not evidence about the package.
+
+## The nine value-set disagreements: 3 settled, 6 abstained — 2026-08-25
+
+Settled against the man page, using the qualify batch's own `_resolve_man` chain (local `man` → man7.org →
+manpages.debian.org) so "which man page" cannot have two answers. `tools/settle_value_disagreements.py`.
+
+| | |
+|---|---|
+| `/etc/default/console-setup` CODESET | settled — `Arm` dropped as a truncation of `Armenian` |
+| `/etc/default/console-setup` FONTSIZE | settled — the empty string dropped |
+| `/etc/freeipmi/ipmiseld.conf` authentication-type | settled — the union, nothing deleted |
+| the other **6** | abstained, each naming the unconfirmed values |
+
+**THE RULE IS UNION-ONLY: NEVER DELETE ON A MISSING WORD**, and it took two wrong versions to get there:
+
+1. The first accepted any grounded subset. On `/etc/ddclient.conf protocol` it settled a 21-value set down to
+   `['easydns', 'dyndns']` — deleting `cloudflare` and eighteen other protocols ddclient really supports —
+   because the fetched "man page" was the 1548-character stub above and `easydns` happened to appear in its
+   chrome. **A confident narrowing from a wrong source is the worst thing this tool could produce.**
+2. The second required the settled set to contain one catalog's set in full. That still deleted a real value:
+   for freeipmi's `privilege-level` it kept `USER OPERATOR ADMIN` and dropped **`CALLBACK`**, a real IPMI
+   privilege level that simply does not appear in `ipmiseld`'s page — while `PASSWORD` and `KEY` "grounded"
+   on ordinary English sentences. Absence of a word is not illegality, and prose matching cannot tell.
+
+So the only deletions are the two the page cannot be wrong about: an empty string is not a value, and a value
+that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
+list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
+
 ## The enum dropdowns: the gap is mostly not a gap (2026-08-23)
 
 "Why are enums still missing when the qualify batch mines them?" Measured, they are not missing wholesale —

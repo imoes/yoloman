@@ -333,6 +333,15 @@ def _man_page(name: str, *extra: str) -> str | None:
     return None
 
 
+#: Below this a "man page" is a table of contents. Measured on 15 packages: 7 fetches returned 1.5-4.7 kB of
+#: site chrome that the previous 800-character floor accepted, including nginx and smb.conf whose real pages
+#: run to hundreds of kilobytes.
+_MAN_MIN_CHARS = 6000
+#: NO CHROME TEST. Tried, and it rejected redis (43 kB), dnsmasq (138 kB) and ntp (60 kB): manpages.debian.org
+#: wraps EVERY page in the same navigation, so its presence says nothing about whether the content is there.
+#: Length alone separates them — the stubs measured 1.5-4.7 kB and the real pages 12-165 kB.
+
+
 async def _online_manpage(searx: SearxngClient, name: str, *extra: str) -> str | None:
     """Fetch a section-5 man page from the public mirrors when it isn't
     installed locally (most universe packages aren't). man7.org has a
@@ -347,8 +356,21 @@ async def _online_manpage(searx: SearxngClient, name: str, *extra: str) -> str |
             except Exception:  # noqa: BLE001 — 404/network → next candidate
                 continue
             head = txt[:400].lower()
-            if txt and len(txt) > 800 and "no such" not in head and "not found" not in head:
-                return txt
+            if not txt or "no such" in head or "not found" in head:
+                continue
+            # A NAVIGATION STUB IS NOT A MAN PAGE, and the 800-character floor let seven of fifteen sampled
+            # fetches through as one. Measured: manpages.debian.org answers /ddclient with a 1548-character
+            # index page (ddclient(8) links and site chrome), /nginx with 4271 and /smb with 4065 — while the
+            # real smb.conf(5) is hundreds of kilobytes. The grounding gate then does its job perfectly and
+            # rejects every correct value the model proposed, because the chrome does not contain them: not a
+            # hallucination, a silent UNDER-grounding that looks like the package having no documented values.
+            #
+            # A section-5 page that documents a config file's directives is not 2 kB. Below the floor the
+            # candidate is skipped, so the caller falls back to the shipped config and the web docs — both
+            # better witnesses than a table of contents.
+            if len(txt) < _MAN_MIN_CHARS:
+                continue
+            return txt
     return None
 
 
