@@ -5,7 +5,10 @@
        loads AgenticMcp.Agent.Windows' WMI collector. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- TWO targets: net10.0 so the agent builds and runs on this dev host (that is how the contract with
+         Bossman was proven before a Windows VM existed), and net10.0-windows so the same process can load
+         the WMI collector where WMI exists. One codebase, one behaviour, one extra collector. -->
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -22,6 +25,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgenticMcp.Agent.Core\AgenticMcp.Agent.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\AgenticMcp.Agent.Windows\AgenticMcp.Agent.Windows.csproj" />
   </ItemGroup>
 
 </Project>

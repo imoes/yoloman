@@ -155,9 +155,17 @@ the reading is per-platform. Nothing about thresholds, discovery or notification
 
 ## Milestones
 
-1. **The skeleton speaks the contract** — enrolment, `/metrics` with three WMI metrics, `/tools` listing
-   itself. Provable against the running Bossman with no server change.
-2. **WMI collector** — the table above, with `data_source` and per-metric provenance.
+1. ~~**The skeleton speaks the contract**~~ — **DONE 2026-08-26**, and proven on the LINUX dev host against
+   the running Bossman before any Windows VM existed: `csharp-agent-dev` enrols, is polled, and 6 metrics
+   with per-volume labels are in the database. Two things the contract required that this document had not
+   said: Bossman polls over **https with a client certificate** (the agent serves TLS and pins the public
+   key from the enrolment reply — the DER SPKI, not the certificate, so re-issuing around the same key does
+   not break it), and it was doing so **through the corporate proxy**, which answered 403. The proxy fix
+   brought a real host (`pxe-lab`) back after weeks.
+2. **WMI collector** — the table above, with `data_source` and per-metric provenance. **Written and
+   compiling** (`AgenticMcp.Agent.Windows`, 9 queries); it cannot be RUN anywhere but on Windows, so it is
+   not yet measured. `net10.0-windows` is a second target of the same host process, so the WMI collector is
+   an extra collector rather than a second agent.
 3. **`powershell` module** in a hosted runspace, streams separated, dry-run honoured or refused.
 4. **The first ported modules** — `file`, `copy`, `service`, `registry`, `msi` — and the `supported: false`
    listing for the Linux-only ones.

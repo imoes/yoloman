@@ -104,12 +104,18 @@ builder.WebHost.ConfigureKestrel(kestrel =>
     });
 });
 builder.Services.AddSingleton(new MetricStore());
-builder.Services.AddSingleton<IMetricCollector>(new RuntimeMetricCollector());
+
+// The collectors, in the order they are reported. The runtime one answers what .NET knows on any OS; the WMI
+// one answers what Windows knows. They do NOT overlap and neither is a fallback for the other — a host runs
+// both and the store merges them, because they are answers to different questions.
+var collectors = new List<IMetricCollector> { new RuntimeMetricCollector() };
+#if WINDOWS
+collectors.Add(new AgenticMcp.Agent.Windows.WmiMetricCollector());
+#endif
 
 var app = builder.Build();
 var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("agent");
 var store = app.Services.GetRequiredService<MetricStore>();
-var collector = app.Services.GetRequiredService<IMetricCollector>();
 
 // The module registry. Every Linux-only module is LISTED with the reason it cannot work here — see
 // UnsupportedModule for why an omission would be the wrong answer.
@@ -243,28 +249,35 @@ _ = Task.Run(async () =>
 {
     while (!collecting.IsCancellationRequested)
     {
-        try
+        foreach (var collector in collectors)
         {
-            var result = await collector.CollectAsync(collecting);
-            store.Append(result.Samples);
-            if (result.Absences.Count > 0)
+            // PER COLLECTOR. One collector throwing must not cost the pass its other collectors' readings —
+            // on Windows that is the difference between "WMI is unhappy" and "this host reports nothing".
+            try
             {
-                // Said out loud once per pass: a reading that did not happen is a fact, and a collector that
-                // logs nothing when it produces nothing is indistinguishable from one that is broken.
-                // "readings from queries", not "produced/attempts": one query over the volumes yields three readings per
-                // volume, so the two numbers are not a fraction and printing them as one read as 144/112.
-                log.LogInformation("collector {Collector}: {Produced} readings from {Attempts} queries, {Absent} absent: {First}",
-                    collector.Name, result.Samples.Count, result.Attempts, result.Absences.Count,
-                    result.Absences[0].Reason);
+                var result = await collector.CollectAsync(collecting);
+                store.Append(result.Samples);
+                if (result.Absences.Count > 0)
+                {
+                    // Said out loud once per pass: a reading that did not happen is a fact, and a collector
+                    // that logs nothing when it produced nothing is indistinguishable from a broken one.
+                    // "readings from queries", not "produced/attempts" — one query over the volumes yields
+                    // three readings each, so the two numbers are not a fraction and printing them as one
+                    // read as "144/112".
+                    log.LogInformation(
+                        "collector {Collector}: {Produced} readings from {Attempts} queries, {Absent} absent: {First}",
+                        collector.Name, result.Samples.Count, result.Attempts, result.Absences.Count,
+                        result.Absences[0].Reason);
+                }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            break;
-        }
-        catch (Exception ex)
-        {
-            log.LogError(ex, "collection pass failed");
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                log.LogError(ex, "collector {Collector} failed", collector.Name);
+            }
         }
 
         try
@@ -273,7 +286,7 @@ _ = Task.Run(async () =>
         }
         catch (OperationCanceledException)
         {
-            break;
+            return;
         }
     }
 }, collecting);
