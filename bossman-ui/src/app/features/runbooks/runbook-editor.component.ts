@@ -847,12 +847,17 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
    */
   private loadAgentSchemas(agentId: string): void {
     if (!agentId) { this.agentSchemas.clear(); return; }
-    this.http.get<{ tools?: { name?: string; input_schema?: Record<string, unknown> }[] }>(
+    this.http.get<{ tools?: { name?: string; input_schema?: Record<string, unknown>;
+                             supported?: boolean }[] }>(
       `${environment.apiUrl}/agents/${agentId}/tools`).subscribe({
       next: (b) => {
         const m = new Map<string, ParamSchema | null>();
         for (const t of b?.tools ?? []) {
-          if (t?.name) m.set(t.name, jsonSchemaToParamSchema(t.input_schema as never));
+          // `supported: false` is a NAMED refusal, not a tool: the Windows agent lists apt/systemd/cron with
+          // the reason they cannot work there, because an omission is indistinguishable from an agent too old
+          // to have the module. Its empty schema must not become this host's argument form — the catalog's
+          // typed one is the better answer for a step the operator may still be drafting for another host.
+          if (t?.name && t.supported !== false) m.set(t.name, jsonSchemaToParamSchema(t.input_schema as never));
         }
         this.agentSchemas = m;
         // Re-resolve the current selection now that host schemas are known.

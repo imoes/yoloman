@@ -121,6 +121,8 @@ var store = app.Services.GetRequiredService<MetricStore>();
 // UnsupportedModule for why an omission would be the wrong answer.
 var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Modules.PowerShellModule())
+    .Add(new AgenticMcp.Agent.Modules.FileModule())
+    .Add(new AgenticMcp.Agent.Modules.CopyModule())
     .Add(new UnsupportedModule("apt", "Windows has no APT package database", instead: "winget"))
     .Add(new UnsupportedModule("yum", "Windows has no YUM/DNF package database", instead: "winget"))
     .Add(new UnsupportedModule("dnf", "Windows has no YUM/DNF package database", instead: "winget"))

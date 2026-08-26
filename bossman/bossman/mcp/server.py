@@ -337,10 +337,21 @@ def build_mcp_server(
     @mcp.tool()
     async def list_agent_tools(host: str) -> list[dict[str, Any]]:
         """Router: list the tools one managed agent currently exposes
-        ([{name, kind, writes}]), by host name. Bossman is a gateway — use
-        list_hosts to see the fleet of managed servers, this to discover a
-        given server's tools, then call_agent_tool to invoke one. Write tools
-        appear only when that agent's write gate is open."""
+        ([{name, kind, writes, supported, unsupported_reason}]), by host name.
+        Bossman is a gateway — use list_hosts to see the fleet of managed
+        servers, this to discover a given server's tools, then call_agent_tool
+        to invoke one.
+
+        CHECK `supported`. An entry with supported=false is a NAMED refusal, not
+        a callable tool: `unsupported_reason` says why this host cannot do it,
+        and often which module does the job here instead (a Windows agent lists
+        apt as unsupported and points at winget). It is listed rather than
+        omitted because a missing entry cannot be told apart from an agent too
+        old to have the module — so do not call it, and do not read its absence
+        of a schema as "no parameters". On the Go agent every listed tool is
+        supported and the field may be absent.
+
+        Write tools appear only when that agent's write gate is open."""
         async with session_factory() as session:
             agent = await _addressed_agent_or_raise(session, host)
             client = client_factory(agent, settings)

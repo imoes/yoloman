@@ -180,8 +180,13 @@ the reading is per-platform. Nothing about thresholds, discovery or notification
    assembly's output directory happens to contain that folder — green for a reason the agent did not share.
    The path is resolved once, reported in every result as `module_path`, and warned about at startup when
    missing, because a runspace that can only do arithmetic must not look like one that can manage a host.
-4. **The first ported modules** — `file`, `copy`, `service`, `registry`, `msi` — and the `supported: false`
-   listing for the Linux-only ones.
+4. **The first ported modules** — `file` and `copy` **DONE 2026-08-26** (native .NET IO, so the same code
+   runs on both platforms and both were verified end-to-end through Bossman: create, replace, and the second
+   run reporting `changed: false`). Idempotence in `copy` is **by content**, not by timestamp — a file edited
+   and back-dated must still count as changed, and that is the dangerous direction of the mistake. POSIX-only
+   parameters (`mode`, `owner`, `group`) are **refused by name**: silently dropping `mode: "0600"` would
+   report success for a file readable by everyone.
+   Still to do: `service`, `registry`, `msi` — all three Windows-only, so they cannot be verified here.
 5. **Roles and features** — `windows_feature`, `families.windows` in the catalogue.
 6. **MSI packaging** and `self-update`.
 7. **Config**: the codec/template write paths against Windows config files (INI, XML, registry) — the
