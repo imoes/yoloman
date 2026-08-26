@@ -50,13 +50,14 @@ The two interfaces this agent is *made of* are first-class in .NET and awkward e
   **objects with their streams separated** (Output/Error/Warning/Verbose/Information), not a merged stdout to
   regex. That distinction is what makes a PowerShell module reportable rather than a shell escape.
 
-Everything else follows: WiX/`Microsoft.Build.Msix` for MSI packaging, `System.ServiceProcess` for the
-service host, the Windows event log, and the AD/DISM/Failover-Cluster APIs when we get there. .NET 8+,
-published `win-x64` self-contained single-file so the host needs no runtime install.
+Everything else follows: WiX for MSI packaging, `System.ServiceProcess` for the service host, the Windows
+event log, and the AD/DISM/Failover-Cluster APIs when we get there. **.NET 10**, published `win-x64`
+self-contained single-file so the host needs no runtime install.
 
-> Note: the tooling is not on this dev host (`no dotnet`, `no pwsh`, `no wix`). The build will need
-> `dotnet-sdk-8.0` locally for the parts that are OS-independent, and a Windows target to test WMI at all —
-> which is the same "test on real targets, not on hacks" rule the rest of this project follows.
+> Toolchain: SDK **10.0.400**, installed user-local in `$HOME/.dotnet` (this host has no passwordless sudo,
+> so the distro package was not an option — `export PATH="$HOME/.dotnet:$PATH"`). No `pwsh` and no WiX yet;
+> neither is needed until the PowerShell module and the MSI. WMI itself cannot be tested anywhere but on
+> Windows, which is the same "test on real targets, not on hacks" rule the rest of this project follows.
 
 ## Monitoring data: WMI, and the query is part of the answer
 
