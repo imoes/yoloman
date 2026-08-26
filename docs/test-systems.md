@@ -124,9 +124,15 @@ mid-promote rolls the whole set back.
 
 **Block 7 — UI + MCP.** "Clone to test system" button (from a host/System view)
 + a rehearsal-result panel (pass/fail, diff, Promote/Discard). MCP tools
-(`system_propose`, `system_clone`, `rehearse_change`, `promote_change`) so the
-**AI runs rehearsals autonomously** before any prod deploy — the same loop, one
-authoring model. *Verify:* Playwright clone→rehearse→promote against
+(`system_propose`, `system_create`, `system_clone`, `system_rehearse`,
+`system_promote`) so the **AI runs rehearsals autonomously** before any prod
+deploy — the same loop, one authoring model.
+
+*The tool names above are the ones the code actually exports.* This plan first
+called two of them `rehearse_change`/`promote_change`, and a review looking for
+those names concluded the block was unfinished when it was not: one thing under
+two names is the identity defect this project audits for everywhere else, and a
+plan is not exempt from it. *Verify:* Playwright clone→rehearse→promote against
 docker-test; MCP path does the same.
 
 **Block 8 — docs.** This file + `deploy/README*.md` + `CODE_CARD.md`.

@@ -427,6 +427,37 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## Point 5 — Lego Phase 6, disk management, test systems: measured, and two of three are done
+
+- **Lego Phase 6 (blueprint editor at role level) — DONE, and the memory saying otherwise was stale.**
+  Verified live, not by reading the doc: `GET /capabilities/match?agent_id=…&template=isc-dhcp-server`
+  resolves that template's `dns_resolver` requirement to **pxe-lab's dnsmasq on port 53**, with the field it
+  would be written into (`DOMAIN_NAME_SERVERS`). 4773 `capabilities.json` files, `capabilities.service.ts` +
+  `compose-wiring.ts` in the UI, `/capabilities/providers` answering with template and config path. That is
+  the whole Lego promise working end to end.
+
+- **Disk management — done and live-verified**, per §8a: read/visualisation, the op engine (compile →
+  safety_check → apply with an `sfdisk -d` table backup), resize both ways, LVM extend/reduce, LUKS, ZFS,
+  mdadm, partition move. Two named gaps remain, and one of them is not what it looks like (below).
+
+- **Test systems — Blocks 1 through 7 are implemented.** The gap I thought I had found was my own grep: the
+  plan calls the MCP tools `rehearse_change`/`promote_change` and the code calls them `system_rehearse`/
+  `system_promote`. All five exist (`system_propose`, `system_create`, `system_clone`, `system_rehearse`,
+  `system_promote`), `/api/v1/systems` answers, and the UI has the Rehearse/Promote panel. **A plan and its
+  implementation using two names for one thing is itself the identity defect** — the plan's names should be
+  corrected to the code's, or nobody can tell whether a block is missing or renamed.
+
+**And the one open item is a conflation.** "Rehearsal-first for destructive disk ops" reads as wiring
+`disk_ops` into the existing rehearsal plane — but that plane brings a System's **docker members** up in a
+sandbox, and `parted /dev/sdb` cannot be rehearsed in a container. A disk operation's rehearsal needs a loop
+device of the same geometry (or a VM), which is a different mechanism that happens to share a word. The
+safety model already has the pieces for the loop-device version (`allow_nonloop`, the busy guard, the table
+backup); what it does not have is the *word* meaning one thing. Recorded as its own item rather than as a
+dependency on test-systems.
+
+Still genuinely open after this: the loop-device rehearsal for destructive disk ops, and mdadm detail
+(`--assemble` of existing arrays, spare management, bitmap options, RAID-level migration).
+
 ## Point 3, `log_level` as a shared vocabulary: NOT to be done as recorded (2026-08-26)
 
 The note asked for one shared value set across the ~302 templates that have a log-level field. Measured, that
