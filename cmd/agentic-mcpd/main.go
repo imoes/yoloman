@@ -441,6 +441,13 @@ func runDownsample(cfg config.Config, st store.Store) {
 			"hourly_aggregated", stats.HourlyRowsAggregated,
 			"daily_created", stats.DailyRowsCreated)
 	}
+	// Said out loud, and separately from the prune: the fold DELETES rows an operator could have seen in
+	// the connection dump, and a silent removal is indistinguishable from a silent failure.
+	if stats.EdgesFolded > 0 {
+		slog.Info("client-port edges folded",
+			"member_rows_removed", stats.EdgesFolded,
+			"why", "a port a client picked at random is not a relationship; the fold keeps the traffic")
+	}
 
 	// Freshness cleanup: drop process (pid,comm) series whose process is gone
 	// (no sample within staleProcessSeriesAfter). A restart mints a new pid →

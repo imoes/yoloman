@@ -713,10 +713,13 @@ Still open from that work:
   the fold; what did NOT survive is reading them as lifetime totals, and that reading was itself the bug's
   artifact — the agent's counter restarts whenever the agent forgets an edge, so every row here has always
   meant "what the source currently reports".
-- **The agent still keeps and ships the un-collapsed rows.** Its own SQLite holds one edge per client port
-  too, bounded only by the 24h prune, so the poll payload stays ~14 000 edges for a host like that one. The
-  fold happens on ingest, so nothing downstream is affected and the agent's disk is bounded — but the same
-  rule would belong in `internal/store.UpsertEdge` if the payload ever matters.
+- ~~**The agent still keeps and ships the un-collapsed rows.**~~ **DONE 2026-08-26** — the same rule now runs
+  in `internal/store.foldClientPorts`, on the retention cadence (hourly) next to `pruneEdges` rather than in
+  `UpsertEdge`: that is the hot path, one call per connection event out of the eBPF ring, and it must not
+  grow a query. Rows accrue between passes, which is bounded and cheap. The quorum constant is stated in both
+  implementations with a comment naming the other, since one rule living in two languages can only be kept
+  honest by saying so. `EdgesFolded` is logged separately from `EdgesPruned` — the fold DELETES rows the
+  connection dump would have shown, and a silent removal reads like a silent failure.
 - **`metrics/snapshot` is requested twice on first load** (t=131 ms and t=184 ms), 13 KB each. Small, and the
   second caller was not identified — the two user-triggered `loadLatest()` sites are Poll-now, not load.
 

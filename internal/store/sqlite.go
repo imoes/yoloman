@@ -201,6 +201,12 @@ func (s *SQLiteStore) Downsample(ctx context.Context, rawCutoff, hourlyCutoff ti
 	}
 	stats.EdgesPruned = pruned
 
+	folded, err := s.foldClientPorts(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("folding client ports: %w", err)
+	}
+	stats.EdgesFolded = folded
+
 	return stats, nil
 }
 
@@ -236,6 +242,109 @@ func (s *SQLiteStore) pruneEdges(ctx context.Context, cutoff time.Time) (int, er
 	}
 	n, err := res.RowsAffected()
 	return int(n), err
+}
+
+// Ports at or above this carry no identity: Linux hands them out to CONNECTING sockets
+// (ip_local_port_range starts at 32768), so a peer's client port is a different number every time.
+const ephemeralPortFloor = 32768
+
+// How many distinct high ports at one address it takes to prove they are client ports. A service does not
+// live on eight random high ports of one address; a client churns through thousands. Kept identical to
+// bossman/bossman/services/edge_identity.py's CLIENT_PORT_QUORUM — one rule, two places that must agree,
+// so the number is stated in both and the comment says where the other one is.
+const clientPortQuorum = 8
+
+// foldClientPorts collapses proven client ports into one edge per (comm, dst_addr), at dst_port 0.
+//
+// WHY THIS EXISTS AT ALL, and why it is here rather than in UpsertEdge: keyed (comm, addr, port), a
+// short-lived connection to a peer's random high port becomes its own permanent row. Measured on the server
+// side of this fleet before the same rule landed there: 73 235 rows / 84 MB, 96.7% of them seen exactly once,
+// with `pveproxy worker -> 127.0.0.1` alone holding 42 348 rows over 14 116 ports. The agent's own store has
+// the same shape and ships every row on each poll.
+//
+// UpsertEdge is the hot path — one call per connection event out of the eBPF ring — so it must not grow a
+// query. This runs on the retention cadence (hourly by default) next to pruneEdges instead: rows may accrue
+// between passes, which is bounded and cheap, and the fold is one statement.
+//
+// dst_port 0 is the sentinel because no socket can listen on 0, so it cannot collide with a measured port.
+// Nothing about the traffic is lost — the fold carries the summed event_count, the earliest first_seen, the
+// latest last_seen and the busiest member's latency. Only the ports go, and they were the part that meant
+// nothing. Deliberately NOT "port >= 32768 is ephemeral": mysqlx (33060) and several gRPC and cluster ports
+// are real services above the floor, and the quorum keeps every one of them.
+func (s *SQLiteStore) foldClientPorts(ctx context.Context) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT comm, dst_addr,
+		       SUM(event_count), MIN(first_seen), MAX(last_seen), COUNT(DISTINCT dst_port)
+		FROM connection_edges
+		WHERE dst_port >= ?
+		GROUP BY comm, dst_addr
+		HAVING COUNT(DISTINCT dst_port) >= ?
+	`, ephemeralPortFloor, clientPortQuorum)
+	if err != nil {
+		return 0, err
+	}
+	type group struct {
+		comm, addr          string
+		events, first, last int64
+		ports               int
+	}
+	var groups []group
+	for rows.Next() {
+		var g group
+		if err := rows.Scan(&g.comm, &g.addr, &g.events, &g.first, &g.last, &g.ports); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		groups = append(groups, g)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	folded := 0
+	for _, g := range groups {
+		// The busiest member's latency, for the same reason the server keeps that one: a single-connection
+		// edge's latency is one sample, and averaging samples of unequal weight states a number nothing
+		// measured.
+		var latency sql.NullInt64
+		if err := tx.QueryRowContext(ctx, `
+			SELECT latency_ns FROM connection_edges
+			WHERE comm = ? AND dst_addr = ? AND dst_port >= ?
+			ORDER BY event_count DESC LIMIT 1
+		`, g.comm, g.addr, ephemeralPortFloor).Scan(&latency); err != nil && err != sql.ErrNoRows {
+			return 0, err
+		}
+		res, err := tx.ExecContext(ctx, `
+			DELETE FROM connection_edges WHERE comm = ? AND dst_addr = ? AND dst_port >= ?
+		`, g.comm, g.addr, ephemeralPortFloor)
+		if err != nil {
+			return 0, err
+		}
+		n, _ := res.RowsAffected()
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO connection_edges (comm, dst_addr, dst_port, event_count, first_seen, last_seen, latency_ns)
+			VALUES (?, ?, 0, ?, ?, ?, ?)
+			ON CONFLICT(comm, dst_addr, dst_port) DO UPDATE SET
+				event_count = event_count + excluded.event_count,
+				first_seen  = MIN(first_seen, excluded.first_seen),
+				last_seen   = MAX(last_seen, excluded.last_seen),
+				latency_ns  = COALESCE(excluded.latency_ns, connection_edges.latency_ns)
+		`, g.comm, g.addr, g.events, g.first, g.last, latency); err != nil {
+			return 0, err
+		}
+		folded += int(n)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return folded, nil
 }
 
 func (s *SQLiteStore) UpsertEdge(ctx context.Context, comm, dstAddr string, dstPort uint16, latencyNs *int64) error {
