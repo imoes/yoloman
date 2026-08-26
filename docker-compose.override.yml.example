@@ -21,26 +21,36 @@
 # ONE list of what must never go through the corporate proxy, referenced by every service below.
 #
 # It used to be spelled out per service, which is how it came to be missing exactly the addresses that
-# broke: `.ippen.media` covers web07.ippen.media but NOT the short name `web07` an agent is registered
-# under, and it covers no IP at all.
+# broke: a domain suffix covers host.example.internal but NOT the bare short name an agent is registered
+# under, and it covered no IP range at all.
 #
-# MEASURED against httpx (bossman/.venv-host, the client that polls the agents):
+# WHICH CLIENT UNDERSTANDS WHAT — measured, not assumed (curl 8.5.0, Go 1.24 net/http, httpx in
+# bossman/.venv-host). The three clients that matter here disagree, and the disagreement is the whole reason
+# one list cannot be the whole answer:
 #
-#   no_proxy entry     target                        result
-#   .ippen.media       https://web07.ippen.media     direct
-#   .ippen.media       https://web07                 PROXIED   <- the short name is a different string
-#   10.32.28.0/24      https://10.32.28.130          PROXIED   <- httpx does NOT understand CIDR
-#   10.0.0.0/8         https://10.32.28.130          PROXIED
-#   172.21.0.0/16      https://172.21.0.1            PROXIED
-#   172.21.0.1         https://172.21.0.1            direct    <- only an EXACT address works
-#   bossman            https://bossman:8000          direct
+#                        .domain suffix   exact IP   CIDR (10.0.0.0/8)
+#   curl / apt / wget    yes              yes        YES   -> 200 direct past a black-hole proxy
+#   Go (the agent)       yes, FQDN only   yes        YES
+#   Python httpx         yes, FQDN only   yes        NO    -> still PROXIED, every time
 #
-# So this list is the right tool for curl/apt/ssh inside the containers and for hosts named by domain, and
-# it CANNOT express "every agent" — an agent is reachable at whatever address it enrolled with. That is why
-# services/agent_client.py sets trust_env=False instead of relying on this: there is no address at which an
-# agent should be proxied, so the correct scope is that client, not a list somebody has to extend every time
-# a host moves. Both are in place; neither replaces the other.
-x-fleet-no-proxy: &fleet_no_proxy "localhost,127.0.0.1,::1,.example.internal,host.example.internal,bossman,bossman-poller,bossman-ui,db,192.0.2.10"
+# Two traps in that table. A domain suffix never matches a BARE short name — `.example.internal` leaves
+# `https://web07` proxied in both curl and Go, and the short name is what such an agent enrolls as. And httpx
+# ignores CIDR entirely, so a BOSSMAN_TARGET_NO_PROXY full of ranges will not help a Python client: it looks
+# like the fix and answers a different question.
+#
+# Replace the ranges and the domain with your own — these are documentation placeholders (RFC 5737/1918).
+#
+# So this list is the right tool for curl/apt/ssh inside the containers, for the Go agent's own outbound
+# calls, and for hosts named by domain — and it CANNOT express "every agent" for Bossman itself, because an
+# agent is reachable at whatever address it enrolled with. That is why services/agent_client.py sets
+# trust_env=False as well: there is no address at which an agent should be proxied, so the correct scope is
+# that client, not a list somebody has to extend every time a host moves. Both are in place; neither
+# replaces the other.
+#
+# The first range is the fleet's own network; 172.21.0.0/16 is this compose project's bridge. Exact
+# addresses stay listed after them ON PURPOSE — they are the entries httpx honours, and dropping them would
+# quietly re-break the one client that cannot read the ranges.
+x-fleet-no-proxy: &fleet_no_proxy "localhost,127.0.0.1,::1,.example.internal,host.example.internal,bossman,bossman-poller,bossman-ui,db,10.0.0.0/8,172.21.0.0/16,192.0.2.10"
 
 services:
   db:
