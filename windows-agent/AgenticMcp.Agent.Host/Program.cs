@@ -123,6 +123,18 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Modules.PowerShellModule())
     .Add(new AgenticMcp.Agent.Modules.FileModule())
     .Add(new AgenticMcp.Agent.Modules.CopyModule())
+#if WINDOWS
+    .Add(new AgenticMcp.Agent.Windows.RegistryModule())
+    .Add(new AgenticMcp.Agent.Windows.ServiceModule())
+#else
+    // THE MIRROR IMAGE of apt/systemd below: on a non-Windows host these are listed with the reason they
+    // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
+    // simply omitted them would be as unreadable in this direction as in the other.
+    .Add(new UnsupportedModule("registry", "there is no Windows registry on this platform"))
+    .Add(new UnsupportedModule("service",
+        "this build has no service control manager; on Linux the Go agent's `service` module does this",
+        instead: "powershell"))
+#endif
     .Add(new UnsupportedModule("apt", "Windows has no APT package database", instead: "winget"))
     .Add(new UnsupportedModule("yum", "Windows has no YUM/DNF package database", instead: "winget"))
     .Add(new UnsupportedModule("dnf", "Windows has no YUM/DNF package database", instead: "winget"))

@@ -186,7 +186,16 @@ the reading is per-platform. Nothing about thresholds, discovery or notification
    and back-dated must still count as changed, and that is the dangerous direction of the mistake. POSIX-only
    parameters (`mode`, `owner`, `group`) are **refused by name**: silently dropping `mode: "0600"` would
    report success for a file readable by everyone.
-   Still to do: `service`, `registry`, `msi` — all three Windows-only, so they cannot be verified here.
+   `service` and `registry` are **written and compiling, never run** — Windows-only by construction, so
+   nothing about them is claimed as measured. `service` deliberately keeps run state and start mode as two
+   independent properties (a stopped service can be set to start automatically), and changes the mode FIRST,
+   so a service that restarts itself between the two steps cannot come back enabled. `registry` compares
+   **by type and content**, because a DWORD 1 and the string "1" render identically and are not the same
+   value. `msi` waits for the milestone where it can be tested.
+
+   And the listing is now symmetric: on this Linux build `registry` and `service` are the ones reported
+   `supported: false` with a reason, the mirror image of `apt`/`systemd` on Windows. The rule reads the same
+   whichever way round the platform is.
 5. **Roles and features** — `windows_feature`, `families.windows` in the catalogue.
 6. **MSI packaging** and `self-update`.
 7. **Config**: the codec/template write paths against Windows config files (INI, XML, registry) — the
