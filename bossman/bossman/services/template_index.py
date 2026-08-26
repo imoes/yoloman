@@ -269,15 +269,43 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # NOT named `key`: that is the cache key three lines up, and shadowing it stored the result under
     # the last codec entry's name instead. The cache then never hit, which the timing showed (three
     # calls, 520 ms each) and reading would not have.
+    # Declared here rather than beside the verdict loop: the codec binding above also withdraws, and a list
+    # that comes into existence halfway down the function cannot be appended to from the first half.
+    withdrawn: list[dict] = []
     for codec_key, entry in _load(codecs_path).items():
         if not isinstance(entry, dict):
             continue
         tname = _template_name(codec_key)
         if tname not in dirs:
             continue
-        for p in entry.get("paths") or []:
-            if not isinstance(p, str) or not plausible_target(p, known):
-                continue
+        # ONE TEMPLATE RENDERS ONE FILE, and a codec entry may list many. Measured: the entry keyed
+        # `apparmor.d` carries 259 paths — /etc/apparmor.d/1password, /Discord, /MongoDB_Compass … — and
+        # every one of them was bound to the single `apparmor.d` template, so pressing Configure on Discord's
+        # profile would have rendered a generic skeleton over it. `logrotate.conf` did the same to 17
+        # logrotate fragments. This is the mirror image of the conflict rule below (two templates for one
+        # path) and nothing was asking it.
+        #
+        # THE SAME BASENAME IN SEVERAL LOCATIONS IS FINE and must stay: /etc/magic, /etc/apache2/magic and
+        # /etc/httpd/conf/magic are the same file in three places, which is 114 of the 130 multi-path
+        # templates. What is refused is a group of DIFFERENT files sharing one renderer.
+        candidates = [p for p in (entry.get("paths") or [])
+                      if isinstance(p, str) and plausible_target(p, known)]
+        basenames = {p.rsplit("/", 1)[-1] for p in candidates}
+        if len(basenames) > 1:
+            # Keep only the file this template is actually named after; refuse the rest by name.
+            keep = {p for p in candidates if p.rsplit("/", 1)[-1] == codec_key.rsplit("/", 1)[-1]}
+            for p in candidates:
+                if p not in keep:
+                    withdrawn.append({
+                        "path": p, "template": tname, "source": "codec", "verdict": "not-this-template",
+                        "package": None,
+                        "reason": "the codec entry {!r} lists {} files with {} different names and this "
+                                  "template renders one of them; Configure writes the WHOLE file, so "
+                                  "offering it here would render another file's content over this one"
+                                  .format(codec_key, len(candidates), len(basenames))})
+            candidates = sorted(keep)
+
+        for p in candidates:
             if not renders(tname, p):
                 conflicts.append({"path": p, "chosen": None, "chosen_source": "codec",
                                   "also": tname, "also_source": "codec",
@@ -389,7 +417,6 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
     # every one gets an "absent" verdict because no archive contains it. Without this, the withdrawal removed
     # the editor for the machine's own hostname.
     unowned = _load(ver_p.parent / "config_unowned_paths.json")
-    withdrawn = []
     # NOT A CONFIG FILE — asked BEFORE the path verdict, and it has to be asked separately: the verdict
     # answers "is there a file here", and /etc/cron.daily/logrotate exists, measures `file`, and is a program.
     # Same withdrawal shape as the verdict below, so the UI that already shows one shows this too.
@@ -457,6 +484,43 @@ def build_template_index(catalog_path: str | Path, codecs_path: str | Path,
                                         "file, so it would create one nothing reads".format(
                                             seen.get("package"), verdict,
                                             seen.get("family") or "debian")})
+
+    # ONE TEMPLATE, ONE FILE — the cross-source sweep, after all three sources have bound.
+    #
+    # The codec loop above stops a single codec entry from spraying one template over 259 files. This catches
+    # the same damage assembled from DIFFERENT sources: the catalog binds `nginx` to /etc/nginx/nginx.conf
+    # (curated, measured) while the codec registry also binds it to /etc/logrotate.d/nginx — so Configure on
+    # the logrotate fragment would render nginx.conf over it. Measured: 14 templates, all of the same shape,
+    # every extra path a /etc/default/*, /etc/logrotate.d/*, /etc/pam.d/* or /etc/logcheck/* file that merely
+    # shares the daemon's NAME.
+    #
+    # The catalog's path wins, because that is the one a person or a measurement chose; failing that, the path
+    # whose basename IS the template's name. Same precedence the conflict rule uses, applied to the mirror
+    # case. Paths that only differ in LOCATION (/etc/magic, /etc/apache2/magic) are untouched — 114 templates
+    # are that, and they are one file in several places.
+    by_template: dict[str, list[str]] = {}
+    for bound_path, entry in paths.items():
+        name = (entry or {}).get("template")
+        if name:
+            by_template.setdefault(name, []).append(bound_path)
+    for name, bound in by_template.items():
+        if len({b.rsplit("/", 1)[-1] for b in bound}) < 2:
+            continue
+        chosen = next((b for b in bound if paths[b].get("source") == "catalog"), None)
+        if chosen is None:
+            chosen = next((b for b in bound if b.rsplit("/", 1)[-1] == name), None)
+        if chosen is None:
+            continue          # nothing to prefer: leave it visible rather than pick arbitrarily
+        for bound_path in bound:
+            if bound_path == chosen:
+                continue
+            entry = paths.pop(bound_path)
+            withdrawn.append({
+                "path": bound_path, "template": name, "source": entry.get("source"),
+                "verdict": "not-this-template", "package": None,
+                "reason": "this template renders {} — the file it is named for and the one the catalog "
+                          "records; {} merely shares that name, and Configure writes the WHOLE file"
+                          .format(chosen, bound_path)})
 
     result = {"paths": paths, "conflicts": conflicts, "snapins": snapins, "withdrawn": withdrawn}
     _CACHE[key] = (time.monotonic(), sig, result)

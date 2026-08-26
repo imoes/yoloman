@@ -903,9 +903,24 @@ the first alphabetically — that rule was added after `autosuspend` was given
 `shared/config-categories.ts`), so the rule does not exist twice. Verified in the browser: the wizard went
 from ~75 installable entries in 10 categories to **252 in 21**.
 
-Still open here: the new categories (Backup, Cloud, Cluster, Directory, Telephony, …) render with a generic
-folder icon because the wizard's own `CAT_META` has no entry for them; and 111 templates were rejected for
-having two bound paths, which is a real question (which one is the config file?) rather than a bug.
+~~Still open here: the new categories render with a generic folder icon…~~ **DONE 2026-08-26** — and both
+halves turned out to be worse than recorded.
+
+The icons: **two** wizards each kept their own `CAT_META` of 11 categories while `shared/config-categories.ts`
+had 19 with labels and icons, and the lookup it wanted (`categoryByKey`) already existed unused. Both tables
+are gone; the catalog's own words (`virtualization` where the shared table says `virt`, plus `monitoring`,
+`directory`, `backup`) are met by aliases where they arrive.
+
+The "111 two-path templates" were not *rejected* — they were **bound**, and there were 130 of them. 114 are
+one file in several locations (`/etc/magic`, `/etc/apache2/magic`), which is correct. The other 16 were a live
+defect of the worst class: the codec entry keyed `apparmor.d` lists **259** paths, so `/etc/apparmor.d/Discord`
+offered to render a generic profile skeleton over Discord's profile; `logrotate.conf` did it to 20 fragments
+and `apt.conf` to 17. And the same damage assembled across sources — the catalog binds `nginx` to
+`/etc/nginx/nginx.conf` while the codec registry also bound it to `/etc/logrotate.d/nginx`.
+
+**One template renders one file** is now a rule in `template_index`, the mirror image of the conflict rule
+that has always reported two templates for one path. 341 bindings withdrawn with a stated reason, 0 templates
+left bound to differently-named files, and the paths a surface offers went 1538 → 1226.
 
 ## Original finding (2026-07-28, via "und was ist mit LDAP?")
 
