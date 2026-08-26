@@ -66,6 +66,23 @@ class AgentClient:
             timeout=self._timeout,
             headers=headers,
             transport=self._transport,
+            # NEVER THROUGH A FORWARD PROXY. httpx reads http_proxy/https_proxy from the environment by
+            # default, and this deployment sets them (the container needs a proxy to reach package repos and
+            # LLM endpoints on the internet). Polling an agent is an intra-fleet call to an IP the proxy has
+            # no business seeing, and the corporate proxy answered every one of them with 403 Forbidden.
+            #
+            # Measured on the live fleet: 3 of 17 agents "had errors" on every cycle —
+            #   metrics: 172.21.0.1:8451: request failed: 403 Forbidden
+            #   metrics: web07:18051: request failed: 403 Forbidden
+            #   metrics: 10.32.28.130:8051: request failed: 403 Forbidden
+            # — and the message named the agent, so it read like three broken hosts rather than one wrong
+            # client. 10.32.28.130 is even inside BOSSMAN_TARGET_NO_PROXY, but that variable governs what
+            # Bossman tells a TARGET host to use; it never reached httpx's own environment lookup.
+            #
+            # trust_env=False rather than a NO_PROXY entry per agent: there is no address at which an agent
+            # SHOULD be proxied, so the correct scope is the client, not a list that has to be maintained
+            # every time a host moves.
+            trust_env=False,
         )
 
     async def _get_json(self, path: str, params: dict[str, str]) -> Any:
