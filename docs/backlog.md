@@ -452,8 +452,17 @@ recorded — ddclient's five unconfirmed protocols (`hammernode1`, `dnspark`, `d
 are absent from a 10 kB sample that is plainly abridged, and freeipmi documents the option without ever
 naming its values.
 
-Still open from this: the 85 paths whose enums were filtered against Config(3perl) deserve a targeted
-re-run now that the fetch is right — that is a bounded LLM job, not a rule change.
+~~Still open: the 85 paths deserve a targeted re-run.~~ **MEASURED, AND NOT NEEDED** — half an hour after
+writing that sentence. If Config(3perl) had cost those templates their enums, they would carry fewer value
+sets than the rest of the corpus. They do not:
+
+    the 33 generic-basename templates    573 fields, 36 with a value set   6.3%
+    every other template               10 638 fields, 699 with a value set 6.6%
+
+Indistinguishable. The wrong page was rejecting values, but the enum rate is dominated by whether a field is
+an enum at all and by the other two witnesses (the shipped config and the documented sample), which were
+already being consulted. The fix still matters for every future fetch; the re-run would have bought nothing,
+and an LLM batch is exactly the kind of expensive no-op worth not running.
 
 ## `True` is sometimes the RIGHT literal — 2026-08-25
 
