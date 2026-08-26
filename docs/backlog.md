@@ -417,6 +417,35 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## Point 3, `log_level` as a shared vocabulary: NOT to be done as recorded (2026-08-26)
+
+The note asked for one shared value set across the ~302 templates that have a log-level field. Measured, that
+would be the equivocation error the logic rules are there to prevent — one name, several meanings:
+
+    log-level-ish fields (log_level, loglevel, verbosity, log_priority, debug_level)   871
+      already carry a value set                                                        244
+        …spread over DISTINCT sets                                                       89
+             34x  debug / error / info / warn
+             24x  critical / debug / error / info / warning
+             16x  debug / error / info / warning
+             14x  error / info
+              6x  0 / 1 / 2 / 3
+      carry none                                                                       627
+        of those, a NUMERIC default (0, 1, 2, …) — a word enum would be flatly wrong    351
+        a word default, whose vocabulary is that daemon's own                           269
+        no default at all, so no evidence of shape                                        6
+
+There is no shared vocabulary to share. 89 distinct sets among the 244 that are already enumerated, and the
+most common covers 34 of them; `warn` and `warning` are different daemons' spellings and not synonyms to a
+config parser. Worse, 351 of the 627 unenumerated fields are NUMERIC levels — putting `debug` into a field
+that takes 0..3 would produce a dropdown whose every option the daemon rejects.
+
+What IS legitimate is the shape, which the field's own default already states: a numeric default means a
+numeric field (leave it a number box, do not invent words), a word default means a word field whose values
+have to come from that daemon's own documentation — i.e. the ordinary per-package grounding that
+`enums_from_descriptions` and the qualify batch already do. Nothing to write into the catalogs from a shared
+list, which is why this stays undone rather than pending.
+
 ## Point 2, the abstentions: mostly real, and one number was a category error (2026-08-26)
 
 The recorded abstention "678 Debian + 149 EL packages not downloadable, so NO verdict" cannot be re-examined
