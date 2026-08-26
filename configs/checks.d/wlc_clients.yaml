@@ -1,0 +1,31 @@
+name: wlc_clients
+fqcn: checkmk.wlc_clients
+collection: checkmk
+short_description: Clients %s
+description: 'Checkmk check ''wlc_clients'' (service: Clients %s), translated to a
+  read-only on-host Starlark check module. Hand-written: the batch could not produce
+  parsable Starlark for it (a list comprehension over dict items, which Starlark has
+  no equivalent for), so the two SNMP device families were read from Checkmk''s own
+  sections instead.'
+options:
+  host:
+    type: string
+    default: localhost
+    description: host (from the check's parameters).
+  community:
+    type: string
+    default: public
+    description: community (from the check's parameters).
+  levels:
+    type: list
+    description: Upper levels (warn, crit) on the client count, as in Checkmk's wlc_clients
+      ruleset. A two-element list or "warn,crit".
+  levels_lower:
+    type: list
+    description: Lower levels (warn, crit) on the client count — an SSID nobody is
+      connected to is the interesting case for a guest network.
+writes: false
+runtime: starlark
+source: translated
+kind: check
+execution: snmp

@@ -45,7 +45,12 @@ def is_int(s):
         i = 1
     if i >= len(s2):
         return False
-    for c in s2[i:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for c in s2[i:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_c in range(i, len(s2)):
+        c = s2[_i_c]
         if c < "0" or c > "9":
             return False
     return True

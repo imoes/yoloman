@@ -71,12 +71,22 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
 
 ## Checkmk translation tail
 
-- **Non-Windows stragglers** — mostly cleared (now 1440/1444). `smart_stats` +
-  `vms_queuejobs` were already present; `printer_supply`, `ucd_mem`,
-  `wut_webtherm_humidity` translated 2026-07-16 via `translate_checkmk.py
-  --only`. **`wlc_clients` still fails validation** — qwen emits a Starlark
-  list-comprehension with a syntax error (`got for, want ','`); needs a
-  hand-fix or a different prompt. The rest of the missing are Windows checks.
+- **Non-Windows stragglers — CLEARED 2026-08-26.** `wlc_clients` is translated, by HAND: the batch emitted a
+  list comprehension over dict items on every attempt (`got for, want ','`), and Starlark has no such
+  comprehension, so a fourth prompt round was more expensive than reading Checkmk's source. Both device
+  families are covered from Checkmk's own sections — Airespace/classic WLC (clients per interface) and
+  Catalyst 9800 (two tables zipped by position) — with detection BY DATA rather than by a list of seven
+  product OIDs. 11 tests against canned snmpwalk output.
+
+  **And writing it by hand found a latent runtime crash in eight SHIPPED checks.** A Starlark string is not
+  iterable: `for c in s[i:]` raises "string value is not iterable" at runtime, on the very line that parses a
+  number out of device output. The stub validator only catches it when its empty-output run reaches that
+  line, which a check gated on `if res.rc != 0: return` never does — so `3par_capacity`, `db2_logsizes`,
+  `mrpe`, `netctr_combined`, `ra32e_sensors`, `sap_hana_instance_status`, `sensatronics_temp` and
+  `smart_stats` shipped with it. All rewritten to index by position, all nine re-validated, and a corpus
+  guard added so the idiom cannot come back.
+
+  The rest of the missing are Windows checks — see docs/windows-agent.md.
 - **Windows client** (PowerShell modules) — the remaining hard checks
   (`winperf_*`, `wmi_cpuload`, `w32time_*`) belong there, not the Linux agent.
   See the `project-windows-client` memory.

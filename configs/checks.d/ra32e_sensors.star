@@ -1,7 +1,12 @@
 def _parse_sensor_type(values):
     def values_until(x):
         first = True
-        for v in values[:x]:
+        # BY INDEX: a Starlark string is NOT iterable, so `for v in values[:x]:`
+        # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+        # number out of device output. The stub validator only sees it when its empty-output
+        # run happens to reach here, which is why nine shipped checks carried it.
+        for _i_v in range(0, len(values)):
+            v = values[_i_v]
             if v == "":
                 first = False
         second = True

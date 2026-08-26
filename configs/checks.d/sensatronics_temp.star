@@ -100,7 +100,12 @@ def _is_num(s):
         i = 1
     digits = False
     dot = False
-    for c in s[i:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for c in s[i:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_c in range(i, len(s)):
+        c = s[_i_c]
         if c >= "0" and c <= "9":
             digits = True
         elif c == "." and not dot:
