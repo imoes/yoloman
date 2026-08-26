@@ -289,17 +289,38 @@ def _load(path: Path, default):
         return default
 
 
+#: File names that are not the name of anything. A config file called `config` says nothing about which
+#: software owns it, so it must never become a man-page candidate — and this is not hypothetical:
+#: manpages.debian.org/config answers with **Config(3perl)**, 412 kB of Perl module documentation that sails
+#: past the 6000-character floor and was serving as the "man page" for every template whose file is named
+#: config. Measured on the shipped index: 85 bound paths have such a basename, 60 of them literally `config`.
+#: With the section suffix (below) it becomes config(5ssl) from openssl — still the wrong document, which is
+#: why the section fix alone does not help here.
+_GENERIC_BASENAMES = frozenset({
+    "config", "conf", "settings", "setting", "main", "default", "defaults", "options", "option",
+    "init", "setup", "local", "common", "global", "general", "server", "client", "custom",
+})
+
+
 def _man_candidates(name: str, *extra: str) -> list[str]:
     """Section-5 man-page name variants to try. The template dir is often the
     daemon name (sshd) while the config man page is "<name>_config" or
     "<name>.conf" (sshd_config, dnsmasq.conf). `extra` adds caller-known
-    candidates (e.g. the config file's basename)."""
+    candidates (e.g. the config file's basename).
+
+    A candidate whose stem is a GENERIC file name is dropped — see _GENERIC_BASENAMES for the 412 kB of Perl
+    documentation that made this necessary. Note the whole point is that a wrong page here is WORSE than no
+    page: the grounding gate then rejects every correct value the model proposed, and the result reads as a
+    package with no documented values rather than as a failed fetch.
+    """
     seen: set[str] = set()
     cands: list[str] = []
     for n in (name, *extra):
         if not n:
             continue
         base = n.rsplit(".", 1)[0]
+        if base.lower() in _GENERIC_BASENAMES:
+            continue
         for c in (n, base, f"{base}_config", f"{base}.conf", f"{base}.cfg"):
             if c and c not in seen:
                 seen.add(c)
@@ -349,7 +370,13 @@ async def _online_manpage(searx: SearxngClient, name: str, *extra: str) -> str |
     package. First solid hit wins; the grounding filter tolerates a wrong
     fetch (its values simply won't match)."""
     for c in _man_candidates(name, *extra):
+        # SECTION 5 FIRST, and explicitly. man7.org's URL carries the section; the bare Debian URL does not,
+        # so Debian answers with whatever section it likes — measured: /swaync returns swaync(1) (the
+        # command's page, 23 kB, silent on every config value) while /swaync.5 returns swaync(5), which
+        # documents them. A page for the right package in the wrong section is still the wrong document, and
+        # it passes every length check.
         for url in (f"https://man7.org/linux/man-pages/man5/{c}.5.html",
+                    f"https://manpages.debian.org/{c}.5",
                     f"https://manpages.debian.org/{c}"):
             try:
                 txt = await searx.fetch(url, max_chars=200000)

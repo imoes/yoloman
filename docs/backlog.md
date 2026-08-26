@@ -417,6 +417,44 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## The four remaining disagreements: 2 settled, and the grounding chain was fetching the wrong documents
+
+Reviewing whether the recorded work is still needed, the four value-set disagreements turned out to be four
+DIFFERENT cases, which is why no blanket rule had settled them. Grounding each against its own package:
+
+    xrdp.ini  security_layer   the man page writes `security_layer = [tls|rdp|negotiate]`  -> x509 is wrong
+    swaync    layer            all four ground in swaync(5)                                -> union
+    ddclient  protocol         16 of 21 ground in the shipped sample                       -> abstain
+    ipmiseld  privilege-level  NONE of the five appear in an 11 kB page                    -> abstain
+
+**A bracketed enumeration in the option's own definition is a CLOSED set**, and it is the one shape that may
+delete. Everywhere else this codebase refuses to narrow on a missing word — an absent word is not an illegal
+value — but a page writing `security_layer = [tls|rdp|negotiate]` is not being silent about `x509`; it is
+stating the range. That is positive evidence about the SET rather than absence of evidence about a member.
+Exactly one of the four had it, and it was the one where a union would have propagated a value xrdp does not
+accept into the catalog that had it right.
+
+**And two defects in the grounding chain itself, both found by asking why swaync abstained on a set every
+member of which its man page contains:**
+
+- `manpages.debian.org/config` answers with **Config(3perl)** — 412 kB of Perl module documentation that
+  sails past the 6000-character floor. Any template whose config file is named `config` had that as its "man
+  page", and the grounding gate then dutifully rejected every correct value the model proposed. **85 bound
+  paths** have a generic basename, 60 of them literally `config`. A wrong page is worse than no page: the
+  result reads as a package with no documented values rather than as a failed fetch. Generic stems are now
+  dropped from the candidate list.
+- **The Debian URL carried no section**, so a package with both pages grounded against the wrong one:
+  `/swaync` returns swaync(1) (the command, silent on every config value) while `/swaync.5` returns the page
+  that documents them. `<name>.5` is now tried first.
+
+Budget: value sets that disagree **4 -> 2**. The two that remain are honest abstentions with their reasons
+recorded — ddclient's five unconfirmed protocols (`hammernode1`, `dnspark`, `dtdns`, `freedns`, `godaddy`)
+are absent from a 10 kB sample that is plainly abridged, and freeipmi documents the option without ever
+naming its values.
+
+Still open from this: the 85 paths whose enums were filtered against Config(3perl) deserve a targeted
+re-run now that the fetch is right — that is a bounded LLM job, not a rule change.
+
 ## `True` is sometimes the RIGHT literal — 2026-08-25
 
 Chasing the boolean residue to the end produced a negative result worth writing down, because the next person

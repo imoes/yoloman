@@ -57,6 +57,38 @@ RECORD = CONFIGS / "value_set_settlements.json"
 _MIN_MAN_CHARS = 6000
 
 
+#: `option = [a|b|c]` — an option's own definition line enumerating its whole range. Also `<a|b|c>` and
+#: `{a|b|c}`, which the same pages use interchangeably. Two or more alternatives only: a single `[value]` is
+#: a placeholder, not a set.
+_CLOSED_ENUM = r"(?<![\w.-]){key}\s*=\s*[\[<{{]\s*([^\]>}}\n]*\|[^\]>}}\n]*?)\s*[\]>}}]"
+
+
+def closed_enum(key: str, blob: str) -> list[str] | None:
+    """The values a source states as the OPTION'S WHOLE RANGE, or None if it states no such thing.
+
+    THIS IS THE ONE THING THAT MAY DELETE. Everywhere else this tool refuses to narrow on a missing word,
+    for the good reason recorded above: an absent word is not an illegal value. But a page that writes
+
+        security_layer = [tls|rdp|negotiate]
+
+    in the option's own definition is not being silent about `x509` — it is saying the range is those three.
+    That is positive evidence about the SET, not absence of evidence about a member, and it is the only shape
+    that distinguishes the two. Measured on the four remaining disagreements: exactly one of them has it, and
+    it is the one where a union would have propagated a wrong value (`x509`, which xrdp does not accept) into
+    the catalog that had it right.
+
+    Deliberately strict, because a wrong match here deletes: at least two alternatives, separated by `|`,
+    each a bare word, on the key's own `=` line.
+    """
+    match = re.search(_CLOSED_ENUM.format(key=re.escape(key)), blob)
+    if not match:
+        return None
+    values = [v.strip() for v in match.group(1).split("|")]
+    if len(values) < 2 or not all(v and re.fullmatch(r"[\w.:+-]+", v) for v in values):
+        return None
+    return values
+
+
 def grounded(values: list[str], blob: str) -> list[str]:
     """The values that appear verbatim in the source, as whole tokens.
 
@@ -130,7 +162,12 @@ async def settle(rows: list[dict], only: str = "") -> list[dict]:
         base = path.rsplit("/", 1)[-1]
         # The template NAME and the file's basename are both offered as man-page candidates, the same pair
         # the batch uses: the page is called sshd_config for the template `openssh_server`.
-        man = await _resolve_man(searx, row.get("template") or base, base)
+        # `man` on the ROW when the page's name is derivable from nothing: swaync(5) documents
+        # /etc/xdg/swaync/config.json, and neither the template name (sway-notification-center) nor the
+        # basename (config.json) can be turned into it by any rule. Measured: without it the fetch grounded
+        # 0 of 4 values and the tool abstained on a set every one of whose members the real page contains.
+        # A recorded fact, not a guess — and it is per row, so it cannot affect anything else.
+        man = await _resolve_man(searx, row.get("man") or row.get("template") or base, base)
         both = list(dict.fromkeys([*row["directive_values"], *row["template_values"]]))
         # BOTH WITNESSES, NOT ONE. The config the package ships is where a project usually writes its value
         # set — redis.conf lists "debug / verbose / notice / warning" in a comment beside the setting — and
@@ -161,6 +198,19 @@ async def settle(rows: list[dict], only: str = "") -> list[dict]:
                             "reason": "no man page and no shipped config could be fetched for this file — "
                                       "nothing was consulted"})
             continue
+        # BEFORE the union rule: a source that enumerates the option's whole range has already answered,
+        # and it can answer in the one direction the union cannot — by ruling a value out.
+        enumerated = closed_enum(key, source)
+        if enumerated and any(v in both for v in enumerated):
+            excess = [v for v in both if v not in enumerated]
+            results.append({**row, "settled": enumerated, "dropped": sorted(excess), "source": origin,
+                            "closed_enum": True,
+                            "reason": f"{origin} enumerates the whole range in the option's own definition "
+                                      f"({key} = [{'|'.join(enumerated)}]) — a statement about the SET, not "
+                                      f"silence about a member, so it settles in both directions"
+                                      + (f"; dropped {', '.join(excess)}" if excess else "")})
+            continue
+
         keep = grounded(both, source)
         if len(keep) < 2:
             results.append({**row, "settled": None, "grounded": keep, "source": origin,
