@@ -81,6 +81,22 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
   (`winperf_*`, `wmi_cpuload`, `w32time_*`) belong there, not the Linux agent.
   See the `project-windows-client` memory.
 
+## The Windows agent (decided 2026-08-26, plan in docs/windows-agent.md)
+
+C# / .NET, WMI for the monitoring data, a `powershell` module in a hosted runspace as the action plane, the
+Linux module library ported under its EXISTING names, roles and features as desired state via a
+`families.windows` block in the package catalogue, and MSI in both directions (the agent ships as one, and an
+`msi` module installs them). It implements the REST contract the Go agent already implements, so Bossman
+needs no Windows special case.
+
+The two rules that decide the shape: a module name means the same thing on both platforms or it gets a
+different name (`cron` -> `scheduled_task`, because the semantics differ; a domain account is not a local
+one); and a Linux-only module is LISTED on a Windows host with `supported: false` and a reason, never
+missing — an absent entry is indistinguishable from an old agent. Same for `load_average`, which Windows
+does not have: reported as a named absence, not as 0.
+
+Not started: no dotnet/pwsh/wix on this dev host, and WMI cannot be tested anywhere but on Windows.
+
 ## AI / MCP-skill capabilities (vision — new)
 
 ⏳ IN PROGRESS — three MCP tools added (bossman/mcp/server.py), verified live
