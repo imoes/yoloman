@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Windows-ONLY half: WMI lives here and nowhere else, so everything in Core stays buildable and
+       testable on the dev host. `net10.0-windows` compiles on Linux (the SDK ships the reference
+       assemblies); it just cannot RUN a WMI query anywhere but on Windows. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgenticMcp.Agent.Core\AgenticMcp.Agent.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Management.Infrastructure is the supported CIM API over the same WMI repository
+         Get-CimInstance uses. NOT System.Management (the legacy WMI .NET wrapper) and NOT wmic.exe, which
+         has been removed from current Windows. -->
+    <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
+  </ItemGroup>
+
+</Project>
