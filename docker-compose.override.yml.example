@@ -18,6 +18,30 @@
 # (a corporate proxy) and this host (ports 80/443 taken by other services,
 # and 4200 by the unrelated centralstation-frontend container, so the UI
 # is published on 4201 instead) lives here instead.
+# ONE list of what must never go through the corporate proxy, referenced by every service below.
+#
+# It used to be spelled out per service, which is how it came to be missing exactly the addresses that
+# broke: `.ippen.media` covers web07.ippen.media but NOT the short name `web07` an agent is registered
+# under, and it covers no IP at all.
+#
+# MEASURED against httpx (bossman/.venv-host, the client that polls the agents):
+#
+#   no_proxy entry     target                        result
+#   .ippen.media       https://web07.ippen.media     direct
+#   .ippen.media       https://web07                 PROXIED   <- the short name is a different string
+#   10.32.28.0/24      https://10.32.28.130          PROXIED   <- httpx does NOT understand CIDR
+#   10.0.0.0/8         https://10.32.28.130          PROXIED
+#   172.21.0.0/16      https://172.21.0.1            PROXIED
+#   172.21.0.1         https://172.21.0.1            direct    <- only an EXACT address works
+#   bossman            https://bossman:8000          direct
+#
+# So this list is the right tool for curl/apt/ssh inside the containers and for hosts named by domain, and
+# it CANNOT express "every agent" — an agent is reachable at whatever address it enrolled with. That is why
+# services/agent_client.py sets trust_env=False instead of relying on this: there is no address at which an
+# agent should be proxied, so the correct scope is that client, not a list somebody has to extend every time
+# a host moves. Both are in place; neither replaces the other.
+x-fleet-no-proxy: &fleet_no_proxy "localhost,127.0.0.1,::1,.example.internal,host.example.internal,bossman,bossman-poller,bossman-ui,db,192.0.2.10"
+
 services:
   db:
     ports:
@@ -59,8 +83,8 @@ services:
       # for docker-internal service names, or Bossman's pulls to the in-stack
       # poller get 403'd by the proxy. `host.example.internal` already covers real
       # hosts; add the compose service names for the poller.
-      no_proxy: localhost,127.0.0.1,host.example.internal,bossman-poller,bossman,db,bossman-ui
-      NO_PROXY: localhost,127.0.0.1,host.example.internal,bossman-poller,bossman,db,bossman-ui
+      no_proxy: *fleet_no_proxy
+      NO_PROXY: *fleet_no_proxy
       # Server-driven SSH deploy (Block N-enroll). Secrets are passed through
       # from the shell at `docker compose up` time (never committed here) —
       # e.g. BOSSMAN_DEPLOY_SSH_USER=marvin BOSSMAN_DEPLOY_SSH_PASSWORD=... .
@@ -157,7 +181,8 @@ services:
       # netboot calls to hal don't get proxied.
       http_proxy: http://proxy.example.internal:80
       https_proxy: http://proxy.example.internal:80
-      no_proxy: localhost,127.0.0.1,host.example.internal,192.0.2.10
+      no_proxy: *fleet_no_proxy
+      NO_PROXY: *fleet_no_proxy
       BOSSMAN_URL: http://192.0.2.10:8123
       ENROLL_URL: http://192.0.2.10:8123
       # FULL DHCP: hand out addresses on the isolated ens19 lab segment (proxy mode hands out none,
