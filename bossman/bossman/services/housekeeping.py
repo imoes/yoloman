@@ -12,8 +12,10 @@ alembic/versions/f17d664762b0_initial_schema.py and
 redundant at best and misleading at worst: changing
 `settings.metrics_retention_days` would have had **no actual effect**,
 since TimescaleDB's own policy — configured independently at the DB level
-— would still win. This module is now scoped to the two tables that
-genuinely had no retention at all: `notifications` and `plan_runs`. The
+— would still win. This module is now scoped to the tables that
+genuinely had no retention at all: `notifications`, `plan_runs` and
+`host_edges` (a plain, upsert-only table that outlived its own source —
+the agent prunes its connection edges at 24h). The
 three hypertables' retention is TimescaleDB-native and out of Python's
 control; `metrics`'s longer-term story is the `metrics_hourly`/
 `metrics_daily` continuous aggregates (Block K1b), not this module.
@@ -39,6 +41,7 @@ from bossman.config import Settings
 from bossman.db.models import (
     SYSTEM_SETTINGS_ID,
     AuditLog,
+    HostEdge,
     Notification,
     PlanRun,
     RunbookRun,
@@ -191,6 +194,9 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     plans = [
         ("notifications", Notification, Notification.created_at, settings.notifications_retention_days),
         ("plan_runs", PlanRun, PlanRun.started_at, settings.plan_runs_retention_days),
+        # host_edges: an upsert-only table that had no retention at all, so it kept asserting relationships
+        # the reporting agent had already dropped (it prunes its own edges at 24h). See config.py.
+        ("host_edges", HostEdge, HostEdge.last_seen_at, settings.host_edges_retention_days),
     ]
     deleted: dict[str, int] = {}
     for table_name, model, time_col, retention_days in plans:

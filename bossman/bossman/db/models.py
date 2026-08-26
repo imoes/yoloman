@@ -181,7 +181,25 @@ class Agent(Base):
 class HostEdge(Base):
     """Aggregated (process, destination) connection relationship — the
     durable, queried-by-dashboard/MCP view. See ConnectionEvent for the raw
-    history this is derived from."""
+    history this is derived from.
+
+    `dst_port` 0 is the CLIENT-PORT FOLD, not a port: a peer's randomly chosen
+    high ports carry no identity, so services/edge_identity.py collapses them
+    into one edge per (comm, addr) before the upsert. Without it this table
+    earned a permanent row per short-lived connection — measured at 73 235 rows
+    and 84 MB, 96.7% of them seen exactly once. The API reports the fold as
+    `client_ports: true` with a null port.
+
+    `event_count` is WHAT THE SOURCE CURRENTLY REPORTS, not a lifetime total,
+    and the upsert overwrites it for that reason. The agent prunes its own
+    connection_edges at its raw-retention cutoff (24h by default), so a counter
+    restarts whenever the agent forgets the edge — which is uniform across every
+    row here, folded or not. Reading the old, ever-growing sum as a lifetime
+    figure was an artifact of never forgetting anything.
+
+    And it now has retention of its own (settings.host_edges_retention_days,
+    enforced in services/housekeeping): a view that outlives its source states a
+    relationship nothing can still observe."""
 
     __tablename__ = "host_edges"
 

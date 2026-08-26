@@ -550,8 +550,10 @@ function familyMembers(metric: string): string[] {
                     @for (edge of edges(); track edge.src_comm + '|' + edge.dst_addr + '|' + edge.dst_port) {
                       <tr>
                         <td>{{ edge.src_comm }}</td>
-                        <td>{{ edge.dst_addr }}@if (edge.dst_port !== null) {:{{ edge.dst_port }}}</td>
-                        <td>{{ edge.ports > 1 ? edge.ports : (edge.dst_port !== null ? 1 : '—') }}</td>
+                        <!-- A folded client-port edge is named, not shown as port 0: the peer picked those
+                             ports at random, so the relationship is "this process talks to that address". -->
+                        <td>{{ edge.dst_addr }}@if (edge.dst_port !== null) {:{{ edge.dst_port }}}@if (edge.client_ports) {<span class="bm-dim"> · client ports</span>}</td>
+                        <td>{{ edge.ports > 1 ? edge.ports : (edge.dst_port !== null ? 1 : (edge.client_ports ? 'client' : '—')) }}</td>
                         <td>{{ edge.event_count }}</td>
                         <td>{{ edge.latency_ms_p50_busiest !== null ? (edge.latency_ms_p50_busiest | number: '1.1-3') + ' ms' : '—' }}</td>
                       </tr>

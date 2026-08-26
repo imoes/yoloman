@@ -696,11 +696,27 @@ fetched to render one row, and a tab's data fetched for every visitor. Result: *
 
 Still open from that work:
 
-- **The poller records one permanent row per ephemeral destination port.** `host_edges` is keyed by
-  (comm, addr, port), so one host has 14 158 distinct `dst_port` values and 28 203 rows that only grow. The
-  API groups them now, so nobody sees it — which is exactly why it should be written down. The fix is a
-  retention or aggregation decision at write time (does a connection to an ephemeral port deserve a permanent
-  row?), and that is a data decision, not a display one.
+- ~~**The poller records one permanent row per ephemeral destination port.**~~ **DONE 2026-08-26**, and the
+  three days of waiting cost 45 032 rows: 28 203 → **73 235 rows / 84 MB**, 96.7% of them a single connection
+  to a peer's random high port, `pveproxy worker -> 127.0.0.1` alone holding 42 348 over 14 116 ports.
+
+  Both halves of the recorded question turned out to have an answer. **Aggregation**: a high port that is one
+  of eight or more at the same address is a *client* port — a service does not live on eight random high
+  ports of one address, a client does exactly that. Evidence from the rows themselves, so no port list to
+  maintain, and it keeps mysqlx (33060) and the gRPC ports a numeric `>= 32768` rule would have destroyed:
+  the 11 groups that collapse hold 42 310 of the 42 609 ephemeral ports. **Retention**: `host_edges` is a
+  plain table and had none at all, while the agent prunes its own edges at 24h — so Bossman kept asserting
+  relationships its own source had forgotten. 30 days now, in `run_housekeeping`.
+
+  73 235 → **2 710 rows, 84 MB → 688 kB**, and the 13 folds are named (`client_ports: true`, null port,
+  "client ports" in the table) rather than shown as a port 0 nothing can listen on. The event counts survive
+  the fold; what did NOT survive is reading them as lifetime totals, and that reading was itself the bug's
+  artifact — the agent's counter restarts whenever the agent forgets an edge, so every row here has always
+  meant "what the source currently reports".
+- **The agent still keeps and ships the un-collapsed rows.** Its own SQLite holds one edge per client port
+  too, bounded only by the 24h prune, so the poll payload stays ~14 000 edges for a host like that one. The
+  fold happens on ingest, so nothing downstream is affected and the agent's disk is bounded — but the same
+  rule would belong in `internal/store.UpsertEdge` if the payload ever matters.
 - **`metrics/snapshot` is requested twice on first load** (t=131 ms and t=184 ms), 13 KB each. Small, and the
   second caller was not identified — the two user-triggered `loadLatest()` sites are Poll-now, not load.
 

@@ -413,6 +413,13 @@ class Settings(BaseSettings):
     housekeeping_interval_seconds: int = 3600
     notifications_retention_days: int = 90
     plan_runs_retention_days: int = 90
+    # host_edges is a PLAIN table (no hypertable retention policy), and it only ever upserted — so it kept
+    # claiming a relationship long after the agent that reported it had forgotten: the agent prunes its own
+    # connection_edges at its raw-retention cutoff, 24h by default (internal/store/sqlite.go pruneEdges).
+    # A view that outlives its source states a relationship nothing can still observe. 30 days is Bossman's
+    # own, longer history — deliberately not the agent's 24h, since the point of the copy is to remember
+    # more than the host can, only not forever. Enforced in services/housekeeping.run_housekeeping.
+    host_edges_retention_days: int = 30
     # Out-of-band (drift) auditing via the host's auditd (services/external_audit).
     # OFF by default: when on, the poller opportunistically installs audit watch
     # rules on each host's managed config files and ingests hand-edits into the

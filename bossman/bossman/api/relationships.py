@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity
 from bossman.db.models import HostEdge
 from bossman.db.session import get_session
+from bossman.services.edge_identity import CLIENT_PORT_SENTINEL
 
 router = APIRouter()
 
@@ -54,7 +55,11 @@ class EdgeOut(BaseModel):
     src_agent_id: UUID
     src_comm: str
     dst_addr: str
-    dst_port: int
+    #: None for the collapsed client-port edge — see `client_ports` below. A port is never reported as 0,
+    #: because no socket can listen on 0 and a number that names nothing is worse than an absence.
+    dst_port: int | None
+    #: True when this row IS the fold of many client ports rather than one measured service port.
+    client_ports: bool = False
     dst_agent_id: UUID | None
     event_count: int
     latency_ms_p50: float | None
@@ -67,9 +72,14 @@ class EdgeGroupOut(BaseModel):
     src_comm: str
     dst_addr: str
     #: The single port when there is exactly one — the common, readable case. None when there are several,
-    #: because naming one of 14 158 would be picking an arbitrary example and calling it the answer.
+    #: because naming one of 14 158 would be picking an arbitrary example and calling it the answer; and
+    #: None for the client-port fold, whose sentinel 0 is not a port anyone can connect to.
     dst_port: int | None
     ports: int
+    #: True when this group includes the collapsed client-port edge, so "one port" here means "one process
+    #: talking outbound", not "one service". The poller folds those before writing
+    #: (services/edge_identity.py); without saying so, the line would read as a service on port 0.
+    client_ports: bool = False
     dst_agent_id: UUID | None
     event_count: int
     #: The p50 OF THE BUSIEST EDGE in the group, and named for that rather than for the group.
@@ -112,6 +122,7 @@ async def list_relationships(
             func.count().label("edges"),
             func.count(func.distinct(HostEdge.dst_port)).label("ports"),
             func.min(HostEdge.dst_port).label("one_port"),
+            func.bool_or(HostEdge.dst_port == CLIENT_PORT_SENTINEL).label("client_ports"),
             func.sum(HostEdge.event_count).label("event_count"),
             # The busiest edge's p50 — see EdgeGroupOut.latency_ms_p50_busiest for why not max() or an
             # average. array_agg with an ORDER BY inside the aggregate is the plain-SQL way to say
@@ -144,8 +155,10 @@ async def list_relationships(
             src_agent_id=r.src_agent_id,
             src_comm=r.src_comm,
             dst_addr=str(r.dst_addr),
-            dst_port=int(r.one_port) if r.ports == 1 else None,
+            dst_port=(int(r.one_port) if r.ports == 1 and int(r.one_port) != CLIENT_PORT_SENTINEL
+                      else None),
             ports=int(r.ports),
+            client_ports=bool(r.client_ports),
             dst_agent_id=r.dst_agent_id,
             event_count=int(r.event_count or 0),
             latency_ms_p50_busiest=r.latency_busiest,
@@ -162,7 +175,9 @@ async def list_relationships(
         edges = [
             EdgeOut(
                 src_agent_id=e.src_agent_id, src_comm=e.src_comm, dst_addr=str(e.dst_addr),
-                dst_port=e.dst_port, dst_agent_id=e.dst_agent_id, event_count=e.event_count,
+                dst_port=e.dst_port if e.dst_port != CLIENT_PORT_SENTINEL else None,
+                client_ports=e.dst_port == CLIENT_PORT_SENTINEL,
+                dst_agent_id=e.dst_agent_id, event_count=e.event_count,
                 latency_ms_p50=e.latency_ms_p50,
             )
             for e in (await session.scalars(stmt)).all()

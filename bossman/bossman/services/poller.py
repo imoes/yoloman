@@ -31,6 +31,7 @@ from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
 from bossman.services import agent_release, knowledge_index, notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
+from bossman.services.edge_identity import collapse_client_ports
 from bossman.services.monitoring import (
     evaluate_assigned_checks,
     evaluate_host,
@@ -155,7 +156,11 @@ async def _insert_metric_rows_chunked(session: AsyncSession, rows: list[dict]) -
 
 async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]) -> int:
     count = 0
-    for e in edges:
+    # A client port is not identity — fold the proven ones into one edge per (comm, addr) BEFORE the upsert,
+    # so the table stops earning a permanent row per short-lived connection. See services/edge_identity.py
+    # for the rule and the measurement; `GET /relationships` was already grouping these away at read time,
+    # which is why 96.7% of 73 235 rows could accrue unnoticed.
+    for e in collapse_client_ports(edges):
         dst_agent_id = await _resolve_dst_agent_id(session, e["dst_addr"])
         latency_ns = e.get("latency_ns")
         latency_ms = (latency_ns / 1_000_000) if latency_ns is not None else None
