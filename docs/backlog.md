@@ -417,6 +417,38 @@ So the only deletions are the two the page cannot be wrong about: an empty strin
 that is a strict prefix of a grounded one is a truncation. Everything else unconfirmed → abstain, with the
 list recorded in `configs/value_set_settlements.json` for a stronger source or a person.
 
+## Point 2, the abstentions: mostly real, and one number was a category error (2026-08-26)
+
+The recorded abstention "678 Debian + 149 EL packages not downloadable, so NO verdict" cannot be re-examined
+as written, because it is a printed statistic and not a record: nobody wrote down WHICH packages they were.
+For a project whose rule is that every number comes from a recorded artifact, that is the gap — so the
+question was answered from the other side instead, by asking which names the codec registry uses that never
+got a path verdict.
+
+    registry `packages` names            4308
+      with at least one path verdict     3582
+      never measured                      726
+        a config-file suffix              213   `LCDd.conf`, `ganesha.conf`, `igmpproxy.conf`, `lam.conf`
+        an upper-case letter                1   `Xsession`
+        a plausible package name           512   `81voltd`, `a2boot`, `acetoneiso`, `agetty`
+
+So the abstention is REAL for 512 names — sampled, 11 of 12 still cannot be fetched, which matches the
+recorded story. And ~214 of them were never packages at all: the field names a FILE, the driver tried to
+download `LCDd.conf`, failed, and recorded "not downloadable". A data defect arriving dressed as a fetch
+problem.
+
+`check_catalog_fit` now carries that count as a budget (220 across the whole registry), so it cannot grow
+quietly. Fixing it needs an attribution source — Debian's Contents index says which package ships which file
+— and that is its own job, not a rule change.
+
+**A wrong measurement, corrected within the hour, and worth recording as the method it is.** The first draft
+of that check also counted any name appearing as some file's BASENAME in the registry, and reported 3919 of
+4308 names as "not a package" — including thousands that had been downloaded successfully. Packages ship
+`/etc/default/<pkg>`, `/etc/logrotate.d/<pkg>` and `/etc/pam.d/<pkg>`, so the rule matched nearly every real
+package. What caught it was the contradiction: a name cannot be undownloadable and measured at the same time.
+The two signals that survive are the ones that cannot be argued with — a config-file suffix, and an
+upper-case letter, since Debian package names are lower-case.
+
 ## The four remaining disagreements: 2 settled, and the grounding chain was fetching the wrong documents
 
 Reviewing whether the recorded work is still needed, the four value-set disagreements turned out to be four

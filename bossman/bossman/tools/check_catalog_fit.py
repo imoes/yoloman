@@ -155,6 +155,37 @@ def check() -> tuple[dict[str, list[str]], dict[str, int]]:
                 unpiped += 1
     budget["boolean fields substituted bare, so they render True/False"] = unpiped
 
+    # ---- the codec registry's package attribution -------------------------------------------------
+    # `packages` is supposed to name the DEBIAN PACKAGES that ship a file, and some entries name a FILE
+    # instead: `LCDd.conf`, `NetworkManager.conf`, `ganesha.conf`, `Xsession`. The path-verdict driver then
+    # tries to download `LCDd.conf`, fails, and records "not downloadable" — so a data defect arrives dressed
+    # as a fetch problem.
+    #
+    # TWO SIGNALS ONLY, and the first draft of this check had a third that was wrong: it also counted a name
+    # that appears as some file's BASENAME anywhere in the registry. That matches almost every real package,
+    # because packages ship /etc/default/<pkg>, /etc/logrotate.d/<pkg> and /etc/pam.d/<pkg> — it reported
+    # 3919 of 4308 names as "not a package", including thousands that had been downloaded successfully. The
+    # contradiction (a name cannot be undownloadable and measured at once) is what caught it. What survives
+    # is what cannot be argued with: a config-file SUFFIX, and an upper-case letter, since Debian package
+    # names are lower-case.
+    #
+    # A BUDGET, not an invariant: fixing it needs an attribution source (Debian's Contents index), which is
+    # its own job. This exists so the number cannot grow quietly — the observation point that was missing
+    # when the wrong names were first written.
+    codecs = json.loads((CONFIGS / "config_codecs.json").read_text())
+    codec_entries = codecs.get("entries", codecs)
+    if isinstance(codec_entries, dict):
+        file_suffix = re.compile(r"\.(conf|cfg|ini|json|yaml|yml|rc|list|options|policy|toml|xml)$", re.I)
+        not_a_package = set()
+        for entry in codec_entries.values():
+            if not isinstance(entry, dict):
+                continue
+            for name in (entry.get("packages") or []):
+                if isinstance(name, str) and name and (
+                        file_suffix.search(name) or name.lower() != name):
+                    not_a_package.add(name)
+        budget["codec entries whose `packages` names a file, not a package"] = len(not_a_package)
+
     # ---- closure: every bound template must exist and have a body ---------------------------------
     for path, entry in paths.items():
         tname = (entry or {}).get("template")
