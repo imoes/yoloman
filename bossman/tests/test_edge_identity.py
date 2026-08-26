@@ -104,3 +104,24 @@ def test_an_unparsable_timestamp_does_not_lose_the_host():
     edges[2]["last_seen"] = "not a timestamp"
     got = collapse_client_ports(edges)
     assert len(got) == 1 and got[0]["dst_port"] == CLIENT_PORT_SENTINEL
+
+
+def test_the_table_s_own_history_counts_toward_the_quorum():
+    """The hole a batch-only rule left, measured: the agent forgets its edges after 24h, so a slow churner
+    reports two or three client ports per dump — under quorum, written individually, and the table accrues
+    them one poll at a time. kube-apiserver was back to 36 rows for one (comm, addr) within the hour."""
+    edges = [edge(40000), edge(40001)]
+    assert collapse_client_ports(edges) == edges, "two ports alone prove nothing"
+    got = collapse_client_ports(edges, {("kubelet", "127.0.0.1"): 34})
+    assert len(got) == 1 and got[0]["dst_port"] == CLIENT_PORT_SENTINEL
+
+
+def test_recorded_history_for_another_key_does_not_fold_this_one():
+    edges = [edge(40000), edge(40001)]
+    assert collapse_client_ports(edges, {("kube-apiserver", "127.0.0.1"): 99}) == edges
+
+
+def test_recorded_history_alone_does_not_invent_an_edge():
+    """No high port in the dump, nothing to fold — the recorded count must not conjure a sentinel."""
+    edges = [edge(443)]
+    assert collapse_client_ports(edges, {("kubelet", "127.0.0.1"): 500}) == edges

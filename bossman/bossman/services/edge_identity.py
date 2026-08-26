@@ -55,44 +55,62 @@ def _instant(stamp: object) -> datetime:
     return got if got.tzinfo else got.replace(tzinfo=timezone.utc)
 
 
-def collapse_client_ports(edges: list[dict]) -> list[dict]:
+def high_ports_by_key(edges: list[dict]) -> dict[tuple[str, str], list[dict]]:
+    """The edges above the ephemeral floor, grouped by (comm, addr) — the candidates for a fold."""
+    high: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for e in edges:
+        if int(e.get("dst_port") or 0) >= EPHEMERAL_FLOOR:
+            high[(e.get("comm") or "", e.get("dst_addr") or "")].append(e)
+    return high
+
+
+def fold(comm: str, addr: str, group: list[dict]) -> dict:
+    """One edge standing for a group of client ports. Nothing about the traffic is lost — only the ports."""
+    # The busiest member's latency is the one worth keeping: a single-connection edge's latency is one
+    # sample, and averaging samples of unequal weight would state a number nothing measured.
+    busiest = max(group, key=lambda e: int(e.get("event_count") or 0))
+    return {
+        **busiest,
+        "comm": comm,
+        "dst_addr": addr,
+        "dst_port": CLIENT_PORT_SENTINEL,
+        # The agent re-reports its whole remembered set every poll, so summing the members is that set's
+        # total — the same "what the source currently reports" semantics the upsert's overwrite relies on.
+        "event_count": sum(int(e.get("event_count") or 0) for e in group),
+        # Compared as timestamps, not as text: two agents can spell the same instant "+00:00" and "Z",
+        # and string order would then pick the wrong edge of the window.
+        "first_seen": min((e["first_seen"] for e in group), key=_instant),
+        "last_seen": max((e["last_seen"] for e in group), key=_instant),
+        "ports_collapsed": len({int(e["dst_port"]) for e in group}),
+    }
+
+
+def collapse_client_ports(edges: list[dict], recorded_ports: dict[tuple[str, str], int] | None = None
+                          ) -> list[dict]:
     """One agent's reported edges, with proven client ports folded into one edge per (comm, addr).
 
     Pure and total: an edge list with no such group comes back unchanged (same dicts, same order), so a host
     that talks only to services is unaffected. Input keys are the agent's dump shape — comm, dst_addr,
     dst_port, event_count, first_seen, last_seen, latency_ns.
+
+    `recorded_ports` IS THE OTHER HALF OF THE EVIDENCE, and leaving it out was measured to be a hole rather
+    than a simplification. The agent prunes its own edges at 24h, so a slow churner reports only two or three
+    client ports per dump — under quorum, written individually, and the table accrues them one poll at a
+    time: kube-apiserver reached 36 rows that way AFTER the batch-only rule shipped, which is the original
+    pathology at a slower rate. So the quorum is asked of what has EVER been seen for that (comm, addr):
+    {key: distinct high ports already in the table}, which the caller reads from `host_edges` itself.
     """
-    high: dict[tuple[str, str], list[dict]] = defaultdict(list)
-    for e in edges:
-        if int(e.get("dst_port") or 0) >= EPHEMERAL_FLOOR:
-            high[(e.get("comm") or "", e.get("dst_addr") or "")].append(e)
+    high = high_ports_by_key(edges)
+    seen = recorded_ports or {}
 
     collapsing = {
         key: group for key, group in high.items()
-        if len({int(e["dst_port"]) for e in group}) >= CLIENT_PORT_QUORUM
+        if len({int(e["dst_port"]) for e in group}) + seen.get(key, 0) >= CLIENT_PORT_QUORUM
     }
     if not collapsing:
         return edges
 
     folded: set[int] = {id(e) for group in collapsing.values() for e in group}
     out = [e for e in edges if id(e) not in folded]
-    for (comm, addr), group in sorted(collapsing.items()):
-        # The busiest member's latency is the one worth keeping: a single-connection edge's latency is one
-        # sample, and averaging samples of unequal weight would state a number nothing measured.
-        busiest = max(group, key=lambda e: int(e.get("event_count") or 0))
-        out.append({
-            **busiest,
-            "comm": comm,
-            "dst_addr": addr,
-            "dst_port": CLIENT_PORT_SENTINEL,
-            # The agent's event_count is a lifetime cumulative counter per edge and it re-reports its whole
-            # set every poll, so summing the members yields the collapsed edge's lifetime total — the same
-            # semantics the upsert's overwrite already relies on.
-            "event_count": sum(int(e.get("event_count") or 0) for e in group),
-            # Compared as timestamps, not as text: two agents can spell the same instant "+00:00" and "Z",
-            # and string order would then pick the wrong edge of the window.
-            "first_seen": min((e["first_seen"] for e in group), key=_instant),
-            "last_seen": max((e["last_seen"] for e in group), key=_instant),
-            "ports_collapsed": len({int(e["dst_port"]) for e in group}),
-        })
+    out.extend(fold(comm, addr, group) for (comm, addr), group in sorted(collapsing.items()))
     return out

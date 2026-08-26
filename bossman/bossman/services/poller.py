@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -31,7 +31,11 @@ from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
 from bossman.services import agent_release, knowledge_index, notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
-from bossman.services.edge_identity import collapse_client_ports
+from bossman.services.edge_identity import (
+    EPHEMERAL_FLOOR,
+    collapse_client_ports,
+    high_ports_by_key,
+)
 from bossman.services.monitoring import (
     evaluate_assigned_checks,
     evaluate_host,
@@ -154,13 +158,37 @@ async def _insert_metric_rows_chunked(session: AsyncSession, rows: list[dict]) -
         await session.execute(stmt)
 
 
+async def _recorded_high_ports(
+    session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]
+) -> dict[tuple[str, str], int]:
+    """How many distinct high ports this agent ALREADY has recorded per (comm, addr).
+
+    The fold's quorum has to be asked of everything ever seen, not of one dump: the agent forgets its own
+    edges after 24h, so a slow churner reports two or three client ports at a time — under quorum, written
+    individually, and the table accrues them one poll at a time. Measured after the batch-only rule shipped:
+    kube-apiserver was back to 36 rows for one (comm, addr) within an hour.
+
+    Asked only for the keys this dump actually has high ports for, so a host that talks to services only
+    issues no query at all.
+    """
+    keys = set(high_ports_by_key(edges))
+    if not keys:
+        return {}
+    rows = (await session.execute(
+        select(HostEdge.src_comm, HostEdge.dst_addr, func.count(func.distinct(HostEdge.dst_port)))
+        .where(HostEdge.src_agent_id == agent_id, HostEdge.dst_port >= EPHEMERAL_FLOOR)
+        .group_by(HostEdge.src_comm, HostEdge.dst_addr)
+    )).all()
+    return {(comm, str(addr)): int(n) for comm, addr, n in rows if (comm, str(addr)) in keys}
+
+
 async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]) -> int:
     count = 0
     # A client port is not identity — fold the proven ones into one edge per (comm, addr) BEFORE the upsert,
     # so the table stops earning a permanent row per short-lived connection. See services/edge_identity.py
     # for the rule and the measurement; `GET /relationships` was already grouping these away at read time,
     # which is why 96.7% of 73 235 rows could accrue unnoticed.
-    for e in collapse_client_ports(edges):
+    for e in collapse_client_ports(edges, await _recorded_high_ports(session, agent_id, edges)):
         dst_agent_id = await _resolve_dst_agent_id(session, e["dst_addr"])
         latency_ns = e.get("latency_ns")
         latency_ms = (latency_ns / 1_000_000) if latency_ns is not None else None
@@ -194,6 +222,22 @@ async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[
         )
         await session.execute(stmt)
         count += 1
+
+        # The fold's CLAIM is that no member row exists — so enforce it instead of trusting that nothing
+        # ever wrote one. Rows written before this rule shipped are the concrete case: a Bossman whose
+        # migration ran six minutes before its new code did left 159 pre-fold rows for one (comm, addr),
+        # frozen but still counted alongside the sentinel that now supersedes them. Without this they would
+        # sit there until retention aged them out 30 days later, double-counting all the while. After the
+        # first poll it is a no-op.
+        if e.get("ports_collapsed"):
+            await session.execute(
+                delete(HostEdge).where(
+                    HostEdge.src_agent_id == agent_id,
+                    HostEdge.src_comm == e["comm"],
+                    HostEdge.dst_addr == e["dst_addr"],
+                    HostEdge.dst_port >= EPHEMERAL_FLOOR,
+                )
+            )
     return count
 
 
