@@ -120,6 +120,7 @@ var store = app.Services.GetRequiredService<MetricStore>();
 // The module registry. Every Linux-only module is LISTED with the reason it cannot work here — see
 // UnsupportedModule for why an omission would be the wrong answer.
 var modules = new ModuleRegistry(writeEnabled)
+    .Add(new AgenticMcp.Agent.Modules.PowerShellModule())
     .Add(new UnsupportedModule("apt", "Windows has no APT package database", instead: "winget"))
     .Add(new UnsupportedModule("yum", "Windows has no YUM/DNF package database", instead: "winget"))
     .Add(new UnsupportedModule("dnf", "Windows has no YUM/DNF package database", instead: "winget"))
@@ -227,6 +228,60 @@ app.MapGet("/api/v1/metrics/{metric}", (string metric, HttpRequest req) =>
 
 app.MapGet("/api/v1/tools", () => Results.Json(modules.Describe()));
 
+// POST /api/v1/tools/{name} — the ONE call every action goes through, same path and same body as the Go
+// agent's handleToolCall: a JSON object of the module's parameters, with `dry_run: true` asking for a
+// preview instead of a change.
+app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, CancellationToken ct) =>
+{
+    var module = modules.Find(name);
+    if (module is null)
+    {
+        // The name, not just a 404: an orchestrator that mistyped a module needs to know which one it asked
+        // for, and one that targeted the wrong OS needs to know this host has a listing to look at.
+        return Results.NotFound(new { error = $"no such tool on this agent: {name}" });
+    }
+
+    Dictionary<string, object?> parameters = [];
+    if (req.ContentLength is > 0)
+    {
+        var body = await JsonSerializer.DeserializeAsync<Dictionary<string, JsonElement>>(req.Body,
+            cancellationToken: ct);
+        foreach (var (key, value) in body ?? [])
+        {
+            parameters[key] = value.ValueKind switch
+            {
+                JsonValueKind.String => value.GetString(),
+                JsonValueKind.Number => value.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null,
+                _ => value.ToString(),
+            };
+        }
+    }
+
+    // `dry_run` in the BODY, exactly as the Go agent reads it — a caller asks for a preview the same way on
+    // either platform, or the two agents would need two runbooks.
+    var dryRun = parameters.TryGetValue("dry_run", out var d) && d is true;
+
+    try
+    {
+        return Results.Json(await module.RunAsync(parameters, dryRun, ct));
+    }
+    catch (PlatformNotSupportedException ex)
+    {
+        // 501, and the reason. This is the refusal the listing already announced with supported:false; a plan
+        // written for the wrong OS learns WHY here rather than getting a bare error.
+        return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status501NotImplemented);
+    }
+    catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException or FormatException)
+    {
+        // 422 for a bad parameter, matching the Go agent's writeError(StatusUnprocessableEntity) — the caller
+        // sent something this module cannot work with, and it is not a server fault.
+        return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status422UnprocessableEntity);
+    }
+});
+
 app.MapGet("/api/v1/hosts/overview", () => Results.Json(new
 {
     // One host and no satellites: this agent is a leaf. Proxy mode is a Go-agent feature this
@@ -293,6 +348,21 @@ _ = Task.Run(async () =>
 
 log.LogInformation("agent {Name} listening on https://{Listen}, write gate {Gate}, {Pins} pinned key(s)",
     name, listen, writeEnabled ? "OPEN" : "closed", pins.Count);
+if (AgenticMcp.Agent.Modules.PowerShellModule.ModuleDirectory is null)
+{
+    // Named, at startup: a runspace without its module tree still evaluates expressions, so it LOOKS like a
+    // working PowerShell right up to the first Get-Date. Measured once through Bossman, which is how it was
+    // found at all.
+    log.LogWarning("PowerShell modules not found next to this executable: the `powershell` module can run "
+                   // No braces around unix|win: the logger reads those as a placeholder name (CA2017).
+                   + "language but almost no cmdlets. Expected runtimes/<unix-or-win>/lib/*/Modules under {Base}",
+        AppContext.BaseDirectory);
+}
+else
+{
+    log.LogInformation("PowerShell modules: {Path}", AgenticMcp.Agent.Modules.PowerShellModule.ModuleDirectory);
+}
+
 if (pins.Count == 0)
 {
     // A named state, not a silence: an agent with no pin answers /healthz and refuses nothing, which looks

@@ -35,6 +35,9 @@ public sealed record MetricsQueryResult(
 public sealed record ToolInfo(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string Description,
+    //: "module" | "task" | "pipeline", the same vocabulary the Go agent's availableTool uses. The fleet UI
+    //: reads it, so a missing kind would make the tool render as something it is not.
+    [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("input_schema")] IReadOnlyDictionary<string, object> InputSchema,
     [property: JsonPropertyName("writes")] bool Writes,
     [property: JsonPropertyName("supported")] bool Supported = true,

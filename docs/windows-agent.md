@@ -167,7 +167,19 @@ the reading is per-platform. Nothing about thresholds, discovery or notification
    compiling** (`AgenticMcp.Agent.Windows`, 9 queries); it cannot be RUN anywhere but on Windows, so it is
    not yet measured. `net10.0-windows` is a second target of the same host process, so the WMI collector is
    an extra collector rather than a second agent.
-3. **`powershell` module** in a hosted runspace, streams separated, dry-run honoured or refused.
+3. ~~**`powershell` module**~~ — **DONE 2026-08-26**, and RUN, not compiled: Microsoft.PowerShell.SDK is
+   cross-platform, so the action plane was proven on the dev host and end-to-end through Bossman
+   (`POST /agents/{id}/tools/powershell` → PowerShell 7.5.4 in-process, typed output objects, streams
+   separate). Dry run refuses with the reason and names `whatif` as the parameter that changes the answer;
+   with `whatif: true` it runs under `$WhatIfPreference` and returns PowerShell's own preview — verified by
+   the file it did not create.
+
+   **A hosted runspace does not find PowerShell's own modules.** The SDK ships them under
+   `runtimes/<unix|win>/lib/*/Modules` next to the app and nothing sets `PSModulePath`, so the first real
+   call answered "The term 'Get-Date' is not recognized". The unit tests had been green because the TEST
+   assembly's output directory happens to contain that folder — green for a reason the agent did not share.
+   The path is resolved once, reported in every result as `module_path`, and warned about at startup when
+   missing, because a runspace that can only do arithmetic must not look like one that can manage a host.
 4. **The first ported modules** — `file`, `copy`, `service`, `registry`, `msi` — and the `supported: false`
    listing for the Linux-only ones.
 5. **Roles and features** — `windows_feature`, `families.windows` in the catalogue.

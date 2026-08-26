@@ -1,10 +1,23 @@
+using System.Text.Json.Serialization;
+
 namespace AgenticMcp.Agent.Core;
 
-/// <summary>What every module returns — the Go agent's <c>modules.Result</c>, field for field.</summary>
+/// <summary>
+/// What every module returns — the Go agent's <c>modules.Result</c>, field for field.
+///
+/// <para>The JSON names are spelled out because they have to match Go's tags, and ASP.NET Core's web
+/// defaults would have produced <c>dataSource</c> for the one field whose name is two words.</para>
+/// </summary>
 public sealed record ModuleResult(
-    bool Changed,
+    [property: JsonPropertyName("changed")] bool Changed,
+    [property: JsonPropertyName("msg")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Msg = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     object? Data = null,
+    [property: JsonPropertyName("data_source")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyDictionary<string, int>? DataSource = null)
 {
     public static ModuleResult Unchanged(string? msg = null) => new(false, msg);
@@ -116,8 +129,8 @@ public sealed class ModuleRegistry
     public ToolsResponse Describe() => new(_modules.Values
         .OrderBy(m => m.Name, StringComparer.Ordinal)
         .Select(m => m is UnsupportedModule u
-            ? new ToolInfo(u.Name, u.Description, u.InputSchema, false, Supported: false,
+            ? new ToolInfo(u.Name, u.Description, "module", u.InputSchema, false, Supported: false,
                 UnsupportedReason: u.Reason)
-            : new ToolInfo(m.Name, m.Description, m.InputSchema, m.Writes))
+            : new ToolInfo(m.Name, m.Description, "module", m.InputSchema, m.Writes))
         .ToList());
 }
