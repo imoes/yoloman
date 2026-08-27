@@ -134,18 +134,26 @@ var store = app.Services.GetRequiredService<MetricStore>();
 
 // The module registry. Every Linux-only module is LISTED with the reason it cannot work here — see
 // UnsupportedModule for why an omission would be the wrong answer.
+var powershellModule = new AgenticMcp.Agent.Modules.PowerShellModule();
 var modules = new ModuleRegistry(writeEnabled)
-    .Add(new AgenticMcp.Agent.Modules.PowerShellModule())
+    .Add(powershellModule)
     .Add(new AgenticMcp.Agent.Modules.FileModule())
     .Add(new AgenticMcp.Agent.Modules.CopyModule())
 #if WINDOWS
     .Add(new AgenticMcp.Agent.Windows.RegistryModule())
     .Add(new AgenticMcp.Agent.Windows.ServiceModule())
+    // windows_feature shares the ONE PowerShell host with the `powershell` module rather than opening a
+    // second runspace: one module path, one timeout, one place where the streams are separated.
+    .Add(new AgenticMcp.Agent.Windows.WindowsFeatureModule())
 #else
     // THE MIRROR IMAGE of apt/systemd below: on a non-Windows host these are listed with the reason they
     // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
     // simply omitted them would be as unreadable in this direction as in the other.
     .Add(new UnsupportedModule("registry", "there is no Windows registry on this platform"))
+    .Add(new UnsupportedModule("windows_feature",
+        "Windows Server roles and features exist only on Windows; on Linux the package catalogue's role "
+        + "bindings do this job",
+        instead: "role"))
     .Add(new UnsupportedModule("service",
         "this build has no service control manager; on Linux the Go agent's `service` module does this",
         instead: "powershell"))
@@ -303,10 +311,16 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
         // written for the wrong OS learns WHY here rather than getting a bare error.
         return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status501NotImplemented);
     }
-    catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException or FormatException)
+    catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException or FormatException
+                                  or FileNotFoundException or IOException
+                                  or InvalidOperationException or TimeoutException)
     {
-        // 422 for a bad parameter, matching the Go agent's writeError(StatusUnprocessableEntity) — the caller
-        // sent something this module cannot work with, and it is not a server fault.
+        // 422 for a bad parameter OR A REFUSAL BY THE HOST, matching the Go agent's
+        // writeError(StatusUnprocessableEntity). Measured on the real Windows host: asking to uninstall
+        // FileAndStorage-Services made Windows answer "Storage Services cannot be removed" — a correct,
+        // useful refusal that arrived at Bossman as an opaque 500 with an EMPTY body, because
+        // InvalidOperationException was not in this list. A host that says no must have its reason carried to
+        // whoever asked; a 500 says only that something broke here.
         return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status422UnprocessableEntity);
     }
 });

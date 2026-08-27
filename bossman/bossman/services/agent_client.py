@@ -85,13 +85,33 @@ class AgentClient:
             trust_env=False,
         )
 
+    def _transport_error(self, what: str, exc: Exception) -> AgentClientError:
+        """One place that turns a transport exception into a message an operator can act on.
+
+        A TIMEOUT IS NOT A FAILURE, and for a write it is the wrong answer in the one direction that matters.
+        Measured on the Windows agent: `windows_feature` installing SNMP-Service outlasted the 30-second
+        default, the call came back as "request failed: " with an EMPTY message — and the install COMPLETED.
+        We found out from the next call, which reported "already installed". So a timeout says what actually
+        happened and what to do about it.
+
+        Nine call sites used to spell this themselves, which is why the empty message survived so long: a
+        message nobody owns is a message nobody fixes.
+        """
+        if isinstance(exc, httpx.TimeoutException):
+            return AgentClientError(
+                f"{self.address}: {what}: no answer within {self._timeout:g}s. The agent may still be "
+                f"working and the change may yet complete — re-read the state before retrying, and pass a "
+                f"longer timeout_seconds for an operation that is expected to take minutes."
+            )
+        return AgentClientError(f"{self.address}: {what}: request failed: {exc}")
+
     async def _get_json(self, path: str, params: dict[str, str]) -> Any:
         url = f"https://{self.address}{path}"
         try:
             async with self._client() as client:
                 resp = await client.get(url, params=params)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: request failed: {exc}") from exc
+            raise self._transport_error("request", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: unexpected status {resp.status_code}: {resp.text[:4096]}")
@@ -259,7 +279,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=body)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: tool {name!r}: request failed: {exc}") from exc
+            raise self._transport_error(f"tool {name!r}", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}")
@@ -289,7 +309,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=document)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state plan: request failed: {exc}") from exc
+            raise self._transport_error(f"state plan", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state plan returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -307,7 +327,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={**document, "dry_run": dry_run})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state apply: request failed: {exc}") from exc
+            raise self._transport_error(f"state apply", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state apply returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -325,7 +345,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={"generation": generation, "dry_run": dry_run})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state rollback: request failed: {exc}") from exc
+            raise self._transport_error(f"state rollback", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state rollback returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -346,7 +366,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=payload)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: config apply: request failed: {exc}") from exc
+            raise self._transport_error(f"config apply", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: config apply returned {resp.status_code}: {resp.text[:4096]}")
@@ -368,7 +388,7 @@ class AgentClient:
                     url, content=deb, headers={"Content-Type": "application/octet-stream"}
                 )
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: self-update: request failed: {exc}") from exc
+            raise self._transport_error(f"self-update", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: self-update returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -389,7 +409,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=patch)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: collect-config: request failed: {exc}") from exc
+            raise self._transport_error(f"collect-config", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: collect-config returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -408,7 +428,7 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={"modules": modules})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: push modules: request failed: {exc}") from exc
+            raise self._transport_error(f"push modules", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: push modules returned {resp.status_code}: {resp.text[:4096]}")
         try:
@@ -430,7 +450,7 @@ class AgentClient:
                     headers={"Content-Type": "application/octet-stream"},
                 )
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: upload {remote_name!r}: request failed: {exc}") from exc
+            raise self._transport_error(f"upload {remote_name!r}", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(

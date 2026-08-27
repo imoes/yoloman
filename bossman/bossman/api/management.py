@@ -20,7 +20,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +60,14 @@ async def _agent_with_address(session: AsyncSession, agent_id: UUID) -> Agent:
 class ToolCallRequest(BaseModel):
     # The tool's own params; dry_run is honored by write modules themselves.
     params: dict[str, Any] = {}
+    # HOW LONG THE CALLER IS PREPARED TO WAIT, because 30 seconds is wrong for a whole class of tools.
+    #
+    # Measured on the Windows agent: `windows_feature` installing IIS or SNMP takes minutes, and every call
+    # came back as `request failed: ` with an EMPTY message — the client timeout, which reads exactly like a
+    # dead host. The default stays 30s (a read should never need more, and a hung agent must not hold a
+    # request open), and a caller that knows better says so. Capped at 30 minutes: beyond that the answer is
+    # not a longer timeout, it is a job — see docs/windows-management.md §9.
+    timeout_seconds: float | None = Field(default=None, gt=0, le=1800)
 
 
 @router.get("/api/v1/agents/{agent_id}/tools")
@@ -98,6 +106,10 @@ async def call_agent_tool_route(
     502 with the agent's message."""
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
+    if body.timeout_seconds:
+        # Set on the CLIENT rather than passed through: the timeout belongs to the transport, and every call
+        # this client makes for this request should honour the same patience.
+        client._timeout = body.timeout_seconds  # noqa: SLF001 — one construction path, see client_for
     try:
         result = await client.call_tool(tool_name, body.params)
     except AgentClientError as exc:

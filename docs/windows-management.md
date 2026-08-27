@@ -12,7 +12,11 @@
 
     Get-WindowsFeature                265 features, 13 installed
       FeatureType                     20 Role, 90 Role Service, 155 Feature
-      InstallState                    Available | Installed | Removed   ← 2 features are "Removed" today
+      InstallState                    SEVEN values, read from the enum on the host — not three:
+                                        0 Available   1 Installed   2 UninstallPending  3 InstallPending
+                                        4 NotPresent  5 Removed     6 Unknown
+                                      2 features are "Removed" today, and an uninstall left two at
+                                      "UninstallPending" while a restart was outstanding
       per entry                       Name, DisplayName, FeatureType, Installed, InstallState, Depth,
                                       DependsOn, Parent, SubFeatures
 
@@ -55,14 +59,23 @@ Applied to the design before writing it, because two of the findings change the 
 
 ### [Excluded middle] `Removed` and `Maybe` are states, and a boolean erases both
 
+> **And there were seven, not three.** The design named `available | installed | removed`; the real host's
+> enum has `Available, Installed, UninstallPending, InstallPending, NotPresent, Removed, Unknown`, and an
+> uninstall on the test box produced `UninstallPending` on the first try. It arrived in the API intact —
+> **because the module passes Windows' string through instead of mapping it onto our own enum.** That is the
+> rule paying for itself: a state nobody anticipated survived, where a mapping would have coerced it to the
+> nearest known value or dropped it. The lesson is stronger than the fix: don't enumerate the target's states
+> in your own type unless you are prepared to be wrong about the count.
+
     Beleg:   InstallState = Removed on 2 features of this host; RestartNeeded = Maybe from -WhatIf
     Problem: a model with `installed: true|false` cannot express "the payload is gone from the image, so
              installing needs a source" — it reports Available, and the install then fails with a message
              about a missing source that nothing predicted. Same for a reboot flag: Maybe is the honest
              answer for a feature install, and both `true` and `false` are wrong.
-    Fix:     `install_state: available | installed | removed` verbatim from Windows, and
-             `restart_needed: yes | no | maybe`. The UI shows "payload removed — needs a source" as its own
-             badge, and "may need a restart" as its own wording.
+    Fix:     `install_state` is WINDOWS' OWN WORD, lower-cased and passed through — not mapped onto an enum
+             of ours, for the reason in the box above. `restart_needed: yes | no | maybe` likewise. The UI
+             shows "payload removed — needs a source" as its own badge, "uninstall pending — restart
+             outstanding" as another, and "may need a restart" as its own wording.
 
 ### [Sufficient reason] asking for one feature installs fifteen
 

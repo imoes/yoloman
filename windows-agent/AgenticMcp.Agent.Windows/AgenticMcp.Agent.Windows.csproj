@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgenticMcp.Agent.Core\AgenticMcp.Agent.Core.csproj" />
+    <ProjectReference Include="..\AgenticMcp.Agent.Modules\AgenticMcp.Agent.Modules.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,7 +23,10 @@
     <!-- The service control manager. Not in the base library for net*-windows since .NET Core; the package
          is the supported way, and it is Windows-only by construction — which is why these modules live here
          and not in AgenticMcp.Agent.Modules. -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.0" />
+    <!-- 9.0.10, not 9.0.0: the PowerShell SDK pulls it at >= 9.0.10 through the Modules project, and a
+         DOWNGRADE is an error here rather than a warning (TreatWarningsAsErrors) — which is how it should be.
+         Two references to one package at two versions is the identity rule in a package graph. -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.10" />
   </ItemGroup>
 
 </Project>
