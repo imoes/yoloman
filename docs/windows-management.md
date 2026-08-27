@@ -302,10 +302,29 @@ closed enumeration this project spent a week learning to recognise in prose.
 1. **`windows_feature`** — observe / plan (`-WhatIf`, all 15) / apply / drift, with `install_state` and
    `restart_needed` as the three- and three-valued states they are. Verifiable on `bossman-wintest`:
    install IIS, read the plan first, see `awaiting-restart` if it says Maybe.
-2. **`families.windows` in the package catalogue** + the role binding path, so a Windows host takes a role
-   through the same UI and the same drift report as a Linux one. ~15 curated entries to start (IIS, DNS,
-   DHCP, AD DS, File Server, Print Server, Hyper-V, WSUS, RDS, SNMP, Telnet-free remoting, .NET, Failover
-   Clustering, Windows Backup, Container support).
+2. ~~**`families.windows` in the package catalogue**~~ — **DONE 2026-08-27.** 15 curated entries (IIS, DNS,
+   DHCP, AD DS, File Server, Print Server, NFS, Hyper-V, WSUS, RDS, SNMP, .NET, Failover Clustering, Windows
+   Backup, Containers), and **all 18 distinct feature names verified against the real host's 265-entry
+   inventory** rather than typed from memory. The Windows host now resolves as
+   `family: windows`, **15 exact / 487 unknown**, and a Linux role seen from Windows says
+   `installable: false — the catalog has no package names for this entry in any family`.
+
+   Three fixes were needed under it, each a defect the first Windows host exposed:
+
+   - **The whole fleet read this host as Debian.** `family_of()` ends in `return "debian"` for anything it
+     cannot identify, and the C# agent's overview carried no inventory at all. The agent now reports one, with
+     **the fleet's own key names** (`os.id`, `cpu.threads`, `memory_mb` — the first draft invented
+     `os_release`, `cpu_count`, `memory_total_bytes`: one fact under two names, in the very place a Windows
+     and a Linux host are supposed to look like the same kind of thing).
+   - **`host`, not `name`.** Bossman's `_ingest_hosts_overview` starts with `host_name = host.get("host")`
+     and *continues* when it is absent — so an entry keyed `name` was skipped in silence: no facts, no
+     checks, and the host kept reading as Debian while the agent served a perfectly good inventory. The Go
+     agent's `HostSnapshot` has said `json:"host"` all along.
+   - **No substitution across the Linux/Windows line, in either direction.** The catalogue's fallback exists
+     because a Linux package name often transfers (nginx, postfix, samba are the same word on Debian, RHEL
+     and SUSE — measurably for 27 roles). Between Linux and Windows nothing transfers, so a fallback there is
+     not a hedge but a wrong answer with a caveat attached. `_NEVER_SUBSTITUTES` makes it `unknown` instead,
+     which is visible as a gap rather than as a plausible lie.
 3. **`package` with the provider model** + `msi` + the installer recipe (`configs/windows_packages/`), with
    detection and `success_codes`. The measurable claim: install an in-house EXE twice and see
    `changed: false` on the second pass.

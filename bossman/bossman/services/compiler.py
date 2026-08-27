@@ -513,7 +513,11 @@ async def _build_desired_state(
     facts = agent.facts or {}
     inventory = {
         k: facts.get(k)
-        for k in ("collected_at", "os", "system", "board", "bios", "cpu", "memory_mb", "disks", "nics", "installed_packages")
+        # os_family and the Windows role count travel with the rest: a document that describes a host has to
+        # say which FAMILY of host it is, or every consumer re-derives it from os.id and one of them gets it
+        # wrong. Added when the first Windows host arrived and read as Debian.
+        for k in ("collected_at", "os", "os_family", "system", "board", "bios", "cpu", "memory_mb",
+                  "disks", "nics", "installed_packages", "windows_features_installed")
         if facts.get(k) is not None
     }
 

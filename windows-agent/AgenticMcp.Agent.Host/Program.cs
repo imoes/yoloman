@@ -325,7 +325,53 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
     }
 });
 
-app.MapGet("/api/v1/hosts/overview", () => Results.Json(new
+// The inventory document, cached: Bossman stores it as the host's `facts`, and `os_family` in there is what
+// every family-dependent decision downstream reads. Until it existed this host was read as DEBIAN, because
+// Bossman's family_of() ends in `return "debian"` for anything it cannot identify — one missing field, and a
+// Windows Server gets offered apt packages by a catalogue lookup that believes it.
+//
+// Cached for an hour: it is near-static, and the feature count behind it starts a Windows PowerShell process.
+Dictionary<string, object?>? inventoryCache = null;
+var inventoryTaken = DateTimeOffset.MinValue;
+var inventoryGate = new SemaphoreSlim(1, 1);
+
+async Task<Dictionary<string, object?>> Inventory()
+{
+    if (inventoryCache is not null && DateTimeOffset.UtcNow - inventoryTaken < TimeSpan.FromHours(1))
+    {
+        return inventoryCache;
+    }
+
+    await inventoryGate.WaitAsync();
+    try
+    {
+        if (inventoryCache is null || DateTimeOffset.UtcNow - inventoryTaken >= TimeSpan.FromHours(1))
+        {
+#if WINDOWS
+            inventoryCache = AgenticMcp.Agent.Windows.WindowsInventory.Collect();
+#else
+            // The non-Windows build says what it is rather than claiming a family it is not: this binary is
+            // the Windows agent, and running it on Linux is a development situation, not a supported host.
+            inventoryCache = new Dictionary<string, object?>
+            {
+                ["os_family"] = "unknown",
+                ["agent_platform"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                ["inventory_note"] = "this is the Windows agent running on a non-Windows host (development); "
+                                     + "no OS family is claimed",
+            };
+#endif
+            inventoryTaken = DateTimeOffset.UtcNow;
+        }
+    }
+    finally
+    {
+        inventoryGate.Release();
+    }
+
+    return inventoryCache!;
+}
+
+app.MapGet("/api/v1/hosts/overview", async () => Results.Json(new
 {
     // One host and no satellites: this agent is a leaf. Proxy mode is a Go-agent feature this
     // implementation does not claim, and it says so by reporting itself rather than omitting the list.
@@ -333,10 +379,19 @@ app.MapGet("/api/v1/hosts/overview", () => Results.Json(new
     {
         new
         {
-            name,
+            // `host`, NOT `name`, and this cost an afternoon: Bossman's _ingest_hosts_overview starts with
+            // `host_name = host.get("host")` and CONTINUES when it is missing — so an entry keyed `name` was
+            // skipped in silence, no facts were stored, and the host kept reading as Debian while the agent
+            // served a perfectly good inventory. The Go agent's HostSnapshot has said `json:"host"` all along
+            // (internal/server/hostoverview.go); one name for one thing, and the reader's name wins.
+            host = name,
+            // `mode` is part of the same contract: standalone means "a leaf, not relaying anyone". Absent
+            // `parent` is what marks this as the agent's OWN entry rather than a satellite it relays.
+            mode = "standalone",
             platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             agent_version = ThisAssembly.Version,
             metrics = Array.Empty<object>(),
+            inventory = await Inventory(),
         },
     },
 }));
