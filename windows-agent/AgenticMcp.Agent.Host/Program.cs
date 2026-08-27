@@ -263,7 +263,11 @@ app.Use(async (ctx, next) =>
 });
 
 // ---- the endpoints Bossman polls ------------------------------------------------------------------------
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok", agent = name }));
+// THE VERSION BELONGS HERE, because this is where Bossman reads it: poll_agent calls /healthz first
+// (unauthenticated, so it answers even when the token has drifted) and writes `version` into the fleet's agent
+// version column. Without the field the column kept whatever the host was ENROLLED with — this host sat at
+// "0.0.0-test" through a dozen redeploys, so the fleet view stated a version that had not been true all day.
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok", agent = name, version = ThisAssembly.Version }));
 
 app.MapGet("/api/v1/metrics", (HttpRequest req) =>
 {
