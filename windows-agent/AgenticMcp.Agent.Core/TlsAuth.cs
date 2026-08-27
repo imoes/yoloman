@@ -95,8 +95,7 @@ public static class TlsAuth
     {
         if (File.Exists(pfxPath))
         {
-            return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, null,
-                X509KeyStorageFlags.EphemeralKeySet);
+            return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, null, KeyStorageFlags());
         }
 
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -117,8 +116,28 @@ public static class TlsAuth
         }
 
         File.WriteAllBytes(pfxPath, created.Export(X509ContentType.Pkcs12));
-        return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, null, X509KeyStorageFlags.EphemeralKeySet);
+        return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, null, KeyStorageFlags());
     }
+
+    /// <summary>
+    /// How the private key is held — and it is PER PLATFORM, because Windows cannot serve TLS from an
+    /// ephemeral key.
+    ///
+    /// <para>MEASURED ON THE REAL WINDOWS HOST, and it is a silent failure of the worst shape:
+    /// <c>EphemeralKeySet</c> works fine on Linux (OpenSSL holds the key in memory), and on Windows Kestrel
+    /// starts, binds, logs "listening" — and then Schannel cannot use the key, so EVERY connection dies with
+    /// "the underlying connection was closed: unexpected error during send". No startup error, nothing in the
+    /// agent's log, and from the server it looks like a network fault. Schannel needs the key in a store, so
+    /// on Windows it is persisted to the machine key set (the agent runs as a service there).</para>
+    ///
+    /// <para>Linux keeps the ephemeral set on purpose: persisting there writes into the runtime's own key
+    /// store under the user's profile, which is a file nobody asked for on a host that already has the
+    /// .pfx.</para>
+    /// </summary>
+    private static X509KeyStorageFlags KeyStorageFlags() =>
+        OperatingSystem.IsWindows()
+            ? X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet
+            : X509KeyStorageFlags.EphemeralKeySet;
 
     internal static byte[]? ExtractPemBody(string pem, string label)
     {

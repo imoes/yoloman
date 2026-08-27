@@ -48,7 +48,22 @@ public sealed class RuntimeMetricCollector : IMetricCollector
                 Source: "System.Diagnostics.Process.WorkingSet64"));
         }
 
-        // Per-volume usage. DriveInfo is the same API on both platforms, so C:\ and / are read the same way.
+        // VOLUMES ONLY WHERE NOTHING BETTER EXISTS — i.e. not on Windows, where the WMI collector reports
+        // them from Win32_LogicalDisk.
+        //
+        // Measured on the first real Windows run: both collectors reported the same volume and the database
+        // ended up with `disk_free_bytes {mount: "C:"}` from WMI and `disk_free_bytes {mount: "C:\"}` from
+        // here — ONE FACT UNDER TWO NAMES, which is the identity rule broken by my own code, and it would
+        // have shown up as a host with twice as many disks as it has. Normalising the label would have
+        // treated the symptom; two sources for one fact is the defect. WMI is the better source anyway
+        // (DriveType filtering, the filesystem label), so this collector stands down on Windows and keeps
+        // what only it knows: the agent's own uptime and footprint.
+        if (OperatingSystem.IsWindows())
+        {
+            return Task.FromResult(new CollectionResult(samples, attempts, absences));
+        }
+
+        // DriveInfo is the same API on both platforms; on Linux it is the only one here.
         foreach (var drive in DriveInfo.GetDrives())
         {
             attempts++;

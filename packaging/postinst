@@ -52,6 +52,92 @@ if [ ! -f "$CONF_FILE" ]; then
 	echo "agentic-mcp: generated a new bearer token in $CONF_FILE (mode 0600)"
 fi
 
+# ---- the inbound firewall rule --------------------------------------------------------------------------
+#
+# WHY THE INSTALLER DOES THIS: an agent that installs, starts, and reports itself reachable at a port the
+# host's firewall drops is a machine that LOOKS managed and is not — and the state is invisible from the
+# host (the service is running, the log says listening) while showing up centrally as a poll error, which
+# reads as a network fault. So the port the agent actually listens on is opened here, in the one place that
+# knows an installation happened.
+#
+# THE PORT COMES FROM THE CONFIG, not from a constant: an operator who moved the listener would otherwise
+# get a rule for a port nothing serves and no rule for the one that does.
+LISTEN=$(sed -n 's/^listen:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' "$CONF_FILE" 2>/dev/null | tail -1)
+PORT=${LISTEN##*:}
+case "$PORT" in
+	''|*[!0-9]*) PORT=8010 ;;
+esac
+
+# A LISTENER ON LOOPBACK NEEDS NO RULE, and opening one would be worse than useless: it would advertise a
+# port nothing outside can reach anyway. Said out loud, because "no rule was created" must never be silent.
+case "$LISTEN" in
+	127.0.0.1:*|localhost:*|'[::1]':*)
+		echo "agentic-mcp: listen=$LISTEN is loopback-only — no firewall rule needed."
+		;;
+	*)
+		FW_DONE=""
+		# ufw first: on a host that runs it, an iptables rule inserted behind its chains is invisible to
+		# `ufw status` and disappears on the next reload.
+		if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | head -1 | grep -qi "Status: active"; then
+			if ufw allow "$PORT/tcp" comment "yoloman-agent" >/dev/null 2>&1 ||
+			   ufw allow "$PORT/tcp" >/dev/null 2>&1; then
+				echo "agentic-mcp: opened $PORT/tcp in ufw."
+				FW_DONE=ufw
+			else
+				echo "agentic-mcp: WARNING ufw is active but `ufw allow $PORT/tcp` failed — open it by hand." >&2
+				FW_DONE=failed
+			fi
+		fi
+		if [ -z "$FW_DONE" ] && command -v firewall-cmd >/dev/null 2>&1 &&
+		   firewall-cmd --state >/dev/null 2>&1; then
+			# --permanent AND the runtime, so the rule holds now and after a reboot. A --permanent-only rule
+			# is the classic "it works after the next reload" trap.
+			if firewall-cmd --permanent --add-port="$PORT/tcp" >/dev/null 2>&1 &&
+			   firewall-cmd --reload >/dev/null 2>&1; then
+				ZONE=$(firewall-cmd --get-default-zone 2>/dev/null || echo default)
+				echo "agentic-mcp: opened $PORT/tcp in firewalld (zone $ZONE, permanent + reloaded)."
+				FW_DONE=firewalld
+			else
+				echo "agentic-mcp: WARNING firewalld is running but adding $PORT/tcp failed — open it by hand." >&2
+				FW_DONE=failed
+			fi
+		fi
+		if [ -z "$FW_DONE" ] && command -v iptables >/dev/null 2>&1; then
+			# ONLY IF SOMETHING ACTUALLY BLOCKS. A host with a permissive INPUT policy and no reject rules
+			# needs no rule, and adding one there is noise in somebody else's ruleset.
+			POLICY=$(iptables -S INPUT 2>/dev/null | sed -n 's/^-P INPUT //p')
+			BLOCKS=$(iptables -S INPUT 2>/dev/null | grep -cE '^-A INPUT .*-j (DROP|REJECT)' || true)
+			if [ "$POLICY" = "DROP" ] || [ "$POLICY" = "REJECT" ] || [ "${BLOCKS:-0}" -gt 0 ]; then
+				if ! iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+					iptables -I INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null &&
+						echo "agentic-mcp: inserted an ACCEPT for $PORT/tcp into iptables INPUT."
+				else
+					echo "agentic-mcp: iptables already accepts $PORT/tcp."
+				fi
+				# PERSISTENCE IS NOT ASSUMED. netfilter-persistent/iptables-save is how a Debian or EL host
+				# keeps rules across a reboot; without it the rule is live and temporary, and that is said
+				# rather than hoped.
+				if command -v netfilter-persistent >/dev/null 2>&1; then
+					netfilter-persistent save >/dev/null 2>&1 &&
+						echo "agentic-mcp: saved the iptables rules (netfilter-persistent)."
+				elif [ -d /etc/sysconfig ] && command -v iptables-save >/dev/null 2>&1; then
+					iptables-save > /etc/sysconfig/iptables 2>/dev/null &&
+						echo "agentic-mcp: saved the iptables rules to /etc/sysconfig/iptables."
+				else
+					echo "agentic-mcp: NOTE the iptables rule for $PORT/tcp is NOT persistent (no"
+					echo "agentic-mcp:   netfilter-persistent and no /etc/sysconfig) — it is gone after a reboot."
+				fi
+				FW_DONE=iptables
+			fi
+		fi
+		if [ -z "$FW_DONE" ]; then
+			# The fourth state, named: no firewall was found that needs a rule. Without this line, "nothing
+			# was opened" and "nothing needed opening" look identical in the install log.
+			echo "agentic-mcp: no active firewall found (ufw/firewalld/iptables) — $PORT/tcp needs no rule."
+		fi
+		;;
+esac
+
 if command -v systemctl >/dev/null 2>&1; then
 	systemctl daemon-reload || true
 	# THE RENAME, handled rather than assumed. An install from before this change is running

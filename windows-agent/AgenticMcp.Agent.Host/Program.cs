@@ -88,6 +88,21 @@ if (File.Exists(pinPath))
 
 var serverCert = TlsAuth.EnsureServerCertificate(Path.Combine(stateDir, "agent-tls.pfx"), name);
 
+// THE INBOUND FIREWALL RULE, before binding. A Windows Server blocks inbound traffic by default, so an agent
+// that enrols and reports itself reachable at a port nothing can reach is a host that LOOKS managed and is
+// not — and that state is invisible from the host (the log says "listening") while showing up on the server
+// as a poll error, which reads as a network fault. Idempotent by rule name; a failure is reported and does
+// not stop the listener, because a host whose firewall is managed by policy is a legitimate case.
+var listenPort = int.TryParse(listen.Split(':').Last(), out var parsedPort) ? parsedPort : 8051;
+string firewallNote;
+#if WINDOWS
+var firewall = AgenticMcp.Agent.Windows.WindowsFirewall.EnsurePortOpen(listenPort);
+firewallNote = firewall.Detail;
+#else
+firewallNote = "not Windows: the inbound rule is the installer's job here (packaging/postinst opens the "
+               + "port in ufw/firewalld/iptables)";
+#endif
+
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls($"https://{listen}");
 builder.WebHost.ConfigureKestrel(kestrel =>
@@ -362,6 +377,7 @@ _ = Task.Run(async () =>
 
 log.LogInformation("agent {Name} listening on https://{Listen}, write gate {Gate}, {Pins} pinned key(s)",
     name, listen, writeEnabled ? "OPEN" : "closed", pins.Count);
+log.LogInformation("firewall: {Note}", firewallNote);
 if (AgenticMcp.Agent.Modules.PowerShellModule.ModuleDirectory is null)
 {
     // Named, at startup: a runspace without its module tree still evaluates expressions, so it LOOKS like a
@@ -389,6 +405,39 @@ if (tokenWasGenerated)
     // Printed once, because a generated secret nobody was told is a secret nobody can use.
     log.LogInformation("generated bearer token (set AGENT_TOKEN to keep it across restarts): {Token}", token);
 }
+
+// THE LISTENER PROVES ITSELF, once, against its own port.
+//
+// Kestrel binding successfully is not the same as Kestrel being able to serve: on Windows a certificate
+// whose key it cannot use starts and binds and logs "listening", then kills every connection at the
+// handshake — a state invisible from the host and indistinguishable from a network fault on the server. So
+// the agent asks itself for /healthz over TLS and says what happened. It does not exit on failure: a broken
+// listener that says so is still better than one that lies, and the operator may be mid-diagnosis.
+_ = Task.Run(async () =>
+{
+    await Task.Delay(TimeSpan.FromSeconds(2), collecting);
+    var probeHost = listen.StartsWith("0.0.0.0", StringComparison.Ordinal) ? "127.0.0.1" : listen.Split(':')[0];
+    using var handler = new HttpClientHandler
+    {
+        // Its own self-signed certificate — the pin is what authorises the CALLER, and this call is the
+        // agent asking itself.
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+    };
+    using var probe = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+    try
+    {
+        var reply = await probe.GetAsync($"https://{probeHost}:{listenPort}/healthz", collecting);
+        log.LogInformation("self-probe: HTTPS on {Host}:{Port} answered {Status}", probeHost, listenPort,
+            (int)reply.StatusCode);
+    }
+    catch (Exception ex)
+    {
+        log.LogError("self-probe FAILED: this agent is listening on {Host}:{Port} but cannot serve TLS to "
+                     + "itself — {Error}. Bossman will report it as unreachable. On Windows this is usually "
+                     + "the server certificate's key storage (see TlsAuth.KeyStorageFlags).",
+            probeHost, listenPort, ex.Message);
+    }
+}, collecting);
 
 await app.RunAsync();
 

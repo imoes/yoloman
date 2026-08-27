@@ -14,8 +14,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyVersion>0.1.0</AssemblyVersion>
     <RootNamespace>AgenticMcp.Agent.Host</RootNamespace>
-    <!-- One agent, one publish: win-x64 self-contained single-file, so the host needs no runtime install. -->
-    <PublishSingleFile>true</PublishSingleFile>
+    <!-- Self-contained: the target needs no runtime install. NOT single-file, and that is measured rather
+         than preferred — the PowerShell SDK ships its module tree twice (runtimes/unix and runtimes/win) and
+         the bundler fails on the duplicate with "It is forbidden to change Manifest state after it was
+         written", leaving a truncated 28 MB exe that looks like a successful build. A folder publish is
+         self-contained just the same, and the MSI (milestone 6) packages a folder anyway. -->
     <SelfContained>true</SelfContained>
   </PropertyGroup>
 
@@ -31,5 +34,31 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
     <ProjectReference Include="..\AgenticMcp.Agent.Windows\AgenticMcp.Agent.Windows.csproj" />
   </ItemGroup>
+
+  <!-- SHIP POWERSHELL'S OWN MODULES, which a RID-specific publish otherwise drops.
+       Measured on the first real install: `dotnet publish -r win-x64` FLATTENS `runtimes/`, so
+       runtimes/win/lib/net9.0/Modules — Utility, Management, Security, CimCmdlets, Host, Diagnostics — never
+       reaches the target. The agent then starts, logs "listening", and its `powershell` module has the
+       LANGUAGE and almost no cmdlets: Get-Date answers "not recognized". The non-RID build copies them, so
+       this bites only the artefact that actually gets installed — which is why it took a real Windows host to
+       find, twice in one day for two different reasons.
+       A post-publish Copy, not a Content item: Content with a LinkBase does NOT survive a RID publish across
+       a project reference (measured — the publish came out with no runtimes/ directory at all). 316 kB into
+       the exact layout PowerShellModule.ResolveModuleDirectory already looks in, both platform trees, since
+       the resolver picks the one for the running OS. -->
+  <Target Name="CopyPowerShellModules" AfterTargets="Publish">
+    <ItemGroup>
+      <_PsWinModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/win/lib/net9.0/Modules/**/*" />
+      <_PsUnixModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/unix/lib/net9.0/Modules/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PsWinModules)"
+          DestinationFiles="@(_PsWinModules->'$(PublishDir)runtimes/win/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_PsUnixModules)"
+          DestinationFiles="@(_PsUnixModules->'$(PublishDir)runtimes/unix/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(PublishDir)runtimes/win/lib/net9.0/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1')"
+           Text="PowerShell's module tree did not reach the publish output. Shipping this artefact would produce an agent whose `powershell` module has no cmdlets — fail the build instead." />
+  </Target>
 
 </Project>
