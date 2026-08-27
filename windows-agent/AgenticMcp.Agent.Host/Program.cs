@@ -149,6 +149,10 @@ var modules = new ModuleRegistry(writeEnabled)
     // READ-ONLY, so both are offered even with the write gate closed: asking a host what went wrong must
     // never require permission to change it.
     .Add(new AgenticMcp.Agent.Windows.WindowsCapabilityModule())
+    // package_facts, under the Go agent's own name and shape: this fills facts.installed_packages, which
+    // compliance, the capability matcher and the package catalogue all read. Its absence made every Windows
+    // host look like a machine with nothing installed, and the poller's best-effort catch kept it quiet.
+    .Add(new AgenticMcp.Agent.Windows.PackageFactsModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
