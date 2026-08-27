@@ -152,6 +152,123 @@
       ]
     },
     {
+      "id": "taskschd",
+      "title": "Task Scheduler",
+      "mmc_equivalent": "taskschd.msc",
+      "icon": "schedule",
+      "description": "Every scheduled task on the host — including the several hundred Windows ships itself, because \"which tasks exist here\" has to be answerable in full. The last result is Windows' own code, explained in words rather than reduced to ok/failed.",
+      "requires": [
+        {
+          "module": "scheduled_task"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "All tasks",
+          "source": {
+            "kind": "tool",
+            "tool": "scheduled_task",
+            "params": {},
+            "rows": "tasks"
+          },
+          "sort": "full_name",
+          "columns": [
+            {
+              "key": "full_name",
+              "title": "Task",
+              "width": 330
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "triggers",
+              "title": "Triggers",
+              "join": ", ",
+              "width": 150
+            },
+            {
+              "key": "run_as",
+              "title": "Runs as",
+              "width": 150
+            },
+            {
+              "key": "next_run",
+              "title": "Next run",
+              "kind": "time",
+              "width": 170
+            },
+            {
+              "key": "last_result_meaning",
+              "title": "Last result",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable",
+              "icon": "block",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "enabled": false
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "disabled"
+              }
+            },
+            {
+              "id": "enable",
+              "title": "Enable",
+              "icon": "check_circle",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "enabled": true
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "ready"
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete task",
+              "icon": "delete",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-task",
+              "title": "New task…",
+              "icon": "add_alarm",
+              "tool": "scheduled_task",
+              "prefill": {
+                "state": "present",
+                "schedule": "daily",
+                "run_as": "SYSTEM"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "local-users",
       "title": "Local Users and Groups",
       "mmc_equivalent": "lusrmgr.msc",

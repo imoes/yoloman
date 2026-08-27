@@ -176,6 +176,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // command: run an executable with an argv, no shell — the primitive runbooks and several Bossman
     // services reach for. The Linux implementation is the Go agent's.
     .Add(new AgenticMcp.Agent.Windows.CommandModule())
+    // scheduled_task: Windows' own scheduler. NOT registered as `cron` — see the module's header for why
+    // one name for both would promise a translation that does not exist.
+    .Add(new AgenticMcp.Agent.Windows.ScheduledTaskModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
