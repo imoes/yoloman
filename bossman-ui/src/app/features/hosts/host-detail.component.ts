@@ -47,6 +47,7 @@ import { HostManagementComponent } from './management/host-management.component'
 import { HostResourcesComponent } from './host-resources.component';
 import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
+import { WindowsEventlogComponent } from './windows-eventlog.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { CompiledHostState } from '../../core/models/orchestration.model';
@@ -121,6 +122,7 @@ function familyMembers(metric: string): string[] {
     HostResourcesComponent,
     DeploymentEdgesComponent,
     KubernetesDeployComponent,
+    WindowsEventlogComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
@@ -923,6 +925,17 @@ function familyMembers(metric: string): string[] {
               <app-deployment-edges [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
+          <!-- WINDOWS ONLY, and absent rather than disabled on a Linux host: an event log is not a thing
+               that machine has, and a greyed-out tab would imply it could be turned on. The Linux side has
+               its own log view (journald grep). -->
+          @if (isWindows(agent)) {
+            <mat-tab label="Event log"><ng-template matTabContent>
+              <div class="bm-tab-content">
+                <app-windows-eventlog [agentId]="agent.id" />
+              </div>
+            </ng-template></mat-tab>
+          }
+
           <mat-tab label="Kubernetes"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-kubernetes-deploy [agentId]="agent.id" />
@@ -1946,6 +1959,17 @@ export class HostDetailComponent implements OnInit {
    * expanding loads its chart + state history via selectService. */
   /** Friendly agent-role label: a managed agent is a Duppy (satellite) or a
    * Selecta (proxy, fronts satellites); 'standalone' = un-enrolled/self-managed. */
+  /** Is this a Windows host? Read from the reported family, never guessed from the platform string.
+   *
+   * `facts.os_family` is what the agent SAYS it is; deriving it from `os.id` here would put a second
+   * family-resolution rule in the UI, and two rules for one fact is how a Windows host ends up looking like
+   * Debian in one view and Windows in another. An unknown family is not Windows — the tab stays absent
+   * rather than guessing, and the Inventory tab shows what the host actually reported.
+   */
+  isWindows(agent: Agent): boolean {
+    return (agent.facts?.os_family ?? '').toLowerCase() === 'windows';
+  }
+
   modeLabel(mode: string | null | undefined): string {
     // 'cluster' (C1): a host whose services are computed from its nodes rather than
     // polled — nothing ever contacts it, which is why it has no address.

@@ -34,6 +34,17 @@ export interface Agent {
  * missing sources are omitted by the agent). */
 export interface InventoryFacts {
   collected_at?: string;
+  /** The host's OS family — debian | redhat | suse | windows. Reported by the agent (the Windows agent puts
+   *  it in its inventory; a Linux agent's is derived from os.id/id_like). Read it rather than guessing from
+   *  `os`: Bossman's own family_of() ends in `return "debian"` for anything unidentified, which is how the
+   *  first Windows host was read as Debian until it reported this field. */
+  os_family?: string;
+  /** Windows only: how many roles/features are installed. Counted, not listed — the list is
+   *  windows_feature's job (265 entries would be a payload nobody reads). */
+  windows_features_installed?: number | null;
+  /** Windows only: which package providers this host actually has (msi, installer, packagemanagement,
+   *  appx, and winget/choco only where present). A plan can be checked against it before it runs. */
+  package_providers?: string[];
   system?: {
     manufacturer?: string;
     product_name?: string;
