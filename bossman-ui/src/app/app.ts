@@ -78,6 +78,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/security', label: 'Security', icon: 'security' },
       { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
       { path: '/runs', label: 'Runs', icon: 'history' },
+      { path: '/operations', label: 'Result log', icon: 'fact_check' },
       { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
     ],
   },

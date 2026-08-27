@@ -185,6 +185,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/capacity/capacity.component').then((m) => m.CapacityComponent),
   },
   {
+    // The RESULT LOG (what hosts did) next to the AUDIT LOG (what was asked of this server): two facts, two
+    // pages, adjacent so nobody hunts for the other one. Not admin-only — an operator who may call a module
+    // must be able to read what it did.
+    path: 'operations',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/operations/operations.component').then((m) => m.OperationsComponent),
+  },
+  {
     path: 'audit',
     canActivate: [adminGuard],
     loadComponent: () => import('./features/audit/audit.component').then((m) => m.AuditComponent),

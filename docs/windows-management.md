@@ -394,9 +394,28 @@ closed enumeration this project spent a week learning to recognise in prose.
      report so no consumer overstates it. `IMPOSED_SOURCE_RSOP` is wired and tested for the day a source can
      name the author per value.
 
-9. **THE RESULT LOG — retrievable, and analysable by the AI** (asked for 2026-08-27). Every module call must
-   leave a record that can be fetched afterwards and reasoned over, not just a reply to whoever happened to
-   be waiting.
+9. ~~**THE RESULT LOG — retrievable, and analysable by the AI**~~ — **DONE 2026-08-27**, all three layers:
+   a ring buffer in BOTH agents (`GET /api/v1/audit`, identical wire shape), the `operation_log` table
+   collected by the poller with a per-boot cursor, `GET /api/v1/operations` + `/api/v1/agents/{id}/operations`,
+   the MCP tool `operation_log(host, module, outcome, since_minutes, changed_only)`, and a **Result log** page
+   in the UI next to the Audit log. The human and the AI read the SAME rows — a summary written for one and a
+   record kept for the other is how the two end up disagreeing about what happened.
+
+   **Eight outcomes, and no two of them may be collapsed:** `changed`, `unchanged` (the idempotence claim),
+   `planned` (a DRY RUN — a preview, not a no-op), `refused` (the host said no, its words carried through),
+   `error` (the agent broke — about us, not the host), `timed-out` (**may have completed**, measured: the SNMP
+   install did), `unknown-module`, and `gap` (Bossman's own marker for records lost from a ring before
+   collection — a log with an unmarked hole invites exactly the conclusion it cannot support).
+
+   **It paid for itself in its first hour**, which is the argument for having it: five `unknown-module` records
+   in two minutes showed that Bossman polls `package_facts` on every host every cycle, that the C# agent had no
+   such module, and that the poller's best-effort catch had been swallowing it for a week — so
+   `facts.installed_packages` was empty for every Windows host and compliance, the capability matcher and the
+   package catalogue all saw nothing. Fixed in the same session (`PackageFactsModule`, the Uninstall registry).
+   A second defect fell out of the same look: the collector ran only for non-infra agents, silently excluding
+   the SNMP/SSH poller that executes every agent-less device's checks.
+
+   Original scope, for the record:
 
    The gap, measured: the Go agent audits every tool call (`cfg.Audit.LogCall(identity, name, writes,
    changed, params, start, err)`), the **C# agent audits nothing**, and Bossman's `call_agent_tool` route
