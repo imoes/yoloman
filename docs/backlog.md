@@ -91,6 +91,19 @@ devices (SNMP/SSH); see the `project-ssh-snmp-checks` memory.
   (`winperf_*`, `wmi_cpuload`, `w32time_*`) belong there, not the Linux agent.
   See the `project-windows-client` memory.
 
+## Documentation, AFTER the Windows management work (asked 2026-08-27)
+
+Three deliverables, deliberately last so they describe what exists rather than what is planned:
+
+1. **One page per platform listing every Ansible module** — Linux (`ansible.builtin` + the collections the
+   agent's ~700 modules mirror) and Windows (`ansible.windows` 67 + `community.windows` 55), each row saying
+   whether yoloman implements it, under which name, and how.
+2. **An HTML presentation of yoloman on GitHub Pages**, documenting **every frontend screen**.
+3. Note on the Pages setup: this repo has **no gh-pages branch**, and `scripts/publish-repo.sh` says why —
+   the apt/yum repository is a SEPARATE repository because a branch holding 250 MB of packages is dragged
+   into every clone. So the presentation needs its own decision: a `docs/` folder on `main` (Pages can serve
+   `/docs`), a new gh-pages branch for HTML only, or a page in the existing repo-hosting repository.
+
 ## The Windows agent (decided 2026-08-26, plan in docs/windows-agent.md)
 
 C# / .NET, WMI for the monitoring data, a `powershell` module in a hosted runspace as the action plane, the
