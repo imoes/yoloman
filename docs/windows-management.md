@@ -337,6 +337,37 @@ closed enumeration this project spent a week learning to recognise in prose.
 7. **MSI packaging of the agent itself** + service registration — the milestone 6 of `windows-agent.md`, and
    the thing that makes all of the above installable rather than copied.
 
+8. **THE RESULT LOG — retrievable, and analysable by the AI** (asked for 2026-08-27). Every module call must
+   leave a record that can be fetched afterwards and reasoned over, not just a reply to whoever happened to
+   be waiting.
+
+   The gap, measured: the Go agent audits every tool call (`cfg.Audit.LogCall(identity, name, writes,
+   changed, params, start, err)`), the **C# agent audits nothing**, and Bossman's `call_agent_tool` route
+   returns the result to its caller and stores it nowhere. So today the answer to "what did that install
+   actually do" exists only in whatever terminal ran it — and for the two operations that matter most
+   (`windows_feature`, `package`) the interesting part is exactly the part that scrolls past: the 15-feature
+   plan, the exit code, the detection rule's before/after, Windows' own refusal text.
+
+   What it has to carry, because these are the things an analysis needs and a message does not preserve:
+
+   - the call: host, module, parameters (secrets redacted), who asked, when, how long
+   - the verdict: changed / unchanged / refused / timed-out — and **timed-out is its own outcome**, since a
+     timed-out write may still have completed (measured: the SNMP install did)
+   - the evidence: exit code, the detection rule's answer before and after, the plan the system itself
+     produced (`-WhatIf`), and the target's own error text verbatim
+   - the follow-on state: `awaiting-restart`, and what a re-read showed
+   - a stable id, so a later analysis can point at one call rather than describe it
+
+   Where: agent-side ring buffer (`GET /api/v1/audit`) so a host can be asked directly, plus a Bossman table
+   so a fleet-wide question is one query. Exposed to the AI as an MCP tool (`operation_log(host, since,
+   outcome)`) — the point is that the AI reads the same record the operator does, not a summary of it. That
+   is the [[project-killer-feature]] applied to actions rather than to config: a fleet that can explain what
+   it did.
+
+   It comes AFTER the module work it records, because a log of operations nobody can perform yet is a schema
+   with no evidence behind it — but it comes before the documentation, since the docs should describe a
+   system that can already answer for itself.
+
 ## 9. Open questions
 
 - **The reboot boundary in a runbook.** A role that needs a restart splits a play in two. Bossman has no
