@@ -154,6 +154,32 @@ PowerShell/WMI instead of `/proc` and CLI tools. The retranslation work
 ([[project-check-retranslate]], `docs/checkmk-checks.md`) is the model: a check declares what it reads, and
 the reading is per-platform. Nothing about thresholds, discovery or notification changes.
 
+## The first real install (2026-08-27, bossman-wintest / Windows Server 2022)
+
+Everything below was found by installing on a real host. None of it was visible from Linux, and each one is a
+defect whose symptom was "the agent looks fine and the server says unreachable".
+
+| what | why it only shows up on Windows |
+|---|---|
+| **TLS died at the handshake, silently** | the server certificate was loaded with `EphemeralKeySet`, which works on Linux (OpenSSL keeps the key in memory) and is unusable by Schannel. Kestrel bound, logged "listening", and killed every connection with "unexpected error during send" — no startup error, nothing in the log. Windows now gets `MachineKeySet \| PersistKeySet`. |
+| **the agent had almost no cmdlets** | `dotnet publish -r win-x64` FLATTENS `runtimes/`, so PowerShell's own module tree never reached the target and `Get-Date` answered "not recognized". A post-publish copy puts it back, and the build now FAILS if it is missing rather than shipping an agent whose action plane is a language with no library. |
+| **one volume, two names** | the runtime collector and the WMI collector both reported `C:`, as `mount: "C:\\"` and `mount: "C:"` — one fact under two names, in a database that would have shown twice as many disks as the host has. The runtime collector stands down on Windows, where WMI is the better source. |
+| **single-file publish produced a truncated exe** | the bundler fails on the SDK's duplicated module trees ("forbidden to change Manifest state"), and the failure left a 28 MB exe that looked like a build. Folder publish; the MSI packages a folder anyway. |
+
+**And a listener now proves itself.** After binding, the agent asks itself for `/healthz` over TLS and logs
+the answer, because *binding successfully is not the same as being able to serve* — that was the whole shape
+of the certificate bug:
+
+    self-probe: HTTPS on 127.0.0.1:8451 answered 200
+
+**What works on the real host**, verified through Bossman rather than locally: enrolment, mTLS-pinned polling,
+**27 metrics / 56 series from WMI** (per-core CPU including `_Total`, per-volume disk IO, `disk_usage_percent`
+36.8% on C:), `powershell` returning typed objects (`System.ServiceProcess.ServiceControllerStatus` for
+`Get-Service W32Time`), `registry` create → idempotent → change → **a DWORD 43 correctly reported as a change
+against the string "43"**, `service` reading state and start mode independently and refusing a service that
+does not exist by name, `file`/`copy` with Windows paths, POSIX `mode` refused with its reason, and the
+`whatif` dry run leaving no file behind.
+
 ## Milestones
 
 1. ~~**The skeleton speaks the contract**~~ — **DONE 2026-08-26**, and proven on the LINUX dev host against
