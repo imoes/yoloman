@@ -24,7 +24,7 @@
     "all; showing them as broken would be a different lie.",
     "",
     "FIELDS:",
-    "  requires[]        all must hold: {os_family} | {module} | {feature} (a Windows role/feature name)",
+    "  requires[]        all must hold: {os_family} | {module} | {feature} (a Windows role/feature name)\n                    | {endpoint} — the node's own route must answer (for nodes served from Bossman's\n                      database rather than from the host, where no module exists to ask about)",
     "  source.kind       'endpoint' (an existing Bossman route) or 'tool' (a module call, params fixed here)",
     "  source.rows       dotted path to the row array in the response; '' means the response IS the array",
     "  columns[].badge   render the value as a state pill rather than text",
@@ -747,6 +747,344 @@
               "key": "source",
               "title": "From scope",
               "width": 120
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": "Monitoring",
+      "mmc_equivalent": "perfmon.msc",
+      "icon": "monitor_heart",
+      "description": "What this system CHECKS on the host and what each check currently says. Served from Bossman's own database, so it answers even while the host is unreachable — which is exactly when it is asked.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "checks",
+          "title": "Service checks",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/services",
+            "rows": ""
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Check",
+              "width": 260
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "value",
+              "title": "Value",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "metric",
+              "title": "Metric",
+              "width": 200
+            },
+            {
+              "key": "output",
+              "title": "What it says",
+              "grow": true
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "discovered",
+          "title": "Discovered services",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/discovered-services",
+            "rows": "services"
+          },
+          "sort": "check_name",
+          "columns": [
+            {
+              "key": "check_name",
+              "title": "Check",
+              "width": 240
+            },
+            {
+              "key": "item",
+              "title": "Item",
+              "width": 200
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 120
+            },
+            {
+              "key": "first_seen_at",
+              "title": "First seen",
+              "kind": "time",
+              "width": 170
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "processes",
+      "title": "Processes",
+      "mmc_equivalent": "taskmgr.exe",
+      "icon": "memory",
+      "description": "The host's live process table, sampled on demand — never stored, so this is what is running now and not what was running when somebody last looked.",
+      "requires": [
+        {
+          "endpoint": "/api/v1/agents/{agent_id}/processes"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "live",
+          "title": "Running processes",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/processes?limit=300",
+            "rows": "processes"
+          },
+          "sort": "-cpu_percent",
+          "columns": [
+            {
+              "key": "comm",
+              "title": "Process",
+              "width": 200
+            },
+            {
+              "key": "pid",
+              "title": "PID",
+              "numeric": true,
+              "width": 90
+            },
+            {
+              "key": "user",
+              "title": "User",
+              "width": 140
+            },
+            {
+              "key": "cpu_percent",
+              "title": "CPU %",
+              "numeric": true,
+              "width": 90
+            },
+            {
+              "key": "rss_bytes",
+              "title": "Memory",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "command",
+              "title": "Command line",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Software updates",
+      "icon": "system_update",
+      "description": "Pending package updates as the host's own package manager reports them, with the security ones marked.",
+      "requires": [
+        {
+          "module": "yoloman.package_updates"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "pending",
+          "title": "Pending updates",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/updates",
+            "rows": "updates"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Package",
+              "width": 260
+            },
+            {
+              "key": "current",
+              "title": "Installed",
+              "width": 180
+            },
+            {
+              "key": "candidate",
+              "title": "Available",
+              "width": 180
+            },
+            {
+              "key": "security",
+              "title": "Security",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "source",
+              "title": "From",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration files",
+      "icon": "description",
+      "description": "Every config file this system reads on the host, with the codec that parses it. Read-only here — editing values is the Configuration view, which owns generations and rollback.",
+      "requires": [
+        {
+          "endpoint": "/api/v1/agents/{agent_id}/state/observed"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "files",
+          "title": "Managed and observed files",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/state/observed",
+            "rows": "observed.config"
+          },
+          "sort": "path",
+          "columns": [
+            {
+              "key": "path",
+              "title": "Path",
+              "grow": true
+            },
+            {
+              "key": "type",
+              "title": "Kind",
+              "width": 110
+            },
+            {
+              "key": "format",
+              "title": "Codec",
+              "width": 140
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "logfiles",
+      "title": "Log files",
+      "icon": "folder_open",
+      "description": "Text logs under the host's log roots — the ones no journal or event log holds.",
+      "requires": [
+        {
+          "module": "logfiles"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "files",
+          "title": "Files",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/logs/files",
+            "rows": "files"
+          },
+          "sort": "-modified",
+          "columns": [
+            {
+              "key": "path",
+              "title": "Path",
+              "grow": true
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "modified",
+              "title": "Modified",
+              "kind": "time",
+              "width": 180
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "title": "Result log",
+      "icon": "fact_check",
+      "description": "What was done TO this host and what came back — the same records the Result log page and the AI read.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "operations",
+          "title": "Operations",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/operations?limit=300",
+            "rows": "operations"
+          },
+          "columns": [
+            {
+              "key": "started_at",
+              "title": "When",
+              "kind": "time",
+              "width": 170
+            },
+            {
+              "key": "module",
+              "title": "Module",
+              "width": 180
+            },
+            {
+              "key": "outcome",
+              "title": "Outcome",
+              "badge": true,
+              "width": 130
+            },
+            {
+              "key": "identity",
+              "title": "Asked by",
+              "width": 160
+            },
+            {
+              "key": "message",
+              "title": "What it said",
+              "grow": true
             }
           ],
           "actions": []

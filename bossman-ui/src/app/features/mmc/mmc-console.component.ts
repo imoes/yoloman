@@ -60,8 +60,12 @@ import {
                 <div class="bm-note bm-note--why">{{ s.reason }}</div>
               }
               @for (n of s.nodes; track n.id) {
+                <!-- ONLY "unavailable" IS DISABLED. "unknown" means nobody has asked yet — refusing the
+                     click would turn "we do not know" into "you may not", which is the whole distinction the
+                     third value exists for. -->
                 <button class="bm-node" [class.bm-sel]="isSelected(s.id, n.id)"
-                        [disabled]="n.state !== 'available'"
+                        [class.bm-maybe]="n.state === 'unknown'"
+                        [disabled]="n.state === 'unavailable'"
                         [title]="n.state === 'available' ? n.title : n.reason"
                         (click)="select(s, n.id)">
                   <mat-icon>{{ isSelected(s.id, n.id) ? 'folder_open' : 'description' }}</mat-icon>
@@ -202,6 +206,7 @@ import {
       font-size: 13px; text-align: left; cursor: pointer; }
     .bm-node:hover:not(:disabled) { background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
     .bm-node:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bm-node.bm-maybe { font-style: italic; }
     .bm-node mat-icon { font-size: 17px; width: 17px; height: 17px; }
     .bm-node.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent); font-weight: 600; }
     .bm-result { padding: 14px 18px 0; overflow: hidden; display: flex; flex-direction: column; }

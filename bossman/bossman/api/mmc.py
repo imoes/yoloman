@@ -114,6 +114,16 @@ def _requirement_verdict(requirement: dict[str, Any], facts: dict[str, Any],
         return ("available", "") if name.lower() in names else (
             "unavailable", f"the Windows feature `{name}` is not installed on this host")
 
+    if "endpoint" in requirement:
+        # NOT DECIDABLE FROM HERE, and said so rather than guessed. These nodes are served by an AGENT
+        # ENDPOINT (its live process table, its observed-state document) rather than by a module, so the tool
+        # list cannot answer whether the host serves them — only asking can. `unknown` is exactly that
+        # statement, and the node stays clickable: an operator may try, and the result pane reports what came
+        # back. Calling it available would promise something we have not checked; calling it unavailable would
+        # deny something the host probably does.
+        return "unknown", ("this node is served by an agent endpoint rather than a module, so whether this "
+                           "host answers it is only known once it is asked — open it and see")
+
     # An unknown requirement key is REFUSED rather than ignored: a catalog that silently drops a condition
     # would offer a snap-in the host cannot serve, and the failure would arrive as an opaque 502 later.
     return "unavailable", f"the catalog states a requirement this server does not understand: {requirement!r}"
