@@ -368,6 +368,48 @@ closed enumeration this project spent a week learning to recognise in prose.
    with no evidence behind it — but it comes before the documentation, since the docs should describe a
    system that can already answer for itself.
 
+## 7a. The event log — filtered on the host, for both readers
+
+Asked for directly: the AI must reach it through the agent, filter warnings and critical, and so must a
+person — with the categories selectable. Measured on `bossman-wintest` first, because two of the numbers
+decide the design:
+
+    channels                    406 exist · 83 hold records · 38 544 records in total
+    the fullest channel          Microsoft-Windows-SystemDataArchiver/Diagnostic, 22 512 records
+    a FILTERED query             System+Application, levels 1-3, 7 days, max 50  ->  50 events in 0.04 s
+    LevelDisplayName             LOCALISED — this host says "Fehler", "Warnung", "Informationen"
+                                 …and measurably EMPTY for 4 events at level 4
+    level 0                      exists (8 events), display name "Informationen"
+
+**The filter runs in the query.** `Get-WinEvent -FilterHashtable` is evaluated inside the log service, which
+is why it costs 0.04 s; shipping a channel and filtering afterwards would move megabytes to save nothing, and
+the fullest channel on a fresh install is diagnostic noise nobody asked for.
+
+**The level vocabulary is ours, the numbers are Windows'.** A dashboard filtering on "Error" finds nothing on
+a German host, so the API takes and returns canonical names (`critical, error, warning, information, verbose,
+log_always`), filters on the number, and carries all three: `level` (authoritative), `level_name` (stable
+across languages — the one to read) and `level_display` (what this host calls it, possibly empty). Level 0 is
+named rather than quietly excluded by a `1,2,3` filter: it is `LogAlways` in the schema and providers use it
+for whatever they like.
+
+**"Warnings and critical" is not what an operator means.** The default is `critical,error,warning`, because
+ERROR is the commonest of the three by an order of magnitude — measured on this host, 126 errors and 126
+warnings against **zero** criticals in thirty days. A filter offering only warning and critical would have
+shown half the problems and nothing at all of the most common kind.
+
+    windows_eventlog            read entries; levels, logs, since, provider, event_ids, contains, max_events
+    windows_eventlog_channels   the categories with record counts, size and RETENTION
+    MCP: windows_event_log(host, levels, logs, since, provider, contains, max_events)
+         windows_event_log_channels(host, only_with_records, name_like)
+
+Both are **read-only** (`Writes = false`), so they are offered even when the write gate is closed: asking a
+host what went wrong must never require permission to change it. Every reply carries `by_level` and
+`by_provider` counts so "who is producing these" needs no second call, and `capped` — because a capped answer
+that looks complete is the one failure mode a log reader must not have.
+
+`retention` (Circular | AutoBackup | Retain) travels with each channel, since it is the field that says
+whether "the event is not there" means *it never happened* or *it has already rotated away*.
+
 ## 8a. Is the registry a desired-state object? Measured, and the answer is "declared keys, never the hive"
 
 Asked directly: how big is a Windows Server's registry, and would mapping it into desired state be worth it —

@@ -632,6 +632,78 @@ def build_mcp_server(
         return s
 
     @mcp.tool()
+    async def windows_event_log(
+        host: str,
+        levels: str = "critical,error,warning",
+        logs: str = "System,Application",
+        since: str = "24h",
+        provider: str = "",
+        contains: str = "",
+        max_events: int = 200,
+    ) -> dict[str, Any]:
+        """Read a Windows host's event log, filtered ON THE HOST — the first place to look when a Windows
+        machine misbehaves.
+
+        `levels` are CANONICAL ENGLISH NAMES: critical, error, warning, information, verbose, log_always.
+        Use them, not the host's own words: LevelDisplayName is LOCALISED (a German host says "Fehler",
+        "Warnung") and measurably sometimes EMPTY, so filtering on what the host calls a level finds nothing
+        on half the fleet. Every event comes back with all three — `level` (Windows' number, authoritative),
+        `level_name` (canonical, what you should read and filter on) and `level_display` (the host's word).
+
+        The default "critical,error,warning" is what "show me the problems" means, and it deliberately
+        includes ERROR — the commonest of the three by far, and the one a "warnings and critical" filter
+        would silently drop.
+
+        `logs` selects the categories. A Server 2022 has 406 channels of which ~83 hold anything, so start
+        from windows_event_log_channels(host) rather than guessing: the fullest channel on a fresh install is
+        a diagnostic one with 22 000 records nobody asked for.
+
+        `since` takes a duration ("24h", "7d", "30m") or an ISO timestamp. The reply carries `by_level` and
+        `by_provider` counts (so "who is producing these" needs no second call) and `capped` — READ IT: a
+        capped answer is a floor, not a total, and concluding "only 200 errors" from a cap is worse than
+        being told the number is incomplete.
+
+        Read-only, and available even when the host's write gate is closed."""
+        params: dict[str, Any] = {
+            "levels": levels, "logs": logs, "since": since, "max_events": max_events,
+        }
+        if provider:
+            params["provider"] = provider
+        if contains:
+            params["contains"] = contains
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        # The log service answers a filtered query in milliseconds, but a wide window over a large channel is
+        # a real read — give it more than the 30-second default rather than reporting a timeout as a failure.
+        client._timeout = 180.0  # noqa: SLF001 — one construction path, see agent_client.client_for
+        try:
+            return await client.call_tool("windows_eventlog", params)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def windows_event_log_channels(host: str, only_with_records: bool = True,
+                                        name_like: str = "") -> dict[str, Any]:
+        """List a Windows host's event log CATEGORIES with their record counts, size and retention — what to
+        pick from before reading anything.
+
+        406 channels exist on a Server 2022 and about 83 hold records, so `only_with_records` defaults to
+        true and the list is sorted by count. `retention` (Circular | AutoBackup | Retain) is the field that
+        says whether "the event is not there" means "it never happened" or "it has already rotated away"."""
+        params: dict[str, Any] = {"only_with_records": only_with_records}
+        if name_like:
+            params["name_like"] = name_like
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        client._timeout = 180.0  # noqa: SLF001
+        try:
+            return await client.call_tool("windows_eventlog_channels", params)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
     async def system_propose(host: str, name: str = "") -> dict[str, Any]:
         """Propose a System (apps + wiring, the unit above a host) from a seed
         host's live state — docker/k8s/native members. Read-only; persist with

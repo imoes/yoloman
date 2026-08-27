@@ -146,11 +146,20 @@ var modules = new ModuleRegistry(writeEnabled)
     // second runspace: one module path, one timeout, one place where the streams are separated.
     .Add(new AgenticMcp.Agent.Windows.WindowsFeatureModule())
     .Add(new AgenticMcp.Agent.Windows.PackageModule())
+    // READ-ONLY, so both are offered even with the write gate closed: asking a host what went wrong must
+    // never require permission to change it.
+    .Add(new AgenticMcp.Agent.Windows.EventLogModule())
+    .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
 #else
     // THE MIRROR IMAGE of apt/systemd below: on a non-Windows host these are listed with the reason they
     // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
     // simply omitted them would be as unreadable in this direction as in the other.
     .Add(new UnsupportedModule("registry", "there is no Windows registry on this platform"))
+    .Add(new UnsupportedModule("windows_eventlog",
+        "there is no Windows event log on this platform; the journal/syslog is the counterpart",
+        instead: "powershell"))
+    .Add(new UnsupportedModule("windows_eventlog_channels",
+        "there is no Windows event log on this platform"))
     .Add(new UnsupportedModule("package",
         "this build's package providers are the Windows ones (msi, installer, winget, choco, appx, "
         + "PackageManagement); on Linux the apt/yum/dnf modules do this job",
