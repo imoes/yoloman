@@ -2928,3 +2928,53 @@ class ResourceGeneration(Base):
     applied_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("resource_key", "generation", name="uq_resource_generation"),)
+
+
+class OperationLog(Base):
+    """WHAT WAS DONE TO A HOST — the fleet-wide, durable copy of every agent's operation log.
+
+    The agent keeps a ring buffer and answers for itself (GET /api/v1/audit); this table is what makes a
+    fleet-wide question one query instead of N host calls, and what survives an agent restart. Collected by
+    the poller with a per-boot cursor.
+
+    WHY IT IS NOT THE AUDIT TRAIL WE ALREADY HAVE, said once here so the two never merge: the audit trail
+    records what somebody ASKED THIS SERVER to do (an API call, an operator, a policy change). This records
+    what A HOST ACTUALLY DID and what came back — the exit code, the plan, the target's own refusal text.
+    A request and its effect are two facts, and the interesting questions ("did that install work", "which
+    hosts refused") can only be answered by the second one.
+
+    `seq` is the agent's own sequence number, monotonic WITHIN ONE AGENT PROCESS; `boot_id` names that
+    process. The pair is unique per agent, which is exactly the constraint that makes re-collection
+    idempotent and a restart unambiguous.
+    """
+
+    __tablename__ = "operation_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    boot_id: Mapped[str] = mapped_column(String, nullable=False)
+    seq: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # The agent's own record id — a stable handle an analysis can point at ("call 9f3c…"), which a row id
+    # minted here could not be, since the host is where the record was made.
+    record_id: Mapped[str | None] = mapped_column(String)
+    module: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # changed | unchanged | planned | refused | error | timed-out | unknown-module | gap
+    # `gap` is OURS, not the agent's: a marker row written when the ring dropped records before we collected
+    # them, so a missing range appears in the log as a named fact instead of as an absence nobody notices.
+    outcome: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    params: Mapped[dict | None] = mapped_column(JSONB)      # secrets redacted on the host, before we see them
+    identity: Mapped[str | None] = mapped_column(String)    # who asked, as the agent saw it
+    started_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME, index=True)
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    changed: Mapped[bool | None] = mapped_column(Boolean)
+    message: Mapped[str | None] = mapped_column(String)
+    evidence: Mapped[dict | None] = mapped_column(JSONB)    # the module's own data block, verbatim
+    error: Mapped[str | None] = mapped_column(String)
+    collected_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "boot_id", "seq", name="uq_operation_log_agent_boot_seq"),
+    )

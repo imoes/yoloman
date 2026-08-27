@@ -21,13 +21,22 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, AgentObservedState, ConfigPolicy, HostConfigResource, HostGroup, OUNode
+from bossman.db.models import (
+    DEFAULT_TENANT_ID,
+    Agent,
+    AgentObservedState,
+    ConfigPolicy,
+    HostConfigResource,
+    HostGroup,
+    OperationLog,
+    OUNode,
+)
 from bossman.services.compiler import affected_agent_ids
 from bossman.services.config_desired import effective_resources, resource_dict, is_flat
 from bossman.db.session import get_session
@@ -475,6 +484,141 @@ async def get_agent_policy_conflicts(
         "policy_read_at": policy.get("read_at"),
         "policy_error": policy.get("error"),
         **report,
+    }
+
+
+# ---- The result log: what hosts DID, and what came back ----
+#
+# THE OUTCOME VOCABULARY IS FIXED AND EXHAUSTIVE, listed once here so a filter cannot silently mean something
+# else than the log stores. Each one is a different thing that happened, and collapsing any two of them makes a
+# real question unanswerable:
+#
+#   changed        the host is different now
+#   unchanged      it was already as asked (the idempotence claim, and the thing a second run must report)
+#   planned        a dry run — a preview, which neither changed the host nor found it already correct
+#   refused        the TARGET said no, with its own words in `error` (a fact about the host)
+#   error          the AGENT broke (a fact about us)
+#   timed-out      the caller stopped waiting; the operation MAY HAVE COMPLETED — measured, one install did
+#   unknown-module a call for a tool this host does not have
+#   gap            OURS, not a host's: records fell out of the agent's ring before we collected them
+OPERATION_OUTCOMES = ("changed", "unchanged", "planned", "refused", "error", "timed-out", "unknown-module", "gap")
+
+
+def _operation_row(row: OperationLog, agent_name: str | None = None) -> dict[str, Any]:
+    return {
+        "id": str(row.id),
+        "record_id": row.record_id,
+        "agent_id": str(row.agent_id),
+        "host": agent_name,
+        "boot_id": row.boot_id,
+        "seq": row.seq,
+        "module": row.module,
+        "outcome": row.outcome,
+        "dry_run": row.dry_run,
+        "changed": row.changed,
+        "params": row.params,
+        "identity": row.identity,
+        "started_at": row.started_at.isoformat() if row.started_at else None,
+        "duration_ms": row.duration_ms,
+        "message": row.message,
+        "evidence": row.evidence,
+        "error": row.error,
+        "collected_at": row.collected_at.isoformat() if row.collected_at else None,
+    }
+
+
+@router.get("/api/v1/operations")
+async def list_operations(
+    host: str | None = None,
+    agent_id: UUID | None = None,
+    module: str | None = None,
+    outcome: str | None = None,
+    since: datetime | None = None,
+    changed_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """WHAT THE FLEET DID — every collected operation record, newest first.
+
+    The fleet-wide half of the result log (docs/windows-management.md §8 milestone 9). The agent keeps its own
+    ring and answers for itself; this answers questions no single host can — "which hosts refused this",
+    "what changed in the last hour", "did that install ever complete anywhere".
+
+    Filters are ANDed and every one is optional. `outcome` is validated against the fixed vocabulary rather
+    than passed through, because a typo that silently matches nothing reads exactly like "it never happened".
+    """
+    if outcome and outcome not in OPERATION_OUTCOMES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown outcome {outcome!r}; it is one of {', '.join(OPERATION_OUTCOMES)}",
+        )
+
+    query = select(OperationLog, Agent.name).join(Agent, Agent.id == OperationLog.agent_id)
+    if agent_id:
+        query = query.where(OperationLog.agent_id == agent_id)
+    if host:
+        query = query.where(Agent.name == host)
+    if module:
+        query = query.where(OperationLog.module == module)
+    if outcome:
+        query = query.where(OperationLog.outcome == outcome)
+    if since:
+        query = query.where(OperationLog.started_at >= since)
+    if changed_only:
+        # THE WRITES ONLY. `changed is true` and not `outcome != unchanged`: a refusal did not change the host
+        # either, and a reader asking "what changed" must not be handed the things that did not.
+        query = query.where(OperationLog.changed.is_(True))
+    # started_at can be null (a gap marker has none) — order by collection so such a row still lands in place.
+    query = query.order_by(OperationLog.started_at.desc().nullslast(),
+                           OperationLog.collected_at.desc()).limit(limit)
+
+    rows = (await session.execute(query)).all()
+    return {
+        "count": len(rows),
+        # WHAT WAS ASKED, echoed back. A list of 200 rows out of 4000 looks identical to a complete answer
+        # unless the query and its limit come with it.
+        "query": {"host": host, "agent_id": str(agent_id) if agent_id else None, "module": module,
+                  "outcome": outcome, "since": since.isoformat() if since else None,
+                  "changed_only": changed_only, "limit": limit},
+        "outcomes": list(OPERATION_OUTCOMES),
+        "operations": [_operation_row(row, name) for row, name in rows],
+    }
+
+
+@router.get("/api/v1/agents/{agent_id}/operations")
+async def list_agent_operations(
+    agent_id: UUID,
+    module: str | None = None,
+    outcome: str | None = None,
+    limit: int = Query(default=200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """One host's result log, newest first — the same records the host itself keeps, plus the ones its ring has
+    already discarded. Coverage is stated rather than implied: `collected_range` says which of the agent's own
+    sequence numbers we hold, so "no records" and "we never collected any" are distinguishable."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+
+    inner = await list_operations(agent_id=agent_id, module=module, outcome=outcome, limit=limit,
+                                 session=session, _identity=_identity)
+    span = (await session.execute(
+        select(OperationLog.boot_id, func.min(OperationLog.seq), func.max(OperationLog.seq), func.count())
+        .where(OperationLog.agent_id == agent_id)
+        .group_by(OperationLog.boot_id)
+        .order_by(func.max(OperationLog.collected_at).desc())
+    )).all()
+    return {
+        **inner,
+        "host": agent.name,
+        # One entry per agent PROCESS: sequence numbers restart with the agent, so a single range would merge
+        # two unrelated numberings into one meaningless span.
+        "collected_range": [
+            {"boot_id": boot, "first_seq": int(lo), "last_seq": int(hi), "records": int(n)}
+            for boot, lo, hi, n in span
+        ],
     }
 
 

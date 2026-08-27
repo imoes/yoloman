@@ -148,8 +148,14 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
         sep = next((l.get("separator") for l, _ in reversed(lays) if l.get("separator")), None)
         deep = not is_flat(fmt)
         merged, key_sources = merge_layers([(l.get("values") or {}, s) for l, s in lays], deep)
+        # THE DECLARED TYPE SURVIVES. This line used to pass the literal "config" for every non-template
+        # resource, which silently rewrote a `registry` declaration into a file one — the type was declared,
+        # recorded in the row, merged through the layers, and then overwritten by a constant two lines from the
+        # end. Measured: the conflict report saw zero declarations while the row plainly said type=registry.
+        # Anything that is not template_render keeps the strongest layer's own word, defaulting to config.
+        kind = strongest.get("type") or "config"
         out.append({"path": path, "source": source, "key_sources": key_sources,
-                    "resource": resource_dict("config", path, fmt, sep, merged, None)})
+                    "resource": resource_dict(kind, path, fmt, sep, merged, None)})
     return out
 
 

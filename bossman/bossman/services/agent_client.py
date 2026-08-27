@@ -325,6 +325,25 @@ class AgentClient:
         model (docs: project-server-as-document)."""
         return await self._get_json("/api/v1/state/observed", {})
 
+    async def audit(self, since_seq: int | None = None, module: str | None = None,
+                    outcome: str | None = None, limit: int = 500) -> dict[str, Any]:
+        """GET /api/v1/audit — THE RESULT LOG the host keeps about itself.
+
+        `{boot_id, oldest_seq, newest_seq, dropped, capacity, count, records:[…]}`. The cursor is the agent's
+        own `seq`, monotonic within one agent PROCESS, which is why `boot_id` comes with it: without the boot
+        id a restart is indistinguishable from "nothing new", and a collector would either skip or repeat a
+        whole boot's worth of records. `dropped` says how many the ring discarded, so falling behind is a
+        number rather than a silence.
+        """
+        params: dict[str, str] = {"limit": str(limit)}
+        if since_seq is not None:
+            params["since_seq"] = str(since_seq)
+        if module:
+            params["module"] = module
+        if outcome:
+            params["outcome"] = outcome
+        return await self._get_json("/api/v1/audit", params)
+
     async def state_generations(self) -> dict[str, Any]:
         """GET /api/v1/state/generations — the agent's local desired-state
         generation history (plan/apply/rollback store), newest first."""

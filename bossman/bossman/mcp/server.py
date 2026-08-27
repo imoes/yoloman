@@ -249,6 +249,40 @@ def build_mcp_server(
             )
 
     @mcp.tool()
+    async def operation_log(host: str = "", module: str = "", outcome: str = "", since_minutes: int = 0,
+                            changed_only: bool = False, limit: int = 100) -> dict[str, Any]:
+        """WHAT THE FLEET ACTUALLY DID, and what came back — the record, not a summary of it.
+
+        Answers the questions a reply to whoever was waiting cannot: did that install work, what did the
+        host say when it refused, which hosts changed in the last hour, what was the plan before it ran.
+        Every collected module call carries the EVIDENCE verbatim (exit code, the -WhatIf plan, the
+        detection rule before/after, the target's own error text), so an analysis reads the same thing an
+        operator does.
+
+        OUTCOMES, exhaustive and each meaning something different — read them before concluding anything:
+        `changed` (the host is different now), `unchanged` (it was already as asked — the idempotence
+        claim), `planned` (a DRY RUN: a preview, nothing was done), `refused` (the TARGET said no; its
+        words are in `error`), `error` (the agent broke — a fact about us, not the host), `timed-out` (the
+        caller stopped waiting — THE OPERATION MAY HAVE COMPLETED, so never report it as a failure without
+        re-reading the state), `unknown-module`, and `gap` (records fell out of an agent's ring buffer
+        before collection: that range is gone, and this row says so rather than leaving a hole that reads
+        like quiet).
+
+        Filters are ANDed; every argument is optional (empty string / 0 = no filter). Read-only.
+        """
+        from bossman.api.management import OPERATION_OUTCOMES, list_operations
+
+        if outcome and outcome not in OPERATION_OUTCOMES:
+            raise ValueError(f"unknown outcome {outcome!r}; it is one of {', '.join(OPERATION_OUTCOMES)}")
+        since = (datetime.now(timezone.utc) - timedelta(minutes=since_minutes)) if since_minutes else None
+        async with session_factory() as session:
+            return await list_operations(
+                host=host or None, agent_id=None, module=module or None, outcome=outcome or None,
+                since=since, changed_only=changed_only, limit=max(1, min(limit, 2000)),
+                session=session, _identity=None,
+            )
+
+    @mcp.tool()
     async def propose_config_policy(instruction: str) -> dict[str, Any]:
         """Turn a plain-language request ("set the NTP server to 10.0.0.1 on all
         Debian web servers in Munich") into a STRUCTURED, reviewable config-policy

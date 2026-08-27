@@ -492,6 +492,96 @@ async def _refresh_group_policy(session: AsyncSession, agent: Agent, client: Age
                 len(data.get("policy_area_values") or data.get("settings") or []))
 
 
+async def _collect_operation_log(session: AsyncSession, agent: Agent, client: AgentClient) -> int:
+    """Pull what the host DID since we last asked, into the fleet-wide operation_log.
+
+    THE CURSOR IS PER AGENT PROCESS. The agent's `seq` is monotonic within one process and `boot_id` names the
+    process, so the cursor is (boot_id, max seq) read back from the rows themselves — no separate cursor table
+    to drift out of step with the data it describes. A restart brings a new boot_id, the cursor for it starts
+    at 0, and nothing is skipped or repeated.
+
+    A GAP IS RECORDED, NOT PASSED OVER. The agent's ring holds 1000 calls; if it discarded records before we
+    collected them, `oldest_seq` is beyond our cursor and those calls are gone from the host forever. That is
+    written down as a `gap` row naming the missing range, because a log with an unmarked hole in it invites
+    exactly the conclusion it cannot support — "nothing happened between these two entries".
+
+    Every poll cycle, not throttled: the whole point is that the record is there when somebody asks, and a
+    cursor read plus an empty page is two cheap queries.
+    """
+    from bossman.db.models import OperationLog
+
+    latest = (await session.execute(
+        select(OperationLog.boot_id, func.max(OperationLog.seq))
+        .where(OperationLog.agent_id == agent.id)
+        .group_by(OperationLog.boot_id)
+        .order_by(func.max(OperationLog.collected_at).desc())
+        .limit(1)
+    )).first()
+
+    page = await client.audit(since_seq=None)
+    boot_id = page.get("boot_id")
+    if not boot_id:
+        return 0
+    # Same process → continue after what we have. A different one → this agent restarted, and its sequence
+    # numbers start again from 1; taking the old cursor would silently drop the whole new boot.
+    cursor = int(latest[1]) if latest and latest[0] == boot_id else 0
+    records = [r for r in (page.get("records") or []) if int(r.get("seq") or 0) > cursor]
+
+    rows: list[dict] = []
+    oldest = int(page.get("oldest_seq") or 0)
+    if cursor and oldest > cursor + 1:
+        rows.append({
+            # THE LAST MISSING SEQUENCE NUMBER, which is free by definition — the marker needs a seq that
+            # is unique per (agent, boot) and sorts where the hole is. `cursor` would have been the obvious
+            # choice and is exactly wrong: that record is one we already hold, so the insert's
+            # ON CONFLICT DO NOTHING silently dropped the marker (caught by the test, not by review).
+            "agent_id": agent.id, "boot_id": boot_id, "seq": oldest - 1,
+            "module": "(gap)", "outcome": "gap", "dry_run": False,
+            "message": (f"{oldest - cursor - 1} operation(s) (seq {cursor + 1}..{oldest - 1}) fell out of the "
+                        f"agent's ring buffer before they were collected — the agent keeps the last "
+                        f"{page.get('capacity')} calls and has discarded {page.get('dropped')} since it "
+                        f"started. They are gone from the host; this row marks the range so the log does not "
+                        f"read as if nothing happened."),
+        })
+
+    for record in records:
+        started = record.get("started_at")
+        try:
+            started_at = datetime.fromisoformat(started) if started else None
+        except (TypeError, ValueError):
+            started_at = None
+        rows.append({
+            "agent_id": agent.id,
+            "boot_id": boot_id,
+            "seq": int(record.get("seq") or 0),
+            "record_id": record.get("id"),
+            "module": record.get("module") or "(unnamed)",
+            "outcome": record.get("outcome") or "unknown",
+            "dry_run": bool(record.get("dry_run")),
+            "params": record.get("params"),
+            "identity": record.get("identity"),
+            "started_at": started_at,
+            "duration_ms": record.get("duration_ms"),
+            "changed": record.get("changed"),
+            "message": record.get("message"),
+            # The module's own data block, verbatim. It is the evidence; a summary of it would make the log
+            # unable to answer the questions it exists for.
+            "evidence": record.get("evidence") if isinstance(record.get("evidence"), (dict, list)) else (
+                {"value": record.get("evidence")} if record.get("evidence") is not None else None),
+            "error": record.get("error"),
+        })
+
+    if not rows:
+        return 0
+    # DO NOTHING on conflict: re-collecting an overlapping range is normal (a cursor read races a call in
+    # flight), and an operation record is immutable once made — there is nothing to update.
+    await session.execute(
+        pg_insert(OperationLog).values(rows).on_conflict_do_nothing(
+            constraint="uq_operation_log_agent_boot_seq")
+    )
+    return len(rows)
+
+
 async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
     """Upsert AgentObservedState (the server-as-a-document read) when the cache
     is missing or older than _OBSERVED_MAX_AGE, so GET /state/observed serves it
@@ -787,6 +877,17 @@ async def poll_agent(
             # Inventory: refresh the installed-package list (throttled, best-effort).
             if not is_infra_agent(agent):
                 await _collect_packages(agent, client, now)
+            # THE RESULT LOG: what this host DID since we last asked. Its own try/except — an agent that has
+            # no /api/v1/audit yet (the Go agent writes its audit to the journal) answers 404, and that must
+            # cost nothing else in the cycle.
+            try:
+                collected = await _collect_operation_log(session, agent, client)
+                if collected:
+                    logger.info("collected %d operation record(s) from %s", collected, agent.name)
+            except AgentClientError:
+                pass  # no audit endpoint on this agent, or unreachable — the cycle's other errors say so
+            except Exception:
+                logger.exception("operation log collection failed for agent %s", agent.name)
             # Config drift DETECTION (report-only): surface drifted MANAGED config
             # as the "Config drift" service. No automatic reconfiguration — re-sync
             # is a manual operator action. Isolated so it can't crash the poll cycle.
