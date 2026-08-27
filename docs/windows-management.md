@@ -363,7 +363,13 @@ closed enumeration this project spent a week learning to recognise in prose.
 7. **MSI packaging of the agent itself** + service registration — the milestone 6 of `windows-agent.md`, and
    the thing that makes all of the above installable rather than copied.
 
-8. **THE RESULT LOG — retrievable, and analysable by the AI** (asked for 2026-08-27). Every module call must
+8. **The declared-registry resource + the GP conflict report.** A registry value as a first-class desired-state
+   resource (generations, rollback, drift — the `registry` module already writes them; what is missing is the
+   TYPE so they converge), and then the comparison against `foreign_policy.settings` that produces
+   *"Group Policy sets AUOptions = 3, you declare 4, the GPO wins"*. Blocked on the first half: a comparison
+   needs two operands, and today only Windows' side is in the document. See §7b.
+
+9. **THE RESULT LOG — retrievable, and analysable by the AI** (asked for 2026-08-27). Every module call must
    leave a record that can be fetched afterwards and reasoned over, not just a reply to whoever happened to
    be waiting.
 
@@ -478,9 +484,34 @@ security filtering, a disabled link, or an invalid GPO. "Not in the applied list
 because…" are different facts, and only the second one can be acted on — that is the whole reason this is a
 module and not a grep of the applied names.
 
-Still open, and it is the payoff rather than the plumbing: **the conflict report.** The document now holds
-both authorities' intent; comparing them (a GPO-set registry value against a key we declare) is what turns
-"the value keeps reverting" into a named finding.
+**What the policy actually imposes travels with it** — and NOT from gpresult, which was measured and found
+wanting: its XML on this host carries **zero** `RegistrySetting`/`Policy`/`SecuritySettings` elements (the
+extension sections are empty when nothing is configured, and where they are populated their element names are
+localised). So the values are read where a GPO actually writes them:
+
+    HKLM\SOFTWARE\Policies                                    68 keys, 15 values
+    HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies   11 keys, 42 values
+    plus the HKCU equivalents                                 -> 57 values in total
+
+Real ones, from the host: `Microsoft\TPM\OSManagedAuthLevel = 5`, `WindowsUpdate\AUOptions = 3`,
+`safer\codeidentifiers\authenticodeenabled = 0`. **57 values against this machine's 324 000 registry keys**
+is the entire argument for reading the policy subtree rather than the hive (§8a): a comparison against 57 is a
+report, a comparison against 324 000 is noise.
+
+### The conflict report is blocked, and the blocker is on OUR side
+
+The payoff of all this would be: *"Group Policy sets `AUOptions = 3`; you declare `AUOptions = 4`; the GPO
+wins, and your convergence will fight it forever."* Both halves are needed for that sentence, and only one
+exists. **We have no declared-registry resource type.** The config plane declares FILE paths; the `registry`
+module can *write* a value imperatively (a runbook step, an MCP call), but nothing DECLARES one, so there is
+no "our side" to compare against.
+
+That is the same gap §8a already named from the other direction — "declared keys → desired state … what is
+missing is the resource type so they converge". It is one piece of work serving two purposes, and it has to
+come before the conflict report rather than alongside it: a comparison needs two operands.
+
+Recorded rather than half-built, because a conflict report against an empty set of declarations would report
+zero conflicts on every host and look like good news.
 
 ## 8a. Is the registry a desired-state object? Measured, and the answer is "declared keys, never the hive"
 

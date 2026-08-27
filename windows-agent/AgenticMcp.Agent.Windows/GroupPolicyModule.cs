@@ -214,6 +214,19 @@ public sealed class GroupPolicyModule : IModule
             }
         }
 
+        // ---- WHAT THE POLICY ACTUALLY IMPOSES -----------------------------------------------------------
+        // Both halves of one question, always — not behind a parameter, because "which GPOs apply" and "what
+        // do they set" are two parts of a single answer and a reply whose shape depends on a flag is the
+        // thing this project keeps refusing to build.
+        //
+        // AND THE VALUES DO NOT COME FROM gpresult. Measured on this host: its XML carries ZERO
+        // RegistrySetting/Policy/SecuritySettings elements — the extension sections are empty on a host whose
+        // local policy sets nothing, and where they are populated their element names are LOCALISED. So the
+        // values are read where a GPO actually writes them, which is also small: HKLM\SOFTWARE\Policies is
+        // 68 keys / 15 values and …\CurrentVersion\Policies is 11 keys / 42 values — 57 values in total, on
+        // a machine with 324 000 registry keys. That ratio is the whole argument for reading the policy
+        // subtree rather than the hive (docs/windows-management.md §8a).
+        data["settings"] = await PolicyRegistry(ct);
         data["applied"] = applied;
         // DENIED GPOs ARE REPORTED, not filtered away. "The policy is not in the applied list" and "the
         // policy was refused for this host, here is why" are different facts, and only the second one can be
@@ -227,12 +240,50 @@ public sealed class GroupPolicyModule : IModule
         }
 
         var domain = data.GetValueOrDefault("computerresults_domain") as string;
+        var settingCount = ((List<Dictionary<string, object?>>)data["settings"]!).Count;
         return new ModuleResult(false,
-            $"{applied.Count} GPO(s) applied, {denied.Count} denied"
+            $"{applied.Count} GPO(s) applied, {denied.Count} denied, {settingCount} policy value(s) imposed"
             + (string.IsNullOrWhiteSpace(domain) ? "" : $" (domain {domain})")
             + " — declared by Windows Group Policy, not by this system",
             data,
             new Dictionary<string, int> { ["attempts"] = 1, ["produced"] = applied.Count + denied.Count });
+    }
+
+    /// <summary>
+    /// The registry values Group Policy has written — path, name, type and value.
+    ///
+    /// <para>These two subtrees ARE the Administrative Templates surface: a GPO's registry-based settings land
+    /// nowhere else, and everything else in the hive is the operating system. That distinction is what makes a
+    /// conflict report possible at all — comparing our declared keys against 57 values is a report, comparing
+    /// them against 324 000 is noise.</para>
+    /// </summary>
+    private static async Task<List<Dictionary<string, object?>>> PolicyRegistry(CancellationToken ct)
+    {
+        // HKCU is included for completeness and marked by hive: a user-policy value governs whoever is signed
+        // in, which on a server is usually nobody — but "usually" is not "never", and an unexplained setting
+        // is exactly what this list exists to explain.
+        const string setup =
+            "$roots = @('HKLM:\\SOFTWARE\\Policies','HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies',"
+            + "'HKCU:\\SOFTWARE\\Policies','HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies'); "
+            + "$out = New-Object System.Collections.ArrayList; "
+            + "foreach ($r in $roots) { "
+            + "  foreach ($k in @(Get-Item $r -ErrorAction SilentlyContinue) + "
+            + "                 @(Get-ChildItem $r -Recurse -ErrorAction SilentlyContinue)) { "
+            + "    foreach ($n in $k.GetValueNames()) { "
+            + "      [void]$out.Add([pscustomobject]@{ "
+            + "        path = $k.Name; name = $n; "
+            + "        type = [string]$k.GetValueKind($n); "
+            + "        value = [string]($k.GetValue($n) -join ',') }) } } }";
+        var answer = await WindowsPowerShellBridge.RunJson(setup, "@($out)", TimeSpan.FromMinutes(5), ct);
+        return answer.Items.Select(i => new Dictionary<string, object?>
+        {
+            // HKEY_LOCAL_MACHINE\… as the registry itself spells it, so a comparison against a declared key
+            // does not hinge on which abbreviation somebody typed.
+            ["path"] = i.TryGetProperty("path", out var pa) ? pa.GetString() : null,
+            ["name"] = i.TryGetProperty("name", out var na) ? na.GetString() : null,
+            ["type"] = i.TryGetProperty("type", out var ty) ? ty.GetString() : null,
+            ["value"] = i.TryGetProperty("value", out var va) ? va.GetString() : null,
+        }).ToList();
     }
 
     private static string? Str(IReadOnlyDictionary<string, object?> p, string key) =>
