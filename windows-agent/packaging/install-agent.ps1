@@ -129,7 +129,13 @@ $env_lines = @(
     "AGENT_LISTEN=$Listen",
     "AGENT_ADDRESS=$Address",
     "AGENT_STATE_DIR=$StateDir",
-    "AGENT_WRITE=" + ([bool]$Write).ToString().ToLower()
+    # ONE STRING, and the parentheses are load-bearing: in an array literal PowerShell binds the comma
+    # LOOSER than +, so `"a", "AGENT_WRITE=" + $x` parses as `("a", "AGENT_WRITE=") + $x` — an array with
+    # "AGENT_WRITE=" and "true" as SEPARATE entries. Measured on the real host: a `-Write` install produced
+    # `AGENT_WRITE=` (empty) in the service environment, the agent came up read-only, and its tool listing
+    # said "this agent's write gate is closed" for fifteen modules while the installer had printed
+    # "write gate True". The installer and the host disagreed, and the installer was wrong.
+    "AGENT_WRITE=$( ([bool]$Write).ToString().ToLower() )"
 )
 if ($BossmanUrl) { $env_lines += "BOSSMAN_URL=$BossmanUrl" }
 
