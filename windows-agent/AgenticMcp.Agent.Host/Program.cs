@@ -284,6 +284,96 @@ app.MapGet("/api/v1/metrics/{metric}", (string metric, HttpRequest req) =>
     return Results.Json(store.Query(metric, from, to, labels));
 });
 
+// POST /api/v1/state/apply — the DOCUMENT LOOP, which is how a declared change reaches this host.
+//
+// A tool call changes a host; this declares what the host should BE, and Bossman records it as the host's
+// desired state so it is diffable, versioned and roll-backable. The one resource type this agent understands
+// today is `registry`, which is the point: a registry value is a config file that is not a file (typed,
+// hierarchical, absence ≠ empty), so it needed a declared form of its own — see
+// docs/windows-management.md §7b for why, and services/registry_policy.py for what it makes possible.
+//
+// A resource type this agent does not know is reported as an ERROR ON THAT RESOURCE and the rest still
+// converge: one unsupported entry in a document must not cost the others, and it must not be silently
+// skipped either.
+app.MapPost("/api/v1/state/apply", async (HttpRequest req, CancellationToken ct) =>
+{
+    if (!writeEnabled)
+    {
+        return Results.Json(new { error = "this agent is read-only (write gate closed)" },
+            statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    var document = await JsonSerializer.DeserializeAsync<StateDocument>(req.Body, cancellationToken: ct);
+    var changes = new List<ResourceChange>();
+    var changed = 0;
+
+    foreach (var resource in document?.Resources ?? [])
+    {
+        if (!string.Equals(resource.Type, "registry", StringComparison.OrdinalIgnoreCase))
+        {
+            changes.Add(new ResourceChange(resource.Type, resource.Path, "noop", null,
+                $"this agent converges `registry` resources only; \"{resource.Type}\" is not implemented "
+                + "here (the Go agent handles file codecs and template_render)"));
+            continue;
+        }
+
+        var registry = modules.Find("registry");
+        if (registry is null or UnsupportedModule)
+        {
+            changes.Add(new ResourceChange(resource.Type, resource.Path, "noop", null,
+                "the registry module is not available on this agent"));
+            continue;
+        }
+
+        var perValue = new Dictionary<string, object?[]>();
+        string? failure = null;
+        foreach (var (name, spec) in resource.Values ?? [])
+        {
+            // A value is {"type": …, "data": …}; a bare scalar is accepted and its type left to the module,
+            // which refuses to guess one it was not given — the same contract the conflict report assumes.
+            var (type, data) = ReadValueSpec(spec);
+            var parameters = new Dictionary<string, object?>
+            {
+                ["path"] = resource.Path,
+                ["name"] = name,
+                ["data"] = data,
+                ["state"] = "present",
+            };
+            if (type is not null)
+            {
+                parameters["type"] = type;
+            }
+
+            try
+            {
+                var result = await registry.RunAsync(parameters, document!.DryRun, ct);
+                if (result.Changed && result.Data is Dictionary<string, object?> d)
+                {
+                    perValue[name] = [d.GetValueOrDefault("value_before"), d.GetValueOrDefault("value")];
+                }
+            }
+            catch (Exception ex)
+            {
+                // The FIRST failure is reported with the value that caused it, and the remaining values are
+                // still attempted: a document is a set of declarations, not a script, and stopping at the
+                // first error would leave the host in a state nobody declared.
+                failure = $"{name}: {ex.Message}";
+            }
+        }
+
+        var action = perValue.Count > 0 ? (document!.DryRun ? "update" : "update") : "noop";
+        if (perValue.Count > 0)
+        {
+            changed++;
+        }
+
+        changes.Add(new ResourceChange(resource.Type, resource.Path, action,
+            perValue.Count > 0 ? perValue : null, failure));
+    }
+
+    return Results.Json(new StateApplyResult(changes, changed, document?.DryRun ?? false));
+});
+
 app.MapGet("/api/v1/tools", () => Results.Json(modules.Describe()));
 
 // POST /api/v1/tools/{name} — the ONE call every action goes through, same path and same body as the Go
@@ -291,11 +381,23 @@ app.MapGet("/api/v1/tools", () => Results.Json(modules.Describe()));
 // preview instead of a change.
 app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, CancellationToken ct) =>
 {
+    // EVERY EXIT FROM HERE LEAVES A RECORD. This handler is the one path every action takes, which is the only
+    // reason the operation log can claim to be complete — an audit wired per module is an audit with a hole in
+    // it the day someone adds the forty-first module.
+    var startedAt = DateTimeOffset.UtcNow;
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    // WHO ASKED. Bossman presents a client certificate; its subject is the closest thing to an identity this
+    // agent has. A bearer-only caller is recorded as such rather than as nobody.
+    var identity = req.HttpContext.Connection.ClientCertificate?.Subject
+                   ?? (req.Headers.Authorization.Count > 0 ? "bearer-token" : "anonymous");
+
     var module = modules.Find(name);
     if (module is null)
     {
         // The name, not just a 404: an orchestrator that mistyped a module needs to know which one it asked
         // for, and one that targeted the wrong OS needs to know this host has a listing to look at.
+        OperationLog.Record(name, "unknown-module", false, null, identity, startedAt,
+            clock.Elapsed.TotalMilliseconds, error: $"no such tool on this agent: {name}");
         return Results.NotFound(new { error = $"no such tool on this agent: {name}" });
     }
 
@@ -324,12 +426,31 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
 
     try
     {
-        return Results.Json(await module.RunAsync(parameters, dryRun, ct));
+        var result = await module.RunAsync(parameters, dryRun, ct);
+        // THREE OUTCOMES WHERE A BOOLEAN WOULD GIVE TWO. A dry run is `planned`: it neither changed the host
+        // nor found it already correct, and filing a preview as "unchanged" is how a plan gets mistaken for a
+        // no-op afterwards.
+        OperationLog.Record(name, dryRun ? "planned" : (result.Changed ? "changed" : "unchanged"), dryRun,
+            parameters, identity, startedAt, clock.Elapsed.TotalMilliseconds,
+            changed: result.Changed, message: result.Msg, evidence: result.Data);
+        return Results.Json(result);
+    }
+    catch (OperationCanceledException ex)
+    {
+        // TIMED-OUT IS ITS OWN OUTCOME, and the reason this catch exists at all. Measured: the SNMP feature
+        // install outlasted the caller's patience and COMPLETED anyway. Recording it as an error would put a
+        // successful change in the log as a failure, which is worse than recording nothing.
+        OperationLog.Record(name, "timed-out", dryRun, parameters, identity, startedAt,
+            clock.Elapsed.TotalMilliseconds, error: ex.Message,
+            message: "the caller stopped waiting; the operation may still have completed on the host");
+        throw;
     }
     catch (PlatformNotSupportedException ex)
     {
         // 501, and the reason. This is the refusal the listing already announced with supported:false; a plan
         // written for the wrong OS learns WHY here rather than getting a bare error.
+        OperationLog.Record(name, "refused", dryRun, parameters, identity, startedAt,
+            clock.Elapsed.TotalMilliseconds, error: ex.Message);
         return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status501NotImplemented);
     }
     catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException or FormatException
@@ -342,8 +463,39 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
         // useful refusal that arrived at Bossman as an opaque 500 with an EMPTY body, because
         // InvalidOperationException was not in this list. A host that says no must have its reason carried to
         // whoever asked; a 500 says only that something broke here.
+        //
+        // REFUSED, NOT ERROR: "Storage Services cannot be removed" is a fact about the host and belongs in
+        // the log as the host's answer. `error` is reserved for this agent breaking, which is a fact about us
+        // — mixing the two makes "how many operations failed" unanswerable.
+        OperationLog.Record(name, "refused", dryRun, parameters, identity, startedAt,
+            clock.Elapsed.TotalMilliseconds, error: ex.Message);
         return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status422UnprocessableEntity);
     }
+    catch (Exception ex)
+    {
+        // The unexpected one, recorded and re-thrown so the 500 still happens: a crash that leaves no trace
+        // in the log is the one case where the log's absence is most likely to be read as "nothing happened".
+        OperationLog.Record(name, "error", dryRun, parameters, identity, startedAt,
+            clock.Elapsed.TotalMilliseconds, error: $"{ex.GetType().Name}: {ex.Message}");
+        throw;
+    }
+});
+
+// GET /api/v1/audit — THE RESULT LOG, asked of the host directly.
+//
+// Bossman collects this into a fleet-wide table, but the host keeps its own copy and answers for itself: a
+// host that can only be understood through a server is a host nobody can debug when the server is the thing
+// that is broken. Same reason the Go agent keeps its audit ring.
+//
+// A READ, so it is available on a read-only agent — the write gate governs changing the host, not asking what
+// happened to it. There is deliberately no way to CLEAR it over HTTP.
+app.MapGet("/api/v1/audit", (HttpRequest req) =>
+{
+    long? sinceSeq = long.TryParse(req.Query["since_seq"], out var s) ? s : null;
+    var module = string.IsNullOrWhiteSpace(req.Query["module"]) ? null : (string?)req.Query["module"];
+    var outcome = string.IsNullOrWhiteSpace(req.Query["outcome"]) ? null : (string?)req.Query["outcome"];
+    var limit = int.TryParse(req.Query["limit"], out var l) ? l : 200;
+    return Results.Json(OperationLog.Page(sinceSeq, module, outcome, limit));
 });
 
 // The inventory document, cached: Bossman stores it as the host's `facts`, and `os_family` in there is what
@@ -530,6 +682,24 @@ _ = Task.Run(async () =>
 }, collecting);
 
 await app.RunAsync();
+
+/// <summary>
+/// A declared registry value: <c>{"type": "dword", "data": 4}</c>, or a bare scalar whose type the module is
+/// left to refuse to guess.
+/// </summary>
+static (string? Type, string? Data) ReadValueSpec(JsonElement spec)
+{
+    if (spec.ValueKind == JsonValueKind.Object)
+    {
+        var type = spec.TryGetProperty("type", out var t) ? t.GetString() : null;
+        var data = spec.TryGetProperty("data", out var d)
+            ? (d.ValueKind == JsonValueKind.String ? d.GetString() : d.ToString())
+            : null;
+        return (type, data);
+    }
+
+    return (null, spec.ValueKind == JsonValueKind.String ? spec.GetString() : spec.ToString());
+}
 
 internal static class ThisAssembly
 {

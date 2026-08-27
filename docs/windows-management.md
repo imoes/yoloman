@@ -363,11 +363,36 @@ closed enumeration this project spent a week learning to recognise in prose.
 7. **MSI packaging of the agent itself** + service registration — the milestone 6 of `windows-agent.md`, and
    the thing that makes all of the above installable rather than copied.
 
-8. **The declared-registry resource + the GP conflict report.** A registry value as a first-class desired-state
-   resource (generations, rollback, drift — the `registry` module already writes them; what is missing is the
-   TYPE so they converge), and then the comparison against `foreign_policy.settings` that produces
-   *"Group Policy sets AUOptions = 3, you declare 4, the GPO wins"*. Blocked on the first half: a comparison
-   needs two operands, and today only Windows' side is in the document. See §7b.
+8. ~~**The declared-registry resource + the GP conflict report.**~~ — **DONE 2026-08-27.** A registry value is
+   a first-class desired-state resource (`type: "registry"`, one value per row, per-key `source` from the
+   group < OU < site < host merge), the agent applies it through `POST /api/v1/state/apply`, and
+   `GET /api/v1/agents/{id}/policy-conflicts` compares it against Windows' policy territory from stored data
+   with no host call. Verified on `bossman-wintest`: `AUOptions` declared 4, held 3 out of band → one finding;
+   both at 4 → `same_value`, never a conflict.
+
+   **Four defects it took to get an honest report**, each invisible from the Linux side:
+
+   - **`effective_resources` overwrote the declared `type` with `"config"`**, so a registry declaration was
+     invisible to the very report built on it (`kind = strongest.get("type") or "config"`).
+   - **A NUL character in the agent's reply aborted the COMMIT.** Windows registry strings carry a trailing
+     C-string terminator; Postgres cannot store U+0000 in `text`/`jsonb`, and asyncpg raised
+     UntranslatableCharacterError at commit — discarding that host's ENTIRE poll cycle (metrics, checks,
+     inventory, policy) every 60 seconds with only a traceback to show for it. Scrubbed once where an agent's
+     JSON becomes Python data.
+   - **`_store_facts` deleted facts it does not own.** Foreign keys were a hardcoded list of two names, so
+     `group_policy` made the change comparison compare the whole facts document against the inventory
+     document (differing every tick) and was then dropped by the rewrite — erasing the six-hour throttle
+     stamp, hence 8 gpresult reads in 25 minutes. The owned key set is recorded now (`_inventory_keys`).
+   - **The report confirmed itself.** It compared against a field called `settings` and called a match
+     "Group Policy agrees". Measured: `gpresult /X` here carries NO per-setting data at all (element census:
+     ExtensionGuid, ExtensionName, ExtensionStatus — no RegistrySetting anywhere), so the values come from the
+     Group-Policy-OWNED REGISTRY AREA — which a declared registry resource writes into as well. After
+     applying our own declaration the area held our value, and the report found agreement with the value it
+     had just written. Now: `policy_area_values` (named for what it is), outcome `same_value` instead of
+     `agreeing` with the caveat spelled out, a differing value worded as *"Another authority holds AUOptions
+     = '3' … that value is not ours — we would have written ours"*, and `imposed_source` travelling with the
+     report so no consumer overstates it. `IMPOSED_SOURCE_RSOP` is wired and tested for the day a source can
+     name the author per value.
 
 9. **THE RESULT LOG — retrievable, and analysable by the AI** (asked for 2026-08-27). Every module call must
    leave a record that can be fetched afterwards and reasoned over, not just a reply to whoever happened to
