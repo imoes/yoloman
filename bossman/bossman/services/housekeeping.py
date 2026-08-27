@@ -146,20 +146,26 @@ async def prune_process_series(
                 text("DELETE FROM metrics_raw WHERE series_id = ANY(:ids) AND time >= :floor"),
                 {"ids": list(ids), "floor": uncompressed_floor},
             )
-            # phase 2: the (now point-less) series rows. Guard each delete with a
-            # time-bounded NOT EXISTS so a series that gained a referencing point
-            # between phase 1 and here (a concurrent insert, or a straggler) is
-            # SKIPPED instead of aborting the whole prune on the FK
-            # (metrics_raw_series_id_fkey). Same `>= floor` bound as phase 1, so the
-            # check stays on uncompressed chunks (no decompression). Skipped series
-            # are simply pruned on a later run.
+            # phase 2: the (now point-less) series rows, guarded so a series that gained a referencing point
+            # between phase 1 and here is SKIPPED instead of aborting the prune on the FK
+            # (metrics_raw_series_id_fkey), and pruned on a later run.
+            #
+            # THE GUARD IS UNBOUNDED IN TIME, and it has to be. It used to carry the same `time >= floor`
+            # bound as phase 1, to keep the check off compressed chunks — and the prune then failed with
+            # exactly the FK it was written to avoid: "Key (series_id)=(73834791) is still referenced from
+            # table metrics_raw", every run, 500 series in and nothing pruned afterwards. The bound could not
+            # see a point BELOW the floor, and points below the floor keep arriving: the poller pulls history
+            # from its cursor, so a host coming back after an outage inserts old timestamps into a series
+            # this query had just judged empty. A guard that ignores the rows most likely to exist is not a
+            # guard. Reading a compressed chunk through the series_id index is a read — it decompresses
+            # nothing — so correctness costs an index lookup per candidate here.
             res = await session.execute(
                 text(
                     "DELETE FROM metric_series WHERE series_id = ANY(:ids) "
                     "AND NOT EXISTS (SELECT 1 FROM metrics_raw r "
-                    "WHERE r.series_id = metric_series.series_id AND r.time >= :floor)"
+                    "WHERE r.series_id = metric_series.series_id)"
                 ),
-                {"ids": list(ids), "floor": uncompressed_floor},
+                {"ids": list(ids)},
             )
             await session.commit()
             pruned += res.rowcount or 0

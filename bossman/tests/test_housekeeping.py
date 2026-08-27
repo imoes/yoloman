@@ -89,9 +89,11 @@ async def test_run_housekeeping_covers_exactly_its_own_tables(db_session):
 
     deleted = await run_housekeeping(db_session, settings, now)
 
-    assert set(deleted.keys()) == {
-        "notifications",
-        "plan_runs",
-        "process_series_stale",
-        "metric_series_orphans",
-    }
+    # host_edges, runbook_runs and audit_log were added to the sweep and NOT to this list, so this test has
+    # been red for as long as they have existed — an exact-set assertion only protects the contract if the
+    # list is kept. runbook_runs/audit_log appear only when the operator has set a run-retention window
+    # (0 = keep forever), which is why they are conditional here rather than unconditional above.
+    expected = {"notifications", "plan_runs", "host_edges", "process_series_stale", "metric_series_orphans"}
+    optional = {"runbook_runs", "audit_log"}
+    assert set(deleted.keys()) - optional == expected
+    assert set(deleted.keys()) <= expected | optional
