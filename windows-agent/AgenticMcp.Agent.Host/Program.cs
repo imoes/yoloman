@@ -173,6 +173,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // user + group: the write side of the Accounts screen, which had read-only Windows support until now.
     .Add(new AgenticMcp.Agent.Windows.UserModule())
     .Add(new AgenticMcp.Agent.Windows.GroupModule())
+    // command: run an executable with an argv, no shell — the primitive runbooks and several Bossman
+    // services reach for. The Linux implementation is the Go agent's.
+    .Add(new AgenticMcp.Agent.Windows.CommandModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
