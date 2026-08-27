@@ -179,6 +179,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // scheduled_task: Windows' own scheduler. NOT registered as `cron` — see the module's header for why
     // one name for both would promise a translation that does not exist.
     .Add(new AgenticMcp.Agent.Windows.ScheduledTaskModule())
+    // share: SMB shares and their SHARE-level permissions (the folder's NTFS list is a separate thing, and
+    // the module says so on every read — the effective right is the stricter of the two).
+    .Add(new AgenticMcp.Agent.Windows.ShareModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())

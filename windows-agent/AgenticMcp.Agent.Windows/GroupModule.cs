@@ -125,7 +125,10 @@ public sealed class GroupModule : IModule
         var description = parameters.GetValueOrDefault("description") as string;
         var append = parameters.GetValueOrDefault("append") is true;
         var declaresMembers = parameters.ContainsKey("members");
-        var wanted = UserModule.AsStringList(parameters.GetValueOrDefault("members"));
+        // Well-known members resolved through their SIDs: "Authenticated Users" is "Authentifizierte
+        // Benutzer" on this host, and Add-LocalGroupMember refuses a name it cannot map. Anything that is not
+        // a well-known principal passes through untouched.
+        var wanted = WindowsPrincipals.Resolve(UserModule.AsStringList(parameters.GetValueOrDefault("members")));
 
         var steps = new List<string>();
         var changes = new Dictionary<string, object?>();
@@ -224,16 +227,7 @@ public sealed class GroupModule : IModule
 
     /// <summary>Do two member spellings name the same account? Equal whole, or equal after the last
     /// backslash — "HOSTNAME\\deploy" and "deploy" are the same member of a local group.</summary>
-    private static bool SameMember(string one, string other)
-    {
-        static string Leaf(string value)
-        {
-            var cut = value.LastIndexOf('\\');
-            return cut >= 0 ? value[(cut + 1)..] : value;
-        }
-        return string.Equals(one, other, StringComparison.OrdinalIgnoreCase)
-               || string.Equals(Leaf(one), Leaf(other), StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool SameMember(string one, string other) => WindowsPrincipals.Same(one, other);
 
     private static async Task<Dictionary<string, object?>?> Read(string name, CancellationToken ct)
     {

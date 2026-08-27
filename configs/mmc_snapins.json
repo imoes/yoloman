@@ -607,6 +607,94 @@
       }
     },
     {
+      "id": "shares",
+      "title": "Shared Folders",
+      "mmc_equivalent": "fsmgmt.msc",
+      "icon": "folder_shared",
+      "description": "What this host shares over SMB and with which SHARE-level rights. The folder's NTFS permissions are a separate access list and the stricter of the two wins — every row says which list it is showing, because a \"permission denied\" is usually debugged in the wrong one.",
+      "requires": [
+        {
+          "module": "share"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "Shares",
+          "source": {
+            "kind": "tool",
+            "tool": "share",
+            "params": {},
+            "rows": "shares"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Share",
+              "width": 170
+            },
+            {
+              "key": "path",
+              "title": "Path",
+              "width": 230
+            },
+            {
+              "key": "special",
+              "title": "Built-in",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "encrypted",
+              "title": "Encrypted",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "access_summary",
+              "title": "Share permissions",
+              "grow": true
+            },
+            {
+              "key": "description",
+              "title": "Description",
+              "width": 200
+            }
+          ],
+          "actions": [
+            {
+              "id": "unshare",
+              "title": "Stop sharing",
+              "icon": "delete",
+              "tool": "share",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "special",
+                "equals": true
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-share",
+              "title": "New share…",
+              "icon": "create_new_folder",
+              "tool": "share",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "features",
       "title": "Roles and Features",
       "mmc_equivalent": "ServerManager.exe",
