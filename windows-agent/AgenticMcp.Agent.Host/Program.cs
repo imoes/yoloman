@@ -145,11 +145,16 @@ var modules = new ModuleRegistry(writeEnabled)
     // windows_feature shares the ONE PowerShell host with the `powershell` module rather than opening a
     // second runspace: one module path, one timeout, one place where the streams are separated.
     .Add(new AgenticMcp.Agent.Windows.WindowsFeatureModule())
+    .Add(new AgenticMcp.Agent.Windows.PackageModule())
 #else
     // THE MIRROR IMAGE of apt/systemd below: on a non-Windows host these are listed with the reason they
     // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
     // simply omitted them would be as unreadable in this direction as in the other.
     .Add(new UnsupportedModule("registry", "there is no Windows registry on this platform"))
+    .Add(new UnsupportedModule("package",
+        "this build's package providers are the Windows ones (msi, installer, winget, choco, appx, "
+        + "PackageManagement); on Linux the apt/yum/dnf modules do this job",
+        instead: "apt"))
     .Add(new UnsupportedModule("windows_feature",
         "Windows Server roles and features exist only on Windows; on Linux the package catalogue's role "
         + "bindings do this job",

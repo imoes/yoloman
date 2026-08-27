@@ -122,6 +122,10 @@ public static class WindowsInventory
             // it on demand; 265 entries in every overview payload would be the fleet-table mistake this
             // project already measured once (5.46 MB of relationships on every host page).
             inventory["windows_features_installed"] = InstalledFeatureCount();
+            // WHICH PACKAGE PROVIDERS THIS HOST HAS. Reported as a fact so a plan can be checked against the
+            // host BEFORE it runs: measured on a fresh Server 2022, winget is NOT present, and "install this
+            // with winget" failing on the target reads as a broken package rather than a missing tool.
+            inventory["package_providers"] = WindowsPackaging.AvailableProviders();
         }
         catch (Exception ex)
         {

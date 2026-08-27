@@ -368,6 +368,36 @@ closed enumeration this project spent a week learning to recognise in prose.
    with no evidence behind it — but it comes before the documentation, since the docs should describe a
    system that can already answer for itself.
 
+## 8a. Is the registry a desired-state object? Measured, and the answer is "declared keys, never the hive"
+
+Asked directly: how big is a Windows Server's registry, and would mapping it into desired state be worth it —
+only if it does not blow the frame. Measured on `bossman-wintest`, a nearly bare Server 2022:
+
+    hive files            SOFTWARE 69.8 MB · COMPONENTS 36.0 MB · SYSTEM 14.8 MB · DRIVERS 3.3 MB
+                          DEFAULT/SAM/SECURITY ~0.1 MB each · NTUSER.DAT 0.8 MB   ≈ 125 MB in total
+    HKLM\SOFTWARE          323 995 keys, ~826 000 key+value lines
+                          a PowerShell provider walk did NOT finish in 120 s; `reg query /s` took 180 s
+    HKLM\SYSTEM\…\Services  2 841 keys / 11 040 values — walked in 2.7 s
+    HKLM\SOFTWARE\Policies   83 lines. That is the entire policy surface a GPO writes.
+
+**So: the whole registry, no.** 324 000 keys on an EMPTY server is four orders of magnitude more than
+everything this system currently manages — the whole config catalogue is 3 272 fields across 1 622 templates,
+and a host's desired-state document is kilobytes. Three minutes to enumerate one hive rules it out as
+something a converge run touches, and a 70 MB blob per host per generation rules it out as something to store.
+
+**And it was never the question.** Desired state does not copy `/etc` either; it manages **declared** files.
+The registry belongs in exactly the same way, and then the numbers are trivial:
+
+| | what | measured cost |
+|---|---|---|
+| **declared keys → desired state** | the registry values a policy sets, as resources with generations and rollback — the `registry` module already writes them, what is missing is the resource type so they converge | the size of what you declare |
+| **bounded subtrees → observed state** | `…\Services` (2 841 keys, 2.7 s), `…\Policies` (83 lines), `Uninstall` (already used for the software inventory), `Run`/`RunOnce` (autostart) | seconds, kilobytes |
+| **the hive** | a full copy or diff | 70 MB and 3 minutes — **not built** |
+
+The distinction is the same one the config plane already makes and the reason it works: a value nobody
+declared is not drift, it is the operating system. Reading everything would produce a diff whose every line is
+noise, which is how a drift report becomes something people turn off.
+
 ## 9. Open questions
 
 - **The reboot boundary in a runbook.** A role that needs a restart splits a play in two. Bossman has no
