@@ -154,9 +154,17 @@ public static class WindowsPowerShellBridge
     public static async Task<Answer> RunJson(string setup, string jsonExpression, TimeSpan timeout,
         CancellationToken ct)
     {
-        var script = string.IsNullOrWhiteSpace(setup)
-            ? $"Write-Output '{JsonMarker}'; {jsonExpression} | ConvertTo-Json -Depth 6 -Compress"
-            : $"{setup}; Write-Output '{JsonMarker}'; {jsonExpression} | ConvertTo-Json -Depth 6 -Compress";
+        // THE SETUP RUNS INSIDE try/catch WITH AN EXPLICIT exit 1, and this is not belt-and-braces: measured,
+        // `Add-WindowsCapability -NoRestart` (a parameter that cmdlet does not HAVE) raised a
+        // ParameterBindingException, powershell.exe still exited 0, the JSON after the marker was produced
+        // with empty fields — and windows_capability reported "installed". A module cannot be trusted to
+        // notice; the shell has to fail loudly. The error text goes to stderr, where Run() already turns a
+        // non-zero exit into an exception carrying it.
+        var guarded = string.IsNullOrWhiteSpace(setup)
+            ? ""
+            : $"try {{ {setup} }} catch {{ [Console]::Error.WriteLine($_.Exception.Message); exit 1 }}; ";
+        var script = guarded
+                     + $"Write-Output '{JsonMarker}'; {jsonExpression} | ConvertTo-Json -Depth 6 -Compress";
         var raw = await Run(script, timeout, ct);
         var items = new List<JsonElement>();
         var cut = raw.LastIndexOf(JsonMarker, StringComparison.Ordinal);

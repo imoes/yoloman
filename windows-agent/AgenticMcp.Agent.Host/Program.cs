@@ -148,6 +148,7 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Windows.PackageModule())
     // READ-ONLY, so both are offered even with the write gate closed: asking a host what went wrong must
     // never require permission to change it.
+    .Add(new AgenticMcp.Agent.Windows.WindowsCapabilityModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
 #else
@@ -155,6 +156,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // cannot work, so the listing is the same shape whichever way round the platform is. An agent that
     // simply omitted them would be as unreadable in this direction as in the other.
     .Add(new UnsupportedModule("registry", "there is no Windows registry on this platform"))
+    .Add(new UnsupportedModule("windows_capability",
+        "Windows capabilities and optional features are a DISM concept; on Linux the package manager is the "
+        + "counterpart", instead: "apt"))
     .Add(new UnsupportedModule("windows_eventlog",
         "there is no Windows event log on this platform; the journal/syslog is the counterpart",
         instead: "powershell"))

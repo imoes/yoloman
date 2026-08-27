@@ -328,7 +328,33 @@ closed enumeration this project spent a week learning to recognise in prose.
 3. **`package` with the provider model** + `msi` + the installer recipe (`configs/windows_packages/`), with
    detection and `success_codes`. The measurable claim: install an in-house EXE twice and see
    `changed: false` on the second pass.
-4. **`windows_capability`** (DISM) — for the `Removed` payload case and the client-side optional features.
+4. ~~**`windows_capability`** (DISM)~~ — **DONE 2026-08-27.** Both DISM inventories in one module (`kind:
+   capability | optional_feature`), never merged with `windows_feature`'s Server roles: three inventories,
+   three cmdlets, three state vocabularies, and Windows keeps them apart. Verified on the host — an installed
+   capability reports `already present (Installed)`, `TelnetClient` went Disabled → **Enabled with
+   awaiting-restart**, the second run said `already present`, and `NetFx3` was refused before anything was
+   attempted with *"is DisabledWithPayloadRemoved: its payload has been removed from this image, so
+   installing it needs `source`"* — the case the whole design was built around, found in the wild.
+
+   **Three measurements it took to get existence right**, and each wrong attempt is in the code as a comment:
+   `Get-WindowsCapability -Online -Name "Totally.Made.Up.Name"` returns an OBJECT with `State: NotPresent`, so
+   state cannot distinguish "unknown" from "not installed"; the echoed `Name` cannot either, because with
+   `-Name` it is EMPTY even for a real capability (the first fix keyed on that and refused every valid name);
+   the full list is **316 entries in 0.5 s** and there `Name` is populated, so the lookup goes through the
+   list.
+
+   **And RSAT is not a capability on Server.** This host's 316 capabilities are languages, fonts and the like
+   with no `Rsat.*` among them at all — on Windows Server the RSAT tools are `windows_feature` entries
+   (`RSAT-AD-Tools`). The refusal message says so, because "not in the list" without that hint sends the
+   reader looking for a typo.
+
+   Also fixed here, and it is the more important half: **`Add-WindowsCapability` has no `-NoRestart`
+   parameter**. My command carried one, PowerShell raised a ParameterBindingException, powershell.exe still
+   exited 0, and the module reported **"installed"** for a capability whose state was unchanged. Two guards
+   now: the bridge wraps every setup in `try/catch` with an explicit `exit 1`, so a terminating error can no
+   longer pass as success; and the module fails when the state after the call does not match the request —
+   the same "the exit code is a claim, the state is the evidence" rule `package` had from the start and this
+   module shipped without.
 5. **The snapins**, in the order the fleet needs them: IIS → DHCP → DNS → SMB → scheduled tasks → firewall.
    Each one's FieldSpec generated from `Get-Command`, so the console is typed on the first try.
 6. **The generated wrappers.** Tier-2 modules that are a thin shell over one cmdlet family are declared in a
