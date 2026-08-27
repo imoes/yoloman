@@ -30,7 +30,7 @@
     "  columns[].badge   render the value as a state pill rather than text",
     "  actions[].tool    the module to call; {row.<field>} placeholders are filled from the selected row",
     "  actions[].confirm ask before running — for anything that changes a host",
-    "  actions[].hide_when  {field, equals}: an action that cannot apply to this row is not offered at all",
+    "  node_actions[]    actions that belong to the NODE, not to a row (\"New user…\"). The form is GENERATED\n                    from the module's own input_schema, which every agent publishes in GET /api/v1/tools —\n                    so a create dialog needs no markup here and cannot drift from what the module accepts.\n                    `prefill` sets initial values; `dry_run_first: true` makes the form open with the\n                    module's own preview switched on, so the first click shows a plan instead of a change.\n  actions[].hide_when  {field, equals}: an action that cannot apply to this row is not offered at all",
     "                       (greying out is the logical answer to an impossible action, not an error after)"
   ],
   "version": 1,
@@ -137,6 +137,16 @@
                 "equals": "stopped"
               }
             }
+          ],
+          "node_actions": [
+            {
+              "id": "set-service",
+              "title": "Set a service state…",
+              "icon": "tune",
+              "tool": "service",
+              "prefill": {},
+              "dry_run_first": true
+            }
           ]
         }
       ]
@@ -229,6 +239,19 @@
                 "equals": true
               }
             }
+          ],
+          "node_actions": [
+            {
+              "id": "new-user",
+              "title": "New user…",
+              "icon": "person_add",
+              "tool": "user",
+              "prefill": {
+                "state": "present",
+                "enabled": true
+              },
+              "dry_run_first": true
+            }
           ]
         },
         {
@@ -274,6 +297,18 @@
                 "field": "system",
                 "equals": true
               }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-group",
+              "title": "New group…",
+              "icon": "group_add",
+              "tool": "group",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
             }
           ]
         }
@@ -518,6 +553,18 @@
               },
               "confirm": false
             }
+          ],
+          "node_actions": [
+            {
+              "id": "install-feature",
+              "title": "Install a role or feature…",
+              "icon": "add_box",
+              "tool": "windows_feature",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
           ]
         },
         {
@@ -568,6 +615,18 @@
                 "dry_run": true
               },
               "confirm": false
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "install-feature",
+              "title": "Install a role or feature…",
+              "icon": "add_box",
+              "tool": "windows_feature",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
             }
           ]
         }
@@ -626,7 +685,19 @@
           "titles": {
             "windows": "Installed programs",
             "default": "Installed packages"
-          }
+          },
+          "node_actions": [
+            {
+              "id": "install-package",
+              "title": "Install a package…",
+              "icon": "download",
+              "tool": "package",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
         }
       ],
       "titles": {

@@ -47,6 +47,36 @@ export interface SnapinNode {
   reason: string;
   columns: SnapinColumn[];
   actions: SnapinAction[];
+  node_actions?: NodeAction[];
+}
+
+/**
+ * An action that belongs to the NODE rather than to a row — "New user…". Its form is GENERATED from the
+ * module's own input schema (see `ConsoleTree.schemas`), so a create dialog needs no markup and cannot offer a
+ * parameter the module would refuse.
+ */
+export interface NodeAction {
+  id: string;
+  title: string;
+  icon?: string;
+  tool: string;
+  prefill?: Record<string, unknown>;
+  /** Open the form with the module's own dry-run switched on, so the first click previews. */
+  dry_run_first?: boolean;
+}
+
+/** What a module says it accepts, straight from the agent: the authority on its own parameters. */
+export interface ToolSchema {
+  description?: string;
+  input_schema: {
+    type?: string;
+    properties?: Record<string, {
+      type?: string; description?: string; enum?: unknown[]; default?: unknown;
+      items?: { type?: string };
+    }>;
+    required?: string[];
+  };
+  writes: boolean;
 }
 
 export interface Snapin {
@@ -68,6 +98,8 @@ export interface ConsoleTree {
   catalog_version?: number;
   /** Why states read `unknown`: the host could not be asked for its module list. */
   tools_error?: string | null;
+  /** Per tool named by the catalog: its description and input schema, as the agent publishes them. */
+  schemas?: Record<string, ToolSchema>;
   snapins: Snapin[];
 }
 
@@ -79,6 +111,7 @@ export interface NodeResult {
   title: string;
   columns: SnapinColumn[];
   actions: SnapinAction[];
+  node_actions?: NodeAction[];
   rows: Record<string, unknown>[];
   count: number;
   /** Set when the host could not be read — the node still answers, with its columns and this reason. */

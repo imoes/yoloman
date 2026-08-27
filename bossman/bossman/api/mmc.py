@@ -173,11 +173,13 @@ async def get_console_tree(
     family = str(facts.get("os_family") or "").lower()
 
     tools: set[str] | None = None
+    listing: list[dict[str, Any]] = []
     tools_error = None
     if agent.address:
         client = client_factory(agent, settings)
         try:
             listed = await client.list_tools()
+            listing = [t for t in listed if isinstance(t, dict)]
             # A module that IS listed but reports supported:false (a closed write gate, a Linux-only module on
             # Windows) is not usable, so it does not count as present — otherwise the console would offer an
             # action the host refuses, which is the failure mode `hide_when` exists to avoid.
@@ -205,6 +207,10 @@ async def get_console_tree(
                 "reason": node_reason,
                 "columns": node.get("columns") or [],
                 "actions": [a for a in (node.get("actions") or [])],
+                # Node-scoped actions ("New user…"), whose FORM is generated from the module's own input
+                # schema — see `schemas` below. A create dialog written here would be a second description of
+                # what the module accepts, and the two would drift the first time a parameter is added.
+                "node_actions": [a for a in (node.get("node_actions") or [])],
             })
         snapins.append({
             "id": entry.get("id"),
@@ -219,11 +225,33 @@ async def get_console_tree(
             "nodes": nodes,
         })
 
+    # THE MODULES' OWN SCHEMAS, for the tools this host's catalog actually offers. Sent with the tree so a
+    # form can be rendered without a second round trip, and taken from the AGENT rather than from anything
+    # written here: the module is the authority on what it accepts, and a form built from its schema cannot
+    # offer a parameter it would refuse or miss one it needs.
+    wanted_tools = {
+        action.get("tool")
+        for entry in catalog.get("snapins") or []
+        for node in entry.get("nodes") or []
+        for action in list(node.get("actions") or []) + list(node.get("node_actions") or [])
+        if action.get("tool")
+    }
+    schemas = {
+        t["name"]: {
+            "description": t.get("description"),
+            "input_schema": t.get("input_schema") or {},
+            "writes": bool(t.get("writes")),
+        }
+        for t in listing
+        if t.get("name") in wanted_tools
+    }
+
     return {
         "agent_id": str(agent.id),
         "host": agent.name,
         "os_family": facts.get("os_family"),
         "catalog_version": catalog.get("version"),
+        "schemas": schemas,
         # WHY A VERDICT IS "unknown", said once at the top instead of repeated per snap-in.
         "tools_error": tools_error,
         "snapins": snapins,
@@ -342,6 +370,7 @@ async def get_console_node(
         "title": _titled(node, str(facts.get("os_family") or "").lower()),
         "columns": node.get("columns") or [],
         "actions": node.get("actions") or [],
+        "node_actions": node.get("node_actions") or [],
         "rows": rows,
         "count": len(rows),
         "error": error,

@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
-  MmcService, ConsoleTree, NodeResult, Snapin, SnapinAction, SnapinColumn,
+  MmcService, ConsoleTree, NodeAction, NodeResult, Snapin, SnapinAction, SnapinColumn, ToolSchema,
 } from '../../core/services/mmc.service';
 
 /**
@@ -101,6 +101,11 @@ import {
               </div>
             </div>
             <div class="bm-head-actions">
+              @for (a of node()!.node_actions || []; track a.id) {
+                <button mat-stroked-button (click)="openForm(a)">
+                  <mat-icon>{{ a.icon || 'add' }}</mat-icon> {{ a.title }}
+                </button>
+              }
               <input class="bm-filter" placeholder="filter rows"
                      [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
               <button mat-stroked-button (click)="reloadNode()"><mat-icon>refresh</mat-icon> Refresh</button>
@@ -111,6 +116,72 @@ import {
             <div class="bm-note bm-note--err">
               This node's columns are known; its rows are not, because the host could not be read:
               {{ node()!.error }}
+            </div>
+          }
+
+          @if (form(); as f) {
+            <!-- THE FORM IS THE MODULE'S OWN SCHEMA, rendered. Nothing here knows what a user or a feature
+                 needs; the fields, their types, their enums and their help text come from the agent's
+                 published input_schema, so this dialog cannot offer a parameter the module would refuse nor
+                 miss one it requires. -->
+            <div class="bm-form">
+              <div class="bm-form-head">
+                <strong>{{ f.action.title }}</strong>
+                <span class="bm-dim bm-small">{{ f.tool }} on {{ tree()?.host }}</span>
+                <button mat-icon-button class="bm-form-close" (click)="form.set(null)" title="Close">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              @if (f.schema?.description) { <p class="bm-dim bm-small bm-form-desc">{{ f.schema!.description }}</p> }
+              @if (!f.schema) {
+                <p class="bm-note bm-note--err">
+                  This host did not publish a schema for “{{ f.tool }}”, so there is nothing to render a form
+                  from — the module is either missing or older than this console.
+                </p>
+              } @else {
+                <div class="bm-fields">
+                  @for (field of f.fields; track field.key) {
+                    <label class="bm-field">
+                      <span class="bm-field-name">
+                        {{ field.key }}@if (field.required) { <em class="bm-req">required</em> }
+                      </span>
+                      @if (field.enum?.length) {
+                        <select [ngModel]="f.values[field.key] ?? ''" (ngModelChange)="setField(field.key, $event)">
+                          <option value="">(not set)</option>
+                          @for (option of field.enum!; track option) { <option [value]="option">{{ option }}</option> }
+                        </select>
+                      } @else if (field.type === 'boolean') {
+                        <select [ngModel]="boolText(f.values[field.key])" (ngModelChange)="setBool(field.key, $event)">
+                          <!-- THREE CHOICES, not a checkbox: "not set" is a real state for a declared
+                               parameter — it means "leave this alone" — and a checkbox cannot express it. -->
+                          <option value="">(not set)</option>
+                          <option value="true">true</option>
+                          <option value="false">false</option>
+                        </select>
+                      } @else {
+                        <input [type]="field.secret ? 'password' : (field.type === 'number' ? 'number' : 'text')"
+                               [ngModel]="f.values[field.key] ?? ''"
+                               (ngModelChange)="setField(field.key, $event)"
+                               [placeholder]="field.type === 'array' ? 'comma-separated' : ''" />
+                      }
+                      @if (field.description) { <span class="bm-field-help">{{ field.description }}</span> }
+                    </label>
+                  }
+                </div>
+                <div class="bm-form-foot">
+                  @if (f.hasDryRun) {
+                    <label class="bm-check">
+                      <input type="checkbox" [ngModel]="f.dryRun" (ngModelChange)="setDryRun($event)" />
+                      Preview only (the module's own dry run)
+                    </label>
+                  }
+                  <button mat-stroked-button [disabled]="running() === f.action.id" (click)="submitForm()">
+                    <mat-icon>{{ f.dryRun ? 'science' : 'play_arrow' }}</mat-icon>
+                    {{ f.dryRun ? 'Preview' : 'Apply' }}
+                  </button>
+                  @if (formResult()) { <span class="bm-last">{{ formResult() }}</span> }
+                </div>
+              }
             </div>
           }
 
@@ -234,6 +305,21 @@ import {
     .bm-badge--good { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
     .bm-badge--warn { background: color-mix(in srgb, var(--bm-amber, #ef6c00) 26%, transparent); }
     .bm-badge--bad { background: color-mix(in srgb, var(--bm-red, #c62828) 26%, transparent); }
+    .bm-form { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px;
+      margin-top: 12px; background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent); }
+    .bm-form-head { display: flex; align-items: center; gap: 10px; }
+    .bm-form-close { margin-left: auto; }
+    .bm-form-desc { margin: 6px 0 10px; max-width: 900px; line-height: 1.45; }
+    .bm-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px 16px; }
+    .bm-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+    .bm-field-name { font-family: ui-monospace, monospace; font-size: 12px; }
+    .bm-req { font-style: normal; font-size: 10px; margin-left: 6px; padding: 0 5px; border-radius: 7px;
+      background: color-mix(in srgb, var(--bm-amber, #ef6c00) 26%, transparent); }
+    .bm-field input, .bm-field select { padding: 6px 8px; border-radius: 6px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit;
+      font: inherit; font-size: 13px; }
+    .bm-field-help { opacity: 0.6; line-height: 1.4; }
+    .bm-form-foot { display: flex; align-items: center; gap: 14px; margin-top: 12px; flex-wrap: wrap; }
     .bm-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 0 14px;
       border-top: 1px solid var(--mat-sys-outline-variant); }
     .bm-last { font-size: 12px; opacity: 0.75; }
@@ -374,6 +460,125 @@ export class MmcConsoleComponent {
   label(row: Record<string, unknown>): string {
     const first = this.node()?.columns?.[0]?.key;
     return String((first ? row[first] : null) ?? '(row)');
+  }
+
+  // ── The generated form ────────────────────────────────────────────────────────────────────────────
+  //
+  // One field per property the MODULE declares, typed by its schema. `dry_run` is not rendered as a field:
+  // it is the form's Preview switch, because a caller thinking about "what will this do" is not thinking
+  // about a parameter.
+  form = signal<{
+    action: NodeAction;
+    tool: string;
+    schema: ToolSchema | null;
+    fields: { key: string; type: string; description?: string; enum?: string[]; required: boolean; secret: boolean }[];
+    values: Record<string, unknown>;
+    hasDryRun: boolean;
+    dryRun: boolean;
+  } | null>(null);
+  formResult = signal<string>('');
+
+  openForm(action: NodeAction): void {
+    const schema = this.tree()?.schemas?.[action.tool] ?? null;
+    const properties = schema?.input_schema?.properties ?? {};
+    const required = new Set(schema?.input_schema?.required ?? []);
+    const fields = Object.entries(properties)
+      .filter(([key]) => key !== 'dry_run')
+      .map(([key, spec]) => ({
+        key,
+        type: spec.type === 'array' ? 'array' : (spec.type ?? 'string'),
+        description: spec.description,
+        enum: (spec.enum ?? []).map((v) => String(v)),
+        required: required.has(key),
+        // A SECRET IS NEVER ECHOED BACK. Decided from the parameter's NAME, the same rule the agents use to
+        // redact it from the operation log — one rule, both ends.
+        secret: /password|passwd|secret|token|credential|api_?key/i.test(key),
+      }))
+      // Required first, then alphabetical: a form whose first field is optional reads as if nothing is.
+      .sort((a, b) => (a.required === b.required ? a.key.localeCompare(b.key) : a.required ? -1 : 1));
+
+    this.formResult.set('');
+    this.form.set({
+      action,
+      tool: action.tool,
+      schema,
+      fields,
+      values: { ...(action.prefill ?? {}) },
+      hasDryRun: 'dry_run' in properties,
+      // Defaults ON where the catalog asks for it: the first click on a create dialog should show a plan.
+      dryRun: !!action.dry_run_first && 'dry_run' in properties,
+    });
+  }
+
+  setField(key: string, value: unknown): void {
+    const current = this.form();
+    if (!current) return;
+    this.form.set({ ...current, values: { ...current.values, [key]: value } });
+  }
+
+  boolText(value: unknown): string {
+    return value === true ? 'true' : value === false ? 'false' : '';
+  }
+
+  setBool(key: string, text: string): void {
+    // "" means NOT SET and the key is dropped entirely — sending `null` would be a value, and a module that
+    // distinguishes "leave alone" from "set to false" (every declarative module here does) would act on it.
+    const current = this.form();
+    if (!current) return;
+    const values = { ...current.values };
+    if (text === '') delete values[key]; else values[key] = text === 'true';
+    this.form.set({ ...current, values });
+  }
+
+  setDryRun(value: boolean): void {
+    const current = this.form();
+    if (current) this.form.set({ ...current, dryRun: value });
+  }
+
+  submitForm(): void {
+    const current = this.form();
+    if (!current) return;
+    const params: Record<string, unknown> = {};
+    for (const field of current.fields) {
+      const raw = current.values[field.key];
+      if (raw === undefined || raw === null || raw === '') continue;
+      if (field.type === 'array') {
+        params[field.key] = String(raw).split(',').map((v) => v.trim()).filter(Boolean);
+      } else if (field.type === 'number') {
+        params[field.key] = Number(raw);
+      } else {
+        params[field.key] = raw;
+      }
+    }
+    if (current.hasDryRun && current.dryRun) params['dry_run'] = true;
+
+    const missing = current.fields.filter((f) => f.required && params[f.key] === undefined).map((f) => f.key);
+    if (missing.length) {
+      // Named here rather than sent and refused: the module would answer correctly, but a round trip to
+      // learn a field is required is a round trip the schema already ruled out.
+      this.formResult.set(`${missing.join(', ')}: required by the module`);
+      return;
+    }
+
+    this.running.set(current.action.id);
+    this.svc.runAction(this.agentId(), current.tool, params, 600).subscribe({
+      next: (r) => {
+        this.running.set(null);
+        const msg = r.result?.msg ?? (r.result?.changed ? 'changed' : 'unchanged');
+        this.formResult.set(`${current.dryRun ? 'preview' : 'applied'}: ${msg}`);
+        this.snack.open(`${current.action.title}: ${msg}`, 'Dismiss', { duration: 8000 });
+        // A PREVIEW LEAVES THE FORM OPEN, an apply closes it: after a plan the next thing anybody does is
+        // press Apply, and after an apply the answer is in the table.
+        if (!current.dryRun) this.form.set(null);
+        this.reloadNode();
+      },
+      error: (e) => {
+        this.running.set(null);
+        const detail = e?.error?.detail ?? e.message;
+        this.formResult.set(`failed: ${detail}`);
+        this.snack.open(`${current.action.title} failed: ${detail}`, 'Dismiss', { duration: 14000 });
+      },
+    });
   }
 
   run(action: SnapinAction, row: Record<string, unknown>, event: Event | null): void {
