@@ -104,6 +104,17 @@ firewallNote = "not Windows: the inbound rule is the installer's job here (packa
 #endif
 
 var builder = WebApplication.CreateBuilder(args);
+#if WINDOWS
+// RUN UNDER THE SERVICE CONTROL MANAGER when Windows started us as a service, and as a plain console process
+// otherwise — UseWindowsService detects which and does nothing in the console case, so there is one exe and
+// one code path rather than a --service flag nobody remembers to pass.
+//
+// Without this the SCM starts the process, waits for a status it never receives, and reports error 1053 ("the
+// service did not respond in a timely fashion") while the agent is in fact running perfectly — a failure that
+// reads like a hung agent and is really four lines of missing hosting. It also points the content root at the
+// exe's directory, which a service otherwise inherits as C:\Windows\system32.
+builder.Host.UseWindowsService(options => options.ServiceName = "agentic-mcp-agent");
+#endif
 builder.WebHost.UseUrls($"https://{listen}");
 builder.WebHost.ConfigureKestrel(kestrel =>
 {

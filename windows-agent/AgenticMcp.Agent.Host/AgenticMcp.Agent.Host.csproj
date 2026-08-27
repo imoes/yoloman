@@ -33,7 +33,13 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
     <ProjectReference Include="..\AgenticMcp.Agent.Windows\AgenticMcp.Agent.Windows.csproj" />
+    <!-- Lets the same exe run under the Service Control Manager. Without it SCM starts the process, waits for
+         a status it never gets, and fails with error 1053 ("the service did not respond in a timely
+         fashion") — which reads like a hung agent rather than a missing four lines of hosting. Windows-only
+         by construction: there is no SCM to talk to on the dev host. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.11" />
   </ItemGroup>
+
 
   <!-- SHIP POWERSHELL'S OWN MODULES, which a RID-specific publish otherwise drops.
        Measured on the first real install: `dotnet publish -r win-x64` FLATTENS `runtimes/`, so
@@ -51,14 +57,9 @@
       <_PsWinModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/win/lib/net9.0/Modules/**/*" />
       <_PsUnixModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/unix/lib/net9.0/Modules/**/*" />
     </ItemGroup>
-    <Copy SourceFiles="@(_PsWinModules)"
-          DestinationFiles="@(_PsWinModules->'$(PublishDir)runtimes/win/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(_PsUnixModules)"
-          DestinationFiles="@(_PsUnixModules->'$(PublishDir)runtimes/unix/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-    <Error Condition="!Exists('$(PublishDir)runtimes/win/lib/net9.0/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1')"
-           Text="PowerShell's module tree did not reach the publish output. Shipping this artefact would produce an agent whose `powershell` module has no cmdlets — fail the build instead." />
+    <Copy SourceFiles="@(_PsWinModules)" DestinationFiles="@(_PsWinModules->'$(PublishDir)runtimes/win/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_PsUnixModules)" DestinationFiles="@(_PsUnixModules->'$(PublishDir)runtimes/unix/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(PublishDir)runtimes/win/lib/net9.0/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1')" Text="PowerShell's module tree did not reach the publish output. Shipping this artefact would produce an agent whose `powershell` module has no cmdlets — fail the build instead." />
   </Target>
 
 </Project>
