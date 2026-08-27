@@ -816,10 +816,72 @@ async def get_agent_logs(
     _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Block J4b — the host's journald log, via the read-only `journal`
-    module (`journalctl -o json`). Filters map 1:1 to the module's params."""
+    """Block J4b — the host's system log: journald on Linux, the Windows event log on Windows.
+
+    ONE SCREEN, TWO LOG SYSTEMS, and the branch is here rather than in the agent. The alternative was a
+    Windows module answering to the name `journal`, which would have been a lie in the one place a reader
+    checks what they are looking at — journald and the event log are not the same thing wearing two names
+    (one has units and syslog priorities, the other channels and five levels). So the Windows agent keeps
+    `windows_eventlog` under its own name, and this endpoint maps the screen's filters onto whichever log the
+    host actually has, then returns ONE entry shape so the panel needs no branch:
+
+        time / message         both have them
+        unit                   the event PROVIDER on Windows — the thing that produced the line
+        priority               the LEVEL NAME (critical, error, warning, information, verbose)
+        channel, event_id      Windows-only, carried for the ones that have them
+
+    `log_source` says which log answered, because "no entries" from a journal and from an event log are
+    different facts and the screen should be able to say which.
+    """
     agent = await _agent_with_address(session, agent_id)
-    params: dict[str, Any] = {"lines": lines, "boot": boot}
+    windows = ((agent.facts or {}).get("os_family") or "").lower() == "windows"
+    client = client_factory(agent, settings)
+
+    if windows:
+        params: dict[str, Any] = {"max_events": lines}
+        # The screen's `unit` box means "narrow this to one producer"; on Windows that is the provider.
+        if unit:
+            params["provider"] = unit
+        # A syslog priority is not a Windows level. Mapped rather than passed: 0-3 (emerg..err) are Windows'
+        # error and critical, 4 is warning, anything higher includes information. A number nobody translated
+        # would have filtered on a level that does not exist and returned nothing at all.
+        if priority:
+            params["levels"] = _windows_levels_for(priority)
+        if since:
+            params["since"] = since
+        if grep:
+            params["contains"] = grep
+        try:
+            result = await client.call_tool("windows_eventlog", params)
+        except AgentClientError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        data = ((result or {}).get("data") if isinstance(result, dict) else None) or {}
+        entries = [
+            {
+                "time": event.get("time"),
+                "message": event.get("message"),
+                "unit": event.get("provider"),
+                "priority": event.get("level_name"),
+                "channel": event.get("log"),
+                # The module calls it `id` (Windows' own Event ID). Reading a key that does not exist gave
+                # every entry event_id: null, which reads as "this log has no event ids" — the field is the
+                # first thing anyone searches an event log by.
+                "event_id": event.get("id"),
+            }
+            for event in data.get("events") or []
+        ]
+        return {
+            "agent_id": str(agent.id),
+            "log_source": "windows-eventlog",
+            "entries": entries,
+            "count": data.get("count") or len(entries),
+            # TRUNCATION TRAVELS. The module says when its answer is a floor rather than a total, and dropping
+            # that here would turn "at least 200 errors" into "200 errors" on the way to the reader.
+            "capped": bool(data.get("capped")),
+            "by_level": data.get("by_level") or {},
+        }
+
+    params = {"lines": lines, "boot": boot}
     if unit:
         params["unit"] = unit
     if priority:
@@ -828,14 +890,39 @@ async def get_agent_logs(
         params["since"] = since
     if grep:
         params["grep"] = grep
-    client = client_factory(agent, settings)
     try:
         result = await client.call_tool("journal", params)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     data = (result or {}).get("data") if isinstance(result, dict) else None
     data = data or {}
-    return {"agent_id": str(agent.id), "entries": data.get("entries") or [], "count": data.get("count") or 0}
+    return {"agent_id": str(agent.id), "log_source": "journald",
+            "entries": data.get("entries") or [], "count": data.get("count") or 0}
+
+
+#: Syslog priority (or name) → the Windows event levels that mean the same thing. Windows has five levels and
+#: syslog eight, so the mapping is INCLUSIVE and upward: asking for "warning" gets warning and everything
+#: worse, which is what a log reader filtering by severity means. Anything unrecognised returns the module's
+#: own default rather than an empty filter, because a typo must not silently answer "no problems".
+_SYSLOG_TO_WINDOWS = {
+    "0": "critical", "emerg": "critical", "panic": "critical",
+    "1": "critical", "alert": "critical",
+    "2": "critical", "crit": "critical",
+    "3": "error", "err": "error", "error": "error",
+    "4": "warning", "warn": "warning", "warning": "warning",
+    "5": "information", "notice": "information",
+    "6": "information", "info": "information", "information": "information",
+    "7": "verbose", "debug": "verbose", "verbose": "verbose",
+}
+_WINDOWS_LEVEL_ORDER = ("critical", "error", "warning", "information", "verbose")
+
+
+def _windows_levels_for(priority: str) -> str:
+    floor = _SYSLOG_TO_WINDOWS.get((priority or "").strip().lower())
+    if floor is None:
+        return "critical,error,warning"
+    cut = _WINDOWS_LEVEL_ORDER.index(floor)
+    return ",".join(_WINDOWS_LEVEL_ORDER[: cut + 1])
 
 
 # ---- /var/log file logs (read-only, path-jailed logfiles module) ----------
