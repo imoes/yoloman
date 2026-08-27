@@ -874,12 +874,13 @@ async def poll_agent(
                     await _write_snapshot_metrics(session, agent.id, now, perf)
             except Exception:
                 logger.exception("evaluate_assigned_checks failed for agent %s", agent.name)
-            # Inventory: refresh the installed-package list (throttled, best-effort).
-            if not is_infra_agent(agent):
-                await _collect_packages(agent, client, now)
-            # THE RESULT LOG: what this host DID since we last asked. Its own try/except — an agent that has
-            # no /api/v1/audit yet (the Go agent writes its audit to the journal) answers 404, and that must
-            # cost nothing else in the cycle.
+            # THE RESULT LOG: what this host DID since we last asked. Its own try/except — an agent too old
+            # to have /api/v1/audit answers 404, and that must cost nothing else in the cycle.
+            #
+            # FOR EVERY AGENT, including the infra poller. It is hidden from the HOST views because nobody
+            # monitors it as a host, but it executes the SNMP/SSH checks for agent-less devices — "what did
+            # that run do" is exactly as real a question there, and it was silently excluded by sitting
+            # inside the not-infra branch (found by looking for its records and finding none).
             try:
                 collected = await _collect_operation_log(session, agent, client)
                 if collected:
@@ -888,6 +889,9 @@ async def poll_agent(
                 pass  # no audit endpoint on this agent, or unreachable — the cycle's other errors say so
             except Exception:
                 logger.exception("operation log collection failed for agent %s", agent.name)
+            # Inventory: refresh the installed-package list (throttled, best-effort).
+            if not is_infra_agent(agent):
+                await _collect_packages(agent, client, now)
             # Config drift DETECTION (report-only): surface drifted MANAGED config
             # as the "Config drift" service. No automatic reconfiguration — re-sync
             # is a manual operator action. Isolated so it can't crash the poll cycle.

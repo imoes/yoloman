@@ -82,7 +82,62 @@ func (l *Logger) LogCall(identity, tool string, writes, changed bool, params map
 	l.Log(e)
 }
 
-var sensitiveSubstrings = []string{"password", "secret", "token"}
+// Parameter names whose VALUE is never written down. Kept in step with the C# agent's list
+// (AgenticMcp.Agent.Core/OperationLog.cs): one fleet, one redaction rule — an asymmetry here means a key
+// redacted on a Windows host and logged in clear on a Linux one, which is the worst of both.
+// LogResult is LogCall plus what the operation log needs and a journal line does
+// not: whether this was a dry run, the module's own message, and its Data block as
+// EVIDENCE. Both destinations get the same call — the journal line for a human with
+// journalctl, the ring for Bossman and for an AI asked "did that install work".
+//
+// A nil *Logger still records: the ring belongs to the process, not to the journal
+// writer, and an agent started with auditing off must not become a host that cannot
+// say what it did.
+func (l *Logger) LogResult(identity, tool string, writes, dryRun, changed bool, msg string, evidence any,
+	params map[string]any, start time.Time, callErr error) Record {
+	l.LogCall(identity, tool, writes, changed, params, start, callErr)
+	rec := Record{
+		Module:     tool,
+		Outcome:    ClassifyOutcome(dryRun, changed, callErr),
+		DryRun:     dryRun,
+		Params:     params,
+		Identity:   identity,
+		StartedAt:  start,
+		DurationMS: float64(time.Since(start).Microseconds()) / 1000,
+		Changed:    &changed,
+		Message:    msg,
+		Evidence:   evidence,
+	}
+	if callErr != nil {
+		rec.Error = callErr.Error()
+	}
+	return Push(rec)
+}
+
+// LogRefusal records a call that never reached a module: an unknown tool, a closed
+// write gate, a denied ACL. Recorded rather than dropped, because "the tool was
+// never called" and "nothing happened" look identical afterwards and only one of
+// them is true.
+func (l *Logger) LogRefusal(identity, tool, outcome string, params map[string]any, start time.Time,
+	reason error) Record {
+	l.LogCall(identity, tool, false, false, params, start, reason)
+	rec := Record{
+		Module:     tool,
+		Outcome:    outcome,
+		Params:     params,
+		Identity:   identity,
+		StartedAt:  start,
+		DurationMS: float64(time.Since(start).Microseconds()) / 1000,
+	}
+	if reason != nil {
+		rec.Error = reason.Error()
+	}
+	return Push(rec)
+}
+
+var sensitiveSubstrings = []string{
+	"password", "passwd", "secret", "token", "credential", "apikey", "api_key", "privatekey", "private_key",
+}
 
 // redactParams returns a copy of params with values under sensitive-looking
 // keys replaced by "[REDACTED]".

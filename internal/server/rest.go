@@ -312,6 +312,11 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	// Server-as-a-document: plan/apply/rollback with generation history.
+	// GET /api/v1/audit — THE RESULT LOG, asked of the host directly. A read, so it answers on a
+	// read-only agent: the write gate governs changing the host, not asking what happened to it. Bossman
+	// collects it fleet-wide (services/poller.py), and the shape is the C# agent's field for field so one
+	// collector reads both.
+	mux.HandleFunc("GET /api/v1/audit", func(w http.ResponseWriter, r *http.Request) { handleAudit(w, r) })
 	mux.HandleFunc("GET /api/v1/state/observed", func(w http.ResponseWriter, r *http.Request) { handleStateObserved(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/plan", func(w http.ResponseWriter, r *http.Request) { handleStatePlan(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/apply", func(w http.ResponseWriter, r *http.Request) { handleStateApply(w, r, cfg) })
@@ -686,7 +691,11 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 
 	if m, ok := cfg.ModReg.Get(name); ok {
 		if m.Writes() && !cfg.Write {
-			writeError(w, http.StatusForbidden, fmt.Errorf("tool %q is disabled (write=false)", name))
+			err := fmt.Errorf("tool %q is disabled (write=false)", name)
+			// A closed write gate is a REFUSAL BY THIS HOST and belongs in the log: "the tool was never
+			// called" and "nothing happened" look identical an hour later, and only one of them is true.
+			cfg.Audit.LogRefusal(identity, name, audit.OutcomeRefused, params, start, err)
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 		if !authorizeTool(w, r, cfg, name, m.Writes()) {
@@ -701,7 +710,11 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		// merge, template_render, …). Absent/false keeps always-apply.
 		dryRun, _ := params["dry_run"].(bool)
 		res, err := m.Run(r.Context(), params, dryRun)
-		cfg.Audit.LogCall(identity, name, m.Writes(), res.Changed, params, start, err)
+		// THE RESULT LOG, from the one place every module call passes through. The journal line still
+		// happens (LogResult writes both); what is added is the evidence — the module's own Data block —
+		// and the dry-run/refused/timed-out distinction a boolean cannot carry.
+		cfg.Audit.LogResult(identity, name, m.Writes(), dryRun, res.Changed, res.Msg, res.Data,
+			params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -727,7 +740,10 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 			return
 		}
 		res, err := t.Run(r.Context(), cfg.ModReg, cfg.Policy, params, false)
-		cfg.Audit.LogCall(identity, name, writes, res.Changed, params, start, err)
+		// A task is a composed module and lands in the same log: the question "what happened on this host"
+		// must not have an answer that depends on whether the caller used a task or its parts.
+		cfg.Audit.LogResult(identity, name, writes, false, res.Changed, res.Msg, res.Data,
+			params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -736,7 +752,12 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		return
 	}
 
-	writeError(w, http.StatusNotFound, fmt.Errorf("unknown tool %q", name))
+	// A call for a tool this host does not have. Recorded, and the reason it is worth a record: the FIRST
+	// use of the Windows result log found exactly this — Bossman polling `package_facts` on an agent that
+	// had no such module, every cycle for a week, silently caught on both ends.
+	err := fmt.Errorf("unknown tool %q", name)
+	cfg.Audit.LogRefusal(identity, name, audit.OutcomeUnknown, params, start, err)
+	writeError(w, http.StatusNotFound, err)
 }
 
 func decodePipelineStages(raw any) ([][]string, error) {
@@ -841,4 +862,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// handleAudit serves the operation-log ring: everything after a cursor, optionally
+// one module or one outcome.
+func handleAudit(w http.ResponseWriter, r *http.Request) {
+	var sinceSeq *int64
+	if raw := r.URL.Query().Get("since_seq"); raw != "" {
+		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			sinceSeq = &parsed
+		} else {
+			// A malformed cursor is refused rather than treated as "from the beginning":
+			// silently re-sending the whole ring would look like a working collector that
+			// never advances.
+			writeError(w, http.StatusBadRequest, fmt.Errorf("since_seq: %q is not a number", raw))
+			return
+		}
+	}
+	limit := 0
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, _ = strconv.Atoi(raw)
+	}
+	writeJSON(w, http.StatusOK, audit.ReadPage(sinceSeq, r.URL.Query().Get("module"),
+		r.URL.Query().Get("outcome"), limit))
 }
