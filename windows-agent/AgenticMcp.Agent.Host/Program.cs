@@ -164,6 +164,10 @@ var modules = new ModuleRegistry(writeEnabled)
     // compliance, the capability matcher and the package catalogue all read. Its absence made every Windows
     // host look like a machine with nothing installed, and the poller's best-effort catch kept it quiet.
     .Add(new AgenticMcp.Agent.Windows.PackageFactsModule())
+    // service_facts: what Bossman's Services panel calls. Same gap as package_facts, found the same way.
+    .Add(new AgenticMcp.Agent.Windows.ServiceFactsModule())
+    // getent: the local SAM in the passwd/group layout the Accounts screen reads. Same gap, same discovery.
+    .Add(new AgenticMcp.Agent.Windows.GetentModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
