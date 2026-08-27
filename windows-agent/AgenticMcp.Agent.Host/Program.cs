@@ -170,6 +170,9 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Windows.GetentModule())
     // storage_facts: what the Storage panel calls. Disks and partitions in lsblk's shape.
     .Add(new AgenticMcp.Agent.Windows.StorageFactsModule())
+    // user + group: the write side of the Accounts screen, which had read-only Windows support until now.
+    .Add(new AgenticMcp.Agent.Windows.UserModule())
+    .Add(new AgenticMcp.Agent.Windows.GroupModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
@@ -440,6 +443,13 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
                 JsonValueKind.True => true,
                 JsonValueKind.False => false,
                 JsonValueKind.Null => null,
+                // ARRAYS AND OBJECTS STAY STRUCTURED. They used to fall into `value.ToString()`, so a module
+                // asking for a list of group names received the literal text `["Administratoren"]` — and
+                // PowerShell then looked for a group by that name and failed with "Die Gruppe
+                // [\"Administratoren\"] wurde nicht gefunden". A boundary that flattens structure makes
+                // every list parameter in every module quietly wrong, so the element is passed through and
+                // the module reads it as JSON (see UserModule.AsStringList).
+                JsonValueKind.Array or JsonValueKind.Object => value.Clone(),
                 _ => value.ToString(),
             };
         }

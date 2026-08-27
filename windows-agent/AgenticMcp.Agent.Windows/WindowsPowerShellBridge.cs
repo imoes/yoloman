@@ -57,7 +57,8 @@ public static class WindowsPowerShellBridge
     /// Throws <see cref="InvalidOperationException"/> with the error stream when the shell fails, because a
     /// feature install that quietly returns nothing is the failure mode this class was written to end.
     /// </summary>
-    public static async Task<string> Run(string script, TimeSpan timeout, CancellationToken ct)
+    public static async Task<string> Run(string script, TimeSpan timeout, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -74,6 +75,15 @@ public static class WindowsPowerShellBridge
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        // SECRETS TRAVEL IN THE ENVIRONMENT, NEVER IN THE SCRIPT. The script goes on the child's command
+        // line (-Command), and a command line is readable by anything that can query Win32_Process — so a
+        // password embedded in it would be handed to every administrator and every process listing on the
+        // host. The child's environment is not in the command line, so `$env:AGENTIC_SECRET_…` inside the
+        // script reads a value that was never written down anywhere a reader can reach.
+        foreach (var (key, value) in environment ?? new Dictionary<string, string>())
+        {
+            psi.Environment[key] = value;
+        }
         psi.ArgumentList.Add("-NoProfile");
         psi.ArgumentList.Add("-NonInteractive");
         // -ExecutionPolicy Bypass: the script is not a FILE, it comes from this process — an execution policy
@@ -128,8 +138,16 @@ public static class WindowsPowerShellBridge
         var error = await stderr;
         if (process.ExitCode != 0 || (output.Length == 0 && error.Length > 0))
         {
+            // WHAT GOT AS FAR AS RUNNING is part of the failure, not noise. A module applies several
+            // statements in one shell (create the account, then add it to a group); when the third fails,
+            // the first two ARE APPLIED, and an error carrying only stderr leaves the caller believing
+            // nothing happened. Measured: a `user` call created the account and failed on the group, and the
+            // next run reported "updated" for what looked like a fresh creation. Anything the script printed
+            // before dying travels with the message, which is where step markers show up.
+            var progress = Shorten(output);
             throw new InvalidOperationException(
-                $"Windows PowerShell failed (exit {process.ExitCode}): {Shorten(error)}");
+                $"Windows PowerShell failed (exit {process.ExitCode}): {Shorten(error)}"
+                + (progress.Length > 0 ? $" — completed before the failure: {progress}" : ""));
         }
 
         return output;
@@ -152,7 +170,7 @@ public static class WindowsPowerShellBridge
     /// the cmdlets print, immediately before the data.</para>
     /// </summary>
     public static async Task<Answer> RunJson(string setup, string jsonExpression, TimeSpan timeout,
-        CancellationToken ct)
+        CancellationToken ct, IReadOnlyDictionary<string, string>? environment = null)
     {
         // THE SETUP RUNS INSIDE try/catch WITH AN EXPLICIT exit 1, and this is not belt-and-braces: measured,
         // `Add-WindowsCapability -NoRestart` (a parameter that cmdlet does not HAVE) raised a
@@ -165,7 +183,7 @@ public static class WindowsPowerShellBridge
             : $"try {{ {setup} }} catch {{ [Console]::Error.WriteLine($_.Exception.Message); exit 1 }}; ";
         var script = guarded
                      + $"Write-Output '{JsonMarker}'; {jsonExpression} | ConvertTo-Json -Depth 6 -Compress";
-        var raw = await Run(script, timeout, ct);
+        var raw = await Run(script, timeout, ct, environment);
         var items = new List<JsonElement>();
         var cut = raw.LastIndexOf(JsonMarker, StringComparison.Ordinal);
         var preamble = cut < 0 ? "" : raw[..cut].Trim();
