@@ -168,6 +168,8 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new AgenticMcp.Agent.Windows.ServiceFactsModule())
     // getent: the local SAM in the passwd/group layout the Accounts screen reads. Same gap, same discovery.
     .Add(new AgenticMcp.Agent.Windows.GetentModule())
+    // storage_facts: what the Storage panel calls. Disks and partitions in lsblk's shape.
+    .Add(new AgenticMcp.Agent.Windows.StorageFactsModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())

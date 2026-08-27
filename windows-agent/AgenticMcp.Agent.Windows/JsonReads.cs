@@ -39,6 +39,15 @@ internal static class JsonReads
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value)
         && value.ValueKind == JsonValueKind.True;
 
+    /// <summary>A property as a number of bytes: null when absent or not a number. NULLABLE on purpose —
+    /// "this partition has no free-space figure" and "it has zero bytes free" are different statements, and a
+    /// storage view that showed the first as the second would report a full disk that is not.</summary>
+    internal static long? Long(this JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number)
+            ? number
+            : null;
+
     /// <summary>A property as a list of strings. A bare scalar counts as a one-element list, for the same
     /// ConvertTo-Json reason as above: a group with one member arrives as a string, not an array.</summary>
     internal static List<string> StringArray(this JsonElement element, string name)
