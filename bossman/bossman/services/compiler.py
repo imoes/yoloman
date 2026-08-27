@@ -521,6 +521,13 @@ async def _build_desired_state(
         if facts.get(k) is not None
     }
 
+    # THE OTHER AUTHORITY'S DECLARATION, in its own section and labelled as such. Neither our desired state
+    # (we did not declare it) nor observed state (it is an intention, not a condition) — it is what Windows
+    # Group Policy wants this host to be, and it wins over us wherever the two touch. A document that showed
+    # only our own intent would make that conflict invisible, which is exactly how "the value keeps reverting"
+    # becomes a mystery nobody can explain.
+    policy = facts.get("group_policy")
+
     state = {
         "host": {
             "name": agent.name,
@@ -538,6 +545,8 @@ async def _build_desired_state(
         "variables": variables,
         "inventory": inventory,
     }
+    if policy:
+        state["foreign_policy"] = policy
     explain = {
         "ou_path": [n.path for n in ancestry],
         "assignments": [{"plan": a.plan_name, "source": a.source, "version": a.version} for a in assignments],

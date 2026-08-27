@@ -407,6 +407,66 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
 _OBSERVED_MAX_AGE = timedelta(minutes=15)
 
 
+#: How stale the stored resultant policy may get. Group Policy changes on a gpupdate or a reboot, not by the
+#: minute, and reading it costs a gpresult run (1.8 s measured) plus 48 kB of XML parsed on the host.
+_GPRESULT_MAX_AGE = timedelta(hours=6)
+
+
+async def _refresh_group_policy(session: AsyncSession, agent: Agent, client: AgentClient,
+                                now: datetime) -> None:
+    """Store the host's RESULTANT SET OF POLICY — what Windows Group Policy declares for this machine.
+
+    A FOREIGN AUTHORITY'S INTENT, and that is why it is stored rather than merely readable on demand. We do
+    not manage Group Policy (Windows keeps that, by the operator's decision), but where a GPO and our own
+    declared config touch the same setting the GPO wins on the host and a convergence run fights it on every
+    pass — forever, silently, with somebody watching a value revert and no explanation anywhere. The document
+    has to carry the other authority's declaration for that conflict to be nameable at all.
+
+    Windows hosts only, and asked for by FAMILY rather than by trying and failing: a Linux agent answers
+    "no such tool" for windows_gpresult, and a poll cycle should not produce an error per Linux host per
+    interval to learn something the inventory already said.
+    """
+    if (agent.facts or {}).get("os_family") != "windows":
+        return
+
+    stored = (agent.facts or {}).get("group_policy") or {}
+    taken = stored.get("_taken_at")
+    if taken:
+        try:
+            if now - datetime.fromisoformat(taken) < _GPRESULT_MAX_AGE:
+                return
+        except ValueError:
+            pass  # an unparsable stamp is a reason to refresh, not to crash
+
+    try:
+        result = await client.call_tool("windows_gpresult", {"scope": "both"})
+    except AgentClientError as exc:
+        # Recorded, not raised: a host whose gpresult fails is still a host worth polling, and the reason
+        # belongs where somebody will see it rather than in a log line that scrolls away.
+        agent.facts = {**(agent.facts or {}),
+                       "group_policy": {"_taken_at": now.isoformat(), "error": str(exc)}}
+        agent.facts_updated_at = now
+        return
+
+    data = (result or {}).get("data") or {}
+    agent.facts = {**(agent.facts or {}), "group_policy": {
+        "_taken_at": now.isoformat(),
+        # THE LABELS TRAVEL WITH THE DATA. Without them this section reads as something this system set, which
+        # is the single misunderstanding that matters about it.
+        "authority": data.get("authority", "windows-group-policy"),
+        "managed_by_us": False,
+        "read_at": data.get("read_at"),
+        "som": data.get("computerresults_som"),
+        "domain": data.get("computerresults_domain"),
+        "slow_link": data.get("computerresults_slow_link"),
+        "applied": data.get("applied") or [],
+        # Denied GPOs are kept: "not in the applied list" and "refused for this host, here is why" are
+        # different facts and only the second can be acted on.
+        "denied": data.get("denied") or [],
+    }}
+    agent.facts_updated_at = now
+
+
 async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
     """Upsert AgentObservedState (the server-as-a-document read) when the cache
     is missing or older than _OBSERVED_MAX_AGE, so GET /state/observed serves it
@@ -718,6 +778,13 @@ async def poll_agent(
                     await _refresh_observed_cache(session, agent, client, now)
                 except Exception:
                     logger.exception("observed-state cache refresh failed for agent %s", agent.name)
+                # The RESULTANT SET OF POLICY — Windows' own declaration for this host. Own try/except and
+                # its own throttle: a gpresult that fails must not cost the observed-state cache, and vice
+                # versa.
+                try:
+                    await _refresh_group_policy(session, agent, client, now)
+                except Exception:
+                    logger.exception("group policy refresh failed for agent %s", agent.name)
                 # Out-of-band (drift) audit via auditd — opt-in, throttled, best-effort.
                 await _maybe_scan_external_audit(session, agent, client, settings, now)
 

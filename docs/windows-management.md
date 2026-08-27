@@ -436,6 +436,52 @@ that looks complete is the one failure mode a log reader must not have.
 `retention` (Circular | AutoBackup | Retain) travels with each channel, since it is the field that says
 whether "the event is not there" means *it never happened* or *it has already rotated away*.
 
+## 7b. Group Policy: Windows keeps it, but `gpresult` is part of the document
+
+The operator's decision, and it is the right one: **we do not author or manage GPOs.** Windows keeps that
+(GPMC, Active Directory). A second authority writing Group Policy would be two systems declaring the same
+thing, and the domain would win every argument anyway.
+
+**But the RESULT belongs in the host's state document**, and its place there needed naming, because it is
+neither of the two things the document already holds:
+
+| | what it is | who declared it |
+|---|---|---|
+| desired state | what this host SHOULD be | **us** |
+| `foreign_policy` (gpresult) | what this host should be | **Active Directory**, and we do not control it |
+| observed state | what this host actually IS right now | nobody — it is a measurement |
+
+So it lands as its own section, `foreign_policy`, with `authority: windows-group-policy` and
+`managed_by_us: false` travelling *with the data* rather than being implied by where it sits.
+
+**Why it earns a place at all:** where a GPO and our own declared config touch the same setting, the GPO wins
+on the host, and a convergence run fights it on every pass — forever, silently, with somebody watching a
+value revert and no explanation anywhere in the system. A document that showed only our own intent could not
+express that conflict. This is the intension/extension rule with a second author: two rules, one instance,
+and the losing rule has to be visible.
+
+Verified on `bossman-wintest` (a workgroup host, so local policy only):
+
+    windows_gpresult (read-only)   2 GPO(s) applied, 0 denied (domain Local)
+                                   authority windows-group-policy · managed_by_us false · SOM Local
+    stored by the poller           facts.group_policy, refreshed every 6 hours (gpresult costs 1.8 s / 48 kB)
+    in the document                desired-state section `foreign_policy`, beside config / inventory / …
+
+**Two parsing traps, both measured.** The XML's element names are PARTLY LOCALISED — this host's extension
+sections are called *Gruppenrichtlinieninfrastruktur* and *Richtlinien der lokalen Gruppe* — so the parser
+reads only schema-stable elements (`GPO`, `Name`, `Path/Identifier`, `Link`, `SOM`, `IsValid`, `AccessDenied`,
+`FilterAllowed`) and never a display name; one keyed on German names would break on an English host. And a
+GPO's display name is editable while its GUID is not, so the identifier is what is recorded.
+
+**Denied GPOs are reported, not filtered away**, each with which of the four causes applied: access denied,
+security filtering, a disabled link, or an invalid GPO. "Not in the applied list" and "refused for this host,
+because…" are different facts, and only the second one can be acted on — that is the whole reason this is a
+module and not a grep of the applied names.
+
+Still open, and it is the payoff rather than the plumbing: **the conflict report.** The document now holds
+both authorities' intent; comparing them (a GPO-set registry value against a key we declare) is what turns
+"the value keeps reverting" into a named finding.
+
 ## 8a. Is the registry a desired-state object? Measured, and the answer is "declared keys, never the hive"
 
 Asked directly: how big is a Windows Server's registry, and would mapping it into desired state be worth it —
