@@ -366,6 +366,44 @@ async def test_delete_agent_removes_host_and_children(db_session):
     await _cleanup(db_session, api_token=api_token)
 
 
+async def test_delete_agent_with_metrics_older_than_a_day(db_session):
+    """A host with historical metric points must be deletable — it was not.
+
+    metrics_raw's FK to metric_series does not cascade, and the endpoint deleted only the last day of
+    points, then metric_series only where none remained. But `agents` DOES cascade to metric_series, so
+    the rows the time bound had spared were deleted by the cascade anyway — straight into the FK. Deleting
+    ANY host whose metrics were older than a day returned a 500 that said nothing an operator could act
+    on. Found while removing one leftover test host."""
+    from datetime import datetime, timedelta, timezone
+
+    from bossman.db.models import MetricRaw, MetricSeries
+
+    agent = await _make_agent(db_session, address="10.0.0.11:8010")
+    series = MetricSeries(agent_id=agent.id, metric="cpu_load5", labels={})
+    db_session.add(series)
+    await db_session.flush()
+    old = datetime.now(timezone.utc) - timedelta(days=9)
+    db_session.add_all([
+        MetricRaw(series_id=series.series_id, time=old, value=1.0),
+        MetricRaw(series_id=series.series_id, time=datetime.now(timezone.utc), value=2.0),
+    ])
+    await db_session.commit()
+    api_token, raw = await _make_api_token(db_session)
+
+    with TestClient(create_app()) as client:
+        resp = client.delete(f"/api/v1/agents/{agent.id}", headers=_headers(raw))
+    assert resp.status_code == 204, resp.text
+
+    db_session.expunge_all()
+    assert await db_session.scalar(select(Agent).where(Agent.id == agent.id)) is None
+    assert await db_session.scalar(
+        select(MetricSeries).where(MetricSeries.agent_id == agent.id)) is None
+    assert await db_session.scalar(
+        select(MetricRaw).where(MetricRaw.series_id == series.series_id)) is None
+
+    await _cleanup(db_session, api_token=api_token)
+
+
 async def test_delete_agent_orphans_satellites(db_session):
     proxy = await _make_agent(db_session, mode="proxy", address="10.0.0.1:8010")
     sat = await _make_agent(db_session, mode="satellite", parent_agent_id=proxy.id)

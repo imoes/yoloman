@@ -171,15 +171,24 @@ _AGENT_CHILD_DELETES = (
     "DELETE FROM downtimes WHERE agent_id = :id",
     "DELETE FROM service_state_history WHERE agent_id = :id",
     "DELETE FROM services WHERE agent_id = :id",
-    # metrics is now a view. The points must go FIRST and time-bounded: the FK no
-    # longer cascades (migration e7a1c93b5d21) because a cascade against a compressed
-    # hypertable decompresses wholesale and aborts. `time >= now() - 1 day` lets chunk
-    # exclusion skip the compressed chunks; whatever still owns compressed points is
-    # left for the housekeeping orphan sweep once retention drops those chunks.
-    "DELETE FROM metrics_raw WHERE time >= now() - interval '1 day' AND series_id IN "
+    # metrics is now a view, and its points must go FIRST because metrics_raw's FK to metric_series
+    # does NOT cascade (migration e7a1c93b5d21: a cascade against a compressed hypertable decompresses
+    # wholesale and aborts).
+    #
+    # ALL OF THEM, not the last day. The time bound that used to be here left older series in place and
+    # then deleted `metric_series` only where no points remained — but `agents` cascades to
+    # metric_series, so the rows the bound had spared were deleted anyway, by the cascade, straight into
+    # the FK: "update or delete on table metric_series violates ... Key (series_id)=(73834791) is still
+    # referenced from table metrics_raw". Measured while removing one leftover test host: deleting ANY
+    # host with metrics older than a day was impossible, and the 500 said nothing an operator could act
+    # on. The decompression cap is already disabled for this transaction (above), which is what the
+    # bound was working around.
+    "DELETE FROM metrics_raw WHERE series_id IN "
     "(SELECT series_id FROM metric_series WHERE agent_id = :id)",
-    "DELETE FROM metric_series WHERE agent_id = :id "
-    "AND NOT EXISTS (SELECT 1 FROM metrics_raw r WHERE r.series_id = metric_series.series_id)",
+    "DELETE FROM metric_series WHERE agent_id = :id",
+    # The host's own record of what it DID. Deleted with it: the rows carry the agent's id and nothing
+    # else identifies the host, so keeping them would leave a log nobody can attribute.
+    "DELETE FROM operation_log WHERE agent_id = :id",
 )
 
 
