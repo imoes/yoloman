@@ -35,6 +35,36 @@ class AgentClientError(Exception):
     the same asyncio.gather."""
 
 
+def _scrub(value: Any) -> Any:
+    """Drop NUL characters from every string an agent sends us.
+
+    JSON permits U+0000 in a string; Postgres `text`/`jsonb` cannot store it, and asyncpg raises
+    UntranslatableCharacterError at COMMIT — not at the assignment, so the failure surfaces far from
+    its cause and takes the whole transaction with it. Measured on the Windows test host: the
+    resultant-set-of-policy read carries registry strings with a trailing NUL (a C string terminator
+    that came along for the ride), and one such value silently discarded that host's ENTIRE poll
+    cycle — metrics, checks, inventory, policy — every 60 seconds, leaving only a traceback in the
+    log while the UI showed stale-but-plausible data.
+
+    Scrubbed HERE, at the boundary where foreign data enters, because every consumer downstream
+    persists what it is handed and none of them can be expected to remember this. A NUL inside a
+    registry string is a terminator artifact, not content, so removing it loses nothing; anything
+    else Postgres accepts is passed through untouched."""
+    if isinstance(value, str):
+        return value.replace("\x00", "") if "\x00" in value else value
+    if isinstance(value, list):
+        return [_scrub(v) for v in value]
+    if isinstance(value, dict):
+        return {(_scrub(k) if isinstance(k, str) else k): _scrub(v) for k, v in value.items()}
+    return value
+
+
+def _decode(resp: httpx.Response) -> Any:
+    """The one place an agent's response becomes Python data — and therefore the one place the
+    NUL scrub can live without being forgotten at the thirteenth call site."""
+    return _scrub(resp.json())
+
+
 class AgentClient:
     """One agent's REST identity: its address plus the credentials needed
     to poll it (bearer token + Bossman's own mTLS client identity)."""
@@ -116,7 +146,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: unexpected status {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: decoding response: {exc}") from exc
 
@@ -192,7 +222,7 @@ class AgentClient:
             raise AgentClientError(f"{self.address}: add piggyback source: {exc}") from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: add piggyback source returned {resp.status_code}: {resp.text[:1024]}")
-        return resp.json()
+        return _decode(resp)
 
     async def remove_piggyback_source(self, source_type: str, host: str) -> dict[str, Any]:
         """DELETE /api/v1/piggyback/sources?type=&host= (F-9)."""
@@ -204,7 +234,7 @@ class AgentClient:
             raise AgentClientError(f"{self.address}: remove piggyback source: {exc}") from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: remove piggyback source returned {resp.status_code}: {resp.text[:1024]}")
-        return resp.json()
+        return _decode(resp)
 
     async def processes(self, limit: int = 0) -> dict[str, Any]:
         """GET /api/v1/processes — the agent's live process table (Block J1):
@@ -284,7 +314,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: tool {name!r}: decoding response: {exc}") from exc
 
@@ -313,7 +343,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state plan returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state plan: decoding response: {exc}") from exc
 
@@ -331,7 +361,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state apply returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state apply: decoding response: {exc}") from exc
 
@@ -349,7 +379,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state rollback returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state rollback: decoding response: {exc}") from exc
 
@@ -371,7 +401,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: config apply returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: config apply: decoding response: {exc}") from exc
 
@@ -392,7 +422,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: self-update returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: self-update: decoding response: {exc}") from exc
 
@@ -413,7 +443,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: collect-config returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: collect-config: decoding response: {exc}") from exc
 
@@ -432,7 +462,7 @@ class AgentClient:
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: push modules returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: push modules: decoding response: {exc}") from exc
 
@@ -457,7 +487,7 @@ class AgentClient:
                 f"{self.address}: upload {remote_name!r} returned {resp.status_code}: {resp.text[:4096]}"
             )
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: upload {remote_name!r}: decoding response: {exc}") from exc
 

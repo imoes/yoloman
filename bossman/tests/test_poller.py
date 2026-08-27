@@ -524,3 +524,58 @@ async def test_poll_agent_records_hosts_overview_failure(db_session, session_fac
     await _purge_service_state(db_session, agent)
     await db_session.delete(agent)
     await db_session.commit()
+
+
+def test_store_facts_keeps_other_producers_facts() -> None:
+    """The inventory write must not delete facts it does not own.
+
+    `facts` is one document with several writers (inventory, installed_packages, group_policy,
+    external_audit_at). This used to keep a hardcoded list of two foreign keys, so `group_policy`
+    was (a) compared against the inventory document — differing on every tick — and (b) dropped by
+    the rewrite that followed, which erased the gpresult throttle stamp and made every poll re-read
+    the policy. Both halves are asserted here."""
+    from bossman.services.poller import _store_facts
+
+    now = datetime.now(timezone.utc)
+    inv = {"os_family": "windows", "hostname": "wintest", "collected_at": now.isoformat()}
+    agent = Agent(name="t", facts=None)
+
+    _store_facts(agent, {"inventory": inv}, now)
+    assert agent.facts["os_family"] == "windows"
+
+    # Two foreign producers write into the same document.
+    agent.facts = {**agent.facts, "group_policy": {"_taken_at": "x", "settings": [1, 2]},
+                   "installed_packages": [{"name": "p"}]}
+    agent.facts_updated_at = None
+
+    # Same inventory, only collected_at moved: no rewrite at all.
+    _store_facts(agent, {"inventory": {**inv, "collected_at": "later"}}, now)
+    assert agent.facts_updated_at is None, "unchanged inventory must not rewrite facts"
+
+    # A real inventory change rewrites the inventory keys and keeps the foreign ones.
+    _store_facts(agent, {"inventory": {**inv, "hostname": "renamed"}}, now)
+    assert agent.facts["hostname"] == "renamed"
+    assert agent.facts["group_policy"]["settings"] == [1, 2]
+    assert agent.facts["installed_packages"] == [{"name": "p"}]
+
+    # An inventory section the agent stops reporting is dropped, not immortal.
+    _store_facts(agent, {"inventory": {"os_family": "windows"}}, now)
+    assert "hostname" not in agent.facts
+    assert agent.facts["group_policy"]["settings"] == [1, 2]
+
+
+def test_agent_response_nul_scrub() -> None:
+    """A NUL in an agent's JSON must not reach Postgres.
+
+    Real failure on the Windows test host: a registry string in the gpresult read carried a trailing
+    NUL, and asyncpg refused the whole COMMIT (UntranslatableCharacterError) — discarding that host's
+    entire poll cycle, every cycle, with nothing but a traceback to show for it."""
+    from bossman.services.agent_client import _scrub
+
+    data = {"settings": [{"name": "Path\x00", "value": "C:\\x\x00", "n": 3}],
+            "nested": {"a\x00b": ["x\x00"]}, "ok": "clean", "num": 1, "none": None}
+    out = _scrub(data)
+    assert out["settings"][0] == {"name": "Path", "value": "C:\\x", "n": 3}
+    assert out["nested"] == {"ab": ["x"]}
+    assert out["ok"] == "clean" and out["num"] == 1 and out["none"] is None
+    assert "\x00" not in repr(out)

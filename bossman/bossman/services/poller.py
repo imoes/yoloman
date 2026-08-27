@@ -381,24 +381,38 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
     touches the row when the document actually changed — the inventory is
     near-static, and a no-op write per poll tick would just churn the
     table. `collected_at` is excluded from the comparison (the agent
-    re-stamps it on every cache refresh even when nothing else moved)."""
+    re-stamps it on every cache refresh even when nothing else moved).
+
+    THIS FUNCTION OWNS THE INVENTORY KEYS AND NOTHING ELSE. `facts` is one document written by
+    several producers — the inventory here, `installed_packages` from _collect_packages,
+    `group_policy` from _refresh_group_policy, `external_audit_at` from the audit scan — so which
+    keys belong to whom has to be explicit. It used to be an allowlist of two names, and that cost
+    a real bug twice over: any key a *newer* producer added (a) made the change comparison compare
+    the whole facts document against the inventory document, so it differed on every single tick,
+    and (b) was dropped by the rewrite that followed. The visible symptom was `group_policy`
+    silently disappearing between two polls and gpresult being re-read 8× in 25 minutes despite a
+    six-hour throttle — the throttle stamp was in the key that kept vanishing.
+
+    So the owned key set is RECORDED (`_inventory_keys`) instead of listed here: an inventory
+    section that disappears is still dropped, and a fact this function has never heard of survives
+    untouched. Adding a producer needs no edit here."""
     inv = host.get("inventory")
     if not isinstance(inv, dict) or not inv:
         return
-    # installed_packages(+_at) are collected separately (_collect_packages) and
-    # live in the same facts doc — preserve them across an inventory rewrite and
-    # exclude them from the change comparison.
-    _ignore = ("collected_at", "installed_packages", "installed_packages_at")
-    stripped = {k: v for k, v in inv.items() if k not in _ignore}
-    current = {k: v for k, v in (agent.facts or {}).items() if k not in _ignore}
-    if stripped != current:
-        prev = agent.facts or {}
-        merged = dict(inv)
-        for k in ("installed_packages", "installed_packages_at"):
-            if prev.get(k) is not None:
-                merged[k] = prev[k]
-        agent.facts = merged
-        agent.facts_updated_at = now
+    prev = agent.facts or {}
+    owned = set(prev.get("_inventory_keys") or ()) | set(inv)
+    # Compare inventory against inventory: what other producers put in `facts` is none of this
+    # comparison's business. `collected_at` moves on every agent-side cache refresh.
+    fresh = {k: v for k, v in inv.items() if k != "collected_at"}
+    current = {k: prev.get(k) for k in fresh}
+    vanished = {k for k in owned if k not in inv}  # a section the agent stopped reporting
+    if fresh == current and not vanished:
+        return
+    merged = {k: v for k, v in prev.items() if k not in owned}
+    merged.update(inv)
+    merged["_inventory_keys"] = sorted(inv)
+    agent.facts = merged
+    agent.facts_updated_at = now
 
 
 # How stale the cached observed-state document may get before the poller
@@ -463,8 +477,16 @@ async def _refresh_group_policy(session: AsyncSession, agent: Agent, client: Age
         # Denied GPOs are kept: "not in the applied list" and "refused for this host, here is why" are
         # different facts and only the second can be acted on.
         "denied": data.get("denied") or [],
+        # WHAT THE POLICY IMPOSES — the 57 registry values a GPO actually writes. Without these the stored
+        # document says WHICH policies apply and nothing about what they do, so the conflict report has
+        # nothing on Windows' side to compare against: it reported "0 imposed" while the module was returning
+        # 57. Added the moment the module started carrying them.
+        "settings": data.get("settings") or [],
     }}
     agent.facts_updated_at = now
+    logger.info("group policy stored for %s: %d applied, %d denied, %d imposed values",
+                agent.name, len(data.get("applied") or []), len(data.get("denied") or []),
+                len(data.get("settings") or []))
 
 
 async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
