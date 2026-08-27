@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
+from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, mmc as mmc_api, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -294,6 +294,9 @@ def create_app() -> FastAPI:
     # so there's no conditional mounting here the way enroll needs.
     app.include_router(agents.router, tags=["agents"])
     app.include_router(console.router, tags=["console"])
+    # The MANAGEMENT console (MMC-shaped snap-in tree) — a different thing from the web shell
+    # above, which is why it is a different name: see api/mmc.py's header.
+    app.include_router(mmc_api.router, tags=["mmc"])
     app.include_router(topology_api.router, tags=["topology"])
     app.include_router(processes.router, tags=["processes"])
     app.include_router(management.router, tags=["management"])

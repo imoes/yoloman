@@ -185,6 +185,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/capacity/capacity.component').then((m) => m.CapacityComponent),
   },
   {
+    // The MANAGEMENT CONSOLE: MMC's snap-in tree over any managed host. Not `console` — that path is the
+    // interactive web shell, and one word for two things is the equivocation that costs the most.
+    path: 'mmc',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/mmc/mmc-page.component').then((m) => m.MmcPageComponent),
+  },
+  {
     // The RESULT LOG (what hosts did) next to the AUDIT LOG (what was asked of this server): two facts, two
     // pages, adjacent so nobody hunts for the other one. Not admin-only — an operator who may call a module
     // must be able to read what it did.

@@ -1,0 +1,757 @@
+{
+  "_comment": [
+    "THE CONSOLE'S SNAP-INS — an MMC/RSAT-shaped view of the fleet, declared as data.",
+    "",
+    "WHAT MMC ACTUALLY IS, and therefore what this file models: a shell with a console TREE (scope pane), a",
+    "RESULT list per node with columns, and ACTIONS per selected row. Snap-ins plug into that shell. Nothing",
+    "about that needs Windows — what needs Windows is the DATA behind each node, and that already comes from",
+    "the agent.",
+    "",
+    "WHY IT IS DATA AND NOT COMPONENTS: a snap-in here is a tree node plus columns plus actions, and every one",
+    "of those is a description of something the API can already do. Written as code, each new snap-in would be",
+    "a component with its own fetching, its own table and its own drift; written as data, adding 'Shares' is a",
+    "block in this file. Same reason the config templates are data.",
+    "",
+    "NO SECOND DATA PATH — the rule that keeps this from becoming a parallel product. Every `source` points at",
+    "an endpoint or a module that ALREADY serves the per-host management screens, and every `action` goes",
+    "through the one tool-call endpoint. The console is a PRESENTATION, so a fix in service_facts shows up in",
+    "both places or in neither. What the console adds over the per-host tabs is what MMC adds over a single",
+    "computer's control panels: one tree, many hosts, uniform nodes and actions.",
+    "",
+    "AVAILABILITY IS THREE-VALUED, never two. A snap-in is `available`, `unavailable` WITH A REASON (the host",
+    "is Linux, the role is not installed, the module is missing), or `unknown` because the host could not be",
+    "asked. Hiding the unavailable ones would leave an operator wondering whether Yoloman can manage DHCP at",
+    "all; showing them as broken would be a different lie.",
+    "",
+    "FIELDS:",
+    "  requires[]        all must hold: {os_family} | {module} | {feature} (a Windows role/feature name)",
+    "  source.kind       'endpoint' (an existing Bossman route) or 'tool' (a module call, params fixed here)",
+    "  source.rows       dotted path to the row array in the response; '' means the response IS the array",
+    "  columns[].badge   render the value as a state pill rather than text",
+    "  actions[].tool    the module to call; {row.<field>} placeholders are filled from the selected row",
+    "  actions[].confirm ask before running — for anything that changes a host",
+    "  actions[].hide_when  {field, equals}: an action that cannot apply to this row is not offered at all",
+    "                       (greying out is the logical answer to an impossible action, not an error after)"
+  ],
+  "version": 1,
+  "snapins": [
+    {
+      "id": "services",
+      "title": "Services",
+      "mmc_equivalent": "services.msc",
+      "icon": "settings_applications",
+      "description": "Every service registered on the host, with its state and start type.",
+      "requires": [
+        {
+          "module": "service_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "Services (local)",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/service-units",
+            "rows": "services"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 230
+            },
+            {
+              "key": "display_name",
+              "title": "Description",
+              "grow": true,
+              "fallback": "description"
+            },
+            {
+              "key": "active",
+              "title": "Status",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "enabled",
+              "title": "Startup type",
+              "width": 130
+            },
+            {
+              "key": "pid",
+              "title": "PID",
+              "numeric": true,
+              "width": 80
+            },
+            {
+              "key": "start_name",
+              "title": "Log on as",
+              "width": 190
+            }
+          ],
+          "actions": [
+            {
+              "id": "start",
+              "title": "Start",
+              "icon": "play_arrow",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "running"
+              }
+            },
+            {
+              "id": "stop",
+              "title": "Stop",
+              "icon": "stop",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "restart",
+              "title": "Restart",
+              "icon": "restart_alt",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "restarted"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "stopped"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "local-users",
+      "title": "Local Users and Groups",
+      "mmc_equivalent": "lusrmgr.msc",
+      "icon": "group",
+      "description": "The host's local accounts and groups — the local SAM on Windows, passwd/group on Linux.",
+      "requires": [
+        {
+          "module": "getent"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "users",
+          "title": "Users",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/accounts",
+            "rows": "users"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 200
+            },
+            {
+              "key": "gecos",
+              "title": "Full name",
+              "grow": true
+            },
+            {
+              "key": "uid",
+              "title": "UID / RID",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "system",
+              "title": "Built-in",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "home",
+              "title": "Profile / home",
+              "width": 240
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable account",
+              "icon": "block",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "enabled": false
+              },
+              "confirm": true
+            },
+            {
+              "id": "enable",
+              "title": "Enable account",
+              "icon": "check_circle",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "enabled": true
+              },
+              "confirm": true
+            },
+            {
+              "id": "delete",
+              "title": "Delete account",
+              "icon": "delete",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "system",
+                "equals": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "groups",
+          "title": "Groups",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/accounts",
+            "rows": "groups"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 220
+            },
+            {
+              "key": "gid",
+              "title": "GID / RID",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "members",
+              "title": "Members",
+              "grow": true,
+              "join": ", "
+            }
+          ],
+          "actions": [
+            {
+              "id": "delete",
+              "title": "Delete group",
+              "icon": "delete",
+              "tool": "group",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "system",
+                "equals": true
+              }
+            }
+          ]
+        }
+      ],
+      "titles": {
+        "windows": "Local Users and Groups",
+        "default": "Users and Groups"
+      }
+    },
+    {
+      "id": "eventvwr",
+      "title": "Event Viewer",
+      "mmc_equivalent": "eventvwr.msc",
+      "icon": "inbox",
+      "description": "Warnings and errors from the host's own log: the Windows event log, or journald on Linux.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "problems",
+          "title": "Warnings and errors",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/logs?lines=300&priority=warning",
+            "rows": "entries"
+          },
+          "columns": [
+            {
+              "key": "time",
+              "title": "When",
+              "width": 170,
+              "kind": "time"
+            },
+            {
+              "key": "priority",
+              "title": "Level",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "unit",
+              "title": "Source",
+              "width": 220
+            },
+            {
+              "key": "event_id",
+              "title": "Event ID",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "message",
+              "title": "Message",
+              "grow": true
+            }
+          ],
+          "actions": [],
+          "titles": {
+            "windows": "Warnings and errors",
+            "default": "Warnings and errors (journald)"
+          }
+        },
+        {
+          "id": "channels",
+          "title": "Channels with records",
+          "requires": [
+            {
+              "module": "windows_eventlog_channels"
+            }
+          ],
+          "source": {
+            "kind": "tool",
+            "tool": "windows_eventlog_channels",
+            "params": {
+              "only_with_records": true
+            },
+            "rows": "channels"
+          },
+          "sort": "-record_count",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Channel",
+              "grow": true
+            },
+            {
+              "key": "record_count",
+              "title": "Records",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "enabled",
+              "title": "Enabled",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "log_mode",
+              "title": "Retention",
+              "width": 130
+            }
+          ],
+          "actions": []
+        }
+      ],
+      "titles": {
+        "windows": "Event Viewer",
+        "default": "System log"
+      }
+    },
+    {
+      "id": "diskmgmt",
+      "title": "Disk Management",
+      "mmc_equivalent": "diskmgmt.msc",
+      "icon": "storage",
+      "description": "Disks, partitions and volumes. Read-only here — changing a partition table is the Disks screen, which stages operations and applies them together.",
+      "requires": [
+        {
+          "module": "storage_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "disks",
+          "title": "Disks and volumes",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/storage",
+            "rows": "block_devices.devices",
+            "flatten_children": "children"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Device",
+              "width": 200,
+              "indent_key": "_depth"
+            },
+            {
+              "key": "type",
+              "title": "Type",
+              "width": 90
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "fstype",
+              "title": "File system",
+              "width": 120
+            },
+            {
+              "key": "mountpoint",
+              "title": "Mounted at",
+              "width": 200
+            },
+            {
+              "key": "health",
+              "title": "Health",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "model",
+              "title": "Model",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ],
+      "titles": {
+        "windows": "Disk Management",
+        "default": "Disks and volumes"
+      }
+    },
+    {
+      "id": "features",
+      "title": "Roles and Features",
+      "mmc_equivalent": "ServerManager.exe",
+      "icon": "widgets",
+      "description": "Windows Server roles, role services and features, with the install state Windows itself reports.",
+      "requires": [
+        {
+          "os_family": "windows"
+        },
+        {
+          "module": "windows_feature"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "installed",
+          "title": "Installed",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_feature",
+            "params": {
+              "state": "query",
+              "installed_only": true
+            },
+            "rows": "features"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 240
+            },
+            {
+              "key": "display_name",
+              "title": "Display name",
+              "grow": true
+            },
+            {
+              "key": "feature_type",
+              "title": "Kind",
+              "width": 130
+            },
+            {
+              "key": "install_state",
+              "title": "State",
+              "badge": true,
+              "width": 150
+            }
+          ],
+          "actions": [
+            {
+              "id": "plan-remove",
+              "title": "Plan removal (-WhatIf)",
+              "icon": "science",
+              "tool": "windows_feature",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent",
+                "dry_run": true
+              },
+              "confirm": false
+            }
+          ]
+        },
+        {
+          "id": "available",
+          "title": "Available to install",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_feature",
+            "params": {
+              "state": "query",
+              "installed_only": false
+            },
+            "rows": "features"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 240
+            },
+            {
+              "key": "display_name",
+              "title": "Display name",
+              "grow": true
+            },
+            {
+              "key": "feature_type",
+              "title": "Kind",
+              "width": 130
+            },
+            {
+              "key": "install_state",
+              "title": "State",
+              "badge": true,
+              "width": 150
+            }
+          ],
+          "actions": [
+            {
+              "id": "plan-install",
+              "title": "Plan install (-WhatIf)",
+              "icon": "science",
+              "tool": "windows_feature",
+              "params": {
+                "name": "{row.name}",
+                "state": "present",
+                "dry_run": true
+              },
+              "confirm": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "programs",
+      "title": "Programs and Features",
+      "mmc_equivalent": "appwiz.cpl",
+      "icon": "apps",
+      "description": "What is installed on the host, as its own package database reports it.",
+      "requires": [
+        {
+          "module": "package_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "installed",
+          "title": "Installed programs",
+          "source": {
+            "kind": "tool",
+            "tool": "package_facts",
+            "params": {},
+            "rows": ""
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "grow": true
+            },
+            {
+              "key": "version",
+              "title": "Version",
+              "width": 160
+            },
+            {
+              "key": "publisher",
+              "title": "Publisher",
+              "width": 220
+            },
+            {
+              "key": "arch",
+              "title": "Arch",
+              "width": 90
+            },
+            {
+              "key": "install_date",
+              "title": "Installed",
+              "width": 120
+            }
+          ],
+          "actions": [],
+          "titles": {
+            "windows": "Installed programs",
+            "default": "Installed packages"
+          }
+        }
+      ],
+      "titles": {
+        "windows": "Programs and Features",
+        "default": "Installed packages"
+      }
+    },
+    {
+      "id": "rsop",
+      "title": "Resultant Set of Policy",
+      "mmc_equivalent": "rsop.msc",
+      "icon": "policy",
+      "description": "Which Group Policy objects apply to this host, which were denied and why — Windows' own declaration, not this system's.",
+      "requires": [
+        {
+          "os_family": "windows"
+        },
+        {
+          "module": "windows_gpresult"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "applied",
+          "title": "Applied policies",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_gpresult",
+            "params": {
+              "scope": "both"
+            },
+            "rows": "applied"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Policy",
+              "grow": true
+            },
+            {
+              "key": "scope",
+              "title": "Scope",
+              "width": 120
+            },
+            {
+              "key": "som",
+              "title": "Linked at",
+              "width": 260
+            },
+            {
+              "key": "version",
+              "title": "Version",
+              "width": 100
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "denied",
+          "title": "Denied policies",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_gpresult",
+            "params": {
+              "scope": "both"
+            },
+            "rows": "denied"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Policy",
+              "grow": true
+            },
+            {
+              "key": "reason",
+              "title": "Why it did not apply",
+              "width": 300
+            },
+            {
+              "key": "scope",
+              "title": "Scope",
+              "width": 120
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "conflicts",
+          "title": "Conflicts with our declarations",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/policy-conflicts",
+            "rows": "overridden"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Value",
+              "width": 200
+            },
+            {
+              "key": "path",
+              "title": "Key",
+              "grow": true
+            },
+            {
+              "key": "value",
+              "title": "We declare",
+              "width": 140
+            },
+            {
+              "key": "gp_value",
+              "title": "The host holds",
+              "width": 140
+            },
+            {
+              "key": "source",
+              "title": "From scope",
+              "width": 120
+            }
+          ],
+          "actions": []
+        }
+      ]
+    }
+  ]
+}

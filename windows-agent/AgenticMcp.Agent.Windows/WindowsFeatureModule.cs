@@ -89,17 +89,86 @@ public sealed class WindowsFeatureModule : IModule
                 ["description"] = "Installation source (a mounted ISO's sources\\sxs, or a WSUS path) — "
                                   + "required only for a feature whose payload was removed.",
             },
+            ["installed_only"] = new Dictionary<string, object>
+            {
+                ["type"] = "boolean",
+                ["description"] = "Listing mode only (no `name`): return just the installed features instead "
+                                  + "of all 265, so a caller asking what is installed is not handed the "
+                                  + "whole catalogue to filter.",
+            },
         },
-        ["required"] = new[] { "name" },
+        // `name` IS DELIBERATELY NOT REQUIRED any more: omitting it lists the whole inventory, which is a
+        // read. Declaring it required while the module accepts its absence would make this schema lie to
+        // every generated client and to every model reading the tool list.
     };
 
     /// <summary>True: it installs software. The write gate decides whether it is offered at all.</summary>
     public bool Writes => true;
 
+    /// <summary>
+    /// Every feature this host knows, with the install state Windows itself reports.
+    ///
+    /// <para>265 entries on a Server 2022, in about a second — the same call the per-name path makes, without
+    /// the name filter. `installed_only` filters HERE rather than in the caller so a console node asking for
+    /// "what is installed" does not receive 265 rows to throw 252 of them away.</para>
+    ///
+    /// <para>The count of each state travels in the message, because "13 installed" is the number an operator
+    /// reads first and 2 features in `Removed` are the ones that will refuse to install without a source.</para>
+    /// </summary>
+    private static async Task<ModuleResult> ListAll(bool installedOnly, CancellationToken ct)
+    {
+        var expression = "Get-WindowsFeature | Select-Object Name,DisplayName,"
+                         + "@{n='FeatureType';e={[string]$_.FeatureType}},"
+                         + "@{n='Installed';e={[bool]$_.Installed}},"
+                         + "@{n='InstallState';e={[string]$_.InstallState}}";
+        var rows = new List<Dictionary<string, object?>>();
+        foreach (var element in (await Query("", expression, ct)).Items)
+        {
+            var name = element.TryGetProperty("Name", out var n) ? n.GetString() ?? "" : "";
+            if (name.Length == 0)
+            {
+                continue;
+            }
+            var installed = element.TryGetProperty("Installed", out var i) && i.ValueKind == JsonValueKind.True;
+            if (installedOnly && !installed)
+            {
+                continue;
+            }
+            rows.Add(new Dictionary<string, object?>
+            {
+                ["name"] = name,
+                ["display_name"] = element.TryGetProperty("DisplayName", out var d) ? d.GetString() : null,
+                ["feature_type"] = element.TryGetProperty("FeatureType", out var t) ? t.GetString() : null,
+                ["installed"] = installed,
+                // WINDOWS' OWN WORD, lower-cased and passed through — seven values, not two. `Removed` means
+                // the payload is gone from the image and installing it needs a source.
+                ["install_state"] = (element.TryGetProperty("InstallState", out var st)
+                    ? st.GetString() ?? "" : "").ToLowerInvariant(),
+            });
+        }
+
+        var byState = rows.GroupBy(r => (string)(r["install_state"] ?? ""))
+            .OrderByDescending(g => g.Count())
+            .Select(g => $"{g.Count()} {g.Key}");
+        return new ModuleResult(false,
+            $"{rows.Count} feature(s){(installedOnly ? " (installed only)" : "")}: {string.Join(", ", byState)}",
+            new Dictionary<string, object?> { ["features"] = rows, ["count"] = rows.Count },
+            new Dictionary<string, int> { ["attempts"] = 1, ["produced"] = rows.Count });
+    }
+
     public async Task<ModuleResult> RunAsync(IReadOnlyDictionary<string, object?> parameters, bool dryRun,
         CancellationToken ct)
     {
-        var raw = Str(parameters, "name") ?? throw new ArgumentException("name: must not be empty");
+        // NO NAME MEANS "LIST THEM ALL", which is a read and not a write. The management console's Roles and
+        // Features node needs the whole inventory with each entry's install state, and until this existed the
+        // only way to get it was to already know every name — a catalogue that can only answer questions
+        // about things you can already name is not an inventory. `state` is ignored in this mode by
+        // construction: there is nothing to converge towards, so nothing can be half-applied.
+        var raw = Str(parameters, "name");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return await ListAll(Bool(parameters, "installed_only"), ct);
+        }
         var names = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (names.Length == 0)
         {

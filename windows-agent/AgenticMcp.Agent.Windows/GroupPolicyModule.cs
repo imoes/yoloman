@@ -96,8 +96,20 @@ public sealed class GroupPolicyModule : IModule
         // THE PATH GOES IN A VARIABLE, quoted once. `& gpresult /X $env:TEMP\file` parses fine in ARGUMENT
         // mode and `[IO.File]::ReadAllText($env:TEMP\file)` does not — expression mode reads the backslash as
         // an operator and the whole script fails to parse. One quoted assignment serves both.
+        //
+        // AND THE SCOPE IS DECIDED BY WHO WE ARE, which only became visible once the agent ran as a SERVICE.
+        // As LocalSystem there is no interactive user, and `gpresult /X` for the default (both) scope writes
+        // NO FILE AT ALL — the module then failed with PowerShell's own "Die Datei … konnte nicht gefunden
+        // werden", a file-not-found for a file gpresult had declined to produce. Interactively as an
+        // administrator the same call had always worked, so this was invisible until the service existed.
+        // /SCOPE COMPUTER is the honest request from a machine account: user policy for LocalSystem is not a
+        // thing anybody wants to know. gpresult's OWN output is captured either way, because "the file is
+        // missing" is never the useful half of that failure.
         const string setup = "$p = \"$env:TEMP\\agentic-gpresult.xml\"; "
-                             + "& gpresult /X $p /F | Out-Null; "
+                             + "$scope = if ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) "
+                             + "  { 'COMPUTER' } else { 'BOTH' }; "
+                             + "$out = & gpresult /X $p /F /SCOPE $scope 2>&1 | Out-String; "
+                             + "if (-not (Test-Path $p)) { throw \"gpresult /SCOPE $scope wrote no file: $out\" }; "
                              + "$xml = [IO.File]::ReadAllText($p); "
                              + "Remove-Item $p -ErrorAction SilentlyContinue";
         var expression = "[pscustomobject]@{ "
