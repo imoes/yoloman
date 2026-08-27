@@ -185,6 +185,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // windows_firewall_rule: the rule set, with the port/program/address filters joined in — a rule without
     // its port cannot answer the only question anybody asks of it.
     .Add(new AgenticMcp.Agent.Windows.FirewallRuleModule())
+    // windows_iis: sites, bindings and pools together, because none of them answers "what serves on port 80"
+    // alone. Refuses when IIS is installed without its management tools, naming the feature that is missing.
+    .Add(new AgenticMcp.Agent.Windows.IisModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())

@@ -14,10 +14,19 @@ namespace AgenticMcp.Agent.Windows;
 /// </summary>
 internal static class JsonReads
 {
-    // The one-object-instead-of-an-array case that ConvertTo-Json produces for a single item is already
-    // handled where the JSON is parsed (WindowsPowerShellBridge.RunJson fills Items either way), so it is
-    // deliberately NOT handled a second time here: two places normalising the same thing is how they end up
-    // disagreeing.
+    /// <summary>The elements of a NESTED array — one that sits inside an object rather than at the top of the
+    /// reply, where the bridge already normalises for us. A single object counts as one element, because
+    /// ConvertTo-Json turns a one-item collection into a bare object and a caller that only handled arrays
+    /// would silently see nothing on exactly the hosts with one of whatever it was counting (one IIS site,
+    /// for instance).</summary>
+    internal static IEnumerable<JsonElement> EnumerateArrayOrEmpty(this JsonElement element) =>
+        element.ValueKind switch
+        {
+            JsonValueKind.Array => element.EnumerateArray(),
+            JsonValueKind.Object => [element],
+            _ => [],
+        };
+
 
     /// <summary>A property as a string: "" when absent, null or of another kind. Numbers and booleans are
     /// rendered rather than refused, since a caller asking for a string wants what the host said.</summary>

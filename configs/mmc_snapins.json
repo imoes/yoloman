@@ -822,6 +822,202 @@
       ]
     },
     {
+      "id": "iis",
+      "title": "Internet Information Services",
+      "mmc_equivalent": "inetmgr.exe",
+      "icon": "language",
+      "description": "IIS sites with their bindings and the pools behind them. Whether a site SERVES is not its own state alone — a started site with a stopped pool answers 503, and one with no binding answers nothing — so every row states the combined answer.",
+      "requires": [
+        {
+          "module": "windows_iis"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sites",
+          "title": "Sites",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_iis",
+            "params": {},
+            "rows": "sites"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Site",
+              "width": 220
+            },
+            {
+              "key": "serving",
+              "title": "Serving",
+              "badge": true,
+              "width": 150
+            },
+            {
+              "key": "state",
+              "title": "Site state",
+              "width": 110
+            },
+            {
+              "key": "app_pool",
+              "title": "Pool",
+              "width": 160
+            },
+            {
+              "key": "app_pool_state",
+              "title": "Pool state",
+              "width": 110
+            },
+            {
+              "key": "bindings_summary",
+              "title": "Bindings",
+              "width": 220
+            },
+            {
+              "key": "physical_path",
+              "title": "Content folder",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "stop",
+              "title": "Stop site",
+              "icon": "stop",
+              "tool": "windows_iis",
+              "params": {
+                "object": "site",
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "start",
+              "title": "Start site",
+              "icon": "play_arrow",
+              "tool": "windows_iis",
+              "params": {
+                "object": "site",
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "started"
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-site",
+              "title": "New site…",
+              "icon": "add_link",
+              "tool": "windows_iis",
+              "prefill": {
+                "object": "site",
+                "state": "started"
+              },
+              "dry_run_first": true
+            }
+          ]
+        },
+        {
+          "id": "pools",
+          "title": "Application pools",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_iis",
+            "params": {},
+            "rows": "app_pools"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Pool",
+              "width": 240
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "managed_runtime",
+              "title": ".NET runtime",
+              "width": 150
+            },
+            {
+              "key": "pipeline",
+              "title": "Pipeline",
+              "width": 130
+            },
+            {
+              "key": "identity",
+              "title": "Runs as",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "stop",
+              "title": "Stop pool",
+              "icon": "stop",
+              "tool": "windows_iis",
+              "params": {
+                "object": "app_pool",
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "start",
+              "title": "Start pool",
+              "icon": "play_arrow",
+              "tool": "windows_iis",
+              "params": {
+                "object": "app_pool",
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "started"
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-pool",
+              "title": "New application pool…",
+              "icon": "add_box",
+              "tool": "windows_iis",
+              "prefill": {
+                "object": "app_pool",
+                "state": "started"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "features",
       "title": "Roles and Features",
       "mmc_equivalent": "ServerManager.exe",
