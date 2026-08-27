@@ -695,6 +695,133 @@
       ]
     },
     {
+      "id": "firewall",
+      "title": "Windows Firewall",
+      "mmc_equivalent": "wf.msc",
+      "icon": "security",
+      "description": "The host's firewall rules with their ports joined in. A rule's effect is its action AND its enabled state AND its profiles together — a disabled Allow blocks just as an enabled Block does, and a rule enabled only in the Domain profile does nothing on a host whose network is classified Public.",
+      "requires": [
+        {
+          "module": "windows_firewall_rule"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "inbound",
+          "title": "Inbound rules",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_firewall_rule",
+            "params": {},
+            "rows": "rules"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Rule",
+              "width": 300
+            },
+            {
+              "key": "direction",
+              "title": "Direction",
+              "width": 110
+            },
+            {
+              "key": "effect",
+              "title": "Effect",
+              "badge": true,
+              "width": 150
+            },
+            {
+              "key": "protocol",
+              "title": "Protocol",
+              "width": 100
+            },
+            {
+              "key": "local_port",
+              "title": "Local port",
+              "width": 130
+            },
+            {
+              "key": "remote_address",
+              "title": "Remote address",
+              "width": 180
+            },
+            {
+              "key": "profile",
+              "title": "Profiles",
+              "width": 130
+            },
+            {
+              "key": "program",
+              "title": "Program",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable rule",
+              "icon": "block",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "enabled": false
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "enabled",
+                "equals": false
+              }
+            },
+            {
+              "id": "enable",
+              "title": "Enable rule",
+              "icon": "check_circle",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "enabled": true
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "enabled",
+                "equals": true
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete rule",
+              "icon": "delete",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-rule",
+              "title": "New rule…",
+              "icon": "add_moderator",
+              "tool": "windows_firewall_rule",
+              "prefill": {
+                "state": "present",
+                "direction": "inbound",
+                "action": "allow",
+                "protocol": "TCP",
+                "profile": "Any"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "features",
       "title": "Roles and Features",
       "mmc_equivalent": "ServerManager.exe",

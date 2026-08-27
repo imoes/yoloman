@@ -182,6 +182,9 @@ var modules = new ModuleRegistry(writeEnabled)
     // share: SMB shares and their SHARE-level permissions (the folder's NTFS list is a separate thing, and
     // the module says so on every read — the effective right is the stricter of the two).
     .Add(new AgenticMcp.Agent.Windows.ShareModule())
+    // windows_firewall_rule: the rule set, with the port/program/address filters joined in — a rule without
+    // its port cannot answer the only question anybody asks of it.
+    .Add(new AgenticMcp.Agent.Windows.FirewallRuleModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())
