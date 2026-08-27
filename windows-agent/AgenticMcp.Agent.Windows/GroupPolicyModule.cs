@@ -226,7 +226,15 @@ public sealed class GroupPolicyModule : IModule
         // 68 keys / 15 values and …\CurrentVersion\Policies is 11 keys / 42 values — 57 values in total, on
         // a machine with 324 000 registry keys. That ratio is the whole argument for reading the policy
         // subtree rather than the hive (docs/windows-management.md §8a).
-        data["settings"] = await PolicyRegistry(ct);
+        //
+        // AND THE FIELD IS NAMED FOR WHAT IT IS. `policy_area_values`, not `settings`: this is the CURRENT
+        // CONTENT of the Group-Policy-owned registry area, not a GPO's declaration. We write into that same
+        // area ourselves when a declared registry resource converges, so a value equal to ours proves nothing
+        // (it may be our own last write) while a DIFFERING value is evidence of a foreign authority. Bossman's
+        // conflict report words every finding on exactly that distinction, and it can only do so if the field
+        // does not promise an author it cannot identify.
+        data["policy_area_values"] = await PolicyRegistry(ct);
+        data["policy_area_source"] = "registry-policy-area";
         data["applied"] = applied;
         // DENIED GPOs ARE REPORTED, not filtered away. "The policy is not in the applied list" and "the
         // policy was refused for this host, here is why" are different facts, and only the second one can be
@@ -240,11 +248,16 @@ public sealed class GroupPolicyModule : IModule
         }
 
         var domain = data.GetValueOrDefault("computerresults_domain") as string;
-        var settingCount = ((List<Dictionary<string, object?>>)data["settings"]!).Count;
+        var settingCount = ((List<Dictionary<string, object?>>)data["policy_area_values"]!).Count;
         return new ModuleResult(false,
-            $"{applied.Count} GPO(s) applied, {denied.Count} denied, {settingCount} policy value(s) imposed"
+            $"{applied.Count} GPO(s) applied, {denied.Count} denied, {settingCount} value(s) in the policy area"
             + (string.IsNullOrWhiteSpace(domain) ? "" : $" (domain {domain})")
-            + " — declared by Windows Group Policy, not by this system",
+            // TWO CLAIMS OF DIFFERENT STRENGTH, said apart. Which GPOs applied is Windows' own report; the
+            // policy-area values are what is in that registry area right now, and this module cannot say who
+            // put each one there. A summary line that blurred the two would be the first place the conflict
+            // report loses its footing.
+            + " — the applied policies are Windows' own; the policy-area values say what is in there, not who"
+            + " wrote it",
             data,
             new Dictionary<string, int> { ["attempts"] = 1, ["produced"] = applied.Count + denied.Count });
     }

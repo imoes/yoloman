@@ -422,6 +422,62 @@ async def get_agent_config_drift(
     }
 
 
+@router.get("/api/v1/agents/{agent_id}/policy-conflicts")
+async def get_agent_policy_conflicts(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Where THIS system's declared registry values collide with WINDOWS' OWN POLICY TERRITORY.
+
+    The sentence this endpoint exists to produce: *"Something else holds AUOptions = 3, this policy declares 4,
+    the policy area wins — your convergence will write ours and find it reverted, on every pass."* Without it
+    that is a mystery an operator watches for weeks: the value keeps reverting and nothing says why.
+
+    Reads both sides out of what is already stored, so it contacts no host: ours from the GPO-resolved config
+    resources (group < OU < site < host, with the per-key winner), Windows' from
+    `facts.group_policy.policy_area_values` — the values sitting in the Group-Policy-owned registry subtrees,
+    refreshed every six hours by the poller.
+
+    WHAT THE OTHER SIDE IS, exactly, because the report's honesty depends on it: measured on the test host,
+    `gpresult /X` names WHICH GPOs applied and which extensions ran and carries no per-setting data at all. So
+    the comparison is against the registry area both authorities write to — a DIFFERING value is evidence of a
+    foreign authority (we would have written ours), an EQUAL value is evidence of nothing and is reported as
+    `same_value`, never as "Group Policy agrees". `imposed_source` travels with the report so no consumer has
+    to guess how strong the claim is.
+
+    FOUR OUTCOMES, and three of them are not conflicts: `overridden` (the finding), `same_value` (nothing
+    contradicts us), `in_gp_scope` (nobody claims that name yet, and the next refresh can), `ours_alone`
+    (counted only). A report that called all four a conflict would teach people to close it."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+
+    from bossman.services import registry_policy
+
+    facts = agent.facts or {}
+    policy = facts.get("group_policy") or {}
+    declared = registry_policy.declared_values(await effective_resources(session, agent))
+    report = registry_policy.conflicts(
+        declared,
+        # `settings` is what the 0.1.x Windows agent called the same read; accepted until no such agent is
+        # enrolled, so an un-updated host still gets a report instead of a silent zero.
+        policy.get("policy_area_values") or policy.get("settings") or [],
+        policy.get("policy_area_source") or registry_policy.IMPOSED_SOURCE_AREA,
+    )
+    return {
+        "agent_id": str(agent.id),
+        "os_family": facts.get("os_family"),
+        # WHY AN EMPTY REPORT IS EMPTY, said out loud. "0 conflicts" on a Linux host, on a host whose policy
+        # has never been read, and on a host with nothing declared are three different statements, and only
+        # one of them is good news.
+        "applicable": facts.get("os_family") == "windows",
+        "policy_read_at": policy.get("read_at"),
+        "policy_error": policy.get("error"),
+        **report,
+    }
+
+
 @router.get("/api/v1/agents/{agent_id}/config-desired")
 async def get_agent_config_desired(
     agent_id: UUID,

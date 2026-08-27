@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
-from bossman.services import agent_release, knowledge_index, notification
+from bossman.services import agent_release, knowledge_index, notification, registry_policy
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.edge_identity import (
     EPHEMERAL_FLOOR,
@@ -477,16 +477,19 @@ async def _refresh_group_policy(session: AsyncSession, agent: Agent, client: Age
         # Denied GPOs are kept: "not in the applied list" and "refused for this host, here is why" are
         # different facts and only the second can be acted on.
         "denied": data.get("denied") or [],
-        # WHAT THE POLICY IMPOSES — the 57 registry values a GPO actually writes. Without these the stored
-        # document says WHICH policies apply and nothing about what they do, so the conflict report has
-        # nothing on Windows' side to compare against: it reported "0 imposed" while the module was returning
-        # 57. Added the moment the module started carrying them.
-        "settings": data.get("settings") or [],
+        # WHAT SITS IN WINDOWS' POLICY TERRITORY — the 57 values in the Group-Policy-owned registry
+        # subtrees. Named for what it is rather than for what one would wish it were: gpresult /X carries
+        # no per-setting data on this host (measured), so this is the AREA's current content and not a
+        # GPO's declaration, and the conflict report's wording depends on knowing the difference.
+        # `settings` is the key the 0.1.x Windows agent used for the same read; accepted here so a
+        # not-yet-updated agent keeps reporting, and dropped once no such agent is enrolled.
+        "policy_area_values": data.get("policy_area_values") or data.get("settings") or [],
+        "policy_area_source": registry_policy.IMPOSED_SOURCE_AREA,
     }}
     agent.facts_updated_at = now
-    logger.info("group policy stored for %s: %d applied, %d denied, %d imposed values",
+    logger.info("group policy stored for %s: %d applied, %d denied, %d values in policy area",
                 agent.name, len(data.get("applied") or []), len(data.get("denied") or []),
-                len(data.get("settings") or []))
+                len(data.get("policy_area_values") or data.get("settings") or []))
 
 
 async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
