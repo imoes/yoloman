@@ -14,6 +14,10 @@ platform (the first enrolled host of each family that answers), because the modu
 AGENT BUILD, not of the host — two hosts running the same agent expose the same modules, and a page that
 merged several would hide the one that is behind.
 
+WHY PROSE AND NOT JSON. An earlier version wrote a JSON twin of each page "for machines". Dropped: the
+markdown states each module's purpose and its declared parameters, which is what a caller — human or model —
+actually has to know, and a second file saying the same thing in a less readable shape can only drift.
+
 WHAT IT CANNOT KNOW, and says so on the page instead of pretending: the Ansible-compatible module CATALOG
 (2128 entries, 693 translated) is a Bossman-side library of specs, not modules an agent exposes today. The
 two are different things — an agent's `GET /api/v1/tools` is what a runbook may call right now — and the page
@@ -191,42 +195,12 @@ def main() -> int:
         target.write_text(page(platform, agent, tools, catalog))  # type: ignore[arg-type]
         written.append(f"{target.relative_to(HERE)}: {len(tools)} modules from {agent['name']}")
 
-        # THE SAME ANSWER, MACHINE-READABLE. The markdown is for a person; this is for a script, a model or
-        # another tool — and it is emitted from the SAME data in the same pass, so the two cannot drift.
-        # Generating one from the other later, or maintaining them separately, is how "the docs say X and the
-        # API says Y" starts.
-        machine = HERE / "docs" / f"modules-{family}.json"
-        machine.write_text(json.dumps({
-            "platform": platform,
-            "generated": datetime.date.today().isoformat(),
-            "source": {
-                "kind": "agent tool listing",
-                "endpoint": f"/api/v1/agents/{{agent_id}}/tools",
-                "agent": agent.get("name"),
-                "note": "What this platform's agent exposes right now. Not the Ansible-compatible catalogue "
-                        "(see catalogue below), which is a library of specifications rather than modules an "
-                        "agent will execute today.",
-            },
-            "catalogue": {"specs": catalog.get("total"), "translated": catalog.get("translated")},
-            "counts": {
-                "total": len(tools),
-                "writes": sum(1 for t in tools if t.get("writes")),
-                "reads": sum(1 for t in tools if not t.get("writes")),
-                "unsupported_here": sum(1 for t in tools if t.get("supported") is False),
-            },
-            "modules": sorted(
-                ({
-                    "name": t.get("name"),
-                    "description": t.get("description"),
-                    "writes": bool(t.get("writes")),
-                    "supported": t.get("supported", True),
-                    "unsupported_reason": t.get("unsupported_reason"),
-                    "input_schema": t.get("input_schema") or {},
-                } for t in tools),
-                key=lambda m: m["name"] or "",
-            ),
-        }, indent=2, ensure_ascii=False) + "\n")
-        written.append(f"{machine.relative_to(HERE)}: the same, machine-readable")
+        # NO JSON TWIN. This script used to emit modules-<family>.json beside the markdown, on the theory
+        # that "machine-readable" means a schema dump. That was a misunderstanding of the machine reader: a
+        # model needs to know what a module is FOR, what it refuses, and which of two similar modules is
+        # right, and `{"type": "string"}` answers none of those. The markdown already carries the module's own
+        # description AND its declared parameters, so the JSON could only repeat it less readably while
+        # needing to be kept in step. The prose page is the machine-readable one.
 
     print("\n".join(written) if written else "nothing written")
     return 0 if written else 1

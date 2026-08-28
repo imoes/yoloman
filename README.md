@@ -22,7 +22,9 @@
 | **[The presentation](https://imoes.github.io/yoloman/)** | What yoloman and Bossman are, in one page, with screenshots — live at `imoes.github.io/yoloman`. |
 | **[CHANGELOG.md](CHANGELOG.md)** | What is new, what changed, what was fixed — and, in its own section, **what is still missing**. |
 | **[Every screen](https://imoes.github.io/yoloman/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
-| **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform, generated from what the agents publish. Machine-readable beside each: [.json](docs/modules-windows.json) |
+| **[Developer guide](docs/developing.md)** | What the system is, where truth lives, the contracts that must not be broken, how to add a module / check / endpoint / snap-in — and a closing section addressed to a language model working in this repository. |
+| **[HTTP API, endpoint by endpoint](docs/api-reference.md)** | All 481 operations in 68 groups, in prose, generated from a *running* server's OpenAPI document. |
+| **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform — every module an agent exposes right now, with the parameters the module itself declares. Generated from the agents' own tool listing. |
 | **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
 
 > **The presentation is live: [imoes.github.io/yoloman](https://imoes.github.io/yoloman/)** — GitHub Pages

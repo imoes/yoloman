@@ -213,11 +213,16 @@ def render(routes: list[dict], workspaces: list[dict], placement: dict[str, str]
     parts.append(f"""</main>
 <footer>
   <p>
-    The screens above are the readers. What they read and write is documented next door:
-    <a href="https://github.com/imoes/yoloman/blob/main/docs/modules-windows.md">Windows modules</a>,
-    <a href="https://github.com/imoes/yoloman/blob/main/docs/modules-linux.md">Linux modules</a> — both generated from what the agents themselves
-    publish. Those links leave this site on purpose: GitHub Pages serves this folder as files and does not
-    render markdown, so a local link would return raw text and look like a broken page.
+    The screens above are the readers. What they read and write is documented next door, in prose:
+    the <a href="https://github.com/imoes/yoloman/blob/main/docs/developing.md">developer guide</a> (the
+    contracts, and how to add something without breaking them),
+    the <a href="https://github.com/imoes/yoloman/blob/main/docs/api-reference.md">HTTP API endpoint by
+    endpoint</a> — every call these screens make — and
+    <a href="https://github.com/imoes/yoloman/blob/main/docs/modules-windows.md">Windows</a> ·
+    <a href="https://github.com/imoes/yoloman/blob/main/docs/modules-linux.md">Linux modules</a>, generated
+    from what the agents themselves publish. Those links leave this site on purpose: GitHub Pages serves this
+    folder as files and does not render markdown, so a local link would return raw text and look like a
+    broken page.
   </p>
   <p>
     Regenerate this page with <code>scripts/generate-frontend-presentation.py</code>. It has no network

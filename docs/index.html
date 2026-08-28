@@ -209,39 +209,67 @@
   </figcaption>
 </figure>
 
-<h2>Documentation — for people and for machines</h2>
+<h2>Documentation — written so an AI can work from it</h2>
 <p class="lede">
-  The same answers in two shapes, generated in one pass from the same source so they cannot disagree.
+  Machine-readable was tried as JSON and dropped. A model reading this system does not need
+  <code>{"type":"string"}</code> — it needs sentences that say what an endpoint is <em>for</em>, what it
+  refuses, and which of two similar endpoints is the right one. A schema answers none of those. So the
+  reference is prose, and it is generated from the running system rather than written, which is what keeps it
+  true.
 </p>
 
 <table>
-  <thead><tr><th>Subject</th><th>For a person</th><th>For a script or a model</th></tr></thead>
+  <thead><tr><th>Page</th><th>What it answers</th><th>Where it comes from</th></tr></thead>
   <tbody>
     <tr>
-      <td>Windows modules (34)</td>
-      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/modules-windows.md">modules-windows.md</a></td>
-      <td><a href="modules-windows.json">modules-windows.json</a> — names, schemas, write flags</td>
+      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/developing.md">Developer guide</a></td>
+      <td>What the system is, where truth lives, the nine contracts that must not be broken, how to add a
+          module / check / endpoint / snap-in, and the traps that already cost real time. Its last section is
+          addressed to a language model working in the repository.</td>
+      <td>Written by hand. The only page here that is.</td>
     </tr>
     <tr>
-      <td>Linux modules (84)</td>
-      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/modules-linux.md">modules-linux.md</a></td>
-      <td><a href="modules-linux.json">modules-linux.json</a></td>
+      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/api-reference.md">HTTP API, endpoint by endpoint</a></td>
+      <td>All 481 operations in 68 groups: what each one does, its parameters in words, and what its body
+          carries. Each group opens with one sentence saying what it is <em>for</em>.</td>
+      <td>Generated from a <em>running</em> server's <code>/openapi.json</code> — a route the router never
+          included does not exist for a caller.</td>
     </tr>
     <tr>
-      <td>Every screen (54)</td>
-      <td><a href="frontend-presentation.html">frontend-presentation.html</a></td>
-      <td>the live API: <code>GET /api/v1/openapi.json</code> (388 paths)</td>
+      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/modules-windows.md">Windows modules</a> ·
+          <a href="https://github.com/imoes/yoloman/blob/main/docs/modules-linux.md">Linux modules</a></td>
+      <td>Every module an agent exposes right now, with the parameters the module itself declares.</td>
+      <td>Generated from the agents' own <code>GET /api/v1/tools</code>.</td>
     </tr>
     <tr>
-      <td>What an agent can do <em>right now</em></td>
-      <td>the pages above</td>
-      <td><code>GET /api/v1/agents/{id}/tools</code> — the source both pages are generated from</td>
+      <td><a href="frontend-presentation.html">Every screen</a></td>
+      <td>54 screens in five workspaces, each described by the comment in its own source.</td>
+      <td>Generated from the UI source.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/imoes/yoloman/blob/main/docs/checks-authoring.md">Writing a check</a></td>
+      <td>The Starlark contract, with a worked example commented with the mistakes its author made.</td>
+      <td>Written by hand, next to the check it describes.</td>
     </tr>
   </tbody>
 </table>
 
+<p>
+  <strong>For a model fetching these directly:</strong> the pages above are served from this site as plain
+  markdown — <code>https://imoes.github.io/yoloman/developing.md</code>,
+  <code>/api-reference.md</code>, <code>/modules-windows.md</code>, <code>/modules-linux.md</code>. That is
+  the machine-readable form: unstyled text, no HTML to strip, no schema to interpret. The links in the table
+  point at GitHub's rendered view instead, because this site serves markdown as raw text and a human clicking
+  a link expects a formatted page. Same files, two audiences, one source.
+</p>
+
 <h2>Read further</h2>
 <div class="grid-links">
+  <a href="https://github.com/imoes/yoloman/blob/main/docs/developing.md"><strong>Developer guide</strong>
+    <span>The contracts, the traps, and how to add something without breaking either. Written for a person
+    joining — and for a model given a task here.</span></a>
+  <a href="https://github.com/imoes/yoloman/blob/main/docs/api-reference.md"><strong>The HTTP API</strong>
+    <span>481 operations in 68 groups, in words, generated from a running server.</span></a>
   <a href="https://github.com/imoes/yoloman/blob/main/CHANGELOG.md"><strong>Changelog</strong>
     <span>What is new, what changed, what was fixed — and what is still missing.</span></a>
   <a href="https://github.com/imoes/yoloman/blob/main/docs/checks-authoring.md"><strong>Writing a check</strong>
