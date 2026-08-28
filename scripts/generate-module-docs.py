@@ -191,6 +191,43 @@ def main() -> int:
         target.write_text(page(platform, agent, tools, catalog))  # type: ignore[arg-type]
         written.append(f"{target.relative_to(HERE)}: {len(tools)} modules from {agent['name']}")
 
+        # THE SAME ANSWER, MACHINE-READABLE. The markdown is for a person; this is for a script, a model or
+        # another tool — and it is emitted from the SAME data in the same pass, so the two cannot drift.
+        # Generating one from the other later, or maintaining them separately, is how "the docs say X and the
+        # API says Y" starts.
+        machine = HERE / "docs" / f"modules-{family}.json"
+        machine.write_text(json.dumps({
+            "platform": platform,
+            "generated": datetime.date.today().isoformat(),
+            "source": {
+                "kind": "agent tool listing",
+                "endpoint": f"/api/v1/agents/{{agent_id}}/tools",
+                "agent": agent.get("name"),
+                "note": "What this platform's agent exposes right now. Not the Ansible-compatible catalogue "
+                        "(see catalogue below), which is a library of specifications rather than modules an "
+                        "agent will execute today.",
+            },
+            "catalogue": {"specs": catalog.get("total"), "translated": catalog.get("translated")},
+            "counts": {
+                "total": len(tools),
+                "writes": sum(1 for t in tools if t.get("writes")),
+                "reads": sum(1 for t in tools if not t.get("writes")),
+                "unsupported_here": sum(1 for t in tools if t.get("supported") is False),
+            },
+            "modules": sorted(
+                ({
+                    "name": t.get("name"),
+                    "description": t.get("description"),
+                    "writes": bool(t.get("writes")),
+                    "supported": t.get("supported", True),
+                    "unsupported_reason": t.get("unsupported_reason"),
+                    "input_schema": t.get("input_schema") or {},
+                } for t in tools),
+                key=lambda m: m["name"] or "",
+            ),
+        }, indent=2, ensure_ascii=False) + "\n")
+        written.append(f"{machine.relative_to(HERE)}: the same, machine-readable")
+
     print("\n".join(written) if written else "nothing written")
     return 0 if written else 1
 

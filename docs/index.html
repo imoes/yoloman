@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yoloman — a fleet you can ask questions</title>
+<meta name="description" content="yoloman and Bossman: one agent per host, one server, and a fleet that can explain what it did. Vibe coded, in development, honest about both.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: #14161b; --dim: #5a616f; --line: #d8dce4; --bg: #fbfcfe; --card: #ffffff;
+    --accent: #1b4dd8; --accent-soft: #e9eeff; --warn-bg: #fff4e2; --warn-ink: #8a4b04;
+    --code-bg: #f2f4f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e9ebf1; --dim: #9aa3b4; --line: #282d38; --bg: #101218; --card: #181b23;
+            --accent: #7ba3ff; --accent-soft: #1a2338; --warn-bg: #2a2013; --warn-ink: #e6b166;
+            --code-bg: #1e222b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); }
+  code { font-family: ui-monospace, monospace; font-size: 0.9em; background: var(--code-bg);
+    padding: 1px 6px; border-radius: 5px; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 64px 0 28px; }
+  h1 { font-size: clamp(32px, 6vw, 52px); margin: 0 0 6px; letter-spacing: -0.025em; }
+  .tag { font-size: clamp(18px, 2.4vw, 22px); color: var(--dim); margin: 0 0 26px; max-width: 62ch; }
+  .banner { background: var(--warn-bg); color: var(--warn-ink); border-radius: 12px; padding: 16px 20px;
+    font-size: 15px; line-height: 1.55; margin: 0 0 30px; }
+  .banner strong { font-weight: 700; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 8px; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 10px; text-decoration: none;
+    font-weight: 600; font-size: 15px; background: var(--accent); color: #fff; }
+  .btn.secondary { background: var(--accent-soft); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+  h2 { font-size: 26px; margin: 52px 0 6px; letter-spacing: -0.01em; }
+  h2 + p.lede { color: var(--dim); margin: 0 0 22px; max-width: 74ch; }
+  .two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h3 { margin: 0 0 8px; font-size: 18px; }
+  .card p { margin: 0 0 10px; font-size: 15px; }
+  .card p:last-child { margin-bottom: 0; }
+  .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim);
+    margin: 0 0 4px; }
+  ul.plain { margin: 10px 0 0; padding-left: 20px; }
+  ul.plain li { margin: 6px 0; font-size: 15px; }
+  figure { margin: 24px 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 12px; display: block; }
+  figcaption { color: var(--dim); font-size: 14px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 14px 0; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); }
+  footer { margin: 64px 0 70px; color: var(--dim); font-size: 14px; }
+  .grid-links { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    margin: 18px 0 0; }
+  .grid-links a { display: block; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px;
+    text-decoration: none; background: var(--card); }
+  .grid-links a strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+  .grid-links a span { color: var(--dim); font-size: 14px; }
+  .machine { font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">yoloman · Bossman</p>
+  <h1>A fleet you can ask questions</h1>
+  <p class="tag">
+    One agent per host, one server that knows them all, and — the part that took the longest — a system that
+    can say what it did, why it thinks what it thinks, and what it does not know.
+  </p>
+
+  <!-- SAID FIRST, not in a footnote. Somebody deciding whether to run this on their servers needs both of
+       these sentences before the feature list, not after it. -->
+  <div class="banner">
+    <strong>This project is entirely “vibe coded” and still in development.</strong>
+    It was written conversationally, by an AI pair working against real hosts, and it is pre-1.0: interfaces
+    and stored formats can still change between versions. What is documented here has been exercised on a real
+    Debian host and a real Windows Server 2022 — every number on this page was measured, not estimated — but
+    this is not yet a promise you should build a change process on. The gaps are listed in the
+    <a href="../CHANGELOG.md">changelog</a>, under “Still missing”, on purpose.
+  </div>
+
+  <div class="cta">
+    <a class="btn" href="frontend-presentation.html">Every screen, one page</a>
+    <a class="btn secondary" href="../CHANGELOG.md">Changelog</a>
+    <a class="btn secondary" href="modules-windows.md">Windows modules</a>
+    <a class="btn secondary" href="modules-linux.md">Linux modules</a>
+  </div>
+</header>
+
+<h2>The two halves</h2>
+<p class="lede">One name each, one job each — the distinction the whole product is built on.</p>
+<div class="two">
+  <div class="card">
+    <p class="kicker">on every host</p>
+    <h3>yoloman, the agent</h3>
+    <p>
+      A single binary that answers questions about its host and carries out declared changes. Two
+      implementations, deliberately: <strong>Go</strong> on Linux, <strong>.NET</strong> on Windows — because a
+      Windows host is not a Linux host with different paths, and pretending otherwise is where fleet tools
+      usually break.
+    </p>
+    <p>
+      It measures (metrics, inventory, connections, eBPF signals), it executes modules, and it keeps its own
+      record of what it did. It never dials out on its own: the server asks, the agent answers.
+    </p>
+  </div>
+  <div class="card">
+    <p class="kicker">once, centrally</p>
+    <h3>Bossman, the server</h3>
+    <p>
+      Polls every agent, stores the history, judges it against rules you declare, and offers one place to look
+      and to act. Policies inherit the way Group Policy does — global &lt; group &lt; OU &lt; site &lt; host —
+      so a rule is stated once and its reach is visible.
+    </p>
+    <p>
+      It also speaks <strong>MCP</strong>, so an AI works the fleet through the same API a person does, reading
+      the same records rather than a summary of them.
+    </p>
+  </div>
+</div>
+
+<h2>What it does</h2>
+<p class="lede">
+  Six things it does that are worth the words. Each one is documented in depth behind the links at the bottom.
+</p>
+
+<div class="two">
+  <div class="card">
+    <h3>Monitoring that says why</h3>
+    <p>
+      Checks run on the host and become services with state, value and a sentence. 1432 checks are available,
+      most translated from Checkmk; writing your own is two files and one validation command
+      (<a href="checks-authoring.md">the guide</a>).
+    </p>
+    <p class="machine">Measured: a hand-written check assigned through the UI reported <code>OK, 0.208 ms</code>
+      on the first cycle after its scope was applied.</p>
+  </div>
+  <div class="card">
+    <h3>Configuration as values, not text</h3>
+    <p>
+      Config files are parsed by a codec into values, merged per key with the scope that won recorded, and
+      written back — with generations and rollback. 2484 file grammars, 3272 described fields.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Windows managed as Windows</h3>
+    <p>
+      Roles and features, scheduled tasks, shares, firewall rules, IIS, DNS, DHCP, the event log, Group Policy
+      — 34 modules, each idempotent and previewable. Windows' own words are passed through: install state has
+      seven values, a restart is <em>yes/no/maybe</em>.
+    </p>
+  </div>
+  <div class="card">
+    <h3>A console you already know</h3>
+    <p>
+      MMC's snap-in tree, rebuilt: 19 snap-ins over any managed host — Linux included — declared as JSON.
+      Create dialogs are generated from each module's own schema, so a form cannot offer a parameter the module
+      would refuse.
+    </p>
+  </div>
+  <div class="card">
+    <h3>A record of what was done</h3>
+    <p>
+      Every module call leaves an operation record: the parameters, the verdict, the evidence, who asked. Eight
+      outcomes that are never collapsed — a dry run is not a no-op, a refusal is not a crash, and
+      <em>timed-out</em> may have completed.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Bare metal to running host</h3>
+    <p>
+      PXE-boot a machine, image it, write its identity and its network in, and let it come up already enrolled
+      — with roles as desired state rather than as a one-time script.
+    </p>
+  </div>
+</div>
+
+<h2>What it looks like</h2>
+<p class="lede">Three screens, taken from the running system while this page was written.</p>
+
+<figure>
+  <img src="screenshots/mmc-console-services.png" alt="The management console showing a Windows host's services">
+  <figcaption>
+    The management console: snap-in tree on the left, result list in the middle, actions on the selected row.
+    195 services from a Windows host — and the same tree serves a Debian one, with the snap-ins it cannot
+    offer stating why.
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="screenshots/result-log.png" alt="The result log listing operations with their outcomes">
+  <figcaption>
+    The result log: what hosts <em>did</em>, and what came back. Not the audit log — that records what was
+    asked of the server. A request and its effect are two facts, and only the second answers “did that install
+    work”.
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="screenshots/assign-check-dialog.png" alt="Assigning a check to an OU, with its parameter form">
+  <figcaption>
+    Assigning a check to a scope. The parameter form is generated from the check's own metadata, and nothing
+    is written until the staged changes are applied together.
+  </figcaption>
+</figure>
+
+<h2>Documentation — for people and for machines</h2>
+<p class="lede">
+  The same answers in two shapes, generated in one pass from the same source so they cannot disagree.
+</p>
+
+<table>
+  <thead><tr><th>Subject</th><th>For a person</th><th>For a script or a model</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Windows modules (34)</td>
+      <td><a href="modules-windows.md">modules-windows.md</a></td>
+      <td><a href="modules-windows.json">modules-windows.json</a> — names, schemas, write flags</td>
+    </tr>
+    <tr>
+      <td>Linux modules (84)</td>
+      <td><a href="modules-linux.md">modules-linux.md</a></td>
+      <td><a href="modules-linux.json">modules-linux.json</a></td>
+    </tr>
+    <tr>
+      <td>Every screen (54)</td>
+      <td><a href="frontend-presentation.html">frontend-presentation.html</a></td>
+      <td>the live API: <code>GET /api/v1/openapi.json</code> (388 paths)</td>
+    </tr>
+    <tr>
+      <td>What an agent can do <em>right now</em></td>
+      <td>the pages above</td>
+      <td><code>GET /api/v1/agents/{id}/tools</code> — the source both pages are generated from</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Read further</h2>
+<div class="grid-links">
+  <a href="../CHANGELOG.md"><strong>Changelog</strong>
+    <span>What is new, what changed, what was fixed — and what is still missing.</span></a>
+  <a href="checks-authoring.md"><strong>Writing a check</strong>
+    <span>A worked example, with the four traps that cost a real run.</span></a>
+  <a href="windows-management.md"><strong>Windows management</strong>
+    <span>The design, grounded in what a real host answered. Every number measured.</span></a>
+  <a href="windows-agent.md"><strong>The Windows agent</strong>
+    <span>Why .NET, why WMI, and the defects only a real install could show.</span></a>
+  <a href="frontend-presentation.html"><strong>Every screen</strong>
+    <span>54 screens in five workspaces, each described by its own source.</span></a>
+  <a href="../README.md"><strong>README</strong>
+    <span>Repository layout, how to run it, how to deploy it.</span></a>
+</div>
+
+<footer>
+  <p>
+    Generated pages on this site (<a href="frontend-presentation.html">the screen list</a>, the module
+    references) are produced by scripts in <code>scripts/</code> and are regenerated from the running system —
+    if one of them is wrong, the fix belongs in the source it was generated from.
+  </p>
+  <p>
+    Vibe coded, in development, and honest about both. If something here reads as a promise, treat the
+    changelog's “Still missing” section as the correction.
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

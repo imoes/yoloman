@@ -10,7 +10,7 @@ Every module this platform's agent exposes **right now**, with the parameters th
 declares. A module is the unit a runbook step, a console action and an MCP tool call all use — the same
 name, the same parameters, on every host of this platform.
 
-**83 modules**: 61 that change the host, 22 that only read it.
+**84 modules**: 61 that change the host, 23 that only read it.
 
 Two rules hold for all of them, and they are why the tables below are worth reading rather than
 skimming:
@@ -1505,4 +1505,14 @@ Cross-tool equivalents:
 | `sleep` | string | — | Seconds between checks. Default "1". |
 | `state` | one of `started`, `stopped`, `present`, `absent` | — | Condition to wait for. Default "started". |
 | `timeout` | string | — | Maximum seconds to wait before failing. Default "300", capped at 600. |
+
+### `yoloman.agent_selfcheck`
+
+Agent self-check
+
+| Parameter | Type | Required | What it means |
+|---|---|---|---|
+| `crit_ms` | string | — | Crit when it takes at least this many milliseconds. |
+| `port` | string | — | The agent's own listening port on this host. 8051 is the Go agent's default; the Windows agent is often on 8451. |
+| `warn_ms` | string | — | Warn when the local connection to the agent's port takes at least this many milliseconds. |
 

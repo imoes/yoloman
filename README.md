@@ -10,6 +10,20 @@
 > schema can still change between versions, and an upgrade may need a migration that has not been rehearsed
 > on your data. Run it where you can afford to be surprised — a lab, a staging fleet, hosts you can rebuild.
 > It is a real system doing real work, and it is not yet a promise you should build a change process on.
+>
+> **It is also entirely "vibe coded"** — written conversationally, by an AI pair working against real hosts.
+> What is documented has been exercised on real machines and the numbers were measured, not estimated; what is
+> missing is listed as missing.
+
+## Start here
+
+| | |
+|---|---|
+| **[The presentation](docs/index.html)** | What yoloman and Bossman are, in one page, with screenshots. The landing page of the documentation. |
+| **[CHANGELOG.md](CHANGELOG.md)** | What is new, what changed, what was fixed — and, in its own section, **what is still missing**. |
+| **[Every screen](docs/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
+| **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform, generated from what the agents publish. Machine-readable beside each: [.json](docs/modules-windows.json) |
+| **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
 
 A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
 **observability**, and **configuration management** to an AI — over [MCP](https://modelcontextprotocol.io)
