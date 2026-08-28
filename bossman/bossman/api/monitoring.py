@@ -176,6 +176,22 @@ async def list_problems(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ServiceOut]:
+    """Everything currently not OK in the fleet — the problem list.
+
+    WARN, CRIT and UNKNOWN services, **most recently changed state first**,
+    filterable by state, host name, acknowledgement and host tag. That ordering is
+    deliberate: what just broke is what an operator has not seen yet.
+
+    **Services under an active downtime are excluded unless you ask for them**
+    (`include_downtime=true`). That is the point of a downtime: a planned outage is
+    not a problem, and a problem list that shows it teaches operators to ignore the
+    list. They are excluded, never deleted — the service still has its state, and the
+    downtime is why it is not here.
+
+    UNKNOWN is a state, not a gap: it means the check could not produce a verdict, and
+    the service's message says why (no data yet, the check was refused, the check
+    itself failed). Do not read it as OK.
+    """
     views = await query_problems(
         session, state=state, host=host, acknowledged=acknowledged, include_downtime=include_downtime, tag=tag
     )
@@ -188,6 +204,14 @@ async def list_agent_services(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ServiceOut]:
+    """Every check result for one host, as service states.
+
+    One row per check assigned to this host: its state, its message, its metrics and
+    when it last ran. A host that has just been enrolled legitimately returns an empty
+    list — no checks are assigned yet, which is different from all checks passing.
+
+    404 when the agent id does not exist.
+    """
     views = await query_agent_services(session, agent_id)
     if views is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
@@ -407,6 +431,23 @@ async def acknowledge_service_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> ServiceOut:
+    """Acknowledge a problem: someone has seen it and is dealing with it.
+
+    An acknowledgement does not change the state — the service stays CRIT, because it
+    still is CRIT. It records that a human took it, with their name, their comment and
+    the time, and it takes the service out of the notification path so the next
+    escalation step does not fire. That separation is the point: suppressing the alarm
+    must not be the same act as claiming the problem is gone.
+
+    `expire_after_minutes` makes it lapse by itself, which is what you want for "I'll
+    look at this after lunch" — an acknowledgement that never expires is how a real
+    problem gets forgotten.
+
+    It is also cleared automatically on the next **confirmed (hard) state change** —
+    a recovery *or* a fresh problem onset. Both are new occurrences, and a stale
+    acknowledgement carrying over into one would silence something nobody has looked
+    at. A soft flicker does not clear it.
+    """
     expires_at = None
     if body.expire_after_minutes and body.expire_after_minutes > 0:
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=body.expire_after_minutes)
@@ -455,6 +496,8 @@ async def unacknowledge_service_route(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ServiceOut:
+    """Take the acknowledgement back — the problem returns to the notification path
+    with its comment and history intact. Used when whoever took it cannot finish it."""
     service = await unacknowledge_service(session, service_id)
     if service is None:
         raise HTTPException(status_code=404, detail=f"no such service {service_id}")
@@ -527,6 +570,12 @@ async def list_downtimes(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[DowntimeOut]:
+    """Planned outage windows: scheduled, past and running.
+
+    `active_only=true` narrows it to windows covering this moment, which is the set
+    that is actually suppressing anything right now. Without `agent_id` you get the
+    whole fleet's.
+    """
     stmt = select(Downtime)
     if agent_id is not None:
         stmt = stmt.where(Downtime.agent_id == agent_id)
@@ -544,6 +593,18 @@ async def create_downtime_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DowntimeOut:
+    """Declare a planned outage window, so what happens in it is not a problem.
+
+    A downtime covers one host (`agent_id`), optionally one `service_name` — omit it
+    and the whole host is covered. During the window its services keep measuring and
+    keep their real states; what changes is that they are left out of the problem list
+    and the notification path.
+
+    422 when the window makes no sense (an end at or before its start); 404 when there
+    is no such host. A downtime is not retroactive: a window in the past changes
+    nothing about the notifications that already went out, because rewriting whether
+    an alarm "should have" fired would falsify the record.
+    """
     try:
         downtime = await create_downtime(
             session,
@@ -567,6 +628,9 @@ async def delete_downtime(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> None:
+    """Remove a downtime window. If it is running, its host's services return to the
+    problem list immediately — with their current states, not the states they had when
+    the window opened."""
     downtime = await session.get(Downtime, downtime_id)
     if downtime is None:
         raise HTTPException(status_code=404, detail=f"no such downtime {downtime_id}")
@@ -738,6 +802,19 @@ async def list_check_rules(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[CheckRuleOut]:
+    """Every check policy: which check is assigned where, with which parameters.
+
+    A rule is the *intension* — the declaration "hosts in this scope run this check
+    with these thresholds". The service states it produces are the extension. Keep the
+    two apart when reading this: a rule can exist while no host matches it, and that
+    is not an error.
+
+    One rule can be linked to several OUs; both its primary scope and its additional
+    OU links are folded into `ou_ids` here, deduplicated, so a caller does not have to
+    join two tables to see a rule's real reach. For which rule actually *wins* on a
+    given host — the precedence global < group < OU < site < host, with the reason —
+    ask `GET /api/v1/agents/{agent_id}/effective-thresholds` instead.
+    """
     rules = (await session.scalars(select(CheckRule).order_by(CheckRule.created_at.desc()))).all()
     # One policy can link to many OUs (check_rule_ou_links) — fold each rule's
     # additional OUs into ou_ids alongside its primary scope_ou_id.
@@ -759,6 +836,19 @@ async def create_check_rule(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> CheckRuleOut:
+    """Assign a check to a scope with its parameters.
+
+    The scope is what makes this a policy rather than a per-host setting: global, a
+    host group, an OU, a site or a single host. Overlapping rules are legitimate and
+    resolved by precedence (global < group < OU < site < host) rather than rejected —
+    a narrower scope is how an exception is expressed.
+
+    The parameters are validated against the check's own declared options, so a rule
+    cannot carry a parameter the check would refuse. Nothing runs on a host until the
+    assignment reaches it on the next cycle; the check is pushed to the agent and, if
+    the agent rejects it, the resulting service says so rather than reporting a stale
+    result.
+    """
     if body.comparison not in ("gt", "lt", "ge", "le", "eq", "ne"):
         raise HTTPException(status_code=422, detail="comparison must be one of gt|lt|ge|le|eq|ne")
     _validate_scope(body.scope_type, body.scope_value, body.scope_ou_id, body.scope_site_id)
@@ -804,6 +894,15 @@ async def update_check_rule(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> CheckRuleOut:
+    """Replace a check policy wholesale.
+
+    Every field is taken from the body, so a field you omit is *cleared*, not kept —
+    use PATCH when you mean to change one thing.
+
+    Note what this does *not* do: the `version` a rule carries in its representation
+    is a content hash for change detection, and **nothing here checks it**. Two
+    editors saving the same rule will not collide; the second write wins silently.
+    """
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
@@ -870,6 +969,8 @@ async def patch_check_rule(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> CheckRuleOut:
+    """Change individual fields of a check policy; anything you omit stays as it is.
+    This is the safe one for a partial edit — see PUT for why."""
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
@@ -990,6 +1091,13 @@ async def delete_check_rule(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> None:
+    """Remove a check policy.
+
+    The check stops being assigned through this rule; hosts that matched it lose the
+    service on the next cycle. Hosts that also match another rule keep it, with that
+    rule's parameters — which may differ, so a delete can change thresholds rather
+    than remove a check.
+    """
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
@@ -1026,6 +1134,21 @@ async def fleet_summary_route(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> FleetSummaryOut:
+    """The fleet in numbers: hosts by state, services by state, what needs attention.
+
+    The overview's top row, and read the axes carefully because they differ:
+
+    - **Hosts are counted by enrollment state**, not by health — pending, enrolled and
+      the rest. A host's health is a rollup of its services, and this number is not
+      that.
+    - **Services are counted by monitoring state** across the four: OK, WARN, CRIT,
+      UNKNOWN.
+    - **Open problems** is the narrower number an operator acts on: non-OK, *not*
+      acknowledged and *not* under a downtime. It is deliberately smaller than
+      WARN + CRIT + UNKNOWN, and the difference is the work someone has already taken.
+
+    Every value is a count of rows that exist right now — not a rate, not an average.
+    """
     summary = await fleet_summary(session)
     return FleetSummaryOut(
         hosts_total=summary.hosts_total,

@@ -186,8 +186,10 @@ commented with exactly the mistakes its author made.
 ### An endpoint
 
 A router in `bossman/bossman/api/`, thin; the logic in `services/`. **Write a docstring** — it becomes the
-description in [the API reference](api-reference.md), and 234 of the 481 operations still have none, which is
-the single easiest documentation improvement available in this repository. Tag it with the group it belongs
+description in [the API reference](api-reference.md), and 201 of the 481 operations still have none, which is
+the single easiest documentation improvement available in this repository — the first 33 were written by reading
+the handler and *verifying* every claim against the code, which is the only way this is worth doing: four of
+those first drafts asserted behaviour the code does not have. Tag it with the group it belongs
 to; if the group is new, add its one-line description to `TAG_BLURBS` in
 `scripts/generate-api-reference.py`.
 

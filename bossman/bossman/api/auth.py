@@ -124,6 +124,16 @@ async def login(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> LoginResponse:
+    """Log in and get the bearer token everything else needs.
+
+    Send `{"username", "password"}`; the response carries `access_token`, which goes
+    into `Authorization: Bearer <token>` on every other call in this API. Only this
+    endpoint and `/healthz` work without one.
+
+    A failed attempt is recorded in the audit trail with the source IP (action
+    `auth.login_failed`) — a login that nobody can see failing is a login nobody can
+    see being attacked.
+    """
     ip = request.client.host if request.client else None
     try:
         user = await authenticate_user(session, body.username, body.password)

@@ -134,6 +134,18 @@ async def list_agents(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[AgentOut]:
+    """Every host in the fleet, with its facts, its state and its addresses.
+
+    This is the call that maps a host **name** to the **agent id** the rest of the API
+    is addressed by. Names are not unique over a fleet's lifetime; an endpoint that
+    took a name would act on the wrong host after a rebuild.
+
+    One deliberate omission: **infrastructure agents are not listed.** The silent
+    poller that reaches SNMP and SSH devices ("selecta") is an agent in the database
+    and not a monitored host, so it would appear as a host that never has any of the
+    things a host has. It is filtered here rather than in the UI, so every client sees
+    the same fleet.
+    """
     # Hide infrastructure agents (the silent SNMP/SSH poller "selecta") from the
     # Hosts list — it isn't a monitored host, just the engine behind devices.
     agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
@@ -153,6 +165,11 @@ async def get_agent(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> AgentOut:
+    """One host: its facts, its enrollment state, its addresses and its versions.
+
+    404 when there is no such id — including for an infrastructure agent's id, which
+    `list_agents` does not return either.
+    """
     return AgentOut.from_model(await _get_agent_or_404(session, agent_id))
 
 
@@ -737,6 +754,18 @@ async def get_agent_metrics(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict:
+    """This host's metrics: the catalogue, or the points of one series.
+
+    **Two modes in one endpoint, and the parameter decides which.** Without `metric`
+    you get the *catalogue* — which series this host has ever reported, so a caller
+    can find out what is measurable before asking for numbers. With `metric` you get
+    that series' points, optionally from `since` onwards.
+
+    The catalogue is what a host *has reported*, not what it *could* report: a series
+    appears once the first sample arrives and stays afterwards. For the newest sample
+    of every series in one call, use `.../metrics/latest` instead of fanning out one
+    request per name.
+    """
     await _get_agent_or_404(session, agent_id)
 
     if metric is None:
