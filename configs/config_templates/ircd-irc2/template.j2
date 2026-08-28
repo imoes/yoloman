@@ -1,0 +1,96 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          ircd-irc2
+# Required-Start:    $network $remote_fs
+# Required-Stop:     $network $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Starts/stops the irc daemon
+# Description: Provide IRC service with the IRC daemon
+### END INIT INFO
+
+set -e
+
+. /lib/lsb/init-functions
+
+# $PATH to go
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# where the irc-daemon is
+# Path to the ircd binary executable
+IRCD={{ ircd_binary | default('/usr/sbin/ircd') }}
+
+# Name of the ircd service process
+NAME={{ ircd_service_name | default('ircd') }}
+
+# Full path to the PID file for the ircd daemon
+PIDFILE={{ pid_file_path | default('/var/run/ircd/ircd.pid') }}
+
+check_pid_dir() {
+	# Directory where the PID file is stored
+	if [ ! -d {{ pid_dir_path | default('/var/run/ircd') }} ]; then
+		mkdir {{ pid_dir_path | default('/var/run/ircd') }}
+		# User owner of the PID directory
+		chown {{ pid_dir_user | default('irc') }}:{{ pid_dir_group | default('irc') }} {{ pid_dir_path | default('/var/run/ircd') }}
+		chmod 775 {{ pid_dir_path | default('/var/run/ircd') }}
+	fi
+}
+
+
+# Gracefully exit if the package has been removed.
+test -x $IRCD || exit 0
+
+status_ircd() {
+	status_of_proc -p "${PIDFILE}" "${IRCD}" "${NAME}"
+}
+
+case "$1" in
+
+       start)
+		check_pid_dir
+               echo -n "Starting irc server daemon:"
+               echo -n " ${NAME}"
+               # User under which the ircd daemon runs
+               start-stop-daemon --start --quiet --pidfile ${PIDFILE} \
+                       -m -b --chuid {{ daemon_user | default('irc') }} --exec ${IRCD} --oknodo
+               echo "."
+               ;;
+
+       stop)
+               echo -n "Stopping irc server daemon:"
+               echo -n " ${NAME}"
+               start-stop-daemon --stop --quiet --oknodo \
+                       --pidfile ${PIDFILE} --exec ${IRCD}
+               echo "."
+               ;;
+       status)
+	       status_ircd
+               ;;
+
+       reload|force-reload)
+               echo -n "Reloading irc server daemon:"
+               echo -n " ${NAME}"
+               start-stop-daemon --stop --signal 1 --quiet \
+                       --pidfile ${PIDFILE} --exec ${IRCD}
+               echo "."
+               ;;
+
+       restart)
+		check_pid_dir
+               echo -n "Restarting irc server daemon:"
+               echo -n " ${NAME}"
+               start-stop-daemon --stop --quiet --oknodo \
+                       --pidfile ${PIDFILE} --exec ${IRCD}
+               sleep 1
+               # User under which the ircd daemon runs
+               start-stop-daemon --start --quiet --pidfile ${PIDFILE} \
+                       --chuid {{ daemon_user | default('irc') }} --exec ${IRCD}
+               echo "."
+               ;;
+       *)
+               echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"
+               exit 1
+               ;;
+esac
+
+exit 0

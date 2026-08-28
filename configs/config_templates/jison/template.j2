@@ -1,0 +1,50 @@
+# =============================================================================
+# Jison Parser Generator Configuration
+# =============================================================================
+# This template configures the Jison parser generator. Jison is a parser
+# generator in the style of Bison, written in JavaScript. It compiles a
+# grammar definition into a JavaScript parser module.
+#
+# Fields map directly to command-line options for the `jison` executable.
+# =============================================================================
+
+# Path to the file containing the grammar definition.
+# This is the primary input file for the parser generator.
+# Corresponds to the positional argument [file] or --input.
+grammar_file: {{ grammar_file | default('src/grammar.jison') }}
+
+# Path to the file containing the lexical grammar (lexer rules).
+# If left empty, Jison will look for lexer rules embedded within the main
+# grammar file. If provided, it is treated as a separate source file.
+# Corresponds to the positional argument [lexfile].
+lex_file: {{ lex_file | default('') }}
+
+# Filename and base module name for the generated parser output.
+# The output file will typically contain the generated JavaScript parser code.
+# Corresponds to --outfile or -o.
+output_file: {{ output_file | default('src/parser.js') }}
+
+# Whether to force Jison to expect the grammar definition to be in JSON format.
+# If enabled, Jison will parse the input grammar file as a JSON object
+# instead of interpreting Jison's specific grammar syntax.
+# Corresponds to --json or -j.
+use_json: {{ use_json | default(false) | lower }}
+
+# Whether to enable debug mode for the generated parser.
+# When enabled, the generated parser will include instrumentation to log
+# parse actions (shifts, reductions) which is useful for debugging
+# grammar conflicts or unexpected parsing behavior.
+# Corresponds to --debug or -t.
+debug_mode: {{ debug_mode | default(false) | lower }}
+
+# The type of module system to generate in the output file.
+# Supported values: 'commonjs' (Node.js style require/module.exports),
+# 'amd' (Require.js style define), 'js' (Plain global/script tag style).
+# Corresponds to --module-type or -m.
+module_type: {{ module_type | default('commonjs') }}
+
+# The type of algorithm to use for parsing.
+# Supported values: 'lr0', 'slr', 'lalr', 'lr'.
+# LALR(1) is generally the most efficient and powerful standard option.
+# Corresponds to --parser-type or -p.
+parser_type: {{ parser_type | default('lalr') }}

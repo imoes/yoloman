@@ -1,0 +1,105 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		{{ plymouth_service_name | default('plymouth') }}
+# Required-Start:	{{ plymouth_required_start | default('udev $remote_fs $all') }}
+# Required-Stop:	{{ plymouth_required_stop | default('$remote_fs') }}
+# Should-Start:		{{ plymouth_should_start | default('$x-display-manager') }}
+# Should-Stop:		{{ plymouth_should_stop | default('$x-display-manager') }}
+# Default-Start:	{{ plymouth_default_start | default('2 3 4 5') }}
+# Default-Stop:		{{ plymouth_default_stop | default('0 6') }}
+# Short-Description:	{{ plymouth_short_description | default('Stop plymouth during boot and start it on shutdown') }}
+### END INIT INFO
+
+# PATH environment variable for the script.
+PATH="{{ plymouth_path | default('/sbin:/bin:/usr/sbin:/usr/bin') }}"
+
+# Internal name variable used for configuration file path.
+NAME="{{ plymouth_name | default('plymouth') }}"
+
+# Description of the service.
+DESC="{{ plymouth_desc | default('Boot splash manager') }}"
+
+# Check if the plymouthd binary exists and is executable
+test -x /usr/sbin/plymouthd || exit 0
+
+# Source the default configuration file if it exists
+if [ -r "/etc/default/${NAME}" ]
+then
+	. "/etc/default/${NAME}"
+fi
+
+# Source LSB init functions for logging and standard operations
+. /lib/lsb/init-functions
+
+set -e
+
+# Default value for showing the splash screen, unless overridden by kernel cmdline.
+# If the variable is not set, default to true (splash enabled).
+SPLASH="{{ plymouth_splash_default | default(True) | lower }}"
+
+# Parse kernel command line arguments to check for splash/nosplash directives
+for ARGUMENT in $(cat /proc/cmdline)
+do
+	case "${ARGUMENT}" in
+		splash*)
+			SPLASH="true"
+			;;
+
+		nosplash*|plymouth.enable=0)
+			SPLASH="false"
+			;;
+	esac
+done
+
+# Main service control logic based on the first argument
+case "${1}" in
+	start)
+		case "${SPLASH}" in
+			true)
+				# Quit plymouth but retain the splash screen if enabled
+				/usr/bin/plymouth quit --retain-splash
+				;;
+		esac
+		;;
+
+	stop)
+		case "${SPLASH}" in
+			true)
+				# Check if plymouth is running; if not, start in shutdown mode
+				if ! plymouth --ping
+				then
+					/usr/sbin/plymouthd --mode=shutdown
+				fi
+
+				# Determine the current runlevel
+				RUNLEVEL="$(/sbin/runlevel | cut -d " " -f 2)"
+
+				case "${RUNLEVEL}" in
+					0)
+						TEXT="Shutting down system..."
+						;;
+
+					6)
+						TEXT="Restarting system..."
+						;;
+				esac
+
+				# Display the shutdown message and show the splash screen
+				/usr/bin/plymouth message --text="${TEXT}"
+				/usr/bin/plymouth --show-splash
+				;;
+		esac
+		;;
+
+	restart|force-reload)
+		# Placeholder for restart/force-reload logic
+		;;
+
+	*)
+		echo "Usage: ${0} {start|stop|restart|force-reload}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

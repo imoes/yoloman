@@ -34,6 +34,17 @@ export interface Agent {
  * missing sources are omitted by the agent). */
 export interface InventoryFacts {
   collected_at?: string;
+  /** The host's OS family — debian | redhat | suse | windows. Reported by the agent (the Windows agent puts
+   *  it in its inventory; a Linux agent's is derived from os.id/id_like). Read it rather than guessing from
+   *  `os`: Bossman's own family_of() ends in `return "debian"` for anything unidentified, which is how the
+   *  first Windows host was read as Debian until it reported this field. */
+  os_family?: string;
+  /** Windows only: how many roles/features are installed. Counted, not listed — the list is
+   *  windows_feature's job (265 entries would be a payload nobody reads). */
+  windows_features_installed?: number | null;
+  /** Windows only: which package providers this host actually has (msi, installer, packagemanagement,
+   *  appx, and winget/choco only where present). A plan can be checked against it before it runs. */
+  package_providers?: string[];
   system?: {
     manufacturer?: string;
     product_name?: string;
@@ -477,6 +488,57 @@ export interface ConfigTemplate {
   template: string;
   schema: Record<string, { type?: string; default?: unknown; description?: string }>;
   sample: Record<string, unknown>;
+}
+
+/** One entry of GET /config-templates — the LISTING, which deliberately carries no body.
+ *
+ * A separate type from ConfigTemplate rather than making its fields optional: with `template?: string` the
+ * compiler accepts a listing entry wherever a body is required and the mistake surfaces as an empty render
+ * at runtime. Two shapes, because they answer two questions — "which templates are there" and "what does
+ * this one say". */
+export interface ConfigTemplateListing {
+  name: string;
+  /** The file it renders, from the template's own meta.json. Null when the template records no target. */
+  target_path?: string | null;
+  /** Why the claim exists: `deb`/`rpm` = a real package shipped this file, `man` = mined from documentation. */
+  source?: string | null;
+}
+
+/** One entry of GET /config-templates/index — "this exact path is rendered by this template".
+ *
+ * `source` is the reason the claim exists and is shown to the user: `catalog` means a role declares
+ * this path as its config_path, `codec` means the codec registry lists the path under a key whose
+ * template dir exists. Carrying it means the UI can say WHY an editor is offered instead of just
+ * offering it. */
+export interface ConfigTemplateIndexEntry {
+  /** null when a snap-in owns the file and no template renders it (source: 'snapin'). */
+  template: string | null;
+  source: 'catalog' | 'codec' | 'template-meta' | 'snapin';
+  role?: string;
+  /** A dedicated Management snap-in owns this file — id, label, and whether it is the ONLY door.
+   *
+   * Exclusive means the generic whole-file editor must not be offered: named.conf has zones, smb.conf has
+   * shares, nginx.conf has server blocks, and rendering one of those from a flat form drops whatever the
+   * form has no field for. Non-exclusive means both doors are safe and the UI just says so. */
+  snapin?: string;
+  snapin_label?: string;
+  snapin_exclusive?: boolean;
+}
+
+export interface ConfigTemplateIndex {
+  paths: Record<string, ConfigTemplateIndexEntry>;
+  /** Files a dedicated Management snap-in owns, whether or not a template also exists for them. Separate
+   * from `paths` on purpose: that map means "the template that renders this file", and an entry with no
+   * template would make it mean two things. */
+  snapins: Record<string, { snapin: string; snapin_label: string; snapin_exclusive: boolean }>;
+  /** Paths claimed by two template dirs at once — reported rather than silently resolved. */
+  conflicts: { path: string; chosen: string; chosen_source: string; also: string; also_source: string }[];
+  /** Bindings withdrawn because the package ships no file at that path (measured by extracting the real
+   * .deb). Reported rather than dropped: Configure writes the WHOLE file, so offering one of these would
+   * create a file in /etc that looks configured and that nothing reads — and a binding that just vanished
+   * would be indistinguishable from one that never existed. */
+  withdrawn?: { path: string; template: string | null; source: string; verdict: string; package: string;
+                reason: string }[];
 }
 
 export interface StateRollbackResponse {

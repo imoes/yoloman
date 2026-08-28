@@ -1,0 +1,69 @@
+# Hunt Network Security Auditing Tool Configuration
+# Note: Hunt (hunt(8)) is an interactive, real-time network auditing tool.
+# This configuration file simulates default parameters for deployment scripts
+# or wrapper scripts, as the tool itself primarily relies on runtime menus
+# and command-line arguments.
+#
+# Format: key=value (simple key-value pairs)
+# Lists are expanded into multiple entries or ignored if not supported by
+# the wrapper script.
+
+# Network interface to listen on.
+# Corresponds to the -i command line parameter.
+# Default: eth0
+interface={{ interface | default('eth0') }}
+
+# Enable verbose mode.
+# Prints PIDs of created threads to stdout/stderr.
+# Corresponds to the -v command line parameter.
+# Expected value: true or false (boolean string)
+verbose={{ verbose | default(false) | ternary('true', 'false') }}
+
+# Connection policies to track.
+# Corresponds to 'Connection Policy Entry' in the Options menu.
+# Format per line: connection_policy=src_ip/src_mask src_port dst_ip/dst_mask dst_port protocol
+# Default policy tracks only Telnet. Add entries below to expand.
+{% for rule in connection_policies | default([]) %}
+connection_policy={{ rule.src_ip }}/{{ rule.src_mask }} {{ rule.src_port }} {{ rule.dst_ip }}/{{ rule.dst_mask }} {{ rule.dst_port }} {{ rule.protocol }}
+{% endfor %}
+
+# Enable the Reset daemon thread.
+# Daemons are stopped by default in Hunt.
+# Corresponds to enabling the 'Reset daemon' feature.
+# Expected value: true or false
+reset_daemon_enabled={{ reset_daemon_enabled | default(false) | ternary('true', 'false') }}
+
+# Enable the ARP spoof/relayer daemon thread.
+# Daemons are stopped by default in Hunt.
+# Corresponds to enabling the 'ARP daemon' feature.
+# Expected value: true or false
+arp_daemon_enabled={{ arp_daemon_enabled | default(false) | ternary('true', 'false') }}
+
+# Timeout in seconds for automatic connection reset after ACK storm detection.
+# Used in Simple Hijack mode.
+# Corresponds to 'Reset ACK Storm Timeout' in Options.
+ack_storm_timeout={{ ack_storm_timeout | default(60) }}
+
+# Timeout in seconds for waiting for the next command in Simple Hijack.
+# Corresponds to 'Simple Hijack Timeout For Next cmd' in Options.
+simple_hijack_timeout={{ simple_hijack_timeout | default(10) }}
+
+# Number of ARP request or reply packets sent during ARP spoofing.
+# Corresponds to 'ARP Request/Reply Packets' in Options.
+arp_packets_count={{ arp_packets_count | default(1) }}
+
+# Enable deferred host resolving (IP to name).
+# Corresponds to 'Host Resolving' in Options.
+# Expected value: true or false
+host_resolving={{ host_resolving | default(false) | ternary('true', 'false') }}
+
+# Enable learning MAC addresses from all IP traffic, not just ARP.
+# Corresponds to 'Learn MAC From IP Traffic' in Options.
+# Expected value: true or false
+learn_mac_from_ip={{ learn_mac_from_ip | default(false) | ternary('true', 'false') }}
+
+# Enable verbose logging for dropped packets (fragments, malformed)
+# and protocol counts.
+# Corresponds to 'Verbose On/Off' in Options when running in logging mode.
+# Expected value: true or false
+verbose_logging={{ verbose_logging | default(false) | ternary('true', 'false') }}

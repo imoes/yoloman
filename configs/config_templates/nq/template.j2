@@ -1,0 +1,42 @@
+# =============================================================================
+# nq Job Queue Configuration
+#
+# This template generates a shell export script for the NQ (No Queuing) job
+# scheduling system. It defines the core directories used for job spooling,
+# successful output storage, and failed output storage.
+#
+# Self-documentation: Read the comments above each variable to understand
+# the constraints and defaults.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# NQDIR: The primary spool directory.
+# Description: The directory where lock files and job output reside. Each NQDIR
+#              is considered a separate queue. The job runner typically changes
+#              its working directory to this path before execution.
+# -----------------------------------------------------------------------------
+export NQDIR="{{ nqdir | default('/var/spool/nq') }}"
+
+# -----------------------------------------------------------------------------
+# NQDONEDIR: Directory for successful job output.
+# Description: Directory where job output is moved to after successful execution.
+#              Must be on the same filesystem as NQDIR (required for atomic
+#              rename operations). Leave empty or unset to disable this feature.
+# -----------------------------------------------------------------------------
+{% if nqdonedir | default('') %}
+export NQDONEDIR="{{ nqdonedir | default('') }}"
+{% else %}
+# NQDONEDIR is not configured; successful output remains in NQDIR.
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# NQFAILDIR: Directory for failed job output.
+# Description: Directory where job output is moved to after unsuccessful execution.
+#              Must be on the same filesystem as NQDIR (required for atomic
+#              rename operations). Leave empty or unset to disable this feature.
+# -----------------------------------------------------------------------------
+{% if nqfaildir | default('') %}
+export NQFAILDIR="{{ nqfaildir | default('') }}"
+{% else %}
+# NQFAILDIR is not configured; failed output remains in NQDIR.
+{% endif %}

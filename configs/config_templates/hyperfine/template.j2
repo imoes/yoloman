@@ -1,0 +1,143 @@
+# Hyperfine Benchmark Configuration
+# Template for generating hyperfine CLI command line arguments
+# This template generates a single line of shell arguments suitable for passing to `hyperfine`.
+# Ensure the variable `commands` (list of strings) is provided; it will be rendered as the final positional arguments.
+
+# Shell to use for executing benchmarked commands (e.g., bash, zsh, none, default)
+--shell {{ shell|default('default') }}
+
+# Number of warmup runs before the actual benchmark
+{% if warmup|default(0) != 0 %}
+--warmup {{ warmup|default(0) }}
+{% endif %}
+
+# Minimum number of runs for each command
+{% if min_runs|default(10) != 10 %}
+--min-runs {{ min_runs|default(10) }}
+{% endif %}
+
+# Maximum number of runs for each command. 0 means no limit.
+{% if max_runs|default(0) != 0 %}
+--max-runs {{ max_runs|default(0) }}
+{% endif %}
+
+# Exact number of runs for each command. 0 means auto-determine.
+{% if runs|default(0) != 0 %}
+--runs {{ runs|default(0) }}
+{% endif %}
+
+# Command to execute before each set of timing runs
+{% if setup|default('')|trim %}
+--setup "{{ setup|default('') }}"
+{% endif %}
+
+# Reference command for relative comparison of results
+{% if reference|default('')|trim %}
+--reference "{{ reference|default('') }}"
+{% endif %}
+
+# Command to execute before each timing run
+{% if prepare|default('')|trim %}
+--prepare "{{ prepare|default('') }}"
+{% endif %}
+
+# Command to execute after each timing run
+{% if conclude|default('')|trim %}
+--conclude "{{ conclude|default('') }}"
+{% endif %}
+
+# Command to execute after completion of all benchmarking runs for each command
+{% if cleanup|default('')|trim %}
+--cleanup "{{ cleanup|default('') }}"
+{% endif %}
+
+# Parameter scan configuration
+{% if parameter_scan|default([]) %}
+{% for scan_config in parameter_scan|default([]) %}
+{% for var in scan_config.vars|default([]) %}
+-P {{ var.name|default('') }} {{ var.min|default('') }} {{ var.max|default('') }}
+{% endfor %}
+{% if scan_config.step_size is defined and scan_config.step_size is not none %}
+-D {{ scan_config.step_size }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Parameter list configuration
+{% if parameter_list|default([]) %}
+{% for list_config in parameter_list|default([]) %}
+{% for var in list_config.vars|default([]) %}
+-L {{ var.name|default('') }} {{ var.values|default('') }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# Ignore non-zero exit codes of the benchmarked programs
+{% if ignore_failure|default(False) %}
+--ignore-failure
+{% endif %}
+
+# Output style type (auto, basic, full, nocolor, color, none)
+{% if style|default('auto') != 'auto' %}
+--style {{ style|default('auto') }}
+{% endif %}
+
+# Sort order of speed comparison summary (auto, command, mean-time)
+{% if sort|default('auto') != 'auto' %}
+--sort {{ sort|default('auto') }}
+{% endif %}
+
+# Time unit to be used (microsecond, millisecond, second)
+{% if time_unit|default('second') != 'second' %}
+--time-unit {{ time_unit|default('second') }}
+{% endif %}
+
+# File path to export timing summary as AsciiDoc table
+{% if export_asciidoc|default('')|trim %}
+--export-asciidoc {{ export_asciidoc|default('') }}
+{% endif %}
+
+# File path to export timing summary as CSV
+{% if export_csv|default('')|trim %}
+--export-csv {{ export_csv|default('') }}
+{% endif %}
+
+# File path to export timing summary and individual run timings as JSON
+{% if export_json|default('')|trim %}
+--export-json {{ export_json|default('') }}
+{% endif %}
+
+# File path to export timing summary as Markdown table
+{% if export_markdown|default('')|trim %}
+--export-markdown {{ export_markdown|default('') }}
+{% endif %}
+
+# File path to export timing summary as Emacs org-mode table
+{% if export_orgmode|default('')|trim %}
+--export-orgmode {{ export_orgmode|default('') }}
+{% endif %}
+
+# Print stdout and stderr of the benchmark
+{% if show_output|default(False) %}
+--show-output
+{% endif %}
+
+# Where output is redirected (null, pipe, inherit, or file path)
+{% if output|default('null') != 'null' %}
+--output {{ output|default('null') }}
+{% endif %}
+
+# Where input comes from (null or file path)
+{% if input|default('null') != 'null' %}
+--input {{ input|default('null') }}
+{% endif %}
+
+# List of meaningful names for each benchmark command (must align with commands order if provided)
+{% for name in command_names|default([]) %}
+-n {{ name }}
+{% endfor %}
+
+# List of benchmark commands to execute
+{% for cmd in commands|default([]) %}
+"{{ cmd }}"
+{% endfor %}

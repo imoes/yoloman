@@ -17,10 +17,12 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "bossman" / "scripts"))
+# The tools live in the PACKAGE (bossman.tools), not in bossman/scripts/ — that directory held a
+# patched duplicate of each, is untracked, and these tests were green only because it happened to
+# exist on this machine. A clone could not run them.
 
-import enrich_gates as EG  # noqa: E402
-import qualify_packages as q  # noqa: E402
+from bossman.tools import enrich_gates as EG
+from bossman.tools import qualify_packages as q
 
 pytestmark = pytest.mark.skipif(
     shutil.which("go") is None or importlib.util.find_spec("ansible") is None,

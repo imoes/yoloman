@@ -1,0 +1,41 @@
+# =============================================================================
+# nghttpx (nghttp2-proxy) Configuration Template
+# =============================================================================
+# This file configures nghttpx, an HTTP/2 and HTTP/1.1 reverse proxy.
+# It listens on a frontend address and forwards traffic to a backend server.
+# =============================================================================
+
+# [Frontend]
+# Bind address and port for incoming client connections.
+# Format: <address>,<port> (e.g., 127.0.0.1,3000 or 0.0.0.0,443)
+# Default: 127.0.0.1,3000
+frontend={{ (frontend | default('127.0.0.1,3000')) }}
+
+# [Backend]
+# The upstream server address and port to which requests are proxied.
+# Format: <address>,<port> (e.g., 127.0.0.1,80)
+# Default: 127.0.0.1,80
+backend={{ (backend | default('127.0.0.1,80')) }}
+
+# [Workers]
+# Number of worker processes to spawn.
+# Increasing this value can improve concurrency but uses more system resources.
+# Default: 1
+workers={{ (workers | default(1)) | int }}
+
+# [Error Logging]
+# Enable logging of errors to the system logger (syslog).
+errorlog-syslog=yes
+
+# [TLS Configuration]
+# To enable HTTPS/TLS, uncomment and configure the lines below.
+# The frontend directive must NOT include 'no-tls' when using TLS.
+#
+# private-key-file={{ (private_key_file | default('/etc/nghttp2/server.key')) }}
+# certificate-file={{ (certificate_file | default('/etc/nghttp2/server.crt')) }}
+
+# [Proxy Mode]
+# Explicitly disable HTTP/2 proxy mode if needed (defaults to enabled).
+# http2-proxy={{ (http2_proxy | default('yes')) }}
+
+# For a comprehensive list of configuration options, see "man nghttpx".

@@ -23,14 +23,19 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
-from bossman.services import notification
+from bossman.services import agent_release, knowledge_index, notification, registry_policy
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
+from bossman.services.edge_identity import (
+    EPHEMERAL_FLOOR,
+    collapse_client_ports,
+    high_ports_by_key,
+)
 from bossman.services.monitoring import (
     evaluate_assigned_checks,
     evaluate_host,
@@ -153,9 +158,37 @@ async def _insert_metric_rows_chunked(session: AsyncSession, rows: list[dict]) -
         await session.execute(stmt)
 
 
+async def _recorded_high_ports(
+    session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]
+) -> dict[tuple[str, str], int]:
+    """How many distinct high ports this agent ALREADY has recorded per (comm, addr).
+
+    The fold's quorum has to be asked of everything ever seen, not of one dump: the agent forgets its own
+    edges after 24h, so a slow churner reports two or three client ports at a time — under quorum, written
+    individually, and the table accrues them one poll at a time. Measured after the batch-only rule shipped:
+    kube-apiserver was back to 36 rows for one (comm, addr) within an hour.
+
+    Asked only for the keys this dump actually has high ports for, so a host that talks to services only
+    issues no query at all.
+    """
+    keys = set(high_ports_by_key(edges))
+    if not keys:
+        return {}
+    rows = (await session.execute(
+        select(HostEdge.src_comm, HostEdge.dst_addr, func.count(func.distinct(HostEdge.dst_port)))
+        .where(HostEdge.src_agent_id == agent_id, HostEdge.dst_port >= EPHEMERAL_FLOOR)
+        .group_by(HostEdge.src_comm, HostEdge.dst_addr)
+    )).all()
+    return {(comm, str(addr)): int(n) for comm, addr, n in rows if (comm, str(addr)) in keys}
+
+
 async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[dict]) -> int:
     count = 0
-    for e in edges:
+    # A client port is not identity — fold the proven ones into one edge per (comm, addr) BEFORE the upsert,
+    # so the table stops earning a permanent row per short-lived connection. See services/edge_identity.py
+    # for the rule and the measurement; `GET /relationships` was already grouping these away at read time,
+    # which is why 96.7% of 73 235 rows could accrue unnoticed.
+    for e in collapse_client_ports(edges, await _recorded_high_ports(session, agent_id, edges)):
         dst_agent_id = await _resolve_dst_agent_id(session, e["dst_addr"])
         latency_ns = e.get("latency_ns")
         latency_ms = (latency_ns / 1_000_000) if latency_ns is not None else None
@@ -189,6 +222,22 @@ async def _upsert_edges(session: AsyncSession, agent_id: uuid.UUID, edges: list[
         )
         await session.execute(stmt)
         count += 1
+
+        # The fold's CLAIM is that no member row exists — so enforce it instead of trusting that nothing
+        # ever wrote one. Rows written before this rule shipped are the concrete case: a Bossman whose
+        # migration ran six minutes before its new code did left 159 pre-fold rows for one (comm, addr),
+        # frozen but still counted alongside the sentinel that now supersedes them. Without this they would
+        # sit there until retention aged them out 30 days later, double-counting all the while. After the
+        # first poll it is a no-op.
+        if e.get("ports_collapsed"):
+            await session.execute(
+                delete(HostEdge).where(
+                    HostEdge.src_agent_id == agent_id,
+                    HostEdge.src_comm == e["comm"],
+                    HostEdge.dst_addr == e["dst_addr"],
+                    HostEdge.dst_port >= EPHEMERAL_FLOOR,
+                )
+            )
     return count
 
 
@@ -332,30 +381,205 @@ def _store_facts(agent: Agent, host: dict, now: datetime) -> None:
     touches the row when the document actually changed — the inventory is
     near-static, and a no-op write per poll tick would just churn the
     table. `collected_at` is excluded from the comparison (the agent
-    re-stamps it on every cache refresh even when nothing else moved)."""
+    re-stamps it on every cache refresh even when nothing else moved).
+
+    THIS FUNCTION OWNS THE INVENTORY KEYS AND NOTHING ELSE. `facts` is one document written by
+    several producers — the inventory here, `installed_packages` from _collect_packages,
+    `group_policy` from _refresh_group_policy, `external_audit_at` from the audit scan — so which
+    keys belong to whom has to be explicit. It used to be an allowlist of two names, and that cost
+    a real bug twice over: any key a *newer* producer added (a) made the change comparison compare
+    the whole facts document against the inventory document, so it differed on every single tick,
+    and (b) was dropped by the rewrite that followed. The visible symptom was `group_policy`
+    silently disappearing between two polls and gpresult being re-read 8× in 25 minutes despite a
+    six-hour throttle — the throttle stamp was in the key that kept vanishing.
+
+    So the owned key set is RECORDED (`_inventory_keys`) instead of listed here: an inventory
+    section that disappears is still dropped, and a fact this function has never heard of survives
+    untouched. Adding a producer needs no edit here."""
     inv = host.get("inventory")
     if not isinstance(inv, dict) or not inv:
         return
-    # installed_packages(+_at) are collected separately (_collect_packages) and
-    # live in the same facts doc — preserve them across an inventory rewrite and
-    # exclude them from the change comparison.
-    _ignore = ("collected_at", "installed_packages", "installed_packages_at")
-    stripped = {k: v for k, v in inv.items() if k not in _ignore}
-    current = {k: v for k, v in (agent.facts or {}).items() if k not in _ignore}
-    if stripped != current:
-        prev = agent.facts or {}
-        merged = dict(inv)
-        for k in ("installed_packages", "installed_packages_at"):
-            if prev.get(k) is not None:
-                merged[k] = prev[k]
-        agent.facts = merged
-        agent.facts_updated_at = now
+    prev = agent.facts or {}
+    owned = set(prev.get("_inventory_keys") or ()) | set(inv)
+    # Compare inventory against inventory: what other producers put in `facts` is none of this
+    # comparison's business. `collected_at` moves on every agent-side cache refresh.
+    fresh = {k: v for k, v in inv.items() if k != "collected_at"}
+    current = {k: prev.get(k) for k in fresh}
+    vanished = {k for k in owned if k not in inv}  # a section the agent stopped reporting
+    if fresh == current and not vanished:
+        return
+    merged = {k: v for k, v in prev.items() if k not in owned}
+    merged.update(inv)
+    merged["_inventory_keys"] = sorted(inv)
+    agent.facts = merged
+    agent.facts_updated_at = now
 
 
 # How stale the cached observed-state document may get before the poller
 # refreshes it. Config changes rarely, and the observed pull reads every config
 # file on the host, so refreshing it every poll tick would be wasteful.
 _OBSERVED_MAX_AGE = timedelta(minutes=15)
+
+
+#: How stale the stored resultant policy may get. Group Policy changes on a gpupdate or a reboot, not by the
+#: minute, and reading it costs a gpresult run (1.8 s measured) plus 48 kB of XML parsed on the host.
+_GPRESULT_MAX_AGE = timedelta(hours=6)
+
+
+async def _refresh_group_policy(session: AsyncSession, agent: Agent, client: AgentClient,
+                                now: datetime) -> None:
+    """Store the host's RESULTANT SET OF POLICY — what Windows Group Policy declares for this machine.
+
+    A FOREIGN AUTHORITY'S INTENT, and that is why it is stored rather than merely readable on demand. We do
+    not manage Group Policy (Windows keeps that, by the operator's decision), but where a GPO and our own
+    declared config touch the same setting the GPO wins on the host and a convergence run fights it on every
+    pass — forever, silently, with somebody watching a value revert and no explanation anywhere. The document
+    has to carry the other authority's declaration for that conflict to be nameable at all.
+
+    Windows hosts only, and asked for by FAMILY rather than by trying and failing: a Linux agent answers
+    "no such tool" for windows_gpresult, and a poll cycle should not produce an error per Linux host per
+    interval to learn something the inventory already said.
+    """
+    if (agent.facts or {}).get("os_family") != "windows":
+        return
+
+    stored = (agent.facts or {}).get("group_policy") or {}
+    taken = stored.get("_taken_at")
+    if taken:
+        try:
+            if now - datetime.fromisoformat(taken) < _GPRESULT_MAX_AGE:
+                return
+        except ValueError:
+            pass  # an unparsable stamp is a reason to refresh, not to crash
+
+    try:
+        result = await client.call_tool("windows_gpresult", {"scope": "both"})
+    except AgentClientError as exc:
+        # Recorded, not raised: a host whose gpresult fails is still a host worth polling, and the reason
+        # belongs where somebody will see it rather than in a log line that scrolls away.
+        agent.facts = {**(agent.facts or {}),
+                       "group_policy": {"_taken_at": now.isoformat(), "error": str(exc)}}
+        agent.facts_updated_at = now
+        return
+
+    data = (result or {}).get("data") or {}
+    agent.facts = {**(agent.facts or {}), "group_policy": {
+        "_taken_at": now.isoformat(),
+        # THE LABELS TRAVEL WITH THE DATA. Without them this section reads as something this system set, which
+        # is the single misunderstanding that matters about it.
+        "authority": data.get("authority", "windows-group-policy"),
+        "managed_by_us": False,
+        "read_at": data.get("read_at"),
+        "som": data.get("computerresults_som"),
+        "domain": data.get("computerresults_domain"),
+        "slow_link": data.get("computerresults_slow_link"),
+        "applied": data.get("applied") or [],
+        # Denied GPOs are kept: "not in the applied list" and "refused for this host, here is why" are
+        # different facts and only the second can be acted on.
+        "denied": data.get("denied") or [],
+        # WHAT SITS IN WINDOWS' POLICY TERRITORY — the 57 values in the Group-Policy-owned registry
+        # subtrees. Named for what it is rather than for what one would wish it were: gpresult /X carries
+        # no per-setting data on this host (measured), so this is the AREA's current content and not a
+        # GPO's declaration, and the conflict report's wording depends on knowing the difference.
+        # `settings` is the key the 0.1.x Windows agent used for the same read; accepted here so a
+        # not-yet-updated agent keeps reporting, and dropped once no such agent is enrolled.
+        "policy_area_values": data.get("policy_area_values") or data.get("settings") or [],
+        "policy_area_source": registry_policy.IMPOSED_SOURCE_AREA,
+    }}
+    agent.facts_updated_at = now
+    logger.info("group policy stored for %s: %d applied, %d denied, %d values in policy area",
+                agent.name, len(data.get("applied") or []), len(data.get("denied") or []),
+                len(data.get("policy_area_values") or data.get("settings") or []))
+
+
+async def _collect_operation_log(session: AsyncSession, agent: Agent, client: AgentClient) -> int:
+    """Pull what the host DID since we last asked, into the fleet-wide operation_log.
+
+    THE CURSOR IS PER AGENT PROCESS. The agent's `seq` is monotonic within one process and `boot_id` names the
+    process, so the cursor is (boot_id, max seq) read back from the rows themselves — no separate cursor table
+    to drift out of step with the data it describes. A restart brings a new boot_id, the cursor for it starts
+    at 0, and nothing is skipped or repeated.
+
+    A GAP IS RECORDED, NOT PASSED OVER. The agent's ring holds 1000 calls; if it discarded records before we
+    collected them, `oldest_seq` is beyond our cursor and those calls are gone from the host forever. That is
+    written down as a `gap` row naming the missing range, because a log with an unmarked hole in it invites
+    exactly the conclusion it cannot support — "nothing happened between these two entries".
+
+    Every poll cycle, not throttled: the whole point is that the record is there when somebody asks, and a
+    cursor read plus an empty page is two cheap queries.
+    """
+    from bossman.db.models import OperationLog
+
+    latest = (await session.execute(
+        select(OperationLog.boot_id, func.max(OperationLog.seq))
+        .where(OperationLog.agent_id == agent.id)
+        .group_by(OperationLog.boot_id)
+        .order_by(func.max(OperationLog.collected_at).desc())
+        .limit(1)
+    )).first()
+
+    page = await client.audit(since_seq=None)
+    boot_id = page.get("boot_id")
+    if not boot_id:
+        return 0
+    # Same process → continue after what we have. A different one → this agent restarted, and its sequence
+    # numbers start again from 1; taking the old cursor would silently drop the whole new boot.
+    cursor = int(latest[1]) if latest and latest[0] == boot_id else 0
+    records = [r for r in (page.get("records") or []) if int(r.get("seq") or 0) > cursor]
+
+    rows: list[dict] = []
+    oldest = int(page.get("oldest_seq") or 0)
+    if cursor and oldest > cursor + 1:
+        rows.append({
+            # THE LAST MISSING SEQUENCE NUMBER, which is free by definition — the marker needs a seq that
+            # is unique per (agent, boot) and sorts where the hole is. `cursor` would have been the obvious
+            # choice and is exactly wrong: that record is one we already hold, so the insert's
+            # ON CONFLICT DO NOTHING silently dropped the marker (caught by the test, not by review).
+            "agent_id": agent.id, "boot_id": boot_id, "seq": oldest - 1,
+            "module": "(gap)", "outcome": "gap", "dry_run": False,
+            "message": (f"{oldest - cursor - 1} operation(s) (seq {cursor + 1}..{oldest - 1}) fell out of the "
+                        f"agent's ring buffer before they were collected — the agent keeps the last "
+                        f"{page.get('capacity')} calls and has discarded {page.get('dropped')} since it "
+                        f"started. They are gone from the host; this row marks the range so the log does not "
+                        f"read as if nothing happened."),
+        })
+
+    for record in records:
+        started = record.get("started_at")
+        try:
+            started_at = datetime.fromisoformat(started) if started else None
+        except (TypeError, ValueError):
+            started_at = None
+        rows.append({
+            "agent_id": agent.id,
+            "boot_id": boot_id,
+            "seq": int(record.get("seq") or 0),
+            "record_id": record.get("id"),
+            "module": record.get("module") or "(unnamed)",
+            "outcome": record.get("outcome") or "unknown",
+            "dry_run": bool(record.get("dry_run")),
+            "params": record.get("params"),
+            "identity": record.get("identity"),
+            "started_at": started_at,
+            "duration_ms": record.get("duration_ms"),
+            "changed": record.get("changed"),
+            "message": record.get("message"),
+            # The module's own data block, verbatim. It is the evidence; a summary of it would make the log
+            # unable to answer the questions it exists for.
+            "evidence": record.get("evidence") if isinstance(record.get("evidence"), (dict, list)) else (
+                {"value": record.get("evidence")} if record.get("evidence") is not None else None),
+            "error": record.get("error"),
+        })
+
+    if not rows:
+        return 0
+    # DO NOTHING on conflict: re-collecting an overlapping range is normal (a cursor read races a call in
+    # flight), and an operation record is immutable once made — there is nothing to update.
+    await session.execute(
+        pg_insert(OperationLog).values(rows).on_conflict_do_nothing(
+            constraint="uq_operation_log_agent_boot_seq")
+    )
+    return len(rows)
 
 
 async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: AgentClient, now: datetime) -> None:
@@ -650,6 +874,21 @@ async def poll_agent(
                     await _write_snapshot_metrics(session, agent.id, now, perf)
             except Exception:
                 logger.exception("evaluate_assigned_checks failed for agent %s", agent.name)
+            # THE RESULT LOG: what this host DID since we last asked. Its own try/except — an agent too old
+            # to have /api/v1/audit answers 404, and that must cost nothing else in the cycle.
+            #
+            # FOR EVERY AGENT, including the infra poller. It is hidden from the HOST views because nobody
+            # monitors it as a host, but it executes the SNMP/SSH checks for agent-less devices — "what did
+            # that run do" is exactly as real a question there, and it was silently excluded by sitting
+            # inside the not-infra branch (found by looking for its records and finding none).
+            try:
+                collected = await _collect_operation_log(session, agent, client)
+                if collected:
+                    logger.info("collected %d operation record(s) from %s", collected, agent.name)
+            except AgentClientError:
+                pass  # no audit endpoint on this agent, or unreachable — the cycle's other errors say so
+            except Exception:
+                logger.exception("operation log collection failed for agent %s", agent.name)
             # Inventory: refresh the installed-package list (throttled, best-effort).
             if not is_infra_agent(agent):
                 await _collect_packages(agent, client, now)
@@ -669,6 +908,13 @@ async def poll_agent(
                     await _refresh_observed_cache(session, agent, client, now)
                 except Exception:
                     logger.exception("observed-state cache refresh failed for agent %s", agent.name)
+                # The RESULTANT SET OF POLICY — Windows' own declaration for this host. Own try/except and
+                # its own throttle: a gpresult that fails must not cost the observed-state cache, and vice
+                # versa.
+                try:
+                    await _refresh_group_policy(session, agent, client, now)
+                except Exception:
+                    logger.exception("group policy refresh failed for agent %s", agent.name)
                 # Out-of-band (drift) audit via auditd — opt-in, throttled, best-effort.
                 await _maybe_scan_external_audit(session, agent, client, settings, now)
 
@@ -782,6 +1028,30 @@ async def poller_loop(
         if settings.poll_enabled:
             started = datetime.now(timezone.utc)
             try:
+                # Check the agent release channel (throttled to its own interval
+                # inside maybe_refresh) so "a newer package is on GitHub" is known
+                # without a separate loop. Never blocks the poll cycle materially.
+                try:
+                    await agent_release.maybe_refresh(settings)
+                except Exception:  # noqa: BLE001
+                    logger.debug("agent-release check skipped", exc_info=True)
+                # Rebuild the infra knowledge index (throttled inside; incremental
+                # + degrades to text-only when no embed endpoint is present).
+                try:
+                    await knowledge_index.maybe_reindex(session_factory, settings)
+                except Exception:  # noqa: BLE001
+                    logger.debug("knowledge reindex skipped", exc_info=True)
+                # Closed-loop VERIFY: check whether applied remediations actually
+                # recovered their trigger, and escalate the ones that didn't.
+                if settings.remediation_enabled:
+                    try:
+                        from bossman.services import remediation
+                        # Autonomy (Phase 2): apply eligible pending proposals
+                        # unattended — self-gated by the kill-switch + guardrails.
+                        await remediation.auto_apply_due(session_factory, settings)
+                        await remediation.verify_due(session_factory, settings)
+                    except Exception:  # noqa: BLE001
+                        logger.debug("remediation auto-apply/verify skipped", exc_info=True)
                 results = await poll_once(session_factory, settings)
                 failed = [r for r in results if r.errors]
                 if failed:

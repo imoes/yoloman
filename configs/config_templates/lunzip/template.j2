@@ -1,0 +1,62 @@
+# lunzip configuration file
+# This file drives the `lunzip` command-line tool. Each variable controls a specific runtime behavior.
+# All variables use Jinja2 `default()` filters to ensure safe rendering even if the Ansible role
+# does not explicitly set a value. The defaults match the schema specification.
+
+# output_dir: Directory where decompressed files are stored. If null or empty, files are written to current directory.
+# Default: /var/lib/lunzip
+OUTPUT_DIR={{ output_dir | default('/var/lib/lunzip') }}
+
+# buffer_size: Output buffer size in bytes for low-memory mode.
+# Valid values: power of two (12-29) or explicit byte count.
+# Default value 15 corresponds to 32KB (2^15).
+# Default: 15
+BUFFER_SIZE={{ buffer_size | default(15) }}
+
+# verbose: Verbosity level.
+# 0 = silent, 1 = normal, 2 = verbose.
+# Default: 1
+VERBOSE={{ verbose | default(1) }}
+
+# force: Force overwrite existing output files without prompting.
+# Default: false
+FORCE={{ force | default(false) | lower }}
+
+# keep: Keep (don't delete) input files after successful decompression.
+# Default: false
+KEEP={{ keep | default(false) | lower }}
+
+# quiet: Suppress all messages (warnings, progress, etc.).
+# Takes precedence over verbose level.
+# Default: false
+QUIET={{ quiet | default(false) | lower }}
+
+# test: Test compressed file integrity instead of decompressing.
+# Useful for verifying archive health without extraction.
+# Default: false
+TEST={{ test | default(false) | lower }}
+
+# stdout: Write output to standard output instead of creating files.
+# Useful for piping decompressed data to other commands.
+# Default: false
+STDOUT={{ stdout | default(false) | lower }}
+
+# trailing_error: Exit with error status if trailing data is found after valid lzip data.
+# Default: false
+TRAILING_ERROR={{ trailing_error | default(false) | lower }}
+
+# loose_trailing: Allow trailing data, even if it seems corrupt.
+# Disables strict trailing data checks.
+# Default: false
+LOOSE_TRAILING={{ loose_trailing | default(false) | lower }}
+
+# list_mode: Print compressed and uncompressed file sizes instead of decompressing.
+# Default: false
+LIST={{ list_mode | default(false) | lower }}
+
+# files: List of input .lz files to process.
+# If empty, stdin is assumed or default behavior applies depending on other flags.
+# Default: []
+{% if files | default([]) | length > 0 %}
+FILES={{ files | default([]) | join(' ') }}
+{% endif %}

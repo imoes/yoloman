@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# Self-documenting nftables setup script for miniupnpd.
+# Variables are drawn from Ansible role defaults to ensure consistency
+# with the main miniupnpd configuration.
+
+NFT=$(which nft) || {
+	echo "Can't find nft" >&2
+	exit 1
+}
+
+# The name of the nftables table used for UPnP filtering.
+TABLE="{{ table | default('filter') }}"
+# The name of the nftables table used for UPnP NAT.
+NAT_TABLE="{{ nat_table | default('filter') }}"
+# The name of the forward chain for UPnP rules.
+CHAIN="{{ chain | default('miniupnpd') }}"
+# The name of the prerouting chain for UPnP NAT rules.
+PREROUTING_CHAIN="{{ prerouting_chain | default('prerouting_miniupnpd') }}"
+# The name of the postrouting chain for UPnP NAT rules.
+POSTROUTING_CHAIN="{{ postrouting_chain | default('postrouting_miniupnpd') }}"
+
+while getopts ":t:n:c:p:r:h" opt; do
+	case $opt in
+		t)
+			TABLE=$OPTARG
+			;;
+		n)
+			NAT_TABLE=$OPTARG
+			;;
+		c)
+			CHAIN=$OPTARG
+			;;
+		p)
+			PREROUTING_CHAIN=$OPTARG
+			;;
+		r)
+			POSTROUTING_CHAIN=$OPTARG
+			;;
+		h)
+			echo "Usage: $0 [options]"
+			echo
+			echo "Options:"
+			echo "  -t table              upnp_table_name in miniupnpd.conf"
+			echo "  -n nat_table          upnp_nat_table_name in miniupnpd.conf"
+			echo "  -c chain              upnp_forward_chain in miniupnpd.conf"
+			echo "  -p nat_chain          upnp_nat_chain in miniupnpd.conf"
+			echo "  -r postrouting_chain  upnp_nat_postrouting_chain in miniupnpd.conf"
+			exit 0
+			;;
+		\?)
+			echo "Invalid option: -$OPTARG" >&2
+			echo "To show usage: $0 -h" >&2
+			exit 1
+			;;
+		:)
+			echo "Option -$OPTARG requires an argument." >&2
+			exit 1
+			;;
+	esac
+done

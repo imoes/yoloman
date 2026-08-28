@@ -1,0 +1,17 @@
+{
+  "args": {
+    "type": "list",
+    "default": [
+      "-machine",
+      "MSX2",
+      "-cart",
+      "/usr/share/openmsx/roms/FamicomTurbo.rom"
+    ],
+    "description": "Command-line arguments to pass to the openmsx binary. Common options include -machine, -cart, -diska, -cassetteplayer, etc. See openmsx(1). Items must be flat strings representing flags and their values in sequence. If empty, openmsx runs in interactive mode with defaults. For a list-of-objects-like structure, this list represents [key, value, key, value]. The schema for items is effectively a flat map of argument name -> value, but since we can only use lists in values_schema items for simple scalars, we represent the command line args as a list of strings here. To adhere strictly to 'list-of-objects' with 'items' as a flat map if needed: we can model a more complex config if openmsx supported a JSON config file, but it relies on CLI args. Therefore, we parametrize the CLI args directly. Note: The prompt asks for list items to be a FLAT map if it's a list of objects. Since CLI args are just strings, a simple list of strings is the most accurate representation of 'args'. However, if we want to be pedantic about 'list-of-objects', we could define a 'setting' object. But openmsx doesn't have a config file with sections. It has CLI args. So a list of strings is best. I will use a simple list of strings for args as they are scalar strings in the CLI context. If the user wants to specify machine and cart, they provide ['-machine', 'MSX2', '-cart', 'path']. This fits type list with default array of strings.\n      ],\n      "
+  },
+  "display_mode": {
+    "type": "string",
+    "default": "fullscreen",
+    "description": "Initial display mode for openmsx. Supported values include 'fullscreen', 'windowed', 'borderless', etc. Maps to the --display setting or environment variable DISPLAY_WIDTH/HEIGHT logic if used, but openmsx usually infers or uses standard flags. Actually, openmsx uses `-display` in newer versions or config files. Let's check if there is a config file. OpenMSX generates an XML settings file at `~/.openmsx/settings.xml`. This is the canonical config file. I should template that instead of a bash script."
+  }
+}

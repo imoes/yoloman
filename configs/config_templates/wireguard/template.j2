@@ -1,101 +1,52 @@
-# =============================================================================
-# WireGuard Configuration Template
-#
-# This template generates a valid WireGuard configuration file (wg(8) format).
-# It supports a single local [Interface] section and multiple remote [Peer] sections.
-#
-# Schema Fields:
-#   - interface: dict containing local interface settings (addresses, keys, listen port, etc.)
-#   - peers: list of dicts, each representing a remote peer configuration.
-#
-# Defaults are applied to all variables to ensure safe rendering even if optional
-# fields are omitted by the playbook.
-# =============================================================================
-
 [Interface]
-# Address: Comma-separated list of IPv4 and/or IPv6 addresses assigned to this interface.
-# Default: Empty list (no IP assigned). Must be populated for routing to work.
-Address = {{ (interface | default({})).addresses | default([]) | join(', ') }}
+# Address: IPv4 and/or IPv6 addresses for this WireGuard interface
+Address = {{ interface.addresses | join(', ') }}
 
-# ListenPort: UDP port number on which the local WireGuard interface listens for incoming packets.
-# Default: 51820 (standard WireGuard port).
-ListenPort = {{ (interface | default({})).listen_port | default(51820) }}
+# ListenPort: UDP port on which the interface listens for incoming packets
+ListenPort = {{ interface.listen_port }}
 
-# PrivateKey: Base64-encoded private key for this interface.
-# WARNING: This key must be kept secret. It is used to decrypt incoming packets and sign outgoing ones.
-# NOTE: If no private key is provided, the interface cannot function. This block emits the key only if provided.
-{% if (interface | default({})).private_key is defined and (interface | default({})).private_key %}
-PrivateKey = {{ (interface | default({})).private_key }}
+# PrivateKey: Base64-encoded private key for this interface (must be kept secret)
+PrivateKey = {{ interface.private_key }}
+
+# PreSharedKey: Optional pre-shared key for additional symmetric encryption
+{% if interface.preshared_key is defined and interface.preshared_key %}PreSharedKey = {{ interface.preshared_key }}
 {% endif %}
 
-# PreSharedKey: Optional base64-encoded pre-shared key for additional symmetric encryption layer.
-# If present, BOTH the local interface and the remote peer must share this same key.
-{% if (interface | default({})).preshared_key is defined and (interface | default({})).preshared_key %}
-PreSharedKey = {{ (interface | default({})).preshared_key }}
+# MTU: Optional maximum transmission unit override (default: auto-detected)
+{% if interface.mtu is defined and interface.mtu %}MTU = {{ interface.mtu }}
 {% endif %}
 
-# MTU: Optional override for the Maximum Transmission Unit size.
-# If omitted, WireGuard auto-detects the MTU based on the underlying network interface.
-{% if (interface | default({})).mtu is defined and (interface | default({})).mtu %}
-MTU = {{ (interface | default({})).mtu }}
+# SaveConfig: Whether to persist peer configuration changes to disk on shutdown (true/false)
+{% if interface.save_config is defined %}SaveConfig = {{ interface.save_config | lower }}
 {% endif %}
 
-# SaveConfig: If true, WireGuard writes the current configuration (including dynamic peer changes)
-# to the config file on shutdown. Default is false.
-{% if (interface | default({})).save_config is defined %}
-SaveConfig = {{ (interface | default({})).save_config | lower }}
+# PostUp/PostDown: Commands executed when interface is brought up/down (semicolon-separated for multiple)
+{% if interface.post_up is defined and interface.post_up %}PostUp = {{ interface.post_up }}
+{% endif %}
+{% if interface.post_down is defined and interface.post_down %}PostDown = {{ interface.post_down }}
 {% endif %}
 
-# PostUp: Shell commands to execute when the interface is brought up.
-# Can be used to configure routing, NAT, or other network rules.
-{% if (interface | default({})).post_up is defined and (interface | default({})).post_up %}
-PostUp = {{ (interface | default({})).post_up }}
+# DNS: Optional list of DNS servers to configure when interface is up
+{% if interface.dns is defined and interface.dns %}DNS = {{ interface.dns | join(', ') }}
 {% endif %}
 
-# PostDown: Shell commands to execute when the interface is brought down.
-# Should reverse any actions taken in PostUp.
-{% if (interface | default({})).post_down is defined and (interface | default({})).post_down %}
-PostDown = {{ (interface | default({})).post_down }}
-{% endif %}
-
-# DNS: Comma-separated list of DNS servers to configure via resolvconf/systemd-resolved
-# when the interface is active.
-{% if (interface | default({})).dns is defined and (interface | default({})).dns %}
-DNS = {{ (interface | default({})).dns | join(', ') }}
-{% endif %}
-
-# -----------------------------------------------------------------------------
-# Remote Peers
-# -----------------------------------------------------------------------------
-{% for peer in (peers | default([])) %}
-[Peer]
-
-# PublicKey: Base64-encoded public key of the remote peer.
-# The peer uses its private key to encrypt packets; we use this public key to encrypt.
-{% if peer.public_key is defined and peer.public_key %}
+{% for peer in peers %}[Peer]
+# PublicKey: Base64-encoded public key of the peer
 PublicKey = {{ peer.public_key }}
+
+# AllowedIPs: Comma-separated CIDRs this peer may route through this interface
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+
+# Endpoint: Host:port of the peer for persistent communication (optional for dynamic peers)
+{% if peer.endpoint is defined and peer.endpoint %}Endpoint = {{ peer.endpoint }}
 {% endif %}
 
-# AllowedIPs: List of IPv4/IPv6 CIDR ranges that should be routed through this peer.
-# Use '0.0.0.0/0' and '::/0' for full traffic routing, or specific subnets for split tunneling.
-AllowedIPs = {{ peer.allowed_ips | default([]) | join(', ') }}
-
-# Endpoint: The public hostname or IP:port of the remote peer for outbound communication.
-# Required for active connections; omit if this is a passive server expecting incoming connections.
-{% if peer.endpoint is defined and peer.endpoint %}
-Endpoint = {{ peer.endpoint }}
+# PresharedKey: Optional per-peer pre-shared key (overrides interface-level if present)
+{% if peer.preshared_key is defined and peer.preshared_key %}PreSharedKey = {{ peer.preshared_key }}
 {% endif %}
 
-# PresharedKey: Optional per-peer base64 pre-shared key.
-# If used, it is in addition to the interface-level PSK (if any).
-{% if peer.preshared_key is defined and peer.preshared_key %}
-PreSharedKey = {{ peer.preshared_key }}
-{% endif %}
-
-# PersistentKeepalive: Interval in seconds to send keepalive packets if the link is idle.
-# Default is 0 (disabled). Useful for peers behind NAT who need to keep the port open.
-{% if peer.persistent_keepalive is defined and (peer.persistent_keepalive | default(0) | int) > 0 %}
-PersistentKeepalive = {{ peer.persistent_keepalive }}
+# PersistentKeepalive: Interval (in seconds) to send keepalive packets (0 = disabled)
+{% if peer.persistent_keepalive is defined and peer.persistent_keepalive > 0 %}PersistentKeepalive = {{ peer.persistent_keepalive }}
 {% endif %}
 
 {% endfor %}

@@ -1,0 +1,38 @@
+# Roundcube Core: Systemd Timer/Schedule Configuration
+#
+# This template generates the crontab or systemd timer lines for Roundcube's
+# maintenance jobs: database cleaning and garbage collection.
+#
+# The 'test -d /run/systemd/system' check ensures these commands are only executed
+# when the system is NOT managed by systemd (i.e., in non-systemd environments).
+# In systemd-managed environments, separate service/timer units should handle these tasks.
+
+# ==============================================================================
+# Database Cleaning Job
+# ==============================================================================
+# Removes old records from the database that have been marked as deleted but not
+# yet physically purged. This helps keep the database size manageable.
+#
+# Variables:
+#   - roundcube_clean_db_schedule: Cron expression defining when this job runs.
+#   - roundcube_clean_db_user: System user account to run the cleaning script as.
+#   - roundcube_bin_path: Path to the Roundcube installation binaries.
+
+# Cron schedule for database cleaning job. Default: '0 5 * * *' (daily at 5 AM)
+# User account under which the database cleaning job runs. Default: 'www-data'
+{{ (roundcube_clean_db_schedule | default('0 5 * * *')) }} {{ (roundcube_clean_db_user | default('www-data')) }} test -d /run/systemd/system || {{ (roundcube_bin_path | default('/usr/share/roundcube')) }}/bin/cleandb.sh >/dev/null
+
+# ==============================================================================
+# Garbage Collection Job
+# ==============================================================================
+# Purges expired sessions, temporary files, and cached data. This prevents disk
+# space exhaustion and ensures session validity.
+#
+# Variables:
+#   - roundcube_gc_schedule: Cron expression defining when this job runs.
+#   - roundcube_gc_user: System user account to run the GC script as.
+#   - roundcube_bin_path: Path to the Roundcube installation binaries.
+
+# Cron schedule for garbage collection job. Default: '5,35 * * * *' (every hour at 5 and 35 past)
+# User account under which the garbage collection job runs. Default: 'www-data'
+{{ (roundcube_gc_schedule | default('5,35 * * * *')) }} {{ (roundcube_gc_user | default('www-data')) }} test -d /run/systemd/system || {{ (roundcube_bin_path | default('/usr/share/roundcube')) }}/bin/gc.sh

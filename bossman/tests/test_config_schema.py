@@ -25,7 +25,7 @@ INI = {
     "rlimits": {},
 }
 # a real keyvalue shape (chrony.conf) — flat, empty value allowed
-KV = {"logdir": "/var/log/chrony", "server": "time.example.com iburst", "rtcsync": ""}
+KV = {"logdir": "/var/log/chrony", "server": "ntp.example.internal iburst", "rtcsync": ""}
 # a real yaml shape (agentic-mcp/config.yaml) — NATIVE types
 YAML = {"db": {"path": "/var/lib/x.db"}, "ui": {"enabled": True}, "port": 8080, "tags": ["a", "b"]}
 

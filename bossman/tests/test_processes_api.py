@@ -5,6 +5,7 @@ seam the plan-run route uses, so no real agent connection is made.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 
@@ -39,7 +40,7 @@ class FakeAgentClient:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"proc-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("proc-agent"),
         "token": "tok",
         "address": "10.0.0.9:8010",
         "mode": "standalone",

@@ -1,0 +1,60 @@
+# =============================================================================
+# Partimage Server (partimaged) SSL Key/Certificate Generation Configuration
+# =============================================================================
+# This file configures OpenSSL to generate a self-signed certificate used by
+# the Partimage server for secure (SSL) disk imaging transfers.
+# It defines the RANDFILE location and the Distinguished Name (DN) fields
+# for the generated certificate.
+# =============================================================================
+
+# RANDFILE: Path to the random number generator file for SSL key generation.
+RANDFILE = {{ randfile | default('/etc/partimaged/partimaged.rand') }}
+
+# [ req ] Section: General OpenSSL request/certificate generation options.
+[ req ]
+# default_bits: Number of bits in the generated RSA private key and certificate.
+# Higher values (e.g., 4096) increase security but slow down generation and verification.
+default_bits = {{ default_bits | default(4096) }}
+
+# encrypt_key: Whether to encrypt the generated private key with a passphrase.
+# If true, the key file will be protected; if false, it will be unencrypted (less secure).
+encrypt_key = {{ encrypt_key | default(True) | lower }}
+
+# distinguished_name: Specifies the section containing the DN fields for the cert.
+distinguished_name = req_dn
+
+# x509_extensions: Specifies the section containing X.509 v3 certificate extensions.
+x509_extensions = cert_type
+
+# prompt: If 'no', the DN fields below are used directly without prompting the user.
+prompt = no
+
+# [ req_dn ] Section: Distinguished Name fields for the SSL Certificate.
+[ req_dn ]
+# C: Country Name (2 letter code).
+C={{ country | default('US') }}
+
+# ST: State or Province Name (full name).
+ST={{ state | default('NY') }}
+
+# L: Locality Name (e.g., city).
+L={{ locality | default('New York') }}
+
+# O: Organization Name (e.g., company).
+O={{ organization | default('Partimage Server') }}
+
+# OU: Organizational Unit Name (e.g., section or department).
+OU={{ organizational_unit | default('Automatically-generated Partimage SSL key') }}
+
+# CN: Common Name (e.g., server FQDN or YOUR name).
+CN={{ common_name | default('localhost') }}
+
+# emailAddress: Email address for the certificate subject.
+emailAddress={{ email_address | default('postmaster@example.com') }}
+
+
+# [ cert_type ] Section: X.509 Certificate Extensions.
+[ cert_type ]
+# nsCertType: Specifies the type of certificate.
+# 'server' indicates this cert is for a server (TLS/SSL endpoint).
+nsCertType = server

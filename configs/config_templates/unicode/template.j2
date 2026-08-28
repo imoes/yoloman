@@ -1,0 +1,95 @@
+# ==============================================================================
+# Unicode query tool configuration
+# This template generates the command-line arguments for the `ucd` utility
+# (or similar Unicode analysis tool) based on Ansible variable definitions.
+#
+# Variables used:
+#   fromcp: Source encoding for numerical arguments
+#   io_charset: Character set for I/O operations
+#   add_charset: Additional charset for hex representation
+#   colour: Colorization mode (on/off/auto)
+#   max_count: Maximum codepoints to display
+#   verbose: Enable verbose output (e.g., Unihan info)
+#   brief: Enable brief output format
+#   list_encodings: List known encodings
+#   download_db: Download UnicodeData.txt database
+#   ascii: Display ASCII table
+#   brexit_ascii: Display Brexit ASCII table
+#   inputs: List of input items to query
+# ==============================================================================
+
+# --fromcp
+# Convert numerical arguments from this encoding. Multibyte encodings supported.
+# Default: 'utf-8'
+--fromcp {{ (fromcp | default('utf-8')) | string }}
+
+# --io
+# I/O character set. Use UTF-8 for maximal pleasure on UTF-8 capable terminals.
+# Default: 'utf-8'
+--io {{ (io_charset | default('utf-8')) | string }}
+
+# --charset-add
+# Show hexadecimal representation of displayed characters in this additional charset.
+# Default: '' (empty, no additional charset)
+{% if (add_charset | default('')) != '' %}--charset-add {{ (add_charset | default('')) | string }}{% endif %}
+
+# --colour
+# Use colour codes: on, off, or auto.
+# Default: 'auto'
+--colour {{ (colour | default('auto')) | string }}
+
+# --max
+# Maximal number of codepoints to display. Use 0 for unlimited.
+# Default: 20
+--max {{ (max_count | default(20)) | int }}
+
+# --verbose
+# Be more verbose about displayed characters, e.g. display Unihan information.
+# Default: false
+{% if (verbose | default(false) | bool) %}--verbose{% endif %}
+
+# --brief
+# Display character information in brief format.
+# Default: false
+{% if (brief | default(false) | bool) %}--brief{% endif %}
+
+# --list
+# List (approximately) all known encodings.
+# Default: false
+{% if (list_encodings | default(false) | bool) %}--list{% endif %}
+
+# --download
+# Try to download UnicodeData.txt into ~/.unicode/.
+# Default: false
+{% if (download_db | default(false) | bool) %}--download{% endif %}
+
+# --ascii
+# Display ASCII table.
+# Default: false
+{% if (ascii | default(false) | bool) %}--ascii{% endif %}
+
+# --brexit
+# Display ASCII table (EU–UK Trade and Cooperation Agreement 2020 version).
+# Default: false
+{% if (brexit_ascii | default(false) | bool) %}--brexit{% endif %}
+
+# Inputs
+# List of input strings or codepoints to query.
+# Each item is a flat map with 'value' and optional 'type'.
+# 'type' overrides auto-guessing. Valid types: hex, decimal, octal, binary, regexp, string, auto.
+{% set _inputs = inputs | default([]) %}
+{% if _inputs is iterable and _inputs | length > 0 %}
+{% for item in _inputs %}
+{% set _type = item.type | default('auto') | string | lower %}
+{% set _value = item.value | default('') | string %}
+{% if _type == 'hex' %}-x {{ _value }}
+{% elif _type == 'decimal' %}-d {{ _value }}
+{% elif _type == 'octal' %}-o {{ _value }}
+{% elif _type == 'binary' %}-b {{ _value }}
+{% elif _type == 'regexp' %}-r {{ _value }}
+{% elif _type == 'string' %}-s {{ _value }}
+{% elif _type == 'auto' %}-a {{ _value }}
+{% else %}{{ _value }}
+{% endif %}
+{% endfor %}
+{% endif %}

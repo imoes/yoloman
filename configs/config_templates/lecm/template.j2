@@ -1,0 +1,33 @@
+# Let's Encrypt Manager (lecm) Configuration File
+# Generated via Jinja2 template. This file configures lecm to manage
+# TLS certificates using the Let's Encrypt (or compatible ACME) API.
+
+[global]
+# Directory where lecm stores its internal state and logs.
+state_dir = {{ state_dir | default('/var/lib/lecm') }}
+
+# Path to the Let's Encrypt account private key.
+# This key identifies the installation to the ACME server.
+account_key = {{ account_key | default('/etc/lecm/keys/account.key') }}
+
+# Enable debug output. Set to true for verbose logging.
+debug = {{ debug | default(False) | lower }}
+
+[certificates]
+# List of certificate configurations to manage by lecm.
+# Each entry defines a certificate block with its domains and file paths.
+{% for cert in certificates | default([]) %}
+# Configuration entry for certificate: {{ cert.name | default('unnamed') }}
+[[{{ cert.name | default('unnamed') }}]]
+# Space-separated list of Subject Alternative Names (SANs) / domains.
+domains = {{ cert.domains | default([]) | join(' ') }}
+
+# Path to the private key for this certificate.
+key_path = {{ cert.key_path | default('/etc/lecm/keys/' + cert.name | default('unnamed') + '.key') }}
+
+# Path to the certificate file (public cert).
+cert_path = {{ cert.cert_path | default('/etc/lecm/certs/' + cert.name | default('unnamed') + '.crt') }}
+
+# Path to the certificate chain file (intermediates + root).
+chain_path = {{ cert.chain_path | default('/etc/lecm/certs/' + cert.name | default('unnamed') + '.chain') }}
+{% endfor %}

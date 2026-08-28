@@ -1,92 +1,42 @@
-# unattended-upgrades configuration file
-# This template configures the Debian/Ubuntu APT periodic tasks and the unattended-upgrades
-# automatic security patching service.
-#
-# Structure:
-#   1. APT::Periodic — Controls automated apt update/upgrade cycles.
-#   2. Unattended-Upgrade — Controls the actual package upgrade logic, sources, and behavior.
-#   3. Email & Logging — Notification and diagnostic settings.
+// {{ description }}
+// Automatically update package lists, upgrade installed packages, and optionally clean up
 
-# ---------------------------------------------------------------------------
-# Section 1: APT Periodic Tasks
-# These settings determine how often APT checks for package lists and upgrades.
-# ---------------------------------------------------------------------------
+APT::Periodic::Update-Package-Lists "{{ apt_periodic_update_package_lists }}";
+APT::Periodic::Download-Upgradeable-Packages "{{ apt_periodic_download_upgradeable_packages }}";
+APT::Periodic::AutocleanInterval "{{ apt_periodic_autoclean_interval }}";
+APT::Periodic::Verbose "{{ apt_periodic_verbose }}";
 
-# Run `apt update` every N days. Set to `0` to disable.
-APT::Periodic::Update-Package-Lists "{{ apt_periodic_update_package_lists | default(1) }}";
+// Enable automatic unattended upgrades
+Unattended-Upgrade::Enable "{{ unattended_upgrade_enable | lower }}";
 
-# Download upgradeable packages every N days. Set to `0` to disable.
-APT::Periodic::Download-Upgradeable-Packages "{{ apt_periodic_download_upgradeable_packages | default(1) }}";
-
-# Run `apt autoclean` every N days. Set to `0` to disable.
-APT::Periodic::AutocleanInterval "{{ apt_periodic_autoclean_interval | default(7) }}";
-
-# Increase verbosity of APT periodic actions (0–3). Higher = more verbose.
-APT::Periodic::Verbose "{{ apt_periodic_verbose | default(0) }}";
-
-# ---------------------------------------------------------------------------
-# Section 2: Unattended-Upgrades Core Settings
-# ---------------------------------------------------------------------------
-
-# Enable or disable unattended upgrades entirely.
-Unattended-Upgrade::Enable "{{ unattended_upgrade_enable | default(true) | lower }}";
-
-# List of origin patterns to allow automatic upgrades from. Each pattern matches metadata from APT sources.
+// Only apply security updates by default (adjust patterns as needed)
 Unattended-Upgrade::Origins-Pattern {
-{% for origin in (origins_pattern | default(['o=Debian,a=stable', 'o=Debian,a=stable-updates', 'o=Debian,a=proposed-updates', 'o=Debian,a=security'])) %}
+{% for origin in origins_pattern %}
   "{{ origin }}";
 {% endfor %}
 };
 
-# List of package names that must never be automatically upgraded.
+// Package blacklist — packages that should never be auto-upgraded
 Unattended-Upgrade::Package-Blacklist {
-{% for pkg in (package_blacklist | default([])) %}
+{% for pkg in package_blacklist %}
   "{{ pkg }}";
 {% endfor %}
 };
 
-# ---------------------------------------------------------------------------
-# Section 3: Behavior Options
-# ---------------------------------------------------------------------------
+// Behavior options
+Unattended-Upgrade::AutoFixInterruptedDpkg "{{ unattended_upgrade_auto_fix_interrupted_dpkg | lower }}";
+Unattended-Upgrade::MinimalSteps "{{ unattended_upgrade_minimal_steps | lower }}";
+Unattended-Upgrade::InstallOnShutdown "{{ unattended_upgrade_install_on_shutdown | lower }}";
 
-# Automatically fix interrupted dpkg state (e.g., due to crashes).
-Unattended-Upgrade::AutoFixInterruptedDpkg "{{ unattended_upgrade_auto_fix_interrupted_dpkg | default(true) | lower }}";
+// Reboot behavior (requires `needrestart` or manual check in some distros)
+Unattended-Upgrade::Automatic-Reboot "{{ automatic_reboot | lower }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ automatic_reboot_time }}";
 
-# Minimize interruption by splitting upgrades into smaller steps.
-Unattended-Upgrade::MinimalSteps "{{ unattended_upgrade_minimal_steps | default(true) | lower }}";
+// Email notifications
+Unattended-Upgrade::Mail "{{ email_address }}";
+Unattended-Upgrade::MailOnlyOnError "{{ email_only_on_error | lower }}";
+Unattended-Upgrade::MailReport "{{ email_report }}";
 
-# Perform upgrades during shutdown instead of immediately (useful for servers).
-Unattended-Upgrade::InstallOnShutdown "{{ unattended_upgrade_install_on_shutdown | default(false) | lower }}";
-
-# ---------------------------------------------------------------------------
-# Section 4: Reboot Behavior
-# ---------------------------------------------------------------------------
-
-# Automatically reboot after upgrades if required (e.g., after kernel updates). Use with caution.
-Unattended-Upgrade::Automatic-Reboot "{{ automatic_reboot | default(false) | lower }}";
-
-# Time (HH:MM in 24h format) to schedule automatic reboot. Only used if automatic_reboot is true.
-Unattended-Upgrade::Automatic-Reboot-Time "{{ automatic_reboot_time | default('02:00') }}";
-
-# ---------------------------------------------------------------------------
-# Section 5: Email Notifications
-# ---------------------------------------------------------------------------
-
-# Email address to send upgrade reports/alerts to. Leave empty to disable email.
-Unattended-Upgrade::Mail "{{ email_address | default('') }}";
-
-# Send email only when an error occurs. If false, send daily summaries.
-Unattended-Upgrade::MailOnlyOnError "{{ email_only_on_error | default(true) | lower }}";
-
-# When to send email reports: 'on-change', 'always', or 'none'.
-Unattended-Upgrade::MailReport "{{ email_report | default('on-change') }}";
-
-# ---------------------------------------------------------------------------
-# Section 6: Logging
-# ---------------------------------------------------------------------------
-
-# Verbosity level for unattended-upgrades log (0–4). Higher = more detail.
-Unattended-Upgrade::Verbose "{{ unattended_upgrade_verbose | default(3) }}";
-
-# Directory where unattended-upgrades stores its logs.
+// Log settings
+Unattended-Upgrade::Verbose "{{ unattended_upgrade_verbose }}";
 Unattended-Upgrade::LogDir "/var/log/unattended-upgrades";

@@ -25,7 +25,8 @@ from bossman.services.agent_client import client_for
 from bossman.services.catalog import CatalogCache
 from bossman.services.embedding_client import EmbeddingClient
 from bossman.services.plan_engine import run_plan
-from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_vars
+from bossman.services.plan_loader import Plan, PlanError, PlanStep
+from bossman.services.scope_vars import resolve_scope_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans
 from bossman.services.plan_store import (
     VALID_PREFIXES,
@@ -301,7 +302,8 @@ async def run_plan_route(
     if not agent.address:
         raise HTTPException(status_code=422, detail=f"agent {body.agent!r} has no reachable address")
 
-    host_vars = load_host_vars(settings.plans_dir, agent.name)
+    # From the DATABASE, GPO-merged — the filesystem host_vars layer is gone (one fact, one source).
+    host_vars = await resolve_scope_vars(session, agent)
     client = client_factory(agent, settings)
 
     try:
@@ -606,7 +608,8 @@ async def run_stored_plan_route(
     if not agent.address:
         raise HTTPException(status_code=422, detail=f"agent {body.agent!r} has no reachable address")
 
-    host_vars = load_host_vars(settings.plans_dir, agent.name)
+    # From the DATABASE, GPO-merged — the filesystem host_vars layer is gone (one fact, one source).
+    host_vars = await resolve_scope_vars(session, agent)
     client = client_factory(agent, settings)
     try:
         plan_run = await run_plan(

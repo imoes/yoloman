@@ -1,0 +1,42 @@
+# signify-openbsd configuration for key management and signing policies
+# This template is self-documenting: every directive is preceded by its schema description.
+
+# Free-form comment added to the key files during generation (-c)
+# Default: signify-openbsd key
+SECRET_KEY_COMMENT={{ secret_key_comment | default('signify-openbsd key') }}
+
+# Path to the public key file (-p)
+# Default: /etc/signify/key.pub
+PUBLIC_KEY_PATH={{ public_key_path | default('/etc/signify/key.pub') }}
+
+# Path to the secret key file (-s)
+# Default: /etc/signify/key.sec
+SECRET_KEY_PATH={{ secret_key_path | default('/etc/signify/key.sec') }}
+
+# Path to the message file to sign or verify (-m)
+# Default: /var/lib/signify/message.txt
+MESSAGE_FILE={{ message_file | default('/var/lib/signify/message.txt') }}
+
+# Path to the signature file (-x). If empty, defaults to message.sig
+# Default: ''
+SIGNATURE_FILE={{ signature_file | default(message_file | default('/var/lib/signify/message.txt') + '.sig') }}
+
+# Key type string for verification (-t). Empty for auto-detection.
+# Default: ''
+KEY_TYPE={{ key_type | default('') }}
+
+# Enable -e flag to embed or extract message with signature
+# Default: False
+EMBED_MESSAGE={{ embed_message | default(False) | lower }}
+
+# Enable -n flag to skip passphrase prompt during key generation
+# Default: False
+NO_PASSPHRASE={{ no_passphrase | default(False) | lower }}
+
+# Enable -q flag for quiet mode
+# Default: False
+QUIET={{ quiet | default(False) | lower }}
+
+# Enable -z flag for gzip archive support
+# Default: False
+USE_GZIP={{ use_gzip | default(False) | lower }}

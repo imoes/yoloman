@@ -9,17 +9,23 @@ import { AgentService } from '../../../../core/services/agent.service';
 import { CheckCatalogEntry, EffectiveCheck } from '../../../../core/models/check.model';
 import { AddServiceCheckDialogComponent } from './add-service-check-dialog.component';
 
-/** MMC snap-in: active service checks (HTTP/TCP/DNS/…) on a host — configure
- * them as easily as Roles & Features. Lists the checks assigned to THIS host,
- * "Add a service check" opens the catalog→param-form→assign dialog. */
+/** Active service checks (HTTP/TCP/DNS/certificate) on a host — configure them as easily as
+ * Roles & Features. Lists the ones assigned to THIS host; "Add a service check" opens the
+ * catalog→param-form→assign dialog.
+ *
+ * Was a Management snap-in, now a section of the host's Checks tab: that tab filtered this
+ * category out while pointing at the snap-in, so a tab named "Checks" hid a whole class of the
+ * host's checks. See docs/logik-audit.md, area 1. */
 @Component({
   selector: 'app-service-checks',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatIconModule],
   template: `
+    <!-- No heading of its own: this is embedded as a SECTION of the host's Checks tab, which
+         supplies the "Service checks" heading and the line saying what a row here claims.
+         Carrying a second one produced the same title twice on one screen. -->
     <div class="bm-sc-head">
       <div>
-        <h3>Service checks</h3>
         <p class="bm-dim">Monitor a URL, port, certificate or DNS record from this host — pick a check, fill the form, done.</p>
       </div>
       <button mat-flat-button color="primary" (click)="add()"><mat-icon>add</mat-icon> Add a service check</button>

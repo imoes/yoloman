@@ -1,0 +1,162 @@
+#!/bin/sh
+# Ansible-generated wrapper for the `scrub` disk-wiping utility.
+# This script assembles command-line flags based on variable defaults
+# and emits the final exec command.
+# See scrub(1) for flag semantics.
+
+# Path to the scrub executable
+# Schema: scrub_bin, default: '/usr/bin/scrub'
+SCRUB_BIN="{{ scrub_bin | default('/usr/bin/scrub') }}"
+
+# The scrub method/pattern to use.
+# Valid values: nnsa, dod, bsi, gutmann, schneier, pfitzner7, pfitzner33, usarmy, fillzero, fillff, random, r
+# Schema: scrub_pattern, default: 'nnsa'
+SCRUB_PATTERN="{{ scrub_pattern | default('nnsa') }}"
+
+# Blocksize for read/write calls. Can be suffixed with K, M, or G.
+# Schema: scrub_blocksize, default: '4M'
+SCRUB_BLOCKSIZE="{{ scrub_blocksize | default('4M') }}"
+
+# The special file, device, or regular file to scrub.
+# Schema: scrub_target, default: '/dev/sda'
+SCRUB_TARGET="{{ scrub_target | default('/dev/sda') }}"
+
+# Remove the file after scrubbing (if regular file).
+# Schema: scrub_remove, default: False
+SCRUB_REMOVE="{{ scrub_remove | default(False) | ternary('true','false') }}"
+
+# Scrub even if target contains signature indicating it has already been scrubbed.
+# Schema: scrub_force, default: False
+SCRUB_FORCE="{{ scrub_force | default(False) | ternary('true','false') }}"
+
+# Do not write scrub signature.
+# Schema: scrub_no_signature, default: False
+SCRUB_NO_SIGNATURE="{{ scrub_no_signature | default(False) | ternary('true','false') }}"
+
+# Override device size in bytes. Suffixes K, M, G allowed. Leave empty to use OS detection.
+# Schema: scrub_device_size, default: ''
+SCRUB_DEVICE_SIZE="{{ scrub_device_size | default('') }}"
+
+# If target is a symbolic link, do not scrub the link target.
+# Schema: scrub_no_link, default: False
+SCRUB_NO_LINK="{{ scrub_no_link | default(False) | ternary('true','false') }}"
+
+# Don't use a hardware random number generator.
+# Schema: scrub_no_hwrand, default: False
+SCRUB_NO_HWRAND="{{ scrub_no_hwrand | default(False) | ternary('true','false') }}"
+
+# Don't generate random data in parallel with I/O.
+# Schema: scrub_no_threads, default: False
+SCRUB_NO_THREADS="{{ scrub_no_threads | default(False) | ternary('true','false') }}"
+
+# Do everything but write to targets (dry run).
+# Schema: scrub_dry_run, default: False
+SCRUB_DRY_RUN="{{ scrub_dry_run | default(False) | ternary('true','false') }}"
+
+# Enable -X freespace mode. Creates files in scrub_freespace_dir until FS is full.
+# Schema: scrub_freespace, default: False
+SCRUB_FREESPACE="{{ scrub_freespace | default(False) | ternary('true','false') }}"
+
+# Directory for freespace mode. Must exist.
+# Schema: scrub_freespace_dir, default: '/tmp/scrub_temp'
+SCRUB_FREESPACE_DIR="{{ scrub_freespace_dir | default('/tmp/scrub_temp') }}"
+
+# Size of each file in freespace mode. Suffixes K, M, G allowed.
+# Schema: scrub_file_size, default: '1g'
+SCRUB_FILE_SIZE="{{ scrub_file_size | default('1g') }}"
+
+# Rename target to this name after scrubbing. Only for single target.
+# Schema: scrub_dirent_newname, default: ''
+SCRUB_DIRENT_NEWNAME="{{ scrub_dirent_newname | default('') }}"
+
+# Custom pattern string for custom mode. Must contain C-style escapes.
+# Schema: scrub_custom_pattern, default: ''
+SCRUB_CUSTOM_PATTERN="{{ scrub_custom_pattern | default('') }}"
+
+# Assemble command arguments
+CMD="${SCRUB_BIN}"
+
+# Flag: -r (remove file after scrubbing)
+# Schema: scrub_remove
+if [ "${SCRUB_REMOVE}" = "true" ]; then
+  CMD="${CMD} -r"
+fi
+
+# Flag: -p (pattern). Handles custom pattern injection safely.
+# Schema: scrub_pattern, scrub_custom_pattern
+if [ "${SCRUB_PATTERN}" = "custom" ] && [ -n "${SCRUB_CUSTOM_PATTERN}" ]; then
+  # Use quotes to preserve shell escaping of the custom pattern string
+  CMD="${CMD} -p custom=\"${SCRUB_CUSTOM_PATTERN}\""
+elif [ -n "${SCRUB_PATTERN}" ]; then
+  CMD="${CMD} -p ${SCRUB_PATTERN}"
+fi
+
+# Flag: -b (blocksize)
+# Schema: scrub_blocksize
+if [ -n "${SCRUB_BLOCKSIZE}" ]; then
+  CMD="${CMD} -b ${SCRUB_BLOCKSIZE}"
+fi
+
+# Flag: -f (force)
+# Schema: scrub_force
+if [ "${SCRUB_FORCE}" = "true" ]; then
+  CMD="${CMD} -f"
+fi
+
+# Flag: -S (no signature)
+# Schema: scrub_no_signature
+if [ "${SCRUB_NO_SIGNATURE}" = "true" ]; then
+  CMD="${CMD} -S"
+fi
+
+# Flag: -s (device size). Note: also used for file_size in freespace mode below.
+# Schema: scrub_device_size
+if [ -n "${SCRUB_DEVICE_SIZE}" ]; then
+  CMD="${CMD} -s ${SCRUB_DEVICE_SIZE}"
+fi
+
+# Flag: -L (no link target scrub)
+# Schema: scrub_no_link
+if [ "${SCRUB_NO_LINK}" = "true" ]; then
+  CMD="${CMD} -L"
+fi
+
+# Flag: -R (no hardware RNG)
+# Schema: scrub_no_hwrand
+if [ "${SCRUB_NO_HWRAND}" = "true" ]; then
+  CMD="${CMD} -R"
+fi
+
+# Flag: -t (no threads)
+# Schema: scrub_no_threads
+if [ "${SCRUB_NO_THREADS}" = "true" ]; then
+  CMD="${CMD} -t"
+fi
+
+# Flag: -n (dry run)
+# Schema: scrub_dry_run
+if [ "${SCRUB_DRY_RUN}" = "true" ]; then
+  CMD="${CMD} -n"
+fi
+
+# Flag: -X (freespace mode) and -s (file size in freespace)
+# Schema: scrub_freespace, scrub_freespace_dir, scrub_file_size
+# Logic: If freespace mode is on, append -X dir and optional -s size.
+# Otherwise, append the target device/file.
+if [ "${SCRUB_FREESPACE}" = "true" ]; then
+  CMD="${CMD} -X ${SCRUB_FREESPACE_DIR}"
+  if [ -n "${SCRUB_FILE_SIZE}" ]; then
+    CMD="${CMD} -s ${SCRUB_FILE_SIZE}"
+  fi
+else
+  CMD="${CMD} ${SCRUB_TARGET}"
+fi
+
+# Flag: -D (new name after scrub)
+# Schema: scrub_dirent_newname
+if [ -n "${SCRUB_DIRENT_NEWNAME}" ]; then
+  CMD="${CMD} -D ${SCRUB_DIRENT_NEWNAME}"
+fi
+
+# Execute the assembled command
+exec ${CMD}

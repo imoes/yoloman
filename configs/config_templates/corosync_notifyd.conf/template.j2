@@ -2,7 +2,7 @@
 # Controls how corosync_notifyd sends notifications (email, syslog, etc.)
 
 # Enable or disable corosync_notifyd
-enabled: {{ enabled }}
+enabled: {{ enabled | lower }}
 
 # Logging verbosity: 'debug', 'info', 'notice', 'warning', 'error', 'crit', 'alert', 'emerg'
 log_level: "{{ log_level }}"
@@ -14,7 +14,7 @@ corosync_config: "{{ corosync_config }}"
 notifications:
 {% for n in notifications %}  # {{ n.type }} notifications: {{ n.description }}
   - type: {{ n.type }}
-    enabled: {{ n.enabled }}
+    enabled: {{ n.enabled | lower }}
     {% if n.backend == 'email' %}# Email notification settings
     backend: email
     to: {{ n.to | join(', ') }}

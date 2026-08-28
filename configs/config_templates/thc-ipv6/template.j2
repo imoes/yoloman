@@ -1,0 +1,44 @@
+# /etc/default/thc-ipv6
+# Configuration file for thc-ipv6 attack toolkit tools
+# Debian prefix is automatically added to command names (e.g. atk6-alive6)
+
+# Default interface to use for most thc-ipv6 tools if not specified on CLI
+# See man page thc-ipv6(8) for tool-specific interface requirements
+# Schema field: interface
+ATK6_DEFAULT_INTERFACE="{{ (interface | default('eth0')) | string }}"
+
+# Source IPv6 address to use for attacks if not specified per-tool
+# Used by tools like alive6, fake_router6, etc.
+# Schema field: source_ip
+ATK6_SOURCE_IP="{{ (source_ip | default('')) | string }}"
+
+# Target IPv6 address for specific attacks if not specified per-tool
+# Used by tools like alive6, redir6, etc.
+# Schema field: target_ip
+ATK6_TARGET_IP="{{ (target_ip | default('')) | string }}"
+
+# Enable verbose output for debugging
+# Corresponds to -v or similar flags in specific tools where applicable
+# Schema field: verbose
+{%- if verbose is defined %}
+{%   if verbose | bool %}
+ATK6_VERBOSE="true"
+{%   else %}
+ATK6_VERBOSE="false"
+{%   endif %}
+{%- else %}
+{%-   if (interface | default('eth0')) is defined %}
+{# Fallback logic: if interface is set, default verbose is off unless specified #}
+ATK6_VERBOSE="false"
+{%-   endif %}
+{%- endif %}
+
+# Domain name for DHCPv6 client flooder (flood_dhcpc6)
+# If empty, uses built-in defaults or server-provided name
+# Schema field: domain_name
+ATK6_DOMAIN_NAME="{{ (domain_name | default('')) | string }}"
+
+# Dictionary file for dnsdict6
+# If empty, uses the built-in list mentioned in the man page
+# Schema field: dictionary_file
+ATK6_DICTIONARY_FILE="{{ (dictionary_file | default('')) | string }}"

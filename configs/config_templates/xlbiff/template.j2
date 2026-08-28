@@ -1,0 +1,28 @@
+# xlbiff configuration template
+# This template generates the configuration for xlbiff, an X11-based mail viewer.
+# It handles the mail source check and the window decoration (rclock) formatting.
+
+# The recipient address or mailbox identifier to check for mail.
+# Default is empty, meaning no specific mailbox is configured by this variable.
+# Syntax: to:<recipient_or_mailbox>
+to:{{ mymbox_to | default('') | string }}
+
+# Configuration for the 'rclock' (running clock) display element in the window title/decoration.
+# The following lines define the date/time format logic based on the time elapsed.
+# If the interval is greater than 15768000 seconds (1 year), it shows Month/Year.
+# If greater than 604800 seconds (1 week), it shows Day/Month.
+# If greater than 86400 seconds (1 day), it shows Day.
+# Otherwise, it shows Hour:Minute.
+# Finally, it displays the Date.
+
+# The date format or source for the 'rclock' display element.
+# This variable is referenced in the conditional blocks below.
+# Default is empty.
+%(void(rclock{date}))\
+%<(gt 15768000)%03(month{date | default('') | string })%02(year{date | default('') | string })%|\
+%<(gt 604800)%02(mday{date | default('') | string })%03(month{date | default('') | string })%|\
+%<(gt 86400) %(day{date | default('') | string }) %|\
+%02(hour{date | default('') | string }):%02(min{date | default('') | string })%>%>%>\
+%<{date | default('') | string } %|*%>\
+%<(mymbox{from})To:%14(friendly{to | default('') | string })%|%17(decode(friendly{from | default('') | string }))%>  \
+%(decode{subject | default('') | string })%<{body | default('') | string }<<%{body | default('') | string }%>

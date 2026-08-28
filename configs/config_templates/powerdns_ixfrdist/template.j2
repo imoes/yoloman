@@ -42,7 +42,7 @@ transfer-timeout: {{ transfer_timeout | default(30) }}
 # -----------------------------------------------------------------------------
 
 # Enable DNSSEC validation of transferred zones before distribution.
-validate-dnssec: {{ validate_dnssec | default(true) }}
+validate-dnssec: {{ validate_dnssec | default(true) | lower }}
 
 # -----------------------------------------------------------------------------
 # Zone Definitions
@@ -61,7 +61,7 @@ zones:
 {% endfor %}
 {% else %}    # (no restrictions — all peers allowed)
 {% endif %}    # Optional: enable IXFR fallback (if source supports it); if false, force AXFR
-    prefer-ixfr: {{ zone.prefer_ixfr | default(true) }}
+    prefer-ixfr: {{ zone.prefer_ixfr | default(true) | lower }}
 {% endfor %}
 
 # -----------------------------------------------------------------------------
@@ -90,7 +90,7 @@ check-interval: {{ check_interval | default(300) }}
 # -----------------------------------------------------------------------------
 
 # Enable the HTTP stats endpoint.
-stats-enabled: {{ stats_enabled | default(true) }}
+stats-enabled: {{ stats_enabled | default(true) | lower }}
 
 # Stats bind address/port (only used if stats are enabled).
 {% if stats_enabled | default(true) %}stats-bind-address: {{ stats_bind_address | default('127.0.0.1') }}

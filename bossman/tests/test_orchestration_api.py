@@ -8,6 +8,7 @@ rollback.
 """
 
 import uuid
+from tests.naming import owned_name, run_suffix
 
 from fastapi.testclient import TestClient
 
@@ -18,7 +19,7 @@ from bossman.services.auth import new_api_token
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    fields = {"name": f"orch-agent-{uuid.uuid4().hex[:8]}", "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
+    fields = {"name": owned_name("orch-agent"), "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
     fields.update(overrides)
     agent = Agent(**fields)
     db_session.add(agent)
@@ -52,7 +53,7 @@ async def _delete_agent(db_session, agent):
 
 async def test_ou_crud_and_ancestry(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         root = client.post("/api/v1/ou", json={"name": f"Germany-{sfx}"}, headers=_headers(raw))
@@ -93,7 +94,7 @@ async def test_assign_agent_ou(db_session):
     agent = await _make_agent(db_session)
 
     with TestClient(create_app()) as client:
-        ou = client.post("/api/v1/ou", json={"name": f"assign-ou-{uuid.uuid4().hex[:8]}"}, headers=_headers(raw))
+        ou = client.post("/api/v1/ou", json={"name": owned_name("assign-ou")}, headers=_headers(raw))
     ou_id = ou.json()["id"]
 
     with TestClient(create_app()) as client:
@@ -120,7 +121,7 @@ async def test_assign_agent_ou(db_session):
 async def test_host_group_crud_and_membership(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         create_resp = client.post(
@@ -161,7 +162,7 @@ async def test_host_group_crud_and_membership(db_session):
 async def test_orchestration_plan_full_lifecycle(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         create_resp = client.post(
@@ -252,7 +253,7 @@ async def test_orchestration_plan_full_lifecycle(db_session):
 
 async def test_plan_link_invalid_target_422(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         plan = client.post(
@@ -292,7 +293,7 @@ async def _set_yolo_mode(client, headers, enabled: bool):
 async def test_orchestration_link_approval_gate(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         plan = client.post(
@@ -343,7 +344,7 @@ async def test_orchestration_link_approval_gate(db_session):
 async def test_orchestration_link_reject(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         plan = client.post(
@@ -371,7 +372,7 @@ async def test_orchestration_link_reject(db_session):
 async def test_yolo_mode_toggle_and_link_bypass(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         default_state = client.get("/api/v1/system/yolo-mode", headers=_headers(raw))
@@ -405,7 +406,7 @@ async def test_yolo_mode_toggle_and_link_bypass(db_session):
 async def test_preview_plan_link_endpoint_persists_nothing(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
 
     with TestClient(create_app()) as client:
         plan = client.post(
@@ -452,7 +453,7 @@ async def test_desired_state_404_for_missing_agent(db_session):
 
 async def test_ou_block_inheritance_toggle(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         ou = client.post("/api/v1/ou", json={"name": f"BlockOU-{sfx}"}, headers=_headers(raw)).json()
         assert ou["block_inheritance"] is False
@@ -469,7 +470,7 @@ async def test_ou_block_inheritance_toggle(db_session):
 
 async def test_ou_scoped_check_rule_and_objects_listing(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         ou = client.post("/api/v1/ou", json={"name": f"RuleOU-{sfx}"}, headers=_headers(raw)).json()
 
@@ -510,7 +511,7 @@ async def test_ou_scoped_check_rule_and_objects_listing(db_session):
 
 async def test_notification_rule_ou_scope(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         ou = client.post("/api/v1/ou", json={"name": f"NotifOU-{sfx}"}, headers=_headers(raw)).json()
         rule = client.post(
@@ -534,7 +535,7 @@ async def test_notification_rule_ou_scope(db_session):
 
 async def test_check_rule_patch_toggles(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         ou = client.post("/api/v1/ou", json={"name": f"PatchOU-{sfx}"}, headers=_headers(raw)).json()
         rule = client.post(
@@ -562,7 +563,7 @@ async def test_check_rule_patch_toggles(db_session):
 
 async def test_notification_rule_patch_toggles(db_session):
     api_token, raw = await _make_api_token(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         rule = client.post(
             "/api/v1/notification-rules",
@@ -607,7 +608,7 @@ async def test_metric_catalog_returns_display_names(db_session):
 async def test_delete_link_by_id(db_session):
     api_token, raw = await _make_api_token(db_session)
     agent = await _make_agent(db_session)
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         plan = client.post(
             "/api/v1/orchestration/plans",

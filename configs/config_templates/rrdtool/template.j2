@@ -1,0 +1,27 @@
+# RRDtool Caching Daemon (rrdcached) Configuration
+# This file configures the rrdcached service which buffers write operations
+# to Round Robin Database files to reduce disk I/O.
+
+# The system user running the rrdcached daemon. Usually 'rrdcached' or 'root'.
+USER={{ rrdcached_user | default('rrdcached') }}
+
+# The system group associated with the rrdcached user.
+GROUP={{ rrdcached_group | default('rrdcached') }}
+
+# The path to the Unix domain socket used for IPC.
+SOCKET={{ rrdcached_socket_path | default('/var/run/rrdcached.sock') }}
+
+# Directory path for storing journal files to ensure data integrity.
+JOURNAL={{ rrdcached_journal_path | default('/var/lib/rrdcached/journal/') }}
+
+# The base directory where RRD files are stored.
+WORKDIR={{ rrdcached_work_path | default('/var/lib/rrd/') }}
+
+# Enable background execution of the daemon.
+DAEMON={{ rrdcached_daemonize | default(true) | lower }}
+
+# The maximum number of updates to buffer in memory before flushing.
+BUFFERLIMIT={{ rrdcached_buffer_limit | default(50000) }}
+
+# Enable journaling for crash recovery ('yes' or 'no').
+JOURNAL_MODE={{ rrdcached_journal_mode | default('yes') }}

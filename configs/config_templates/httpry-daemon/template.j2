@@ -1,0 +1,47 @@
+# ==============================================================================
+# Defaults for httpry daemon configuration
+# ==============================================================================
+# This file is sourced by the init.d script (/etc/init.d/httpry) to configure
+# the behavior of the httpry network packet sniffer.
+#
+# Variables defined here override the defaults in the init script.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# VERBOSE: Controls the verbosity of the init script output during startup.
+# --------------------------------------------------------------------------
+# If set to 'yes', the init script will display output messages during
+# the startup/shutdown process. This is useful for debugging service
+# start issues.
+# Default: 'yes'
+VERBOSE={{ VERBOSE | default('yes') }}
+
+# --------------------------------------------------------------------------
+# OPTIONS: Arguments passed to the httpry executable.
+# --------------------------------------------------------------------------
+# These options are appended to the httpry command line after the '-d'
+# (daemon mode) flag.
+# Common options include:
+#   -o <file> : Output log file path.
+#   -i <iface>: Network interface to capture on (e.g., eth0, any).
+#   -B <size> : Buffer size.
+#   -c <num>  : Number of records to capture before exiting.
+# See httpry(1) manpage for the full list of supported arguments.
+# Default: '-o /var/log/httpry.log -i any'
+OPTIONS="{{ OPTIONS | default('-o /var/log/httpry.log -i any') }}"
+
+# --------------------------------------------------------------------------
+# EXPRESSION: BPF-style capture filter string.
+# --------------------------------------------------------------------------
+# This string is passed directly to the underlying capture library (libpcap)
+# as a Berkeley Packet Filter (BPF) expression.
+# Examples:
+#   'port 80'        : Capture only HTTP traffic.
+#   'tcp and port 443': Capture only HTTPS traffic.
+# Leave empty ('') to capture all traffic on the specified interface.
+# Note: Ensure this string does not contain characters that would break
+#       the shell quoting in OPTIONS. It is typically appended to OPTIONS.
+# Default: '' (empty)
+# NOTE: The init script usually appends this value directly. Ensure OPTIONS
+#       contains enough whitespace if you plan to use a filter here.
+EXPRESSION="{{ EXPRESSION | default('') }}"

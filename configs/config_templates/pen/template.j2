@@ -1,0 +1,132 @@
+# Configuration file for Pen Load Balancer
+# This file is read by `pen` using the penctl command format.
+# Reload configuration by sending SIGHUP to the pen process.
+
+# Control port settings: Unix socket path or port for the control interface (penctl).
+# -C port|/path/to/socket
+control {{ control_address | default('/var/run/pen.control') }}
+
+# Logging settings: Path to the log file.
+# -l file
+log {{ log_file | default('/var/log/pen.log') }}
+
+# PID file: Path to the PID file.
+# -p file
+pidfile {{ pid_file | default('/var/run/pen.pid') }}
+
+# Run as specific user (Unix): User to run the pen process as.
+# -u user
+user {{ run_as_user | default('pen') }}
+
+# Chroot directory: Directory to chroot into. Leave empty if not using chroot.
+# -j dir
+{% if chroot_dir | default('') %}
+chroot {{ chroot_dir | default('') }}
+{% endif %}
+
+# Blacklist duration for unresponsive servers (seconds): Seconds to blacklist a server that does not respond.
+# -b sec
+blacklist_timeout {{ blacklist_timeout | default(30) }}
+
+# Connect timeout (seconds): Seconds to wait for a connection to a backend server.
+# -t sec
+connect_timeout {{ connect_timeout | default(5) }}
+
+# Client tracking timeout (seconds, 0 = never expire): Seconds to track clients. 0 means never expire.
+# -T sec
+client_tracking_timeout {{ client_tracking_timeout | default(0) }}
+
+# Max number of clients in table: Maximum number of client table entries.
+# -c N
+max_clients {{ max_clients | default(2048) }}
+
+# Max simultaneous connections per backend server: Default maximum simultaneous connections per backend server.
+# -x N
+max_connections {{ max_connections | default(500) }}
+
+# Emergency server if all regular servers are down: host:port of the emergency server if all regular servers are down.
+# -e host:port
+{% if emergency_server | default('') %}
+emergency {{ emergency_server | default('') }}
+{% endif %}
+
+# Use UDP protocol support: Enable UDP protocol support.
+# -U
+{% if use_udp | default(False) %}
+udp
+{% endif %}
+
+# Use weight-based server selection: Enable weight-based server selection.
+# -W
+{% if use_weight | default(False) %}
+weight
+{% endif %}
+
+# Use hash on client IP for initial server selection: Use hash on client IP for initial server selection.
+# -h
+{% if use_hash | default(False) %}
+hash
+{% endif %}
+
+# Add X-Forwarded-For header to HTTP requests: Add X-Forwarded-For header to HTTP requests.
+# -H
+{% if add_xff | default(True) %}
+xff
+{% endif %}
+
+# Use round-robin instead of sticky sessions: Use round-robin selection instead of sticky sessions.
+# -r
+{% if round_robin | default(False) %}
+roundrobin
+{% endif %}
+
+# SSL/TLS Configuration: Enable SSL/TLS compatibility mode.
+# -E certfile: -K keyfile: -G cacertfile: -A cacertdir: -L protocol: -Z: -R:
+{% if ssl_enabled | default(False) %}
+ssl
+{% endif %}
+
+# Path to the SSL certificate file.
+# -E certfile
+{% if ssl_cert | default('') %}
+cert {{ ssl_cert | default('') }}
+{% endif %}
+
+# Path to the SSL key file.
+# -K keyfile
+{% if ssl_key | default('') %}
+key {{ ssl_key | default('') }}
+{% endif %}
+
+# Path to the CA certificate file.
+# -G cacertfile
+{% if ssl_ca_cert | default('') %}
+cacert {{ ssl_ca_cert | default('') }}
+{% endif %}
+
+# Path to the CA certificates directory.
+# -A cacertdir
+{% if ssl_ca_dir | default('') %}
+cacertdir {{ ssl_ca_dir | default('') }}
+{% endif %}
+
+# SSL/TLS protocol version: SSL/TLS protocol version (ssl23, ssl3, tls1).
+# -L protocol
+sslprotocol {{ ssl_protocol | default('ssl23') }}
+
+# Require valid peer certificate: Require valid peer certificate.
+# -Z: -R:
+{% if ssl_require_cert | default(False) %}
+require_cert
+{% endif %}
+
+# Backend Servers
+# Format: server host:port:softlimit:hardlimit:weight:prio
+# host:port - remote server address
+# softlimit - max connections for new clients
+# hardlimit - max connections for returning clients
+# weight - weight for server selection (used with -W)
+# prio - priority for server selection
+{% for server in backends | default([]) %}
+server {{ server.host }}:{{ server.port }}:{{ server.max_connections | default(500) }}:{{ server.max_hard_connections | default(500) }}:{{ server.weight | default(1) }}:{{ server.priority | default(0) }}
+{% endfor %}

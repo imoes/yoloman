@@ -20,13 +20,13 @@ type MetricSample struct {
 // CheckSnapshot mirrors collect.CheckResult's JSON shape (redeclared for
 // the same reason as MetricSample above).
 type CheckSnapshot struct {
-	Name       string   `json:"name"`
-	Status     string   `json:"status"`
-	Message    string   `json:"message"`
-	LongOutput string   `json:"long_output,omitempty"`
+	Name       string      `json:"name"`
+	Status     string      `json:"status"`
+	Message    string      `json:"message"`
+	LongOutput string      `json:"long_output,omitempty"`
 	Perfdata   []PerfDatum `json:"perfdata,omitempty"`
-	ExitCode   int      `json:"exit_code"`
-	At         time.Time `json:"at"`
+	ExitCode   int         `json:"exit_code"`
+	At         time.Time   `json:"at"`
 }
 
 // PerfDatum mirrors checks.PerfDatum's JSON shape.

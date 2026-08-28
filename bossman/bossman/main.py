@@ -9,12 +9,15 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
+from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_fields, config_templates, console, mmc as mmc_api, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_qualify, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, sites, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps, vm as vm_api
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -291,6 +294,9 @@ def create_app() -> FastAPI:
     # so there's no conditional mounting here the way enroll needs.
     app.include_router(agents.router, tags=["agents"])
     app.include_router(console.router, tags=["console"])
+    # The MANAGEMENT console (MMC-shaped snap-in tree) — a different thing from the web shell
+    # above, which is why it is a different name: see api/mmc.py's header.
+    app.include_router(mmc_api.router, tags=["mmc"])
     app.include_router(topology_api.router, tags=["topology"])
     app.include_router(processes.router, tags=["processes"])
     app.include_router(management.router, tags=["management"])
@@ -318,6 +324,11 @@ def create_app() -> FastAPI:
     app.include_router(rollouts_api.router, tags=["rollouts"])
     from bossman.api import remediation as remediation_api
     app.include_router(remediation_api.router, tags=["remediation"])
+    # Event handlers: the reusable ACTION an event rule performs (runbook or script, managed by
+    # Bossman or already on the host). Same tag as remediation on purpose — it is one subsystem,
+    # not a second one beside it (docs/event-handling.md).
+    from bossman.api import event_handlers as event_handlers_api
+    app.include_router(event_handlers_api.router, tags=["remediation"])
     from bossman.api import blueprints as blueprints_api
     app.include_router(blueprints_api.router, tags=["blueprints"])
     app.include_router(compliance_api.router, tags=["compliance"])
@@ -355,6 +366,12 @@ def create_app() -> FastAPI:
     app.include_router(activity_api.router, tags=["activity"])
     from bossman.api import proposals as proposals_api
     app.include_router(proposals_api.router, tags=["change-proposals"])
+    from bossman.api import agent_release as agent_release_api
+    app.include_router(agent_release_api.router, tags=["agent-release"])
+    from bossman.api import knowledge as knowledge_api
+    app.include_router(knowledge_api.router, tags=["knowledge"])
+    from bossman.api import vault as vault_api
+    app.include_router(vault_api.router, tags=["vault"])
     app.include_router(security.router, tags=["security"])
     # Block L4 is PUSH, not pull: Bossman's reconciler (services/reconciler.py)
     # POSTs each new generation to the agent's own POST /api/v1/config/apply
@@ -369,7 +386,63 @@ def create_app() -> FastAPI:
     app.include_router(deploy.router, tags=["enroll"])
     # Enrollment is open (no secret) — always mounted.
     app.include_router(enroll.router, tags=["enroll"])
+    _mount_ui(app, settings.ui_dir)
     return app
+
+
+#: Prefixes the SPA fallback must never answer for. A mistyped API path is a caller's mistake and has to look
+#: like one; returning the web app with HTTP 200 would hide it.
+_API_PREFIXES = ("api/", "mcp/", "healthz", "docs", "openapi.json", "redoc")
+
+
+class _SpaFiles(StaticFiles):
+    """StaticFiles with an Angular-router fallback: an unknown path serves index.html instead of 404ing."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            # StaticFiles RAISES 404 rather than returning it, so checking the returned status code caught
+            # nothing — the exception went straight past to Starlette's handler, which is why a deep link
+            # answered with FastAPI's own {"detail":"Not Found"} instead of the app.
+            if exc.status_code != 404 or path.startswith(_API_PREFIXES):
+                raise
+        # The router owns the URL space below "/", so anything the filesystem does not have is a client-side
+        # route. Serving index.html lets the app resolve it — which is what a browser reload of a deep link
+        # needs, and what the shipped .deb is tested for.
+        return await super().get_response("index.html", scope)
+
+
+def _mount_ui(app: FastAPI, ui_dir: str) -> None:
+    """Serve the built bossman-ui from this app, when a directory is configured and present.
+
+    WHY IT IS OPTIONAL. In Docker an nginx container serves the SPA and reverse-proxies /api/v1 here, so this
+    must stay off — mounting "/" would shadow nothing there but would duplicate a job somebody else already
+    does. The native .deb/.rpm ships no nginx, so it sets ui_dir and the whole console answers on one port.
+
+    LAST, after every router. A StaticFiles mount at "/" matches everything, so registering it earlier would
+    swallow /api/v1 and /mcp — the routes are tried in order.
+
+    THE SPA FALLBACK IS NOT html=True. That flag only makes a DIRECTORY serve its index.html; an unknown
+    path still 404s, so a deep link like /hosts/<id>?tab=config died on reload — caught by the package's
+    install test, which asks for exactly that. _SpaFiles adds the real fallback.
+
+    AND IT MUST NOT SWALLOW THE API. A catch-all at "/" would answer a mistyped /api/v1/... with the app's
+    index.html and HTTP 200, turning a client's bug into a silent success. The API prefixes are therefore
+    excluded from the fallback and keep returning 404 — the same test asserts that too.
+    """
+    if not ui_dir:
+        return
+    root = Path(ui_dir)
+    # A missing directory is a configuration mistake worth SAYING. Silently serving no UI is how the docker
+    # note above got written in the first place: a bind mount created an empty directory and the server came
+    # up looking healthy with an empty catalog.
+    if not (root / "index.html").is_file():
+        logging.getLogger(__name__).warning(
+            "ui_dir=%s has no index.html — the web console will not be served from this process", ui_dir)
+        return
+    app.mount("/", _SpaFiles(directory=str(root), html=True), name="ui")
+    logging.getLogger(__name__).info("serving the web console from %s", root)
 
 
 app = create_app()

@@ -1,0 +1,218 @@
+# Scalpel configuration file
+#
+# Scalpel is a forensics tool used to carve files from disk images based on
+# file signatures (headers and footers). This template configures the file
+# types and their maximum carving sizes.
+#
+# Syntax explanation:
+#   wildcard <char>
+#     extension <case_sensitive> <max_size> <header> <footer> [REVERSE|NEXT|FORWARD_NEXT]
+#
+# - 'case_sensitive': 'y' or 'n'
+# - 'max_size': Maximum file size in bytes to carve.
+# - 'header': Hex string or literal characters to match start of file.
+# - 'footer': Hex string or literal characters to match end of file.
+# - 'REVERSE': Search backwards from header + size to find last footer.
+# - 'NEXT': Carve header and data BEFORE first footer.
+# - 'FORWARD_NEXT': Carve header and first footer (default).
+
+# wildcard: The wildcard character used to match any single byte.
+# If changed, all occurrences in headers/footers must also be updated.
+# Default is '#wildcard  ?'.
+{{ wildcard | default('#wildcard  ?') }}
+
+#		 case	size	header			footer
+#extension   sensitive
+#
+#---------------------------------------------------------------------
+# GRAPHICS FILES
+#---------------------------------------------------------------------
+
+# GIF and JPG files (very common)
+
+# GIF (version 87a)
+#		gif	y	{{ gif_max_size | default(5000000) }}		\x47\x49\x46\x38\x37\x61	\x00\x3b
+# GIF (version 89a)
+#		gif	y	{{ gif_max_size | default(5000000) }}		\x47\x49\x46\x38\x39\x61	\x00\x3b
+# JPEG (standard)
+#		jpg	y	{{ jpg_max_size | default(5242880) }}		\xff\xd8\xff???Exif		\xff\xd9	REVERSE
+# JPEG (JFIF standard)
+#		jpg	y	{{ jpg_max_size | default(5242880) }}		\xff\xd8\xff???JFIF		\xff\xd9	REVERSE
+
+# PNG
+#		png	y	{{ png_max_size | default(20000000) }}	\x50\x4e\x47?	\xff\xfc\xfd\xfe
+
+# BMP (used by MSWindows)
+#       bmp	y	{{ bmp_max_size | default(100000) }}	BM??\x00\x00\x00
+
+# TIFF (Intel byte order)
+#		tif	y	{{ tif_max_size | default(200000000) }}	\x49\x49\x2a\x00
+# TIFF (Motorola byte order)
+#		tif	y	{{ tif_max_size | default(200000000) }}	\x4D\x4D\x00\x2A
+
+#---------------------------------------------------------------------
+# ANIMATION FILES
+#---------------------------------------------------------------------
+
+# AVI (Windows animation and DiVX/MPEG-4 movies)
+#		avi	y	{{ avi_max_size | default(50000000) }} RIFF????AVI
+
+# Apple Quicktime
+# Note: The following needles may generate HUGE numbers of false positives.
+# Uncomment only if you are sure you need these.
+
+# Quicktime Movie (moov atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????moov
+# Quicktime Movie (mdat atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????mdat
+# Quicktime Movie (widev atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????widev
+# Quicktime Movie (skip atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????skip
+# Quicktime Movie (free atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????free
+# Quicktime Movie (idsc atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????idsc
+# Quicktime Movie (pckg atom)
+#		mov	y	{{ mov_max_size | default(10000000) }}	????pckg
+
+# MPEG Video
+
+# MPEG Program Stream (Picture start code)
+#		mpg	y	{{ mpg_max_size | default(50000000) }}	\x00\x00\x01\xba	\x00\x00\x01\xb9
+# MPEG System Stream (Packet start code)
+#		mpg	y	{{ mpg_max_size | default(50000000) }}	\x00\x00\x01\xb3	\x00\x00\x01\xb7
+
+# Macromedia Flash
+#		fws	y	{{ fws_max_size | default(4000000) }}	FWS
+
+#---------------------------------------------------------------------
+# MICROSOFT OFFICE
+#---------------------------------------------------------------------
+
+# Word documents
+
+# DOC (OLE2 format)
+#		doc	y	{{ doc_max_size | default(10000000) }}  \xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1\x00\x00 \xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1\x00\x00 NEXT
+# DOC (Legacy OLE2 format)
+#		doc	y	{{ doc_max_size | default(10000000) }}  \xd0\xcf\x11\xe0\xa1\xb1
+
+# Outlook files
+
+# PST (Personal Storage Table)
+#		pst	y	{{ pst_max_size | default(500000000) }}	\x21\x42\x4e\xa5\x6f\xb5\xa6
+# OST (Offline Storage Table)
+#		ost	y	{{ ost_max_size | default(500000000) }} 	\x21\x42\x44\x4e
+
+# Outlook Express
+
+# DBX (Database Express)
+#		dbx	y	{{ dbx_max_size | default(10000000) }}	\xcf\xad\x12\xfe\xc5\xfd\x74\x6f
+# IDX (Index file)
+#		idx	y	{{ idx_max_size | default(10000000) }}	\x4a\x4d\x46\x39
+# MBX (Mailbox file)
+#		mbx	y	{{ mbx_max_size | default(10000000) }}	\x4a\x4d\x46\x36
+
+#---------------------------------------------------------------------
+# WORDPERFECT
+#---------------------------------------------------------------------
+
+# WPC (WordPerfect Document)
+#		wpc	y	{{ wpc_max_size | default(1000000) }}	?WPC
+
+#---------------------------------------------------------------------
+# HTML
+#---------------------------------------------------------------------
+
+# HTML (Standard)
+# Note: Case sensitivity is 'n' (not case sensitive)
+#		htm	n	50000   <html			</html>
+
+#---------------------------------------------------------------------
+# ADOBE PDF
+#---------------------------------------------------------------------
+
+# PDF (with \r\n line endings)
+#		pdf	y	{{ pdf_max_size | default(5000000) }}	%PDF  %EOF\x0d	REVERSE
+# PDF (with \n line endings)
+#		pdf	y	{{ pdf_max_size | default(5000000) }}	%PDF  %EOF\x0a	REVERSE
+
+#---------------------------------------------------------------------
+# AOL (AMERICA ONLINE)
+#---------------------------------------------------------------------
+
+# AOL Mailbox
+#		mail	y	{{ mail_max_size | default(500000) }}	 \x41\x4f\x4c\x56\x4d
+
+#---------------------------------------------------------------------
+# PGP (PRETTY GOOD PRIVACY)
+#---------------------------------------------------------------------
+
+# PGP Disk Files
+#		pgd	y	{{ pgd_max_size | default(500000) }}	\x50\x47\x50\x64\x4d\x41\x49\x4e\x60\x01
+
+# Public Key Ring
+#		pgp	y	{{ pgp_key_max_size | default(100000) }}	\x99\x00
+# Security Ring
+#		pgp	y	{{ pgp_key_max_size | default(100000) }}	\x95\x01
+#		pgp	y	{{ pgp_key_max_size | default(100000) }}	\x95\x00
+# Encrypted Data or ASCII armored keys
+#		pgp	y	{{ pgp_key_max_size | default(100000) }}	\xa6\x00
+
+# PGP Key Block (ASCII armored)
+# Note: 'txt' extension here is used as a generic placeholder for PGP keys
+#		txt	y	{{ pgp_key_max_size | default(100000) }}	-----BEGIN\040PGP
+
+#---------------------------------------------------------------------
+# RPM (Linux package format)
+#---------------------------------------------------------------------
+
+# RPM
+#		rpm	y	{{ rpm_max_size | default(1000000) }}	\xed\xab
+
+#---------------------------------------------------------------------
+# SOUND FILES
+#---------------------------------------------------------------------
+
+# WAV (Waveform Audio File Format)
+#		wav	y	{{ wav_max_size | default(200000) }}	RIFF????WAVE
+
+# Real Audio Files
+
+# RealAudio (RA)
+#		ra	y	{{ ra_max_size | default(1000000) }}	\x2e\x72\x61\xfd
+# RealMedia (RM)
+#		ra	y	{{ ra_max_size | default(1000000) }}	.RMF
+
+#---------------------------------------------------------------------
+# WINDOWS REGISTRY FILES
+#---------------------------------------------------------------------
+
+# Windows NT registry (regf)
+#		dat	y	{{ dat_nt_max_size | default(4000000) }}	regf
+# Windows 95 registry (CREG)
+#		dat	y	{{ dat_w95_max_size | default(4000000) }}	CREG
+
+#---------------------------------------------------------------------
+# MISCELLANEOUS
+#---------------------------------------------------------------------
+
+# ZIP archive
+#		zip	y	{{ zip_max_size | default(10000000) }}	PK\x03\x04	\x3c\xac
+
+# Java (class file)
+#		java	y	{{ java_max_size | default(1000000) }}		\xca\xfe\xba\xbe
+
+#---------------------------------------------------------------------
+# ScanSoft PaperPort "Max" files
+#---------------------------------------------------------------------
+
+# Max (PaperPort Document)
+#		max	y	{{ max_max_size | default(1000000) }}    \x56\x69\x47\x46\x6b\x1a\x00\x00\x00\x00   \x00\x00\x05\x80\x00\x00
+
+#---------------------------------------------------------------------
+# PINs Password Manager program
+#---------------------------------------------------------------------
+
+# Pins (PINs Password Manager)
+#		pins	y	{{ pins_max_size | default(8000) }}     \x50\x49\x4e\x53\x20\x34\x2e\x32\x30\x0d

@@ -1,0 +1,105 @@
+# Copyright (C) 2019-2022 MariaDB Corporation
+#
+# This is the default configuration for the Hashicorp Vault Key Management plugin for MariaDB/MySQL.
+#
+# SELF-DOCUMENTATION GUIDE:
+# This file configures the `hashicorp_key_management.so` plugin. It allows MariaDB to retrieve
+# encryption keys and secrets from a HashiCorp Vault server.
+#
+# IMPORTANT SETUP STEPS:
+# 1. You MUST uncomment the `plugin-load-add` line below.
+# 2. Ensure the plugin file `hashicorp_key_management.so` is accessible to the database server.
+# 3. Ensure the `hashicorp_key_management_vault_url` points to a valid Vault KV storage endpoint.
+#
+# VARIABLE DEFAULTS:
+# All parameters below are driven by Ansible variables with safe defaults. If a variable is not
+# defined in your playbook/group_vars, the default value specified in the `default` filter will be used.
+
+[mariadb]
+
+#
+# PLUGIN ACTIVATION
+# To use Hashicorp Vault KMS, the plugin must be preloaded and activated on the server.
+# Uncomment the line below to enable the plugin.
+#
+plugin-load-add=hashicorp_key_management.so
+
+#
+# HASHICORP VAULT URL
+# HTTP[s] URL that is used to connect to the Hashicorp Vault server.
+# It must include the scheme (e.g., "https://") and the path to the KV storage (e.g., "/v1/my_secrets").
+# Example: "https://127.0.0.1:8200/v1/my_secrets"
+#
+hashicorp-key-management-vault-url="{{ hashicorp_key_management_vault_url | default('https://127.0.0.1:8200/v1/my_secrets') }}"
+
+#
+# AUTHENTICATION TOKEN
+# Authentication token that is passed to the Hashicorp Vault in the request header.
+# This token should have the appropriate policies to read the required secrets.
+#
+hashicorp-key-management-token="{{ hashicorp_key_management_token | default('') }}"
+
+#
+# VAULT CA BUNDLE
+# Optional path to the Certificate Authority (CA) bundle file.
+# This file should contain root and intermediate certificates to verify the Vault server's TLS certificate.
+# If empty, the system's default CA bundles are typically used.
+#
+hashicorp-key-management-vault-ca="{{ hashicorp_key_management_vault_ca | default('') }}"
+
+#
+# CONNECTION TIMEOUT
+# Set the duration (in seconds) for the Hashicorp Vault server connection timeout.
+# Allowed range: 1 to 86400 seconds.
+# A value of 0 may use the libcurl default (usually 300 seconds), but explicit values are preferred.
+#
+hashicorp-key-management-timeout={{ hashicorp_key_management_timeout | default(15) }}
+
+#
+# REQUEST RETRIES
+# Number of server request retries in case of a timeout or connection failure.
+# This helps ensure resilience against transient network issues.
+#
+hashicorp-key-management-retries={{ hashicorp_key_management_retries | default(3) }}
+
+#
+# CACHING ENABLED
+# Enable key caching (storing key values received from the Hashicorp Vault server in local memory).
+# Valid values: "on" (enable), "off" (disable).
+#
+hashicorp-key-management-caching-enabled="{{ hashicorp_key_management_caching_enabled | default('on') }}"
+
+#
+# USE CACHE ON TIMEOUT
+# This parameter instructs the plugin to use the key values or version numbers taken from the local cache
+# in the event of a timeout when accessing the Vault server.
+# By default, this is disabled ("off") to ensure fresh keys are always fetched if possible.
+# Note: Cache is only used after `hashicorp-key-management-retries` attempts have failed.
+#
+hashicorp-key-management-use-cache-on-timeout="{{ hashicorp_key_management_use_cache_on_timeout | default('off') }}"
+
+#
+# CACHE TIMEOUT
+# The time (in milliseconds) after which the value of the key stored in the cache becomes invalid.
+# When this timeout expires, the plugin attempts to read fresh data from the Vault server.
+# A value of 0 means keys are always considered invalid (unless `use_cache_on_timeout` is also on and server is unreachable).
+# Default behavior without this param is often 60000ms (1 minute) in Vault clients, but explicit config is better.
+#
+hashicorp-key-management-cache-timeout={{ hashicorp_key_management_cache_timeout | default(0) }}
+
+#
+# CACHE VERSION TIMEOUT
+# The time (in milliseconds) after which the information about the latest version number of the key
+# (stored in the cache) becomes invalid.
+# When this expires, the plugin checks for key updates in the Vault server.
+# A value of 0 means version info is always considered invalid (unless `use_cache_on_timeout` handles the fallback).
+#
+hashicorp-key-management-cache-version-timeout={{ hashicorp_key_management_cache_version_timeout | default(0) }}
+
+#
+# CHECK KV VERSION
+# Enables ("on") or disables ("off") checking the key-value storage version during plugin initialization.
+# The plugin requires storage to be version 2 (or older compatible versions) to work properly.
+# It is recommended to keep this "on" to detect configuration errors early.
+#
+hashicorp-key-management-check-kv-version={{ hashicorp_key_management_check_kv_version | default('on') }}

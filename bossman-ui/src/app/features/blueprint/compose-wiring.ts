@@ -9,7 +9,7 @@
  * following plain Compose practice that a service name IS its address, and records
  * the provenance so unwiring removes exactly those keys and never a hand-typed one.
  */
-import { BlueprintService, envPrefix, paletteFor } from './compose-model';
+import { BlueprintService, FieldSource, envPrefix, paletteFor } from './compose-model';
 import { servicePort } from './compose-io';
 
 export interface WireResult {
@@ -31,17 +31,21 @@ function expandBackends(backends: string[]): Set<string> {
   return out;
 }
 
-export interface Provide { capability: string; backend?: string }
-export interface Require { capability: string; backends?: string[] }
+export interface Provide { capability: string; backend?: string; default_port?: number | null;
+                           field_sources?: Record<string, FieldSource> }
+export interface Require { capability: string; backends?: string[];
+                          fields?: Record<string, string>; field_targets?: Record<string, string> }
 
 /** Structured provides — role-grain from `caps` when a contract is loaded, else archetype tokens
- *  (capability only, no backend). */
+ *  (capability only, no backend). Carries field_sources so the connector can resolve every field. */
 function providedCaps(s: BlueprintService): Provide[] {
-  if (s.caps?.provides?.length) return s.caps.provides.map((p) => ({ capability: p.capability, backend: p.backend }));
+  if (s.caps?.provides?.length) return s.caps.provides.map((p) => ({
+    capability: p.capability, backend: p.backend, default_port: p.default_port, field_sources: p.field_sources }));
   return (paletteFor(s.icon)?.provides ?? []).map((c) => ({ capability: c }));
 }
 function requiredCaps(s: BlueprintService): Require[] {
-  if (s.caps?.requires?.length) return s.caps.requires.map((r) => ({ capability: r.capability, backends: r.backends }));
+  if (s.caps?.requires?.length) return s.caps.requires.map((r) => ({
+    capability: r.capability, backends: r.backends, fields: r.fields, field_targets: r.field_targets }));
   return (paletteFor(s.icon)?.requires ?? []).map((c) => ({ capability: c }));
 }
 
@@ -91,7 +95,70 @@ export function openRequirements(service: BlueprintService, services: BlueprintS
     .map((r) => (r.backends?.length ? `${r.capability} (${r.backends.join('|')})` : r.capability));
 }
 
-/** `from` depends on `to`; wire the variables the consumer needs to reach it. */
+/** The consumer requirement + the provider capability that satisfies it (the pair
+ *  an edge wires), or null. Lets the connector resolve fields, not just check. */
+function matchPair(from: BlueprintService, to: BlueprintService): { req: Require; prov: Provide } | null {
+  const offered = providedCaps(to);
+  for (const req of requiredCaps(from)) {
+    const prov = offered.find((p) => satisfies(req, p));
+    if (prov) return { req, prov };
+  }
+  return null;
+}
+
+const MASK = '••••••••';
+
+/** Resolve one connection field's value from the provider `to` — mirrors the
+ *  backend `_service_source_value`. Returns null when the provider offers no source
+ *  for it (a missing credential the plausibility panel then flags). */
+function fieldValue(field: string, spec: FieldSource | undefined, to: BlueprintService, prov: Provide): { value: string; secret: boolean } | null {
+  const secret = !!spec?.secret;
+  const addr = to.address || to.name;                 // compose name is the DNS address
+  const port = prov.default_port ?? servicePort(to);
+  const nonEmpty = (v: unknown): v is string => v !== undefined && v !== null && String(v) !== '';
+  if (!spec) {                                        // no explicit source → universal defaults
+    if (field === 'host') return { value: addr, secret: false };
+    if (field === 'port' && port != null) return { value: String(port), secret: false };
+    return null;
+  }
+  switch (spec.from) {
+    case 'address': return { value: addr, secret };
+    case 'port': return port != null ? { value: String(port), secret } : null;
+    case 'const': return nonEmpty(spec.value) ? { value: String(spec.value), secret } : null;
+    case 'env': { const v = to.environment?.[spec.key ?? '']; return nonEmpty(v) ? { value: v, secret } : null; }
+    case 'value': { const v = to.values?.[spec.key ?? '']; return nonEmpty(v) ? { value: v, secret } : null; }
+  }
+  return null;
+}
+
+/** The full set of variables an edge `from → to` wires: every connection field the
+ *  consumer targets, resolved from the provider's sources. Falls back to HOST/PORT
+ *  when no contract (archetype-grain node). Secrets are masked in the canvas — the
+ *  real value is re-derived and vault-encoded at bind. */
+export function wiredFields(from: BlueprintService, to: BlueprintService): { key: string; value: string }[] {
+  const pair = matchPair(from, to);
+  const p = envPrefix(to.name);
+  if (!pair) {  // unconstrained/archetype edge — keep the classic host/port wiring
+    const out = [{ key: `${p}_HOST`, value: to.name }];
+    const port = servicePort(to);
+    if (port) out.push({ key: `${p}_PORT`, value: String(port) });
+    return out;
+  }
+  const targets = pair.req.field_targets || pair.req.fields
+    || { host: `${p}_HOST`, port: `${p}_PORT` };
+  const sources = pair.prov.field_sources || {};
+  const out: { key: string; value: string }[] = [];
+  for (const [field, key] of Object.entries(targets)) {
+    if (!key) continue;
+    const resolved = fieldValue(field, sources[field], to, pair.prov);
+    if (resolved) out.push({ key, value: resolved.secret ? MASK : resolved.value });
+  }
+  return out;
+}
+
+/** `from` depends on `to`; wire EVERY connection field the consumer needs to reach
+ *  it (host/port/name/user/password), into `environment` (docker) or `values`
+ *  (native config directives). */
 export function wireEdge(services: BlueprintService[], from: string, to: string): WireResult {
   if (from === to) return { services, error: 'A service cannot depend on itself.' };
   const src = services.find((s) => s.name === from);
@@ -111,26 +178,30 @@ export function wireEdge(services: BlueprintService[], from: string, to: string)
     };
   }
 
-  const p = envPrefix(to);
-  const port = servicePort(dst);
+  const fields = wiredFields(src, dst);
+  const toValues = src.kind === 'native';   // native consumers take config directives, not env
   const next = services.map((s) => {
     if (s.name !== from) return s;
-    const env = { ...s.environment, [`${p}_HOST`]: to };
-    const bindings = { ...s.bindings, [`${p}_HOST`]: to };
-    if (port) { env[`${p}_PORT`] = String(port); bindings[`${p}_PORT`] = to; }
-    return { ...s, dependsOn: [...s.dependsOn, to], environment: env, bindings };
+    const env = { ...s.environment };
+    const values = { ...(s.values ?? {}) };
+    const bindings = { ...s.bindings };
+    const target = toValues ? values : env;
+    for (const { key, value } of fields) { target[key] = value; bindings[key] = to; }
+    return { ...s, dependsOn: [...s.dependsOn, to], environment: env, values, bindings };
   });
   return { services: next, error: null };
 }
 
-/** Remove exactly the keys the `from → to` edge contributed, plus the edge. */
+/** Remove exactly the keys the `from → to` edge contributed (from env AND values),
+ *  plus the edge. */
 export function unwireOne(s: BlueprintService, to: string): BlueprintService {
   const env = { ...s.environment };
+  const values = { ...(s.values ?? {}) };
   const bindings = { ...s.bindings };
   for (const [k, src] of Object.entries(s.bindings)) {
-    if (src === to) { delete env[k]; delete bindings[k]; }
+    if (src === to) { delete env[k]; delete values[k]; delete bindings[k]; }
   }
-  return { ...s, dependsOn: s.dependsOn.filter((d) => d !== to), environment: env, bindings };
+  return { ...s, dependsOn: s.dependsOn.filter((d) => d !== to), environment: env, values, bindings };
 }
 
 export function unwireEdge(services: BlueprintService[], from: string, to: string): BlueprintService[] {

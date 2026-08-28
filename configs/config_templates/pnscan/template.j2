@@ -1,0 +1,82 @@
+#!/bin/bash
+# Wrapper script for pnscan to enforce configuration via environment variables or a config file.
+# Note: pnscan does not have a traditional configuration file; it relies on command-line arguments.
+# This script generates the command line based on the provided values.
+
+# Target IP address or CIDR range to scan.
+# Default: 127.0.0.1
+TARGET="{{ target | default('127.0.0.1') }}"
+
+# Port range or specific port to scan.
+# Default: 80
+PORTS="{{ ports | default('80') }}"
+
+# Build the base command
+CMD="pnscan"
+
+# Add verbose flag if enabled.
+# Verbose output provides more details about the scan progress.
+{% if verbose | default(False) | bool %}
+CMD="${CMD} -v"
+{% endif %}
+
+# Add debug flag if enabled.
+# Debugging info prints internal state and raw data, useful for troubleshooting.
+{% if debug | default(False) | bool %}
+CMD="${CMD} -d"
+{% endif %}
+
+# Add hostname lookup flag if enabled.
+# Resolves target IPs to hostnames, which may slow down the scan significantly.
+{% if resolve_hostnames | default(False) | bool %}
+CMD="${CMD} -s"
+{% endif %}
+
+# Add shutdown mode flag if enabled.
+# Enables TCP shutdown (half-close) instead of standard RST/FIN.
+{% if shutdown_mode | default(False) | bool %}
+CMD="${CMD} -S"
+{% endif %}
+
+# Add line-oriented output flag if enabled.
+# Formats output for easy parsing by other tools (one result per line).
+{% if line_oriented_output | default(False) | bool %}
+CMD="${CMD} -l"
+{% endif %}
+
+# Add request string if provided.
+# Sends this specific string to the target port.
+{% if request_string | default('') | string %}
+CMD="${CMD} -w \"{{ request_string | default('') | string | escape }}\""
+{% endif %}
+
+# Add response string to look for if provided.
+# Filters results to only show connections where the server response matches this string.
+{% if response_string | default('') | string %}
+CMD="${CMD} -r \"{{ response_string | default('') | string | escape }}\""
+{% endif %}
+
+# Add max bytes of response to print if provided.
+# Limits the amount of response data displayed (0 means no limit).
+{% if max_response_bytes | default(0) | int != 0 %}
+CMD="${CMD} -L{{ max_response_bytes | default(0) | int }}"
+{% endif %}
+
+# Add timeout if provided.
+# Sets the connect/write/read timeout in milliseconds.
+{% if timeout | default(1000) | int != 1000 %}
+CMD="${CMD} -t{{ timeout | default(1000) | int }}"
+{% endif %}
+
+# Add number of workers if provided.
+# Controls the maximum number of concurrent worker threads for the scan.
+{% if workers | default(100) | int != 100 %}
+CMD="${CMD} -n{{ workers | default(100) | int }}"
+{% endif %}
+
+# Add target and ports to the command line.
+CMD="${CMD} ${TARGET} ${PORTS}"
+
+# Execute the command
+echo "Executing: ${CMD}"
+exec ${CMD}

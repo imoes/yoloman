@@ -1,0 +1,65 @@
+# =============================================================================
+# v86d Configuration Template
+# =============================================================================
+# This configuration file sets up the v86d daemon, which provides a kernel
+# interface for running x86 BIOS/UEFI firmware in a virtualized environment.
+# It manages firmware images, device communication via netlink, and logging.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# General Settings
+# ------------------------------------------------------------------------------
+
+# initrd_path
+# Base path where v86d looks for initial firmware/BIOS images.
+# This directory contains the standard set of BIOS ROMs provided by the package.
+initrd_path {{ initrd_path | default('/usr/share/v86d') }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# log_level
+# Syslog-style log level for the daemon.
+# Options: debug, info, notice, warning, err, crit, alert, emerg.
+# 'notice' is recommended for production to avoid excessive log volume.
+log_level {{ log_level | default('notice') }}
+
+# verbose
+# Enable verbose debug logging.
+# When set to true, this overrides the log_level to 'debug' automatically,
+# providing detailed tracing of internal operations.
+verbose {{ verbose | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Device & Communication Settings
+# ------------------------------------------------------------------------------
+
+# v86d_device
+# Path to the character device or netlink interface used by the kernel driver.
+# This is the endpoint through which the daemon communicates with the v86d kernel module.
+v86d_device {{ v86d_device | default('/dev/v86d') }}
+
+# timeout
+# Timeout in seconds for netlink communication with the kernel.
+# If the kernel driver does not respond within this timeframe, the request is aborted.
+timeout {{ timeout | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Firmware Management
+# ------------------------------------------------------------------------------
+
+# firmware_dir
+# Directory containing BIOS ROM files required for emulation.
+# These files are typically installed by the v86d package and may include
+# various standard BIOS implementations (SeaBIOS, BochsBIOS, etc.).
+firmware_dir {{ firmware_dir | default('/usr/share/v86d/firmware') }}
+
+# preloaded_images
+# List of BIOS image filenames to preload into memory at startup.
+# Preloading can reduce latency for the first boot of a VM but consumes more memory.
+# Leave empty (default) for on-demand loading to save memory.
+preloaded_images
+{% for image in preloaded_images | default([]) %}
+  - {{ image }}
+{% endfor %}

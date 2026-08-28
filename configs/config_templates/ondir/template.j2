@@ -1,0 +1,26 @@
+# ondir configuration file
+# Automatically generated via Jinja2 template
+# This file configures ondir: a tool to execute scripts when entering or leaving directories.
+
+# System-wide default umask to apply when no specific directory rule matches or as a baseline.
+# Format: octal number (e.g., 077, 022).
+default umask {{ umask_default | default('077') }}
+
+# List of per-directory script rules.
+# Each rule defines behavior for a specific set of paths.
+{% for rule in rules | default([]) %}
+
+# Rule name: {{ rule.name | default('unnamed_rule') }}
+# This block applies rules defined in the 'entries' list for this rule set.
+{% for entry in rule.entries | default([]) %}
+    # Entry type: {{ entry.type | default('enter') }}
+    # Target path: {{ entry.path | default('/') }}
+    # Final script: {{ entry.final | default(false) | ternary('yes', 'no') }}
+
+{% if entry.final %}[final] {{ entry.type | default('enter') }} {{ entry.path | default('/') }}
+{% else %}{{ entry.type | default('enter') }} {{ entry.path | default('/') }}
+{% endif %}
+{{ entry.body | default('') | indent(4) }}
+
+{% endfor %}
+{% endfor %}

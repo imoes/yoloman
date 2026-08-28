@@ -83,7 +83,7 @@
               - button "Delete host" [ref=f45e186]:
                 - img [ref=f45e187]: delete
           - row [ref=f45e188] [cursor=pointer]:
-            - cell "docker-test.test.example.com" [ref=f45e189]
+            - cell "host1.example.internal" [ref=f45e189]
             - cell "OK" [ref=f45e190]
             - cell "0.64" [ref=f45e193]
             - cell "66.0%" [ref=f45e194]:
@@ -216,7 +216,7 @@
               - button "Delete host" [ref=f45e382]:
                 - img [ref=f45e383]: delete
           - row [ref=f45e384] [cursor=pointer]:
-            - cell "test-deployment.test.example.com" [ref=f45e385]
+            - cell "host3.example.internal" [ref=f45e385]
             - cell "UNKNOWN" [ref=f45e386]
             - cell "0.00" [ref=f45e389]
             - cell "16.9%" [ref=f45e390]:
@@ -235,7 +235,7 @@
               - button "Delete host" [ref=f45e412]:
                 - img [ref=f45e413]: delete
           - row [ref=f45e414] [cursor=pointer]:
-            - cell "vpp0221.example.com" [ref=f45e415]
+            - cell "host.example.internal" [ref=f45e415]
             - cell "UNKNOWN" [ref=f45e416]
             - cell "0.18" [ref=f45e419]
             - cell "4.2%" [ref=f45e420]:
@@ -254,7 +254,7 @@
               - button "Delete host" [ref=f45e442]:
                 - img [ref=f45e443]: delete
           - row [ref=f45e444] [cursor=pointer]:
-            - cell "vpp0222.example.com" [ref=f45e445]
+            - cell "host.example.internal" [ref=f45e445]
             - cell "OK" [ref=f45e446]
             - cell "0.16" [ref=f45e449]
             - cell "71.8%" [ref=f45e450]:
@@ -273,7 +273,7 @@
               - button "Delete host" [ref=f45e472]:
                 - img [ref=f45e473]: delete
           - row [ref=f45e474] [cursor=pointer]:
-            - cell "vpp0223.example.com" [ref=f45e475]
+            - cell "host.example.internal" [ref=f45e475]
             - cell "OK" [ref=f45e476]
             - cell "2.05" [ref=f45e479]
             - cell "47.2%" [ref=f45e480]:

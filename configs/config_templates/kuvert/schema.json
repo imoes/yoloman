@@ -1,0 +1,162 @@
+{
+ "always_trust": {
+  "default": false,
+  "description": "Whether to tell GPG to trust all keys for encryption.",
+  "type": "bool"
+ },
+ "can_detach": {
+  "default": false,
+  "description": "Whether kuvert can background itself on startup.",
+  "type": "bool"
+ },
+ "default_action": {
+  "default": "none",
+  "description": "Default action for recipients if no overrides. Values: none, signonly, fallback, fallback-all, mustencrypt.",
+  "enum": [
+   "none",
+   "signonly",
+   "fallback",
+   "fallback-all",
+   "mustencrypt"
+  ],
+  "type": "string"
+ },
+ "default_key": {
+  "default": "",
+  "description": "Default signing key ID (hex). If empty, GnuPG chooses.",
+  "type": "string"
+ },
+ "flush_secret": {
+  "default": "",
+  "description": "Program to run to invalidate passphrase cache. %s is replaced with key ID.",
+  "type": "string"
+ },
+ "gpg": {
+  "default": "gpg",
+  "description": "Custom GnuPG executable path.",
+  "type": "string"
+ },
+ "identify": {
+  "default": false,
+  "description": "Whether to add X-Mailer header to outbound emails.",
+  "type": "bool"
+ },
+ "interval": {
+  "default": 60,
+  "description": "Queue checking interval in seconds.",
+  "type": "number"
+ },
+ "logfile": {
+  "default": "",
+  "description": "Path to log file. If empty, logfile logging is disabled.",
+  "type": "string"
+ },
+ "ma_pass": {
+  "default": "",
+  "description": "Password for inbound SMTP authentication. If empty, inbound SMTP disabled.",
+  "type": "string"
+ },
+ "ma_user": {
+  "default": "",
+  "description": "Username for inbound SMTP authentication. If empty, inbound SMTP disabled.",
+  "type": "string"
+ },
+ "mail_on_error": {
+  "default": "",
+  "description": "Email address to notify on fatal errors. If empty, disabled.",
+  "type": "string"
+ },
+ "maport": {
+  "default": 2587,
+  "description": "TCP port kuvert listens on for inbound SMTP submissions.",
+  "type": "number"
+ },
+ "msp": {
+  "default": "/usr/sbin/sendmail -om -oi -oem",
+  "description": "Program to deliver email via local MTA. Ignored if msserver is set.",
+  "type": "string"
+ },
+ "mspass": {
+  "default": "",
+  "description": "Password for SMTP authentication. If empty, auth disabled.",
+  "type": "string"
+ },
+ "mspass_from_query_secret": {
+  "default": false,
+  "description": "Whether to retrieve mspass via query-secret program.",
+  "type": "bool"
+ },
+ "msport": {
+  "default": 587,
+  "description": "TCP port for Mail Submission Server.",
+  "type": "number"
+ },
+ "msserver": {
+  "default": "",
+  "description": "Mail Submission Server hostname for outbound email. If empty, uses local MTA.",
+  "type": "string"
+ },
+ "msuser": {
+  "default": "",
+  "description": "Username for SMTP authentication. If empty, auth disabled.",
+  "type": "string"
+ },
+ "preamble": {
+  "default": true,
+  "description": "Whether to include explanatory preamble in generated MIME mail.",
+  "type": "bool"
+ },
+ "query_secret": {
+  "default": "/bin/sh -c 'stty -echo; read -p \"Passphrase %s: \" X; stty echo; echo $X'",
+  "description": "Program to run for passphrase retrieval. %s is replaced with key ID.",
+  "type": "string"
+ },
+ "queuedir": {
+  "default": "~/.kuvert_queue",
+  "description": "Directory where kuvert stores emails to be processed.",
+  "type": "string"
+ },
+ "rules": {
+  "default": [],
+  "description": "List of address/action rules. Applied in order; first match wins. Indented in config file. Can optionally include a key ID for fallback actions using comma syntax: 'action,keyid'. Items must be flat maps with address, action, and optionally key fields. Order is significant in the output template via iteration over the list in order defined in values_schema default or sample_values. Note: Jinja2 'for' loop preserves list order. If no rules defined, this section is empty. If rules are defined, they are rendered indented. The 'address' field is a Perl regex. The 'action' field is one of: none, signonly, fallback, fallback-all, mustencrypt. The 'key' field is an optional hex key ID used with 'fallback' or 'fallback-all' actions in the config format 'action,keyid'. For other actions, key is ignored if present in the schema but typically not used in that specific config line format, however the schema allows it for uniformity. In the template, it appends ,keyid if present. Strict adherence to kuvert(1): 'fallback,0x42BD645D'. So for fallback/fallback-all, key is relevant. For others, it might be syntactically weird but allowed by the simple parsing. To be safe, we only use key in the template if it exists in the item, matching the 'fallback,key' syntax. The schema description clarifies this is for specifying a key to encrypt to for an address in the config file context.",
+  "type": "list"
+ },
+ "ssl": {
+  "description": "SSL mode for outbound SMTP. Values: 'starttls' or 'ssl'. If empty, no SSL.",
+  "enum": [
+   "starttls",
+   "ssl"
+  ],
+  "type": "string"
+ },
+ "ssl_ca": {
+  "default": "",
+  "description": "Path to CA certificate PEM file.",
+  "type": "string"
+ },
+ "ssl_cert": {
+  "default": "",
+  "description": "Path to client SSL certificate PEM file.",
+  "type": "string"
+ },
+ "ssl_key": {
+  "default": "",
+  "description": "Path to client SSL key PEM file.",
+  "type": "string"
+ },
+ "syslog_facility": {
+  "default": "",
+  "description": "Syslog facility name (e.g., mail, local0). If empty, syslog is disabled.",
+  "type": "string"
+ },
+ "tempdir": {
+  "default": "",
+  "description": "Directory for temporary files. If empty, uses $TMPDIR/kuvert.<user>.",
+  "type": "string"
+ },
+ "use_agent": {
+  "default": false,
+  "description": "Whether to delegate passphrase handling to gpg-agent.",
+  "type": "bool"
+ }
+}

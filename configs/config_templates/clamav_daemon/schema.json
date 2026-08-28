@@ -1,275 +1,197 @@
 {
-  "debug_enabled": {
-    "type": "bool",
-    "default": {
-      "value": false
-    },
-    "description": "Enable verbose debugging output. Set to false for production."
-  },
-  "pid_file_path": {
-    "type": "string",
-    "default": {
-      "value": "/run/clamav/clamd.pid"
-    },
-    "description": "Absolute path where the daemon writes its process ID."
-  },
-  "socket_path": {
-    "type": "string",
-    "default": {
-      "value": "/run/clamav/clamd.ctl"
-    },
-    "description": "Unix domain socket path for local client communication."
-  },
-  "socket_group": {
-    "type": "string",
-    "default": {
-      "value": "clamav"
-    },
-    "description": "Group ownership of the socket file (e.g., 'clamav' or 'postfix')."
-  },
-  "socket_mode": {
-    "type": "string",
-    "default": {
-      "value": "660"
-    },
-    "description": "File permissions for the socket (octal string like '660')."
-  },
-  "max_clients": {
-    "type": "number",
-    "default": {
-      "value": 20
-    },
-    "description": "Maximum number of concurrent client connections (e.g., mail workers)."
-  },
-  "daemon_user": {
-    "type": "string",
-    "default": {
-      "value": "clamav"
-    },
-    "description": "System user account under which the daemon runs for security isolation."
-  },
-  "database_dir": {
-    "type": "string",
-    "default": {
-      "value": "/var/lib/clamav"
-    },
-    "description": "Directory containing ClamAV signature databases (main.cvd, daily.cvd, bytecode.cvd)."
-  },
-  "extra_signatures": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "Optional additional signature files (e.g., .cvd or .ndb paths)."
-  },
-  "update_log_path": {
-    "type": "string",
-    "default": {
-      "value": "/var/log/clamav/freshclam.log"
-    },
-    "description": "Log file path for signature updates (used by freshclam)."
-  },
-  "log_file_path": {
-    "type": "string",
-    "default": {
-      "value": "/var/log/clamav/clamd.log"
-    },
-    "description": "Log file path for clamd operations."
-  },
-  "log_rotate": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Enable log rotation when log file size exceeds MaxSize."
-  },
-  "log_file_size_mb": {
-    "type": "number",
-    "default": {
-      "value": 10
-    },
-    "description": "Maximum log file size (in MB) before rotation."
-  },
-  "scan_recursive": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Recursively scan subdirectories."
-  },
-  "scan_pe": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan Windows Portable Executable (PE) files."
-  },
-  "scan_ole2": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan OLE2 containers (e.g., Microsoft Office documents)."
-  },
-  "scan_pdf": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan PDF documents."
-  },
-  "scan_html": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan HTML content for malicious scripts."
-  },
-  "scan_mail": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan email messages and attachments."
-  },
-  "scan_archive": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Scan inside archive formats (ZIP, RAR, etc.)."
-  },
-  "archive_max_depth": {
-    "type": "number",
-    "default": {
-      "value": 16
-    },
-    "description": "Maximum recursion depth when scanning nested archives."
-  },
-  "archive_max_files": {
-    "type": "number",
-    "default": {
-      "value": 1000
-    },
-    "description": "Maximum number of files to scan inside a single archive."
-  },
-  "archive_max_file_size_mb": {
-    "type": "number",
-    "default": {
-      "value": 25
-    },
-    "description": "Maximum size (in MB) of an individual file inside an archive to scan."
-  },
-  "idle_timeout": {
-    "type": "number",
-    "default": {
-      "value": 30
-    },
-    "description": "Seconds before a client connection is closed due to inactivity."
-  },
-  "bytecode_enabled": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Enable the ClamAV bytecode interpreter for modern signatures."
-  },
-  "bytecode_timeout": {
-    "type": "number",
-    "default": {
-      "value": 60
-    },
-    "description": "Seconds before a bytecode instruction times out (to prevent hangs)."
-  },
-  "stream_max_length_mb": {
-    "type": "number",
-    "default": {
-      "value": 25
-    },
-    "description": "Maximum total size (in MB) of data streamed to clamd."
-  },
-  "stream_min_port": {
-    "type": "number",
-    "default": {
-      "value": 1024
-    },
-    "description": "Minimum TCP port number for network stream scanning (if enabled)."
-  },
-  "stream_max_port": {
-    "type": "number",
-    "default": {
-      "value": 2048
-    },
-    "description": "Maximum TCP port number for network stream scanning."
-  },
-  "heuristic_precedence": {
-    "type": "bool",
-    "default": {
-      "value": true
-    },
-    "description": "Prefer heuristic detection over exact matches (useful for unknown threats)."
-  },
-  "max_scan_size_mb": {
-    "type": "number",
-    "default": {
-      "value": 100
-    },
-    "description": "Maximum total size (in MB) of data scanned in one operation (e.g., full message)."
-  },
-  "max_file_size_mb": {
-    "type": "number",
-    "default": {
-      "value": 25
-    },
-    "description": "Maximum size of a single file to scan. Larger files are skipped."
-  },
-  "max_recursion": {
-    "type": "number",
-    "default": {
-      "value": 16
-    },
-    "description": "Maximum recursion depth when scanning nested directories."
-  },
-  "max_files": {
-    "type": "number",
-    "default": {
-      "value": 10000
-    },
-    "description": "Maximum number of files to scan in one directory tree."
-  },
-  "pua_enabled": {
-    "type": "bool",
-    "default": {
-      "value": false
-    },
-    "description": "Enable detection of Potentially Unwanted Applications (PUA)."
-  },
-  "pua_categories": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of PUA categories to scan for. Options: All, Archive, Compression, Email, Exploit, Lang, Packed, PDF, Shellcode."
-  },
-  "exclude_paths": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of paths (glob or regex patterns) to skip during scanning."
-  },
-  "include_paths": {
-    "type": "list",
-    "default": {
-      "value": []
-    },
-    "description": "List of paths to scan exclusively (if IncludePath support is enabled)."
-  },
-  "on_access_enabled": {
-    "type": "bool",
-    "default": {
-      "value": false
-    },
-    "description": "Enable real-time on-access scanning (clamonacc functionality). Introduced in ClamAV 0.102.0."
-  }
+ "archive_max_depth": {
+  "default": 16,
+  "description": "Maximum recursion depth when scanning nested archives.",
+  "type": "number"
+ },
+ "archive_max_file_size_mb": {
+  "default": 25,
+  "description": "Maximum size (in MB) of an individual file inside an archive to scan.",
+  "type": "number"
+ },
+ "archive_max_files": {
+  "default": 1000,
+  "description": "Maximum number of files to scan inside a single archive.",
+  "type": "number"
+ },
+ "bytecode_enabled": {
+  "default": true,
+  "description": "Enable the ClamAV bytecode interpreter for modern signatures.",
+  "type": "bool"
+ },
+ "bytecode_timeout": {
+  "default": 60,
+  "description": "Seconds before a bytecode instruction times out (to prevent hangs).",
+  "type": "number"
+ },
+ "daemon_user": {
+  "default": "clamav",
+  "description": "System user account under which the daemon runs for security isolation.",
+  "type": "string"
+ },
+ "database_dir": {
+  "default": "/var/lib/clamav",
+  "description": "Directory containing ClamAV signature databases (main.cvd, daily.cvd, bytecode.cvd).",
+  "type": "string"
+ },
+ "debug_enabled": {
+  "default": false,
+  "description": "Enable verbose debugging output. Set to false for production.",
+  "type": "bool"
+ },
+ "exclude_paths": {
+  "default": [],
+  "description": "List of paths (glob or regex patterns) to skip during scanning.",
+  "type": "list"
+ },
+ "extra_signatures": {
+  "default": [],
+  "description": "Optional additional signature files (e.g., .cvd or .ndb paths).",
+  "type": "list"
+ },
+ "heuristic_precedence": {
+  "default": true,
+  "description": "Prefer heuristic detection over exact matches (useful for unknown threats).",
+  "type": "bool"
+ },
+ "idle_timeout": {
+  "default": 30,
+  "description": "Seconds before a client connection is closed due to inactivity.",
+  "type": "number"
+ },
+ "include_paths": {
+  "default": [],
+  "description": "List of paths to scan exclusively (if IncludePath support is enabled).",
+  "type": "list"
+ },
+ "log_file_path": {
+  "default": "/var/log/clamav/clamd.log",
+  "description": "Log file path for clamd operations.",
+  "type": "string"
+ },
+ "log_file_size_mb": {
+  "default": 10,
+  "description": "Maximum log file size (in MB) before rotation.",
+  "type": "number"
+ },
+ "log_rotate": {
+  "default": true,
+  "description": "Enable log rotation when log file size exceeds MaxSize.",
+  "type": "bool"
+ },
+ "max_clients": {
+  "default": 20,
+  "description": "Maximum number of concurrent client connections (e.g., mail workers).",
+  "type": "number"
+ },
+ "max_file_size_mb": {
+  "default": 25,
+  "description": "Maximum size of a single file to scan. Larger files are skipped.",
+  "type": "number"
+ },
+ "max_files": {
+  "default": 10000,
+  "description": "Maximum number of files to scan in one directory tree.",
+  "type": "number"
+ },
+ "max_recursion": {
+  "default": 16,
+  "description": "Maximum recursion depth when scanning nested directories.",
+  "type": "number"
+ },
+ "max_scan_size_mb": {
+  "default": 100,
+  "description": "Maximum total size (in MB) of data scanned in one operation (e.g., full message).",
+  "type": "number"
+ },
+ "on_access_enabled": {
+  "default": false,
+  "description": "Enable real-time on-access scanning (clamonacc functionality). Introduced in ClamAV 0.102.0.",
+  "type": "bool"
+ },
+ "pid_file_path": {
+  "default": "/run/clamav/clamd.pid",
+  "description": "Absolute path where the daemon writes its process ID.",
+  "type": "string"
+ },
+ "pua_categories": {
+  "default": [],
+  "description": "List of PUA categories to scan for. Options: All, Archive, Compression, Email, Exploit, Lang, Packed, PDF, Shellcode.",
+  "type": "list"
+ },
+ "pua_enabled": {
+  "default": false,
+  "description": "Enable detection of Potentially Unwanted Applications (PUA).",
+  "type": "bool"
+ },
+ "scan_archive": {
+  "default": true,
+  "description": "Scan inside archive formats (ZIP, RAR, etc.).",
+  "type": "bool"
+ },
+ "scan_html": {
+  "default": true,
+  "description": "Scan HTML content for malicious scripts.",
+  "type": "bool"
+ },
+ "scan_mail": {
+  "default": true,
+  "description": "Scan email messages and attachments.",
+  "type": "bool"
+ },
+ "scan_ole2": {
+  "default": true,
+  "description": "Scan OLE2 containers (e.g., Microsoft Office documents).",
+  "type": "bool"
+ },
+ "scan_pdf": {
+  "default": true,
+  "description": "Scan PDF documents.",
+  "type": "bool"
+ },
+ "scan_pe": {
+  "default": true,
+  "description": "Scan Windows Portable Executable (PE) files.",
+  "type": "bool"
+ },
+ "scan_recursive": {
+  "default": true,
+  "description": "Recursively scan subdirectories.",
+  "type": "bool"
+ },
+ "socket_group": {
+  "default": "clamav",
+  "description": "Group ownership of the socket file (e.g., 'clamav' or 'postfix').",
+  "type": "string"
+ },
+ "socket_mode": {
+  "default": "660",
+  "description": "File permissions for the socket (octal string like '660').",
+  "type": "string"
+ },
+ "socket_path": {
+  "default": "/run/clamav/clamd.ctl",
+  "description": "Unix domain socket path for local client communication.",
+  "type": "string"
+ },
+ "stream_max_length_mb": {
+  "default": 25,
+  "description": "Maximum total size (in MB) of data streamed to clamd.",
+  "type": "number"
+ },
+ "stream_max_port": {
+  "default": 2048,
+  "description": "Maximum TCP port number for network stream scanning.",
+  "type": "number"
+ },
+ "stream_min_port": {
+  "default": 1024,
+  "description": "Minimum TCP port number for network stream scanning (if enabled).",
+  "type": "number"
+ },
+ "update_log_path": {
+  "default": "/var/log/clamav/freshclam.log",
+  "description": "Log file path for signature updates (used by freshclam).",
+  "type": "string"
+ }
 }

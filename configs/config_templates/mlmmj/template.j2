@@ -1,0 +1,8 @@
+# mlmmj-maintd cron entry.
+# Scheduled maintenance for mlmmj mailing list manager.
+# This cron job runs mlmmj-maintd periodically to process queued messages and perform housekeeping.
+
+# Frequency in hours at which mlmmj-maintd runs.
+# Controls how often the maintenance daemon executes.
+# Default: 2
+0 */{{ (run_interval_hours | default(2)) | int }} * * * {{ daemon_user | default('root') | quote }} /usr/bin/test -x /usr/bin/mlmmj-maintd && /usr/bin/mlmmj-maintd -F -d {{ mlmmj_spool_dir | default('/var/spool/mlmmj') }}

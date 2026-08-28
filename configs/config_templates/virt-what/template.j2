@@ -1,0 +1,31 @@
+# Configuration for virt-what
+# Note: virt-what is a shell script with no traditional configuration file.
+# These parameters control its runtime behavior via command-line flags.
+
+# Verbosity level: 0 (quiet), 1 (normal), 2 (debug)
+# Corresponds to: virt-what -v or virt-what --verbose
+# See: virt-what(1) DESCRIPTION
+verbosity: {{ verbosity | default(0) }}
+
+# Output format: "simple" (space-separated list) or "json" (structured object)
+# Corresponds to: virt-what --json
+# See: virt-what(1) DESCRIPTION
+output_format: {{ output_format | default('simple') }}
+
+# List of hypervisors/technologies to exclude from detection.
+# If a detected hypervisor is in this list, it is ignored.
+# Corresponds to: virt-what -e <hypervisor> or virt-what --exclude <hypervisor>
+# See: virt-what(1) FACTS (for valid hypervisor names like 'docker', 'kvm', etc.)
+exclude_hypervisors:
+{% for hypervisor in exclude_hypervisors | default([]) %}
+- {{ hypervisor }}
+{% endfor %}
+
+# List of hypervisors/technologies to include (whitelist).
+# Only these are detected; all others are ignored.
+# Corresponds to: virt-what -i <hypervisor> or virt-what --include <hypervisor>
+# See: virt-what(1) FACTS
+include_hypervisors:
+{% for hypervisor in include_hypervisors | default([]) %}
+- {{ hypervisor }}
+{% endfor %}

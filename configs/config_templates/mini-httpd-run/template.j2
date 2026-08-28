@@ -1,0 +1,23 @@
+#!/bin/sh
+exec 2>&1
+# Document root directory for the web server.
+# @default /var/www/html
+DATADIR={{ datadir | default('/var/www/html') }}
+
+# Hostname or IP address to bind the HTTP server to.
+# @default localhost
+HOST={{ host | default('localhost') }}
+
+# User account to run the server process as.
+# @default nobody
+USER={{ user | default('nobody') }}
+
+# Log output destination.
+# @default /dev/stdout
+LOG_DEST={{ log_dest | default('/dev/stdout') }}
+
+exec /usr/sbin/mini_httpd -D -r \
+	-h "$HOST" \
+	-u "$USER" \
+	-l "$LOG_DEST" \
+	-d "$DATADIR"

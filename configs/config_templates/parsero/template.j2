@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# parsero Audit Tool Configuration
+# ==============================================================================
+# This configuration file controls the behavior of the 'parsero' robots.txt
+# analysis utility. It specifies the target domain, filtering criteria,
+# search engine integration, and input sources.
+#
+# Variables are provided via Ansible. All values use strict defaults
+# matching the schema definitions to ensure idempotent rendering.
+# ==============================================================================
+
+# The domain or URL to analyze for robots.txt entries.
+# This is the primary target for the scan.
+# If 'input_file' is specified, this field is typically ignored by the tool,
+# but it remains the default single-target setting.
+# Schema: url (string), default: 'example.com'
+url={{ url | default('example.com') }}
+
+# Filter output to show only resources that returned an HTTP 200 OK status.
+# When enabled, resources resulting in 403, 404, or other error codes are
+# excluded from the analysis results.
+# Schema: show_only_http_200 (boolean), default: False
+show_only_http_200={{ show_only_http_200 | default(False) | lower }}
+
+# Cross-reference the scanned disallow rules with Bing's indexed robots.txt data.
+# If true, the tool attempts to validate current findings against Bing's cache
+# to detect discrepancies between the live file and search engine knowledge.
+# Schema: search_bing (boolean), default: False
+search_bing={{ search_bing | default(False) | lower }}
+
+# Path to a local file containing a newline-separated list of domains to scan.
+# This field allows batch processing of multiple URLs.
+# If provided, it overrides the single 'url' field for scanning purposes.
+# Schema: input_file (string), default: '' (empty, meaning use single url)
+input_file={{ input_file | default('') }}

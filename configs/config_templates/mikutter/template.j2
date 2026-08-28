@@ -1,0 +1,64 @@
+# ============================================================
+# Mikutter CLI Configuration Template
+# ============================================================
+# This template generates a command-line argument list for the
+# Mikutter social media client. It maps Ansible variables to
+# specific CLI flags.
+#
+# Self-documenting: every flag is preceded by a comment
+# describing its purpose and source variable.
+# ============================================================
+
+# --confroot <path>
+# The root directory for mikutter's configuration, plugins, and cache data.
+# Variable: confroot
+--confroot={{ confroot | default('/home/mikutter/.mikutter') }}
+
+# --debug
+# Enable debug mode for development or troubleshooting.
+# When enabled, verbose logging and debug output are produced.
+# Variable: debug (boolean)
+{% if debug | default(False) | bool %}
+--debug
+{% endif %}
+
+# --skip-version-check
+# Skip library and environment version checks at startup.
+# Speeds up launch time by avoiding network/version validation.
+# Variable: skip_version_check (boolean)
+{% if skip_version_check | default(True) | bool %}
+--skip-version-check
+{% endif %}
+
+# --plugin <slug1>,<slug2>,...
+# List of plugin slugs to load automatically at startup.
+# Plugins are loaded from the mikutter plugin repository or local directory.
+# Variable: plugins (list of strings)
+{% if plugins | default(['mastodon', 'plurk']) | length > 0 %}
+--plugin={{ plugins | default(['mastodon', 'plurk']) | join(',') }}
+{% endif %}
+
+# -d
+# Run the application in daemon/background mode.
+# Only effective if the launch wrapper supports daemonization.
+# Variable: daemon (boolean)
+{% if daemon | default(False) | bool %}
+-d
+{% endif %}
+
+# --color
+# Colorize terminal output.
+# Forces ANSI color codes even if the terminal might not support it.
+# Variable: color (boolean)
+{% if color | default(True) | bool %}
+--color
+{% endif %}
+
+# --clean
+# Delete all caches and duplicated files on startup.
+# WARNING: This will reset local cache state and remove downloaded media.
+# Use with caution in production or automated environments.
+# Variable: clean (boolean)
+{% if clean | default(False) | bool %}
+--clean
+{% endif %}

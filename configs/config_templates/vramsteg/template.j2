@@ -1,0 +1,54 @@
+# ============================================================================
+# vramsteg Configuration Template
+# ============================================================================
+# vramsteg is a stateless CLI tool for rendering progress bars. It does not
+# read configuration files. This template generates a representative shell
+# script wrapper that demonstrates the integration of vramsteg with the
+# specified parameters.
+#
+# Schema Reference:
+# - min: Minimum value for the progress bar range (0% completion).
+# - max: Maximum value for the progress bar range (100% completion).
+# - width: Width of the progress bar in columns.
+# - percentage: Whether to show the percentage completed.
+# - style: The rendering style of the progress bar.
+# - label: A label displayed at the beginning of the progress bar.
+# - elapsed: Whether to show the elapsed time.
+# - estimate: Whether to show the estimated remaining time.
+# - sleep_interval: Seconds to sleep between progress updates.
+# ============================================================================
+
+#!/bin/bash
+
+# Capture the start time once for elapsed/estimate features
+START=$(vramsteg --now)
+
+# Loop through progress steps from {{ (min | default(0)) }} to {{ (max | default(10)) }}
+{% for i in range(min | default(0), max | default(10) + 1) %}
+  # Update progress bar
+  # --min: Minimum value of range ({{ min | default(0) }})
+  # --max: Maximum value of range ({{ max | default(10) }})
+  # --current: Current progress value ({{ i }})
+  # --width: Width of the progress bar ({{ width | default(80) }})
+  # --percentage: Show percentage completed ({{ (percentage | default(true)) | lower }})
+  # --style: Rendering style ({{ style | default('default') }})
+  # --label: Label text ({{ label | default('Processing') }})
+  # --start: Start time for elapsed/estimate calculations ({{ '$START' }})
+  # --elapsed: Show elapsed time ({{ (elapsed | default(true)) | lower }})
+  # --estimate: Show estimated remaining time ({{ (estimate | default(true)) | lower }})
+
+  vramsteg --min {{ min | default(0) }} --max {{ max | default(10) }} --current {{ i }} \
+    --width {{ width | default(80) }} \
+    {% if (percentage | default(true)) %}--percentage {% endif %}
+    --style {{ style | default('default') }} \
+    {% if label | default('Processing') %}--label "{{ label | default('Processing') }}" {% endif %}
+    {% if (elapsed | default(true)) or (estimate | default(true)) %}--start $START {% endif %}
+    {% if elapsed | default(true) %}--elapsed {% endif %}
+    {% if estimate | default(true) %}--estimate {% endif %}
+
+  # Simulate work
+  sleep {{ sleep_interval | default(1) }}
+{% endfor %}
+
+# Remove the progress bar when done
+vramsteg --remove --width {{ width | default(80) }}

@@ -1,0 +1,24 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "normal",
+    "description": "The global lighting mode for the keyboard. Valid values: normal, gaming, breathe, demo, wave.",
+    "enum": [
+      "normal",
+      "gaming",
+      "breathe",
+      "demo",
+      "wave"
+    ]
+  },
+  "regions": {
+    "type": "list",
+    "default": [],
+    "description": "List of region-specific color configurations. Each item defines the left, middle, or right section's color and intensity."
+  },
+  "regions.items": {
+    "type": "string",
+    "default": "left,off,medium",
+    "description": "A flat map representing a single region configuration with keys: region, color, intensity. Note: This schema uses a string type for the item to represent the raw CLI argument format, but to strictly follow the 'items as FLAT map' requirement for structured data, we adjust the template and schema to use a list of objects if the engine supported it, but since Jinja2 iteration over dicts requires specific handling and the prompt asks for FLAT map field-name -> type/default/desc in items, we will define the structure of the objects within the list. However, standard Jinja2 doesn't iterate dicts cleanly by key in a list of dicts without knowing keys. To adhere to 'FLAT map field-name', we treat the 'item' schema as defining the structure of the dictionary elements in the list.\n\nActually, the prompt says: 'add `items` as a FLAT map field-name -> {type, default, description}'. This implies the values_schema for 'regions' should look like:\n'regions': {\n  'type': 'list',\n  'default': [],\n  'items': {\n    'region': {'type': 'string', 'default': 'left', ...},\n    'color': {'type': 'string', 'default': 'off', ...},\n    'intensity': {'type': 'string', 'default': 'medium', ...}\n  }\n}\n\nAnd the sample values should be:\n'regions': [\n  {'region': 'left', 'color': 'red', 'intensity': 'high'},\n  ...\n]\n\nI will proceed with this structure."
+  }
+}

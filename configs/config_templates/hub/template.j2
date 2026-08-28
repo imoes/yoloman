@@ -1,0 +1,36 @@
+# Hub CLI Configuration
+# Man page: hub(1)
+#
+# Self-documenting configuration for the `hub` GitHub CLI wrapper.
+# This template generates a ~/.config/hub file compatible with Hub v2.x.
+# It supports GitHub Enterprise and OAuth token injection.
+
+# GitHub username for API operations.
+# Environment variable: GITHUB_USER
+# Maps to the alias used in the hub config file.
+# The format is "user:user" which allows the CLI to associate the token with this user.
+{% set _github_user = github_user | default('') %}
+{% if _github_user %}{{ _github_user }}:{{ _github_user }}{% endif %}
+
+# Hub-specific settings section.
+hub:
+  # Preferred protocol for git clone/push operations.
+  # Valid values: 'https', 'ssh', 'git'.
+  # Environment variable: HUB_PROTOCOL
+  # Default: https
+  protocol: {{ protocol | default('https') }}
+
+  # GitHub Enterprise host configuration.
+  # If provided, this overrides the default github.com host for API requests.
+  # Environment variable: GITHUB_HOST
+  # Note: This section is only active if github_host is defined.
+  {% set _github_host = github_host | default('') %}
+  {% if _github_host %}  host: {{ _github_host }}{% endif %}
+
+  # OAuth token for authenticating GitHub API requests.
+  # Environment variable: GITHUB_TOKEN
+  # Security Note: In a production Ansible role, prefer passing the token via
+  # the environment variable GITHUB_TOKEN at runtime rather than storing it
+  # in this configuration file. If stored here, ensure strict file permissions.
+  {% set _github_token = github_token | default('') %}
+  {% if _github_token %}  oauth_token: {{ _github_token }}{% endif %}

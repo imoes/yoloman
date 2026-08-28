@@ -1,0 +1,44 @@
+#! /bin/sh
+# $Id: ip6tables_init.sh,v 1.3 2019/04/03 16:25:55 nanard Exp $
+# Improved Miniupnpd iptables init script.
+# Checks for state of filter before doing anything..
+
+# Enable IPv6 support.
+# 1 = enabled, 0 = disabled.
+IPV6={{ ipv6 | default('1') }}
+
+# External interface identifier (contextual variable from calling environment).
+EXT=1
+
+# Source helper functions (contextual variable from calling environment).
+. $(dirname "$0")/miniupnpd_functions.sh
+
+# Whether to insert rules at head (-I) or append at end (-A) of the chain.
+# Commonly used to prioritize UPnP rules above manual rules or vice versa.
+ADDCMD={{ addcmd | default('-I') }}
+
+# Conditional logic to manage the UPnP filter chain.
+# Checks for state of filter before doing anything..
+
+# Check if the filter table is dirty (requires cleaning).
+# $FDIRTY and $CHAIN are contextual variables from the calling environment.
+if [ "$FDIRTY" = "${CHAIN}Chain" ]; then
+	echo "Filter table dirty; Cleaning..."
+elif [ "$FDIRTY" = "Chain" ]; then
+	echo "Dirty filter chain but no reference..? Fixing..."
+	# Insert rule at the head of the FORWARD chain for external interface.
+	# $IPTABLES, $EXTIF, $ADDCMD, $CHAIN are contextual variables from the calling environment.
+	$IPTABLES -t filter $ADDCMD FORWARD -i $EXTIF ! -o $EXTIF -j $CHAIN
+else
+	echo "Filter table clean..initalizing.."
+	# Create new chain if it doesn't exist.
+	$IPTABLES -t filter -N $CHAIN
+	# Insert rule at the head of the FORWARD chain for external interface.
+	$IPTABLES -t filter $ADDCMD FORWARD -i $EXTIF ! -o $EXTIF -j $CHAIN
+fi
+
+# Clean the chain if the CLEAN flag is set.
+# $CLEAN is a contextual variable from the calling environment.
+if [ "$CLEAN" = "yes" ]; then
+	$IPTABLES -t filter -F $CHAIN
+fi

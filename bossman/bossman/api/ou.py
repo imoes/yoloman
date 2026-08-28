@@ -306,8 +306,9 @@ async def list_ou_objects(
             OUObject(kind="notification", id=n.id, label=f"{n.name} → {n.channel}", enforced=n.enforced, enabled=n.enabled)
         )
 
-    for g in (await session.scalars(select(HostGroup).where(HostGroup.ou_id == ou_id, HostGroup.deleted_at.is_(None)))).all():
-        out.append(OUObject(kind="host_group", id=g.id, label=g.name))
+    # No host_group rows here any more: a group is placeless (see the HostGroup model docstring), so
+    # "the groups filed under this OU" is not a question the tree can answer. Listing them by an
+    # ignored field showed a containment that never affected which policies reached their members.
 
     # Variables set on this OU appear as their own tree object (like a GPO's
     # "Preferences" node) so they're visible/editable in the tree, not only in
@@ -873,6 +874,12 @@ async def match_vocabulary(
     ou_folders = sorted(
         p for (p,) in (await session.execute(select(OUNode.path))).all() if p
     )
+    # Host GROUP names, so a rule scoped to an OU can be narrowed to a group — the AND of OU and
+    # group. Names rather than ids: the condition is stored and read as the operator says it
+    # ("webservers"), and group names are already unique per tenant.
+    host_groups = sorted(
+        n for (n,) in (await session.execute(select(HostGroup.name))).all() if n
+    )
 
     def dedup(d: dict[str, set[str]]) -> dict[str, list[str]]:
         # Deduplicated + sorted; no cap — the editor's live search filters client-side.
@@ -884,6 +891,7 @@ async def match_vocabulary(
         "variables": dedup(variables),
         "host_labels": dedup(labels),
         "ou_folders": ou_folders,
+        "host_groups": host_groups,
     }
 
 
@@ -905,6 +913,10 @@ class PolicySetPatchIn(BaseModel):
     scope_ou_id: UUID | None = None
     host_group_id: UUID | None = None
     site_id: UUID | None = None
+    # The shared rule-conditions object for the WHOLE policy — "this policy applies only to these host
+    # groups". None means "leave unchanged" (a partial update), {} means "clear the filter"; the two
+    # have to be distinguishable or a rename could silently drop a filter nobody meant to touch.
+    conditions: dict | None = None
     unlink: bool = False
 
 
@@ -1014,6 +1026,14 @@ async def patch_policy_set(
         # Propagate to entries so the compiler applies them at the new scope.
         for e in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id))).all():
             e.scope_ou_id, e.host_group_id, e.site_id = s.scope_ou_id, s.host_group_id, s.site_id
+    # A set's CONDITION propagates the same way its scope does, and for the same reason: nothing
+    # evaluates a ConfigPolicySet — the compiler only ever sees the entries. A condition stored only on
+    # the set would be a filter the UI shows and the engine never reads, which is exactly the class of
+    # defect that cost this codebase host_groups.ou_id.
+    if body.conditions is not None:
+        s.conditions = body.conditions
+        for e in (await session.scalars(select(ConfigPolicy).where(ConfigPolicy.set_id == s.id))).all():
+            e.conditions = dict(body.conditions)
     try:
         await session.commit()
     except IntegrityError:

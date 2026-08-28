@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/danielledeleo/nestedtext"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mutkluge/agentic-mcp/internal/checks"
@@ -76,23 +75,9 @@ func ParseFile(data []byte) (*Task, error) {
 	return parseRaw(raw)
 }
 
-// ParseFileNT parses one tools.d task file's NestedText content into the
-// same Task as ParseFile. NestedText is all-strings (no type inference — no
-// quoting, no "Norway problem"); the only schema field this affects is a
-// param's `required`, which parseParamSpecs coerces from "true"/"false".
-// Module-argument scalars stay strings and are coerced at the typed module
-// boundary (see boolParam in internal/modules).
-func ParseFileNT(data []byte) (*Task, error) {
-	var raw map[string]any
-	if err := nestedtext.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("parsing NestedText task file: %w", err)
-	}
-	return parseRaw(raw)
-}
-
-// parseRaw builds a Task from an already-decoded mapping, whatever front-end
-// produced it (YAML or NestedText) — the single place the task schema is
-// validated and assembled.
+// parseRaw builds a Task from an already-decoded mapping — the single place the task schema is validated and
+// assembled. It kept that shape for a second front-end (NestedText) that no longer exists; one decoder now,
+// and the seam is still worth having because ParseFile is not the only caller.
 func parseRaw(raw map[string]any) (*Task, error) {
 	name, _ := raw["name"].(string)
 	if name == "" {
@@ -290,7 +275,9 @@ func LoadDir(dir string) ([]*Task, error) {
 		if e.IsDir() {
 			continue
 		}
-		if ext := filepath.Ext(e.Name()); ext == ".yaml" || ext == ".yml" || ext == ".nt" {
+		// YAML only. `.nt` was the second authoring format and is gone (docs/nestedtext-removal.md);
+		// measured before removing: 0 `.nt` files anywhere in this repo.
+		if ext := filepath.Ext(e.Name()); ext == ".yaml" || ext == ".yml" {
 			names = append(names, e.Name())
 		}
 	}
@@ -304,12 +291,7 @@ func LoadDir(dir string) ([]*Task, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading %q: %w", path, err)
 		}
-		var task *Task
-		if filepath.Ext(name) == ".nt" {
-			task, err = ParseFileNT(data)
-		} else {
-			task, err = ParseFile(data)
-		}
+		task, err := ParseFile(data)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}

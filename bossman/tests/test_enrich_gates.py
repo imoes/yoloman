@@ -10,9 +10,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]          # repo root (…/yolo-man)
-sys.path.insert(0, str(ROOT / "bossman" / "scripts"))
-
-import enrich_gates as G  # noqa: E402
+# The tools live in the PACKAGE (bossman.tools), not in bossman/scripts/ — that directory held a
+# patched duplicate of each, is untracked, and these tests were green only because it happened to
+# exist on this machine. A clone could not run them.
+from bossman.tools import enrich_gates as G
 
 
 # ── schema normalization ────────────────────────────────────────────────────
@@ -46,7 +47,6 @@ def test_normalize_leaves_scalar_item_list_alone():
 
 def test_normalized_schema_passes_the_contract_gate():
     """A schema with type drift + nesting must be contract-clean after normalization (gate 1 precondition)."""
-    sys.path.insert(0, str(ROOT / "bossman" / "scripts"))
     from batch_verify import verify_template_schema
 
     schema = {

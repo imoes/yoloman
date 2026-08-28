@@ -1,0 +1,116 @@
+# QEMU System MIPS Configuration
+# Generated via Ansible/Jinja2
+#
+# This template configures a QEMU Virtual Machine for MIPS architecture.
+# It sets up the machine type, CPU, RAM, storage, network, and kernel boot parameters.
+# All variables use explicit defaults based on the schema to ensure idempotency and safety.
+
+# ==============================================================================
+# Machine & Acceleration
+# ==============================================================================
+
+# machine_type: The emulated MIPS machine type. Common values include 'malta', 'mipssim', 'magnum'.
+# machine: Select the emulated machine by name. Use -machine help to list available machines.
+machine={{ machine_type | default('malta') }}
+
+# accel: The accelerator to use. Options: kvm, xen, tcg. Default is tcg (software emulation).
+# accel: This is used to enable an accelerator. Depending on the target architecture, kvm, xen, hvf, nvmm, whpx or tcg can be available.
+accel={{ accel | default('tcg') }}
+
+# ==============================================================================
+# CPU & Memory
+# ==============================================================================
+
+# smp_cpus: Number of virtual CPUs to emulate.
+# smp: Simulate a SMP system with 'n' CPUs initially present.
+smp={{ smp_cpus | default(1) }}
+
+# ram_size: Amount of RAM in MB for the guest.
+# m: Sets guest startup RAM size to megs megabytes. Default is 128 MiB.
+ram={{ ram_size | default(128) }}
+
+# ==============================================================================
+# Storage (Block Devices)
+# ==============================================================================
+
+# Define the primary disk image.
+# blockdev: Define a new block driver node. The most explicit way to describe disks.
+
+# blockdev_0_driver: The block driver format for the disk (e.g., qcow2, raw).
+blockdev_0_driver={{ blockdev_0_driver | default('qcow2') }}
+
+# blockdev_0_node_name: Unique node name for the block device.
+blockdev_0_node_name={{ blockdev_0_node_name | default('disk0') }}
+
+# blockdev_0_filename: Path to the disk image file on the host.
+blockdev_0_filename={{ blockdev_0_filename | default('/var/lib/qemu/mips_disk.img') }}
+
+# ==============================================================================
+# Network Interfaces
+# ==============================================================================
+
+# nics: List of network interface configurations for the guest MIPS system.
+# Items are flat maps with netdev_type, id, and optional specific properties.
+# Each NIC generates a netdev (host side) and a device (guest side) block.
+{% for nic in nics | default([]) %}
+# --------------------------------------------------------------------------
+# Network Interface {{ loop.index }}
+# --------------------------------------------------------------------------
+# netdev: Configure a host network backend.
+# nic.id: Unique identifier for this NIC.
+# nic.netdev_type: Type of network backend (e.g., user, tap, bridge).
+netdev_{{ loop.index }}_type={{ nic.netdev_type | default('user') }}
+netdev_{{ loop.index }}_id={{ nic.id | default('net' + loop.index|string) }}
+
+# Conditional netdev properties based on type
+{% if nic.netdev_type == 'user' %}
+# nic.ipv4: IPv4 address configuration for user-mode networking (if defined).
+# Note: In user mode, this might define the guest-visible IP or subnet config.
+{% if nic.ipv4 is defined %}
+netdev_{{ loop.index }}_ipv4={{ nic.ipv4 }}
+{% endif %}
+{% elif nic.netdev_type == 'tap' %}
+# nic.fd: File descriptor for the TAP interface (if pre-configured by systemd/libvirt).
+{% if nic.fd is defined %}
+netdev_{{ loop.index }}_fd={{ nic.fd }}
+{% endif %}
+{% endif %}
+
+# device: Add device driver. virtio-net-pci is a common choice for MIPS/Malta.
+# device driver: The driver name for the guest device.
+device_{{ loop.index }}_driver=virtio-net-pci
+# device netdev: References the netdev ID defined above to connect host and guest.
+device_{{ loop.index }}_netdev=netdev_{{ loop.index }}_id
+{% endfor %}
+
+# ==============================================================================
+# Serial Console
+# ==============================================================================
+
+# serial: Redirect the virtual serial port to host character device.
+# stdio: Redirect to the host standard input/output.
+serial=stdio
+
+# ==============================================================================
+# Kernel & Boot
+# ==============================================================================
+
+# kernel_args: Command line arguments passed to the Linux kernel.
+# append: Use cmdline as kernel command line.
+kernel_args={{ kernel_args | default('console=ttyS0 root=/dev/sda') }}
+
+# kernel_path: Path to the Linux kernel image for MIPS.
+# kernel: Use bzImage as kernel image.
+kernel_path={{ kernel_path | default('/var/lib/qemu/mips_kernel.bin') }}
+
+# initrd_path: Path to the initial RAM disk (initrd). Empty string if not used.
+# initrd: Use file as initial ram disk.
+{% if initrd_path | default('') %}
+initrd={{ initrd_path | default('') }}
+{% endif %}
+
+# dtb_path: Path to the Device Tree Blob (DTB) for the machine. Empty string if not used.
+# dtb: Use file as a device tree binary (dtb) image.
+{% if dtb_path | default('') %}
+dtb={{ dtb_path | default('') }}
+{% endif %}

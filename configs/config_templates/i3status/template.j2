@@ -1,0 +1,104 @@
+# i3status configuration file.
+# See "man i3status" for full documentation and advanced options.
+# This file must be valid UTF-8.
+# It is important that this file is edited as UTF-8.
+
+general {
+    # Enable color output in the status bar.
+    # Defaults to True (enabled). Set to False to disable colors.
+    colors = {{ general_colors | default(true) | lower }}
+
+    # Refresh interval in seconds for the status bar.
+    # Defaults to 5.
+    interval = {{ general_interval | default(5) }}
+}
+
+# Define the order of modules in the status bar.
+# Modules are appended in the order listed below.
+# Default order: ipv6, wireless, ethernet, battery, disk, load, memory, tztime.
+order += "{{ order_0 | default('ipv6') }}"
+order += "{{ order_1 | default('wireless _first_') }}"
+order += "{{ order_2 | default('ethernet _first_') }}"
+order += "{{ order_3 | default('battery all') }}"
+order += "{{ order_4 | default('disk /') }}"
+order += "{{ order_5 | default('load') }}"
+order += "{{ order_6 | default('memory') }}"
+order += "{{ order_7 | default('tztime local') }}"
+
+# Configuration for wireless network interfaces.
+# The block name "_first_" is a placeholder; in i3status,
+# you typically match against interface names like wlan0.
+# However, i3status uses specific block names for generic types.
+wireless _first_ {
+    # Format string for wireless interface when connected.
+    # Variables available: %quality, %essid, %ip, etc.
+    # Defaults to 'W: (%quality at %essid) %ip'.
+    format_up = "{{ wireless_format_up | default('W: (%quality at %essid) %ip') }}"
+
+    # Format string for wireless interface when not connected.
+    # Defaults to 'W: down'.
+    format_down = "{{ wireless_format_down | default('W: down') }}"
+}
+
+# Configuration for ethernet network interfaces.
+ethernet _first_ {
+    # Format string for ethernet interface when connected.
+    # Variables available: %ip, %speed, etc.
+    # Defaults to 'E: %ip (%speed)'.
+    format_up = "{{ ethernet_format_up | default('E: %ip (%speed)') }}"
+
+    # Format string for ethernet interface when not connected.
+    # Defaults to 'E: down'.
+    format_down = "{{ ethernet_format_down | default('E: down') }}"
+}
+
+# Configuration for battery status.
+# 'all' matches all batteries.
+battery all {
+    # Format string for battery status.
+    # Variables available: %status, %percentage, %remaining, etc.
+    # Defaults to '%status %percentage %remaining'.
+    format = "{{ battery_format | default('%status %percentage %remaining') }}"
+}
+
+# Configuration for disk usage monitoring.
+# The block name is the mountpoint to monitor.
+disk "{{ disk_mountpoint | default('/') }}" {
+    # Format string for disk usage.
+    # Variables available: %avail, %total, %used, %percentage_free, etc.
+    # Defaults to '%avail'.
+    format = "{{ disk_format | default('%avail') }}"
+}
+
+# Configuration for system load average.
+load {
+    # Format string for system load.
+    # Variables available: %1min, %5min, %15min.
+    # Defaults to '%1min'.
+    format = "{{ load_format | default('%1min') }}"
+}
+
+# Configuration for memory (RAM) usage.
+memory {
+    # Format string for memory usage.
+    # Variables available: %used, %available, %percentage_used, etc.
+    # Defaults to '%used | %available'.
+    format = "{{ memory_format | default('%used | %available') }}"
+
+    # Threshold below which memory is considered degraded.
+    # If available memory drops below this value, format_degraded is used.
+    # Can use suffixes like K, M, G, T.
+    # Defaults to '1G'.
+    threshold_degraded = "{{ memory_threshold_degraded | default('1G') }}"
+
+    # Format string displayed when memory is in a degraded state.
+    # Defaults to 'MEMORY < %available'.
+    format_degraded = "{{ memory_format_degraded | default('MEMORY < %available') }}"
+}
+
+# Configuration for timezone and time display.
+tztime local {
+    # Format string for time display (strftime syntax).
+    # Defaults to '%Y-%m-%d %H:%M:%S'.
+    format = "{{ tztime_format | default('%Y-%m-%d %H:%M:%S') }}"
+}

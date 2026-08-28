@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.config import Settings
 from bossman.db.models import Agent, RunbookRun
 from bossman.services import nt_engine, nt_runbook
-from bossman.services.plan_loader import load_host_vars
 from bossman.services.scope_vars import resolve_scope_vars
 from bossman.services.vault import Vault
 
@@ -57,15 +56,19 @@ async def gather_magic_vars(client: Any, agent: Agent) -> dict[str, Any]:
 async def resolve_run_variables(
     session: AsyncSession, agent: Agent, settings: Settings, magic: dict[str, Any], request_vars: dict[str, Any],
 ) -> dict[str, Any]:
-    """Layer the variable scopes weakest→strongest: magic facts < filesystem
-    host_vars < GPO-resolved scope vars (group < OU root→leaf < host) <
-    explicit request variables."""
-    try:
-        host_vars = load_host_vars(settings.plans_dir, agent.name) or {}
-    except Exception:  # noqa: BLE001
-        host_vars = {}
+    """Layer the variable scopes weakest→strongest: magic facts < GPO-resolved scope vars (group < OU
+    root→leaf < host) < explicit request variables.
+
+    THE FILESYSTEM LAYER IS GONE, and it sat in the middle of this very chain: `plans_dir/host_vars/
+    <hostname>.yaml` outranked the magic facts and lost to the database, so it decided variables with no UI,
+    no audit and no scope — while `scope_vars` answered the same question in the database, GPO-merged and
+    visible. Two sources for one fact is a logic error by this project's own rules, and this one also put a
+    HOSTNAME into a filename, which is how a customer's host ended up in git history.
+
+    Anything that lived in such a file belongs in a `scope_type: "host"` ScopeVars row, which is what the
+    UI writes and what an operator can see."""
     scope_v = await resolve_scope_vars(session, agent)
-    merged = {**magic, **host_vars, **scope_v, **(request_vars or {})}
+    merged = {**magic, **scope_v, **(request_vars or {})}
     # Decrypt any vault-encrypted secret values only now, at the last moment
     # before they're handed to the agent over the already-secure channel — they
     # were never plaintext at rest and are still masked in the UI/audit.

@@ -1,9 +1,9 @@
 [DEFAULT]
 # Enable debug logging for troubleshooting.
-debug = {{ debug | default(False) | ternary('True', 'False') }}
+debug = {{ debug | default(False) | ternary('True', 'False') | lower }}
 
 # Enable verbose (trace-level) logging.
-verbose = {{ verbose | default(False) | ternary('True', 'False') }}
+verbose = {{ verbose | default(False) | ternary('True', 'False') | lower }}
 
 # Path to the rootwrap configuration file used to elevate privileges.
 rootwrap_config = {{ rootwrap_config | default('/etc/neutron/rootwrap.conf') }}
@@ -36,10 +36,10 @@ dhcp_agents_per_network = {{ dhcp_agents_per_network | default(1) }}
 dhcp_driver = {{ dhcp_driver | default('neutron.agent.linux.dhcp.Dnsmasq') }}
 
 # Enable metadata service for isolated networks (requires NAT).
-enable_isolated_metadata = {{ enable_isolated_metadata | default(False) | ternary('True', 'False') }}
+enable_isolated_metadata = {{ enable_isolated_metadata | default(False) | ternary('True', 'False') | lower }}
 
 # Enable metadata network (required when using isolated metadata with NAT).
-enable_metadata_network = {{ enable_metadata_network | default(False) | ternary('True', 'False') }}
+enable_metadata_network = {{ enable_metadata_network | default(False) | ternary('True', 'False') | lower }}
 
 # Shared secret for authenticating metadata proxy requests (must match server config).
 metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret | default('') }}
@@ -83,13 +83,13 @@ vxlan_group = {{ vxlan_group | default('') }}
 dhcp_mtu = {{ dhcp_mtu | default(1500) }}
 
 # Enable per-network namespaces (required for overlapping IPs).
-use_namespaces = {{ use_namespaces | default(True) | ternary('True', 'False') }}
+use_namespaces = {{ use_namespaces | default(True) | ternary('True', 'False') | lower }}
 
 # [Deprecated] Number of DHCP agents; use `dhcp_agents_per_network` instead.
 dhcp_agents = {{ dhcp_agents | default(2) }}
 
 # Enable DHCP option 121 (classless static route) for improved routing.
-enable_dhcp_opt121 = {{ enable_dhcp_opt121 | default(False) | ternary('True', 'False') }}
+enable_dhcp_opt121 = {{ enable_dhcp_opt121 | default(False) | ternary('True', 'False') | lower }}
 
 # Hostname or identifier for this agent (must match nova/neutron config).
 {% if host | default('') | trim | length > 0 %}
@@ -118,7 +118,7 @@ username = {{ username | default('neutron') }}
 password = {{ password | default('') }}
 
 # Allow insecure TLS connections (disable certificate verification).
-insecure = {{ insecure | default(False) | ternary('True', 'False') }}
+insecure = {{ insecure | default(False) | ternary('True', 'False') | lower }}
 
 # Path to CA bundle for TLS verification (if insecure=false).
 {% if cafile | default('') | trim | length > 0 %}

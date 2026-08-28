@@ -1,0 +1,51 @@
+# RPM Package Manager Configuration Template
+# Configures rpm operations: macros, proxy, dbpath, root, query format, and doc handling.
+
+# Macros to define via --define. Each item is a flat map with 'name' and 'value'.
+# This corresponds to the --define option and macro definition mechanism.
+{% for macro in (macros | default([])) %}
+# Define macro {{ macro.name | default('') }}
+--define='{{ macro.name | default('') }} {{ macro.value | default('') }}'
+{% endfor %}
+
+# HTTP proxy host for rpm fetches
+# Use this to route package downloads through an HTTP proxy.
+{% if httpproxy | default('') %}
+--httpproxy='{{ httpproxy | default('') }}'
+{% endif %}
+
+# HTTP proxy port for rpm fetches
+# The port number of the HTTP proxy server.
+{% if httpport | default('') %}
+--httpport={{ httpport | default('') }}
+{% endif %}
+
+# Database path for rpm operations
+# Directory where rpm stores its internal database files.
+{% if dbpath | default('') %}
+--dbpath='{{ dbpath | default('') }}'
+{% endif %}
+
+# Root directory for rpm operations
+# Alternative root directory for rpm operations (e.g., for chroot or target systems).
+{% if root | default('') %}
+--root='{{ root | default('') }}'
+{% endif %}
+
+# Query output format (query format string)
+# Custom format string for rpm query outputs (--queryformat).
+{% if query_format | default('') %}
+--qf='{{ query_format | default('') }}'
+{% endif %}
+
+# Include documentation files by default during install/upgrade
+# If true, adds --includedocs flag.
+{% if include_docs | default(false) %}
+--includedocs
+{% endif %}
+
+# Exclude documentation files by default during install/upgrade
+# If true, adds --excludedocs flag.
+{% if exclude_docs | default(false) %}
+--excludedocs
+{% endif %}

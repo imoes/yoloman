@@ -42,14 +42,14 @@ allowed_subnets = [{{ (allowed_subnets | default(['10.0.0.0/8', '172.16.0.0/12',
 
 # If true, only accept load reports from IPs in `allowed_subnets`.
 # If false, reports from any IP are accepted (not recommended for production).
-strict_mode = {{ strict_mode | default(true) }}
+strict_mode = {{ strict_mode | default(true) | lower }}
 
 # ---------------------------------------------------------------------------
 # Logging & Status
 # ---------------------------------------------------------------------------
 
 # Enable verbose debug logging to stderr or syslog.
-log_debug = {{ log_debug | default(false) }}
+log_debug = {{ log_debug | default(false) | lower }}
 
 # Path to write the daemon’s PID file for process management.
 pidfile = "{{ pidfile | default('/run/lbcd.pid') }}"
@@ -99,7 +99,7 @@ backends = [
     port: {{ backend.port }},
     protocol: "{{ backend.protocol }}",
     weight: {{ backend.weight }},
-    enabled: {{ backend.enabled }}
+    enabled: {{ backend.enabled | lower }}
   }{% if not loop.last %},{% endif %}
 {% endfor %}]
 
@@ -109,7 +109,7 @@ backends = [
 
 # Proactive health check settings for backend services.
 health_check = {
-  enabled: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).enabled }},
+  enabled: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).enabled | lower }},
   timeout: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).timeout }},
   interval: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).interval }},
   max_failures: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).max_failures }}

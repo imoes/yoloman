@@ -1,0 +1,50 @@
+#
+# Copyright (C) 2005 Red Hat, Inc. All Rights Reserved.
+# Written by David Howells (dhowells@redhat.com)
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version
+# 2 of the License, or (at your option) any later version.
+#
+###############################################################################
+
+
+###############################################################################
+#
+# We can run programs or scripts
+# - Macro substitutions in arguments:
+#	%%...	%...
+#	%o	operation name
+#	%k	ID of key being operated upon
+#	%t	type of key being operated upon
+#	%d	description of key being operated upon
+#	%c	callout info
+#	%u	UID of requestor
+#	%g	GID of requestor
+#	%T	thread keyring of requestor (may be 0)
+#	%P	process keyring of requestor (may be 0)
+#	%S	session keyring of requestor (may be the user's default session)
+#
+################################################################################
+
+#OP	TYPE	DESCRIPTION	CALLOUT INFO	PROGRAM ARG1 ARG2 ARG3 ...
+#======	=======	===============	===============	===============================
+# Configuration for the DNS resolver helper program used by keyutils.
+# This directive specifies the full path to the helper binary that handles
+# 'create' operations for 'dns_resolver' type keys.
+create  dns_resolver *            {{ keyutils_dns_resolver_path | default('/sbin/key.dns_resolver') }} %k
+# Debug entry: negates a key request for 30 seconds in the user session.
+create  user    debug:*           negate            /bin/keyctl negate %k 30 %S
+# Debug entry: rejects a key request with callout info for 30 seconds in the user session.
+create  user    debug:*           rejected        /bin/keyctl reject %k 30 %c %S
+# Debug entry: rejects a key request with callout info for 30 seconds (expired).
+create  user    debug:*           expired         /bin/keyctl reject %k 30 %c %S
+# Debug entry: rejects a key request with callout info for 30 seconds (revoked).
+create  user    debug:*           revoked         /bin/keyctl reject %k 30 %c %S
+# Debug entry: redirects input to cat for loop debugging.
+create  user    debug:loop:*      *               |/bin/cat
+# Debug entry: uses a generic debug script for all other user key creations.
+create  user    debug:*           *               /usr/share/keyutils/request-key-debug.sh %k %d %c %S
+# Default action for negate operations: negate the key for 30 seconds in the session.
+negate  *       *                 *               /bin/keyctl negate %k 30 %S

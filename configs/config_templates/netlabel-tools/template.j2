@@ -1,0 +1,44 @@
+# ==============================================================================
+# NetLabel subsystem configuration
+# ==============================================================================
+# This file contains individual commands for the netlabelctl utility to be run
+# in order from the top of the file to the bottom.
+#
+# See the netlabel-config(8) and netlabelctl(8) manpages for more information.
+# https://github.com/netlabel
+# ==============================================================================
+
+##
+## Global unlabeled traffic mapping
+## --------------------------------------------------------------------------
+# Remove any existing default mapping before adding new rules to avoid conflicts.
+# map del default
+
+# Map unlabeled IPv4 traffic to the specified CIDR prefix using the 'unlbl' protocol.
+# netlabel_ipv4_unlabeled_cidr: IPv4 CIDR prefix for unlabeled traffic mapping.
+# map add default address:{{ netlabel_ipv4_unlabeled_cidr | default('0.0.0.0') }}/0 protocol:unlbl
+
+# Map unlabeled IPv6 traffic to the specified CIDR prefix using the 'unlbl' protocol.
+# netlabel_ipv6_unlabeled_cidr: IPv6 CIDR prefix for unlabeled traffic mapping.
+# map add default address:{{ netlabel_ipv6_unlabeled_cidr | default(':::0') }}/0 protocol:unlbl
+
+##
+## Loopback interface security labels (CIPSO)
+## --------------------------------------------------------------------------
+# Add a CIPSO DOI definition for the loopback interface.
+# netlabel_loopback_cipso_doi: CIPSO DOI value used for loopback interface security labels.
+# cipso add doi:{{ netlabel_loopback_cipso_doi | default(9999) }} local
+
+##
+## Finalized mapping rules
+## --------------------------------------------------------------------------
+# Re-apply the default mappings after configuring the loopback DOI.
+# This ensures the global unlabeled traffic is mapped correctly
+# and the loopback interface uses the specified CIPSO DOI.
+# map del default
+# map add default address:{{ netlabel_ipv4_unlabeled_cidr | default('0.0.0.0') }}/0 protocol:unlbl
+# map add default address:{{ netlabel_ipv6_unlabeled_cidr | default(':::0') }}/0 protocol:unlbl
+
+# Explicitly map the loopback address (127.0.0.1) to use CIPSO with the configured DOI.
+# This overrides the unlabeled mapping for the local host to enforce LSM security labels.
+# map add default address:127.0.0.1 protocol:cipso,{{ netlabel_loopback_cipso_doi | default(9999) }}

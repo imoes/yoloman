@@ -1,0 +1,137 @@
+#!/bin/sh
+# Wrapper script for k2pdfopt to enforce default options and pass custom arguments
+#
+# This script is generated from an Ansible template. It configures k2pdfopt (a tool to reflow PDFs
+# for e-book readers like Kindle) using a set of variables defined in the Ansible role's defaults
+# or host/group variables.
+#
+# Configuration variables:
+#   - default_options: Prepend these options to all commands.
+#   - input_file: Path to the source PDF or DJVU file.
+#   - output_name_format: Format string for the output file (e.g., '%s_k2opt').
+#   - device_profile: Target device profile (e.g., kindle_pw3).
+#   - output_dpi: Resolution in DPI for the output.
+#   - output_width: Width in pixels.
+#   - output_height: Height in pixels.
+#   - crop_margins: Margins to crop in inches (left,top,right,bottom).
+#   - vertical_break_threshold: Threshold for vertical page breaks.
+#   - num_columns: Number of columns for text layout.
+#   - text_wrapping: Enable (-wrap) or disable (-wrap-) text wrapping.
+#   - native_output: Enable (-n) or disable (-n-) native PDF output.
+#   - ocr_enabled: Enable (-ocr) or disable (-ocr-) OCR processing.
+#   - ocr_language: Language code for OCR (e.g., 'eng').
+
+# Default options derived from man page defaults
+# These are prepended to ensure consistent base behavior.
+# List of default command-line options for k2pdfopt. These are prepended to all commands.
+DEFAULT_OPTS="{{ (default_options | default(['-ac 0.1', '-as -1', '-c-', '-d', '-gs-', '-ls-', '-m 0', '-om 0.02', '-rt auto', '-s', '-t', '-toc', '-ui-'])) | join(' ') }}"
+
+# Input file path
+# The source document to be processed by k2pdfopt.
+# Path to the source PDF or DJVU file to be processed.
+INPUT_FILE="{{ input_file | default('/var/lib/k2pdfopt/input/document.pdf') }}"
+
+# Output file name format (see -o option in man page)
+# %s is replaced by source filename minus extension.
+# Output file name format string for the -o option. %s is replaced by the source filename.
+OUTPUT_NAME_FMT="{{ output_name_format | default('%s_k2opt') }}"
+
+# Device profile (e.g., kindle2, kindle_pw3, etc. see -dev option)
+# Determines default DPI and dimensions for the target e-reader.
+# Device profile for the -dev option (e.g., kindle2, kindle_pw3, kobo_clara).
+DEVICE_PROFILE="{{ device_profile | default('kindle_pw3') }}"
+
+# Output DPI (see -odpi option)
+# Controls the resolution of the output document.
+# Output DPI for the -odpi option. Default is 167.
+OUTPUT_DPI="{{ output_dpi | default(167) }}"
+
+# Output width in pixels (see -w option)
+# Often overridden by device profile, but this allows explicit override.
+# Output width in pixels for the -w option. Default is 560, but often overridden by device profile.
+OUTPUT_WIDTH="{{ output_width | default(1072) }}"
+
+# Output height in pixels (see -h option)
+# Often overridden by device profile, but this allows explicit override.
+# Output height in pixels for the -h option. Default is 735, but often overridden by device profile.
+OUTPUT_HEIGHT="{{ output_height | default(1448) }}"
+
+# Crop margins in inches (see -m option, format: left,top,right,bottom)
+# Removes empty space from the page edges.
+# Crop margins in inches for the -m option, formatted as left,top,right,bottom.
+CROP_MARGINS="{{ crop_margins | default('0.25,0.25,0.25,0.25') }}"
+
+# Vertical break threshold (see -vb option)
+# Used to determine where to split long lines or elements vertically.
+# Vertical break threshold for the -vb option. Default is 1.75.
+VERTICAL_BREAK_THRESHOLD="{{ vertical_break_threshold | default(1.75) }}"
+
+# Number of columns (see -col option)
+# Sets the column layout for the reflowed text.
+# Number of columns for the -col option. Default is 2.
+NUM_COLUMNS="{{ num_columns | default(2) }}"
+
+# Text wrapping enabled (see -wrap option)
+# If true, add -wrap; if false, add -wrap-
+# Enable text wrapping. Corresponds to -wrap if true, -wrap- if false.
+{% if text_wrapping | default(true) | bool %}
+TEXT_WRAP_OPT="-wrap"
+{% else %}
+TEXT_WRAP_OPT="-wrap-"
+{% endif %}
+
+# Native PDF output enabled (see -n option)
+# If true, add -n; if false, add -n-
+# Note: Disables OCR and wrapping when enabled.
+# Enable native PDF output. Corresponds to -n if true, -n- if false.
+{% if native_output | default(false) | bool %}
+NATIVE_OPT="-n"
+{% else %}
+NATIVE_OPT="-n-"
+{% endif %}
+
+# OCR enabled (see -ocr option)
+# If true, add -ocr; if false, add -ocr-
+# Note: Disables native PDF output when enabled.
+# Enable OCR. Corresponds to -ocr if true, -ocr- if false.
+{% if ocr_enabled | default(false) | bool %}
+OCR_OPT="-ocr"
+{% else %}
+OCR_OPT="-ocr-"
+{% endif %}
+
+# OCR language (see -ocrlang option)
+# Language code for Tesseract OCR (e.g., eng, fra, chi_sim).
+# OCR language for the -ocrlang option. e.g., eng, fra, chi_sim.
+OCR_LANGUAGE="{{ ocr_language | default('eng') }}"
+
+# Output file suffix/name format override
+# Combines output_name_fmt with .pdf extension if not already present
+if [[ ! "${OUTPUT_NAME_FMT}" == *"."* ]]; then
+    FINAL_OUTPUT_NAME="${OUTPUT_NAME_FMT}.pdf"
+else
+    FINAL_OUTPUT_NAME="${OUTPUT_NAME_FMT}"
+fi
+
+# Construct the full command line
+# Priority: Explicit args > Environment K2PDFOPT > Defaults
+# Here we explicitly set the common options to ensure consistency
+CMD_LINE="${DEFAULT_OPTS} ${TEXT_WRAP_OPT} ${NATIVE_OPT} ${OCR_OPT}"
+
+# Add specific overrides
+CMD_LINE="${CMD_LINE} -dev ${DEVICE_PROFILE}"
+CMD_LINE="${CMD_LINE} -odpi ${OUTPUT_DPI}"
+CMD_LINE="${CMD_LINE} -w ${OUTPUT_WIDTH}"
+CMD_LINE="${CMD_LINE} -h ${OUTPUT_HEIGHT}"
+CMD_LINE="${CMD_LINE} -m ${CROP_MARGINS}"
+CMD_LINE="${CMD_LINE} -vb ${VERTICAL_BREAK_THRESHOLD}"
+CMD_LINE="${CMD_LINE} -col ${NUM_COLUMNS}"
+CMD_LINE="${CMD_LINE} -o ${FINAL_OUTPUT_NAME}"
+
+# Add OCR language if OCR is enabled
+{% if ocr_enabled | default(false) | bool %}
+CMD_LINE="${CMD_LINE} -ocrlang ${OCR_LANGUAGE}"
+{% endif %}
+
+# Execute k2pdfopt
+exec k2pdfopt ${CMD_LINE} ${INPUT_FILE}

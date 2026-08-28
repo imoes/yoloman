@@ -1,0 +1,115 @@
+# ============================================================================
+# pinentry-gnome3 configuration template
+# ============================================================================
+#
+# This file configures pinentry-gnome3, a GNOME-based pinentry program used by
+# GnuPG (gpg-agent) to securely prompt for passphrases.
+#
+# NOTE: This configuration is typically consumed by pinentry-gnome3 itself when
+# invoked. If you are configuring an application that USES pinentry (like gpg),
+# those settings belong in gpg-agent.conf or the application's config, not here.
+#
+# The directives below correspond to command-line flags for pinentry-gnome3.
+# ============================================================================
+
+# --- Boolean Flags ---
+
+# Enable debugging mode. Warning: May reveal sensitive information like entered pass phrases.
+# Default: False
+DEBUG={{ (values | default({})).debug | default(false) | lower }}
+
+# Ask for timeouts and insurance. Not fully supported in all implementations.
+# Default: False
+ENHANCED={{ (values | default({})).enhanced | default(false) | lower }}
+
+# Grab keyboard only when window is focused. Use for debugging to avoid locking X session.
+# Default: False
+NO_GLOBAL_GRAB={{ (values | default({})).no_global_grab | default(false) | lower }}
+
+# --- String/Identifier Parameters ---
+
+# Window ID of the parent window for positioning the pinentry dialog.
+# Leave empty to let pinentry decide default positioning.
+# Default: '' (empty)
+PARENT_WID="{{ (values | default({})).parent_wid | default('') }}"
+
+# X display string to connect to the X server.
+# Example values: ':0', 'localhost:10.0', 'unix:0'.
+# Default: '' (empty, use default)
+DISPLAY="{{ (values | default({})).display | default('') }}"
+
+# TTY name for localization/terminal information.
+# Useful if falling back to text-mode pinentry or for debugging terminal issues.
+# Default: '' (empty)
+TTYNAME="{{ (values | default({})).ttyname | default('') }}"
+
+# TTY type identifier for localization.
+# Example: 'linux', 'xterm', 'rxvt'.
+# Default: '' (empty)
+TTYTYPE="{{ (values | default({})).ttytype | default('') }}"
+
+# LC_CTYPE locale value for character classification.
+# Controls how characters are categorized (letters, digits, etc.).
+# Default: '' (empty, use system default)
+LC_CTYPE="{{ (values | default({})).lc_ctype | default('') }}"
+
+# LC_MESSAGES locale value for message translation.
+# Controls the language of UI prompts and error messages.
+# Default: '' (empty, use system default)
+LC_MESSAGES="{{ (values | default({})).lc_messages | default('') }}"
+
+# ============================================================================
+# Command Construction
+# ============================================================================
+# The following block constructs the actual command line invocation.
+# It starts with the base program and appends flags based on the above settings.
+
+{% set cmd_base = "pinentry-gnome3" %}
+{% set cmd_parts = [cmd_base] %}
+
+# Append boolean flags if enabled
+{% if (values | default({})).debug | default(false) %}
+{% set _ = cmd_parts.append('--debug') %}
+{% endif %}
+
+{% if (values | default({})).enhanced | default(false) %}
+{% set _ = cmd_parts.append('--enhanced') %}
+{% endif %}
+
+{% if (values | default({})).no_global_grab | default(false) %}
+{% set _ = cmd_parts.append('--no-global-grab') %}
+{% endif %}
+
+# Append string arguments if they are defined and not empty
+{% if (values | default({})).parent_wid | default('') %}
+{% set _ = cmd_parts.append('--parent-wid') %}
+{% set _ = cmd_parts.append((values | default({})).parent_wid | default('')) %}
+{% endif %}
+
+{% if (values | default({})).display | default('') %}
+{% set _ = cmd_parts.append('--display') %}
+{% set _ = cmd_parts.append((values | default({})).display | default('')) %}
+{% endif %}
+
+{% if (values | default({})).ttyname | default('') %}
+{% set _ = cmd_parts.append('--ttyname') %}
+{% set _ = cmd_parts.append((values | default({})).ttyname | default('')) %}
+{% endif %}
+
+{% if (values | default({})).ttytype | default('') %}
+{% set _ = cmd_parts.append('--ttytype') %}
+{% set _ = cmd_parts.append((values | default({})).ttytype | default('')) %}
+{% endif %}
+
+{% if (values | default({})).lc_ctype | default('') %}
+{% set _ = cmd_parts.append('--lc-ctype') %}
+{% set _ = cmd_parts.append((values | default({})).lc_ctype | default('')) %}
+{% endif %}
+
+{% if (values | default({})).lc_messages | default('') %}
+{% set _ = cmd_parts.append('--lc-messages') %}
+{% set _ = cmd_parts.append((values | default({})).lc_messages | default('')) %}
+{% endif %}
+
+# Render the final assembled command
+{{ cmd_parts | join(' ') }}

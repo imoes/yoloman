@@ -1,26 +1,49 @@
-# nfpm package definition for agentic-mcpd — builds both .deb and .rpm from
+# nfpm package definition for the yoloman node agent — builds both .deb and .rpm from
 # this single config (nfpm package -f packaging/nfpm.yaml -p rpm|deb -t <out>).
 # See docs/plan.md's packaging section for the build/install-test workflow.
-name: agentic-mcp
+# Package renamed agentic-mcp → yoloman-agent. The binary, systemd unit and all
+# on-disk paths stay agentic-mcp(d) (renaming those would break every installed
+# host); only the *package* identity changes. replaces/conflicts/provides make
+# the new package cleanly supersede an already-installed agentic-mcp on upgrade.
+name: yoloman-agent
 arch: amd64
 platform: linux
 
 # The daemon is built with CGO for PAM login → dynamically links libpam
 # (+ glibc). libpam is a base package everywhere, declared so dpkg/rpm enforce it.
+#
+# libpam-modules is declared as well, and not only for pam_unix.so: it ships
+# unix_chkpwd, the setuid helper a CGO-FREE build of this daemon uses to check
+# passwords when no libpam is linked at all (internal/authz/chkpwd.go). Both
+# builds install from this package, so the dependency belongs here rather than
+# in the one that happens to need it. On EL the `pam` package contains both.
 overrides:
   deb:
     depends:
       - libpam0g
+      - libpam-modules
+    replaces:
+      - agentic-mcp
+    conflicts:
+      - agentic-mcp
+    provides:
+      - agentic-mcp
   rpm:
     depends:
       - pam
+    replaces:
+      - agentic-mcp
+    provides:
+      - agentic-mcp
 version: "${VERSION}"
 section: admin
 priority: optional
 maintainer: "mutkluge"
-homepage: "https://github.com/mutkluge/agentic-mcp"
+homepage: "https://github.com/imoes/yoloman"
 description: |
-  YOLO-MANager (agentic-mcpd) — an AI-native Linux node agent exposing
+  BETA (pre-1.0): the REST/MCP surface and the recorded config formats can
+  still change between versions.
+  YOLO-MANager (yoloman-agent) — an AI-native Linux node agent exposing
   system state and management over MCP (Streamable HTTP) and REST,
   reimplementing ansible.builtin modules natively in Go. The daemon is
   nicknamed "Duppy".
@@ -28,12 +51,19 @@ license: MIT
 
 contents:
   - src: ../agentic-mcpd
-    dst: /usr/bin/agentic-mcpd
+    dst: /usr/bin/yoloman-agent
     file_info:
       mode: 0755
 
-  - src: ./agentic-mcp.service
-    dst: /usr/lib/systemd/system/agentic-mcp.service
+  # THE OLD NAME STAYS, as a symlink. Bossman's self-update and SSH deploy, the PXE image and every runbook
+  # written so far invoke /usr/bin/agentic-mcpd; removing it would break a running fleet the moment it
+  # upgraded. The package therefore renames what it PRESENTS and keeps what it PROMISED.
+  - src: /usr/bin/yoloman-agent
+    dst: /usr/bin/agentic-mcpd
+    type: symlink
+
+  - src: ./yoloman-agent.service
+    dst: /usr/lib/systemd/system/yoloman-agent.service
     file_info:
       mode: 0644
 
@@ -73,10 +103,81 @@ contents:
     dst: /usr/share/agentic-mcp/configs/config_directives.json
     file_info:
       mode: 0644
-  # The whole config-template tree (schema.json + template per role) — enum
-  # dropdown settings live in each schema.json.
-  - src: ../configs/config_templates/**/*
+  # The RECORDED answers the standalone field editor serves (config-fields,
+  # config-templates/index). Bossman computes these from the rules; the agent
+  # must not, or one rule would live in two languages — so
+  # bossman/scripts/export_agent_config_projection.py records them and
+  # internal/server/management_config_fields.go looks them up. Agreement is
+  # measured by scripts/diff-agent-config-fields.sh, not assumed.
+  - src: ../configs/config_template_index.json
+    dst: /usr/share/agentic-mcp/configs/config_template_index.json
+    file_info:
+      mode: 0644
+  - src: ../configs/config_directive_keys.json
+    dst: /usr/share/agentic-mcp/configs/config_directive_keys.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_withheld.json
+    dst: /usr/share/agentic-mcp/configs/template_withheld.json
+    file_info:
+      mode: 0644
+  # The three honesty records the editor quotes before Apply: files that declare
+  # themselves machine-written, variables no field offers, and calls the renderer
+  # cannot execute. Small, and each one is a warning the operator would otherwise
+  # only get as a failed write.
+  - src: ../configs/config_generated.json
+    dst: /usr/share/agentic-mcp/configs/config_generated.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_unsettable.json
+    dst: /usr/share/agentic-mcp/configs/template_unsettable.json
+    file_info:
+      mode: 0644
+  - src: ../configs/template_renderer_gaps.json
+    dst: /usr/share/agentic-mcp/configs/template_renderer_gaps.json
+    file_info:
+      mode: 0644
+  # Whether the path EXISTS as a file in the package that claims it, measured by extracting the real .deb.
+  # 2248 registry entries have a path that is exactly their package's own name and the measured ones are
+  # overwhelmingly absent — offered until now as config files to edit.
+  - src: ../configs/config_path_verdicts.json
+    dst: /usr/share/agentic-mcp/configs/config_path_verdicts.json
+    file_info:
+      mode: 0644
+  # What happened when a claimed codec was TESTED against the shipped file — so "nobody looked" and "looked,
+  # and the file had nothing to say" are not the same sentence in the editor.
+  - src: ../configs/codec_probe_verdicts.json
+    dst: /usr/share/agentic-mcp/configs/codec_probe_verdicts.json
+    file_info:
+      mode: 0644
+  # Files no package owns because the SYSTEM creates them (/etc/hostname, /etc/fstab, /etc/passwd). They are
+  # "absent" from every archive by nature, so this is the guard that stops the path measurement from
+  # withdrawing the editor for the machine's own hostname.
+  - src: ../configs/config_unowned_paths.json
+    dst: /usr/share/agentic-mcp/configs/config_unowned_paths.json
+    file_info:
+      mode: 0644
+  # The config templates a surface on THIS host can reach (schema.json + template
+  # per role; the enum dropdown settings live in each schema.json).
+  #
+  # NOT the whole tree. All 5474 directories used to ship — 36 MB of content in
+  # ~124 MB of blocks and ~22 000 files on every managed host — and 4424 of them
+  # are named by nothing: no path in config_template_index.json binds them and no
+  # package_catalog.json entry references them, and those are the only two ways
+  # the standalone console can ask for one. The Bossman-managed write path never
+  # reads this tree at all — a template resource carries its Jinja2 source inline
+  # (internal/state/state.go:43). scripts/stage-agent-templates.py computes the
+  # reachable set, ASSERTS closure (a bound path whose body is missing would be
+  # offered and then fail) and records what it withheld in the manifest below.
+  - src: ../deploy-artifacts/agent-templates/**/*
     dst: /usr/share/agentic-mcp/configs/config_templates
+    file_info:
+      mode: 0644
+  # How many were shipped, how many withheld, and by which criterion — quoted by
+  # GET /api/v1/config-templates, so an operator comparing the agent's list with
+  # Bossman's finds the difference stated instead of discovering it.
+  - src: ../configs/config_templates_manifest.json
+    dst: /usr/share/agentic-mcp/configs/config_templates_manifest.json
     file_info:
       mode: 0644
 

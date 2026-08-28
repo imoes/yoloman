@@ -1,0 +1,44 @@
+# Shepherd configuration file
+# Generated for GNU Shepherd service manager
+#
+# This file defines the runtime behavior of the Shepherd service manager.
+# It controls logging, socket communication, security modes, and process identification.
+
+# Path to the Unix socket file used for sending commands to the Shepherd service manager.
+# Corresponds to: --socket=FILE
+socket: {{ socket_path | default('/var/run/shepherd.sock') }}
+
+# Path to the main configuration file containing service definitions and setup scripts.
+# Shepherd reads this file to discover and manage services.
+# Corresponds to: --config=FILE
+config: {{ config_file_path | default('/etc/shepherd/shepherd.conf') }}
+
+# Path to the file where Shepherd logs its actions and status changes.
+# Corresponds to: --logfile=FILE
+logfile: {{ logfile_path | default('/var/log/shepherd.log') }}
+
+# Path to the file where the PID of the running Shepherd process is written.
+# Used by init systems or supervisors to track the process.
+# Corresponds to: --pid=FILE
+pidfile: {{ pidfile_path | default('/var/run/shepherd.pid') }}
+
+# Whether to log to the system syslog facility instead of or in addition to the logfile.
+# When true, logs are sent to the syslog socket defined below.
+# Corresponds to: --syslog[=FILE]
+syslog_enabled: {{ syslog_enabled | default(false) | lower }}
+
+# Path to the syslog socket/device when syslog logging is enabled.
+# Typically /dev/log or /var/run/syslog depending on the OS.
+# Corresponds to: --syslog=FILE
+syslog_socket: {{ syslog_socket_path | default('/dev/log') }}
+
+# If true, Shepherd will not ensure that the setup is secure.
+# This bypasses permission checks on configuration files and other hardening measures.
+# Use with extreme caution; intended primarily for development or chrooted environments.
+# Corresponds to: --insecure
+insecure_mode: {{ insecure_mode | default(false) | lower }}
+
+# If true, Shepherd will not produce output to stdout.
+# Useful for daemonized runs where stdout is not monitored.
+# Corresponds to: --silent, --quiet
+silent_mode: {{ silent_mode | default(false) | lower }}

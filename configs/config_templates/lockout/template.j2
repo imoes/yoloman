@@ -1,0 +1,8 @@
+# lockout cron job: check every minute whether it's time to unlock
+# check_interval: The minute interval at which lockout checks for unlocking.
+*/{{ check_interval | default('1') }} * * * *		root	/usr/bin/lockout unlock >/dev/null 2>&1
+
+
+# lockout cron job: ensure root password is restored after reboot
+# Note: check_interval is not used here, but the variable is available if needed.
+@reboot	        root	/usr/bin/lockout unlock force >/dev/null 2>&1

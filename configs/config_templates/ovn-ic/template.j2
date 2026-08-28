@@ -1,0 +1,84 @@
+# OVN Interconnection Controller Configuration
+# This file configures the runtime options for the ovn-ic daemon.
+# See man page ovn-ic(8) for details.
+
+# --ovnnb-db=database
+# The OVSDB database containing the OVN Northbound Database.
+OVN_IC_NB_DB="{{ values.ovnnb_db | default('unix:/ovnnb_db.sock') }}"
+
+# --ovnsb-db=database
+# The OVSDB database containing the OVN Southbound Database.
+OVN_IC_SB_DB="{{ values.ovnsb_db | default('unix:/ovnsb_db.sock') }}"
+
+# --ic-nb-db=database
+# The OVSDB database containing the OVN Interconnection Northbound Database.
+IC_NB_DB="{{ values.ic_nb_db | default('unix:/ovn_ic_nb_db.sock') }}"
+
+# --ic-sb-db=database
+# The OVSDB database containing the OVN Interconnection Southbound Database.
+IC_SB_DB="{{ values.ic_sb_db | default('unix:/ovn_ic_sb_db.sock') }}"
+
+# --pidfile[=pidfile]
+# Path to the PID file. If not specified or relative, created in run directory.
+PIDFILE="{{ values.pidfile | default('/run/ovn/ovn-ic.pid') }}"
+
+# --detach
+# Run as a background process.
+DETACH="{{ values.detach }}"
+
+# --overwrite-pidfile
+# Overwrite existing locked pidfile.
+OVERWRITE_PIDFILE="{{ values.overwrite_pidfile }}"
+
+# --no-chdir
+# Do not change working directory to root upon detach.
+NO_CHDIR="{{ values.no_chdir }}"
+
+# --monitor
+# Create a monitor process to restart on fatal signals.
+MONITOR="{{ values.monitor }}"
+
+# --no-self-confinement
+# Disable self-imposed file access confinement.
+NO_SELF_CONFINEMENT="{{ values.no_self_confinement }}"
+
+# --user=user:group
+# Run as specified user:group.
+USER_GROUP="{{ values.user_group | default('') }}"
+
+# --unixctl=socket
+# Control socket path for runtime management commands.
+UNIXCTL="{{ values.unixctl | default('/run/ovn/ovn-ic.ctl') }}"
+
+# Logging Configuration
+
+# -v[spec] / --verbose=[spec]
+# Log level specification (e.g., 'dbg', 'emissary:console:dbg').
+# If empty, defaults to 'info' or environment variable setting.
+LOG_SPEC="{{ values.log_spec | default('') }}"
+
+# --log-file[=file]
+# Enable logging to a specific file.
+LOG_FILE="{{ values.log_file | default('/var/log/ovn/ovn-ic.log') }}"
+
+# --syslog-target=host:port
+# Send syslog messages to a specific UDP host:port.
+SYSLOG_TARGET="{{ values.syslog_target | default('') }}"
+
+# --syslog-method=method
+# Method for sending syslog (libc, unix:file, udp:ip:port, null).
+SYSLOG_METHOD="{{ values.syslog_method | default('libc') }}"
+
+# PKI Configuration
+
+# --private-key=privkey.pem
+# PEM file containing the private key for SSL/TLS.
+PRIVATE_KEY="{{ values.private_key | default('') }}"
+
+# --certificate=cert.pem
+# PEM file containing the certificate for SSL/TLS.
+CERTIFICATE="{{ values.certificate | default('') }}"
+
+# --ca-cert=cacert.pem or none
+# PEM file containing the CA certificate, or 'none' to disable verification.
+CA_CERT="{{ values.ca_cert | default('') }}"

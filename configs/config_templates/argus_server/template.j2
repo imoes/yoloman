@@ -19,7 +19,7 @@ log_level: {{ log_level | default('info') }}
 log_dir: {{ log_dir | default('/var/log/argus') }}
 
 # [Security] Whether to enable TLS encryption for client connections.
-ssl_enabled: {{ ssl_enabled | default(false) }}
+ssl_enabled: {{ ssl_enabled | default(false) | lower }}
 
 {% if (ssl_enabled | default(false)) %}
 # [Security] Path to the SSL certificate file (PEM format).
@@ -108,7 +108,7 @@ uri: {{ (db_cfg.uri | default('mongodb://localhost:27017/argus')) }}
 {% for rule in (audit_rules | default([])) %}
 # Rule: {{ rule.name | default('unnamed') }} — {{ rule.description | default('No description provided') }}
 [rule:{{ rule.name | default('unnamed') }}]
-enabled: {{ rule.enabled | default(true) }}
+enabled: {{ rule.enabled | default(true) | lower }}
 protocol: {{ rule.protocol | default('tcp') }}
 
 {% if rule.protocol | default('tcp') == 'tcp' %}
@@ -134,7 +134,7 @@ log_to: {{ rule.log_to | default('syslog') }}
 # ==============================================================================
 [alerts]
 # [Alerts] Whether to send audit alerts via email.
-email_enabled: {{ (alerts | default({})).email_enabled | default(false) }}
+email_enabled: {{ (alerts | default({})).email_enabled | default(false) | lower }}
 
 {% if ((alerts | default({})).email_enabled | default(false)) %}
 # [Alerts] SMTP server hostname for sending alerts.
@@ -151,7 +151,7 @@ to_addrs: {{ (alerts.to_addrs | default([])) | join(', ') }}
 {% endif %}
 
 # [Alerts] Whether to send audit alerts to HTTP(S) webhooks.
-webhook_enabled: {{ (alerts | default({})).webhook_enabled | default(false) }}
+webhook_enabled: {{ (alerts | default({})).webhook_enabled | default(false) | lower }}
 
 {% if ((alerts | default({})).webhook_enabled | default(false)) %}
 {% for wh in (alerts.webhooks | default([])) %}

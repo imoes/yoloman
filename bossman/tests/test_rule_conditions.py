@@ -36,8 +36,8 @@ def test_exact_host_name_is_not_a_prefix_match():
 
 
 def test_regex_condition():
-    cond = {"host_name": [{"$regex": "^vpp02"}]}
-    assert matches(cond, _ctx(host_name="vpp0221.example.com"))
+    cond = {"host_name": [{"$regex": "^host1"}]}
+    assert matches(cond, _ctx(host_name="host1.example.internal"))
     assert not matches(cond, _ctx(host_name="docker-test"))
 
 

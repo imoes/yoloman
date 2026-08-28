@@ -1,0 +1,98 @@
+# ==============================================================================
+# Qreator CLI Configuration Template
+# ==============================================================================
+# This file serves as the default configuration for the `qreator` utility,
+# a command-line tool for generating QR codes.
+#
+# Each section below corresponds to a specific QR code generation mode supported
+# by qreator. Only one mode should typically be active at a time, depending on
+# the desired QR code type (URL, WiFi, VCard, etc.).
+#
+# Variables are sourced from the Ansible inventory/vars and fallback to schema
+# defaults if undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Location QR Code
+# ------------------------------------------------------------------------------
+# Address string for -l/--location parameter.
+# Corresponds to command-line flag: -l, --location <address>
+# Sets the geographic location data to be encoded in the QR code.
+# Default: Empty string (no location QR code generated)
+location_address={{ location_address | default('') }}
+
+# ------------------------------------------------------------------------------
+# Phone Number QR Code
+# ------------------------------------------------------------------------------
+# Phone number string for -p/--phone parameter.
+# Corresponds to command-line flag: -p, --phone <phone_number>
+# Sets the phone number to be encoded in the QR code (tel: URI).
+# Default: Empty string (no phone QR code generated)
+phone_number={{ phone_number | default('') }}
+
+# ------------------------------------------------------------------------------
+# Plain Text QR Code
+# ------------------------------------------------------------------------------
+# Plain text content for -t/--text parameter.
+# Corresponds to command-line flag: -t, --text <text>
+# Sets arbitrary plain text content to be encoded in the QR code.
+# Default: Empty string (no text QR code generated)
+text_content={{ text_content | default('') }}
+
+# ------------------------------------------------------------------------------
+# URL QR Code
+# ------------------------------------------------------------------------------
+# URL string for -u/--url parameter.
+# Corresponds to command-line flag: -u, --url <url>
+# Sets the URL to be encoded in the QR code (http: or https: URI).
+# Default: Empty string (no URL QR code generated)
+url_address={{ url_address | default('') }}
+
+# ------------------------------------------------------------------------------
+# Business Card (VCard) QR Code
+# ------------------------------------------------------------------------------
+# VCard (VCF) formatted string for -b/--businesscard parameter.
+# Corresponds to command-line flag: -b, --businesscard
+# Contains raw VCF (vCard) formatted string data.
+# Note: qreator expects a valid VCF block. For security, ensure sensitive
+# data is not exposed if this file is world-readable.
+# Default: Empty string (no VCard QR code generated)
+businesscard_vcf={{ businesscard_vcf | default('') }}
+
+# ------------------------------------------------------------------------------
+# WiFi QR Code - SSID
+# ------------------------------------------------------------------------------
+# WiFi SSID for -w/--wifi parameter.
+# Corresponds to command-line flag: -w, --wifi <SSID>
+# Sets the WiFi network name (SSID) for the generated QR code.
+# Default: Empty string (no WiFi QR code generated)
+wifi_ssid={{ wifi_ssid | default('') }}
+
+# ------------------------------------------------------------------------------
+# WiFi QR Code - Security Type
+# ------------------------------------------------------------------------------
+# WiFi security type (WEP, WPA, WPA2) for -w/--wifi parameter.
+# Corresponds to command-line flag: -w, --wifi <SSID> (with security type)
+# Specifies the security protocol: 'nopass', 'WEP', 'WPA', or 'WPA2'.
+# Default: 'nopass'
+wifi_security={{ wifi_security | default('nopass') }}
+
+# ------------------------------------------------------------------------------
+# WiFi QR Code - Password
+# ------------------------------------------------------------------------------
+# WiFi password for -w/--wifi parameter.
+# Corresponds to command-line flag: -w, --wifi <SSID> (with password)
+# Sets the WiFi password.
+# Note: In production environments, consider using Ansible Vault or a secrets
+# manager for this field, as it is stored in plaintext here.
+# Default: Empty string (no password)
+wifi_password={{ wifi_password | default('') }}
+
+# ------------------------------------------------------------------------------
+# Global Verbose/Debug Flag
+# ------------------------------------------------------------------------------
+# Enable verbose/debug output (-v/--verbose).
+# Corresponds to command-line flag: -v, --verbose
+# If true, enables verbose or debug output from the qreator tool.
+# Default: false
+verbose={{ verbose | default(false) | lower }}

@@ -1,0 +1,51 @@
+# /etc/cron.d/{{ package_name | default('systraq') }} - cronjob for {{ package_name | default('systraq') }} jobs
+#
+# This PATH is useful if you've used a non-standard bindir during ./configure
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+#
+# m h dom mon dow user command
+#
+# run filetraq every hour at :30.
+#
+# Description: Executes the filetraq command hourly (at minute 30) if its
+# configuration file is readable and the binary exists. Uses the system user
+# defined in the package schema.
+#
+# Variables:
+#   - config_dir: Directory containing filetraq.conf (default: '/etc/systraq')
+#   - data_dir: Directory for filetraq runtime data and backups (default: '/var/lib/systraq')
+#   - system_user: System user account to run the job as (default: 'debian-systraq')
+30 * * * *   {{ system_user | default('debian-systraq') }}  [ -r {{ config_dir | default('/etc/systraq') }}/filetraq.conf ] && command -v filetraq >/dev/null && filetraq {{ config_dir | default('/etc/systraq') }}/filetraq.conf {{ data_dir | default('/var/lib/systraq') }}/filetraq
+#
+# clean up filetraq backup files older than two months
+#
+# Description: Runs monthly to remove filetraq backup files (pattern *.??.??__??.??)
+# that are older than 60 days. Ensures data_dir exists before attempting find.
+#
+# Variables:
+#   - data_dir: Directory for filetraq runtime data and backups (default: '/var/lib/systraq')
+#   - system_user: System user account to run the job as (default: 'debian-systraq')
+@monthly     {{ system_user | default('debian-systraq') }}  [ -d {{ data_dir | default('/var/lib/systraq') }}/filetraq ] && find {{ data_dir | default('/var/lib/systraq') }}/filetraq -type f -name "*.??.??__??.??" -ctime +60 -exec rm \{} \;
+#
+# sent the weekly {{ package_name | default('systraq') }} email
+#
+# Description: Runs weekly to send a status email via mailx. Checks for the
+# existence of the {{ package_name | default('systraq') }} binary. The output is piped to mailx with
+# a subject line including the package name, hostname, and date.
+#
+# Variables:
+#   - package_name: The name of the package/service (default: 'systraq')
+#   - system_user: System user account to run the job as (default: 'debian-systraq')
+@weekly       {{ system_user | default('debian-systraq') }}  command -v {{ package_name | default('systraq') }} >/dev/null && {{ package_name | default('systraq') }} | mailx -s "[{{ package_name | default('systraq') }}] `hostname` `date +\%Y\%m\%d`" {{ system_user | default('debian-systraq') }}
+#
+# update the {{ package_name | default('systraq') }} status files
+#
+# Description: Runs hourly to update system status snapshots.
+# - The first line runs as the service's system user.
+# - The second line runs as root to capture root-level status if available.
+#
+# Variables:
+#   - system_user: System user account to run the job as (default: 'debian-systraq')
+0 * * * *    {{ system_user | default('debian-systraq') }}  command -v st_snapshot.hourly >/dev/null && st_snapshot.hourly
+0 * * * *    root            command -v st_snapshot.hourly >/dev/null && ST_MODE=root st_snapshot.hourly
+#

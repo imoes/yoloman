@@ -1,0 +1,140 @@
+# XStow configuration file
+# This template generates a valid `xstow` configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# explaining its purpose, default value, and corresponding command-line flag.
+
+# =============================================================================
+# [global] Section
+# Global settings applying to all stow operations unless overridden per-package.
+# =============================================================================
+[global]
+
+# Debug level. 0 is normal, higher values increase detail. Maps to -dl.
+# Type: Integer. Range: 0-3.
+debug_level = {{ debug_level | default(0) }}
+
+# Filter debug messages by module (ALL|ARG|MAIN|TREE|CPPDIR). Maps to -dm.
+# Type: String.
+debug_module = {{ debug_module | default('ALL') }}
+
+# Disable curses UI. Useful for non-interactive scripts. Maps to XSTOW_USE_CURSES=0.
+# Type: Boolean. When true, xstow runs in batch mode without terminal UI.
+no_curses = {{ no_curses | default(false) | lower }}
+
+# Create symlinks with absolute paths. Breaks Stow compatibility. Maps to -ap.
+# Type: Boolean. Use with caution; most downstream tools expect relative symlinks.
+use_absolute_paths = {{ use_absolute_paths | default(false) | lower }}
+
+# List of link paths pointing to directories to ignore. Maps to -tr.
+# Items are strings. Comma-separated in config, but defined as list here.
+traversable_links = {{ traversable_links | default([]) | join(',') }}
+
+# Add traversable link targets to keep targets. Maps to -tkt.
+# Type: Boolean. Prevents deletion of directories that are targets of traversable links.
+tr_keep_targets = {{ tr_keep_targets | default(false) | lower }}
+
+# Pattern to auto-add traversable links (fnmatch). Maps to -tre.
+# Type: String. Empty string means no auto-patterning.
+tr_auto_pattern = {{ tr_auto_pattern | default('') }}
+
+# Regex to auto-add traversable links. Maps to -tre-regex.
+# Type: String. Empty string means no auto-regex.
+tr_auto_regex = {{ tr_auto_regex | default('') }}
+
+# List of directories not to remove when unstowing. Maps to -kd.
+# Items are strings.
+keep_dirs = {{ keep_dirs | default([]) | join(',') }}
+
+# List of file patterns to ignore (fnmatch). Maps to -i.
+# Items are strings.
+ignore_patterns = {{ ignore_patterns | default([]) | join(',') }}
+
+# List of file regexes to ignore. Maps to -ire.
+# Items are strings.
+ignore_regexes = {{ ignore_regexes | default([]) | join(',') }}
+
+# Only consider files/dirs matching these patterns (fnmatch). Maps to -ni.
+# Items are strings. Inverts the ignore logic for selection.
+nignore_patterns = {{ nignore_patterns | default([]) | join(',') }}
+
+# Copy files matching these patterns instead of linking (fnmatch). Maps to -cp.
+# Items are strings.
+copy_patterns = {{ copy_patterns | default([]) | join(',') }}
+
+# Copy files matching these regexes instead of linking. Maps to -cre.
+# Items are strings.
+copy_regexes = {{ copy_regexes | default([]) | join(',') }}
+
+# Specific DIR/FILE pairs to ignore. Maps to -ifd.
+# Items are strings formatted as 'dir/file'.
+ignore_file_in_dir = {{ ignore_file_in_dir | default([]) | join(',') }}
+
+# Specific DIR/FILE pairs to copy. Maps to -cfd.
+# Items are strings formatted as 'dir/file'.
+copy_file_in_dir = {{ copy_file_in_dir | default([]) | join(',') }}
+
+# Other stow dirs allowed to be changed (cross-stow). Maps to -sd.
+# Items are strings.
+stow_dirs = {{ stow_dirs | default([]) | join(',') }}
+
+# Pattern to auto-add stow dirs (fnmatch). Maps to -sda.
+# Type: String.
+sd_auto_pattern = {{ sd_auto_pattern | default('') }}
+
+# Regex to auto-add stow dirs. Maps to -sde.
+# Type: String.
+sd_auto_regex = {{ sd_auto_regex | default('') }}
+
+# Directories XStow is not allowed to change. Maps to -pd.
+# Items are strings.
+protect_dirs = {{ protect_dirs | default([]) | join(',') }}
+
+# Pattern to auto-add protect dirs (fnmatch). Maps to -pda.
+# Type: String.
+pd_auto_pattern = {{ pd_auto_pattern | default('') }}
+
+# Regex to auto-add protect dirs. Maps to -pde.
+# Type: String.
+pd_auto_regex = {{ pd_auto_regex | default('') }}
+
+# Directories XStow IS allowed to change (allow list). Maps to -pdt.
+# Items are strings.
+protect_targets = {{ protect_targets | default([]) | join(',') }}
+
+# Auto-add traversable link targets to protect targets. Maps to -pta.
+# Type: Boolean.
+pdt_add_traversable = {{ pdt_add_traversable | default(false) | lower }}
+
+# Skip conflicts if possible. Maps to -f.
+# Type: Boolean. Aggressive mode; overwrites or skips problematic files.
+force = {{ force | default(false) | lower }}
+
+# =============================================================================
+# [packages] Section
+# Individual package configurations override global settings.
+# =============================================================================
+[packages]
+
+# Iterate over the list of package definitions to generate [package:name] blocks.
+{% for pkg in (packages | default([])) %}
+# -----------------------------------------------------------------------------
+# Package: {{ (pkg | default({})).name | default('unnamed') }}
+# -----------------------------------------------------------------------------
+[package:{{ (pkg | default({})).name | default('unnamed') }}]
+
+# Stow directory path for this specific package. Overrides global -d.
+# Type: String.
+stow_dir = {{ (pkg | default({})).stow_dir | default('') }}
+
+# Target directory path for this specific package. Overrides global -t.
+# Type: String.
+target_dir = {{ (pkg | default({})).target_dir | default('') }}
+
+# Verbosity level for this package (0-3). Overrides global -v.
+# Type: Integer.
+verbose = {{ (pkg | default({})).verbose | default(0) }}
+
+# Additional ignore patterns for this package (fnmatch).
+# Items are strings, joined by comma.
+ignore = {{ (pkg | default({})).ignore | default([]) | join(',') }}
+{% endfor %}

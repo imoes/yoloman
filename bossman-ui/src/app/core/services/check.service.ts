@@ -96,6 +96,32 @@ export class CheckService {
     );
   }
 
+  /** What discovery KNOWS about a host, per lifecycle state — the persisted result
+   *  (Checkmk's autochecks), not the monitoring state. Every state the model can
+   *  hold is returned here, which is why the view can show all four instead of
+   *  letting a vanished service disappear silently. */
+  discoveredServices(agentId: string) {
+    return this.http.get<{
+      agent_id: string;
+      counts: Record<string, number>;
+      services: { check_name: string; item: string | null; state: string;
+                  first_seen?: string; last_seen?: string; parameters?: Record<string, unknown> }[];
+    }>(`${this.base}/agents/${agentId}/discovered-services`);
+  }
+
+  /** Decide what happens to discovered services. `ignore` is remembered (later runs
+   *  stop offering it); `remove` stops monitoring — and for a VANISHED service it
+   *  stops tracking it altogether. */
+  decideDiscovery(agentId: string, body: {
+    accept?: { check_name: string; item?: string; parameters?: Record<string, unknown> }[];
+    ignore?: { check_name: string; item?: string }[];
+    remove?: { check_name: string; item?: string }[];
+  }) {
+    return this.http.post<{ agent_id: string; accepted?: number; ignored?: number; removed?: number }>(
+      `${this.base}/agents/${agentId}/discover/apply`, body,
+    );
+  }
+
   /** Whether a check ships a provisioning recipe + the admin params to collect. */
   provisioning(name: string) {
     return this.http.get<{

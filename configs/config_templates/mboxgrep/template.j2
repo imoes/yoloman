@@ -1,0 +1,111 @@
+{# ============================================================================ #}
+{# mboxgrep Configuration Script                                                #}
+{# ============================================================================ #}
+{# This Jinja2 template generates a shell script that executes mboxgrep commands #}
+{# based on the provided configuration parameters. It is self-documenting via   #}
+{# comments describing each variable's purpose and its corresponding CLI flag. #}
+{# ============================================================================ #}
+
+# mboxgrep configuration script
+# This script generates and executes mboxgrep commands based on configuration values.
+
+# The regular expression pattern to match against emails.
+# Maps to the positional argument passed to mboxgrep.
+default_pattern = "{{ (values | default({})).pattern | default('Subject:.*Weekly News') }}"
+
+# The regex engine to use. One of 'extended', 'basic', or 'perl'.
+# Maps to --extended-regexp, --basic-regexp, --perl-regexp.
+engine = "{{ (values | default({})).engine | default('extended') }}"
+
+# If true, ignore case distinctions in matching.
+# Maps to --ignore-case.
+ignore_case = {% if (values | default({})).ignore_case | default(true) %}True{% else %}False{% endif %}
+
+# If true, select messages which don't match the pattern.
+# Maps to --invert-match.
+invert_match = {% if (values | default({})).invert_match | default(false) %}True{% else %}False{% endif %}
+
+# If true, match the pattern against message headers.
+# Maps to --headers.
+match_headers = {% if (values | default({})).match_headers | default(true) %}True{% else %}False{% endif %}
+
+# If true, match the pattern against message body.
+# Maps to --body.
+match_body = {% if (values | default({})).match_body | default(false) %}True{% else %}False{% endif %}
+
+# The format of the input/output mailbox. One of 'mbox', 'zmbox', 'bz2mbox', 'mh', 'nnml', 'nnmh', 'maildir'.
+# Maps to --mailbox-format.
+mailbox_format = "{{ (values | default({})).mailbox_format | default('mbox') }}"
+
+# File locking method. One of 'fcntl', 'flock', or 'none'.
+# Maps to --file-lock or --no-file-lock.
+file_lock = "{{ (values | default({})).file_lock | default('fcntl') }}"
+
+# If true, suppress most error messages.
+# Maps to --no-messages.
+suppress_errors = {% if (values | default({})).suppress_errors | default(false) %}True{% else %}False{% endif %}
+
+# If true, suppress normal output and print a count of matching messages.
+# Maps to --count.
+count_only = {% if (values | default({})).count_only | default(false) %}True{% else %}False{% endif %}
+
+# Path to write matching messages to instead of printing them. Empty string means no output redirection.
+# Maps to --output.
+output_mailbox = "{{ (values | default({})).output_mailbox | default('') }}"
+
+# Command to pipe each found message to. Empty string means no piping.
+# Maps to --pipe.
+pipe_command = "{{ (values | default({})).pipe_command | default('') }}"
+
+# If true, delete selected messages instead of displaying them.
+# Maps to --delete.
+delete_matching = {% if (values | default({})).delete_matching | default(false) %}True{% else %}False{% endif %}
+
+# If true, ignore duplicate messages.
+# Maps to --no-duplicates.
+no_duplicates = {% if (values | default({})).no_duplicates | default(false) %}True{% else %}False{% endif %}
+
+# If true, descend into directories recursively.
+# Maps to --recursive.
+recursive = {% if (values | default({})).recursive | default(false) %}True{% else %}False{% endif %}
+
+# List of mailbox paths to process. Items are strings representing paths to mbox folders, mh folders, maildirs, etc.
+# These are the positional arguments passed to mboxgrep.
+mailboxes = [
+{% for mbox in ((values | default({})).mailboxes | default([])) %}
+  "{{ mbox }}",
+{% endfor %}
+]
+
+# Construct the base command options
+options = []
+if engine == "basic": options.append("--basic-regexp")
+elif engine == "perl": options.append("--perl-regexp")
+# extended is default, so no flag needed
+
+if ignore_case: options.append("--ignore-case")
+if invert_match: options.append("--invert-match")
+if match_headers: options.append("--headers")
+if match_body: options.append("--body")
+if suppress_errors: options.append("--no-messages")
+if count_only: options.append("--count")
+if delete_matching: options.append("--delete")
+if no_duplicates: options.append("--no-duplicates")
+if recursive: options.append("--recursive")
+
+if file_lock == "none": options.append("--no-file-lock")
+else: options.append("--file-lock=" + file_lock)
+
+if mailbox_format and mailbox_format != 'mbox': options.append("--mailbox-format=" + mailbox_format)
+if output_mailbox: options.append("--output=" + output_mailbox)
+if pipe_command: options.append("--pipe=" + pipe_command)
+
+pattern_arg = default_pattern
+
+# Generate commands for each mailbox or directory
+cmd_parts = ["mboxgrep"] + options + [pattern_arg]
+
+{% for m in ((values | default({})).mailboxes | default([])) %}
+final_cmd = " " + " ".join(cmd_parts) + " " + m
+print(final_cmd)
+{% endfor %}

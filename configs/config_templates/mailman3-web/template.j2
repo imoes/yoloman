@@ -1,0 +1,13 @@
+# Cronjobs for the Mailman3 Django project (mailman3-web)
+#
+# This template generates a crontab entry for the Mailman3 web application.
+# It ensures that Django management commands are only executed if the web service
+# is active and lock files prevent overlapping execution.
+
+# User account under which the cron jobs run.
+# Default: www-data
+# Format: crontab username field
+{% for interval in ['minutely', 'quarter_hourly', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'] %}
+{% if interval == 'minutely' %}* *     * * *{% elif interval == 'quarter_hourly' %}2,17,32,47 * * * *{% elif interval == 'hourly' %}@hourly{% elif interval == 'daily' %}@daily{% elif interval == 'weekly' %}@weekly{% elif interval == 'monthly' %}@monthly{% elif interval == 'yearly' %}@yearly{% endif %}     {{ cron_user | default('www-data') }}     [ -f /usr/bin/django-admin ] && systemctl is-active --quiet mailman3-web && flock -n {{ cron_lock_dir | default('/var/run/mailman3-web') }}/cron.{{ interval }} /usr/share/mailman3-web/manage.py runjobs {{ interval }}
+
+{% endfor %}

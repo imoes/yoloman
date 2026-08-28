@@ -1,0 +1,36 @@
+# nslint configuration file
+# See nslint(8) for syntax details.
+
+# List of zone configurations to tell nslint about.
+# Each item defines a DNS zone to be validated for consistency.
+{% for zone in (zones | default([])) %}
+# Zone name: {{ zone.name | default('example.com') }}
+# Zone type: {{ zone.type | default('master') }}
+# Zone file: {{ zone.file | default('nslint.' ~ zone.name | default('example.com')) }}
+zone "{{ zone.name | default('example.com') }}" {
+  type {{ zone.type | default('master') }};
+  file "{{ zone.file | default('nslint.' ~ zone.name | default('example.com')) }}";
+};
+{% endfor %}
+
+# Network CIDR or mask strings to check for duplicate A records.
+# This helps identify overlapping IP assignments within subnets.
+{% if (networks | default([])) %}
+nslint {
+{% for network in (networks | default([])) %}
+  # Network: {{ network }}
+  network "{{ network }}";
+{% endfor %}
+}
+{% endif %}
+
+# List of zone names to ignore during consistency checks.
+# Useful for dynamic DNS zones or zones managed externally.
+{% if (ignore_zones | default([])) %}
+nslint {
+{% for zone_name in (ignore_zones | default([])) %}
+  # Ignored zone: {{ zone_name }}
+  ignorezone "{{ zone_name }}";
+{% endfor %}
+}
+{% endif %}

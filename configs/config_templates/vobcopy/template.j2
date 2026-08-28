@@ -1,0 +1,154 @@
+{# ============================================================================== #}
+{# vobcopy Run Configuration Script                                               #}
+{#                                                                                #}
+{# This template generates a self-contained Bash script that executes vobcopy     #}
+{# with the parameters defined in the `vobcopy` variable.                         #}
+{#                                                                                #}
+{# IMPORTANT: vobcopy is a command-line utility, not a daemon.                    #}
+{# This script serves as a "run configuration" wrapper, allowing Ansible to       #}
+{# manage execution parameters (inputs, outputs, verbosity, flags) in a           #}
+{# reproducible and documented manner.                                            #}
+{# ============================================================================== #}
+
+#!/bin/bash
+# Generated vobcopy run script
+{# Ensure the script exits on errors if desired; standard practice for automation #}
+set -euo pipefail
+
+{# --- Input/Output Paths --- #}
+{# Input directory for the DVD source. Defaults to /media/dvd if not specified. #}
+vobcopy_input_dir="{{ (vobcopy | default({})).input_dir | default('/media/dvd') }}"
+
+{# Output directory for the copied files. Defaults to /mnt/rip if not specified. #}
+vobcopy_output_dir="{{ (vobcopy | default({})).output_dir | default('/mnt/rip') }}"
+
+{# --- Title Selection --- #}
+{# Title number to rip. If omitted, vobcopy selects the title with the most chapters. #}
+{# This variable holds the -n flag if a specific title is requested.            #}
+vobcopy_title_number=""
+{% if (vobcopy | default({})).title_number is defined and (vobcopy | default({})).title_number %}
+vobcopy_title_number="-n {{ (vobcopy | default({})).title_number }}"
+{% endif %}
+
+{# --- Output Naming --- #}
+{# Output name for the resulting file(s). Allows custom naming instead of the default. #}
+{# This variable holds the -t flag if a custom name is provided.              #}
+vobcopy_name=""
+{% if (vobcopy | default({})).name is defined and (vobcopy | default({})).name %}
+vobcopy_name="-t \"{{ (vobcopy | default({})).name }}\""
+{% endif %}
+
+{# --- Verbosity Control --- #}
+{# Verbosity level: 0 (quiet), 1 (verbose), 2 (very verbose/bug report).      #}
+{# Defaults to empty (quiet) if not specified or if 0.                        #}
+vobcopy_verbosity=""
+{% if (vobcopy | default({})).verbose is defined and (vobcopy | default({})).verbose %}
+  {% set v_level = (vobcopy | default({})).verbose %}
+  {% if v_level == 2 %}
+vobcopy_verbosity="-v -v"
+  {% elif v_level == 1 %}
+vobcopy_verbosity="-v"
+  {% endif %}
+{% endif %}
+
+{# --- Execution Flags --- #}
+{# Force output generation even if free disk space appears insufficient.     #}
+{# Use with caution as it may lead to interrupted or corrupt files.          #}
+vobcopy_force=""
+{% if (vobcopy | default({})).force is defined and (vobcopy | default({})).force %}
+vobcopy_force="-f"
+{% endif %}
+
+{# Mirror the whole DVD structure into the output directory.                 #}
+{# Preserves the VOB/IFO/BUP file hierarchy rather than converting.          #}
+vobcopy_mirror=""
+{% if (vobcopy | default({})).mirror is defined and (vobcopy | default({})).mirror %}
+vobcopy_mirror="-m"
+{% endif %}
+
+{# Automatically select the title with the longest playing time.             #}
+{# Useful when ripping the main feature from a disc with many bonus titles. #}
+vobcopy_longest=""
+{% if (vobcopy | default({})).longest is defined and (vobcopy | default({})).longest %}
+vobcopy_longest="-M"
+{% endif %}
+
+{# --- One-File Mode --- #}
+{# Write data into one single large file (requires LFS support on filesystem). #}
+{# This flag group controls the -O option for single-file output.           #}
+vobcopy_onefile=""
+{% if (vobcopy | default({})).one_file is defined and (vobcopy | default({})).one_file %}
+  {# Check if specific files are provided for one-file mode.               #}
+  {% if (vobcopy | default({})).one_file_files is defined and (vobcopy | default({})).one_file_files %}
+    {# Specific files list provided: use -O with comma-separated list.    #}
+vobcopy_onefile="-O {{ (vobcopy | default({})).one_file_files | join(',') }}"
+  {% else %}
+    {# No specific files: use -O single to indicate single-file mode.     #}
+vobcopy_onefile="-O single"
+  {% endif %}
+{% endif %}
+
+{# --- Logging --- #}
+{# Log file path for vobcopy's internal logging output.                    #}
+{# If specified, vobcopy writes detailed logs to this file.               #}
+vobcopy_logfile=""
+{% if (vobcopy | default({})).logfile is defined and (vobcopy | default({})).logfile %}
+vobcopy_logfile="-L {{ (vobcopy | default({})).logfile }}"
+{% endif %}
+
+{# --- Range Control --- #}
+{# Start copy from this offset (in sectors or bytes, depending on vobcopy version). #}
+{# Allows ripping a subset of a title.                                    #}
+vobcopy_begin=""
+{% if (vobcopy | default({})).begin is defined and (vobcopy | default({})).begin %}
+vobcopy_begin="-b {{ (vobcopy | default({})).begin }}"
+{% endif %}
+
+{# End copy at this offset.                                                #}
+{# Defines the end point of the ripping range.                            #}
+vobcopy_end=""
+{% if (vobcopy | default({})).end is defined and (vobcopy | default({})).end %}
+vobcopy_end="-e {{ (vobcopy | default({})).end }}"
+{% endif %}
+
+{# --- Performance --- #}
+{# Fast factor (1-64, experimental).                                       #}
+{# Adjusts read-ahead or parallelism for faster copying. Higher values    #}
+{# may stress the drive but improve throughput on fast media.             #}
+vobcopy_fast=""
+{% if (vobcopy | default({})).fast_factor is defined and (vobcopy | default({})).fast_factor %}
+vobcopy_fast="-F {{ (vobcopy | default({})).fast_factor }}"
+{% endif %}
+
+{# --- Overwrite Policy --- #}
+{# Overwrite existing output files without prompting the user.             #}
+{# Essential for non-interactive automation.                              #}
+vobcopy_overwrite=""
+{% if (vobcopy | default({})).overwrite is defined and (vobcopy | default({})).overwrite %}
+vobcopy_overwrite="-x"
+{% endif %}
+
+{# --- Diagnostic Echo --- #}
+{# Print the effective configuration for debugging and logging purposes.   #}
+echo "Running vobcopy with config:"
+echo "Input: $vobcopy_input_dir"
+echo "Output: $vobcopy_output_dir"
+echo "Flags: $vobcopy_title_number $vobcopy_name $vobcopy_verbosity $vobcopy_force $vobcopy_mirror $vobcopy_longest $vobcopy_onefile $vobcopy_logfile $vobcopy_begin $vobcopy_end $vobcopy_fast $vobcopy_overwrite"
+
+{# --- Execution --- #}
+{# Execute the vobcopy command with the constructed parameters.            #}
+vobcopy \
+  -i "$vobcopy_input_dir" \
+  -o "$vobcopy_output_dir" \
+  $vobcopy_title_number \
+  $vobcopy_name \
+  $vobcopy_verbosity \
+  $vobcopy_force \
+  $vobcopy_mirror \
+  $vobcopy_longest \
+  $vobcopy_onefile \
+  $vobcopy_logfile \
+  $vobcopy_begin \
+  $vobcopy_end \
+  $vobcopy_fast \
+  $vobcopy_overwrite

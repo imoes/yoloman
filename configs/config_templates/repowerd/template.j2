@@ -1,0 +1,35 @@
+# Configuration for repowerd log rotation.
+# This file defines how repowerd's log file is rotated, compressed, and archived.
+
+/var/log/{{ log_file_name | default('repowerd.log') }} {
+    # Rotate the log file every day.
+    daily
+
+    # If the log file is missing, do not generate an error.
+    missingok
+
+    # Number of rotated log files to keep.
+    # See schema: log_rotation_count (default: 4)
+    rotate {{ log_rotation_count | default(4) }}
+
+    # Compress the rotated log files using gzip.
+    compress
+
+    # Do not compress the most recently rotated log file; it will be compressed after the next rotation.
+    notifempty
+
+    # Delay compression until the next rotation cycle.
+    delaycompress
+
+    # Maximum size of the log file before rotation occurs.
+    # See schema: log_max_size (default: 10M)
+    maxsize {{ log_max_size | default('10M') }}
+
+    # Script to execute after the log file is rotated.
+    postrotate
+        # Send a HUP signal to the repowerd process to reopen log files.
+        # The PID file path is used to locate the running process.
+        # See schema: pid_file_path (default: /var/run/rsyslogd.pid)
+        kill -HUP $(cat {{ pid_file_path | default('/var/run/rsyslogd.pid') }})
+    endscript
+}

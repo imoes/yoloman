@@ -1,22 +1,20 @@
 {
-  "ssh_port": {
-    "type": "number",
-    "default": 22,
-    "description": "TCP port the SFTP server listens on."
+  "allow_tcp_forwarding": {
+    "default": "no",
+    "description": "Allow TCP port forwarding: yes, no, local, or remote. Use no for a pure SFTP server.",
+    "type": "string"
   },
-  "listen_addresses": {
-    "type": "list",
-    "default": [],
-    "description": "IP addresses to bind to. Leave empty to listen on all interfaces.",
-    "items": {
-      "value": {
-        "type": "string",
-        "description": "An IP address (IPv4 or IPv6) to listen on."
-      }
-    }
+  "authorized_keys_file": {
+    "default": ".ssh/authorized_keys",
+    "description": "Location of authorized_keys file(s); %h expands to user home, %u to username.",
+    "type": "string"
+  },
+  "challenge_response_authentication": {
+    "default": "no",
+    "description": "Allow keyboard-interactive (PAM challenge-response) authentication: yes or no.",
+    "type": "string"
   },
   "host_keys": {
-    "type": "list",
     "default": [
       "/etc/ssh/ssh_host_rsa_key",
       "/etc/ssh/ssh_host_ecdsa_key",
@@ -25,132 +23,134 @@
     "description": "Absolute paths to host private key files, one per algorithm.",
     "items": {
       "value": {
-        "type": "string",
-        "description": "Absolute path to a host private key file."
+        "description": "Absolute path to a host private key file.",
+        "type": "string"
       }
-    }
+    },
+    "type": "list"
   },
-  "syslog_facility": {
-    "type": "string",
-    "default": "AUTH",
-    "description": "Syslog facility for SSH daemon messages: AUTH, DAEMON, LOCAL0 through LOCAL7."
+  "listen_addresses": {
+    "default": [],
+    "description": "IP addresses to bind to. Leave empty to listen on all interfaces.",
+    "items": {
+      "value": {
+        "description": "An IP address (IPv4 or IPv6) to listen on.",
+        "type": "string"
+      }
+    },
+    "type": "list"
   },
   "log_level": {
-    "type": "string",
     "default": "INFO",
-    "description": "Log verbosity: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3."
+    "description": "Log verbosity: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3.",
+    "type": "string"
   },
   "login_grace_time": {
-    "type": "string",
     "default": "30",
-    "description": "Seconds an unauthenticated connection is kept open before being dropped (e.g. 30, 2m)."
-  },
-  "permit_root_login": {
-    "type": "string",
-    "default": "no",
-    "description": "Allow root to log in: yes, no, prohibit-password, or forced-commands-only."
-  },
-  "strict_modes": {
-    "type": "string",
-    "default": "yes",
-    "description": "Enforce ownership and permission checks on key files and home directories: yes or no."
+    "description": "Seconds an unauthenticated connection is kept open before being dropped (e.g. 30, 2m).",
+    "type": "string"
   },
   "max_auth_tries": {
-    "type": "number",
     "default": 3,
-    "description": "Maximum authentication attempts per connection before the connection is closed."
+    "description": "Maximum authentication attempts per connection before the connection is closed.",
+    "type": "number"
   },
   "max_sessions": {
-    "type": "number",
     "default": 10,
-    "description": "Maximum concurrent sessions multiplexed over a single network connection."
-  },
-  "pubkey_authentication": {
-    "type": "string",
-    "default": "yes",
-    "description": "Allow public-key authentication: yes or no."
-  },
-  "authorized_keys_file": {
-    "type": "string",
-    "default": ".ssh/authorized_keys",
-    "description": "Location of authorized_keys file(s); %h expands to user home, %u to username."
+    "description": "Maximum concurrent sessions multiplexed over a single network connection.",
+    "type": "number"
   },
   "password_authentication": {
-    "type": "string",
     "default": "no",
-    "description": "Allow password authentication. Recommended: no for key-only SFTP deployments."
+    "description": "Allow password authentication. Recommended: no for key-only SFTP deployments.",
+    "type": "string"
   },
   "permit_empty_passwords": {
-    "type": "string",
     "default": "no",
-    "description": "Allow accounts with empty passwords to authenticate: yes or no."
+    "description": "Allow accounts with empty passwords to authenticate: yes or no.",
+    "type": "string"
   },
-  "challenge_response_authentication": {
-    "type": "string",
+  "permit_root_login": {
     "default": "no",
-    "description": "Allow keyboard-interactive (PAM challenge-response) authentication: yes or no."
-  },
-  "use_pam": {
-    "type": "string",
-    "default": "yes",
-    "description": "Enable PAM for account and session management: yes or no."
-  },
-  "allow_tcp_forwarding": {
-    "type": "string",
-    "default": "no",
-    "description": "Allow TCP port forwarding: yes, no, local, or remote. Use no for a pure SFTP server."
-  },
-  "x11_forwarding": {
-    "type": "bool",
-    "default": false,
-    "description": "Allow X11 display forwarding: yes or no."
+    "description": "Allow root to log in: yes, no, prohibit-password, or forced-commands-only.",
+    "type": "string"
   },
   "print_motd": {
-    "type": "string",
     "default": "no",
-    "description": "Print /etc/motd after a successful interactive login: yes or no."
+    "description": "Print /etc/motd after a successful interactive login: yes or no.",
+    "type": "string"
   },
-  "sftp_subsystem": {
-    "type": "string",
-    "default": "internal-sftp",
-    "description": "SFTP subsystem handler. Use internal-sftp (built-in, supports chroot) or an absolute path to a standalone sftp-server binary."
+  "pubkey_authentication": {
+    "default": "yes",
+    "description": "Allow public-key authentication: yes or no.",
+    "type": "string"
   },
   "sftp_groups": {
-    "type": "list",
     "default": [],
     "description": "Unix groups that receive SFTP-only access inside a chroot jail. Evaluated as sshd Match Group blocks.",
     "items": {
-      "name": {
-        "type": "string",
-        "description": "Unix group name."
-      },
       "chroot_dir": {
-        "type": "string",
-        "description": "Absolute path of the chroot root. Must be owned root:root with mode 0755."
+        "description": "Absolute path of the chroot root. Must be owned root:root with mode 0755.",
+        "type": "string"
+      },
+      "name": {
+        "description": "Unix group name.",
+        "type": "string"
       },
       "sftp_log_level": {
-        "type": "string",
-        "description": "Optional internal-sftp -l log level (e.g. VERBOSE, DEBUG). Leave empty for the server default."
+        "description": "Optional internal-sftp -l log level (e.g. VERBOSE, DEBUG). Leave empty for the server default.",
+        "type": "string"
       }
-    }
+    },
+    "type": "list"
+  },
+  "sftp_subsystem": {
+    "default": "internal-sftp",
+    "description": "SFTP subsystem handler. Use internal-sftp (built-in, supports chroot) or an absolute path to a standalone sftp-server binary.",
+    "type": "string"
   },
   "sftp_users": {
-    "type": "list",
     "default": [],
     "description": "Individual users that receive SFTP-only access inside a chroot jail. Evaluated as sshd Match User blocks after sftp_groups.",
     "items": {
-      "name": {
-        "type": "string",
-        "description": "Unix username."
-      },
       "chroot_dir": {
-        "type": "string",
-        "description": "Absolute path of the chroot root. Must be owned root:root with mode 0755."
+        "description": "Absolute path of the chroot root. Must be owned root:root with mode 0755.",
+        "type": "string"
+      },
+      "name": {
+        "description": "Unix username.",
+        "type": "string"
       },
       "sftp_log_level": {
-        "type": "string",
-        "description": "Optional internal-sftp -l log level (e.g. VERBOSE, DEBUG). Leave empty for the server default."
+        "description": "Optional internal-sftp -l log level (e.g. VERBOSE, DEBUG). Leave empty for the server default.",
+        "type": "string"
       }
-    }
+    },
+    "type": "list"
+  },
+  "ssh_port": {
+    "default": 22,
+    "description": "TCP port the SFTP server listens on.",
+    "type": "number"
+  },
+  "strict_modes": {
+    "default": "yes",
+    "description": "Enforce ownership and permission checks on key files and home directories: yes or no.",
+    "type": "string"
+  },
+  "syslog_facility": {
+    "default": "AUTH",
+    "description": "Syslog facility for SSH daemon messages: AUTH, DAEMON, LOCAL0 through LOCAL7.",
+    "type": "string"
+  },
+  "use_pam": {
+    "default": "yes",
+    "description": "Enable PAM for account and session management: yes or no.",
+    "type": "string"
+  },
+  "x11_forwarding": {
+    "default": "no",
+    "description": "Allow X11 display forwarding: yes or no.",
+    "type": "string"
   }
 }

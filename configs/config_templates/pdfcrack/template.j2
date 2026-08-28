@@ -1,0 +1,83 @@
+# PDFCrack Configuration / Wrapper Script Template
+# This template generates a standardized command line invocation for pdfcrack.
+# pdfcrack is a command-line utility, not a daemon, so this serves as a
+# reproducible configuration record or wrapper script content.
+
+# ==============================================================================
+# Input Target
+# ==============================================================================
+
+# The path to the PDF file to analyze.
+# Corresponds to: -f FILE, --file=FILE
+FILE: {{ file_path | default('/var/lib/pdfcrack/target.pdf') }}
+
+# ==============================================================================
+# Password Brute-Force Parameters
+# ==============================================================================
+
+# Minimum password length to try. Corresponds to --minpw.
+# Corresponds to: -n INTEGER, --minpw=INTEGER
+MIN_PW: {{ min_pw | default(1) }}
+
+# Maximum password length to try. Corresponds to --maxpw.
+# Corresponds to: -m INTEGER, --maxpw=INTEGER
+MAX_PW: {{ max_pw | default(12) }}
+
+# Character set to use for password generation. Corresponds to --charset.
+# Corresponds to: -c STRING, --charset=STRING
+CHARSET: {{ charset | default('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') }}
+
+# Wordlist file to use for dictionary attacks.
+# If empty, wordlist mode is not used. Corresponds to --wordlist.
+# Corresponds to: -w FILE, --wordlist=FILE
+WORDLIST: {{ wordlist | default('') }}
+
+# ==============================================================================
+# Session Management
+# ==============================================================================
+
+# Path to a saved state file to continue a previous session.
+# Corresponds to: -l FILE, --loadstate=FILE
+LOAD_STATE: {{ load_state | default('') }}
+
+# ==============================================================================
+# Password Modes & Recovery
+# ==============================================================================
+
+# Enable owner password recovery mode. Corresponds to --owner.
+# Corresponds to: -o, --owner
+USE_OWNER: {{ use_owner | default(false) | lower }}
+
+# Known user password to speed up breaking the owner password.
+# If provided, it implies -o if not already set. Corresponds to --password.
+# Corresponds to: -p STRING, --password=STRING
+USER_PASSWORD: {{ user_password | default('') }}
+
+# ==============================================================================
+# Behavior Tweaks
+# ==============================================================================
+
+# Enable password permutation (e.g., switching first character to uppercase).
+# Corresponds to: -s, --permutate
+PERMUTATE: {{ permutate | default(false) | lower }}
+
+# Run quietly, suppressing progress output.
+# Corresponds to: -q, --quiet
+QUIET: {{ quiet | default(false) | lower }}
+
+# ==============================================================================
+# Generated Command Line
+# This section assembles the final command based on the configuration above.
+# ==============================================================================
+
+COMMAND: pdfcrack \
+{% if quiet | default(false) %}-q {% endif %}\
+{% if use_owner | default(false) %}-o {% endif %}\
+{% if permutate | default(false) %}-s {% endif %}\
+{% if wordlist | default('') %}-w {{ wordlist | default('') }} {% endif %}\
+{% if charset | default('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') %}-c '{{ charset | default('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') }}' {% endif %}\
+{% if min_pw | default(1) is defined %}-n {{ min_pw | default(1) }} {% endif %}\
+{% if max_pw | default(12) is defined %}-m {{ max_pw | default(12) }} {% endif %}\
+{% if load_state | default('') %}-l {{ load_state | default('') }} {% endif %}\
+{% if user_password | default('') %}-p '{{ user_password | default('') }}' {% endif %}\
+{{ file_path | default('/var/lib/pdfcrack/target.pdf') }}

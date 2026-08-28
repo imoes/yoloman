@@ -1,0 +1,30 @@
+# runit-run service manager configuration
+# This script initializes and launches the runit runsvdir supervisor.
+# It sets the service directory, ensures runtime directories exist, and
+# starts the supervisor process with logging enabled.
+
+#!/bin/sh
+
+# Standard system PATH for locating runit utilities and services
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/usr/bin:/bin
+
+# The directory containing service definitions (symlinks to run scripts).
+# Default: /etc/service
+SVDIR={{ svdir | default('/etc/service') }}
+
+# Create the runtime directory for runit's supervision state.
+# runit uses /run/runit for transient state files.
+mkdir -p /run/runit/supervise
+mkdir -p /run/runit/sv
+
+# Execute the service manager within the managed sub-directory context.
+# 'svmanaged' is the sub-directory name used by this role's structure.
+runsvchdir svmanaged
+
+# Launch the runsvdir supervisor.
+# -P: Do not change directory to the service directory (safe for chroot/init systems).
+# -l: Enable logging to the specified log program/path.
+# The long string of dots is a placeholder for the log program command line
+# often used in runit to pipe stderr/stdout to a logger or file.
+exec env - PATH=$PATH \
+runsvdir -P "${SVDIR}" 'log: ...........................................................................................................................................................................................................................................................................................................................................................................................................'

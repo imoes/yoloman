@@ -1,0 +1,26 @@
+# minizip command configuration
+# See man minizip(1) for options
+#
+# This template generates a configuration snippet for the minizip utility.
+# minizip is part of the zlib package and is used to add files to ZIP archives
+# via the command line.
+#
+# SYNOPSIS: minizip [-o] zipfile [ " files" ... ]
+#
+# NOTE: This is a declarative configuration. When rendering this template
+# for use in an Ansible task (e.g., `command` or `shell`), you must
+# construct the CLI command using these variables. The 'files' list
+# is rendered as a YAML list for clarity, but the actual command
+# invocation should join them with spaces.
+
+# The name of the ZIP archive file to create.
+# Default: output.zip
+archive_name: {{ archive_name | default('output.zip') }}
+
+# List of file paths to include in the archive.
+# If empty, an empty zip is created.
+# Default: []
+files_to_add:
+{% for file in files | default([]) %}
+  - "{{ file }}"
+{% endfor %}

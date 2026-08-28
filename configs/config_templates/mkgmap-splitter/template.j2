@@ -1,0 +1,194 @@
+# =============================================================================
+# mkgmap-splitter Configuration Template
+# =============================================================================
+# This template generates a configuration file and a command-line invocation
+# for mkgmap-splitter, a tool used to split OpenStreetMap (OSM) data into
+# smaller, manageable tiles.
+#
+# All variables are sourced from Ansible facts/vars. If a variable is
+# undefined in the Ansible inventory, it falls back to the schema default
+# specified in the field description.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configuration File Section
+# -----------------------------------------------------------------------------
+# The following key-value pairs are written to a configuration file format
+# compatible with mkgmap-splitter.
+
+# Path to the input .osm, .pbf, .o5m, or compressed file.
+# (Corresponds to the positional argument or --input)
+input_file: {{ input_file | default('planet.osm') }}
+
+# Directory where output .osm.pbf files will be written.
+# (Corresponds to --output-dir)
+output_dir: {{ output_dir | default('.') }}
+
+# Base map ID for output files (e.g., 63240001.osm.pbf).
+# This ID must be unique for the resulting tile set.
+# (Corresponds to --mapid)
+map_id: {{ map_id | default(63240001) }}
+
+# Description string written into the generated template.args file.
+# Useful for identifying the map source or version.
+# (Corresponds to --description)
+description: {{ description | default('OSM Map') }}
+
+# Maximum number of nodes allowed in any single output tile.
+# Tiles exceeding this node count will be further split.
+# (Corresponds to --max-nodes)
+max_nodes: {{ max_nodes | default(1600000) }}
+
+# Maximum number of areas processed in a single pass over the source file.
+# Adjust based on available memory.
+# (Corresponds to --max-areas)
+max_areas: {{ max_areas | default(512) }}
+
+# Maximum number of threads used by mkgmap-splitter for parallel processing.
+# Set to the number of CPU cores available for best performance.
+# (Corresponds to --max-threads)
+max_threads: {{ max_threads | default(4) }}
+
+# Resolution of the density map grid (1-24).
+# Higher values require more memory but may produce more balanced tiles.
+# (Corresponds to --resolution)
+resolution: {{ resolution | default(13) }}
+
+# Target number of tiles to produce.
+# If this is set, --max-nodes is ignored. Use this to force a specific grid size.
+# (Corresponds to --num-tiles)
+# Note: The Jinja2 `none` literal is used here because mkgmap-splitter expects
+# no argument when this is unset. We handle the rendering via the command-line section
+# logic primarily, but for config file compatibility we output nothing if None.
+{% if (num_tiles | default(None)) is not none %}
+num_tiles: {{ num_tiles | default(None) }}
+{% endif %}
+
+# Use additional phases to avoid broken ways and polygons across tile borders.
+# Recommended for high-quality maps.
+# (Corresponds to --keep-complete)
+keep_complete: {{ keep_complete | default(true) | lower }}
+
+# Lowest admin_level value of boundary relations to keep complete.
+# Boundary relations below this level might be cut across tile borders.
+# (Corresponds to --wanted-admin-level)
+wanted_admin_level: {{ wanted_admin_level | default(5) }}
+
+# Path to a previous areas.list or .kml file to reuse calculated tile areas.
+# Skipping the area calculation phase if this is provided.
+# (Corresponds to --split-file)
+{% if (split_file | default(None)) is not none %}
+split_file: {{ split_file | default(None) }}
+{% endif %}
+
+# Path to a file containing ways/relations known to cause split problems.
+# Helps to avoid splitting through complex features.
+# (Corresponds to --problem-file)
+{% if (problem_file | default(None)) is not none %}
+problem_file: {{ problem_file | default(None) }}
+{% endif %}
+
+# Path to a GeoNames cities15000.zip file for determining tile names.
+# Adds city names to the tile output for easier identification.
+# (Corresponds to --geonames-file)
+{% if (geonames_file | default(None)) is not none %}
+geonames_file: {{ geonames_file | default(None) }}
+{% endif %}
+
+# Search limit in split algorithm.
+# Higher values find better splits but take longer to compute.
+# (Corresponds to --search-limit)
+search_limit: {{ search_limit | default(200000) }}
+
+# Interval in seconds to display JVM memory usage.
+# Set to 0 to disable status output.
+# (Corresponds to --status-freq)
+status_freq: {{ status_freq | default(120) }}
+
+# Debugging option to stop after a specific phase:
+# split, gen-problem-list, handle-problem-list, or dist.
+# (Corresponds to --stop-after)
+stop_after: {{ stop_after | default('dist') }}
+
+# Output file format: xml, pbf, o5m, or simulate.
+# (Corresponds to --output)
+output_format: {{ output_format | default('pbf') }}
+
+# Comma separated list of tag values for relations to filter for problem-list processing.
+# (Corresponds to --boundary-tags)
+boundary_tags: {{ boundary_tags | default('use-exclude-list') }}
+
+# Path to a directory containing precompiled sea tiles.
+# Used to optimize rendering of coastal areas.
+# (Corresponds to --precomp-sea)
+{% if (precomp_sea | default(None)) is not none %}
+precomp_sea: {{ precomp_sea | default(None) }}
+{% endif %}
+
+# Path to write a KML file containing the calculated areas.
+# Useful for visualizing tile boundaries in Google Earth.
+# (Corresponds to --write-kml)
+{% if (write_kml | default(None)) is not none %}
+write_kml: {{ write_kml | default(None) }}
+{% endif %}
+
+# Path to write the generated problem list created with --keep-complete.
+# (Corresponds to --problem-report)
+{% if (problem_report | default(None)) is not none %}
+problem_report: {{ problem_report | default(None) }}
+{% endif %}
+
+# Specify if input OSM file has nodes, ways, and relations intermingled.
+# (Corresponds to --mixed)
+mixed: {{ mixed | default(false) | lower }}
+
+# Do not trim empty space off the edges of tiles.
+# (Corresponds to --no-trim)
+no_trim: {{ no_trim | default(false) | lower }}
+
+# Path to a bounding polygon file in osmosis polygon format.
+# Limits the split to a specific geographic area.
+# (Corresponds to --polygon-file)
+{% if (polygon_file | default(None)) is not none %}
+polygon_file: {{ polygon_file | default(None) }}
+{% endif %}
+
+# Path to an OSM file with named ways describing bounding polygons.
+# (Corresponds to --polygon-desc-file)
+{% if (polygon_desc_file | default(None)) is not none %}
+polygon_desc_file: {{ polygon_desc_file | default(None) }}
+{% endif %}
+
+# =============================================================================
+# Command-Line Invocation Section
+# =============================================================================
+# This block generates the exact shell command to run mkgmap-splitter.
+# It mirrors the configuration values above.
+
+mkgmap-splitter {{ input_file | default('planet.osm') }} \\
+    --output-dir={{ output_dir | default('.') }} \\
+    --mapid={{ map_id | default(63240001) }} \\
+    --description="{{ description | default('OSM Map') }}" \\
+    --max-nodes={{ max_nodes | default(1600000) }} \\
+    --max-areas={{ max_areas | default(512) }} \\
+    --max-threads={{ max_threads | default(4) }} \\
+    --resolution={{ resolution | default(13) }} \\
+{% if (num_tiles | default(None)) is not none %}    --num-tiles={{ num_tiles | default(None) }} \\
+{% endif %}    --keep-complete={{ keep_complete | default(true) | lower }} \\
+    --wanted-admin-level={{ wanted_admin_level | default(5) }} \\
+{% if (split_file | default(None)) is not none %}    --split-file={{ split_file | default(None) }} \\
+{% endif %}{% if (problem_file | default(None)) is not none %}    --problem-file={{ problem_file | default(None) }} \\
+{% endif %}{% if (geonames_file | default(None)) is not none %}    --geonames-file={{ geonames_file | default(None) }} \\
+{% endif %}    --search-limit={{ search_limit | default(200000) }} \\
+    --status-freq={{ status_freq | default(120) }} \\
+    --stop-after={{ stop_after | default('dist') }} \\
+    --output={{ output_format | default('pbf') }} \\
+    --boundary-tags={{ boundary_tags | default('use-exclude-list') }} \\
+{% if (precomp_sea | default(None)) is not none %}    --precomp-sea={{ precomp_sea | default(None) }} \\
+{% endif %}{% if (write_kml | default(None)) is not none %}    --write-kml={{ write_kml | default(None) }} \\
+{% endif %}{% if (problem_report | default(None)) is not none %}    --problem-report={{ problem_report | default(None) }} \\
+{% endif %}    --mixed={{ mixed | default(false) | lower }} \\
+    --no-trim={{ no_trim | default(false) | lower }} \\
+{% if (polygon_file | default(None)) is not none %}    --polygon-file={{ polygon_file | default(None) }} \\
+{% endif %}{% if (polygon_desc_file | default(None)) is not none %}    --polygon-desc-file={{ polygon_desc_file | default(None) }} \\
+{% endif %} > splitter.log

@@ -1,0 +1,22 @@
+# Tableau-ParM Bridge Configuration
+# This file configures the interaction with Tableau Storage bridge drives
+# for forensic imaging and DCO management.
+# See tableau-parm(1) for full command line documentation.
+
+# List of block device paths (e.g., /dev/sda) presenting SCSI emulation
+# connected to the Tableau bridge. Corresponds to the 'device' argument.
+# Default is an empty list if no devices are specified in the role variables.
+devices = [
+    {%- for dev in devices | default([]) %}
+    {{ dev }}{% if not loop.last %},{% endif -%}
+    {%- endfor %}
+]
+
+# If true, directs tableau-parm to permanently remove a DCO (Defined Capacity Option)
+# if it exists. Corresponds to the '-r' flag.
+# WARNING: This modifies the state of the drive. Ensure a full drive image is taken before use.
+remove_dco = {{ remove_dco | default(false) | lower }}
+
+# If true, enables verbose logging/diagnostics for device identification
+# and bridge interaction. Corresponds to the '-v' flag.
+verbose = {{ verbose | default(false) | lower }}

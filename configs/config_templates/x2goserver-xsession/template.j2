@@ -1,0 +1,270 @@
+#!/bin/bash
+#
+# /etc/x2go/Xsession
+#
+# X2Go Xsession file -- used by x2goserver Xsession.d add-on.
+#
+# This file has been derived from the global Xsession file in Debian squeeze
+
+set -e
+
+X2GO_LIBEXEC_PATH="$(x2gopath libexec)";
+
+PROGNAME=XSession-x2go
+
+message () {
+	# pretty-print messages of arbitrary length; use xmessage if it
+	# is available and $DISPLAY is set
+	MESSAGE="$PROGNAME: $*"
+	echo "$MESSAGE" | fold -s -w ${COLUMNS:-80} >&2
+	if [ -n "$DISPLAY" ] && which xmessage 1> /dev/null 2>&1; then
+		echo "$MESSAGE" | fold -s -w ${COLUMNS:-80} | xmessage -center -file -
+	fi
+}
+
+message_nonl () {
+	# pretty-print messages of arbitrary length (no trailing newline); use
+	# xmessage if it is available and $DISPLAY is set
+	MESSAGE="$PROGNAME: $*"
+	printf '%s' "$MESSAGE" | fold -s -w ${COLUMNS:-80} >&2;
+	if [ -n "$DISPLAY" ] && which xmessage 1> /dev/null 2>&1; then
+		printf '%s' "$MESSAGE" | fold -s -w ${COLUMNS:-80} | xmessage -center -file -
+	fi
+}
+
+errormsg () {
+	# exit script with error
+	message "$*"
+	exit 1
+}
+
+internal_errormsg () {
+	# exit script with error; essentially a "THIS SHOULD NEVER HAPPEN" message
+	# One big call to message() for the sake of xmessage; if we had two then
+	# the user would have dismissed the error we want reported before seeing the
+	# request to report it.
+	errormsg "$*" \
+	   "Please report the installed version of the \"X2Go Server\"" \
+	   "package and the complete text of this error message to" \
+	   "<{{ x2go_admin_email | default('x2go-dev@lists.x2go.org') }}>.">
+}
+
+# Load profile
+for file in "/etc/profile" "$HOME/.profile" "/etc/xprofile" "$HOME/.xprofile"; do
+	if [ -f "$file" ]; then
+		echo "Loading profile from $file";
+		set +e
+		. "$file"
+		set -e
+	fi
+done
+
+cur_hostname="$(hostname)"
+if [ -z "${cur_hostname}" ] || [ "${cur_hostname}" = "(none)" ] || [ "${cur_hostname}" = "localhost" ]; then
+	errormsg "Hostname not set correctly; aborting."
+fi
+
+# initialize variables for use by all session scripts
+
+OPTIONFILE=/etc/x2go/Xsession.options
+
+SYSRESOURCES=/etc/x2go/Xresources
+USRRESOURCES=$HOME/.Xresources-x2go
+
+SYSSESSIONDIR=/etc/x2go/Xsession.d
+USERXSESSION=$HOME/.xsession-x2go
+USERXSESSIONRC=$HOME/.xsessionrc-x2go
+ALTUSERXSESSION=$HOME/.Xsession-x2go
+ERRFILE="${HOME}/.xsession-x2go-${cur_hostname}-errors"
+
+OPTIONS="$(
+	if [ -r "$OPTIONFILE" ]; then
+		cat "$OPTIONFILE"
+	fi
+	if [ -d /etc/x2go/Xsession.options.d ]; then
+		run-parts --list --regex '\.conf$' /etc/x2go/Xsession.options.d | xargs -d '\n' cat
+	fi
+)"
+
+has_option() {
+	# Ensure that a later no-foo overrides an earlier foo
+	if [ "$(echo "$OPTIONS" | grep -Eo "^(no-)?$1\>" | tail -n 1)" = "$1" ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+# Move the old error log file away.
+if [ -f "${ERRFILE}" ]; then
+	if [ -L "${ERRFILE}" ]; then
+		resolved_errfile="$(perl -e 'use Cwd qw (abs_path); print abs_path ("' "${ERRFILE}" '") . "\n";')"
+		mv "${resolved_errfile}" "${resolved_errfile}.old" || errormsg "Unable to move symlinked old log/error file '${resolved_errfile}'; aborting."
+	else
+		mv "${ERRFILE}" "${ERRFILE}.old" || errormsg "Unable to move old log/error file '${ERRFILE}'; aborting."
+	fi
+fi
+
+# attempt to create an error file; abort if we cannot
+if (umask 177 && touch "$ERRFILE") 2> /dev/null && [ -w "$ERRFILE" ] && [ ! -L "$ERRFILE" ]; then
+	chmod 600 "$ERRFILE"
+elif ERRFILE=$(umask 077 && mktemp 2> /dev/null); then
+	if ! ln -sf "$ERRFILE" "${TMPDIR:=/tmp}/xsession-x2go-${cur_hostname}-$USER"; then
+		message "warning: unable to symlink \"$TMPDIR/xsession-x2go-${cur_hostname}-$USER\" to" \
+		        "\"$ERRFILE\"; look for session log/errors in" \
+		        "\"$TMPDIR/xsession-x2go-$USER\"."
+	fi
+else
+	errormsg "unable to create X session (X2Go) log/error file; aborting."
+fi
+
+exec >>"$ERRFILE" 2>&1
+
+echo "$PROGNAME: X session started for $LOGNAME at $(date)"
+
+
+# Attempt to create a file of non-zero length in /tmp; a full filesystem can
+# cause mysterious X session failures.  We do not use touch, :, or test -w
+# because they won't actually create a file with contents.  We also let standard
+# error from mktemp and echo go to the error file to aid the user in
+# determining what went wrong.
+WRITE_TEST=$(mktemp)
+if ! echo "*" >>"$WRITE_TEST"; then
+	message "warning: unable to write to ${WRITE_TEST%/*}; X session (X2Go) may" \
+	        "exit with an error"
+fi
+rm -f "$WRITE_TEST"
+
+# Determine the users login shell and use that to launch the session
+SHELL=$(getent passwd $LOGNAME | cut -d: -f7)
+# Fallback
+[ -z "$SHELL" ] && SHELL=/bin/bash
+
+if [ -f /etc/debian_version ] || [ -f /etc/devuan_version ]; then
+
+	# sanity check; is our session script directory present?
+	if [ ! -d "$SYSSESSIONDIR" ]; then
+		errormsg "no \"$SYSSESSIONDIR\" directory found; aborting."
+	fi
+
+	# use run-parts to source every file in the session directory; we source
+	# instead of executing so that the variables and functions defined above
+	# are available to the scripts, and so that they can pass variables to each
+	# other
+
+	SESSIONFILES=$(run-parts --list $SYSSESSIONDIR)
+	SYSSESSIONDIR=/etc/x2go/Xsession.d
+
+	SESSIONFILES=$(run-parts --list $SYSSESSIONDIR)
+
+	### source Xsession files
+	if [ -n "$SESSIONFILES" ]; then
+
+		set +e
+		for SESSIONFILE in $SESSIONFILES; do
+			"$X2GO_LIBEXEC_PATH/x2gosyslog" "$0" "info" "executing $SESSIONFILE"
+			. $SESSIONFILE
+		done
+		set -e
+	fi
+elif [ -f /etc/redhat-release ] || \
+     [ -f /etc/gentoo-release ] || \
+     { \
+        { [ -e '/usr/lib/os-release' ] && grep 'suse' < '/usr/lib/os-release' 1>'/dev/null' ; } || \
+        { [ -e '/etc/os-release' ] && grep 'suse' < '/etc/os-release' 1>'/dev/null' ; } || \
+        [ -f /etc/SUSE-brand ] || \
+        [ -f /etc/SuSE-release ] ; \
+     } || \
+     [ -f /etc/os-rt-release ] || \
+     [ -f /etc/slackware-version ]; then
+
+	# Fallback X session executable name if XSESSION_EXEC is not set.
+	# Default: xterm
+	XSESSION_EXEC=${XSESSION_EXEC:-{{ x2go_fallback_session | default('xterm') }}}
+
+	# Set up i18n environment
+	if [ -r /etc/profile.d/lang.sh ]; then
+		set +e
+		. /etc/profile.d/lang.sh
+		set -e
+	fi
+
+	# merge in defaults
+	[ -r "$SYSRESOURCES" ] && xrdb -nocpp -merge "$SYSRESOURCES"
+	[ -r "$USRRESOURCES" ] && xrdb -merge "$USRRESOURCES"
+
+	# RHEL's Xsession file for X11 allows playing with setxkbmap / xmodmap
+	# We provide this for compat, but disrecommend using it. Make sure to
+	# disable any Keyboard setup in X2Go Client / PyHoca-GUI if you want to
+	# use server-side key mappings.
+	USRMODMAP=$HOME/.Xmodmap-x2go
+	USRXKBMAP=$HOME/.Xkbmap-x2go
+
+	SYSMODMAP=/etc/x2go/Xmodmap
+	SYSXKBMAP=/etc/x2go/Xkbmap
+
+	# merge in keymaps
+	if [ -r "$SYSXKBMAP" ]; then
+		setxkbmap $(cat "$SYSXKBMAP")
+		XKB_IN_USE=yes
+	fi
+
+	if [ -r "$USRXKBMAP" ]; then
+		setxkbmap $(cat "$USRXKBMAP")
+		XKB_IN_USE=yes
+	fi
+
+	# xkb and xmodmap don't play nice together
+	if [ -z "$XKB_IN_USE" ]; then
+		[ -r "$SYSMODMAP" ] && xmodmap "$SYSMODMAP"
+		[ -r "$USRMODMAP" ] && xmodmap "$USRMODMAP"
+	fi
+
+	unset XKB_IN_USE
+
+	# run all system xinitrc shell scripts.
+	for file in /etc/x2go/xinitrc.d/* ; do
+		set +e
+		[ -r "$file" ] && . $file
+		set -e
+	done
+
+	# Prefix launch of session with ssh-agent if available and not already running.
+	SSH_AGENT=
+	if [ -x /usr/bin/ssh-agent -a -z "$SSH_AGENT_PID" ]; then
+		if [ "x$TMPDIR" != "x" ]; then
+			SSH_AGENT="/usr/bin/ssh-agent /bin/env TMPDIR=$TMPDIR"
+		else
+			SSH_AGENT="/usr/bin/ssh-agent"
+		fi
+	fi
+
+	CK_XINIT_SESSION=
+	if [ -x /usr/bin/ck-xinit-session -a -z "$XDG_SESSION_COOKIE" ]; then
+		CK_XINIT_SESSION="/usr/bin/ck-xinit-session"
+	fi
+
+	# At the time of integrating X2Go Xsession support for RHEL6 / Fedora
+	# the Xsession stuff in Fedora/RHEL6 seems to be a little mess.
+	# The proposed strategy is to have Xclients.$WM.sh files in
+	# /etc/X11/xinit/Xclients.d. Currently, only wmx uses this mechanism.
+	# As it is a described but rather unused ,,standard'' we will not support it
+	# in X2Go for now, but leave it here as a reminder...
+
+	# XCLIENTS_D=/etc/x2go/Xclients.d
+	#if [ -d "$XCLIENTS_D" -a -x "$XCLIENTS_D/Xclients.${XSESSION_EXEC}.sh" ]; then
+	#	exec /bin/bash -c "exec -l \"$SHELL\" -c \"$CK_XINIT_SESSION $SSH_AGENT $XCLIENTS_D/Xclients.$1.sh\""
+	#fi
+
+	# switchdesk support is also totally deprecated in RHEL, but we leave it here
+	# as a reminder, as well, in case we need it in the future for special setups...
+	#if [ -x "$SWITCHDESKPATH/Xclients.${XSESSION_EXEC}" ]; then
+	#	exec /bin/bash -c "exec -l \"$SHELL\" -c \"$SWITCHDESKPATH/Xclients.${XSESSION_EXEC}\""
+	#fi
+
+	exec $CK_XINIT_SESSION $SSH_AGENT /bin/bash -c "exec -l \"$SHELL\" -c \"$STARTUP\""
+else
+	errormsg 'Unknown operating system, XSession startup not implemented!'
+fi
+
+exit 0

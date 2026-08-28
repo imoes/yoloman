@@ -1,0 +1,47 @@
+# Ostinato Client Configuration
+# This template generates an environment file for the Ostinato traffic generator.
+# Ostinato is a protocol and packet generator/analyzer for testing network devices.
+# The variables here control the behavior of the Ostinato process, such as
+# whether it runs in controller-only mode, enables debug logging, and specifies
+# the session file to load.
+#
+# =============================================================================
+# Configuration Variables
+# =============================================================================
+# The configuration is driven by the `ostinato` dictionary variable.
+# If `ostinato` is undefined, the defaults below are used.
+# Example usage in Ansible: ostinato: { controller_only: true, debug: false }
+
+# -----------------------------------------------------------------------------
+# Controller Mode
+# -----------------------------------------------------------------------------
+# Run Ostinato in controller-only mode, skipping the local Drone and portgroup.
+# When enabled, Ostinato skips starting the local Drone process.
+# This is useful when Ostinato is deployed as a remote controller managing
+# separate Drone instances on other hosts.
+# Variable: OSTINATO_CONTROLLER_ONLY
+# Type: boolean
+# Schema: controller_only (default: False)
+{% set ostinato = ostinato | default({}) %}
+OSTINATO_CONTROLLER_ONLY={{ ostinato.controller_only | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Debug Logging
+# -----------------------------------------------------------------------------
+# Show debug logs during execution.
+# When enabled, verbose log messages are emitted to assist in troubleshooting.
+# Should typically be disabled in production to avoid log noise.
+# Variable: OSTINATO_DEBUG
+# Type: boolean
+# Schema: debug (default: False)
+OSTINATO_DEBUG={{ ostinato.debug | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Session File Path
+# -----------------------------------------------------------------------------
+# The session file path to open automatically at startup.
+# If left empty or undefined, Ostinato starts with a blank session.
+# Variable: OSTINATO_SESSION_FILE
+# Type: string
+# Schema: session_file (default: '/etc/ostinato/session.ogs')
+OSTINATO_SESSION_FILE={{ ostinato.session_file | default('/etc/ostinato/session.ogs') }}

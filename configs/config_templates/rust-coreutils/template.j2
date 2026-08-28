@@ -1,0 +1,69 @@
+# =============================================================================
+# rust-coreutils Environment Configuration
+# =============================================================================
+#
+# This file generates environment variable exports that configure the behavior
+# of the Rust implementation of GNU coreutils. Unlike GNU coreutils, which may
+# rely on specific compile-time features or system libraries, rust-coreutils
+# often exposes configuration via environment variables that act as defaults
+# or overrides for specific tool behaviors (sorting, formatting, numeric bases).
+#
+# Variables defined here are intended to be sourced by user shells or system
+# service managers.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Locale Setting
+# -----------------------------------------------------------------------------
+#
+# Sets the default locale for sorting, formatting, and character encoding
+# across all coreutils utilities. This effectively overrides LC_ALL and LANG
+# for these specific tools if they respect these environment variables.
+#
+# Schema Field: locale
+# Default: 'en_US.UTF-8'
+# -----------------------------------------------------------------------------
+export LC_ALL={{ locale | default('en_US.UTF-8') }}
+export LANG={{ locale | default('en_US.UTF-8') }}
+
+# -----------------------------------------------------------------------------
+# Default Output Format for File Listing Utilities
+# -----------------------------------------------------------------------------
+#
+# Sets default arguments for ls, vdir, and dircolors related behavior.
+# Common options include '--color=auto' to enable color output when connected
+# to a terminal, or '--format=long' for detailed listing.
+#
+# Schema Field: ls_format
+# Default: '--color=auto'
+# -----------------------------------------------------------------------------
+export LS_OPTIONS={{ ls_format | default('--color=auto') }}
+
+# -----------------------------------------------------------------------------
+# Default Numeric Base for Number Formatting
+# -----------------------------------------------------------------------------
+#
+# Sets the default numeric base for the 'numfmt' utility output.
+# Common values: 10 for decimal, 16 for hexadecimal, 2 for binary.
+# This influences how 'numfmt' parses and displays numbers if no explicit
+# base is specified in the command line arguments.
+#
+# Schema Field: numfmt_base
+# Default: 10
+# -----------------------------------------------------------------------------
+export NUMFMT_OUTPUT_BASE={{ numfmt_base | default(10) }}
+
+# -----------------------------------------------------------------------------
+# Extended Attributes Support Toggle
+# -----------------------------------------------------------------------------
+#
+# Controls whether utilities like 'ls' and 'install' should attempt to handle
+# extended attributes (xattrs). In many Rust implementations, xattr support
+# is a compile-time feature, but runtime wrappers or specific binaries may
+# check this environment variable to enable/disable xattr fetching/display
+# without recompilation.
+#
+# Schema Field: use_ext_attrs
+# Default: false
+# -----------------------------------------------------------------------------
+export EXTENDED_ATTRIBUTES={{ use_ext_attrs | default(false) | ternary('yes', 'no') }}

@@ -1,0 +1,217 @@
+#! /bin/sh
+
+# =============================================================================
+# init.d script for ifetch-tools
+#
+# This script manages the lifecycle (start, stop, restart, status) of the
+# ifetch-tools daemon, which collects and monitors images from IP Cameras.
+#
+# Variables are sourced from the Ansible role defaults/schema:
+#   - name: Service/daemon name
+#   - desc: Human-readable description
+#   - uid:  OS user account running the daemon
+#   - logdir: Directory for log storage
+#   - dodtime: Grace period (seconds) before killing the daemon on stop
+# =============================================================================
+
+### BEGIN INIT INFO
+# Provides:		ifetch-tools
+# Required-Start:	$remote_fs $network $syslog
+# Required-Stop:	$remote_fs $network $syslog
+# Should-Start:		$local_fs
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	Tools to collect IP Camera images.
+# Description:		Tools to collect, monitor, view images from IP Cameras.
+### END INIT INFO
+
+set -e
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Path to the daemon executable
+DAEMON=/usr/bin/wwwifetch
+
+# Path to the configuration file
+DAEMON_CONFIG=/etc/ifetch-tools/ifetch-tools.conf
+
+# Service name (from schema field 'name')
+NAME={{ name | default('ifetch-tools') }}
+
+# Service description (from schema field 'desc')
+DESC={{ desc | default('ifetch-tools') }}
+
+# OS user account under which the daemon runs (from schema field 'uid')
+_UID={{ uid | default('ifetch-tools') }}
+#_UID=root
+
+# Test the the DAEMON
+test -x $DAEMON || exit 0
+
+# Test for the ifetch-tools.conf
+test -f $DAEMON_CONFIG || exit 0
+
+. /lib/lsb/init-functions
+
+# Directory where logs are stored (from schema field 'logdir')
+LOGDIR={{ logdir | default('/var/log/ifetch-tools') }}
+
+# PID file location
+PIDFILE=/var/run/{{ name | default('ifetch-tools') }}.pid
+
+# Time to wait for the server to die, in seconds (from schema field 'dodtime')
+# If this value is set too low you might not let some servers to die gracefully
+# and 'restart' will not work
+DODTIME={{ dodtime | default(5) }}	# Time to wait for the server to die, in seconds
+
+running_pid()
+{
+	# Check if a given process pid's cmdline matches a given name
+	pid=$1
+	name=$2
+
+	[ -z "$pid" ] && return 1
+
+	[ ! -d /proc/$pid ] &&  return 1
+
+	cmd=$(cat /proc/$pid/cmdline | tr "\000" "\n"|tail -n 1 |cut -d : -f 1)
+
+	# Is this the expected child?
+	[ "$cmd" != "$name" ] &&  return 1
+
+	return 0
+}
+
+running()
+{
+	# Check if the process is running looking at /proc
+	# (works for all users)
+
+	# No pidfile, probably no daemon present
+	[ ! -f "$PIDFILE" ] && return 1
+
+	# Obtain the pid and check it against the binary name
+	pid=$(cat $PIDFILE)
+	running_pid $pid $DAEMON || return 1
+
+	return 0
+}
+
+start_daemon()
+{
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --chdir /tmp --nicelevel 10 --chuid $_UID --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON
+
+	[ -n "$DODTIME" ] && sleep "$DODTIME"s
+	echo -n "$NAME, "
+
+	if running
+	then
+		echo "appears to be started."
+	else
+		echo "appears to have failed to start."
+		exit 0
+	fi
+}
+
+stop_daemon()
+{
+	signal=9
+
+	echo -n "Stopping $DESC: "
+	kill -s $signal $(pgrep -u $_UID ifetch)
+
+	[ -n "$DODTIME" ] && sleep "$DODTIME"s
+
+	if running
+	then
+		echo "Cannot stop $NAME!"
+		exit 1
+	else
+		echo "$NAME stopped."
+		rm -f $PIDFILE
+	fi
+
+	return 0
+}
+
+case "$1" in
+	start)
+		mkdir -p /var/run/ifetch-tools
+		mkdir -p /var/lock/ifetch-tools
+		chown {{ uid | default('ifetch-tools') }}:{{ uid | default('ifetch-tools') }} /var/run/ifetch-tools /var/lock/ifetch-tools
+		if running
+		then
+			echo "$NAME appears to be already running."
+		else
+			start_daemon
+		fi
+		;;
+
+	stop)
+		if running
+		then
+			stop_daemon INT
+		else
+			echo "$NAME is not running."
+		fi
+		;;
+
+	force-stop)
+		if running
+		then
+			echo "Forcefully stopping $DESC and camera collecting."
+			stop_daemon KILL
+		else
+			echo "$NAME is not running."
+		fi
+		;;
+
+	reload)
+		stop_daemon INT
+		start_daemon
+		;;
+
+	force-reload)
+		if running
+		then
+			echo "Forcefully reloading $DESC and camera collecting."
+			stop_daemon KILL
+			start_daemon
+		else
+			echo "$NAME is not running."
+		fi
+		;;
+
+	restart)
+		echo "Restarting $DESC."
+
+		if running
+		then
+			stop_daemon INT
+			start_daemon
+		else
+			echo "No running process, try start."
+		fi
+		;;
+
+	status)
+		echo -n "$NAME is "
+
+		if running
+		then
+			echo "running."
+		else
+			echo "not running."
+			exit 1
+		fi
+		;;
+
+	*)
+		N=/etc/init.d/{{ name | default('ifetch-tools') }}
+		echo "Usage: $N {start|stop|restart|force-reload|status|force-stop}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

@@ -1,0 +1,57 @@
+# ============================================================================
+# prometheus-nextcloud-exporter Configuration Template
+# ============================================================================
+# This template generates the YAML configuration file for the
+# prometheus-nextcloud-exporter. It connects to a Nextcloud server instance
+# to scrape application metrics and expose them for Prometheus.
+#
+# Self-documenting: every variable reference includes its schema default.
+# Every directive is preceded by its intended purpose.
+# ============================================================================
+
+# URL to the Nextcloud server instance.
+# Example: "https://cloud.example.org"
+# If using token authentication, this URL is still required.
+server: {{ (nextcloud_server_url | default('https://cloud.example.org')) | tojson }}
+
+# --- Authentication ---
+# The exporter supports two modes: Token-based or Username/Password-based.
+# The following block configures Username/Password authentication.
+# To use token auth instead, comment out 'username' and 'password' below
+# and provide 'auth_token' or 'auth_token_file' if supported by the binary version.
+
+# Username for Nextcloud API authentication.
+# Default: example
+username: {{ (nextcloud_username | default('example')) | tojson }}
+
+# Password for Nextcloud API authentication.
+# Default: example
+password: {{ (nextcloud_password | default('example')) | tojson }}
+
+# --- Listener Settings ---
+# Configuration for the HTTP endpoint where Prometheus scrapes metrics.
+
+# Address and port for the Prometheus exporter to listen on.
+# Format: "[host]:port" or just ":port". Default ":9205".
+listenAddress: {{ (exporter_listen_address | default(':9205')) | tojson }}
+
+# Timeout for HTTP requests to the Nextcloud server.
+# Duration string (e.g., "5s", "1m"). Default "5s".
+timeout: {{ (exporter_timeout | default('5s')) | tojson }}
+
+# Skip TLS certificate verification when connecting to Nextcloud.
+# Set to True if using self-signed certificates for the Nextcloud instance.
+# Default is False (verify certificates).
+tlsSkipVerify: {{ exporter_tls_skip_verify | default(false) | ternary(true, false) | lower }}
+
+# --- Info Metrics ---
+# Controls whether specific informational metrics are collected.
+
+info:
+  # Enable gathering of apps-related metrics.
+  # Default is False. Set to True to monitor installed apps usage.
+  apps: {{ exporter_info_apps_enabled | default(false) | ternary(true, false) | lower }}
+
+  # Enable gathering of system update-related metrics.
+  # Default is False. Set to True to monitor Nextcloud update status.
+  update: {{ exporter_info_update_enabled | default(false) | ternary(true, false) | lower }}

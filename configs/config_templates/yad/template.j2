@@ -1,0 +1,361 @@
+#!/bin/sh
+# YAD (Yet Another Dialog) shell script wrapper.
+# This script generates command-line arguments for the `yad` utility based on the provided schema variables.
+# It is self-documenting: every option is preceded by a comment describing its purpose and default value.
+
+# ==========================================
+# General Dialog Properties
+# ==========================================
+
+# The title text displayed in the window header bar.
+# Default: 'YAD Dialog'
+--title="{{ (yad_dialog_title | default('YAD Dialog')) | string }}"
+
+# The main instructional or informational text shown in the dialog body.
+# Default: 'Please interact with this dialog.'
+--text="{{ (yad_dialog_text | default('Please interact with this dialog.')) | string }}"
+
+# Width of the dialog window in pixels.
+# Default: 400
+--width={{ yad_dialog_width | default(400) | int }}
+
+# Height of the dialog window in pixels.
+# Default: 300
+--height={{ yad_dialog_height | default(300) | int }}
+
+# X coordinate for window positioning.
+# Default: 0
+--posx={{ yad_posx | default(0) | int }}
+
+# Y coordinate for window positioning.
+# Default: 0
+--posy={{ yad_posy | default(0) | int }}
+
+# Dialog timeout in seconds. 0 disables timeout.
+# Default: 0
+--timeout={{ yad_timeout | default(0) | int }}
+
+# Position of the timeout indicator: top, bottom, left, right.
+# Default: 'top'
+--timeout-indicator="{{ (yad_timeout_indicator | default('top')) | string }}"
+
+# GTK icon name or file path for the window icon.
+# Default: 'dialog-question'
+--window-icon="{{ (yad_window_icon | default('dialog-question')) | string }}"
+
+# Text justification: left, right, center, fill.
+# Default: 'left'
+--text-align="{{ (yad_text_align | default('left')) | string }}"
+
+# Image file or icon name to display in the dialog.
+# Default: ''
+--image="{{ (yad_image | default('')) | string }}"
+
+# Specific GTK icon theme to use.
+# Default: ''
+--icon-theme="{{ (yad_icon_theme | default('')) | string }}"
+
+# Alignment of labels in form dialogs: left, center, right.
+# Default: 'left'
+--align="{{ (yad_align | default('left')) | string }}"
+
+# Number of columns in a form dialog.
+# Default: 1
+--columns={{ yad_columns | default(1) | int }}
+
+# Separator character for form output data.
+# Default: '|'
+--separator="{{ (yad_separator | default('|')) | string }}"
+
+# Separator character for items in combo-box fields.
+# Default: '!'
+--item-separator="{{ (yad_item_separator | default('!')) | string }}"
+
+# ==========================================
+# Button Definitions
+# ==========================================
+
+# List of buttons to display. Each item is an object with 'label' (string) and 'code' (number/string).
+# Default: [{'label': 'OK', 'code': '0'}, {'label': 'Cancel', 'code': '1'}]
+# Format: --button="LABEL:EXIT_CODE"
+{% set buttons = yad_buttons | default([{'label': 'OK', 'code': '0'}, {'label': 'Cancel', 'code': '1'}]) %}
+{% for btn in buttons %}
+--button="{{ btn.label }}:{{ btn.code }}"
+{% endfor %}
+
+# ==========================================
+# Dialog Mode Specifics
+# ==========================================
+
+# The primary dialog mode. Examples: --entry, --form, --progress, --list, --calendar, --file-selection, --notification.
+# Default: '--entry'
+{{ yad_dialog_type | default('--entry') | string }}
+
+{% set dialog_type = yad_dialog_type | default('--entry') | string %}
+
+{% if dialog_type == '--form' %}
+  # ==========================================
+  # Form Dialog Mode
+  # ==========================================
+
+  # List of form fields. Each item is an object with 'label' (string) and 'type' (string, e.g., 'H', 'RO', 'NUM', 'CHK', 'CB', 'FL', 'DIR').
+  # Default: []
+  # Format: --field="LABEL:TYPE"
+  {% set fields = yad_fields | default([]) %}
+  {% for field in fields %}
+  --field="{{ field.label }}:{{ field.type }}"
+  {% endfor %}
+
+{% elif dialog_type == '--list' %}
+  # ==========================================
+  # List Dialog Mode
+  # ==========================================
+
+  # List of list dialog columns. Each item is an object with 'header' (string) and 'type' (string, e.g., TEXT, NUM, CHK, RD, BAR, IMG).
+  # Default: [{'header': 'Column 1', 'type': 'TEXT'}]
+  # Format: --column="HEADER:TYPE"
+  {% set cols = yad_list_cols | default([{'header': 'Column 1', 'type': 'TEXT'}]) %}
+  {% for col in cols %}
+  --column="{{ col.header }}:{{ col.type }}"
+  {% endfor %}
+
+  # Enable checklist mode for list dialog (checkboxes in first column).
+  # Default: False
+  {% if yad_checklist | default(False) | bool %}
+  --checklist
+  {% endif %}
+
+  # Enable radio list mode for list dialog (radio buttons in first column).
+  # Default: False
+  {% if yad_radiolist | default(False) | bool %}
+  --radiolist
+  {% endif %}
+
+  # Allow multiple row selection in list dialog.
+  # Default: False
+  {% if yad_multiple_selection | default(False) | bool %}
+  --multiple
+  {% endif %}
+
+{% elif dialog_type == '--progress' %}
+  # ==========================================
+  # Progress Dialog Mode
+  # ==========================================
+
+  # Initial percentage value for progress dialog.
+  # Default: 0
+  --percentage={{ yad_initial_percentage | default(0) | int }}
+
+  # Display progress bar from right to left.
+  # Default: False
+  {% if yad_rtl | default(False) | bool %}
+  --rtl
+  {% endif %}
+
+  # Auto-close dialog when progress reaches 100%.
+  # Default: False
+  {% if yad_auto_close | default(False) | bool %}
+  --auto-close
+  {% endif %}
+
+  # Pulsate the progress bar (indeterminate mode).
+  # Default: False
+  {% if yad_pulsate | default(False) | bool %}
+  --pulsate
+  {% endif %}
+
+{% elif dialog_type == '--calendar' %}
+  # ==========================================
+  # Calendar Dialog Mode
+  # ==========================================
+
+  # Initial day for calendar dialog.
+  # Default: 1
+  --day={{ yad_calendar_day | default(1) | int }}
+
+  # Initial month for calendar dialog (1-12).
+  # Default: 1
+  --month={{ yad_calendar_month | default(1) | int }}
+
+  # Initial year for calendar dialog.
+  # Default: 2024
+  --year={{ yad_calendar_year | default(2024) | int }}
+
+  # Date format string for calendar output (strftime).
+  # Default: '%x'
+  --date-format="{{ (yad_date_format | default('%x')) | string }}"
+
+  # Show week numbers in calendar dialog.
+  # Default: False
+  {% if yad_show_weeks | default(False) | bool %}
+  --show-weeks
+  {% endif %}
+
+{% elif dialog_type == '--file-selection' %}
+  # ==========================================
+  # File Selection Dialog Mode
+  # ==========================================
+
+  # Allow multiple file selection in file dialog.
+  # Default: False
+  {% if yad_multiple_files | default(False) | bool %}
+  --multiple
+  {% endif %}
+
+  # Activate directory-only selection in file dialog.
+  # Default: False
+  {% if yad_directory_mode | default(False) | bool %}
+  --directory
+  {% endif %}
+
+  # Activate save mode (overwrites confirmation) in file dialog.
+  # Default: False
+  {% if yad_save_mode | default(False) | bool %}
+  --save
+  {% endif %}
+
+  # Separator for multiple filenames in file dialog output.
+  # Default: '!'
+  --separator="{{ (yad_file_separator | default('!')) | string }}"
+
+{% elif dialog_type == '--entry' %}
+  # ==========================================
+  # Entry Dialog Mode
+  # ==========================================
+
+  # Label text for the text entry field.
+  # Default: ''
+  --entry-label="{{ (yad_entry_label | default('')) | string }}"
+
+  # Initial text value for the entry field.
+  # Default: ''
+  --entry-text="{{ (yad_entry_text | default('')) | string }}"
+
+  # Hide entered text (password mode).
+  # Default: False
+  {% if yad_hide_text | default(False) | bool %}
+  --hide-text
+  {% endif %}
+
+  # Use completion instead of combo-box in entry dialog.
+  # Default: False
+  {% if yad_completion | default(False) | bool %}
+  --completion
+  {% endif %}
+
+  # Use spin button for numeric input in entry dialog.
+  # Default: False
+  {% if yad_numeric | default(False) | bool %}
+  --numeric
+  {% endif %}
+
+{% elif dialog_type == '--notification' %}
+  # ==========================================
+  # Notification Dialog Mode
+  # ==========================================
+
+  # Command to run when notification icon is clicked.
+  # Default: ''
+  --command="{{ (yad_notification_command | default('')) | string }}"
+
+  # Listen for stdin commands to update notification state.
+  # Default: False
+  {% if yad_listen_notifications | default(False) | bool %}
+  --listen
+  {% endif %}
+
+  # Context menu string for notification icon (name!action!icon|...).
+  # Default: ''
+  --menu="{{ (yad_notification_menu | default('')) | string }}"
+
+  # Icon name for the notification.
+  # Default: 'dialog-information'
+  --image="{{ (yad_notification_icon | default('dialog-information')) | string }}"
+
+  # Tooltip/text for the notification.
+  # Default: 'Notification'
+  --text="{{ (yad_notification_text | default('Notification')) | string }}"
+
+{% endif %}
+
+# ==========================================
+# Window Behavior Flags
+# ==========================================
+
+# Center the dialog window on the screen.
+# Default: False
+{% if yad_center | default(False) | bool %}
+--center
+{% endif %}
+
+# Do not show window in taskbar.
+# Default: False
+{% if yad_skip_taskbar | default(False) | bool %}
+--skip-taskbar
+{% endif %}
+
+# Open dialog maximized.
+# Default: False
+{% if yad_maximized | default(False) | bool %}
+--maximized
+{% endif %}
+
+# Disable Escape key to close dialog.
+# Default: False
+{% if yad_no_escape | default(False) | bool %}
+--no-escape
+{% endif %}
+
+# Print result for any return code.
+# Default: False
+{% if yad_always_print_result | default(False) | bool %}
+--always-print-result
+{% endif %}
+
+# Make window visible on all desktops.
+# Default: False
+{% if yad_sticky | default(False) | bool %}
+--sticky
+{% endif %}
+
+# Place window above others.
+# Default: False
+{% if yad_on_top | default(False) | bool %}
+--on-top
+{% endif %}
+
+# Remove window decorations.
+# Default: False
+{% if yad_undecorated | default(False) | bool %}
+--undecorated
+{% endif %}
+
+# Hide all buttons.
+# Default: False
+{% if yad_no_buttons | default(False) | bool %}
+--no-buttons
+{% endif %}
+
+# Dialog never takes focus.
+# Default: False
+{% if yad_no_focus | default(False) | bool %}
+--no-focus
+{% endif %}
+
+# Close dialog when focus is lost.
+# Default: False
+{% if yad_close_on_unfocus | default(False) | bool %}
+--close-on-unfocus
+{% endif %}
+
+# Allow text selection and copy.
+# Default: False
+{% if yad_selectable_labels | default(False) | bool %}
+--selectable-labels
+{% endif %}
+
+# Default exit code to use instead of 0.
+# Default: 0
+{% if (yad_response | default(0)) != 0 %}
+--response={{ yad_response | default(0) | int }}
+{% endif %}

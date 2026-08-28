@@ -12,8 +12,10 @@ alembic/versions/f17d664762b0_initial_schema.py and
 redundant at best and misleading at worst: changing
 `settings.metrics_retention_days` would have had **no actual effect**,
 since TimescaleDB's own policy — configured independently at the DB level
-— would still win. This module is now scoped to the two tables that
-genuinely had no retention at all: `notifications` and `plan_runs`. The
+— would still win. This module is now scoped to the tables that
+genuinely had no retention at all: `notifications`, `plan_runs` and
+`host_edges` (a plain, upsert-only table that outlived its own source —
+the agent prunes its connection edges at 24h). The
 three hypertables' retention is TimescaleDB-native and out of Python's
 control; `metrics`'s longer-term story is the `metrics_hourly`/
 `metrics_daily` continuous aggregates (Block K1b), not this module.
@@ -39,6 +41,7 @@ from bossman.config import Settings
 from bossman.db.models import (
     SYSTEM_SETTINGS_ID,
     AuditLog,
+    HostEdge,
     Notification,
     PlanRun,
     RunbookRun,
@@ -143,9 +146,25 @@ async def prune_process_series(
                 text("DELETE FROM metrics_raw WHERE series_id = ANY(:ids) AND time >= :floor"),
                 {"ids": list(ids), "floor": uncompressed_floor},
             )
-            # phase 2: the (now point-less) series rows
+            # phase 2: the (now point-less) series rows, guarded so a series that gained a referencing point
+            # between phase 1 and here is SKIPPED instead of aborting the prune on the FK
+            # (metrics_raw_series_id_fkey), and pruned on a later run.
+            #
+            # THE GUARD IS UNBOUNDED IN TIME, and it has to be. It used to carry the same `time >= floor`
+            # bound as phase 1, to keep the check off compressed chunks — and the prune then failed with
+            # exactly the FK it was written to avoid: "Key (series_id)=(73834791) is still referenced from
+            # table metrics_raw", every run, 500 series in and nothing pruned afterwards. The bound could not
+            # see a point BELOW the floor, and points below the floor keep arriving: the poller pulls history
+            # from its cursor, so a host coming back after an outage inserts old timestamps into a series
+            # this query had just judged empty. A guard that ignores the rows most likely to exist is not a
+            # guard. Reading a compressed chunk through the series_id index is a read — it decompresses
+            # nothing — so correctness costs an index lookup per candidate here.
             res = await session.execute(
-                text("DELETE FROM metric_series WHERE series_id = ANY(:ids)"),
+                text(
+                    "DELETE FROM metric_series WHERE series_id = ANY(:ids) "
+                    "AND NOT EXISTS (SELECT 1 FROM metrics_raw r "
+                    "WHERE r.series_id = metric_series.series_id)"
+                ),
                 {"ids": list(ids)},
             )
             await session.commit()
@@ -181,6 +200,9 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     plans = [
         ("notifications", Notification, Notification.created_at, settings.notifications_retention_days),
         ("plan_runs", PlanRun, PlanRun.started_at, settings.plan_runs_retention_days),
+        # host_edges: an upsert-only table that had no retention at all, so it kept asserting relationships
+        # the reporting agent had already dropped (it prunes its own edges at 24h). See config.py.
+        ("host_edges", HostEdge, HostEdge.last_seen_at, settings.host_edges_retention_days),
     ]
     deleted: dict[str, int] = {}
     for table_name, model, time_col, retention_days in plans:

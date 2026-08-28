@@ -1,0 +1,61 @@
+# nbtscan configuration template
+# This file generates command-line arguments or a simple configuration for nbtscan.
+# Note: nbtscan is a CLI tool, not a daemon. This template structures the arguments
+# typically passed to the `nbtscan` binary.
+
+# Enable verbose output (-v).
+# Schema: verbose (bool, default=False)
+verbose: {{ (verbose | default(false)) | ternary('-v', '') }}
+
+# Wait timeout seconds for response (-t).
+# Schema: timeout (int, default=1)
+timeout: {{ timeout | default(1) }}
+
+# Number of retransmits (-m).
+# Schema: retransmits (int, default=0)
+retransmits: {{ retransmits | default(0) }}
+
+# Use local port 137 for scans (-r). Requires root privileges.
+# Schema: use_local_port (bool, default=False)
+use_local_port: {{ (use_local_port | default(false)) | ternary('-r', '') }}
+
+# Suppress banners and error messages (-q).
+# Schema: quiet (bool, default=False)
+quiet: {{ (quiet | default(false)) | ternary('-q', '') }}
+
+# Format output in /etc/hosts format (-e).
+# Schema: format_hosts (bool, default=False)
+format_hosts: {{ (format_hosts | default(false)) | ternary('-e', '') }}
+
+# Format output in lmhosts format (-l).
+# Schema: format_lmhosts (bool, default=False)
+format_lmhosts: {{ (format_lmhosts | default(false)) | ternary('-l', '') }}
+
+# Script-friendly output separator (-s).
+# Schema: separator (str, default=' ')
+separator: {{ (separator | default(' ')) | quote }}
+
+# Print human-readable names for services (-h).
+# Schema: human_readable (bool, default=False)
+human_readable: {{ (human_readable | default(false)) | ternary('-h', '') }}
+
+# Output throttling bandwidth in bps (-b). 0 means no throttling.
+# Schema: bandwidth (int, default=0)
+bandwidth: {{ bandwidth | default(0) }}
+
+# Dump packets (-d).
+# Schema: dump_packets (bool, default=False)
+dump_packets: {{ (dump_packets | default(false)) | ternary('-d', '') }}
+
+# List of target IP addresses or subnets to scan.
+# These are appended as positional arguments to the nbtscan command.
+# Schema: targets (list, default=[])
+targets:
+{% for target in (targets | default([])) %}
+- {{ target }}
+{% endfor %}
+
+# File containing IP addresses to scan (-f).
+# If provided, this file is used instead of the targets list.
+# Schema: target_file (str, default='')
+target_file: {{ (target_file | default('')) | quote }}

@@ -1,0 +1,121 @@
+# =============================================================================
+# OsmoTRX Configuration Template
+# This file configures the OsmoTRX transceiver software for GSM/EGPRS support.
+# It controls logging verbosity, CPU scheduling for real-time performance,
+# and the TRX interface (Abis over IP) parameters.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Enable logging to standard error output.
+# Schema: log stderr
+log stderr
+
+# Whether to enable the 'all' filter in logging.
+# When enabled, all log categories are processed.
+# Schema: logging_filter_all
+logging filter all {{ logging_filter_all | default(1) }}
+
+# Whether to enable color output in logs.
+# Useful for terminal readability, disable for log files.
+# Schema: logging_color
+logging color {{ logging_color | default(1) }}
+
+# Whether to print category name in log messages.
+# Schema: logging_print_category
+logging print category {{ logging_print_category | default(1) }}
+
+# Whether to print category identifier as hexadecimal value.
+# Schema: logging_print_category_hex
+logging print category-hex {{ logging_print_category_hex | default(0) }}
+
+# Whether to print timestamps in log messages.
+# Schema: logging_timestamp
+logging timestamp {{ logging_timestamp | default(0) }}
+
+# Always print the file basename (last part of path) and line number.
+# This is a fixed directive in OsmoTRX config.
+logging print file basename last
+
+# Whether to print the log level (e.g., NOTICE, ERROR) in log messages.
+# Schema: logging_print_level
+logging print level {{ logging_print_level | default(1) }}
+
+# The default log level for all categories.
+# Options typically include: debug, notice, warning, error, critical.
+# Schema: logging_level_set_all
+logging level set-all {{ logging_level_set_all | default('notice') }}
+
+!
+
+# -----------------------------------------------------------------------------
+# VTY (Virtual Teletype) Configuration
+# -----------------------------------------------------------------------------
+
+# Enable the VTY command-line interface for management.
+line vty
+
+# Disable authentication login for the VTY session.
+# WARNING: This allows unauthenticated access to the CLI.
+# In production, consider securing this via ACLs or enabling login.
+no login
+
+!
+
+# -----------------------------------------------------------------------------
+# CPU Scheduling Configuration
+# -----------------------------------------------------------------------------
+
+cpu-sched
+
+# The round-robin time slice for CPU scheduling policy.
+# Higher values may improve throughput at the cost of latency jitter;
+# lower values improve responsiveness for real-time audio/radio frames.
+# Schema: cpu_sched_policy_rr
+policy rr {{ cpu_sched_policy_rr | default(18) }}
+
+# -----------------------------------------------------------------------------
+# TRX Interface Configuration (Abis over IP)
+# -----------------------------------------------------------------------------
+
+trx
+
+# IP address to bind the TRX interface to.
+# Typically the local management IP or '0.0.0.0' for all interfaces.
+# Schema: trx_bind_ip
+bind-ip {{ trx_bind_ip | default('127.0.0.1') }}
+
+# Remote IP address of the connected OsmoBTS or network element.
+# Schema: trx_remote_ip
+remote-ip {{ trx_remote_ip | default('127.0.0.1') }}
+
+# Whether EGPRS (Enhanced GPRS) is enabled or disabled.
+# Options: 'enable', 'disable', or potentially 'auto' depending on version.
+# Schema: trx_egprs
+egprs {{ trx_egprs | default('disable') }}
+
+# Samples per symbol for the Transmit (TX) path.
+# Must match the hardware capabilities and the receiver's expectation.
+# Schema: trx_tx_sps
+tx-sps {{ trx_tx_sps | default(4) }}
+
+# Samples per symbol for the Receive (RX) path.
+# Must match the hardware capabilities and the transmitter's expectation.
+# Schema: trx_rx_sps
+rx-sps {{ trx_rx_sps | default(4) }}
+
+# The ARFCN (Absolute Radio Frequency Channel Number) or channel index.
+# Schema: trx_chan
+chan {{ trx_chan | default(0) }}
+
+# TX RF path configuration.
+# Specifies which transmit chain/path to use on the hardware.
+# Schema: trx_tx_path
+tx-path {{ trx_tx_path | default('BAND1') }}
+
+# RX RF path configuration.
+# Specifies which receive chain/path to use on the hardware.
+# Schema: trx_rx_path
+rx-path {{ trx_rx_path | default('LNAW') }}

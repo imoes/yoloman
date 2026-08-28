@@ -1,0 +1,104 @@
+# ==============================================================================
+# Psi+ IM Configuration Template (psi-plus-webkit)
+# ==============================================================================
+# This file configures the Psi+ instant messaging client.
+# It is structured in INI-like sections: [psi], [connection], [appearance],
+# [account], and [privacy].
+#
+# SELF-DOCUMENTATION:
+# Every variable reference uses `| default(...)` to ensure the template renders
+# safely even if an Ansible variable is undefined.
+# Comments above each directive explain the purpose and valid values based on the schema.
+# ==============================================================================
+
+[psi]
+# Default language for the user interface
+# Expected format: ISO 639-1 language code (e.g., 'en', 'de', 'ru', 'fr')
+# If undefined, falls back to 'en' (English).
+Language = {{ lang | default('en') }}
+
+# Directory for storing local database, logs, and configuration data
+# Absolute path or path relative to the home directory.
+# If undefined, falls back to '~/.psi'.
+DataDir = {{ data_dir | default('~/.psi') }}
+
+# Enable the WebKit backend for enhanced features (emojis, images, etc.)
+# True enables the WebKit-based UI; False reverts to the basic Qt UI.
+# If undefined, falls back to true.
+UseWebKit = {{ use_webkit | default(true) | lower }}
+
+[connection]
+# Default XMPP server hostname to connect to
+# The domain part of the Jabber ID or a specific server address.
+# If undefined, falls back to 'jabber.org'.
+Server = {{ server | default('jabber.org') }}
+
+# Default port for XMPP connections
+# 5222 is the standard port for clear-text and TLS XMPP client connections.
+# If undefined, falls back to 5222.
+Port = {{ port | default(5222) }}
+
+# Enable TLS/SSL encryption for server connections
+# If true, the client will enforce encrypted connections.
+# If undefined, falls back to true.
+EnableTLS = {{ enable_tls | default(true) | lower }}
+
+[appearance]
+# Theme name or path to theme file
+# Adium-style themes. Common default is 'default'.
+# If undefined, falls back to 'default'.
+Theme = {{ theme | default('default') }}
+
+# Font family for chat windows and general UI
+# System font name (e.g., 'Sans Serif', 'Arial', 'DejaVu Sans').
+# If undefined, falls back to 'Sans Serif'.
+Font = {{ font | default('Sans Serif') }}
+
+# Font size in points
+# Integer value for the UI and chat text size.
+# If undefined, falls back to 10.
+FontSize = {{ font_size | default(10) }}
+
+[account]
+# List of XMPP accounts to configure
+# The template iterates over the `accounts` list provided by Ansible.
+# Each account generates a dedicated [accountN] section.
+{% for account in accounts | default([]) %}
+[account{{ loop.index }}]
+# XMPP JID (Jabber ID) for the account (e.g., user@example.com)
+# Must be a valid JID string. Empty string if not specified.
+JID = {{ account.jid | default('') }}
+
+# Password for the XMPP account.
+# Note: Storing passwords in config files is generally insecure.
+# Consider using a keyring or external secret management in production.
+# If undefined, falls back to an empty string.
+Password = {{ account.password | default('') }}
+
+# Initial presence status when the account connects
+# Common values: 'available', 'away', 'dnd', 'chat', 'xa' (extended away).
+# If undefined, falls back to 'available'.
+Status = {{ account.status | default('available') }}
+
+# Priority level for this account (0-255)
+# Higher priority receives messages first when multiple resources are online.
+# If undefined, falls back to 0.
+Priority = {{ account.priority | default(0) }}
+
+{% endfor %}
+
+[privacy]
+# Enable OTR (Off-the-Record) encryption support
+# Adds support for private, deniable, encrypted chats.
+# If undefined, falls back to false.
+EnableOTR = {{ enable_otr | default(false) | lower }}
+
+# Enable OMEMO encryption support
+# Adds support for multi-device secure messaging (OMEMO).
+# If undefined, falls back to false.
+EnableOMEMO = {{ enable_omemo | default(false) | lower }}
+
+# Restrict communication to only encrypted channels where possible
+# If true, the client may refuse to send unencrypted messages.
+# If undefined, falls back to false.
+EncryptedOnly = {{ encrypted_only | default(false) | lower }}

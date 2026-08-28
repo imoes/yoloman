@@ -1,0 +1,40 @@
+# ============================================================
+# tack Configuration Template
+# ============================================================
+# tack is a tool for testing terminfo descriptions against real
+# terminal emulators or hardware terminals. It checks whether
+# the capabilities described in terminfo entries produce the
+# correct output.
+#
+# This configuration file controls the default behavior of the
+# tack command when invoked without explicit command-line flags.
+# Command-line flags (e.g., -l, -i, -t, -d) override these settings.
+# ============================================================
+
+# Enable logging to tack.log (corresponds to -l flag)
+# When true, tack writes diagnostic output to tack.log.
+LOG_ENABLED: {{ log_enabled | default(False) | lower }}
+
+# Inhibit terminal initialization strings (corresponds to -i flag)
+# When true, tack does not send terminal init/reset strings before testing.
+NO_INIT: {{ no_init | default(False) | lower }}
+
+# Override terminfo basic function translations (corresponds to -t flag)
+# When true, tack overrides standard terminfo basic function mappings.
+OVERRIDE_CAPS: {{ override_caps | default(False) | lower }}
+
+# Specific terminfo terminal name to test. Empty uses $TERM
+# Corresponds to the -T flag or TERM environment variable.
+TERM_NAME: {{ term_name | default('') }}
+
+# Filename for debug output (corresponds to -d flag)
+# tack writes detailed debug information to this file.
+DEBUG_FILE: {{ debug_file | default('debug.log') }}
+
+# The ENQ sequence sent to terminal for pad timing handshake (u9)
+# Corresponds to the -e flag. Default: \E[c (CSI c — Device Attributes)
+ENQUIRE_STRING: {{ enquire_string | default('\\E[c') }}
+
+# The ACK sequence expected from terminal for pad timing handshake (u8)
+# Corresponds to the -a flag. Default: \E[?1;0c (CSI ? 1 ; 0 c)
+ACKNOWLEDGE_STRING: {{ acknowledge_string | default('\\E[?1;0c') }}

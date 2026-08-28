@@ -1,132 +1,130 @@
 {
-  "interfaces": {
-    "type": "list",
-    "default": [],
-    "description": "List of physical and virtual interfaces to configure with optional attributes.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Interface name (e.g., eth0, vlan10). Required."
-        },
-        "type": {
-          "type": "string",
-          "default": null,
-          "description": "Interface type (e.g., eth, vlan, loopback). Optional."
-        },
-        "mtu": {
-          "type": "number",
-          "default": null,
-          "description": "Maximum Transmission Unit size. Optional."
-        }
-      }
+ "hostname": {
+  "default": null,
+  "description": "Hostname advertised by Zebra. Optional.",
+  "type": "string"
+ },
+ "interfaces": {
+  "default": [],
+  "description": "List of physical and virtual interfaces to configure with optional attributes.",
+  "items": {
+   "properties": {
+    "mtu": {
+     "default": null,
+     "description": "Maximum Transmission Unit size. Optional.",
+     "type": "number"
+    },
+    "name": {
+     "default": "",
+     "description": "Interface name (e.g., eth0, vlan10). Required.",
+     "type": "string"
+    },
+    "type": {
+     "default": null,
+     "description": "Interface type (e.g., eth, vlan, loopback). Optional.",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "loopback": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, create a loopback interface (lo) with a default description."
-  },
-  "logging": {
-    "type": "object",
+  "type": "list"
+ },
+ "logging": {
+  "description": "Logging configuration.",
+  "properties": {
+   "destinations": {
     "default": {},
-    "description": "Logging configuration.",
     "properties": {
-      "destinations": {
-        "type": "object",
-        "default": {},
-        "properties": {
-          "log_file": {
-            "type": "string",
-            "default": "/var/log/quagga/zebra.log",
-            "description": "Path to the Zebra log file."
-          }
-        }
-      },
-      "level": {
-        "type": "string",
-        "default": "debug",
-        "description": "Log level: debug|info|notice|warning|error|critical|alert|emergency."
-      }
-    }
+     "log_file": {
+      "default": "/var/log/quagga/zebra.log",
+      "description": "Path to the Zebra log file.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "level": {
+    "default": "debug",
+    "description": "Log level: debug|info|notice|warning|error|critical|alert|emergency.",
+    "type": "string"
+   }
   },
-  "router_id": {
-    "type": "string",
+  "type": "object"
+ },
+ "loopback": {
+  "default": false,
+  "description": "If true, create a loopback interface (lo) with a default description.",
+  "type": "bool"
+ },
+ "passwords": {
+  "description": "Security credentials.",
+  "properties": {
+   "enable": {
     "default": null,
-    "description": "Router ID in dotted decimal (e.g., 192.0.2.1). Required for multi-router deployments."
-  },
-  "hostname": {
-    "type": "string",
+    "description": "Enable password (plaintext or hashed, depending on 'enable secret' config elsewhere). Optional.",
+    "type": "string"
+   },
+   "vty": {
     "default": null,
-    "description": "Hostname advertised by Zebra. Optional."
+    "description": "VTY access password. Optional but recommended.",
+    "type": "string"
+   }
   },
-  "redistribute": {
-    "type": "list",
-    "default": [],
-    "description": "List of protocols to redistribute into Zebra (e.g., static, kernel, connected, bgp, ospf).",
-    "items": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "default": "",
-          "description": "Protocol type to redistribute (e.g., static, kernel, connected, bgp, ospf, rip). Required."
-        },
-        "metric": {
-          "type": "number",
-          "default": null,
-          "description": "Metric for redistributed routes. Optional."
-        },
-        "route_map": {
-          "type": "string",
-          "default": null,
-          "description": "Route-map name to filter or modify redistributed routes. Optional."
-        }
-      }
+  "type": "object"
+ },
+ "redistribute": {
+  "default": [],
+  "description": "List of protocols to redistribute into Zebra (e.g., static, kernel, connected, bgp, ospf).",
+  "items": {
+   "properties": {
+    "metric": {
+     "default": null,
+     "description": "Metric for redistributed routes. Optional.",
+     "type": "number"
+    },
+    "route_map": {
+     "default": null,
+     "description": "Route-map name to filter or modify redistributed routes. Optional.",
+     "type": "string"
+    },
+    "type": {
+     "default": "",
+     "description": "Protocol type to redistribute (e.g., static, kernel, connected, bgp, ospf, rip). Required.",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "passwords": {
-    "type": "object",
-    "default": {},
-    "description": "Security credentials.",
-    "properties": {
-      "enable": {
-        "type": "string",
-        "default": null,
-        "description": "Enable password (plaintext or hashed, depending on 'enable secret' config elsewhere). Optional."
-      },
-      "vty": {
-        "type": "string",
-        "default": null,
-        "description": "VTY access password. Optional but recommended."
-      }
+  "type": "list"
+ },
+ "router_id": {
+  "default": null,
+  "description": "Router ID in dotted decimal (e.g., 192.0.2.1). Required for multi-router deployments.",
+  "type": "string"
+ },
+ "vty_access": {
+  "default": [],
+  "description": "List of VTY access control entries. Each entry defines which hosts or subnets may connect via VTY.",
+  "items": {
+   "properties": {
+    "hosts": {
+     "default": [],
+     "description": "List of allowed hosts or subnets.",
+     "items": {
+      "default": "",
+      "description": "Allowed host address (IP or CIDR).",
+      "type": "string"
+     },
+     "type": "list"
     }
+   },
+   "type": "object"
   },
-  "vty_access": {
-    "type": "list",
-    "default": [],
-    "description": "List of VTY access control entries. Each entry defines which hosts or subnets may connect via VTY.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "hosts": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "default": "",
-            "description": "Allowed host address (IP or CIDR)."
-          },
-          "description": "List of allowed hosts or subnets."
-        }
-      }
-    }
-  },
-  "zebra_options": {
-    "type": "list",
-    "default": [],
-    "description": "List of additional Zebra-specific configuration lines (e.g., 'ipv6 forward', 'no ip forward'). Use with caution."
-  }
+  "type": "list"
+ },
+ "zebra_options": {
+  "default": [],
+  "description": "List of additional Zebra-specific configuration lines (e.g., 'ipv6 forward', 'no ip forward'). Use with caution.",
+  "type": "list"
+ }
 }

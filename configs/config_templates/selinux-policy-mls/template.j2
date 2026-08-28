@@ -1,0 +1,102 @@
+# SELinux Multi-Level Security (MLS) Translation Table
+# This file maps SELinux MLS level identifiers to human-readable labels.
+# It is used by SELinux tools to translate between technical labels
+# and administrative labels.
+
+# Disable the MLS translation library.
+# Set to 1 to disable the translation library (commented out by default, uncomment to enable).
+# If enabled, set disable=1 and uncomment the line below.
+# disable={{ disable | default('1') }}
+
+# Objects can be labeled with one of 16 levels and be categorized with 0-1023
+# categories defined by the admin. Objects can be in more than one category at a time.
+# Users can modify this table to translate the MLS labels for different purpose.
+
+# Assumptions: using below MLS labels.
+#  SystemLow
+#  SystemHigh
+#  Unclassified
+#  Secret with compartments A and B.
+
+# SystemLow and SystemHigh definitions
+# SELinux security level identifier for SystemLow
+{{ s0 | default('s0') }}={{ s0_val | default('SystemLow') }}
+
+# SELinux security level identifier for SystemHigh (levels 15, categories 0-1023)
+{{ s15_c0_c1023 | default('s15:c0.c1023') }}={{ s15_c0_c1023_val | default('SystemHigh') }}
+
+# SELinux range identifier for SystemLow-SystemHigh
+{{ s0_s15_c0_c1023 | default('s0-s15:c0.c1023') }}={{ s0_s15_c0_c1023_val | default('SystemLow-SystemHigh') }}
+
+# Unclassified level definitions
+# SELinux security level identifier for Unclassified
+{{ s1 | default('s1') }}={{ s1_val | default('Unclassified') }}
+
+# Secret level with compartments definitions
+# SELinux security level identifier for Secret
+{{ s2 | default('s2') }}={{ s2_val | default('Secret') }}
+
+# SELinux identifier for Secret level with compartment A
+{{ s2_c0 | default('s2:c0') }}={{ s2_c0_val | default('Secret:A') }}
+
+# SELinux identifier for Secret level with compartment B
+{{ s2_c1 | default('s2:c1') }}={{ s2_c1_val | default('Secret:B') }}
+
+# Ranges for Unclassified level
+# Range identifier for SystemLow-Unclassified
+{{ s0_s1 | default('s0-s1') }}={{ s0_s1_val | default('SystemLow-Unclassified') }}
+
+# Range identifier for Unclassified-Secret
+{{ s1_s2 | default('s1-s2') }}={{ s1_s2_val | default('Unclassified-Secret') }}
+
+# Range identifier for Unclassified-SystemHigh
+{{ s1_s15_c0_c1023 | default('s1-s15:c0.c1023') }}={{ s1_s15_c0_c1023_val | default('Unclassified-SystemHigh') }}
+
+# Ranges for Secret with compartments
+# Range identifier for SystemLow-Secret
+{{ s0_s2 | default('s0-s2') }}={{ s0_s2_val | default('SystemLow-Secret') }}
+
+# Range identifier for SystemLow-Secret with compartment A
+{{ s0_s2_c0 | default('s0-s2:c0') }}={{ s0_s2_c0_val | default('SystemLow-Secret:A') }}
+
+# Range identifier for SystemLow-Secret with compartment B
+{{ s0_s2_c1 | default('s0-s2:c1') }}={{ s0_s2_c1_val | default('SystemLow-Secret:B') }}
+
+# Range identifier for SystemLow-Secret with both compartments
+{{ s0_s2_c0_c1 | default('s0-s2:c0,c1') }}={{ s0_s2_c0_c1_val | default('SystemLow-Secret:AB') }}
+
+# Range identifier for Unclassified-Secret with compartment A
+{{ s1_s2_c0 | default('s1-s2:c0') }}={{ s1_s2_c0_val | default('Unclassified-Secret:A') }}
+
+# Range identifier for Unclassified-Secret with compartment B
+{{ s1_s2_c1 | default('s1-s2:c1') }}={{ s1_s2_c1_val | default('Unclassified-Secret:B') }}
+
+# Range identifier for Unclassified-Secret with both compartments
+{{ s1_s2_c0_c1 | default('s1-s2:c0,c1') }}={{ s1_s2_c0_c1_val | default('Unclassified-Secret:AB') }}
+
+# Range identifier for Secret-Secret with compartment A
+{{ s2_s2_c0 | default('s2-s2:c0') }}={{ s2_s2_c0_val | default('Secret-Secret:A') }}
+
+# Range identifier for Secret-Secret with compartment B
+{{ s2_s2_c1 | default('s2-s2:c1') }}={{ s2_s2_c1_val | default('Secret-Secret:B') }}
+
+# Range identifier for Secret-Secret with both compartments
+{{ s2_s2_c0_c1 | default('s2-s2:c0,c1') }}={{ s2_s2_c0_c1_val | default('Secret-Secret:AB') }}
+
+# Range identifier for Secret-SystemHigh
+{{ s2_s15_c0_c1023 | default('s2-s15:c0.c1023') }}={{ s2_s15_c0_c1023_val | default('Secret-SystemHigh') }}
+
+# Range identifier for Secret:A-Secret:AB
+{{ s2_c0_s2_c0_c1 | default('s2:c0-s2:c0,c1') }}={{ s2_c0_s2_c0_c1_val | default('Secret:A-Secret:AB') }}
+
+# Range identifier for Secret:A-SystemHigh
+{{ s2_c0_s15_c0_c1023 | default('s2:c0-s15:c0.c1023') }}={{ s2_c0_s15_c0_c1023_val | default('Secret:A-SystemHigh') }}
+
+# Range identifier for Secret:B-Secret:AB
+{{ s2_c1_s2_c0_c1 | default('s2:c1-s2:c0,c1') }}={{ s2_c1_s2_c0_c1_val | default('Secret:B-Secret:AB') }}
+
+# Range identifier for Secret:B-SystemHigh
+{{ s2_c1_s15_c0_c1023 | default('s2:c1-s15:c0.c1023') }}={{ s2_c1_s15_c0_c1023_val | default('Secret:B-SystemHigh') }}
+
+# Range identifier for Secret:AB-SystemHigh
+{{ s2_c0_c1_s15_c0_c1023 | default('s2:c0,c1-s15:c0.c1023') }}={{ s2_c0_c1_s15_c0_c1023_val | default('Secret:AB-SystemHigh') }}

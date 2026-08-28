@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The agent process. Cross-platform: it runs on the Linux dev host with the runtime collector, which is
+       how milestone 1 was proven against the live Bossman before a Windows VM existed. On Windows it also
+       loads AgenticMcp.Agent.Windows' WMI collector. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- TWO targets: net10.0 so the agent builds and runs on this dev host (that is how the contract with
+         Bossman was proven before a Windows VM existed), and net10.0-windows so the same process can load
+         the WMI collector where WMI exists. One codebase, one behaviour, one extra collector. -->
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- The WINDOWS AGENT's own version, deliberately not the repo's VERSION file: this is a separate
+         artefact with its own release cadence, and pretending it ships in lockstep with the Go agent would
+         make the fleet's version column unable to answer "which build is on that host". 0.2.0 = the build
+         that runs as a service and keeps a result log. -->
+    <AssemblyVersion>0.2.0</AssemblyVersion>
+    <Version>0.2.0</Version>
+    <RootNamespace>AgenticMcp.Agent.Host</RootNamespace>
+    <!-- Self-contained: the target needs no runtime install. NOT single-file, and that is measured rather
+         than preferred — the PowerShell SDK ships its module tree twice (runtimes/unix and runtimes/win) and
+         the bundler fails on the duplicate with "It is forbidden to change Manifest state after it was
+         written", leaving a truncated 28 MB exe that looks like a successful build. A folder publish is
+         self-contained just the same, and the MSI (milestone 6) packages a folder anyway. -->
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgenticMcp.Agent.Core\AgenticMcp.Agent.Core.csproj" />
+    <ProjectReference Include="..\AgenticMcp.Agent.Modules\AgenticMcp.Agent.Modules.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\AgenticMcp.Agent.Windows\AgenticMcp.Agent.Windows.csproj" />
+    <!-- Lets the same exe run under the Service Control Manager. Without it SCM starts the process, waits for
+         a status it never gets, and fails with error 1053 ("the service did not respond in a timely
+         fashion") — which reads like a hung agent rather than a missing four lines of hosting. Windows-only
+         by construction: there is no SCM to talk to on the dev host. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.11" />
+  </ItemGroup>
+
+
+  <!-- SHIP POWERSHELL'S OWN MODULES, which a RID-specific publish otherwise drops.
+       Measured on the first real install: `dotnet publish -r win-x64` FLATTENS `runtimes/`, so
+       runtimes/win/lib/net9.0/Modules — Utility, Management, Security, CimCmdlets, Host, Diagnostics — never
+       reaches the target. The agent then starts, logs "listening", and its `powershell` module has the
+       LANGUAGE and almost no cmdlets: Get-Date answers "not recognized". The non-RID build copies them, so
+       this bites only the artefact that actually gets installed — which is why it took a real Windows host to
+       find, twice in one day for two different reasons.
+       A post-publish Copy, not a Content item: Content with a LinkBase does NOT survive a RID publish across
+       a project reference (measured — the publish came out with no runtimes/ directory at all). 316 kB into
+       the exact layout PowerShellModule.ResolveModuleDirectory already looks in, both platform trees, since
+       the resolver picks the one for the running OS. -->
+  <Target Name="CopyPowerShellModules" AfterTargets="Publish">
+    <ItemGroup>
+      <_PsWinModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/win/lib/net9.0/Modules/**/*" />
+      <_PsUnixModules Include="$(NuGetPackageRoot)microsoft.powershell.sdk/7.5.4/contentFiles/any/any/runtimes/unix/lib/net9.0/Modules/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PsWinModules)" DestinationFiles="@(_PsWinModules->'$(PublishDir)runtimes/win/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_PsUnixModules)" DestinationFiles="@(_PsUnixModules->'$(PublishDir)runtimes/unix/lib/net9.0/Modules/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Error Condition="!Exists('$(PublishDir)runtimes/win/lib/net9.0/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1')" Text="PowerShell's module tree did not reach the publish output. Shipping this artefact would produce an agent whose `powershell` module has no cmdlets — fail the build instead." />
+  </Target>
+
+</Project>

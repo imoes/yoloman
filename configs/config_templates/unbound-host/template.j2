@@ -1,0 +1,122 @@
+#!/bin/sh
+# Command-line wrapper script for unbound-host
+# Generated configuration for unbound-host invocation
+#
+# This script builds the argument list for the `unbound-host` command-line tool
+# based on the provided schema variables. It supports IPv4/IPv6 selection,
+# DNS record/class specification, DNSSEC validation, trust anchors, and
+# configuration priming via libunbound.
+
+# The hostname or IP address to resolve.
+# Default: 'www.example.com'
+HOSTNAME="{{ hostname | default('www.example.com') }}"
+
+# Enable verbose output and show validation status (secure, insecure, bogus).
+# Default: False
+VERBOSE="{{ verbose | default(False) | bool | lower }}"
+
+# Enable debug output to stderr.
+# Default: False
+DEBUG="{{ debug | default(False) | bool | lower }}"
+
+# Use solely IPv4 network for sending packets.
+# Default: False
+USE_IPV4="{{ use_ipv4 | default(False) | bool | lower }}"
+
+# Use solely IPv6 network for sending packets.
+# Default: False
+USE_IPV6="{{ use_ipv6 | default(False) | bool | lower }}"
+
+# Specify the DNS class to lookup (e.g., IN, CH). Leave empty for default.
+# Default: ''
+DNS_CLASS="{{ dns_class | default('') }}"
+
+# Specify the record type to lookup (e.g., A, AAAA, MX). Leave empty for default.
+# Default: ''
+DNS_TYPE="{{ dns_type | default('') }}"
+
+# Path to an unbound.conf file to prime libunbound. Leave empty to use no config file.
+# Default: ''
+CONFIG_FILE="{{ config_file | default('') }}"
+
+# Read /etc/resolv.conf for forward DNS servers.
+# Default: False
+USE_RESOLV_CONF="{{ use_resolv_conf | default(False) | bool | lower }}"
+
+# List of trust anchor keys (DS or DNSKEY records) to use.
+# If empty, relies on other methods or defaults if DNSSEC validation is on.
+# Default: []
+# Format: "key1" "key2" ... passed as separate -y arguments
+TRUST_ANCHORS="{% if trust_anchors is defined and trust_anchors %}{{ trust_anchors | map('regex_replace', '^(.*)', '" -y "\\1"') | join(' ') }}{% endif %}"
+
+# Path to a file containing DS or DNSKEY records. Leave empty if not used.
+# Default: ''
+KEY_FILE="{{ key_file | default('') }}"
+
+# Path to a BIND-style named.conf file with trusted-key entries. Leave empty if not used.
+# Default: ''
+NAMED_KEY_FILE="{{ named_key_file | default('') }}"
+
+# Enable DNSSEC validation reading root anchor from default location.
+# Default: False
+DNSSEC_VALIDATION="{{ dnssec_validation | default(False) | bool | lower }}"
+
+# Build the arguments string
+ARGS=""
+
+{% if verbose | default(False) | bool %}
+ARGS="${ARGS} -v"
+{% endif %}
+
+{% if debug | default(False) | bool %}
+ARGS="${ARGS} -d"
+{% endif %}
+
+{% if use_ipv4 | default(False) | bool %}
+ARGS="${ARGS} -4"
+{% endif %}
+
+{% if use_ipv6 | default(False) | bool %}
+ARGS="${ARGS} -6"
+{% endif %}
+
+{% if dns_class | default('') %}
+ARGS="${ARGS} -c {{ dns_class | default('') }}"
+{% endif %}
+
+{% if dns_type | default('') %}
+ARGS="${ARGS} -t {{ dns_type | default('') }}"
+{% endif %}
+
+{% if config_file | default('') %}
+ARGS="${ARGS} -C {{ config_file | default('') }}"
+{% endif %}
+
+{% if use_resolv_conf | default(False) | bool %}
+ARGS="${ARGS} -r"
+{% endif %}
+
+{% if dnssec_validation | default(False) | bool %}
+ARGS="${ARGS} -D"
+{% endif %}
+
+{% if key_file | default('') %}
+ARGS="${ARGS} -f {{ key_file | default('') }}"
+{% endif %}
+
+{% if named_key_file | default('') %}
+ARGS="${ARGS} -F {{ named_key_file | default('') }}"
+{% endif %}
+
+# Trust anchors need to be passed as individual -y flags to unbound-host.
+# We construct them dynamically here to ensure they are properly separated.
+TRUST_ANCHORS_FLAGS=""
+{% if trust_anchors is defined and trust_anchors %}
+{% for anchor in trust_anchors %}
+TRUST_ANCHORS_FLAGS="${TRUST_ANCHORS_FLAGS} -y {{ anchor }}"
+{% endfor %}
+{% endif %}
+
+# Execute unbound-host with the constructed arguments
+echo "Executing: unbound-host ${ARGS} ${TRUST_ANCHORS_FLAGS} ${HOSTNAME}"
+unbound-host ${ARGS} ${TRUST_ANCHORS_FLAGS} ${HOSTNAME}

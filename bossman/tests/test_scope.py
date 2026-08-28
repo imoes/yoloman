@@ -3,7 +3,7 @@
 from bossman.services.scope import HostCtx, Scope, ServiceCtx, scope_covers
 
 HOST = HostCtx(
-    name="vpp0221.example.com",
+    name="host1.example.internal",
     groups=["Europe/Latvia", "docker-hosts"],
     ou_ids=frozenset({"ou-root", "ou-munich", "ou-prod"}),
 )
@@ -31,14 +31,14 @@ def test_group_exact_and_nested():
 
 
 def test_host_exact():
-    assert scope_covers(_s(scope_type="host", value="vpp0221.example.com"), HOST, SVC)
-    assert not scope_covers(_s(scope_type="host", value="vpp0222.example.com"), HOST, SVC)
+    assert scope_covers(_s(scope_type="host", value="host1.example.internal"), HOST, SVC)
+    assert not scope_covers(_s(scope_type="host", value="host2.example.internal"), HOST, SVC)
 
 
 def test_service_needs_both_host_and_service():
-    assert scope_covers(_s(scope_type="service", value="vpp0221.example.com", service_name="Memory"), HOST, SVC)
+    assert scope_covers(_s(scope_type="service", value="host1.example.internal", service_name="Memory"), HOST, SVC)
     # Right host, wrong service → no.
-    assert not scope_covers(_s(scope_type="service", value="vpp0221.example.com", service_name="CPU load"), HOST, SVC)
+    assert not scope_covers(_s(scope_type="service", value="host1.example.internal", service_name="CPU load"), HOST, SVC)
     # Right service, wrong host → no.
     assert not scope_covers(_s(scope_type="service", value="other-host", service_name="Memory"), HOST, SVC)
 

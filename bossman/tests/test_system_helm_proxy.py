@@ -47,11 +47,11 @@ def test_cluster_only_commands_are_never_proxied():
 def test_set_helm_proxy_always_unions_the_mandatory_exclusions():
     """An admin can add to no_proxy but never drop the cluster/local exclusions —
     so a truncated value can't route the cluster through the proxy."""
-    helm_app.set_helm_proxy("http://proxy.example:80", ".example.com")
+    helm_app.set_helm_proxy("http://proxy.example:80", ".example.internal")
     _, noproxy = helm_app._HELM_PROXY
     for mandatory in ("192.168.0.0/16", "10.0.0.0/8", "127.0.0.1", ".svc", ".cluster.local"):
         assert mandatory in noproxy
-    assert ".example.com" in noproxy
+    assert ".example.internal" in noproxy
     helm_app.set_helm_proxy("", "")
 
 
@@ -74,18 +74,18 @@ async def test_put_helm_proxy_persists_and_refreshes_cache(db_session):
     with TestClient(create_app()) as client:
         r = client.put(
             "/api/v1/system/helm-proxy",
-            json={"http_proxy": "http://proxy.example.com:80", "no_proxy": "localhost,.example.com"},
+            json={"http_proxy": "http://proxy.example.internal:80", "no_proxy": "localhost,.example.internal"},
             headers=headers,
         )
         assert r.status_code == 200
-        assert r.json()["helm_http_proxy"] == "http://proxy.example.com:80"
+        assert r.json()["helm_http_proxy"] == "http://proxy.example.internal:80"
 
         got = client.get("/api/v1/system/yolo-mode", headers=headers)
-        assert got.json()["helm_http_proxy"] == "http://proxy.example.com:80"
-        assert got.json()["helm_no_proxy"] == "localhost,.example.com"
+        assert got.json()["helm_http_proxy"] == "http://proxy.example.internal:80"
+        assert got.json()["helm_no_proxy"] == "localhost,.example.internal"
 
     # the write refreshed the in-process cache — the next helm command is proxied
-    assert helm_app._HELM_PROXY[0] == "http://proxy.example.com:80"
+    assert helm_app._HELM_PROXY[0] == "http://proxy.example.internal:80"
     # reset so we don't leave a proxy set for the rest of the suite
     with TestClient(create_app()) as client:
         client.put("/api/v1/system/helm-proxy", json={"http_proxy": "", "no_proxy": ""}, headers=headers)

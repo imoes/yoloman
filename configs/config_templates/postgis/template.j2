@@ -1,0 +1,47 @@
+# =============================================================================
+# PostGIS Extension Configuration
+# =============================================================================
+# This template generates SQL statements to configure PostGIS extension parameters.
+# It is designed to be executed within a PostgreSQL database context (e.g., via psql or ansible postgresql_ext modules).
+# =============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Section: Core PostGIS Settings
+-- ----------------------------------------------------------------------------
+
+-- postgis.spatial_version
+# Description: The minimum version of PostGIS to install or upgrade to. Matches major.minor version.
+# Default: '3.6'
+SET postgis.spatial_version = '{{ (postgis | default({})).spatial_version | default("3.6") }}';
+
+-- postgis.enable_outdb_rasters
+# Description: Enable access to rasters stored outside the database filespace.
+# Default: true
+SET postgis.enable_outdb_rasters = {{ (postgis | default({})).enable_outdb_rasters | default(true) | lower }};
+
+-- ----------------------------------------------------------------------------
+-- Section: GDAL Driver Configuration
+-- ----------------------------------------------------------------------------
+
+-- postgis.gdal_enabled_drivers
+# Description: List of GDAL driver names to explicitly enable for raster processing. If empty, defaults are applied.
+# Default: ['GTiff']
+{% set gdal_drivers = (postgis | default({})).gdal_enabled_drivers | default(['GTiff']) %}
+{% if gdal_drivers | length > 0 %}
+-- Enable specified GDAL drivers
+{% for driver in gdal_drivers %}
+-- Driver enabled: {{ driver }}
+-- Note: In a real PG config, driver settings might be handled via configuration files or extension creation parameters.
+{% endfor %}
+{% else %}
+-- No specific GDAL drivers specified; using PostGIS defaults.
+{% endif %}
+
+-- ----------------------------------------------------------------------------
+-- Section: Security Settings
+-- ----------------------------------------------------------------------------
+
+-- postgis.enable_dropdb_at_least
+# Description: If true, allows dropping the PostGIS extension even if the database is not empty. Warning: Data loss risk.
+# Default: false
+SET postgis.enable_dropdb_at_least = {{ (postgis | default({})).enable_dropdb_at_least | default(false) | lower }};

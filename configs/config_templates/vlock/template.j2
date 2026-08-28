@@ -1,0 +1,50 @@
+# Configuration file for vlock
+# ~/.vlockrc
+#
+# This file controls the behavior of vlock, a Linux console locker.
+# Variables are exported to the environment when vlock runs.
+# Use Jinja2 defaults to ensure valid output even when variables are undefined.
+
+# The message displayed when the console is locked.
+# Overrides VLOCK_ALL_MESSAGE and VLOCK_CURRENT_MESSAGE if set.
+# Defaults to empty string (no message).
+{% if vlock_message | default('') | length > 0 %}
+VLOCK_MESSAGE={{ vlock_message | default('') }}
+{% endif %}
+
+# The message displayed when all consoles are locked (global lock).
+# Defaults to empty string (no message).
+{% if vlock_all_message | default('') | length > 0 %}
+VLOCK_ALL_MESSAGE={{ vlock_all_message | default('') }}
+{% endif %}
+
+# The message displayed when only the current console is locked.
+# Defaults to empty string (no message).
+{% if vlock_current_message | default('') | length > 0 %}
+VLOCK_CURRENT_MESSAGE={{ vlock_current_message | default('') }}
+{% endif %}
+
+# A list of plugin names to load when vlock starts.
+# Joined into a space-separated string for the VLOCK_PLUGINS environment variable.
+# Defaults to empty list (no plugins).
+{% if vlock_plugins | default([]) | length > 0 %}
+VLOCK_PLUGINS={{ vlock_plugins | default([]) | join(' ') }}
+{% endif %}
+
+# The timeout in seconds after which screensaver plugins are invoked.
+# A value of 0 (the default) disables the timeout.
+{% if vlock_timeout | default(0) > 0 %}
+VLOCK_TIMEOUT={{ vlock_timeout | default(0) }}
+{% endif %}
+
+# The timeout in seconds for entering the password at the prompt.
+# A value of 0 (the default) disables the prompt timeout.
+{% if vlock_prompt_timeout | default(0) > 0 %}
+VLOCK_PROMPT_TIMEOUT={{ vlock_prompt_timeout | default(0) }}
+{% endif %}
+
+# The user to lock the screen as when running as root.
+# Usually the actual invoking user. Leave empty to default behavior.
+{% if vlock_user | default('') | length > 0 %}
+VLOCK_USER={{ vlock_user | default('') }}
+{% endif %}

@@ -1,0 +1,67 @@
+# Configuration for pamu2fcfg U2F/FIDO2 registration tool.
+# This template generates the command-line arguments for pamu2fcfg
+# based on the provided schema defaults and user overrides.
+
+# Generate a resident credential.
+# resident: default=False, desc='Generate a resident credential. Defaults to off.'
+{% if (values | default({})).resident | default(False) %}
+-r
+{% endif %}
+
+# Set the FIDO2 relying party ID (origin) for registration.
+# origin: default='', desc='Set the FIDO2 relying party ID. Defaults to pam://hostname if empty.'
+{% set origin_val = (values | default({})).origin | default('') %}
+{% if origin_val %}
+-o {{ origin_val }}
+{% endif %}
+
+# Set the FIDO2 relying party name (appid).
+# appid: default='', desc='Set the FIDO2 relying party name. Defaults to origin if empty.'
+{% set appid_val = (values | default({})).appid | default('') %}
+{% if appid_val %}
+-i {{ appid_val }}
+{% endif %}
+
+# Set the COSE type for registration (ES256, EDDSA, RS256).
+# cose_type: default='ES256', desc='COSE type to use during registration (ES256, EDDSA, or RS256). Defaults to ES256.'
+{% set cose_val = (values | default({})).cose_type | default('ES256') %}
+{% if cose_val %}
+-t {{ cose_val }}
+{% endif %}
+
+# Allow using the credential without ensuring the user’s presence.
+# no_user_presence: default=False, desc='Allow using the credential without ensuring the user’s presence. Defaults to off.'
+{% if (values | default({})).no_user_presence | default(False) %}
+-P
+{% endif %}
+
+# Require PIN verification during authentication.
+# require_pin: default=False, desc='Require PIN verification during authentication. Defaults to off.'
+{% if (values | default({})).require_pin | default(False) %}
+-N
+{% endif %}
+
+# Require user verification during authentication.
+# require_user_verification: default=False, desc='Require user verification during authentication. Defaults to off.'
+{% if (values | default({})).require_user_verification | default(False) %}
+-V
+{% endif %}
+
+# Username for the device registration.
+# username: default='', desc='The name of the user registering the device. Defaults to current user if empty.'
+{% set user_val = (values | default({})).username | default('') %}
+{% if user_val %}
+-u {{ user_val }}
+{% endif %}
+
+# Output only registration information (key handle, public key, options) without the user prefix.
+# nouser: default=False, desc='Print only registration information. Useful for appending to config files. Defaults to off.'
+{% if (values | default({})).nouser | default(False) %}
+-n
+{% endif %}
+
+# Print debug information (highly verbose).
+# debug: default=False, desc='Print debug information. Defaults to off.'
+{% if (values | default({})).debug | default(False) %}
+-d
+{% endif %}

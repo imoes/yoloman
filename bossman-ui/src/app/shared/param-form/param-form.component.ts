@@ -40,9 +40,22 @@ interface Field { key: string; spec: ParamSpec; }
             @case ('bool') {
               <label class="bm-pf-switch"><input type="checkbox" [checked]="asBool(values()[f.key])" (change)="set(f.key, $any($event.target).checked)" /> <span>{{ asBool(values()[f.key]) ? 'yes' : 'no' }}</span></label>
             }
+            @case ('enum-open') {
+              <!-- SUGGESTIONS, NOT A MENU. The description introduced these with "e.g." or "common
+                   values", so the set is not closed and a select would remove every value it omits. -->
+              <input class="bm-pf-in" [attr.list]="'dl-' + f.key" [value]="values()[f.key] ?? ''"
+                     (input)="set(f.key, $any($event.target).value)" />
+              <datalist [id]="'dl-' + f.key">
+                @for (o of f.spec.enum; track o) { <option [value]="o">{{ optionLabel(f.spec, o) }}</option> }
+              </datalist>
+              <span class="bm-pf-hint">suggestions — other values are allowed</span>
+            }
             @case ('enum') {
               <select class="bm-pf-in" [ngModel]="values()[f.key]" (ngModelChange)="set(f.key, $event)">
-                @for (o of f.spec.enum; track o) { <option [value]="o">{{ o }}</option> }
+                <!-- The LABEL is shown, the VALUE is submitted. A numeric enum without labels reads as
+                     "0, 1, 2, 3" and tells the operator nothing; with them the option says what it does and
+                     the file still receives the number. -->
+                @for (o of f.spec.enum; track o) { <option [value]="o">{{ optionLabel(f.spec, o) }}</option> }
               </select>
             }
             @case ('number') {
@@ -107,7 +120,8 @@ interface Field { key: string; spec: ParamSpec; }
     .bm-pf-label { font-size: 12.5px; font-weight: 500; opacity: 0.85; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bm-pf-req { color: var(--bm-red, #c62828); margin-left: 2px; }
     .bm-pf-control { min-width: 0; }
-    .bm-pf-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 4px 7px; border-radius: 5px;
+    .bm-pf-hint { display: block; font-size: 11px; opacity: 0.65; margin-top: 2px; }
+      .bm-pf-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 4px 7px; border-radius: 5px;
       border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
     .bm-pf-in:focus { outline: none; border-color: var(--mat-sys-primary); }
     textarea.bm-pf-in { resize: vertical; line-height: 1.4; }
@@ -187,9 +201,23 @@ export class ParamFormComponent implements OnInit {
   essential = computed(() => this.fields().filter((f) => f.spec.required || f.spec.default === undefined));
   advanced = computed(() => this.fields().filter((f) => !(f.spec.required || f.spec.default === undefined)));
 
+  /** What to SHOW for an enum option. The value is what gets submitted either way.
+   *
+   * `label (value)` rather than the label alone: for `0 = error` the operator often needs to know which
+   * number lands in the file — the config they are editing may already contain it, and a menu that hides
+   * the value makes the two views of the same setting unrecognisable to each other. */
+  optionLabel(spec: ParamSpec, option: unknown): string {
+    const value = String(option);
+    const label = spec.enum_labels?.[value];
+    return label ? `${label} (${value})` : value;
+  }
+
   control(spec: ParamSpec, value?: unknown): string {
     if (spec.widget === 'file') return 'file';
     if (spec.secret) return 'secret';
+    // An open set is a different CONTROL, not a decorated dropdown: asked before 'enum' so the select
+    // cannot claim it.
+    if (spec.enum?.length && spec.enum_open) return 'enum-open';
     if (spec.enum?.length) return 'enum';
     if (spec.type === 'bool') return 'bool';
     if (spec.type === 'number') return 'number';

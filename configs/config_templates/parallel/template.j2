@@ -1,0 +1,71 @@
+# /etc/parallel/config
+# Default options for GNU parallel.
+# Self-documented template for Ansible role.
+# See man parallel(1) for details on options.
+
+# jobs: Number of jobslots. Accepts integer, percentage (e.g., '50%'), or math expression.
+# Default: '100%'
+--jobs {{ (jobs | default('100%')) | string }}
+
+# keep_order: If true, outputs are printed in the same order as input.
+# Default: False
+{% if (keep_order | default(False) | bool) %}--keep-order
+{% endif %}
+
+# verbose: If true, prints the command to stderr before execution.
+# Default: False
+{% if (verbose | default(False) | bool) %}--verbose
+{% endif %}
+
+# max_chars: Maximum command line length. Can include suffixes like '2M'. Leave empty for system default.
+# Default: ''
+{% set _max_chars = (max_chars | default('')) | trim %}
+{% if _max_chars %}--max-chars {{ _max_chars }}
+{% endif %}
+
+# memfree: Minimum free memory. Can include suffixes like '1G'. Leave empty for no limit.
+# Default: ''
+{% set _memfree = (memfree | default('')) | trim %}
+{% if _memfree %}--memfree {{ _memfree }}
+{% endif %}
+
+# remote_profile: Name of the profile file in ~/.parallel/ to use for remote SSH jobs.
+# Default: ''
+{% set _remote_profile = (remote_profile | default('')) | trim %}
+{% if _remote_profile %}--profile {{ _remote_profile }}
+{% endif %}
+
+# delay: Delay before starting next job. Can include suffixes like '0.1s' or 'auto'.
+# Default: ''
+{% set _delay = (delay | default('')) | trim %}
+{% if _delay %}--delay {{ _delay }}
+{% endif %}
+
+# null_delimiter: If true, uses NUL character as input delimiter.
+# Default: False
+{% if (null_delimiter | default(False) | bool) %}--null
+{% endif %}
+
+# progress: If true, shows progress bars and statistics.
+# Default: False
+{% if (progress | default(False) | bool) %}--progress
+{% endif %}
+
+# eta: If true, shows estimated time of arrival.
+# Default: False
+{% if (eta | default(False) | bool) %}--eta
+{% endif %}
+
+# halt_on_error: Halt condition. E.g., 'now,fail=1' or 'soon,done=50%'.
+# Default: 'never'
+--halt {{ (halt_on_error | default('never')) | string }}
+
+# retries: Number of retries for failed jobs. 0 means no retries.
+# Default: 0
+--retries {{ (retries | default(0)) | int }}
+
+# shell: Explicit shell to use for jobs. Leave empty to use default.
+# Default: '/bin/sh'
+{% set _shell = (shell | default('/bin/sh')) | trim %}
+{% if _shell %}--shell {{ _shell }}
+{% endif %}

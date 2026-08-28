@@ -1,0 +1,21 @@
+# Squashfs Mount Configuration
+# ----------------------------
+# This template generates a configuration for mounting SquashFS images via loopback.
+# Each line defines a mapping between a SquashFS image file and its target mount point.
+# The utility using this config will execute:
+#   mount -n -o loop,nosuid,nodev,ro -t squashfs <image> <mountpoint>
+# for each entry, and then execute the specified shell command.
+
+# List of SquashFS image mounts.
+# Each item is an object with 'image' (path to the .sqsh file) and 'mountpoint' (destination dir).
+# Defaults to a single entry mounting root.sqsh to /mnt/squashfs.
+{% for entry in mount_entries | default([{'image': '/var/lib/squashfs/root.sqsh', 'mountpoint': '/mnt/squashfs'}]) %}
+# Image path: {{ entry.image }}
+# Target mount point: {{ entry.mountpoint }}
+{{ entry.image }}:{{ entry.mountpoint }}
+{% endfor %}
+
+--
+# Command to execute inside the mount namespace after all images are mounted.
+# Defaults to /bin/sh if not provided.
+{{ command | default('/bin/sh') }}

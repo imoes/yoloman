@@ -1,0 +1,115 @@
+{# ============================================================================ #}
+{# tcpflow configuration template                                               #}
+{# ============================================================================ #}
+{# This template generates a configuration file for tcpflow.                     #}
+{# Each section corresponds to a command-line flag or configuration option.      #}
+{# Variables use defaults matching the schema to ensure safe rendering.          #}
+{# ============================================================================ #}
+
+{# ============================================================================ #}
+{# General Settings                                                             #}
+{# ============================================================================ #}
+
+{# Network interface name to capture from (e.g., eth0).                          #}
+{# Leave empty if reading from PCAP files only. Corresponds to: -i <iface>      #}
+iface: {{ iface | default('') }}
+
+{# Directory where flow transcript files are written.                            #}
+{# Corresponds to: -o <outdir>                                                  #}
+outdir: {{ outdir | default('/var/lib/tcpflow/output') }}
+
+{# PCAP input files to process.                                                  #}
+{# If empty and iface is set, tcpflow captures live traffic.                     #}
+{# Corresponds to: -r <file1> -r <file2> ...                                    #}
+inputs:
+{% for input_file in inputs | default([], true) %}
+  - {{ input_file }}
+{% endfor %}
+
+{# ============================================================================ #}
+{# Capture Filters                                                              #}
+{# ============================================================================ #}
+
+{# BPF filter expression to select packets (e.g., 'tcp port 80').                #}
+{# Leave empty to capture/process all packets.                                   #}
+{# Corresponds to: [expression]                                                 #}
+bpf_filter: "{{ bpf_filter | default('') }}"
+
+{# Maximum size of a captured flow in bytes.                                     #}
+{# Leave empty for unlimited. Corresponds to: -b <max_bytes>                     #}
+max_bytes: "{{ max_bytes | default('') }}"
+
+{# Maximum number of file descriptors to use.                                    #}
+{# 0 uses the OS default. Corresponds to: -f <max_fds>                           #}
+max_fds: {{ max_fds | default(0) }}
+
+{# ============================================================================ #}
+{# Scanners and Plugins                                                         #}
+{# ============================================================================ #}
+
+{# List of scanner names to enable (e.g., 'http', 'md5', 'python').              #}
+{# Empty list disables specific scanners (uses defaults).                        #}
+{# Corresponds to: -e <scanner1> -e <scanner2> ...                              #}
+scanners:
+{% for scanner in scanners | default([], true) %}
+  - {{ scanner }}
+{% endfor %}
+
+{# List of key=value strings for plugin parameters.                              #}
+{# Corresponds to: -S <name=value>                                              #}
+plugin_params:
+{% for param in plugin_params | default([], true) %}
+  - {{ param }}
+{% endfor %}
+
+{# ============================================================================ #}
+{# Output Formatting                                                            #}
+{# ============================================================================ #}
+
+{# Custom filename template using %-specifiers (e.g., '%A/%B/%c') or format     #}
+{# flags (e.g., 'k'). If empty, default naming is used.                          #}
+{# Corresponds to: -F[format] or -T <template>                                  #}
+filename_format: "{{ filename_format | default('') }}"
+
+{# Binning flag: 'k' (1K dirs), 'm' (1M dirs), 'g' (1G dirs), or 'none'.       #}
+{# Ignored if filename_format is explicitly set.                                 #}
+{# Corresponds to: -Fk (1K), -Fm (1M), -Fg (1G)                                #}
+binning: "{{ binning | default('none') }}"
+
+{# Filename for the DFXML report.                                                #}
+{# Empty string uses the default 'report.xml'.                                   #}
+{# Corresponds to: -X <filename.xml>                                            #}
+dfxml_report: "{{ dfxml_report | default('') }}"
+
+{# ============================================================================ #}
+{# Security and Permissions                                                     #}
+{# ============================================================================ #}
+
+{# Username to change to after opening capture device/file.                      #}
+{# Empty string to keep running as the original user.                            #}
+{# Corresponds to: --relinquish-privileges=<username>                            #}
+relinquish_privileges: "{{ relinquish_privileges | default('') }}"
+
+{# ============================================================================ #}
+{# Debugging and Console Options                                                #}
+{# ============================================================================ #}
+
+{# Debug level (0-10). Higher numbers produce more messages to stderr.           #}
+{# Corresponds to: -d <debug_level>                                             #}
+debug_level: {{ debug_level | default(1) }}
+
+{# Print console output in hex format.                                           #}
+{# Corresponds to: -D                                                            #}
+hex_console: {{ hex_console | default(false) | lower }}
+
+{# Convert non-printable characters to dots in console output.                   #}
+{# Corresponds to: -s                                                            #}
+strip_nonprintables: {{ strip_nonprintables | default(false) | lower }}
+
+{# Store reception timestamps in companion .findx files.                         #}
+{# Corresponds to: -I                                                            #}
+store_timestamps: {{ store_timestamps | default(false) | lower }}
+
+{# Enable all processing/scanners (equivalent to -a).                            #}
+{# Corresponds to: -a                                                            #}
+enable_all: {{ enable_all | default(false) | lower }}

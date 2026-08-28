@@ -29,6 +29,21 @@ def resource_dict(type_: str | None, path: str, fmt: str | None, sep: str | None
     return res
 
 
+#: Codecs whose value map is FLAT — a key is one setting, dots in a key are part of the name and
+#: never a path into a nested object. Everything else (ini/json/yaml/xml/toml) nests.
+#:
+#: One definition because the distinction was previously spelled `fmt in (None, "keyvalue")` in
+#: three separate places, so adding a codec meant remembering all three. `dirvalue` (a directory
+#: with one file per setting, Debian pure-ftpd) is flat in exactly the same way keyvalue is, and
+#: `None` means "no codec stated", whose values are treated as a flat map.
+FLAT_FORMATS: frozenset[str | None] = frozenset({None, "keyvalue", "dirvalue"})
+
+
+def is_flat(fmt: str | None) -> bool:
+    """True when this codec's values are a flat key→value map (see FLAT_FORMATS)."""
+    return fmt in FLAT_FORMATS
+
+
 def merge_layers(layers: list[tuple[dict, str]], deep: bool) -> tuple[dict, dict[str, str]]:
     """Merge values layers weak→strong. deep=True (ini/yaml/json/xml) merges
     nested dicts per level; keyvalue merges flat (its keys may contain dots).
@@ -131,10 +146,16 @@ async def effective_resources(session: AsyncSession, agent: Agent) -> list[dict[
             continue
         fmt = next((l.get("format") for l, _ in reversed(lays) if l.get("format")), None)
         sep = next((l.get("separator") for l, _ in reversed(lays) if l.get("separator")), None)
-        deep = fmt not in (None, "keyvalue")
+        deep = not is_flat(fmt)
         merged, key_sources = merge_layers([(l.get("values") or {}, s) for l, s in lays], deep)
+        # THE DECLARED TYPE SURVIVES. This line used to pass the literal "config" for every non-template
+        # resource, which silently rewrote a `registry` declaration into a file one — the type was declared,
+        # recorded in the row, merged through the layers, and then overwritten by a constant two lines from the
+        # end. Measured: the conflict report saw zero declarations while the row plainly said type=registry.
+        # Anything that is not template_render keeps the strongest layer's own word, defaulting to config.
+        kind = strongest.get("type") or "config"
         out.append({"path": path, "source": source, "key_sources": key_sources,
-                    "resource": resource_dict("config", path, fmt, sep, merged, None)})
+                    "resource": resource_dict(kind, path, fmt, sep, merged, None)})
     return out
 
 

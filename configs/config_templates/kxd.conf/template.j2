@@ -52,10 +52,10 @@ kxd:
   security:
     # Allow sandboxed jobs to access the network. Disable for stricter isolation.
     # Default: false
-    allow_network: {{ security_allow_network | default(false) }}
+    allow_network: {{ security_allow_network | default(false) | lower }}
     # Enable filesystem sandboxing using mount namespaces or chroot.
     # Default: true
-    sandbox_fs: {{ security_sandbox_fs | default(true) }}
+    sandbox_fs: {{ security_sandbox_fs | default(true) | lower }}
     # List of allowed base images for sandboxed jobs. Each entry defines a name,
     # filesystem path, and whether the image is mounted read-only.
     # Default: [{'name': 'alpine', 'path': '/opt/kxd/images/alpine.tar', 'read_only': True},
@@ -64,7 +64,7 @@ kxd:
       {% for image in (security_allowed_images | default([{'name': 'alpine', 'path': '/opt/kxd/images/alpine.tar', 'read_only': True}, {'name': 'debian-slim', 'path': '/opt/kxd/images/debian.tar', 'read_only': True}])) %}
       - name: {{ image.name }}
         path: {{ image.path }}
-        read_only: {{ image.read_only }}
+        read_only: {{ image.read_only | lower }}
       {% endfor %}
 
   # Logging verbosity (debug, info, warn, error)

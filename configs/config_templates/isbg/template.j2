@@ -1,0 +1,293 @@
+# ============================================================================
+# isbg Configuration & Command Builder
+# ============================================================================
+# This template generates an ISBG (Is Better Spam Guard) configuration file
+# and a shell command to execute the spam filtering tool.
+#
+# ISBG is a command-line utility that uses SpamAssassin to detect and handle
+# spam messages from an IMAP server.
+#
+# Self-documenting: Every variable defaults to its schema default if not
+# provided by the Ansible role. Comments describe the source schema field.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# IMAP Server Connection Settings
+# ----------------------------------------------------------------------------
+
+# IMAP server hostname (schema: imaphost)
+IMAPHOST={{ imaphost | default('mail.example.com') }}
+
+# IMAP login username (schema: imapuser)
+IMAPUSER={{ imapuser | default('user@example.com') }}
+
+# IMAP port (schema: imapport)
+# If empty, the client uses the default IMAP port (143 or 993 depending on SSL).
+IMAPPORT="{{ imapport | default('', true) }}"
+
+# Use SSL/TLS for IMAP connection (schema: use_ssl)
+USE_SSL={{ 'yes' if use_ssl | default(true) else 'no' }}
+
+# ----------------------------------------------------------------------------
+# Mailbox Folders
+# ----------------------------------------------------------------------------
+
+# IMAP Inbox folder name (schema: imapinbox)
+IMAPINBOX="{{ imapinbox | default('INBOX') }}"
+
+# Folder to move detected spam to (schema: spaminbox)
+SPAMINBOX="{{ spaminbox | default('INBOX.Spam') }}"
+
+# ----------------------------------------------------------------------------
+# Spam Handling Actions
+# ----------------------------------------------------------------------------
+
+# Action to take on spam: flag, delete, or none (schema: spam_action)
+SPAM_ACTION={{ spam_action | default('flag') }}
+
+# Expunge messages marked for deletion (schema: expunge)
+# Controls whether deleted messages are immediately removed from the server.
+EXPUNGE={{ 'yes' if expunge | default(false) else 'no' }}
+
+# ----------------------------------------------------------------------------
+# SpamAssassin Integration
+# ----------------------------------------------------------------------------
+
+# SpamAssassin threshold score to mark as spam (schema: spam_threshold)
+# Messages with a score above this are treated as spam.
+SPAM_THRESHOLD={{ spam_threshold | default(5) }}
+
+# Maximum message size to scan in bytes (schema: maxsize)
+# 0 means no limit.
+MAXSIZE={{ maxsize | default(0) }}
+
+# Use spamc client instead of local spamd (schema: use_spamc)
+USE_SPAMC={{ 'yes' if use_spamc | default(false) else 'no' }}
+
+# ----------------------------------------------------------------------------
+# Execution Control & Logging
+# ----------------------------------------------------------------------------
+
+# Dry run mode (no actual changes) (schema: dry_run)
+DRYRUN={{ 'yes' if dry_run | default(false) else 'no' }}
+
+# Log verbosity level (schema: verbose)
+VERBOSE={{ 'yes' if verbose | default(false) else 'no' }}
+
+# ----------------------------------------------------------------------------
+# Locking & Persistence
+# ----------------------------------------------------------------------------
+
+# Path to lock file (schema: lockfilename)
+# Empty string uses the default lock file location.
+LOCKFILENAME="{{ lockfilename | default('', true) }}"
+
+# Lock file grace period in minutes (schema: lockfilegrace)
+LOCKFILEGRACE={{ lockfilegrace | default(240.0) }}
+
+# Path to file containing IMAP password (schema: passwdfilename)
+# If empty, the user is prompted or a password file is not used.
+PASSWDFILENAME="{{ passwdfilename | default('', true) }}"
+
+# Track file for known messages (schema: trackfile)
+TRACKFILE="{{ trackfile | default('', true) }}"
+
+# ----------------------------------------------------------------------------
+# Learning & Training (SpamAssassin)
+# ----------------------------------------------------------------------------
+
+# Learn only mode (do not delete/spam, just learn) (schema: teachonly)
+TEACHONLY={{ 'yes' if teachonly | default(false) else 'no' }}
+
+# Folder to learn spam from (schema: learnspambox)
+# Used when teaching SpamAssassin about spam messages.
+LEARNSPAMBOX="{{ learnspambox | default('', true) }}"
+
+# Folder to learn ham from (schema: learnhambox)
+# Used when teaching SpamAssassin about legitimate messages.
+LEARNHAMBOX="{{ learnhambox | default('', true) }}"
+
+# Move ham (non-spam) to folder (schema: movehamto)
+MOVEHAMTO="{{ movehamto | default('', true) }}"
+
+# ----------------------------------------------------------------------------
+# Advanced Options
+# ----------------------------------------------------------------------------
+
+# Don't include SpamAssassin report in copied spam (schema: no_report)
+NOREPORT={{ 'yes' if no_report | default(false) else 'no' }}
+
+# Don't print stats (schema: nostats)
+NOSTATS={{ 'yes' if nostats | default(false) else 'no' }}
+
+# Flag learned messages (schema: learnthenflag)
+LEARNTHENFLAG={{ 'yes' if learnthenflag | default(false) else 'no' }}
+
+# Only learn if unflagged (schema: learnunflagfed)
+LEARNUNFLAGFED={{ 'yes' if learnunflagfed | default(false) else 'no' }}
+
+# Mark learned messages for deletion (schema: learnthen_destroy)
+LEARNTHENDestroy={{ 'yes' if learnthen_destroy | default(false) else 'no' }}
+
+# Delete spam in Gmail Trash folder (schema: gmail)
+GMAIL={{ 'yes' if gmail | default(false) else 'no' }}
+
+# Ignore lock file if present (schema: ignorelockfile)
+IGNORELOCKFILE={{ 'yes' if ignorelockfile | default(false) else 'no' }}
+
+# Use exit codes (schema: exitcodes)
+EXITCODES={{ 'yes' if exitcodes | default(false) else 'no' }}
+
+# Non-interactive mode (schema: noninteractive)
+NONINTERACTIVE={{ 'yes' if noninteractive | default(false) else 'no' }}
+
+# Show mail bodies (extra verbose) (schema: verbose_mails)
+VERBOSEMAILS={{ 'yes' if verbose_mails | default(false) else 'no' }}
+
+# Save password (schema: savepw)
+SAVEPW={{ 'yes' if savepw | default(false) else 'no' }}
+
+# ----------------------------------------------------------------------------
+# Command Line Construction
+# ----------------------------------------------------------------------------
+# Constructs the `isbg` command line based on the variables above.
+# Only non-default or explicitly set options are added to the command.
+
+CMD="isbg"
+CMD="${CMD} --imaphost ${IMAPHOST}"
+CMD="${CMD} --imapuser ${IMAPUSER}"
+
+{% if imapport | default('', true) != '' %}
+CMD="${CMD} --imapport ${IMAPPORT}"
+{% endif %}
+
+{% if use_ssl | default(true) %}
+CMD="${CMD}"
+{% else %}
+CMD="${CMD} --nossl"
+{% endif %}
+
+{% if imappasswd | default('', true) != '' %}
+CMD="${CMD} --imappasswd ${IMAPPASSWD}"
+{% endif %}
+
+{% if imapinbox | default('INBOX') != 'INBOX' %}
+CMD="${CMD} --imapinbox '${IMAPINBOX}'"
+{% endif %}
+
+{% if spaminbox | default('INBOX.Spam') != 'INBOX.Spam' %}
+CMD="${CMD} --spaminbox '${SPAMINBOX}'"
+{% endif %}
+
+{% if spam_action | default('flag') == 'flag' %}
+CMD="${CMD} --flag"
+{% elif spam_action | default('flag') == 'delete' %}
+CMD="${CMD} --delete"
+{% endif %}
+
+{% if expunge | default(false) %}
+CMD="${CMD} --expunge"
+{% endif %}
+
+{% if spam_threshold | default(5) != 5 %}
+CMD="${CMD} --deletehigherthan ${SPAM_THRESHOLD}"
+{% endif %}
+
+{% if maxsize | default(0) != 0 %}
+CMD="${CMD} --maxsize ${MAXSIZE}"
+{% endif %}
+
+{% if partialrun | default(50) != 0 %}
+CMD="${CMD} --partialrun ${PARTIALRUN}"
+{% endif %}
+
+{% if use_spamc | default(false) %}
+CMD="${CMD} --spamc"
+{% endif %}
+
+{% if dry_run | default(false) %}
+CMD="${CMD} --dryrun"
+{% endif %}
+
+{% if verbose | default(false) %}
+CMD="${CMD} --verbose"
+{% endif %}
+
+{% if lockfilename | default('', true) != '' %}
+CMD="${CMD} --lockfilename '${LOCKFILENAME}'"
+{% endif %}
+
+{% if lockfilegrace | default(240.0) != 240.0 %}
+CMD="${CMD} --lockfilegrace=${LOCKFILEGRACE}"
+{% endif %}
+
+{% if passwdfilename | default('', true) != '' %}
+CMD="${CMD} --passwdfilename '${PASSWDFILENAME}'"
+{% endif %}
+
+{% if trackfile | default('', true) != '' %}
+CMD="${CMD} --trackfile '${TRACKFILE}'"
+{% endif %}
+
+{% if teachonly | default(false) %}
+CMD="${CMD} --teachonly"
+{% endif %}
+
+{% if learnspambox | default('', true) != '' %}
+CMD="${CMD} --learnspambox '${LEARNSPAMBOX}'"
+{% endif %}
+
+{% if learnhambox | default('', true) != '' %}
+CMD="${CMD} --learnhambox '${LEARNHAMBOX}'"
+{% endif %}
+
+{% if movehamto | default('', true) != '' %}
+CMD="${CMD} --movehamto '${MOVEHAMTO}'"
+{% endif %}
+
+{% if no_report | default(false) %}
+CMD="${CMD} --noreport"
+{% endif %}
+
+{% if nostats | default(false) %}
+CMD="${CMD} --nostats"
+{% endif %}
+
+{% if learnthenflag | default(false) %}
+CMD="${CMD} --learnthenflag"
+{% endif %}
+
+{% if learnunflagfed | default(false) %}
+CMD="${CMD} --learnunflagfed"
+{% endif %}
+
+{% if learnthen_destroy | default(false) %}
+CMD="${CMD} --learnthendestroy"
+{% endif %}
+
+{% if gmail | default(false) %}
+CMD="${CMD} --gmail"
+{% endif %}
+
+{% if ignorelockfile | default(false) %}
+CMD="${CMD} --ignorelockfile"
+{% endif %}
+
+{% if exitcodes | default(false) %}
+CMD="${CMD} --exitcodes"
+{% endif %}
+
+{% if noninteractive | default(false) %}
+CMD="${CMD} --noninteractive"
+{% endif %}
+
+{% if verbose_mails | default(false) %}
+CMD="${CMD} --verbose-mails"
+{% endif %}
+
+{% if savepw | default(false) %}
+CMD="${CMD} --savepw"
+{% endif %}
+
+# Execute command
+eval ${CMD}

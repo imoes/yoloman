@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# tlp - system startup/shutdown script for Linux laptop power management
+#
+# Copyright (c) 2025 Thomas Koch <linrunner at gmx.net> and others.
+# This software is licensed under the GPL v2 or later.
+#
+# chkconfig: 2345 98 01
+
+### BEGIN INIT INFO
+# Provides: The service name provided by this init script.
+# Provides:          {{ provides | default('tlp') }}
+#
+# Required-Start:    LSB required start services. These must be started before tlp.
+# Required-Start:    {{ required_start | default('$remote_fs') }}
+#
+# Required-Stop:     LSB required stop services. These must be stopped after tlp.
+# Required-Stop:     {{ required_stop | default('$remote_fs') }}
+#
+# Default-Start:     LSB default start runlevels.
+# Default-Start:     {{ default_start | default('2 3 4 5') }}
+#
+# Default-Stop:      LSB default stop runlevels.
+# Default-Stop:      {{ default_stop | default('0 1 6') }}
+#
+# Short-Description: Short description of the service.
+# Short-Description: {{ short_description | default('tlp start/stop script') }}
+#
+# Description:       Long description of the service.
+# Description:       {{ description | default('Initialize tlp') }}
+### END INIT INFO
+
+[ -r /lib/lsb/init-functions ] && . /lib/lsb/init-functions
+
+# TLP: Path to the tlp executable binary.
+TLP={{ tlp_path | default('/usr/sbin/tlp') }}
+[ -x $TLP ] || exit 0
+
+case "$1" in
+    status)
+        tlp-stat -s
+        ;;
+
+    start|\
+    stop|\
+    restart|\
+    force-reload)
+        $TLP init $1
+        ;;
+
+     *)
+        echo "Usage: $0 start|stop|restart|force-reload|status" 1>&2
+        exit 3
+        ;;
+esac
+
+exit 0

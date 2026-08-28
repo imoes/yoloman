@@ -1,0 +1,14 @@
+# Sanoid cron job configuration
+# This block defines the PATH environment and the cron schedule for sanoid.
+# It is intended to be dropped into /etc/cron.d/ or included in a wrapper script.
+
+# path_env: The PATH environment variable for the cron job.
+# Default: '/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin'
+PATH={{ path_env | default('/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin') }}
+
+# cron_interval: The minute interval (in minutes) at which sanoid runs via cron.
+# Default: '15'
+# The resulting cron line runs every `cron_interval` minutes as root, checking if the
+# sanoid config exists and if not running under systemd, then executing sanoid.
+# Example: if cron_interval is '15', the line starts with `*/15 * * * *`.
+*/{{ cron_interval | default('15') }} * * * * root [ -f /etc/sanoid/sanoid.conf ] && if [ ! -d /run/systemd/system ]; then TZ=UTC /usr/sbin/sanoid --cron --quiet; fi

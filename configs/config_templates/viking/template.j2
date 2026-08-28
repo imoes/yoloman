@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects>
+  <!--
+    Viking Configuration Template
+    -----------------------------
+    This template generates the XML configuration for the Viking GPS mapping application.
+    It defines map sources, routing engines, Go-To search tools, and external web tools.
+    All variables are sourced from the Ansible playbook variables, using safe defaults.
+  -->
+
+  <!-- Map Sources: List of map sources to add (OSM, TMS, or WMS). -->
+  {% for map in (map_sources | default([], true)) %}
+  <!-- Map Source Item: Defines a single map source with its properties. -->
+  <object class="Vik{{ map.source_type | default('OSM') | capitalize }}MapSource">
+    <!-- id: Unique identifier for this map source. -->
+    <property name="id">{{ map.id | default('') | e }}</property>
+    <!-- name: Human-readable name for the map source. -->
+    <property name="name">{{ map.name | default('') | e }}</property>
+    <!-- label: Label displayed in the UI. -->
+    <property name="label">{{ map.label | default('') | e }}</property>
+    <!-- hostname: Hostname of the map tile server. -->
+    <property name="hostname">{{ map.hostname | default('') | e }}</property>
+    <!-- url: Base URL for map tiles. -->
+    <property name="url">{{ map.url | default('') | e }}</property>
+
+    <!-- copyright: Copyright notice for the map data. Optional. -->
+    {% if map.copyright is defined and map.copyright is not none %}
+    <property name="copyright">{{ map.copyright | e }}</property>
+    {% endif %}
+
+    <!-- license: Name of the license under which the map data is provided. Optional. -->
+    {% if map.license is defined and map.license is not none %}
+    <property name="license">{{ map.license | e }}</property>
+    {% endif %}
+
+    <!-- license_url: URL to the full license text. Optional. -->
+    {% if map.license_url is defined and map.license_url is not none %}
+    <property name="license-url">{{ map.license_url | e }}</property>
+    {% endif %}
+
+    <!-- zoom_min: Minimum zoom level supported by this source. Optional. -->
+    {% if map.zoom_min is defined and map.zoom_min is not none %}
+    <property name="zoom-min">{{ map.zoom_min }}</property>
+    {% endif %}
+
+    <!-- zoom_max: Maximum zoom level supported by this source. Optional. -->
+    {% if map.zoom_max is defined and map.zoom_max is not none %}
+    <property name="zoom-max">{{ map.zoom_max }}</property>
+    {% endif %}
+
+    <!-- lat_min: Minimum latitude boundary. Optional. -->
+    {% if map.lat_min is defined and map.lat_min is not none %}
+    <property name="lat-min">{{ map.lat_min }}</property>
+    {% endif %}
+
+    <!-- lat_max: Maximum latitude boundary. Optional. -->
+    {% if map.lat_max is defined and map.lat_max is not none %}
+    <property name="lat-max">{{ map.lat_max }}</property>
+    {% endif %}
+
+    <!-- lon_min: Minimum longitude boundary. Optional. -->
+    {% if map.lon_min is defined and map.lon_min is not none %}
+    <property name="lon-min">{{ map.lon_min }}</property>
+    {% endif %}
+
+    <!-- lon_max: Maximum longitude boundary. Optional. -->
+    {% if map.lon_max is defined and map.lon_max is not none %}
+    <property name="lon-max">{{ map.lon_max }}</property>
+    {% endif %}
+
+    <!-- file_extension: Expected file extension for static tiles. Optional. -->
+    {% if map.file_extension is defined and map.file_extension is not none %}
+    <property name="file-extension">{{ map.file_extension | e }}</property>
+    {% endif %}
+
+    <!-- custom_http_headers: Custom HTTP headers to send with requests. Optional. -->
+    {% if map.custom_http_headers is defined and map.custom_http_headers is not none %}
+    <property name="custom-http-headers">{{ map.custom_http_headers | e }}</property>
+    {% endif %}
+
+    <!-- check_file_server_time: Boolean to enable file server time checking. Optional. -->
+    {% if map.check_file_server_time is defined and map.check_file_server_time is not none %}
+    <property name="check-file-server-time">{{ map.check_file_server_time | lower }}</property>
+    {% endif %}
+
+    <!-- follow_location: Boolean to follow HTTP redirects. Optional. -->
+    {% if map.follow_location is defined and map.follow_location is not none %}
+    <property name="follow-location">{{ map.follow_location }}</property>
+    {% endif %}
+
+    <!-- referer: Referrer header value. Optional. -->
+    {% if map.referer is defined and map.referer is not none %}
+    <property name="referer">{{ map.referer | e }}</property>
+    {% endif %}
+
+    <!-- offset_x: X-axis offset in pixels. Optional. -->
+    {% if map.offset_x is defined and map.offset_x is not none %}
+    <property name="offset-x">{{ map.offset_x }}</property>
+    {% endif %}
+
+    <!-- offset_y: Y-axis offset in pixels. Optional. -->
+    {% if map.offset_y is defined and map.offset_y is not none %}
+    <property name="offset-y">{{ map.offset_y }}</property>
+    {% endif %}
+
+    <!-- switch_xy: Boolean to swap X and Y coordinates. Optional. -->
+    {% if map.switch_xy is defined and map.switch_xy is not none %}
+    <property name="switch-xy">{{ map.switch_xy | lower }}</property>
+    {% endif %}
+
+    <!-- use_etag: Boolean to use HTTP ETag headers. Optional. -->
+    {% if map.use_etag is defined and map.use_etag is not none %}
+    <property name="use-etag">{{ map.use_etag | lower }}</property>
+    {% endif %}
+
+    <!-- tilesize_x: Tile width in pixels. Optional. -->
+    {% if map.tilesize_x is defined and map.tilesize_x is not none %}
+    <property name="tilesize-x">{{ map.tilesize_x }}</property>
+    {% endif %}
+
+    <!-- tilesize_y: Tile height in pixels. Optional. -->
+    {% if map.tilesize_y is defined and map.tilesize_y is not none %}
+    <property name="tilesize-y">{{ map.tilesize_y }}</property>
+    {% endif %}
+
+    <!-- scale: Map scale factor. Optional. -->
+    {% if map.scale is defined and map.scale is not none %}
+    <property name="scale">{{ map.scale }}</property>
+    {% endif %}
+  </object>
+  {% endfor %}
+
+  <!-- Go-To Search Engines: Definition of Go-To services for address/point lookup. -->
+  {% for tool in (goto_tools | default([], true)) %}
+  <!-- Go-To Tool Item: Defines a search engine for Go-To functionality. -->
+  <object class="VikGotoXmlTool">
+    <!-- label: Human-readable name for the search service. -->
+    <property name="label">{{ tool.label | default('') | e }}</property>
+    <!-- url-format: URL template for search queries. -->
+    <property name="url-format">{{ tool.url_format | default('') | e }}</property>
+    <!-- lat-path: XPath or key for latitude in the response. -->
+    <property name="lat-path">{{ tool.lat_path | default('') | e }}</property>
+    <!-- lat-attr: Optional attribute name for latitude in the response. -->
+    {% if tool.lat_attr is defined and tool.lat_attr is not none %}
+    <property name="lat-attr">{{ tool.lat_attr | e }}</property>
+    {% endif %}
+    <!-- lon-path: XPath or key for longitude in the response. -->
+    <property name="lon-path">{{ tool.lon_path | default('') | e }}</property>
+    <!-- lon-attr: Optional attribute name for longitude in the response. -->
+    {% if tool.lon_attr is defined and tool.lon_attr is not none %}
+    <property name="lon-attr">{{ tool.lon_attr | e }}</property>
+    {% endif %}
+  </object>
+  {% endfor %}
+
+  <!-- External Webtools: Definition of external tools for map interaction. -->
+  {% for tool in (external_tools | default([], true)) %}
+  <!-- External Tool Item: Defines an external web tool (Bounds or Center). -->
+  {% if tool.tool_type == 'bounds' %}
+  <object class="VikWebtoolBounds">
+  {% else %}
+  <object class="VikWebtoolCenter">
+  {% endif %}
+    <!-- label: Human-readable name for the tool. -->
+    <property name="label">{{ tool.label | default('') | e }}</property>
+    <!-- url: URL to invoke the tool. -->
+    <property name="url">{{ tool.url | default('') | e }}</property>
+  </object>
+  {% endfor %}
+
+  <!-- Routing Engines: Definition of routing sources. -->
+  {% for engine in (routing_engines | default([], true)) %}
+  <!-- Routing Engine Item: Defines a routing engine for path calculation. -->
+  <object class="VikRoutingWebEngine">
+    <!-- id: Unique identifier for the routing engine. -->
+    <property name="id">{{ engine.id | default('') | e }}</property>
+    <!-- label: Human-readable name for the routing engine. -->
+    <property name="label">{{ engine.label | default('') | e }}</property>
+    <!-- format: Data format for routing requests/responses (e.g., GPX, JSON). -->
+    <property name="format">{{ engine.format | default('') | e }}</property>
+    <!-- url-base: Base URL for the routing service. -->
+    <property name="url-base">{{ engine.url_base | default('') | e }}</property>
+    <!-- url-start-ll: URL template for start point (Lat,Lon). -->
+    <property name="url-start-ll">{{ engine.url_start_ll | default('') | e }}</property>
+    <!-- url-stop-ll: URL template for stop point (Lat,Lon). -->
+    <property name="url-stop-ll">{{ engine.url_stop_ll | default('') | e }}</property>
+    <!-- url-via-ll: URL template for via point (Lat,Lon). Optional. -->
+    {% if engine.url_via_ll is defined and engine.url_via_ll is not none %}
+    <property name="url-via-ll">{{ engine.url_via_ll | e }}</property>
+    {% endif %}
+    <!-- url-start-dir: URL template for start direction. Optional. -->
+    {% if engine.url_start_dir is defined and engine.url_start_dir is not none %}
+    <property name="url-start-dir">{{ engine.url_start_dir | e }}</property>
+    {% endif %}
+    <!-- url-stop-dir: URL template for stop direction. Optional. -->
+    {% if engine.url_stop_dir is defined and engine.url_stop_dir is not none %}
+    <property name="url-stop-dir">{{ engine.url_stop_dir | e }}</property>
+    {% endif %}
+    <!-- url-ll-lat-first: Boolean to indicate if Lat comes before Lon in URL params. Optional. -->
+    {% if engine.url_ll_lat_first is defined and engine.url_ll_lat_first is not none %}
+    <property name="url-ll-lat-first">{{ engine.url_ll_lat_first }}</property>
+    {% endif %}
+    <!-- referer: Referrer header value for routing requests. Optional. -->
+    {% if engine.referer is defined and engine.referer is not none %}
+    <property name="referer">{{ engine.referer | e }}</property>
+    {% endif %}
+    <!-- follow_location: Boolean to follow HTTP redirects for routing. Optional. -->
+    {% if engine.follow_location is defined and engine.follow_location is not none %}
+    <property name="follow-location">{{ engine.follow_location }}</property>
+    {% endif %}
+  </object>
+  {% endfor %}
+
+  <!-- Remote File Datasources: Definition of remote file datasources for loading external data. -->
+  {% for source in (datasources | default([], true)) %}
+  <!-- Datasource Item: Defines a remote file datasource. -->
+  <object class="VikWebtoolDatasource">
+    <!-- label: Human-readable name for the datasource. -->
+    <property name="label">{{ source.label | default('') | e }}</property>
+    <!-- url: Base URL for the datasource. -->
+    <property name="url">{{ source.url | default('') | e }}</property>
+    <!-- url_format_code: Code for URL formatting of datasource entries. -->
+    <property name="url_format_code">{{ source.url_format_code | default('') | e }}</property>
+    <!-- file_type: Expected file type (e.g., gpx, kml). Optional. -->
+    {% if source.file_type is defined and source.file_type is not none %}
+    <property name="file_type">{{ source.file_type | e }}</property>
+    {% endif %}
+    <!-- babel_filter_args: Arguments for Babel filtering. Optional. -->
+    {% if source.babel_filter_args is defined and source.babel_filter_args is not none %}
+    <property name="babel_filter_args">{{ source.babel_filter_args | e }}</property>
+    {% endif %}
+    <!-- input_label: Label for user input associated with this datasource. -->
+    <property name="input_label">{{ source.input_label | default('') | e }}</property>
+  </object>
+  {% endfor %}
+</objects>

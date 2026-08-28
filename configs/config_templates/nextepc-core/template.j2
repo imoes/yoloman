@@ -1,0 +1,155 @@
+# NextEPC Configuration Template
+# This template generates the nextepc.conf configuration file.
+# It is self-documenting: every variable usage is accompanied by its schema description.
+
+# MongoDB connection URI for NextEPC database.
+# Defaults to 'mongodb://localhost/nextepc' if not specified.
+db_uri: {{ db_uri | default('mongodb://localhost/nextepc') }}
+
+logger:
+    # Path to the log file.
+    # Defaults to '/var/log/nextepc/nextepc.log' if not specified.
+    file: {{ logger_file | default('/var/log/nextepc/nextepc.log') }}
+    trace:
+        # Trace level for application logs.
+        # Defaults to 1 if not specified.
+        app: {{ logger_trace_app | default(1) }}
+        # Trace level for S1AP logs.
+        # Defaults to 1 if not specified.
+        s1ap: {{ logger_trace_s1ap | default(1) }}
+        # Trace level for NAS logs.
+        # Defaults to 1 if not specified.
+        nas: {{ logger_trace_nas | default(1) }}
+        # Trace level for Diameter logs.
+        # Defaults to 1 if not specified.
+        diameter: {{ logger_trace_diameter | default(1) }}
+        # Trace level for GTPv2 logs.
+        # Defaults to 1 if not specified.
+        gtpv2: {{ logger_trace_gtpv2 | default(1) }}
+        # Trace level for GTP logs.
+        # Defaults to 1 if not specified.
+        gtp: {{ logger_trace_gtp | default(1) }}
+
+parameter:
+    # Disable use of IPv6 addresses (only IPv4).
+    # Defaults to True if not specified.
+    no_ipv6: {{ parameter_no_ipv6 | default(True) | lower }}
+
+mme:
+    # FreeDiameter configuration file for MME.
+    # Defaults to 'mme.conf' if not specified.
+    freeDiameter: {{ mme_freeDiameter | default('mme.conf') }}
+
+    s1ap:
+        # S1AP Server configuration.
+        # If not specified, listens on all available addresses.
+
+    gtpc:
+        # GTP-C Server configuration.
+        # If not specified, listens on all available addresses.
+
+    # GUMMEI (Globally Unique MME Identifier)
+    gummei:
+        plmn_id:
+            # Mobile Country Code for GUMMEI.
+            # Defaults to '001' if not specified.
+            mcc: {{ gummei_plmn_id_mcc | default('001') }}
+            # Mobile Network Code for GUMMEI.
+            # Defaults to '01' if not specified.
+            mnc: {{ gummei_plmn_id_mnc | default('01') }}
+        # MME Group ID.
+        # Defaults to 2 if not specified.
+        mme_gid: {{ gummei_mme_gid | default(2) }}
+        # MME Code.
+        # Defaults to 1 if not specified.
+        mme_code: {{ gummei_mme_code | default(1) }}
+
+    # TAI (Tracking Area Identity)
+    tai:
+        plmn_id:
+            # Mobile Country Code for TAI.
+            # Defaults to '001' if not specified.
+            mcc: {{ tai_plmn_id_mcc | default('001') }}
+            # Mobile Network Code for TAI.
+            # Defaults to '01' if not specified.
+            mnc: {{ tai_plmn_id_mnc | default('01') }}
+        # Tracking Area Code.
+        # Defaults to 12345 if not specified.
+        tac: {{ tai_tac | default(12345) }}
+
+    security:
+        # Order of integrity protection algorithms.
+        # Defaults to ['EIA1', 'EIA2', 'EIA0'] if not specified.
+        integrity_order : {{ security_integrity_order | default(['EIA1', 'EIA2', 'EIA0']) | tojson }}
+        # Order of ciphering algorithms.
+        # Defaults to ['EEA0', 'EEA1', 'EEA2'] if not specified.
+        ciphering_order : {{ security_ciphering_order | default(['EEA0', 'EEA1', 'EEA2']) | tojson }}
+
+    network_name:
+        # Full name of the network.
+        # Defaults to 'NextEPC' if not specified.
+        full: {{ network_name_full | default('NextEPC') }}
+
+hss:
+    # FreeDiameter configuration file for HSS.
+    # Defaults to 'hss.conf' if not specified.
+    freeDiameter: {{ hss_freeDiameter | default('hss.conf') }}
+
+sgw:
+    gtpc:
+        # SGW GTP-C address.
+        # Defaults to '127.0.0.2' if not specified.
+        addr: {{ sgw_gtpc_addr | default('127.0.0.2') }}
+
+    gtpu:
+        # GTP-U Server configuration.
+        # If not specified, listens on all available addresses.
+
+pgw:
+    # FreeDiameter configuration file for PGW.
+    # Defaults to 'pgw.conf' if not specified.
+    freeDiameter: {{ pgw_freeDiameter | default('pgw.conf') }}
+
+    gtpc:
+        # GTP-C Server configuration for PGW.
+        # Supports multiple addresses for redundancy/load balancing.
+        addr:
+            # PGW GTP-C address 0.
+            # Defaults to '127.0.0.3' if not specified.
+            - {{ pgw_gtpc_addr_0 | default('127.0.0.3') }}
+            # PGW GTP-C address 1.
+            # Defaults to '::1' if not specified.
+            - {{ pgw_gtpc_addr_1 | default('::1') }}
+
+    gtpu:
+        # GTP-U Server configuration for PGW.
+        - addr:
+            # PGW GTP-U address 0.
+            # Defaults to '127.0.0.3' if not specified.
+            - {{ pgw_gtpu_addr_0 | default('127.0.0.3') }}
+            # PGW GTP-U address 1.
+            # Defaults to '::1' if not specified.
+            - {{ pgw_gtpu_addr_1 | default('::1') }}
+
+ue_pool:
+    # UE Pool addresses for assigning IPs to User Equipment.
+    - addr:
+        # UE Pool address 0.
+        # Defaults to '45.45.0.1/16' if not specified.
+        - {{ ue_pool_0_addr | default('45.45.0.1/16') }}
+    - addr:
+        # UE Pool address 1.
+        # Defaults to 'cafe::1/64' if not specified.
+        - {{ ue_pool_1_addr | default('cafe::1/64') }}
+
+dns:
+    # Domain Name Server addresses.
+    - {{ dns_0 | default('8.8.8.8') }}
+    - {{ dns_1 | default('8.8.4.4') }}
+    - {{ dns_2 | default('2001:4860:4860::8888') }}
+    - {{ dns_3 | default('2001:4860:4860::8844') }}
+
+pcrf:
+    # FreeDiameter configuration file for PCRF.
+    # Defaults to 'pcrf.conf' if not specified.
+    freeDiameter: {{ pcrf_freeDiameter | default('pcrf.conf') }}

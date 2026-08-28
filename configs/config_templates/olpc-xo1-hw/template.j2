@@ -1,0 +1,44 @@
+#!/bin/sh
+
+#
+# List the soft prerequisites here.  This is a space separated list of
+# names, of scripts that are in the same directory as this one, that
+# must be run before this one can be.
+#
+# Schema field: prereqs (list of strings, space-separated in output)
+# Default: [] (empty list)
+#
+PREREQ="{{ prereqs | default([]) | join(' ') }}"
+
+prereqs()
+{
+	echo "$PREREQ"
+}
+
+case $1 in
+# get pre-requisites
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+#
+# Ensure the mtd (Memory Technology Device) kernel modules are included.
+# Schema field: mtd_modules (list of strings, space-separated in output)
+# Default: ['cafe_nand', 'redboot', 'jffs2', 'ubifs', 'lzo', 'zlib', 'zlib_deflate', 'deflate']
+#
+{% for mod in mtd_modules | default(['cafe_nand', 'redboot', 'jffs2', 'ubifs', 'lzo', 'zlib', 'zlib_deflate', 'deflate']) %}
+manual_add_modules "{{ mod }}"
+{% endfor %}
+
+#
+# Video drivers are important, too, as we don't have VGA support.
+# Schema field: video_drivers (list of strings, space-separated in output)
+# Default: ['lxfb', 'gxfb', 'fbcon']
+#
+{% for drv in video_drivers | default(['lxfb', 'gxfb', 'fbcon']) %}
+manual_add_modules "{{ drv }}"
+{% endfor %}

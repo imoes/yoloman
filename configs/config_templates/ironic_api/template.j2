@@ -84,7 +84,7 @@ max_limit = {{ (api | default({})).max_limit | default(1000) }}
 ; Provisioning and deployment settings
 [conductor]
 ; Whether to automatically clean bare metal nodes after deployment (e.g., erase disks).
-automated_clean = {{ (conductor | default({})).automated_clean | default(true) }}
+automated_clean = {{ (conductor | default({})).automated_clean | default(true) | lower }}
 ; URL for the local Ironic API server (used by conductor for self-calls).
 api_url = {{ (conductor | default({})).api_url | default('http://127.0.0.1:6385') }}
 
@@ -96,21 +96,21 @@ enabled_hardware_types = {{ (hardware_types | default({})).enabled | default(['i
 ; Inspector (discovery) service integration
 [inspector]
 ; Enable the Ironic Inspector (hardware introspection) service integration.
-enabled = {{ (inspector | default({})).enabled | default(true) }}
+enabled = {{ (inspector | default({})).enabled | default(true) | lower }}
 ; URL of the Ironic Inspector API (if enabled).
 auth_url = {{ (inspector | default({})).auth_url | default('http://controller:5050') }}
 
 ; DNS configuration for DHCP (if using neutron-dns-integration)
 [dns]
 ; Enable DNS integration for provisioned nodes (requires Neutron DNS extension).
-enabled = {{ (dns | default({})).enabled | default(false) }}
+enabled = {{ (dns | default({})).enabled | default(false) | lower }}
 ; DNS domain used for node hostname resolution.
 domain = {{ (dns | default({})).domain | default('openstack.local') }}
 
 ; IPMI and remote management settings
 [ipmi]
 ; Allow IPMI sessions without certificate validation (for testing only).
-allow_insecure = {{ (ipmi | default({})).allow_insecure | default(false) }}
+allow_insecure = {{ (ipmi | default({})).allow_insecure | default(false) | lower }}
 ; Timeout (in seconds) for remote console (e.g., IPMI v2.0 RMCP+) sessions.
 remote_console_timeout = {{ (ipmi | default({})).remote_console_timeout | default(600) }}
 
@@ -124,7 +124,7 @@ tftp_server = {{ (pxe | default({})).tftp_server | default('127.0.0.1') }}
 ; TLS/SSL support (optional)
 [ssl]
 ; Enable TLS/SSL encryption for the API server.
-enabled = {{ (ssl | default({})).enabled | default(false) }}
+enabled = {{ (ssl | default({})).enabled | default(false) | lower }}
 ; Path to SSL certificate file.
 cert_file = {{ (ssl | default({})).cert_file | default('/etc/ironic/ssl/server.crt') }}
 ; Path to SSL private key file.
@@ -137,7 +137,7 @@ ca_file = {{ (ssl | default({})).ca_file | default('/etc/ironic/ssl/ca.crt') }}
 ; List of notification levels for state change events (e.g., deploy, cleanup).
 notify_on_state_changes = {{ (notify | default({})).state_changes | default(['info', 'warning', 'error']) | join(', ') }}
 ; Send notifications on deprecated API features (for upgrade readiness).
-notify_on_deprecation = {{ (notify | default({})).notify_on_deprecation | default(false) }}
+notify_on_deprecation = {{ (notify | default({})).notify_on_deprecation | default(false) | lower }}
 
 ; Healthcheck endpoint
 [healthcheck]
@@ -150,7 +150,7 @@ backends = {{ (healthcheck | default({})).backends | default(['disable_by_file']
 ; Rate limiting
 [oslo_middleware]
 ; Enable global rate limiting middleware for the API.
-enable_rate_limiting = {{ (middleware | default({})).rate_limiting_enabled | default(true) }}
+enable_rate_limiting = {{ (middleware | default({})).rate_limiting_enabled | default(true) | lower }}
 ; Max number of requests allowed during burst window.
 rate_limit_burst = {{ (middleware | default({})).rate_limit_burst | default(10) }}
 ; Window size (in seconds) for rate limiting calculations.

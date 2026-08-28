@@ -1,0 +1,38 @@
+# /etc/rsopv/config.yaml
+# Global configuration for rsopv
+#
+# This file configures the rsopv tool, which verifies OpenPGP signatures.
+# It controls debug verbosity, trusted keys, and default signature verification behavior.
+
+# Enable debug mode for verbose output
+# Schema: verbose (boolean, default: False)
+# Description: Emit verbose output for debugging. Corresponds to --debug flag.
+verbose: {{ verbose | default(false) | lower }}
+
+# List of keys to trust for verification
+# Schema: trusted_keys (list, default: [])
+# Description: List of OpenPGP key IDs or fingerprints trusted for verification.
+# These keys will be accepted automatically during signature verification.
+trusted_keys:
+{% for key in trusted_keys | default([]) %}
+  - {{ key }}
+{% endfor %}
+
+# Default behavior for detached signature verification
+# Schema: detached, check_expiration, require_uid (booleans, default: true)
+# Description: Group of boolean flags controlling the default verification strategy.
+default_verify:
+  # Expect detached signatures (true) or inline (false)
+  # Schema: detached (boolean, default: True)
+  # Description: Default to expecting detached signatures rather than inline signed messages.
+  detached: {{ detached | default(true) | lower }}
+
+  # Check key expiration
+  # Schema: check_expiration (boolean, default: True)
+  # Description: Verify that keys have not expired.
+  check_expiration: {{ check_expiration | default(true) | lower }}
+
+  # Require valid user IDs on keys
+  # Schema: require_uid (boolean, default: True)
+  # Description: Require that signing keys have valid User IDs.
+  require_uid: {{ require_uid | default(true) | lower }}

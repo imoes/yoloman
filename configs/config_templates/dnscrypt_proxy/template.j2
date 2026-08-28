@@ -14,14 +14,14 @@ log_level = {{ log_level }}
 log_file = {{ log_file | quote }}
 
 # Use syslog instead of file logging
-use_syslog = {{ use_syslog }}
+use_syslog = {{ use_syslog | lower }}
 
 # Keep logs for this many days
 log_days = {{ log_days }}
 
 # Local DoH server configuration (RFC 8484)
 [local_doH]
-  enabled = {{ local_doH.enabled }}
+  enabled = {{ local_doH.enabled | lower }}
   listen_addresses = [{{ local_doH.listen_addresses | map('quote') | join(', ') }}]
   path = {{ local_doH.path | quote }}
 
@@ -67,8 +67,8 @@ log_days = {{ log_days }}
 {% endif %}
 
 # Block certain query types (e.g., to prevent zone transfers)
-[block_ipv6_queries] = {{ block_ipv6_queries }}
-[block_certain_queries] = {{ block_certain_queries }}
+[block_ipv6_queries] = {{ block_ipv6_queries | lower }}
+[block_certain_queries] = {{ block_certain_queries | lower }}
 
 # Timeout (in seconds) for upstream connections
 server_timeout = {{ server_timeout }}
@@ -89,14 +89,14 @@ cache_max_ttl = {{ cache_max_ttl }}
 
 # Enable blocklists (if installed)
 [blocklists]
-  enabled = {{ blocklists.enabled }}
+  enabled = {{ blocklists.enabled | lower }}
   dirs = [{{ blocklists.dirs | map('quote') | join(', ') }}]
 
 # Performance tuning
 [network]
   # Enable TCP-only mode (for DoT/DoH fallback only)
-  tcp_only = {{ network.tcp_only }}
+  tcp_only = {{ network.tcp_only | lower }}
   # EDNS Client Subnet (ECS) settings
-  ecs_override = {{ network.ecs_override }}
+  ecs_override = {{ network.ecs_override | lower }}
   ecs_range_ipv4 = {{ network.ecs_range_ipv4 }}
   ecs_range_ipv6 = {{ network.ecs_range_ipv6 }}

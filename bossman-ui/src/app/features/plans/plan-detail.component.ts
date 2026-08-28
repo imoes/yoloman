@@ -8,6 +8,14 @@ import { PlanService } from '../../core/services/plan.service';
 import { PlanDetail } from '../../core/models/plan.model';
 import { RunPlanDialogComponent } from './run-plan-dialog.component';
 
+/**
+ * One plan, read before it is run: its parameters and its steps in order.
+ *
+ * THIS IS THE PREVIEW THAT MAKES A PLAN SAFE TO RUN. Every step names the module it calls and the arguments
+ * it will pass, so an operator can see what a plan does WITHOUT running it — and can tell a step that reads
+ * from a step that writes. The parameters are shown with their defaults, because a plan run with an unnoticed
+ * default is the failure mode this screen exists to prevent.
+ */
 @Component({
   selector: 'app-plan-detail',
   standalone: true,

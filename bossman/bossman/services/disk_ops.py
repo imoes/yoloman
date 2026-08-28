@@ -1,0 +1,792 @@
+"""Disk operations — the gparted-style op queue + Apply (docs/disk-management.md,
+Phase 2/3). A DiskPlan is an ORDERED list of typed operations; `compile` turns it
+into concrete host commands, `preview` shows them + a safety verdict without
+touching anything, and `apply` runs them over the agent `command` module.
+
+SAFETY (first cut): apply refuses any operation whose target device is not a
+loopback scratch device (/dev/loop*) unless `allow_nonloop=True` is passed
+explicitly — so the destructive engine can be exercised for real against a
+throwaway loop device without any chance of harming a system disk. A scratch loop
+device is created/destroyed via `scratch_setup`/`scratch_teardown`. Before a
+partition-table change the table is dumped (`sfdisk -d`) as a rollback point.
+"""
+from __future__ import annotations
+
+import logging
+import shlex
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Filesystem → mkfs command + label tool (extend as more are validated).
+_MKFS = {
+    "ext2": ["mkfs.ext2", "-F"], "ext3": ["mkfs.ext3", "-F"], "ext4": ["mkfs.ext4", "-F"],
+    "xfs": ["mkfs.xfs", "-f"], "btrfs": ["mkfs.btrfs", "-f"], "vfat": ["mkfs.vfat"],
+    "fat32": ["mkfs.vfat", "-F", "32"], "exfat": ["mkfs.exfat"], "swap": ["mkswap"],
+}
+
+
+async def _run(client, argv: list[str]) -> tuple[int, str, str]:
+    try:
+        res = await client.call_tool("command", {"argv": argv})
+    except Exception as exc:  # noqa: BLE001
+        return 127, "", str(exc)[:300]
+    data = (res or {}).get("data") if isinstance(res, dict) else {}
+    if not isinstance(data, dict):
+        return 1, "", "unexpected command result"
+    return int(data.get("rc", 0) or 0), data.get("stdout", "") or "", data.get("stderr", "") or ""
+
+
+def _part_path(dev: str, num) -> str:
+    """device + partition number, with the 'p' separator for loop/nvme/mmc."""
+    import re
+    sep = "p" if re.search(r"(?:loop\d+|nvme\d+n\d+|mmcblk\d+)$", dev) else ""
+    return f"{dev}{sep}{num}"
+
+
+def _target_device(op: dict) -> str:
+    """The block device an op acts on — its `device`, or the disk of its `target`."""
+    dev = op.get("device") or ""
+    if dev:
+        return dev
+    t = op.get("target") or ""
+    # /dev/sda2 → /dev/sda ; /dev/loop0p1 → /dev/loop0 ; /dev/nvme0n1p2 → /dev/nvme0n1
+    import re
+    m = re.match(r"^(/dev/(?:loop\d+|nvme\d+n\d+|mmcblk\d+|[a-z]+))p?\d*$", t)
+    return m.group(1) if m else t
+
+
+def compile(plan: dict) -> list[dict]:
+    """DiskPlan → ordered [{op, desc, argv, device, touches_table}]. Pure."""
+    steps: list[dict] = []
+    for op in plan.get("ops", []) or []:
+        kind = op.get("op")
+        dev = _target_device(op)
+        if kind == "mklabel":
+            table = op.get("table", "gpt")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"create {table} partition table on {dev}",
+                          "argv": ["parted", "-s", dev, "mklabel", table]})
+        elif kind == "mkpart":
+            fstype = op.get("fstype", "ext4")
+            start, end = op.get("start", "1MiB"), op.get("end", "100%")
+            ptype = op.get("ptype", "primary")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"create {ptype} partition {start}→{end} on {dev}",
+                          "argv": ["parted", "-s", "-a", "optimal", dev, "mkpart", ptype, fstype, start, end]})
+        elif kind == "delete":
+            num = str(op.get("num"))
+            steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": _part_path(dev, num),
+                          "desc": f"delete partition {num} on {dev}",
+                          "argv": ["parted", "-s", dev, "rm", num]})
+        elif kind == "mkfs":
+            t = op.get("target")
+            fstype = op.get("fstype", "ext4")
+            base = _MKFS.get(fstype)
+            if not base:
+                steps.append({"op": kind, "device": dev, "error": f"unsupported fstype {fstype!r}",
+                              "desc": f"format {t} as {fstype} (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"format {t} as {fstype}", "argv": base + [t]})
+        elif kind == "label":
+            t, label, fstype = op.get("target"), op.get("label", ""), op.get("fstype", "ext4")
+            argv = (["e2label", t, label] if fstype.startswith("ext")
+                    else ["xfs_admin", "-L", label, t] if fstype == "xfs"
+                    else ["fatlabel", t, label] if fstype in ("vfat", "fat32") else [])
+            steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                          "desc": f"label {t} = {label!r}", "argv": argv})
+        elif kind == "resize":
+            # Resize a raw partition's filesystem + the partition itself, in the
+            # ORDER that keeps data safe (gparted's rule): shrink FS then partition;
+            # grow partition then FS. ext* only (xfs can't shrink); shrink needs the
+            # FS unmounted — enforced in safety_check via busy_target.
+            t, num, fstype = op.get("target"), str(op.get("num")), op.get("fstype", "ext4")
+            start_mib, size_mib = int(op.get("start_mib") or 1), int(op.get("size_mib") or 0)
+            grow = bool(op.get("grow"))
+            if not fstype.startswith("ext") or size_mib <= 0:
+                steps.append({"op": kind, "device": dev, "error": f"resize supported for ext* with a size (got {fstype})",
+                              "desc": f"resize {t} (UNSUPPORTED)", "argv": []})
+            elif grow:
+                end = f"{start_mib + size_mib}MiB"
+                steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": t,
+                              "desc": f"grow partition {num} to {end}",
+                              "argv": ["parted", "-s", dev, "unit", "MiB", "resizepart", num, end]})
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"grow filesystem {t} to fill", "argv": ["resize2fs", t]})
+            else:  # shrink: fsck → shrink fs → shrink partition (with a small margin)
+                end = f"{start_mib + size_mib + 2}MiB"
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"check filesystem {t}", "argv": ["e2fsck", "-f", "-y", t]})
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"shrink filesystem {t} to {size_mib}MiB", "argv": ["resize2fs", t, f"{size_mib}M"]})
+                # parted resizepart prompts "are you sure?" on a SHRINK even with -s, and
+                # then hangs; feed it a tty (---pretend-input-tty) and answer Yes.
+                shrink_cmd = f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} unit MiB resizepart {shlex.quote(num)} {shlex.quote(end)}"
+                steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": t,
+                              "desc": f"shrink partition {num} to {end}",
+                              "argv": ["sh", "-c", shrink_cmd]})
+        elif kind == "mount":
+            t, mp = op.get("target"), op.get("mountpoint")
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"mount {t} at {mp}",
+                          "argv": ["sh", "-c", f"mkdir -p {shlex.quote(mp)} && mount {shlex.quote(t)} {shlex.quote(mp)}"]})
+        elif kind == "umount":
+            t = op.get("target")
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"unmount {t}", "argv": ["umount", t]})
+        elif kind == "lvextend":
+            t = op.get("target")
+            size = str(op.get("size", ""))
+            flag = "-l" if "%" in size else "-L"   # -l for extents (100%FREE), -L for a byte size
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"grow LV {t} by {size} (online, --resizefs)",
+                          "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind.startswith("md_"):
+            # Software RAID (mdadm). The array device is the "device" here; member
+            # partitions are the payload, so safety_check inspects `md_members`
+            # rather than the usual single target.
+            name = op.get("name") or op.get("target") or ""
+            members = [m for m in (op.get("devices") or []) if m]
+            if kind == "md_create":
+                level = str(op.get("level") or "1")
+                if not name or len(members) < 1:
+                    steps.append({"op": kind, "device": name, "error": "md_create needs a name/path and member devices",
+                                  "desc": "create RAID array (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": name, "md_members": members, "touches_table": False,
+                                  "desc": f"create RAID{level} {name} from {', '.join(members)}",
+                                  "argv": ["mdadm", "--create", "--run", name, f"--level={level}",
+                                           f"--raid-devices={len(members)}", *members]})
+            elif kind == "md_stop":
+                steps.append({"op": kind, "device": name, "busy_target": name, "touches_table": False,
+                              "desc": f"stop RAID array {name}", "argv": ["mdadm", "--stop", name]})
+            elif kind == "md_add":
+                steps.append({"op": kind, "device": name, "md_members": members, "touches_table": False,
+                              "desc": f"add {', '.join(members)} to {name} (resync starts)",
+                              "argv": ["mdadm", "--manage", name, "--add", *members]})
+            elif kind == "md_remove":
+                # A member must be failed before it can leave the array; do both in
+                # one shell so the array never sits half-way through the change.
+                if not members:
+                    steps.append({"op": kind, "device": name, "error": "md_remove needs the member device",
+                                  "desc": "remove RAID member (UNSUPPORTED)", "argv": []})
+                else:
+                    quoted = " ".join(shlex.quote(m) for m in members)
+                    steps.append({"op": kind, "device": name, "touches_table": False,
+                                  "desc": f"fail + remove {', '.join(members)} from {name}",
+                                  "argv": ["sh", "-c", f"mdadm --manage {shlex.quote(name)} --fail {quoted} && "
+                                                       f"mdadm --manage {shlex.quote(name)} --remove {quoted}"]})
+            elif kind == "md_grow":
+                n = int(op.get("raid_devices") or 0)
+                if n < 2:
+                    steps.append({"op": kind, "device": name, "error": "md_grow needs raid_devices >= 2",
+                                  "desc": f"grow {name} (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": name, "touches_table": False,
+                                  "desc": f"grow {name} to {n} raid devices (reshape)",
+                                  "argv": ["mdadm", "--grow", name, f"--raid-devices={n}"]})
+            else:
+                steps.append({"op": kind, "device": name, "error": f"unknown RAID op {kind!r}",
+                              "desc": f"unknown RAID op {kind!r}", "argv": []})
+        elif kind in ("luks_format", "luks_open", "luks_close"):
+            # LUKS. The passphrase NEVER appears in a plan, in compile() output or in
+            # a preview: the op carries a `secret_ref` (a vault:v1: handle) and only
+            # apply() decrypts it, injecting the plaintext into the `copy` module call
+            # that writes a key file. That is also why the passphrase does not travel
+            # in argv — a command line is visible in `ps` and in the agent's audit
+            # log, while a module body travels inside the mTLS request.
+            name = op.get("name") or ""
+            if kind == "luks_close":
+                if not name:
+                    steps.append({"op": kind, "device": dev, "error": "luks_close needs the mapper name",
+                                  "desc": "close LUKS volume (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": dev, "touches_table": False,
+                                  "desc": f"close LUKS volume {name}",
+                                  "argv": ["cryptsetup", "luksClose", name]})
+            else:
+                t = op.get("target") or ""
+                ref = op.get("secret_ref") or ""
+                if op.get("passphrase"):
+                    steps.append({"op": kind, "device": dev,
+                                  "error": "a plaintext passphrase is not accepted — pass a vault secret_ref",
+                                  "desc": f"{kind} on {t} (REFUSED)", "argv": []})
+                elif not t or not name or not ref:
+                    steps.append({"op": kind, "device": dev,
+                                  "error": f"{kind} needs target, name and secret_ref",
+                                  "desc": f"{kind} (UNSUPPORTED)", "argv": []})
+                else:
+                    keyfile = f"/run/bm-luks-{abs(hash((t, name))) % 10**8}.key"
+                    # 1. drop the passphrase into a key file on /run (tmpfs — never
+                    #    hits a disk); the value is injected by apply(), see above.
+                    steps.append({"op": kind, "device": dev, "touches_table": False,
+                                  "desc": f"stage the passphrase for {t} (from the vault, {keyfile})",
+                                  "tool": "copy", "secret_param": "content", "secret_ref": ref,
+                                  "params": {"dest": keyfile, "mode": "0600"}})
+                    # 2. use it, then remove it in the SAME shell so a failing
+                    #    cryptsetup can never leave the passphrase lying around.
+                    if kind == "luks_format":
+                        body = (f"cryptsetup luksFormat --batch-mode --key-file {keyfile} {shlex.quote(t)} && "
+                                f"cryptsetup luksOpen --key-file {keyfile} {shlex.quote(t)} {shlex.quote(name)}")
+                        desc = f"encrypt {t} with LUKS and open it as {name}"
+                    else:
+                        body = f"cryptsetup luksOpen --key-file {keyfile} {shlex.quote(t)} {shlex.quote(name)}"
+                        desc = f"unlock {t} as {name}"
+                    steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                                  "desc": desc,
+                                  "argv": ["sh", "-c", f"{body}; rc=$?; "
+                                                       f"shred -u {keyfile} 2>/dev/null || rm -f {keyfile}; exit $rc"]})
+        elif kind == "movepart":
+            # A real gparted-style MOVE: copy the partition's bytes to the new offset
+            # with the agent's native disk_move module (fs-agnostic, copies backwards
+            # when the ranges overlap), wait for that job, and only THEN rewrite the
+            # partition table. Copy first, table second — while the copy runs the old
+            # table still describes where the data is, so an abort is recoverable.
+            num = str(op.get("num"))
+            sector = int(op.get("sector_size") or 512)
+            src_s, dst_s = int(op.get("src_start_s") or 0), int(op.get("dst_start_s") or 0)
+            len_s = int(op.get("length_s") or 0)
+            if not len_s or not src_s or not dst_s:
+                steps.append({"op": kind, "device": dev,
+                              "error": "movepart needs src_start_s, dst_start_s and length_s",
+                              "desc": f"move partition {num} (UNSUPPORTED)", "argv": []})
+            else:
+                nbytes = len_s * sector
+                start_mib = (dst_s * sector) // 1048576
+                end_mib = start_mib + (nbytes // 1048576)
+                steps.append({
+                    "op": kind, "device": dev, "touches_table": False,
+                    "busy_target": _part_path(dev, num), "same_size": True,
+                    "dst_start_s": dst_s, "dst_end_s": dst_s + len_s - 1, "part_num": int(num),
+                    "desc": f"copy {nbytes} bytes of partition {num} from sector {src_s} to {dst_s}"
+                            + (" (backwards — ranges overlap)" if dst_s > src_s else ""),
+                    "tool": "disk_move",
+                    "params": {"action": "start", "device": dev, "src_offset": src_s * sector,
+                               "dst_offset": dst_s * sector, "length": nbytes},
+                })
+                steps.append({"op": kind, "device": dev, "touches_table": False,
+                              "busy_target": _part_path(dev, num),
+                              "desc": f"wait for the copy of partition {num} to finish",
+                              "poll": "disk_move"})
+                steps.append({"op": kind, "device": dev, "touches_table": True,
+                              "busy_target": _part_path(dev, num),
+                              "desc": f"repoint partition {num} at {start_mib}MiB→{end_mib}MiB",
+                              "argv": ["sh", "-c",
+                                       f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} rm {shlex.quote(num)} && "
+                                       f"parted -s {shlex.quote(dev)} unit MiB mkpart primary {start_mib} {end_mib}"]})
+        elif kind == "growpart":
+            # Grow a partition into the unallocated tail that appeared when the
+            # hypervisor enlarged the virtual disk. Only ever grows to 100%, so it
+            # cannot cut into anything — safe ONLINE, even for a mounted partition
+            # (the kernel re-reads the boundary via BLKPG). parted asks for
+            # confirmation when the partition is in use, hence the tty + "Yes".
+            num = str(op.get("num"))
+            cmd = (f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} "
+                   f"unit s resizepart {shlex.quote(num)} 100%")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"grow partition {num} on {dev} to the end of the disk",
+                          "argv": ["sh", "-c", cmd]})
+        elif kind == "gptfix":
+            # A GROWN disk still carries its GPT backup header at the OLD end, so the
+            # new tail is unusable until the header moves. sgdisk -e relocates it;
+            # partitions and data are untouched.
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"move the GPT backup header to the new end of {dev}",
+                          "argv": ["sgdisk", "-e", dev]})
+        elif kind == "pvresize":
+            # After the underlying disk/partition GREW, the PV still reports the old
+            # size — pvresize makes the VG see the new extents. Online and
+            # non-destructive (no unmount, nothing is written to the filesystems).
+            t = op.get("target")
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"grow PV {t} to the device size (VG gains the new space)",
+                          "argv": ["pvresize", t]})
+        elif kind == "lvreduce":
+            # LV shrink: --resizefs shrinks the filesystem FIRST, then the LV. Unlike
+            # lvextend this is NOT online (ext can't shrink mounted) — the target must
+            # be unmounted, enforced by the busy_target guard. -y answers lvreduce's
+            # "do you really want to reduce?" prompt. Only a shrink (absolute size).
+            t = op.get("target")
+            size = str(op.get("size", ""))
+            if not size or size.startswith("+"):
+                steps.append({"op": kind, "device": dev, "error": "lvreduce needs an absolute shrink size (not a grow)",
+                              "desc": f"shrink LV {t} (UNSUPPORTED)", "argv": []})
+            else:
+                flag = "-l" if "%" in size else "-L"
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"shrink LV {t} to {size} (fs shrunk first; requires unmount)",
+                              "argv": ["lvreduce", "-y", "--resizefs", flag, size, t]})
+        elif kind == "zfs_create":
+            # Create a ZFS filesystem dataset. Online, non-destructive.
+            name = op.get("name") or op.get("target")
+            mp = op.get("mountpoint")
+            argv = ["zfs", "create"] + (["-o", f"mountpoint={mp}"] if mp else []) + [name]
+            steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                          "desc": f"create ZFS dataset {name}" + (f" at {mp}" if mp else ""), "argv": argv})
+        elif kind == "zfs_set":
+            # The ZFS "resize": a size PROPERTY, not geometry. quota/refquota cap the
+            # logical size; reservation/refreservation guarantee it. Online, safe.
+            name = op.get("name") or op.get("target")
+            prop = op.get("property") or "refquota"
+            val = str(op.get("size") or op.get("value") or "")
+            if prop not in ("quota", "refquota", "reservation", "refreservation") or not val:
+                steps.append({"op": kind, "device": "", "error": f"zfs_set needs quota|refquota|reservation|refreservation + a value (got {prop}={val!r})",
+                              "desc": f"set {prop} on {name} (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                              "desc": f"set {prop}={val} on {name}", "argv": ["zfs", "set", f"{prop}={val}", name]})
+        elif kind == "zfs_destroy":
+            name = op.get("name") or op.get("target")
+            rec = bool(op.get("recursive"))
+            steps.append({"op": kind, "device": "", "zfs_name": name, "zfs_guard": True, "touches_table": False,
+                          "desc": f"destroy ZFS {name}" + (" (recursive)" if rec else ""),
+                          "argv": ["zfs", "destroy"] + (["-r"] if rec else []) + [name]})
+        elif kind == "zfs_snapshot":
+            name = op.get("name") or op.get("target")
+            snap = op.get("snap") or op.get("snapshot") or ""
+            rec = bool(op.get("recursive"))
+            if not snap or not name or "@" in str(name):
+                steps.append({"op": kind, "device": "", "error": "zfs_snapshot needs a dataset name + a snapshot name",
+                              "desc": "snapshot (UNSUPPORTED)", "argv": []})
+            else:
+                full = f"{name}@{snap}"
+                steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                              "desc": f"snapshot {full}", "argv": ["zfs", "snapshot"] + (["-r"] if rec else []) + [full]})
+        elif kind == "zfs_rollback":
+            name = op.get("name") or op.get("target") or ""
+            if "@" not in str(name):
+                steps.append({"op": kind, "device": "", "error": "zfs_rollback needs a snapshot name (dataset@snap)",
+                              "desc": "rollback (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": "", "zfs_name": str(name).split("@")[0], "zfs_guard": True,
+                              "touches_table": False, "desc": f"rollback to {name} (destroys newer snapshots)",
+                              "argv": ["zfs", "rollback", "-r", name]})
+        elif kind in ("zpool_create", "zpool_add"):
+            name = op.get("name") or op.get("target")
+            raid = (op.get("raid") or "").strip()  # '' | mirror | raidz | raidz2 | raidz3
+            vdevs = [v for v in (op.get("vdevs") or []) if v]
+            if not name or not vdevs:
+                steps.append({"op": kind, "device": "", "error": f"{kind} needs a pool name + at least one vdev",
+                              "desc": f"{kind} (UNSUPPORTED)", "argv": []})
+            else:
+                sub = ["create"] if kind == "zpool_create" else ["add"]
+                argv = ["zpool"] + sub + ["-f", name] + ([raid] if raid else []) + vdevs
+                verb = "create pool" if kind == "zpool_create" else "add vdev(s) to pool"
+                steps.append({"op": kind, "device": "", "vdevs": vdevs, "touches_table": False,
+                              "desc": f"{verb} {name} ({raid or 'stripe'}) on {', '.join(vdevs)}", "argv": argv})
+        elif kind == "zpool_destroy":
+            name = op.get("name") or op.get("target")
+            steps.append({"op": kind, "device": "", "zfs_name": name, "zfs_guard": True, "touches_table": False,
+                          "desc": f"destroy pool {name}", "argv": ["zpool", "destroy", name]})
+        else:
+            steps.append({"op": kind, "device": dev, "error": f"unknown op {kind!r}",
+                          "desc": f"unknown op {kind!r}", "argv": []})
+    return steps
+
+
+def _busy_index(layout: dict) -> tuple[set[str], set[str]]:
+    """Returns (busy_paths, protected_devices): individual mounted paths, and the
+    top-level disks that carry ANY mounted filesystem (down through LVM/LUKS
+    children) — those disks must never be repartitioned, even with allow_nonloop."""
+    busy: set[str] = set()
+    protected: set[str] = set()
+
+    def walk(node: dict) -> bool:
+        has_busy = bool(node.get("busy"))
+        for c in node.get("children", []) or []:
+            has_busy = walk(c) or has_busy
+        if node.get("busy"):
+            busy.add(node.get("path"))
+        return has_busy
+
+    for d in layout.get("devices", []) or []:
+        dev_busy = False
+        for p in d.get("partitions", []) or []:
+            dev_busy = walk(p) or dev_busy
+        if dev_busy:
+            protected.add(d.get("path"))
+    return busy, protected
+
+
+# Mounts we must never let an unmount workflow tear down (would break the host).
+_CRITICAL_MOUNTS = {"/", "/boot", "/boot/efi", "/usr", "/var", "/etc", "/bin", "/sbin",
+                    "/lib", "/lib64", "[SWAP]"}
+
+
+def _partitions_of(layout: dict, device: str) -> list[dict]:
+    """Top-level partitions of one device, each tagged with its 1-based number so a
+    move can tell "another partition" from the one being moved."""
+    for d in layout.get("devices", []) or []:
+        if d.get("path") == device:
+            out = []
+            for i, p in enumerate(d.get("partitions", []) or [], start=1):
+                out.append({**p, "_num": i})
+            return out
+    return []
+
+
+def _zfs_hits_critical(layout: dict, name: str) -> bool:
+    """True if the ZFS pool/dataset `name` — or any dataset beneath it — is mounted
+    at a critical system path, so destroy/rollback of it would break the host."""
+    if not name:
+        return False
+    for ds in ((layout.get("zfs") or {}).get("datasets") or []):
+        n = ds.get("name") or ""
+        if n == name or n.startswith(name + "/") or n.startswith(name + "@"):
+            if ds.get("mountpoint") in _CRITICAL_MOUNTS:
+                return True
+    return False
+
+
+def _mount_by_path(layout: dict) -> dict[str, str | None]:
+    out: dict[str, str | None] = {}
+
+    def walk(node: dict) -> None:
+        out[node.get("path")] = node.get("mountpoint")
+        for c in node.get("children", []) or []:
+            walk(c)
+    for d in layout.get("devices", []) or []:
+        for p in d.get("partitions", []) or []:
+            walk(p)
+    return out
+
+
+def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> list[dict]:
+    """Design-time guardrails. Returns problems [{severity, message}]. errors block
+    apply; warnings don't."""
+    problems: list[dict] = []
+    busy, protected = _busy_index(layout)
+    mp_by_path = _mount_by_path(layout)
+    for s in steps:
+        if s.get("error"):
+            # Report the REASON, not just the step title — "…(REFUSED)" alone leaves
+            # the user guessing why.
+            problems.append({"severity": "error", "message": f"{s['desc']}: {s['error']}"})
+        # ZFS name ops act on pool/dataset names, not raw block devices — they skip
+        # the block-device loop/protected/busy rules; destroy/rollback are guarded by
+        # mountpoint instead (never tear down a critical system mount).
+        if s["op"] in ("zfs_create", "zfs_set", "zfs_destroy", "zfs_snapshot", "zfs_rollback", "zpool_destroy"):
+            if s.get("zfs_guard") and _zfs_hits_critical(layout, s.get("zfs_name") or ""):
+                problems.append({"severity": "error",
+                                 "message": f"{s['desc']}: refused — {s.get('zfs_name')} (or a child) holds a critical system mount"})
+            continue
+        # zpool create/add consume raw vdevs — check each vdev like a device op.
+        if s["op"] in ("zpool_create", "zpool_add"):
+            for vdev in s.get("vdevs") or []:
+                base = _target_device({"target": vdev})
+                if not vdev.startswith("/dev/loop") and not allow_nonloop:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {vdev} is not a loopback scratch device (pass allow_nonloop to use a real disk)"})
+                if base in protected:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {base} has mounted filesystem(s)"})
+                if vdev in busy:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {vdev} is mounted/in use"})
+            continue
+        dev = s.get("device") or ""
+        is_loop = dev.startswith("/dev/loop")
+        if not is_loop and not allow_nonloop:
+            problems.append({"severity": "error",
+                             "message": f"{s['desc']}: refused — {dev} is not a loopback scratch device "
+                                        "(pass allow_nonloop to operate on a real disk)"})
+        # umount is the workflow that FREES a busy filesystem for editing, so it is
+        # exempt from the busy/protected guards — but must never tear down a
+        # critical system mount.
+        if s["op"] == "umount":
+            tgt = (s.get("argv") or [None])[-1]
+            mp = mp_by_path.get(tgt)
+            if mp in _CRITICAL_MOUNTS:
+                problems.append({"severity": "error",
+                                 "message": f"{s['desc']}: refused — {tgt} is a critical system mount ({mp})"})
+            continue
+        # lvextend GROW is an online operation (LVM + ext4/xfs grow while mounted),
+        # so it is exempt from the busy/protected guards — but only a grow (+…).
+        if s["op"] == "lvextend":
+            size = (s.get("argv") or ["", "", "", ""])[3]
+            if not str(size).startswith("+"):
+                problems.append({"severity": "error",
+                                 "message": f"{s['desc']}: refused — only online GROW (size starting with '+') is allowed"})
+            continue
+        # The "the hypervisor grew this disk" chain (gptfix → growpart → pvresize) is
+        # ONLINE and strictly additive: it moves the GPT backup header, extends the
+        # last partition to 100%, and lets the PV see the new extents. Nothing is
+        # ever cut, so these are exempt from the protected-disk guard — otherwise the
+        # main use case (a grown VM system disk) could never be handled.
+        if s["op"] in ("gptfix", "growpart", "pvresize"):
+            continue
+        # HARD guard: never touch a disk that has mounted filesystems, even with
+        # allow_nonloop — this is what protects the system/root disk.
+        if dev in protected:
+            problems.append({"severity": "error",
+                             "message": f"{s['desc']}: refused — {dev} has mounted filesystem(s); unmount them first"})
+        # RAID ops name an array device, not a disk, so the block-device rules do not
+        # apply to `device`. What must be checked are the MEMBERS: mdadm overwrites
+        # their superblock, so a member carrying a mounted filesystem would be
+        # destroyed under a running system. md_stop is guarded by busy_target below.
+        if s["op"].startswith("md_"):
+            for m in s.get("md_members") or []:
+                if m in busy:
+                    problems.append({"severity": "error",
+                                     "message": f"{s['desc']}: refused — {m} is mounted; mdadm would "
+                                                "overwrite it"})
+                base = _target_device({"target": m})
+                if base in protected and m not in busy:
+                    problems.append({"severity": "warning",
+                                     "message": f"{s['desc']}: {m} sits on {base}, which carries mounted "
+                                                "filesystems — make sure this member is really spare"})
+            if s["op"] != "md_stop":
+                continue
+        # A MOVE writes raw blocks at the destination, so that range must not belong
+        # to another partition — and the partition being moved has to be unmounted
+        # (its bytes must not change under the copy).
+        if s["op"] == "movepart" and s.get("dst_start_s") is not None:
+            for other in _partitions_of(layout, dev):
+                if other.get("_num") == s.get("part_num"):
+                    continue
+                o_start, o_end = other.get("start_s"), other.get("end_s")
+                if o_start is None or o_end is None:
+                    continue
+                if not (s["dst_end_s"] < o_start or s["dst_start_s"] > o_end):
+                    problems.append({"severity": "error",
+                                     "message": f"{s['desc']}: refused — the destination overlaps "
+                                                f"{other.get('path')} (sectors {o_start}–{o_end})"})
+        tgt = s.get("busy_target")
+        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce", "movepart", "md_stop") and tgt and tgt in busy:
+            problems.append({"severity": "error",
+                             "message": f"{s['desc']}: refused — {tgt} is mounted; unmount it first"})
+    return problems
+
+
+_PKG_FOR_BIN = {
+    "parted": "parted", "mkfs.ext2": "e2fsprogs", "mkfs.ext3": "e2fsprogs", "mkfs.ext4": "e2fsprogs",
+    "e2label": "e2fsprogs", "mkfs.xfs": "xfsprogs", "xfs_admin": "xfsprogs", "mkfs.btrfs": "btrfs-progs",
+    "mkfs.vfat": "dosfstools", "fatlabel": "dosfstools", "mkfs.exfat": "exfatprogs", "sfdisk": "util-linux",
+    "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
+    "zfs": "zfsutils-linux", "zpool": "zfsutils-linux",
+    "pvresize": "lvm2", "sgdisk": "gdisk", "partprobe": "parted",
+    "cryptsetup": "cryptsetup", "mdadm": "mdadm",
+}
+
+
+async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]]:
+    """Preflight: make sure the binaries the plan needs exist; best-effort install
+    the owning package via the host's package manager. Returns (installed, missing)."""
+    needed: set[str] = set()
+    for s in steps:
+        argv = s.get("argv") or []
+        if s.get("touches_table"):
+            needed.add("parted")
+            needed.add("sfdisk")  # table backup
+        if s["op"] in ("mkfs", "label", "resize", "lvextend", "lvreduce", "pvresize", "gptfix") and argv:
+            needed.add(argv[0])
+        if s["op"].startswith(("zfs_", "zpool_")) and argv:
+            needed.add(argv[0])  # zfs / zpool
+        if s["op"].startswith("luks_"):
+            needed.add("cryptsetup")
+        if s["op"].startswith("md_"):
+            needed.add("mdadm")
+    installed: list[str] = []
+    missing: list[str] = []
+    for binname in sorted(needed):
+        rc, _, _ = await _run(client, ["sh", "-c", f"command -v {shlex.quote(binname)}"])
+        if rc == 0:
+            continue
+        pkg = _PKG_FOR_BIN.get(binname)
+        if pkg and await _install_pkg(client, pkg, binname):
+            installed.append(pkg)
+            continue
+        missing.append(binname)
+    return installed, missing
+
+
+async def _install_pkg(client, pkg: str, verify_bin: str | None = None) -> bool:
+    """Install one package with whatever package manager the host has. Returns
+    whether the binary is available afterwards (or the install reported success)."""
+    install = (
+        f"if command -v apt-get >/dev/null; then export DEBIAN_FRONTEND=noninteractive; "
+        f"apt-get update -qq && apt-get install -y -qq {shlex.quote(pkg)}; "
+        f"elif command -v dnf >/dev/null; then dnf install -y {shlex.quote(pkg)}; "
+        f"elif command -v yum >/dev/null; then yum install -y {shlex.quote(pkg)}; "
+        f"elif command -v zypper >/dev/null; then zypper --non-interactive install {shlex.quote(pkg)}; "
+        f"elif command -v apk >/dev/null; then apk add --no-cache {shlex.quote(pkg)}; "
+        f"else echo 'no supported package manager' >&2; exit 1; fi"
+    )
+    rc, _, _ = await _run(client, ["sh", "-c", install])
+    if not verify_bin:
+        return rc == 0
+    rc2, _, _ = await _run(client, ["sh", "-c", f"command -v {shlex.quote(verify_bin)}"])
+    return rc2 == 0
+
+
+async def install_tools(agent, client_factory, settings, bins: list[str]) -> dict:
+    """Install the packages providing `bins` (the view's "install missing tools"
+    button). Only binaries this editor actually drives are accepted, so the endpoint
+    cannot be used to install arbitrary packages. Returns {ok, installed, failed}."""
+    client = client_factory(agent, settings)
+    wanted = [b for b in bins if b in _PKG_FOR_BIN]
+    rejected = [b for b in bins if b not in _PKG_FOR_BIN]
+    installed: list[str] = []
+    failed: list[str] = []
+    for pkg in sorted({_PKG_FOR_BIN[b] for b in wanted}):
+        # verify via one of the binaries this package provides
+        verify = next((b for b in wanted if _PKG_FOR_BIN[b] == pkg), None)
+        if await _install_pkg(client, pkg, verify):
+            installed.append(pkg)
+        else:
+            failed.append(pkg)
+    return {"ok": not failed, "installed": installed, "failed": failed, "rejected": rejected}
+
+
+async def _call_module(client, tool: str, params: dict) -> tuple[bool, dict]:
+    """Call an agent module and unwrap its {data:…} payload."""
+    try:
+        res = await client.call_tool(tool, params)
+    except Exception as exc:  # noqa: BLE001
+        return False, {"output": str(exc)[:300]}
+    data = (res or {}).get("data") if isinstance(res, dict) else None
+    return True, (data if isinstance(data, dict) else {})
+
+
+async def _run_tool_step(client, s: dict, ctx: dict, settings=None) -> tuple[bool, dict]:
+    """Run a module-call step. Anything the module returns that later steps need
+    (today: `job_id` from disk_move) is stashed in the shared step context.
+
+    A step may declare `secret_param` + `secret_ref`: the vault handle is decrypted
+    HERE and the plaintext is put into that parameter, so it exists only in memory
+    for the duration of the call — never in the plan, the compiled steps or a
+    preview, and never on a command line."""
+    params = dict(s.get("params") or {})
+    if s.get("secret_param"):
+        from bossman.services.vault import Vault, VaultError
+
+        if settings is None:
+            return False, {"tool": s["tool"], "output": "no settings — cannot open the vault"}
+        try:
+            params[s["secret_param"]] = Vault(settings.vault_key, settings.vault_key_path).decrypt(
+                s.get("secret_ref") or "")
+        except (VaultError, Exception) as exc:  # noqa: BLE001
+            return False, {"tool": s["tool"], "output": f"vault: {str(exc)[:200]}"}
+    ok, data = await _call_module(client, s["tool"], params)
+    if not ok:
+        return False, {"tool": s["tool"], "output": data.get("output", "call failed")}
+    if data.get("job_id"):
+        ctx["job_id"] = data["job_id"]
+    return True, {"tool": s["tool"], "output": _brief(data)}
+
+
+async def _run_poll_step(client, s: dict, ctx: dict, *, timeout_s: int = 6 * 3600) -> tuple[bool, dict]:
+    """Wait for an asynchronous module job to finish. Each poll is its own short
+    request, so a copy that runs for hours can never be cut off by a request
+    timeout — which is exactly why the copier is a job and not a `dd` command."""
+    import asyncio
+
+    job_id = ctx.get("job_id")
+    if not job_id:
+        return False, {"output": "no job id from the preceding step"}
+    waited, delay = 0.0, 0.5
+    while waited < timeout_s:
+        ok, data = await _call_module(client, s["poll"], {"action": "status", "job_id": job_id})
+        if not ok:
+            return False, {"output": data.get("output", "status call failed")}
+        state = data.get("state")
+        if state == "done":
+            return True, {"output": _brief(data)}
+        if state in ("failed", "cancelled"):
+            return False, {"output": f"{state}: {data.get('error') or ''}".strip()}
+        await asyncio.sleep(delay)
+        waited += delay
+        delay = min(delay * 1.5, 10.0)     # back off: quick at first, then every 10s
+    return False, {"output": f"job {job_id} still running after {timeout_s}s"}
+
+
+def _brief(data: dict) -> str:
+    keys = ("state", "done_bytes", "total_bytes", "percent", "job_id", "backwards", "msg")
+    parts = [f"{k}={data[k]}" for k in keys if k in data and data[k] not in (None, "")]
+    return " ".join(parts)[:500]
+
+
+async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, allow_nonloop: bool = False) -> dict:
+    """Run the plan on the host. Refuses on any safety error. Dumps the partition
+    table (sfdisk -d) of each touched device first as a rollback point. Stops at
+    the first failed step. Returns {ok, steps:[…], table_backup:{dev:dump}}."""
+    steps = compile(plan)
+    problems = safety_check(steps, layout, allow_nonloop=allow_nonloop)
+    if any(p["severity"] == "error" for p in problems):
+        return {"ok": False, "refused": True, "problems": problems, "steps": []}
+
+    client = client_factory(agent, settings)
+    # ZFS preflight: the ops talk to /dev/zfs, which only exists once the kernel
+    # module is loaded. The agent runs sandboxed (ProtectKernelModules) and cannot
+    # load it, so surface a clear, actionable error rather than a cryptic zpool one.
+    if any(s["op"].startswith(("zfs_", "zpool_")) for s in steps):
+        rc, _, _ = await _run(client, ["sh", "-c", "test -e /dev/zfs"])
+        if rc != 0:
+            return {"ok": False, "refused": True, "steps": [],
+                    "problems": [{"severity": "error",
+                                  "message": "ZFS kernel module not loaded (/dev/zfs missing). "
+                                             "Load it on the host (modprobe zfs, or /etc/modules-load.d/zfs.conf) — "
+                                             "the agent is sandboxed and cannot load kernel modules itself."}]}
+    # preflight: ensure the tools the plan needs exist (best-effort install)
+    installed, missing = await _ensure_tools(client, steps)
+    if missing:
+        return {"ok": False, "refused": True, "tools_installed": installed,
+                "problems": [{"severity": "error", "message": f"missing tools (install failed): {', '.join(missing)}"}],
+                "steps": []}
+    # rollback point: dump the table of every device whose table we touch
+    table_backup: dict[str, str] = {}
+    for dev in {s["device"] for s in steps if s.get("touches_table")}:
+        rc, out, _ = await _run(client, ["sfdisk", "-d", dev])
+        if rc == 0:
+            table_backup[dev] = out
+
+    results: list[dict] = []
+    ok = True
+    ctx: dict[str, Any] = {}          # carries values between steps (e.g. a job id)
+    for s in steps:
+        # A step is one of three kinds: a host command (argv), a call into an agent
+        # MODULE (tool/params — that is how the native disk_move copier is driven),
+        # or a wait-for-job (poll) that keeps asking the module until it finishes.
+        if s.get("tool"):
+            step_ok, detail = await _run_tool_step(client, s, ctx, settings)
+        elif s.get("poll"):
+            step_ok, detail = await _run_poll_step(client, s, ctx)
+        elif s.get("argv"):
+            rc, out, err = await _run(client, s["argv"])
+            step_ok = rc == 0
+            detail = {"argv": s["argv"], "rc": rc, "output": (out + err).strip()[:500]}
+        else:
+            results.append({"desc": s["desc"], "ok": False, "error": s.get("error", "no command")})
+            ok = False
+            break
+        results.append({"desc": s["desc"], "ok": step_ok, **detail})
+        if not step_ok:
+            ok = False
+            break
+    return {"ok": ok, "problems": problems, "steps": results, "table_backup": table_backup,
+            "tools_installed": installed}
+
+
+async def scratch_setup(agent, client_factory, settings, *, size_mb: int = 256) -> dict:
+    """Create a throwaway loopback disk (a sparse file + losetup) so disk ops can
+    be tested for real without a spare disk. Returns {ok, device, backing_file}."""
+    client = client_factory(agent, settings)
+    size_mb = max(16, min(size_mb, 4096))
+    script = (
+        f"f=$(mktemp /var/tmp/bm-scratch.XXXXXX.img) && truncate -s {size_mb}M \"$f\" "
+        f"&& dev=$(losetup --find --show \"$f\") && echo \"$dev|$f\""
+    )
+    rc, out, err = await _run(client, ["sh", "-c", script])
+    if rc != 0 or "|" not in out:
+        return {"ok": False, "error": (err or out or "losetup failed")[:300]}
+    dev, backing = out.strip().split("|", 1)
+    return {"ok": True, "device": dev, "backing_file": backing}
+
+
+async def scratch_teardown(agent, client_factory, settings, *, device: str, backing_file: str) -> dict:
+    """Detach + delete a scratch loopback disk created by scratch_setup."""
+    if not device.startswith("/dev/loop"):
+        return {"ok": False, "error": "refused — not a loop device"}
+    client = client_factory(agent, settings)
+    bf = shlex.quote(backing_file) if backing_file else ""
+    script = f"umount {shlex.quote(device)}* 2>/dev/null; losetup -d {shlex.quote(device)}; " + (f"rm -f {bf}" if bf else "true")
+    rc, out, err = await _run(client, ["sh", "-c", script])
+    return {"ok": rc == 0, "output": (out + err).strip()[:300]}

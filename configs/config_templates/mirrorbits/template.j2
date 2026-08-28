@@ -1,0 +1,92 @@
+# /etc/logrotate.d/mirrorbits
+#
+# Log rotation configuration for the Mirrorbits download mirror tracker.
+# Manages rotation of main service logs and logs for multiple instances (if applicable).
+#
+# Schema fields used:
+#   - log_dir: Directory within /var/log where logs are stored.
+#   - rotate_count: Number of rotated log files to retain.
+
+# Rotate main instance logs.
+# Matches: /var/log/<log_dir>/*.log
+/var/log/{{ log_dir | default('mirrorbits') }}/*.log {
+    # Rotate logs on a daily basis.
+    daily
+
+    # Keep this many rotated log files.
+    rotate {{ rotate_count | default(14) }}
+
+    # Do not error if the log file is missing.
+    missingok
+
+    # Do not rotate empty log files.
+    notifempty
+
+    # Compress rotated log files using gzip.
+    compress
+
+    # Delay compression of the most recent rotated file until the next rotation cycle.
+    delaycompress
+
+    # Script executed after the log file is rotated.
+    postrotate
+        # If systemd is the init system, use it to signal the service.
+        if [ -e /run/systemd/system ]; then
+            # Check if mirrorbits service is active.
+            if systemctl -q is-active mirrorbits; then
+                # Send USR1 signal to trigger log rotation/reopen.
+                systemctl kill -s USR1 mirrorbits
+            fi
+        # Fallback for non-systemd environments using PID files.
+        elif [ -s /run/mirrorbits/pid ]; then
+            # Read the PID from the PID file.
+            pid=$(cat /run/mirrorbits/pid)
+            # Send USR1 signal to the process.
+            kill -s USR1 "$pid" 2>/dev/null || true
+        fi
+    endscript
+}
+
+# Rotate logs for multiple instances of mirrorbits.
+# Matches: /var/log/<log_dir>/*/*.log (e.g., /var/log/mirrorbits/worker1/*.log)
+/var/log/{{ log_dir | default('mirrorbits') }}/*/*.log {
+    # Rotate logs on a daily basis.
+    daily
+
+    # Keep this many rotated log files.
+    rotate {{ rotate_count | default(14) }}
+
+    # Do not error if the log file is missing.
+    missingok
+
+    # Do not rotate empty log files.
+    notifempty
+
+    # Compress rotated log files using gzip.
+    compress
+
+    # Delay compression of the most recent rotated file until the next rotation cycle.
+    delaycompress
+
+    # Script executed after the log file is rotated.
+    postrotate
+        # Determine the instance name from the directory structure.
+        dir=$(dirname "$1")
+        i=$(basename "$dir")
+
+        # If systemd is the init system, use it to signal the specific instance.
+        if [ -e /run/systemd/system ]; then
+            # Check if the specific instance service (e.g., mirrorbits@worker1) is active.
+            if systemctl -q is-active mirrorbits@"$i"; then
+                # Send USR1 signal to trigger log rotation/reopen.
+                systemctl kill -s USR1 mirrorbits@"$i"
+            fi
+        # Fallback for non-systemd environments using PID files.
+        elif [ -s /run/mirrorbits/"$i"/pid ]; then
+            # Read the PID for the specific instance from its PID file.
+            pid=$(cat /run/mirrorbits/"$i"/pid)
+            # Send USR1 signal to the process.
+            kill -s USR1 "$pid" 2>/dev/null || true
+        fi
+    endscript
+}

@@ -176,28 +176,3 @@ func (w *WaitFor) conditionMet(host, port, path, state string) (bool, error) {
 	}
 	return false, fmt.Errorf("wait_for: unreachable state %q", state)
 }
-
-// intParam extracts an integer parameter, accepting a JSON-decoded float64,
-// a native int, or a numeric string (this project passes several
-// duration-like parameters as strings elsewhere, e.g. cron's time fields —
-// kept consistent). Returns def if absent.
-func intParam(params map[string]any, key string, def int) (int, error) {
-	v, ok := params[key]
-	if !ok || v == nil {
-		return def, nil
-	}
-	switch n := v.(type) {
-	case float64:
-		return int(n), nil
-	case int:
-		return n, nil
-	case string:
-		var out int
-		if _, err := fmt.Sscanf(n, "%d", &out); err != nil {
-			return 0, fmt.Errorf("%s: expected an integer, got %q", key, n)
-		}
-		return out, nil
-	default:
-		return 0, fmt.Errorf("%s: expected a number, got %T", key, v)
-	}
-}

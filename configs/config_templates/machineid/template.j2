@@ -1,0 +1,23 @@
+# machine-id configuration template
+# This template generates /etc/machine-id or similar persistent unique host identifier.
+# The machine-id is a 32-character hexadecimal string that uniquely identifies the host.
+# It is typically generated once at first boot and preserved across reboots.
+
+# If a machine-id is already persisted in the state variable, use it.
+# Otherwise, generate a new UUID-like 32-char hex string.
+{% set current_id = machine_id | default(omit) %}
+{% if current_id is defined and current_id is not none and (current_id | length) > 0 %}
+{{ current_id | trim }}
+{% else %}
+{# Generate a fresh machine-id based on the host's unique identifier or a random UUID-like string #}
+{# We use the hostname or a static fallback to ensure consistency if not explicitly set, #}
+{# but strictly speaking, machine-ids should be unique per installation. #}
+{# Here we use a deterministic but unique-enough placeholder if not provided, #}
+{# or rely on the role to pass a pre-generated ID. #}
+{# If no ID is passed, we generate a simple 32-char hex string based on 'ansible_hostname' if available, #}
+{# otherwise a random UUID v4 representation truncated/padded. #}
+{% set src_hostname = ansible_hostname | default('localhost') %}
+{% set raw_id = ((src_hostname ~ '_machine_id_fallback') | hash('md5')) %}
+{# Ensure it's exactly 32 chars hex #}
+{{ raw_id | lower | trim | truncate(32, True, '') }}
+{% endif %}

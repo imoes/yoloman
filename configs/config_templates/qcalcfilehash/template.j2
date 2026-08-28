@@ -1,0 +1,36 @@
+#!/bin/bash
+# qcalcfilehash command invocation template
+# Executes qcalcfilehash to compute hash sums for specified files using selected algorithms.
+#
+# This template generates a shell command snippet.
+# - `files`: List of source file paths to compute hash sums for.
+# - `algorithm`: The hash algorithm to use (e.g., sha1, sha224, sha256, sha384, sha512, md5, crc32, crc8).
+# - `compare_hash`: Expected hash value to compare against the computed result.
+# - `show_progress`: If true, show a progress bar during hash computation.
+# - `list_algorithms`: If true, list all available hash algorithms and exit.
+
+# Source file(s) to hash
+# The files variable defaults to an empty list to avoid iterating over undefined variables.
+{% for file in (files | default([])) %}
+"{{ file }}"
+{% endfor %}
+
+# Hash algorithm to use (e.g., sha256, md5, sha512, crc32)
+# Defaults to 'sha256' if not specified.
+"{{ algorithm | default('sha256') }}"
+
+# Options:
+{% if compare_hash | default('') %}
+# Compare against an expected hash value
+--compare "{{ compare_hash | default('') }}"
+{% endif %}
+
+{% if show_progress | default(false) | bool %}
+# Show progress bar during computation
+-p
+{% endif %}
+
+{% if list_algorithms | default(false) | bool %}
+# List all available hash algorithms
+--list
+{% endif %}

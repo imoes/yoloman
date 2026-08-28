@@ -1,0 +1,31 @@
+# YubiKey Agent User Service Configuration
+# This template generates the systemd user service file for yubikey-agent.
+# Based on yubikey-agent(1) man page.
+# Self-documented: every directive is explained and uses safe defaults.
+
+[Unit]
+# Human-readable description of the service
+Description=YubiKey Agent for SSH
+# Ensure network is available before starting (e.g. for socket activation or network tokens if any)
+After=network.target
+
+[Service]
+# Service type for systemd
+Type=simple
+
+# The full command line to start yubikey-agent, including the socket path.
+# Defaults to running yubikey-agent with the socket in XDG_RUNTIME_DIR.
+ExecStart={{ exec_start | default('/usr/bin/yubikey-agent -l $XDG_RUNTIME_DIR/yubikey-agent/yubikey-agent.sock') }}
+
+# List of environment variable definitions to pass to the service process.
+# Typically SSH_AUTH_SOCK pointing to the agent's socket.
+{% for env in env_vars | default(['SSH_AUTH_SOCK=$XDG_RUNTIME_DIR/yubikey-agent/yubikey-agent.sock']) %}
+Environment={{ env }}
+{% endfor %}
+
+# The systemd restart policy for the yubikey-agent service (e.g., no, always, on-failure).
+Restart={{ restart_policy | default('on-failure') }}
+
+[Install]
+# Target to enable the service for the current user
+WantedBy=default.target

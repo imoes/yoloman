@@ -1,0 +1,25 @@
+# /usr/share/doc/lighttpd/ssl.txt
+# -*- conflicts: mbedtls, nss, ssl, wolfssl -*-
+
+# Enable the GnuTLS module for lighttpd to provide TLS/SSL support.
+# This module allows lighttpd to serve HTTPS traffic using the GnuTLS library.
+server.modules += ( "mod_gnutls" )
+
+# Path to the SSL PEM certificate and key file.
+# This file must contain both the server certificate and the private key,
+# typically in PEM format. The lighttpd process must have read access to this file.
+ssl.pemfile = "{{ ssl_pemfile | default('/etc/lighttpd/server.pem') }}"
+
+# Bind the SSL listener to a specific IP address and port.
+# The $SERVER["socket"] directive allows lighttpd to listen on different
+# addresses and ports with different configurations (e.g., HTTP on port 80,
+# HTTPS on port 443). Here, we enable SSL engine for the specified bind address and port.
+# ssl.engine = "enable" activates TLS/SSL for this socket.
+$SERVER["socket"] == "{{ ssl_bind_address | default('0.0.0.0') }}:{{ ssl_bind_port | default(443) }}" {
+	ssl.engine  = "enable"
+}
+
+# Automatically include IPv6 configuration if the system supports it.
+# The shell script checks if IPv6 is enabled and adds the corresponding IPv6 socket configuration.
+# This ensures compatibility with dual-stack environments.
+include_shell "/usr/share/lighttpd/use-ipv6.pl {{ ssl_bind_port | default(443) }}"

@@ -1,0 +1,127 @@
+{# ============================================================================ #}
+{# PgDBF Configuration Wrapper Script                                           #}
+{#                                                                                #}
+{# This template generates a self-contained shell script to execute the `pgdbf`   #}
+{# utility, which converts xBase/FoxPro (.dbf/.fpt) files into PostgreSQL SQL.   #}
+{#                                                                                #}
+{# Self-documenting: Read the comments below to understand every parameter.       #}
+{# ============================================================================ #}
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ------------------------------------------------------------------------------
+# Configuration Parameters
+# ------------------------------------------------------------------------------
+
+# Path to the source XBase/FoxPro .dbf file to convert.
+DBF_FILE="{{ dbf_file | default('/var/lib/pgdbf/input/tables.dbf') }}"
+
+# Path to the associated FoxPro memo file (.fpt). Empty if none.
+# If empty, the -m flag is omitted.
+MEMO_FILE="{{ memo_file | default('/var/lib/pgdbf/input/tables.fpt') }}"
+
+# Name of the PostgreSQL table to create or populate.
+TABLE_NAME="{{ table_name | default('imported_table') }}"
+
+# Generate a CREATE TABLE statement.
+# If false, pgdbf assumes the table exists.
+CREATE_TABLE="{{ create_table | default(true) | lower }}"
+
+# Generate a DROP TABLE statement before creation.
+DROP_TABLE="{{ drop_table | default(true) | lower }}"
+
+# Use 'DROP TABLE IF EXISTS' for PostgreSQL 8.2+ compatibility.
+DROP_IF_EXISTS="{{ drop_if_exists | default(true) | lower }}"
+
+# Issue TRUNCATE TABLE to clear existing data.
+# Incompatible with CREATE/DROP. If true, overrides drop/create behavior for data clearing.
+TRUNCATE_TABLE="{{ truncate_table | default(false) | lower }}"
+
+# Wrap the script in a transaction for atomic updates.
+# If false, individual statements are autocommitted.
+USE_TRANSACTION="{{ use_transaction | default(true) | lower }}"
+
+# Enclose table name in quotes to handle reserved words or special characters.
+QUOTE_TABLE_NAME="{{ quote_table_name | default(true) | lower }}"
+
+# Show a progress bar during conversion.
+SHOW_PROGRESS="{{ show_progress | default(false) | lower }}"
+
+# Create NUMERIC fields as NUMERIC type.
+# If false, creates as TEXT to handle invalid/non-numeric data gracefully.
+NUMERIC_AS_NUMERIC="{{ numeric_as_numeric | default(true) | lower }}"
+
+# Source encoding for iconv conversion to UTF-8 (e.g., 'LATIN1').
+# Empty string means no conversion is performed.
+INPUT_ENCODING="{{ input_encoding | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Command Construction Logic
+# ------------------------------------------------------------------------------
+
+# Build the pgdbf command dynamically based on the parameters above.
+PGDBF_CMD="pgdbf"
+
+# If CREATE_TABLE is false, we do not want pgdbf to generate the CREATE statement (-C).
+{% if not (create_table | default(true)) %}
+PGDBF_CMD="${PGDBF_CMD} -C"
+{% endif %}
+
+# If DROP_TABLE is false, we do not want pgdbf to generate the DROP statement (-D).
+{% if not (drop_table | default(true)) %}
+PGDBF_CMD="${PGDBF_CMD} -D"
+{% endif %}
+
+# If DROP_IF_EXISTS is false, we use plain DROP TABLE without IF EXISTS (-E).
+{% if not (drop_if_exists | default(true)) %}
+PGDBF_CMD="${PGDBF_CMD} -E"
+{% endif %}
+
+# If TRUNCATE_TABLE is true, we issue TRUNCATE TABLE to clear existing data (-u).
+{% if truncate_table | default(false) %}
+PGDBF_CMD="${PGDBF_CMD} -u"
+{% endif %}
+
+# If USE_TRANSACTION is false, we disable transaction wrapping (-T).
+{% if not (use_transaction | default(true)) %}
+PGDBF_CMD="${PGDBF_CMD} -T"
+{% endif %}
+
+# If QUOTE_TABLE_NAME is true, we force quoting of the table name (-q).
+{% if quote_table_name | default(true) %}
+PGDBF_CMD="${PGDBF_CMD} -q"
+{% endif %}
+
+# If SHOW_PROGRESS is true, we enable the progress bar (-p).
+{% if show_progress | default(false) %}
+PGDBF_CMD="${PGDBF_CMD} -p"
+{% endif %}
+
+# If NUMERIC_AS_NUMERIC is false, we create NUMERIC fields as TEXT (-N).
+{% if not (numeric_as_numeric | default(true)) %}
+PGDBF_CMD="${PGDBF_CMD} -N"
+{% endif %}
+
+# If INPUT_ENCODING is defined and not empty, we specify the source encoding (-s).
+{% if (input_encoding | default('')) %}
+PGDBF_CMD="${PGDBF_CMD} -s {{ input_encoding | default('') }}"
+{% endif %}
+
+# If MEMO_FILE is defined and not empty, we specify the FPT file path (-m).
+{% if (memo_file | default('')) %}
+PGDBF_CMD="${PGDBF_CMD} -m {{ memo_file | default('') }}"
+{% endif %}
+
+# Append the target table name and the source DBF file.
+PGDBF_CMD="${PGDBF_CMD} {{ table_name | default('imported_table') }} {{ dbf_file | default('/var/lib/pgdbf/input/tables.dbf') }}"
+
+# ------------------------------------------------------------------------------
+# Execution
+# ------------------------------------------------------------------------------
+
+echo "Executing pgdbf command:"
+echo "${PGDBF_CMD}"
+
+# Uncomment the line below to actually execute the command.
+# ${PGDBF_CMD}

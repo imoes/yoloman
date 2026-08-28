@@ -1,0 +1,180 @@
+# Proxytunnel Configuration
+# This file defines the connection parameters for proxytunnel.
+# proxytunnel is a program that tunnels TCP connections through HTTP proxies.
+# It supports authentication, SSL encryption, and standalone daemon mode.
+# For full documentation, see proxytunnel(1).
+
+# ==========================================================================
+# Local Proxy Settings
+# ==========================================================================
+
+# Hostname or IP of the local HTTP/HTTPS proxy.
+# Corresponds to command-line option: -p host
+# Defaults to localhost if not specified.
+PROXY_HOST={{ (proxy_host | default('localhost')) | string }}
+
+# Port of the local HTTP/HTTPS proxy.
+# Corresponds to command-line option: -p :port
+# Defaults to 8080 if not specified.
+PROXY_PORT={{ proxy_port | default(8080) | int }}
+
+# ==========================================================================
+# Destination Settings
+# ==========================================================================
+
+# Hostname or IP of the final destination server.
+# Corresponds to command-line option: -d host
+# Defaults to localhost if not specified.
+DEST_HOST={{ (dest_host | default('localhost')) | string }}
+
+# Port of the final destination server.
+# Corresponds to command-line option: -d :port
+# Defaults to 22 (SSH) if not specified.
+DEST_PORT={{ dest_port | default(22) | int }}
+
+# ==========================================================================
+# Remote Proxy Settings (Proxy Bouncing)
+# ==========================================================================
+
+# Hostname or IP of a secondary/remote proxy.
+# If set, traffic is tunneled to this proxy first, then to the destination.
+# Corresponds to command-line option: -r host
+# Empty string means no remote proxy is used.
+REM_PROXY_HOST={{ (rem_proxy_host | default('')) | string }}
+
+# Port of the remote/secondary proxy.
+# Corresponds to command-line option: -r :port
+# Defaults to 443 if not specified.
+REM_PROXY_PORT={{ rem_proxy_port | default(443) | int }}
+
+# ==========================================================================
+# Local Proxy Authentication
+# ==========================================================================
+
+# Username for authenticating with the local proxy.
+# Corresponds to command-line option: -P username
+# If empty, no authentication is attempted (or credentials may come from environment).
+PROXY_USER={{ (proxy_user | default('')) | string }}
+
+# Password for authenticating with the local proxy.
+# Corresponds to command-line option: -P :password
+# If empty, no password is provided.
+PROXY_PASS={{ (proxy_pass | default('')) | string }}
+
+# ==========================================================================
+# Remote Proxy Authentication
+# ==========================================================================
+
+# Username for authenticating with the remote proxy.
+# Corresponds to command-line option: -R username
+# If empty, no authentication is attempted.
+REM_PROXY_USER={{ (rem_proxy_user | default('')) | string }}
+
+# Password for authenticating with the remote proxy.
+# Corresponds to command-line option: -R :password
+# If empty, no password is provided.
+REM_PROXY_PASS={{ (rem_proxy_pass | default('')) | string }}
+
+# ==========================================================================
+# SSL/TLS Encryption Settings
+# ==========================================================================
+
+# Enable SSL encryption between the local proxy and the destination.
+# Corresponds to command-line option: -e
+# Useful when the local proxy is an SSL terminator or the destination requires HTTPS.
+ENCRYPT_TO_DEST={{ encrypt_to_dest | default(false) | ternary('yes', 'no') }}
+
+# Enable SSL encryption between the client and the local proxy.
+# Corresponds to command-line option: -E
+# Useful when the connection to the local proxy is via HTTPS.
+ENCRYPT_TO_PROXY={{ encrypt_to_proxy | default(false) | ternary('yes', 'no') }}
+
+# Enable SSL encryption between the local proxy and the remote proxy.
+# Corresponds to command-line option: -X
+# Useful for bouncing through an HTTPS remote proxy.
+ENCRYPT_TO_REM_PROXY={{ encrypt_to_rem_proxy | default(false) | ternary('yes', 'no') }}
+
+# ==========================================================================
+# Certificate Verification
+# ==========================================================================
+
+# Verify server SSL certificates.
+# Corresponds to command-line option: -z (if false)
+# If true, SSL certificate verification is performed. If false, certificates are ignored.
+CHECK_CERT={{ check_cert | default(true) | ternary('yes', 'no') }}
+
+# Path to the CA certificate file or directory used for verification.
+# Corresponds to command-line option: -C filename
+# Defaults to the system CA bundle if not specified.
+CA_CERT_FILE={{ (ca_cert_file | default('/etc/ssl/certs/ca-certificates.crt')) | string }}
+
+# ==========================================================================
+# NTLM Authentication Settings
+# ==========================================================================
+
+# Use NTLM authentication for the local proxy.
+# Corresponds to command-line option: -N
+# NTLM is often required in Windows/Active Directory environments.
+USE_NTLM={{ use_ntlm | default(false) | ternary('yes', 'no') }}
+
+# Specify the NTLM domain for authentication.
+# Corresponds to command-line option: -t STRING
+# Required if NTLM authentication is enabled and the domain is not default.
+NTLM_DOMAIN={{ (ntlm_domain | default('')) | string }}
+
+# ==========================================================================
+# Network Binding / IP Version
+# ==========================================================================
+
+# Enforce IPv4 for the local proxy connection.
+# Corresponds to command-line option: -4
+# If both this and force_ipv6 are false, the system default is used.
+FORCE_IPV4={{ force_ipv4 | default(false) | ternary('yes', 'no') }}
+
+# Enforce IPv6 for the local proxy connection.
+# Corresponds to command-line option: -6
+# If both this and force_ipv4 are false, the system default is used.
+FORCE_IPV6={{ force_ipv6 | default(false) | ternary('yes', 'no') }}
+
+# ==========================================================================
+# Standalone Daemon Mode
+# ==========================================================================
+
+# Run proxytunnel as a standalone daemon instead of a one-shot connector.
+# Corresponds to command-line option: -a
+# In daemon mode, the service listens on STANDALONE_ADDR:STANDALONE_PORT
+# and forwards connections to the configured DEST.
+STANDALONE_ENABLED={{ standalone_enabled | default(false) | ternary('yes', 'no') }}
+
+# Address to bind for the standalone daemon.
+# Corresponds to part of command-line option: -a addr:port
+# An empty string means bind to all interfaces (0.0.0.0 or ::).
+STANDALONE_ADDR={{ (standalone_addr | default('')) | string }}
+
+# Port to bind for the standalone daemon.
+# Corresponds to part of command-line option: -a addr:port
+# Defaults to 8022 if not specified.
+STANDALONE_PORT={{ standalone_port | default(8022) | int }}
+
+# ==========================================================================
+# Custom Headers
+# ==========================================================================
+
+# List of custom HTTP headers to send to the proxy.
+# Corresponds to command-line option: -H 'Header: Value'
+# Each item in the list is a full header string (e.g., "User-Agent: Custom").
+# If empty, no custom headers are added.
+{% if additional_headers is defined and additional_headers | length > 0 %}
+ADDITIONAL_HEADERS={{ additional_headers | join('\n') }}
+{% else %}
+ADDITIONAL_HEADERS=
+{% endif %}
+
+# ==========================================================================
+# Logging / Verbosity
+# ==========================================================================
+
+# Turn on verbose output.
+# Corresponds to command-line option: -v
+# Useful for debugging connection issues.
+VERBOSE={{ verbose | default(false) | ternary('yes', 'no') }}

@@ -1,0 +1,62 @@
+# ==============================================================================
+# Net-SNMP Agent Configuration File (snmpd.conf)
+#
+# This template generates a production-sane snmpd.conf file.
+# It supports SNMPv2c communities and SNMPv3 USM users.
+#
+# This file is self-documenting: every directive is preceded by a comment
+# explaining its purpose, derived from the schema definition.
+# ==============================================================================
+
+# Global agent settings
+# Address the SNMP agent listens on. Standard is udp:161.
+# Format: <transport>:<port> (e.g., udp:161, udp6:161, udp:161,udp6:161)
+agentAddress udp:{{ agent_listen_port | default('udp:161') }}
+
+# SNMPv2c: Read-only community access
+# List of SNMPv2c read-only community strings and their access rules.
+# Items are maps with 'string' and 'access'. Leave empty to disable v2c read access.
+# Syntax: rocommunity <community_string> [default | -V <view> | <ip> | <ipv6>] [[ipv4|ipv6]:<source_ip>/<netmask>]
+{% for community in snmp_v2c_communities | default([]) %}
+rocommunity {{ community.string }} {{ community.access }}
+{% endfor %}
+
+# SNMPv2c: Read-write community access
+# List of SNMPv2c read-write community strings. Items are maps with 'string' and 'access'.
+# Leave empty to disable v2c write access.
+# Syntax: rwcommunity <community_string> [default | -V <view> | <ip> | <ipv6>] [[ipv4|ipv6]:<source_ip>/<netmask>]
+# Note: Use with extreme caution; write access allows modifying SNMP tables.
+{% for community in snmp_v2c_rw_communities | default([]) %}
+rwcommunity {{ community.string }} {{ community.access }}
+{% endfor %}
+
+# SNMPv3: User-Based Security Model (USM) Users
+# List of SNMPv3 users. Items are maps with 'username', 'auth_protocol' (MD5/SHA),
+# 'auth_passphrase', 'priv_protocol' (DES/AES), 'security_level' (noAuthNoPriv/authNoPriv/authPriv).
+# Syntax: createUser <username> [MD5|SHA] <auth_passphrase> [DES|AES] <priv_passphrase>
+{% for user in snmp_v3_users | default([]) %}
+createUser {{ user.username }} {{ user.auth_protocol }} {{ user.auth_passphrase }} {{ user.priv_protocol }} {{ user.priv_passphrase }}
+{% endfor %}
+
+# SNMPv3: VACM (View-Based Access Control Model) Configuration
+# Syntax: rouser <username> [noauth|auth|priv] -V <view_name>
+# Note: The 'rouser' directive grants read-only access. Use 'rwuser' for write access.
+# The view must be defined before use, or use 'default' if configured elsewhere.
+{% for user in snmp_v3_users | default([]) %}
+# Granting read-only access to {{ user.username }} with security level {{ user.security_level }}
+rouser {{ user.username }} {{ user.security_level }}
+{% endfor %}
+
+# Optional: Include other configuration files
+# Path to an additional single configuration file to include.
+# Syntax: includeFile <path>
+{% if include_file is defined and include_file %}
+includeFile {{ include_file }}
+{% endif %}
+
+# Optional: Include a directory of configuration files
+# Path to a directory containing additional .conf files to include.
+# Syntax: includeDir <path>
+{% if include_dir is defined and include_dir %}
+includeDir {{ include_dir }}
+{% endif %}

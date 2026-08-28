@@ -1,0 +1,268 @@
+# ==============================================================================
+# xar command-line wrapper template
+# ==============================================================================
+# This template generates a shell script that invokes the `xar` archiver utility.
+# It supports creating (-c), listing (-t), and extracting (-x) archives with
+# configurable compression, checksums, and exclusion patterns.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Action to perform: create (-c), list (-t), or extract (-x).
+# -----------------------------------------------------------------------------
+ACTION="{{ action | default('c') }}"
+
+# -----------------------------------------------------------------------------
+# The filename to use for creation, listing, or extraction.
+# -----------------------------------------------------------------------------
+FILENAME="{{ filename | default('archive.xar') }}"
+
+# -----------------------------------------------------------------------------
+# Specifies the compression type: none, gzip, bzip2, lzma.
+# -----------------------------------------------------------------------------
+COMPRESSION="{{ compression | default('gzip') }}"
+
+# -----------------------------------------------------------------------------
+# Compression level integer between 0 and 9 for gzip, bzip2, or lzma.
+# -----------------------------------------------------------------------------
+COMPRESSION_LEVEL="{{ compression_level | default(6) }}"
+
+# -----------------------------------------------------------------------------
+# On extract, xar will chdir to the specified path before extracting.
+# -----------------------------------------------------------------------------
+EXTRACT_DIR="{{ extract_dir | default('/tmp/xar_extract') }}"
+
+# -----------------------------------------------------------------------------
+# Hashing algorithm for xml header verification: md5, sha1, sha256, sha512.
+# -----------------------------------------------------------------------------
+TOC_CKSUM="{{ toc_cksum | default('sha256') }}"
+
+# -----------------------------------------------------------------------------
+# Hashing algorithm for file content verification: md5, sha1, sha256, sha512.
+# -----------------------------------------------------------------------------
+FILE_CKSUM="{{ file_cksum | default('sha256') }}"
+
+# -----------------------------------------------------------------------------
+# Size in bytes for the internal libxar read buffer.
+# -----------------------------------------------------------------------------
+RSIZE="{{ rsize | default(1048576) }}"
+
+# -----------------------------------------------------------------------------
+# POSIX regex patterns of files to exclude from adding or extracting.
+# -----------------------------------------------------------------------------
+{% for pattern in exclude_patterns | default([]) %}
+EXCLUDE_PATTERN_{{ loop.index }}='{{ pattern }}'
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# POSIX regex patterns of files to archive but not compress.
+# -----------------------------------------------------------------------------
+{% for pattern in no_compress_patterns | default([]) %}
+NO_COMPRESS_PATTERN_{{ loop.index }}='{{ pattern }}'
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Boolean Flags Configuration
+# -----------------------------------------------------------------------------
+
+# On archival, stay on the local device (-l).
+{% if stay_local | default(False) %}
+FLAG_LOCAL='-l'
+{% endif %}
+
+# On extract, set ownership based on uid/gid (-P).
+{% if set_ownership_uid | default(False) %}
+FLAG_OWNER_UID='-P'
+{% endif %}
+
+# On extract, set ownership based on symbolic names (-p).
+{% if set_ownership_symbolic | default(False) %}
+FLAG_OWNER_SYMBOLIC='-p'
+{% endif %}
+
+# Verbose output (-v).
+{% if verbose | default(False) %}
+FLAG_VERBOSE='-v'
+{% endif %}
+
+# Does not overwrite existing files during extraction (-k).
+{% if keep_existing | default(False) %}
+FLAG_KEEP_EXISTING='-k'
+{% endif %}
+
+# When multiple files are identical, only store one copy of data (--coalesce-heap).
+{% if coalesce_heap | default(False) %}
+FLAG_COALESCE_HEAP='--coalesce-heap'
+{% endif %}
+
+# When data sections are identical, hardlink them within the archive (--link-same).
+{% if link_same | default(False) %}
+FLAG_LINK_SAME='--link-same'
+{% endif %}
+
+# Preserve setuid/setgid bits even if uid/gid differs (--keep-setuid).
+{% if keep_setuid | default(False) %}
+FLAG_KEEP_SETUID='--keep-setuid'
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Properties Configuration
+# -----------------------------------------------------------------------------
+
+# List of file properties to include in the archive (--prop-include).
+# Only these properties will be included.
+PROP_INCLUDE='{{ prop_include | default(["name", "type", "mode", "data"]) | join(",") }}'
+
+# List of file properties to exclude from the archive (--prop-exclude).
+PROP_EXCLUDE='{{ prop_exclude | default([]) | join(",") }}'
+
+# Creates an archive to only contain file properties safe for file distribution (--distribution).
+# If true, this overrides prop_include/prop_exclude logic in the command construction.
+{% if distribution_safe | default(False) %}
+FLAG_DISTRIBUTION='--distribution'
+{% endif %}
+
+# ==============================================================================
+# Command Construction
+# ==============================================================================
+
+# Initialize the command string
+CMD="xar"
+
+# -----------------------------------------------------------------------------
+# Base Action Flag: -c, -t, or -x
+# -----------------------------------------------------------------------------
+{% if action | default('c') == "c" %}
+CMD="$CMD -c"
+{% elif action | default('c') == "t" %}
+CMD="$CMD -t"
+{% elif action | default('c') == "x" %}
+CMD="$CMD -x"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Target Filename Flag: -f
+# -----------------------------------------------------------------------------
+CMD="$CMD -f '$FILENAME'"
+
+# -----------------------------------------------------------------------------
+# Compression Flag: -z (gzip) or --compression=<type>
+# -----------------------------------------------------------------------------
+{% set comp = compression | default('gzip') %}
+{% if comp == "gzip" %}
+CMD="$CMD -z"
+{% elif comp == "lzma" %}
+CMD="$CMD --compression=lzma"
+{% elif comp == "bzip2" %}
+CMD="$CMD --compression=bzip2"
+{% elif comp == "none" %}
+CMD="$CMD --compression=none"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Compression Args: --compression-args=<level>
+# Applied only if a compression type that supports levels is used.
+# -----------------------------------------------------------------------------
+{% if comp in ["gzip", "bzip2", "lzma"] %}
+CMD="$CMD --compression-args={{ compression_level | default(6) }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Extract Directory: -C
+# Only relevant and applied if the action is extraction (-x).
+# -----------------------------------------------------------------------------
+{% if action | default('c') == "x" %}
+{% set ext_dir = extract_dir | default('/tmp/xar_extract') %}
+{% if ext_dir is defined and ext_dir != "/" %}
+CMD="$CMD -C '{{ ext_dir }}'"
+{% endif %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Checksums: --toc-cksum and --file-cksum
+# -----------------------------------------------------------------------------
+CMD="$CMD --toc-cksum={{ toc_cksum | default('sha256') }}"
+CMD="$CMD --file-cksum={{ file_cksum | default('sha256') }}"
+
+# -----------------------------------------------------------------------------
+# Read Buffer Size: --rsize
+# -----------------------------------------------------------------------------
+{% if rsize | default(1048576) > 0 %}
+CMD="$CMD --rsize={{ rsize | default(1048576) }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Exclusion Patterns: --exclude
+# Iterates over the list of POSIX regex patterns.
+# -----------------------------------------------------------------------------
+{% for pattern in exclude_patterns | default([]) %}
+CMD="$CMD --exclude='{{ pattern }}'"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# No-Compression Patterns: --no-compress
+# Iterates over the list of POSIX regex patterns.
+# -----------------------------------------------------------------------------
+{% for pattern in no_compress_patterns | default([]) %}
+CMD="$CMD --no-compress='{{ pattern }}'"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Boolean Flags Injection
+# -----------------------------------------------------------------------------
+{% if stay_local | default(False) %}
+CMD="$CMD -l"
+{% endif %}
+
+{% if set_ownership_uid | default(False) %}
+CMD="$CMD -P"
+{% endif %}
+
+{% if set_ownership_symbolic | default(False) %}
+CMD="$CMD -p"
+{% endif %}
+
+{% if verbose | default(False) %}
+CMD="$CMD -v"
+{% endif %}
+
+{% if keep_existing | default(False) %}
+CMD="$CMD -k"
+{% endif %}
+
+{% if coalesce_heap | default(False) %}
+CMD="$CMD --coalesce-heap"
+{% endif %}
+
+{% if link_same | default(False) %}
+CMD="$CMD --link-same"
+{% endif %}
+
+{% if keep_setuid | default(False) %}
+CMD="$CMD --keep-setuid"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Properties Injection
+# If distribution_safe is true, --distribution is used and prop flags are skipped.
+# Otherwise, prop-include and prop-exclude are injected.
+# -----------------------------------------------------------------------------
+{% if not (distribution_safe | default(False)) %}
+    # Prop Include: one flag per property
+    {% for prop in prop_include | default(["name", "type", "mode", "data"]) %}
+    CMD="$CMD --prop-include='{{ prop }}'"
+    {% endfor %}
+    
+    # Prop Exclude: one flag per property
+    {% for prop in prop_exclude | default([]) %}
+    CMD="$CMD --prop-exclude='{{ prop }}'"
+    {% endfor %}
+{% else %}
+    # Distribution mode overrides property inclusion
+    CMD="$CMD --distribution"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Execution
+# -----------------------------------------------------------------------------
+echo "Executing: $CMD"
+$CMD

@@ -1,0 +1,76 @@
+#!/usr/bin/env /lib/init/init-d-script
+#
+### BEGIN INIT INFO
+# Provides:          opensysusers
+# Required-Start:    $local_fs
+# Required-Stop:     
+# Default-Start:     S
+# Default-Stop:      0 6
+# X-Start-Before:    opentmpfiles-setup
+# Short-Description: Create System Users
+### END INIT INFO
+#
+# -------------------------------------------------------------------
+# Configuration for the opensysusers init script.
+# This script manages the creation of system users and groups
+# using the `systemd-sysusers` mechanism (or compatible daemon).
+# -------------------------------------------------------------------
+
+# The name of the service script variable NAME.
+# Used for identification in logs and status messages.
+NAME='{{ name | default('opensysusers') }}'
+
+# The description of the service.
+# Used for identification in logs and status messages.
+DESC='{{ desc | default('standalone sysusers service') }}'
+
+# Path to the opensysusers daemon executable.
+# This binary performs the actual user/group creation.
+DAEMON={{ daemon | default('/usr/bin/opensysusers-sysusers') }}
+
+# Directory used for runtime status files.
+# The script checks for the existence of a marker file here to determine
+# if the sysusers process has completed successfully.
+RUN_DIR={{ run_dir | default('/run/opensysusers') }}
+
+do_start_cmd_override () {
+    # Create the runtime directory if it does not exist.
+    # Permissions are typically inherited or set by the service manager.
+    install -d {{ run_dir | default('/run/opensysusers') }}
+    
+    # Execute the daemon.
+    $DAEMON
+    
+    # Check the exit status of the daemon.
+    if [ "$?" = 0 ]; then
+        # Create a marker file to indicate successful completion.
+        # This file is checked by do_status_override and do_stop_cmd_override.
+        touch {{ run_dir | default('/run/opensysusers') }}/ok
+        log_success_msg "Opensysusers: system users successfully created"
+    else
+        log_failure_msg "Opensysusers: system users creation failed"
+    fi
+}
+
+do_stop_cmd_override () {
+    # Sysusers is a one-shot operation. There is no running daemon to stop.
+    log_success_msg "Opensysusers: nothing to do at shutdown"
+}
+
+do_restart_override () {
+    # Since this is a one-shot setup script, restarting is effectively a no-op
+    # in the context of a running system (users are already created).
+    # In a container rebuild scenario, this might be called, but usually
+    # the container is restarted, not the init script alone.
+    #No-Op
+    log_success_msg "Opensysusers: nothing to do"
+}
+
+do_status_override () {
+    # Check if the marker file exists to determine the last run status.
+    if [ -e {{ run_dir | default('/run/opensysusers') }}/ok ]; then
+        log_success_msg "Opensysusers: system users creation complete"
+    else
+        log_failure_msg "Opensysusers: system users creation failed"
+    fi
+}

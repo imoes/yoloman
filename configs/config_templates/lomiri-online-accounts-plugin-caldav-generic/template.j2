@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lomiri Online Accounts Plugin: CalDAV Generic Profile
+  -----------------------------------------------------
+  This template generates a CalDAV account profile configuration for
+  the Lomiri online accounts plugin. It defines the synchronization
+  settings, protocol details, and schedule for calendar data.
+
+  All variable references are safe and provide defaults to ensure
+  valid output even if variables are undefined.
+-->
+<profile name="{{ profile_name | default('lomiri-generic-caldav') }}"
+         type="{{ profile_type | default('sync') }}">
+
+    <!-- The category of the account. -->
+    <key name="category" value="{{ category | default('calendar') }}"/>
+
+    <!-- The remote service name identifier. -->
+    <key name="remote_service_name" value="{{ remote_service_name | default('lomiri-generic-caldav') }}"/>
+
+    <!-- The destination type for the account. -->
+    <key name="destinationtype" value="{{ destinationtype | default('online') }}"/>
+
+    <!-- Whether the profile is enabled by default. -->
+    <key name="enabled" value="{{ enabled | default(false) | lower }}"/>
+
+    <!-- Whether the profile is hidden in UI. -->
+    <key name="hidden" value="{{ hidden | default(false) | lower }}"/>
+
+    <!-- Whether to use system accounts. -->
+    <key name="use_accounts" value="{{ use_accounts | default(true) | lower }}"/>
+
+    <!-- Client Profile Section: Specific synchronization parameters -->
+    <profile type="{{ client_profile_type | default('client') }}"
+             name="{{ client_profile_name | default('caldav') }}">
+
+        <!-- The synchronization direction. -->
+        <key name="{{ sync_direction_name | default('Sync Direction') }}"
+             value="{{ sync_direction | default('two-way') }}"/>
+
+        <!-- The synchronization protocol. -->
+        <key name="{{ sync_protocol_name | default('Sync Protocol') }}"
+             value="{{ sync_protocol | default('caldav') }}"/>
+
+        <!-- The synchronization transport layer. -->
+        <key name="{{ sync_transport_name | default('Sync Transport') }}"
+             value="{{ sync_transport | default('HTTP') }}"/>
+
+        <!-- The conflict resolution policy. -->
+        <key name="{{ conflictpolicy_name | default('conflictpolicy') }}"
+             value="{{ conflictpolicy | default('prefer remote') }}"/>
+    </profile>
+
+    <!-- Schedule Configuration -->
+    <!--
+      enabled: Whether the schedule is enabled.
+      interval: The synchronization interval (empty string implies default or manual).
+      days: Comma-separated list of days for synchronization (1=Mon ... 7=Sun).
+      syncconfiguredtime: The sync configured time override (empty string).
+      time: The scheduled time for synchronization (HH:MM:SS).
+    -->
+    <schedule enabled="{{ schedule_enabled | default(false) | lower }}"
+              interval="{{ schedule_interval | default('') }}"
+              days="{{ schedule_days | default('1,2,3,4,5,6,7') }}"
+              syncconfiguredtime="{{ schedule_syncconfiguredtime | default('') }}"
+              time="{{ schedule_time | default('05:00:00') }}" />
+</profile>

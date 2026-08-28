@@ -1,0 +1,173 @@
+#! /bin/sh
+#
+# PySPF-Milter Init Script
+#
+# This script manages the lifecycle of the pyspf-milter service.
+# It handles starting, stopping, and restarting the Python SPF Milter daemon.
+#
+# Variables are injected via Ansible Jinja2 templating to ensure
+# self-documentation and safe configuration reuse.
+
+### BEGIN INIT INFO
+# Provides:          pyspf-milter
+# Required-Start:    $remote_fs $syslog $network $time
+# Required-Stop:     $remote_fs $syslog $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: pyspf-milter
+# Description:       Python SPF Milter for Sendmail and Postfix
+### END INIT INFO
+
+# Installation prefix directory.
+# Default: /usr
+prefix="{{ prefix | default('/usr') }}"
+
+# Expand prefix to exec_prefix (standard autotools convention).
+exec_prefix=${prefix}
+
+# Service name identifier.
+# Default: pyspf-milter
+NAME={{ name | default('pyspf-milter') }}
+
+# System configuration directory path.
+sysconfdir="/etc/$NAME"
+
+# Binary installation directory.
+bindir="${exec_prefix}/bin/"
+
+# Directory for service run/pid files.
+# Default: /run/pyspf-milter
+RUNDIR="{{ run_dir | default('/run/pyspf-milter') }}"
+
+# Path to the daemon executable.
+DAEMON=${bindir}/pyspf-milter
+
+# Standard system PATH.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:
+
+# Description string used for logging/status.
+DESC="Python SPF Milter"
+
+# User account under which the service runs.
+# Default: pyspf-milter
+USER={{ user | default('pyspf-milter') }}
+
+# Group account under which the service runs.
+# Default: pyspf-milter
+GROUP={{ group | default('pyspf-milter') }}
+
+# Socket path used for communication with the daemon.
+SOCKET=$RUNDIR/pyspf-milter.sock
+
+# Check if the daemon binary exists and is executable.
+test -x $DAEMON || exit 0
+
+# Include pyspf-python defaults if available.
+# Typically not used by default installations.
+if [ -f $sysconfdir/default/$NAME ] ; then
+	. $sysconfdir/default/$NAME
+fi
+
+set -e
+
+# Source LSB init functions.
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	# Create the run directory if it doesn't exist, ensuring correct ownership.
+	if [ ! -d $RUNDIR ]; then
+		install -o $USER -g $GROUP -m 755 -d $RUNDIR || return 2
+	fi
+
+	# Clean up stale PID files.
+	if [ -f $RUNDIR/$NAME.pid ]; then
+		pid=`cat $RUNDIR/$NAME.pid`
+		if ! ps -C $DAEMON -s $pid >/dev/null; then
+			rm $RUNDIR/$NAME.pid
+			# UNIX sockets may be specified with or without the
+			# local: prefix; handle both.
+			t=`echo $SOCKET | cut -d: -f1`
+			s=`echo $SOCKET | cut -d: -f2`
+			if [ -e $s -a -S $s ]; then
+				if [ "$t" = "$s" -o "$t" = "local" ]; then
+					rm $s
+				fi
+			fi
+		fi
+	fi
+
+	# Start the daemon in the background, quiet mode, with PID file tracking.
+	# Configuration file passed explicitly.
+        start-stop-daemon --start --background --quiet --pidfile \
+                $RUNDIR/$NAME.pid --exec $DAEMON $sysconfdir/$NAME.conf
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	# Stop the daemon using the PID file.
+	if [ -f $RUNDIR/$NAME.pid ]; then
+		chown root:root $RUNDIR/$NAME.pid
+		start-stop-daemon --stop --pidfile $RUNDIR/$NAME.pid 
+		rm $RUNDIR/$NAME.pid
+		# Clean up the UNIX socket file if it exists.
+		#if [ -e $SOCKET ]; then
+		#	rm $SOCKET
+		#fi
+        fi
+        if [ -e $SOCKET ]; then
+                rm $SOCKET
+        fi
+	echo "$NAME."
+	;;
+  force-reload)
+        echo -n "Force reloading $DESC: "
+        # Stop the current process.
+        if [ -f $RUNDIR/$NAME.pid ]; then
+                chown root:root $RUNDIR/$NAME.pid
+                start-stop-daemon --stop --pidfile $RUNDIR/$NAME.pid
+                rm $RUNDIR/$NAME.pid
+                if [ -e $SOCKET ]; then
+                        rm $SOCKET
+                fi
+        fi
+        sleep 1
+        # Start the process again to pick up config changes.
+        start-stop-daemon --start --background --quiet --pidfile \
+                $RUNDIR/$NAME.pid --exec $DAEMON $sysconfdir/$NAME.conf
+        echo "$NAME."
+        ;;
+  restart)
+        echo "Restarting $DESC: "
+        echo -n "Stopping $DESC: "
+        # Stop the current process.
+        if [ -f $RUNDIR/$NAME.pid ]; then
+                chown root:root $RUNDIR/$NAME.pid
+                start-stop-daemon --stop --pidfile $RUNDIR/$NAME.pid
+                rm $RUNDIR/$NAME.pid
+                if [ -e $SOCKET ]; then
+                        rm $SOCKET
+                fi
+        fi
+        echo "$NAME."
+        sleep 1
+        # Start the process again.
+        echo -n "Starting $DESC: "
+        start-stop-daemon --start --background --quiet --pidfile \
+                $RUNDIR/$NAME.pid --exec $DAEMON $sysconfdir/$NAME.conf
+        echo "$NAME."
+	;;
+  status)
+        # Report the status of the daemon.
+        status_of_proc -p $RUNDIR/$NAME.pid $DAEMON $NAME
+        ;;
+
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|force-reload|restart|}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

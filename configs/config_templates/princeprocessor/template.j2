@@ -1,0 +1,107 @@
+# Configuration for princeprocessor
+# This file is used as a wrapper script or environment configuration.
+# Since princeprocessor is a CLI tool, this template generates a wrapper
+# script that executes princeprocessor with the specified parameters.
+
+# Whether to enable the princeprocessor wrapper.
+{% if enabled | default(true) %}
+#!/bin/sh
+# Auto-generated wrapper for princeprocessor
+
+# Path to the input wordlist file.
+INPUT_WORDLIST="{{ wordlist | default('/usr/share/wordlists/rockyou.txt') }}"
+
+# Output file for generated candidates. Use '-' for stdout.
+OUTPUT_FILE="{{ output_file | default('/dev/stdout') }}"
+
+# Optimization settings
+
+# Minimum password length to print (pw-min).
+PW_MIN="{{ pw_min | default(0) }}"
+
+# Maximum password length to print (pw-max).
+PW_MAX="{{ pw_max | default(999) }}"
+
+# Minimum number of elements per chain (elem-cnt-min).
+ELEM_CNT_MIN="{{ elem_cnt_min | default(2) }}"
+
+# Maximum number of elements per chain (elem-cnt-max).
+ELEM_CNT_MAX="{{ elem_cnt_max | default(4) }}"
+
+# Load only this many words from the wordlist. 0 to disable.
+WL_MAX="{{ wl_max | default(0) }}"
+
+# Resource/Distribution settings
+
+# Skip this many passwords from start (for distributed).
+SKIP="{{ skip | default(0) }}"
+
+# Limit output to this many passwords (for distributed).
+LIMIT="{{ limit | default(0) }}"
+
+# Flags
+
+# Enable case permutation for words starting with a letter.
+CASE_PERMUTE="{{ case_permute | default(false) | lower }}"
+
+# Disable duplicate checking for faster initial load.
+DUPE_CHECK_DISABLE="{{ dupe_check_disable | default(false) | lower }}"
+
+# Disable saving position for resume.
+SAVE_POS_DISABLE="{{ save_pos_disable | default(false) | lower }}"
+
+# Build command
+CMD="princeprocessor"
+
+if [ "{{ pw_min | default(0) }}" != "0" ]; then
+  CMD="$CMD --pw-min=$PW_MIN"
+fi
+
+if [ "{{ pw_max | default(999) }}" != "999" ]; then
+  CMD="$CMD --pw-max=$PW_MAX"
+fi
+
+if [ "{{ elem_cnt_min | default(2) }}" != "2" ]; then
+  CMD="$CMD --elem-cnt-min=$ELEM_CNT_MIN"
+fi
+
+if [ "{{ elem_cnt_max | default(4) }}" != "4" ]; then
+  CMD="$CMD --elem-cnt-max=$ELEM_CNT_MAX"
+fi
+
+if [ "{{ wl_max | default(0) }}" != "0" ]; then
+  CMD="$CMD --wl-max=$WL_MAX"
+fi
+
+if [ "{{ skip | default(0) }}" != "0" ]; then
+  CMD="$CMD --skip=$SKIP"
+fi
+
+if [ "{{ limit | default(0) }}" != "0" ]; then
+  CMD="$CMD --limit=$LIMIT"
+fi
+
+{% if case_permute | default(false) %}
+  CMD="$CMD --case-permute"
+{% endif %}
+
+{% if dupe_check_disable | default(false) %}
+  CMD="$CMD --dupe-check-disable"
+{% endif %}
+
+{% if save_pos_disable | default(false) %}
+  CMD="$CMD --save-pos-disable"
+{% endif %}
+
+CMD="$CMD -o $OUTPUT_FILE"
+
+# Input wordlist is read from stdin or specified
+if [ -f "$INPUT_WORDLIST" ]; then
+  cat "$INPUT_WORDLIST" | $CMD
+else
+  echo "Error: Wordlist $INPUT_WORDLIST not found"
+  exit 1
+fi
+{% else %}
+# Disabled
+{% endif %}

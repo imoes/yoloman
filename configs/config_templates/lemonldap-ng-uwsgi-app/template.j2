@@ -1,0 +1,42 @@
+# LemonLDAP::NG UWSGI application configuration.
+# This section configures the UWSGI server that serves the LemonLDAP::NG
+# PSGI application. It defines how the application is loaded, which user
+# it runs as, and how the UWSGI daemon behaves.
+
+# [plugins] UWSGI plugins to load.
+# Default: psgi (required for running Perl PSGI apps).
+[uwsgi]
+plugins: {{ plugins | default('psgi') }}
+
+# [socket] Socket address for the UWSGI server.
+# This is the endpoint the web server (e.g., Nginx/Apache) or reverse proxy
+# will forward requests to. Format: 'ip:port' or '/path/to/socket'.
+# Default: 127.0.0.1:5000
+socket: {{ socket | default('127.0.0.1:5000') }}
+
+# [psgi] Path to the PSGI application file.
+# The main Perl entry point for the LemonLDAP::NG web interface.
+# Default: /usr/share/lemonldap-ng/llng-server/llng-server.psgi
+psgi: {{ psgi | default('/usr/share/lemonldap-ng/llng-server/llng-server.psgi') }}
+
+# [perl-no-die-catch] Whether to catch Perl die exceptions.
+# If true, UWSGI catches Perl errors and logs them instead of crashing the worker.
+# Recommended: True for stability.
+# Default: True
+perl-no-die-catch: {{ perl_no_die_catch | default(true) | lower }}
+
+# [master] Whether to run in master mode.
+# If true, UWSGI spawns a master process that manages worker processes.
+# Essential for graceful reloads and worker management.
+# Default: True
+master: {{ master | default(true) | lower }}
+
+# [uid] User ID to run the UWSGI worker as.
+# The system user account under which the application processes will execute.
+# Default: www-data
+uid: {{ uid | default('www-data') }}
+
+# [gid] Group ID to run the UWSGI worker as.
+# The system group account under which the application processes will execute.
+# Default: www-data
+gid: {{ gid | default('www-data') }}

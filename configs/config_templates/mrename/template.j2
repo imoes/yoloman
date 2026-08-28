@@ -1,0 +1,43 @@
+# ============================================================================
+# mrename Configuration Template
+# ============================================================================
+# This package wraps the 'mrename' CLI tool. Since mrename is a script,
+# this file serves as a configuration source for automation wrappers or
+# helper scripts that invoke the command with consistent defaults.
+#
+# Variables:
+#   default_operation_mode : 'move' or 'copy'
+#   file_pattern           : Glob pattern for files (e.g. '*.jpg')
+#   name_prefix            : Prefix string for new filenames
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Default operation mode for batch renaming tasks
+# ----------------------------------------------------------------------------
+# Defines the default action 'mrename' should perform on selected files.
+# Options:
+#   - 'move' : Equivalent to the -m flag; moves/renames the file in place.
+#   - 'copy' : Equivalent to the -c flag; copies the file with the new name.
+# Refer to mrename(1) for details on -m and -c options.
+# Default: move
+operation_mode: {{ default_operation_mode | default('move') }}
+
+# ----------------------------------------------------------------------------
+# Default search pattern for files to rename
+# ----------------------------------------------------------------------------
+# The glob pattern used to select files for renaming.
+# This value MUST be quoted to prevent the shell from expanding the glob
+# before passing it to the mrename command.
+# Examples: '*.jpg', '*.txt', 'report_*.pdf'
+# Default: *.jpg
+file_pattern: "{{ file_pattern | default('*.jpg') }}"
+
+# ----------------------------------------------------------------------------
+# Default prefix to be added to the renamed files
+# ----------------------------------------------------------------------------
+# The prefix string to prepend to the existing filename.
+# mrename adds this prefix to the selected files' names.
+# Example: If file is 'photo.jpg' and prefix is 'renamed_', result is
+# 'renamed_photo.jpg'.
+# Default: renamed_
+name_prefix: "{{ name_prefix | default('renamed_') }}"

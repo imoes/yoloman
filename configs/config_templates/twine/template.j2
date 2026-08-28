@@ -1,0 +1,102 @@
+# ===========================================================================
+# twine: PyPI upload tool configuration (.pypirc)
+# ===========================================================================
+# This file configures the `twine` CLI tool for uploading Python packages
+# to PyPI or other Package Index repositories.
+#
+# Section names correspond to repository identifiers used by twine's
+# `--repository` flag. The default section is 'pypi'.
+#
+# Security Note: This file often contains sensitive credentials (passwords/tokens).
+# Ensure file permissions are restricted (e.g., 600) and do not commit
+# plain-text secrets to version control if possible.
+# ===========================================================================
+
+# [repository_section_name]
+# The repository section name in the .pypirc config file.
+# Used by twine to select which set of credentials/URLs to use.
+# Default: 'pypi'
+[{{ repository | default('pypi') }}]
+
+{% if repository_url | default('') %}
+# repository_url: The repository URL to upload to, overriding --repository.
+# If omitted, the default URL for the repository section is used (e.g., https://upload.pypi.org/legacy/ for pypi).
+repository = {{ repository_url | default('') }}
+{% endif %}
+
+{% if username | default('') %}
+# username: The username to authenticate with.
+# For PyPI.org, use '__token__' and place the actual API token in the 'password' field.
+username = {{ username | default('') }}
+{% endif %}
+
+{% if password | default('') %}
+# password: The password or token to authenticate with.
+# For PyPI.org tokens, this should be 'pypi-<token_value>' when username is '__token__'.
+password = {{ password | default('') }}
+{% endif %}
+
+{% if cert | default('') %}
+# cert: Path to an alternate CA bundle file.
+# Used to verify the server's SSL certificate.
+cert = {{ cert | default('') }}
+{% endif %}
+
+{% if client_cert | default('') %}
+# client_cert: Path to an SSL client certificate file (PEM format).
+# Must contain both the private key and the certificate.
+# Used for mutual TLS authentication with the repository server.
+client-cert = {{ client_cert | default('') }}
+{% endif %}
+
+{% if sign | default(false) %}
+# sign: Whether to sign files to upload using GPG.
+# If true, twine will invoke the GPG signer before uploading.
+sign = {{ sign | default(false) }}
+{% endif %}
+
+{% if sign_with | default('') %}
+# sign_with: GPG program used to sign uploads.
+# Defaults to 'gpg' if not specified.
+sign-with = {{ sign_with | default('') }}
+{% endif %}
+
+{% if identity | default('') %}
+# identity: GPG identity (key ID or user ID) used to sign files.
+identity = {{ identity | default('') }}
+{% endif %}
+
+{% if skip_existing | default(false) %}
+# skip_existing: Continue uploading files if one already exists on the server.
+# Warning: This can lead to confusing index states; use with caution.
+# PyPI.org only.
+skip-existing = {{ skip_existing | default(false) | lower }}
+{% endif %}
+
+{% if comment | default('') %}
+# comment: Comment to include with the distribution file.
+# This is metadata associated with the upload.
+comment = {{ comment | default('') }}
+{% endif %}
+
+{% if non_interactive | default(false) %}
+# non_interactive: Do not interactively prompt for username/password if required credentials are missing.
+# If true and credentials are missing, twine will fail immediately rather than prompting.
+non-interactive = {{ non_interactive | default(false) | lower }}
+{% endif %}
+
+{% if verbose | default(false) %}
+# verbose: Show verbose output.
+verbose = {{ verbose | default(false) }}
+{% endif %}
+
+{% if disable_progress_bar | default(false) %}
+# disable_progress_bar: Disable the progress bar during upload.
+disable-progress-bar = {{ disable_progress_bar | default(false) }}
+{% endif %}
+
+{% if attestations | default(false) %}
+# attestations: Upload each file's associated attestations.
+# Requires twine >= 4.0.0 and compatible server support.
+attestations = {{ attestations | default(false) }}
+{% endif %}

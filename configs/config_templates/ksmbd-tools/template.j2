@@ -1,0 +1,174 @@
+; ksmbd.conf - Configuration file for ksmbd-tools (kernel-side SMB server)
+; See ksmbd.conf(5) for full details on each directive.
+
+[global]
+	; If enabled, the server will only listen on the interfaces specified in the 'interfaces' parameter.
+	bind interfaces only = {{ bind_interfaces_only | default(false) | lower }}
+
+	; Number of minutes after a client has no open files to disconnect them. 0 means never.
+	deadtime = {{ deadtime | default(0) }}
+
+	; The account name to use for guest logins.
+	guest account = {{ guest_account | default('nobody') }}
+
+	; List of interfaces to bind to. Empty means all.
+	interfaces = {{ interfaces | default('') }}
+
+	; Timeout in seconds for IPC connections. 0 means never.
+	ipc timeout = {{ ipc_timeout | default(0) }}
+
+	; Path to the Kerberos keytab file.
+	kerberos keytab file = {{ kerberos_keytab_file | default('') }}
+
+	; Kerberos service name.
+	kerberos service name = {{ kerberos_service_name | default('') }}
+
+	; Enable Kerberos support.
+	kerberos support = {{ kerberos_support | default(false) | lower }}
+
+	; Mapping of unknown users to guest account. Options: never, bad user, auto.
+	map to guest = {{ map_to_guest | default('never') }}
+
+	; Maximum number of active sessions allowed.
+	max active sessions = {{ max_active_sessions | default(1024) }}
+
+	; Maximum number of simultaneous connections.
+	max connections = {{ max_connections | default(128) }}
+
+	; Maximum number of open files.
+	max open files = {{ max_open_files | default(10000) }}
+
+	; NetBIOS name of the server.
+	netbios name = {{ netbios_name | default('KSMBD SERVER') }}
+
+	; Restrict anonymous access level.
+	restrict anonymous = {{ restrict_anonymous | default(0) }}
+
+	; Root directory for the server.
+	root directory = {{ root_directory | default('') }}
+
+	; Maximum SMB protocol version supported.
+	server max protocol = {{ server_max_protocol | default('SMB3_11') }}
+
+	; Minimum SMB protocol version supported.
+	server min protocol = {{ server_min_protocol | default('SMB2_10') }}
+
+	; Enable multi-channel support.
+	server multi channel support = {{ server_multi_channel_support | default(false) | lower }}
+
+	; Server signing policy. Options: disabled, enabled, enforced.
+	server signing = {{ server_signing | default('disabled') }}
+
+	; Server string displayed in network listings.
+	server string = {{ server_string | default('SMB SERVER') }}
+
+	; Fake filesystem capabilities bitmask.
+	share:fake_fscaps = {{ share_fake_fscaps | default(64) }}
+
+	; Enable SMB2 leases.
+	smb2 leases = {{ smb2_leases | default(false) | lower }}
+
+	; Maximum credits for SMB2 transactions.
+	smb2 max credits = {{ smb2_max_credits | default(8192) }}
+
+	; Maximum read size for SMB2. Use suffix K, M, G.
+	smb2 max read = {{ smb2_max_read | default('4MB') }}
+
+	; Maximum transaction size for SMB2. Use suffix K, M, G.
+	smb2 max trans = {{ smb2_max_trans | default('1MB') }}
+
+	; Maximum write size for SMB2. Use suffix K, M, G.
+	smb2 max write = {{ smb2_max_write | default('4MB') }}
+
+	; SMB3 encryption policy. Options: auto, off, on.
+	smb3 encryption = {{ smb3_encryption | default('auto') }}
+
+	; Maximum I/O size for smbd. Use suffix K, M, G.
+	smbd max io size = {{ smbd_max_io_size | default('8MB') }}
+
+	; TCP port to listen on.
+	tcp port = {{ tcp_port | default(445) }}
+
+	; Workgroup or domain name.
+	workgroup = {{ workgroup | default('WORKGROUP') }}
+
+	; Enable durable handles support.
+	durable handles = {{ durable_handles | default(false) | lower }}
+
+	; ---------------------------------------------------------
+	; Default share parameters (applied to all shares unless overridden)
+	; ---------------------------------------------------------
+
+	; Default browseable status for shares.
+	browseable = {{ browseable | default(true) | lower }}
+
+	; Default comment for shares.
+	comment = {{ comment | default('') }}
+
+	; Default permission mask for newly created files in shares.
+	create mask = {{ create_mask | default('0744') }}
+
+	; Allow cross-mount point traversal.
+	crossmnt = {{ crossmnt | default(true) | lower }}
+
+	; Default permission mask for newly created directories in shares.
+	directory mask = {{ directory_mask | default('0755') }}
+
+	; Force create mode for files. 0000 means no forcing.
+	force create mode = {{ force_create_mode | default('0000') }}
+
+	; Force create mode for directories. 0000 means no forcing.
+	force directory mode = {{ force_directory_mode | default('0000') }}
+
+	; Force group ownership for new files. Empty means no forcing.
+	force group = {{ force_group | default('') }}
+
+	; Force user ownership for new files. Empty means no forcing.
+	force user = {{ force_user | default('') }}
+
+	; Allow guest access by default.
+	guest ok = {{ guest_ok | default(false) | lower }}
+
+	; Hide dot files (starting with .) by default.
+	hide dot files = {{ hide_dot_files | default(true) | lower }}
+
+	; Inherit owner from parent directory by default.
+	inherit owner = {{ inherit_owner | default(false) | lower }}
+
+	; Comma-separated list of users who are not allowed to log in. Empty means no restriction.
+	invalid users = {{ invalid_users | default('') }}
+
+	; Enable opportunistic locks by default.
+	oplocks = {{ oplocks | default(true) | lower }}
+
+	; Default path for shares. Empty means no default.
+	path = {{ path | default('') }}
+
+	; Comma-separated list of users/groups allowed to read. Empty means default behavior.
+	read list = {{ read_list | default('') }}
+
+	; Default read-only status for shares. Can be 'yes' or 'no'.
+	read only = {{ read_only | default('yes') }}
+
+	; Store DOS attributes for files by default.
+	store dos attributes = {{ store_dos_attributes | default(true) | lower }}
+
+	; Comma-separated list of valid users. Empty means all valid system users.
+	valid users = {{ valid_users | default('') }}
+
+	; Comma-separated list of file patterns to veto (hide). Empty means no veto.
+	veto files = {{ veto_files | default('') }}
+
+	; List of VFS objects to load. Empty means none.
+	vfs objects = {{ vfs_objects | default('') }}
+
+	; Comma-separated list of users/groups allowed to write. Empty means default behavior.
+	write list = {{ write_list | default('') }}
+
+[example]
+	; Example share configuration.
+	; Comment for the example share.
+	comment = {{ example_comment | default('read only /tmp access') }}
+
+	; Path for the example share.
+	path = {{ example_path | default('/tmp') }}

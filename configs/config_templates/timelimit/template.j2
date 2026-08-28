@@ -1,0 +1,40 @@
+# ==============================================================================
+# timelimit configuration template
+# ==============================================================================
+# This template generates a command-line invocation for `timelimit`, a utility
+# that executes a given command with time limits, warnings, and kill signals.
+# It is intended to be embedded into larger scripts or service definitions.
+# ==============================================================================
+
+# The absolute path to the command to be executed.
+# Default: /bin/true
+COMMAND: {{ command | default('/bin/true') }}
+
+# A list of string arguments to pass to the command.
+# Joined with spaces. Empty list results in no extra arguments.
+# Default: []
+ARGS: {{ args | default([]) | join(' ') }}
+
+# If true, timelimit does not output diagnostic messages (quiet mode).
+# Default: false
+{{ '-q' if quiet | default(false, true) else '' }}
+
+# If true, timelimit propagates the child's termination signal to itself.
+# Default: false
+{{ '-p' if propagate | default(false, true) else '' }}
+
+# The signal number sent to the process when warntime expires.
+# Default 15 (SIGTERM).
+WARNSIG: -s {{ warnsig | default(15) }}
+
+# The maximum execution time in seconds before sending warntime signal.
+# Default: 3600
+WARNTIME: -t {{ warntime | default(3600) }}
+
+# The signal number sent to the process after killtime expires.
+# Default 9 (SIGKILL).
+KILLSIG: -S {{ killsig | default(9) }}
+
+# The maximum execution time in seconds after warntime before sending killsig.
+# Default: 120
+KILLTIME: -T {{ killtime | default(120) }}

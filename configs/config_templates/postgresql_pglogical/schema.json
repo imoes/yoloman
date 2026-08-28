@@ -1,138 +1,144 @@
 {
-  "shared_preload_libraries": {
-    "type": "string",
-    "default": "pglogical",
-    "description": "Comma-separated list of shared libraries to preload (must include 'pglogical'). PostgreSQL requires restart to change this."
-  },
-  "max_workers": {
-    "type": "number",
-    "default": 4,
-    "description": "Maximum number of pglogical worker processes (publisher/subscriber workers). Increase for higher replication throughput."
-  },
-  "max_slots": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of replication slots pglogical may create (per node). Must be \u2265 number of active subscriptions."
-  },
-  "sync_structure_timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Timeout (in seconds) for schema synchronization during initial subscription setup. Increase for large databases."
-  },
-  "synchronous": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to use synchronous replication for subscriber commit acknowledgment. Reduces latency but may increase failure risk."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging level for pglogical operations. Use 'DEBUG' only for troubleshooting."
-  },
-  "verbose": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose per-operation logging (e.g., row-level replication events). Increases log volume significantly."
-  },
   "apply_interval": {
-    "type": "number",
     "default": 1000,
-    "description": "Minimum time (in milliseconds) between apply cycles. Lower values reduce replication lag but increase CPU usage."
+    "description": "Minimum time (in milliseconds) between apply cycles. Lower values reduce replication lag but increase CPU usage.",
+    "type": "number"
   },
   "conflict_resolution": {
-    "type": "string",
     "default": "none",
-    "description": "Conflict resolution strategy for updatable subscriptions. Options: 'none', 'apply_first', 'remote_first', 'log'."
+    "description": "Conflict resolution strategy for updatable subscriptions. Options: 'none', 'apply_first', 'remote_first', 'log'.",
+    "type": "string",
+    "enum": [
+      "none",
+      "apply_first",
+      "remote_first",
+      "log"
+    ]
   },
   "conflict_resolver": {
-    "type": "string",
     "default": "",
-    "description": "Name of a custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit'). Leave blank unless using custom logic."
+    "description": "Name of a custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit'). Leave blank unless using custom logic.",
+    "type": "string"
+  },
+  "debug_logging": {
+    "default": false,
+    "description": "Enable pglogical-specific debug logging (same as log_level_debug in newer versions).",
+    "type": "bool"
+  },
+  "extra_params": {
+    "default": [],
+    "description": "Map of extra PostgreSQL config parameters to include verbatim (e.g., {wal_level: 'logical'}).",
+    "items": {
+      "key": {
+        "description": "Parameter name",
+        "type": "string"
+      },
+      "value": {
+        "description": "Parameter value",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "log_apply_stats": {
+    "default": false,
+    "description": "Log periodic apply statistics (e.g., latency, rows applied). Helps monitor replication health.",
+    "type": "bool"
+  },
+  "log_level": {
+    "default": "INFO",
+    "description": "Logging level for pglogical operations. Use 'DEBUG' only for troubleshooting.",
+    "type": "string"
+  },
+  "log_remote_commands": {
+    "default": false,
+    "description": "Log remote SQL commands executed by pglogical. Useful for auditing but increases log volume.",
+    "type": "bool"
+  },
+  "max_slots": {
+    "default": 10,
+    "description": "Maximum number of replication slots pglogical may create (per node). Must be \u2265 number of active subscriptions.",
+    "type": "number"
+  },
+  "max_workers": {
+    "default": 4,
+    "description": "Maximum number of pglogical worker processes (publisher/subscriber workers). Increase for higher replication throughput.",
+    "type": "number"
   },
   "replicated_tables": {
-    "type": "list",
     "default": [],
     "description": "List of tables to replicate (for subscriber configuration). Each entry must specify schema and table name.",
     "items": {
-      "schema": {
-        "type": "string",
-        "description": "Schema name of the table"
+      "description": {
+        "default": "",
+        "description": "Optional description (shown in comments)",
+        "type": "string"
       },
       "name": {
-        "type": "string",
-        "description": "Table name"
+        "description": "Table name",
+        "type": "string"
       },
-      "description": {
-        "type": "string",
-        "description": "Optional description (shown in comments)",
-        "default": ""
+      "schema": {
+        "description": "Schema name of the table",
+        "type": "string"
       }
-    }
+    },
+    "type": "list"
   },
   "replication_sets": {
-    "type": "list",
     "default": [
       {
-        "name": "default",
         "description": "Default replication set",
+        "name": "default",
         "tables": []
       }
     ],
     "description": "Publisher-side list of replication sets. Each set groups tables for selective replication.",
     "items": {
-      "name": {
-        "type": "string",
-        "description": "Name of the replication set"
-      },
       "description": {
-        "type": "string",
+        "default": "",
         "description": "Optional description",
-        "default": ""
+        "type": "string"
+      },
+      "name": {
+        "description": "Name of the replication set",
+        "type": "string"
       },
       "tables": {
-        "type": "list",
         "description": "List of tables in this replication set",
         "items": {
-          "schema": {
-            "type": "string",
-            "description": "Schema name"
-          },
           "name": {
-            "type": "string",
-            "description": "Table name"
+            "description": "Table name",
+            "type": "string"
+          },
+          "schema": {
+            "description": "Schema name",
+            "type": "string"
           }
-        }
+        },
+        "type": "list"
       }
-    }
+    },
+    "type": "list"
   },
-  "log_remote_commands": {
-    "type": "bool",
+  "shared_preload_libraries": {
+    "default": "pglogical",
+    "description": "Comma-separated list of shared libraries to preload (must include 'pglogical'). PostgreSQL requires restart to change this.",
+    "type": "string"
+  },
+  "sync_structure_timeout": {
+    "default": 300,
+    "description": "Timeout (in seconds) for schema synchronization during initial subscription setup. Increase for large databases.",
+    "type": "number"
+  },
+  "synchronous": {
     "default": false,
-    "description": "Log remote SQL commands executed by pglogical. Useful for auditing but increases log volume."
+    "description": "Whether to use synchronous replication for subscriber commit acknowledgment. Reduces latency but may increase failure risk.",
+    "type": "bool"
   },
-  "log_apply_stats": {
-    "type": "bool",
+  "verbose": {
     "default": false,
-    "description": "Log periodic apply statistics (e.g., latency, rows applied). Helps monitor replication health."
-  },
-  "debug_logging": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable pglogical-specific debug logging (same as log_level_debug in newer versions)."
-  },
-  "extra_params": {
-    "type": "list",
-    "default": [],
-    "description": "Map of extra PostgreSQL config parameters to include verbatim (e.g., {wal_level: 'logical'}).",
-    "items": {
-      "key": {
-        "type": "string",
-        "description": "Parameter name"
-      },
-      "value": {
-        "type": "string",
-        "description": "Parameter value"
-      }
-    }
+    "description": "Enable verbose per-operation logging (e.g., row-level replication events). Increases log volume significantly.",
+    "type": "bool"
   }
 }

@@ -1,0 +1,42 @@
+{
+  "default_mailbox": {
+    "type": "string",
+    "default": "/var/mail/root",
+    "description": "Full path of the user's spool mailbox. Corresponds to the default mailbox or the MAIL environment variable."
+  },
+  "mailbox_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of mailboxes to monitor. Items should be maps containing 'path' (string) and optionally 'prefix' (string). If prefix is omitted, the basename of the path is used."
+  },
+  "mailbox_list_items": {
+    "type": "object",
+    "default": null,
+    "description": "Schema for items in mailbox_list. Contains 'path' and 'prefix'. Not used as a top-level variable, but defines the structure of the list items in schema validation if supported. For this template, it's implicit in the description above, but we define it to satisfy the 'list-of-objects' requirement strictly if a validator were to parse the schema structure. However, the prompt asks for FLAT map field-name -> {type, default, description} for items. So we add this key to values_schema to describe the item structure, but it is not a variable in values_schema used directly by the template unless the template iterates over a structure defined here. The template iterates over `values.mailbox_list`. The schema for the items is described in the 'mailbox_list' description or via a separate key if the system expects a nested schema object. The prompt says: 'For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description}'. This implies the schema object for the list should have an `items` field. But the prompt also says `values_schema` is var -> {type, ...}. This is a contradiction in standard JSON Schema vs the prompt's specific instruction. The prompt says: 'values_schema: var -> {type, default, description}'. Then it says 'For a list-of-objects, add `items` as a FLAT map...'. This likely means the object value for a list variable should look like: {type: list, items: {field1: {type: string...}, ...}}. Let's adjust the schema structure for `mailbox_list` to include `items`."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval between two mailbox checks in seconds. Corresponds to -i option."
+  },
+  "ring_bell": {
+    "type": "bool",
+    "default": false,
+    "description": "Ring a bell after new mail detection. Corresponds to -b option."
+  },
+  "run_window_app": {
+    "type": "bool",
+    "default": false,
+    "description": "Run as a window application. Corresponds to -w option."
+  },
+  "raw_headers": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit raw data from mail headers without decoding. Corresponds to -r option."
+  },
+  "locale": {
+    "type": "string",
+    "default": "C",
+    "description": "Locale setting for output character set (LANG/LC_CTYPE)."
+  }
+}

@@ -1,0 +1,463 @@
+#######################################################################
+##
+## /etc/lighttpd/lighttpd.conf
+##
+## check /etc/lighttpd/conf.d/*.conf for the configuration of modules.
+##
+#######################################################################
+
+#######################################################################
+##
+## Some Variable definition which will make chrooting easier.
+##
+## if you add a variable here. Add the corresponding variable in the
+## chroot example as well.
+##
+var.log_root    = "{{ log_root }}"
+var.server_root = "{{ server_root }}"
+var.state_dir   = "{{ state_dir }}"
+var.home_dir    = "{{ home_dir }}"
+var.conf_dir    = "{{ conf_dir }}"
+
+## 
+## run the server chrooted.
+## 
+## This requires root permissions during startup.
+##
+## If you run Chrooted set the the variables to directories relative to
+## the chroot dir.
+##
+## example chroot configuration:
+## 
+#var.log_root    = "/logs"
+#var.server_root = "/"
+#var.state_dir   = "/run"
+#var.home_dir    = "/lib/lighttpd"
+#var.vhosts_dir  = "/vhosts"
+#var.conf_dir    = "/etc"
+#
+#server.chroot   = "/srv/www"
+
+##
+## Some additional variables to make the configuration easier
+##
+
+##
+## Base directory for all virtual hosts
+##
+## used in:
+## conf.d/evhost.conf
+## conf.d/simple_vhost.conf
+## vhosts.d/vhosts.template
+##
+var.vhosts_dir  = server_root + "/vhosts"
+
+##
+## Cache for mod_deflate
+##
+## used in:
+## conf.d/deflate.conf
+##
+var.cache_dir   = "{{ cache_dir }}"
+
+##
+## Base directory for sockets.
+##
+## used in:
+## conf.d/fastcgi.conf
+## conf.d/scgi.conf
+##
+var.socket_dir  = home_dir + "/sockets"
+
+##
+#######################################################################
+
+#######################################################################
+##
+## Load the modules.
+include conf_dir + "/modules.conf"
+
+##
+#######################################################################
+
+#######################################################################
+##
+##  Basic Configuration
+## ---------------------
+##
+server.port = {{ server_port }}
+
+##
+## Use IPv6?
+##
+server.use-ipv6 = "{{ server_use_ipv6 }}"
+
+##
+## bind to a specific IP
+##
+#server.bind = "localhost"
+
+##
+## Run as a different username/groupname.
+## This requires root permissions during startup. 
+##
+server.username  = "{{ server_username }}"
+server.groupname = "{{ server_groupname }}"
+
+##
+## Enable lighttpd to serve requests on sockets received from systemd
+## https://www.freedesktop.org/software/systemd/man/systemd.socket.html
+##
+{% if server_systemd_socket_activation %}server.systemd-socket-activation = "{{ server_systemd_socket_activation }}"{% else %}#server.systemd-socket-activation = "enable"{% endif %}
+
+## 
+## enable core files.
+##
+{% if server_core_files %}server.core-files = "{{ server_core_files }}"{% else %}#server.core-files = "disable"{% endif %}
+
+##
+## Document root
+##
+server.document-root = server_root + "/lighttpd"
+
+##
+## The value for the "Server:" response field.
+##
+## It would be nice to keep it at "lighttpd".
+##
+#server.tag = "lighttpd"
+
+##
+## store a pid file
+##
+server.pid-file = state_dir + "/lighttpd.pid"
+
+##
+#######################################################################
+
+#######################################################################
+##
+##  Logging Options
+## ------------------
+##
+## all logging options can be overwritten per vhost.
+##
+## Path to the error log file
+##
+server.errorlog             = log_root + "/error.log"
+
+##
+## If you want to log to syslog you have to unset the 
+## server.errorlog setting and uncomment the next line.
+##
+{% if server_errorlog_use_syslog %}server.errorlog-use-syslog = "{{ server_errorlog_use_syslog }}"{% else %}#server.errorlog-use-syslog = "enable"{% endif %}
+
+##
+## Access log config
+## 
+include conf_dir + "/conf.d/access_log.conf"
+
+##
+## The debug options are moved into their own file.
+## see conf.d/debug.conf for various options for request debugging.
+##
+include conf_dir + "/conf.d/debug.conf"
+
+##
+#######################################################################
+
+#######################################################################
+##
+##  Tuning/Performance
+## --------------------
+##
+## corresponding documentation:
+## https://wiki.lighttpd.net/Docs_Performance
+##
+## set the event-handler (read the performance section in the manual)
+##
+## The recommended server.event-handler is chosen by default for each OS.
+##
+## epoll  (recommended on Linux)
+## kqueue (recommended on *BSD and MacOS X)
+## solaris-eventports (recommended on Solaris)
+## poll   (recommended if none of above are available)
+## select (*not* recommended)
+## libev  (*not* recommended)
+##
+{% if server_event_handler %}server.event-handler = "{{ server_event_handler }}"{% else %}#server.event-handler = "linux-sysepoll"{% endif %}
+
+##
+## The basic network interface for all platforms at the syscalls read()
+## and write(). Every modern OS provides its own syscall to help network
+## servers transfer files as fast as possible 
+##
+{% if server_network_backend %}server.network-backend = "{{ server_network_backend }}"{% else %}#server.network-backend = "sendfile"{% endif %}
+
+##
+## As lighttpd is a single-threaded server, its main resource limit is
+## the number of file descriptors, which is set to 1024 by default (on
+## most systems).
+##
+## If you are running a high-traffic site you might want to increase this
+## limit by setting server.max-fds.
+##
+## Changing this setting requires root permissions on startup. see
+## server.username/server.groupname.
+##
+## By default lighttpd would not change the operation system default.
+## But setting it to 16384 is a better default for busy servers.
+##
+## With SELinux enabled, this is denied by default and needs to be allowed
+## by running the following once: setsebool -P httpd_setrlimit on
+##
+server.max-fds = {{ server_max_fds }}
+
+##
+## listen-backlog is the size of the listen() backlog queue requested when
+## the lighttpd server ask the kernel to listen() on the provided network
+## address.  Clients attempting to connect() to the server enter the listen()
+## backlog queue and wait for the lighttpd server to accept() the connection.
+##
+## The out-of-box default on many operating systems is 128 and is identified
+## as SOMAXCONN.  This can be tuned on many operating systems.  (On Linux,
+## cat /proc/sys/net/core/somaxconn)  Requesting a size larger than operating
+## system limit will be silently reduced to the limit by the operating system.
+##
+## When there are too many connection attempts waiting for the server to
+## accept() new connections, the listen backlog queue fills and the kernel
+## rejects additional connection attempts.  This can be useful as an
+## indication to an upstream load balancer that the server is busy, and
+## possibly overloaded.  In that case, configure a smaller limit for
+## server.listen-backlog.  On the other hand, configure a larger limit to be
+## able to handle bursts of new connections, but only do so up to an amount
+## that the server can keep up with responding in a reasonable amount of
+## time.  Otherwise, clients may abandon the connection attempts and the
+## server will waste resources servicing abandoned connections.
+##
+## It is best to leave this setting at its default unless you have modelled
+## your traffic and tested that changing this benefits your traffic patterns.
+##
+## Default: 1024
+##
+{% if server_listen_backlog %}server.listen-backlog = {{ server_listen_backlog }}{% else %}#server.listen-backlog = 128{% endif %}
+
+##
+## Stat() call caching.
+##
+## lighttpd can utilize FAM/Gamin to cache stat call.
+##
+## possible values are:
+## disable, simple, inotify, kqueue, or fam.
+##
+{% if server_stat_cache_engine %}server.stat-cache-engine = "{{ server_stat_cache_engine }}"{% else %}#server.stat-cache-engine = "simple"{% endif %}
+
+##
+## Fine tuning for the request handling
+##
+## max-connections == max-fds/3)
+## (other file handles are used for fastcgi/files)
+##
+{% if server_max_connections %}server.max-connections = {{ server_max_connections }}{% else %}#server.max-connections = 1024{% endif %}
+
+##
+## How many seconds to keep a keep-alive connection open,
+## until we consider it idle. 
+##
+## Default: 5
+##
+{% if server_max_keep_alive_idle %}server.max-keep-alive-idle = {{ server_max_keep_alive_idle }}{% else %}#server.max-keep-alive-idle = 5{% endif %}
+
+##
+## How many keep-alive requests until closing the connection.
+##
+## Default: 16
+##
+{% if server_max_keep_alive_requests %}server.max-keep-alive-requests = {{ server_max_keep_alive_requests }}{% else %}#server.max-keep-alive-requests = 16{% endif %}
+
+##
+## Maximum size of a request in kilobytes.
+## By default it is unlimited (0).
+##
+## Uploads to your server cant be larger than this value.
+##
+{% if server_max_request_size %}server.max-request-size = {{ server_max_request_size }}{% else %}#server.max-request-size = 0{% endif %}
+
+##
+## Time to read from a socket before we consider it idle.
+##
+## Default: 60
+##
+{% if server_max_read_idle %}server.max-read-idle = {{ server_max_read_idle }}{% else %}#server.max-read-idle = 60{% endif %}
+
+##
+## Time to write to a socket before we consider it idle.
+##
+## Default: 360
+##
+{% if server_max_write_idle %}server.max-write-idle = {{ server_max_write_idle }}{% else %}#server.max-write-idle = 360{% endif %}
+
+##
+##  Traffic Shaping 
+## -----------------
+##
+## see /usr/share/doc/lighttpd/traffic-shaping.txt
+##
+## Values are in kilobyte per second.
+##
+## Keep in mind that a limit below 32kB/s might actually limit the
+## traffic to 32kB/s. This is caused by the size of the TCP send
+## buffer. 
+##
+## per server:
+##
+{% if server_kbytes_per_second %}server.kbytes-per-second = {{ server_kbytes_per_second }}{% else %}#server.kbytes-per-second = 128{% endif %}
+
+##
+## per connection:
+##
+{% if connection_kbytes_per_second %}connection.kbytes-per-second = {{ connection_kbytes_per_second }}{% else %}#connection.kbytes-per-second = 32{% endif %}
+
+##
+#######################################################################
+
+#######################################################################
+##
+##  Filename/File handling
+## ------------------------
+
+##
+## files to check for if .../ is requested
+## index-file.names            = ( "index.php", "index.rb", "index.html",
+##                                 "index.htm", "default.htm" )
+##
+index-file.names += (
+  "index.xhtml", "index.html", "index.htm", "default.htm", "index.php"
+)
+
+##
+## deny access the file-extensions
+##
+## ~    is for backupfiles from vi, emacs, joe, ...
+## .inc is often used for code includes which should in general not be part
+##      of the document-root
+url.access-deny             = ( "~", ".inc" )
+
+##
+## disable range requests for pdf files
+## workaround for a bug in the Acrobat Reader plugin.
+## (ancient; should no longer be needed)
+##
+#$HTTP["url"] =~ "\.pdf$" {
+#  server.range-requests = "disable"
+#}
+
+##
+## url handling modules (rewrite, redirect)
+##
+#url.rewrite                = ( "^/$"             => "/server-status" )
+#url.redirect               = ( "^/wishlist/(.+)" => "http://www.example.com/$1" )
+
+##
+## both rewrite/redirect support back reference to regex conditional using %n
+##
+#$HTTP["host"] =~ "^www\.(.*)" {
+#  url.redirect            = ( "^/(.*)" => "http://%1/$1" )
+#}
+
+##
+## which extensions should not be handle via static-file transfer
+##
+## .php, .pl, .fcgi are most often handled by mod_fastcgi or mod_cgi
+##
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".scgi" )
+
+##
+## error-handler for all status 400-599
+##
+#server.error-handler       = "/error-handler.html"
+#server.error-handler       = "/error-handler.php"
+
+##
+## error-handler for status 404
+##
+#server.error-handler-404   = "/error-handler.html"
+#server.error-handler-404   = "/error-handler.php"
+
+##
+## Format: <errorfile-prefix><status-code>.html
+## -> ..../status-404.html for 'File not found'
+##
+#server.errorfile-prefix    = server_root + "/htdocs/errors/status-"
+
+##
+## mimetype mapping
+##
+include conf_dir + "/conf.d/mime.conf"
+
+##
+## directory listing configuration
+##
+include conf_dir + "/conf.d/dirlisting.conf"
+
+##
+## Should lighttpd follow symlinks?
+## default: "enable"
+{% if server_follow_symlink %}server.follow-symlink = "{{ server_follow_symlink }}"{% else %}#server.follow-symlink = "enable"{% endif %}
+
+##
+## force all filenames to be lowercase?
+##
+{% if server_force_lowercase_filenames %}server.force-lowercase-filenames = "{{ server_force_lowercase_filenames }}"{% else %}#server.force-lowercase-filenames = "disable"{% endif %}
+
+##
+## defaults to /var/tmp as we assume it is a local harddisk
+## default: "/var/tmp"
+#server.upload-dirs = ( "/var/tmp" )
+
+##
+#######################################################################
+
+#######################################################################
+##
+##  SSL Support
+## ------------- 
+##
+## https://wiki.lighttpd.net/Docs_SSL
+#
+## To enable SSL for the whole server you have to provide a valid
+## certificate and have to enable the SSL engine.::
+##
+##   server.modules += ( "mod_openssl" )
+##
+##   ssl.privkey = "/path/to/privkey.pem"
+##   ssl.pemfile = "/path/to/fullchain.pem"
+##   # ssl.pemfile should contain the sorted certificate chain, including
+##   # intermediate certificates, as provided by the certificate issuer.
+##   # If both privkey and cert are in same file, specify only ssl.pemfile.
+##
+##   # Check your cipher list with: openssl ciphers -v '...'
+##   # (use single quotes with: openssl ciphers -v '...'
+##   #  as your shell won't like ! in double quotes)
+##   #ssl.cipher-list            = "PROFILE=SYSTEM"
+##
+##   # (recommended to accept only TLSv1.2 and TLSv1.3)
+##   #ssl.openssl.ssl-conf-cmd = ("MinProtocol" => "TLSv1.2")  # default
+##
+##   $SERVER["socket"] == "*:443" {
+##     ssl.engine  = "enable"
+##   }
+##   $SERVER["socket"] == "[::]:443" {
+##     ssl.engine  = "enable"
+##   }
+##
+#######################################################################
+
+#######################################################################
+##
+## custom includes like vhosts.
+##
+#include conf_dir + "/conf.d/config.conf"
+#include conf_dir + "/vhosts.d/*.conf"
+##
+#######################################################################

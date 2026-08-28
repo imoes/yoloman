@@ -1,16 +1,25 @@
 {
-  "config_path": {
-    "type": "string",
-    "default": "/etc/dhcp/dhcpd.conf",
-    "description": "Path to the ISC dhcpd configuration file"
+  "all_as_shared": {
+    "default": false,
+    "description": "Treat standalone subnets as shared networks",
+    "type": "bool"
   },
-  "leases_path": {
-    "type": "string",
-    "default": "/var/lib/dhcp/dhcpd.leases",
-    "description": "Path to the ISC dhcpd lease file"
+  "config_path": {
+    "default": "/etc/dhcp/dhcpd.conf",
+    "description": "Path to the ISC dhcpd configuration file",
+    "type": "string"
+  },
+  "crit_count": {
+    "default": 4294967296,
+    "description": "Number of free leases before critical alarm",
+    "type": "number"
+  },
+  "critical": {
+    "default": 90,
+    "description": "Percentage threshold for critical alarm (supports fractional values)",
+    "type": "number"
   },
   "format": {
-    "type": "string",
     "default": "t",
     "description": "Output format: t (text), H (html), c (csv), x (xml), X (extended xml), j (json), J (extended json)",
     "enum": [
@@ -21,15 +30,23 @@
       "X",
       "j",
       "J"
-    ]
+    ],
+    "type": "string"
   },
-  "output_path": {
-    "type": "string",
-    "default": "",
-    "description": "File path for output; empty or absent means stdout"
+  "ip_version": {
+    "description": "Force parsing mode: '4' (IPv4) or '6' (IPv6); leave empty for auto",
+    "enum": [
+      "4",
+      "6"
+    ],
+    "type": "string"
+  },
+  "leases_path": {
+    "default": "/var/lib/dhcp/dhcpd.leases",
+    "description": "Path to the ISC dhcpd lease file",
+    "type": "string"
   },
   "limit": {
-    "type": "string",
     "default": "77",
     "description": "Limit output using chmod-like string (e.g., '11', '66'); first digit = headers, second = data",
     "enum": [
@@ -50,11 +67,36 @@
       "70",
       "75",
       "77"
-    ]
+    ],
+    "type": "string",
+    "enum_open": true
+  },
+  "minsize": {
+    "default": 0,
+    "description": "Minimum pool size to consider (ignore pools \u2264 this size in alarming mode)",
+    "type": "number"
+  },
+  "output_path": {
+    "default": "",
+    "description": "File path for output; empty or absent means stdout",
+    "type": "string"
+  },
+  "perfdata": {
+    "default": false,
+    "description": "Print performance data in alarming mode",
+    "type": "bool"
+  },
+  "reverse": {
+    "default": false,
+    "description": "Sort results in reverse order",
+    "type": "bool"
+  },
+  "snet_alarms": {
+    "default": false,
+    "description": "Suppress range alarms that are part of shared networks",
+    "type": "bool"
   },
   "sort": {
-    "type": "string",
-    "default": "",
     "description": "Sort keys: n (name), i (first ip), m (max), c (cur), p (percent), t (touch), T (t+c), e (t+c perc)",
     "enum": [
       "i",
@@ -62,60 +104,17 @@
       "t",
       "T",
       "e"
-    ]
-  },
-  "reverse": {
-    "type": "bool",
-    "default": false,
-    "description": "Sort results in reverse order"
-  },
-  "warning": {
-    "type": "number",
-    "default": 80,
-    "description": "Percentage threshold for warning alarm (supports fractional values like 75.5)"
-  },
-  "critical": {
-    "type": "number",
-    "default": 90,
-    "description": "Percentage threshold for critical alarm (supports fractional values)"
+    ],
+    "type": "string"
   },
   "warn_count": {
-    "type": "number",
     "default": 4294967296,
-    "description": "Number of free leases before warning alarm (2^32 = default IPv4 space)"
+    "description": "Number of free leases before warning alarm (2^32 = default IPv4 space)",
+    "type": "number"
   },
-  "crit_count": {
-    "type": "number",
-    "default": 4294967296,
-    "description": "Number of free leases before critical alarm"
-  },
-  "snet_alarms": {
-    "type": "bool",
-    "default": false,
-    "description": "Suppress range alarms that are part of shared networks"
-  },
-  "minsize": {
-    "type": "number",
-    "default": 0,
-    "description": "Minimum pool size to consider (ignore pools \u2264 this size in alarming mode)"
-  },
-  "perfdata": {
-    "type": "bool",
-    "default": false,
-    "description": "Print performance data in alarming mode"
-  },
-  "ip_version": {
-    "type": "string",
-    "default": "",
-    "description": "Force parsing mode: '4' (IPv4) or '6' (IPv6); leave empty for auto",
-    "enum": [
-      "4",
-      "6"
-    ]
-  },
-  "all_as_shared": {
-    "type": "bool",
-    "default": false,
-    "description": "Treat standalone subnets as shared networks"
+  "warning": {
+    "default": 80,
+    "description": "Percentage threshold for warning alarm (supports fractional values like 75.5)",
+    "type": "number"
   }
 }

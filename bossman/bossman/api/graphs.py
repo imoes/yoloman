@@ -20,7 +20,7 @@ from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
 from bossman.db.models import Graph, GraphItem
 from bossman.db.session import get_session
-from bossman.services.metrics_query import query_series
+from bossman.services.graph_data import series_for_items
 
 router = APIRouter()
 
@@ -212,23 +212,8 @@ async def get_graph_data(
     value/min_value/max_value to plot; "last" (Zabbix's pie-only function)
     behaves like "avg" here since graphs are line-based, not pie."""
     graph = await _get_graph_or_404(session, graph_id)
-    series: list[GraphSeriesOut] = []
-    for item in graph.items:
-        tier, points = await query_series(session, settings, item.agent_id, item.metric, since)
-        plotted = []
-        for p in points:
-            if item.function == "min" and p.min_value is not None:
-                value = p.min_value
-            elif item.function == "max" and p.max_value is not None:
-                value = p.max_value
-            else:
-                value = p.value
-            plotted.append({"time": p.time.isoformat(), "value": value})
-        series.append(
-            GraphSeriesOut(
-                item_id=item.id, agent_id=item.agent_id, metric=item.metric, label=item.label,
-                color=item.color, draw_style=item.draw_style, axis_side=item.axis_side,
-                resolution=tier, points=plotted,
-            )
-        )
+    # The computation itself lives in services/graph_data so the dashboard's timeseries
+    # widget renders the SAME series from the SAME code — see that module's header for the
+    # two implementations this replaced.
+    series = [GraphSeriesOut(**row) for row in await series_for_items(session, settings, graph.items, since)]
     return GraphDataOut(graph=GraphOut.from_model(graph), series=series)

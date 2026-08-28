@@ -1,0 +1,336 @@
+# =============================================================================
+# MDK4 Configuration Template
+# =============================================================================
+# This template generates a configuration file for MDK4, a wireless network
+# Proof-of-Concept (PoC) tool. MDK4 is used for testing the security of
+# IEEE 802.11 (Wi-Fi) networks.
+#
+# WARNING: Use only on networks you own or have explicit permission to test.
+# Unauthorized use of this tool against networks you do not own is illegal.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Interface Configuration
+# -----------------------------------------------------------------------------
+# The wireless network interface to use (e.g., wlan0mon).
+# Source: mdk4(2) SYNOPSIS <interface>
+interface={{ (values | default({})).interface | default('wlan0mon') }}
+
+# -----------------------------------------------------------------------------
+# Attack Mode Selection
+# -----------------------------------------------------------------------------
+# Primary attack mode identifier.
+# Valid modes:
+#   b - Beacon Flooding
+#   a - Authentication DoS
+#   p - SSID Probe Request
+#   d - Deauthentication
+#   m - Michael MIC Failure (Michael Countermeasures)
+#   e - EAPOL Key Flood
+#   s - Mesh DoS
+#   w - WIDS DoS
+#   f - Packet Fuzzing
+#   c - PoC Testing
+# Source: mdk4(2) SYNOPSIS <attack_mode>
+mode={{ (values | default({})).mode | default('d') }}
+
+# -----------------------------------------------------------------------------
+# Target Identification
+# -----------------------------------------------------------------------------
+# Target AP MAC address (BSSID).
+# Used in modes: p (Probe), m (Michael), e (EAPOL), c (PoC).
+# For mode 'd' (Deauth), this sets the -B flag (Target BSSID).
+# Source: mdk4(2) OPTIONS -t <bssid>
+target_bssid={{ (values | default({})).target_bssid | default('') }}
+
+# Target ESSID (Network Name).
+# Used as -E in mode 'd' (Deauth) to target specific AP names.
+# For mode 'b' (Beacon), this is the Fake SSID generated if ssid_file is not used.
+# Source: mdk4(2) OPTIONS -E <essid>
+target_essid={{ (values | default({})).target_essid | default('MDK4-Test') }}
+
+# Speed limit in packets per second (-s).
+# Empty string uses the tool's internal default.
+# Source: mdk4(2) OPTIONS -s <pps>
+speed_pps={{ (values | default({})).speed_pps | default('') }}
+
+# -----------------------------------------------------------------------------
+# Channel Configuration
+# -----------------------------------------------------------------------------
+# Target channel for Beacon flooding (-c) or channel hopping configuration.
+# For channel hopping in mode 'd', 'w', 'f', or 'c', use the enable_channel_hopping
+# flag along with hop_speed_ms.
+# Source: mdk4(2) OPTIONS -c <chan>
+channel={{ (values | default({})).channel | default('') }}
+
+# Enable channel hopping (-h).
+# Supported in modes: d, w, f, c.
+# If true, mdk4 will hop between channels defined in the channel parameter
+# or system default scan list.
+# Source: mdk4(2) OPTIONS -c h
+enable_channel_hopping={{ (values | default({})).enable_channel_hopping | default(False) | lower }}
+
+# Channel hopping speed in milliseconds (-c chan:speed).
+# Only applies if enable_channel_hopping is true.
+# Source: mdk4(2) OPTIONS -c <chan>:<speed>
+hop_speed_ms={{ (values | default({})).hop_speed_ms | default(3000) }}
+
+# -----------------------------------------------------------------------------
+# Beacon Flooding Mode (b) Configuration
+# -----------------------------------------------------------------------------
+# Encryption types for Beacon Flooding (-w).
+# Valid characters:
+#   n - No Encryption
+#   w - WEP
+#   t - TKIP (WPA)
+#   a - AES (WPA2)
+# Source: mdk4(2) OPTIONS -w <encryptions>
+encryption_types={{ (values | default({})).encryption_types | default('nwt') }}
+
+# File containing SSIDs for Beacon Flooding (-f).
+# If this file exists, each line is used as a fake SSID.
+# If empty or not present, target_essid is used as a single fake SSID.
+# Source: mdk4(2) OPTIONS -f <filename>
+ssid_file={{ (values | default({})).ssid_file | default('/etc/mdk4/ssid.txt') }}
+
+# Bitrate for Beacon Flooding (-b).
+# Valid values:
+#   b - 11 Mbit
+#   g - 54 Mbit
+# Source: mdk4(2) OPTIONS -b <bitrate>
+bitrate={{ (values | default({})).bitrate | default('bg') }}
+
+# Use valid AP MAC from OUI database (-m).
+# If true, random valid company MAC addresses are used as source addresses.
+# Source: mdk4(2) OPTIONS -m
+use_valid_ap_mac={{ (values | default({})).use_valid_ap_mac | default(False) | lower }}
+
+# Use valid client MAC from OUI database (-m).
+# If true, random valid client MAC addresses are used in Auth DoS mode.
+# Source: mdk4(2) OPTIONS -m
+use_valid_client_mac={{ (values | default({})).use_valid_client_mac | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Deauthentication Mode (d) Configuration
+# -----------------------------------------------------------------------------
+# Whitelist file for Deauth/Disassoc mode (-w).
+# MACs listed here will NOT be deauthenticated.
+# Source: mdk4(2) OPTIONS -w <filename>
+whitelist_file={{ (values | default({})).whitelist_file | default('/etc/mdk4/whitelist.txt') }}
+
+# Blacklist file for Deauth/Disassoc mode (-b).
+# MACs listed here ARE targeted. If empty, all associated clients may be targeted.
+# Source: mdk4(2) OPTIONS -b <filename>
+blacklist_file={{ (values | default({})).blacklist_file | default('/etc/mdk4/blacklist.txt') }}
+
+# -----------------------------------------------------------------------------
+# SSID Probe Request Mode (p) Configuration
+# -----------------------------------------------------------------------------
+# Specific SSID to probe for in Mode p (-e).
+# If empty, uses target_essid or wordlist.
+# Source: mdk4(2) OPTIONS -e <ssid>
+target_ssid_probe={{ (values | default({})).target_ssid_probe | default('') }}
+
+# Character sets for SSID Brute-forcing in Mode p (-b).
+# Valid characters:
+#   n - Numbers
+#   u - Uppercase
+#   l - Lowercase
+#   s - Symbols
+# Source: mdk4(2) OPTIONS -b <character_sets>
+bruteforce_charset={{ (values | default({})).bruteforce_charset | default('n') }}
+
+# Wordlist file for SSID Brute-forcing in Mode p (-f).
+# Source: mdk4(2) OPTIONS -f <filename>
+wordlist_file={{ (values | default({})).wordlist_file | default('/usr/share/dict/words') }}
+
+# Start word for SSID Brute-forcing in Mode p (-p).
+# Used to resume or start the brute-force sequence.
+# Source: mdk4(2) OPTIONS -p <word>
+start_word={{ (values | default({})).start_word | default('') }}
+
+# -----------------------------------------------------------------------------
+# Michael Countermeasures Mode (m) Configuration
+# -----------------------------------------------------------------------------
+# Wait time in seconds between Michael Countermeasures bursts (-w).
+# Source: mdk4(2) OPTIONS -w <seconds>
+mc_wait_seconds={{ (values | default({})).mc_wait_seconds | default(10) }}
+
+# Number of random packets per Michael Countermeasures burst (-n).
+# Source: mdk4(2) OPTIONS -n <count>
+mc_packets_per_burst={{ (values | default({})).mc_packets_per_burst | default(70) }}
+
+# Use QoS exploit for Michael Countermeasures (-j).
+# Uses a new QoS exploit instead of random packet injection.
+# Source: mdk4(2) OPTIONS -j
+mc_use_qos_exploit={{ (values | default({})).mc_use_qos_exploit | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# EAPOL Key Flood Mode (e) Configuration
+# -----------------------------------------------------------------------------
+# Use EAPOL Logoff messages in Mode e (-l).
+# If false, floods with Start frames.
+# Source: mdk4(2) OPTIONS -l
+use_logoff_messages={{ (values | default({})).use_logoff_messages | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Mesh DoS Mode (s) Configuration
+# -----------------------------------------------------------------------------
+# Target Mesh Network ID in Mode s (-n).
+# Source: mdk4(2) OPTIONS -n <meshID>
+mesh_id={{ (values | default({})).mesh_id | default('') }}
+
+# -----------------------------------------------------------------------------
+# Packet Fuzzing Mode (f) Configuration
+# -----------------------------------------------------------------------------
+# Packet sources for Packet Fuzzer mode (-s).
+# Valid characters:
+#   a - Sniff
+#   b - Beacon
+#   c - CTS
+#   p - Probe
+# Source: mdk4(2) OPTIONS -s <sources>
+fuzzer_sources={{ (values | default({})).fuzzer_sources | default('abcp') }}
+
+# Packet modifiers for Packet Fuzzer mode (-m).
+# Valid characters:
+#   n - None
+#   b - Dst Bcast
+#   m - Src Bcast
+#   s - Shotgun
+#   t - Rand bytes
+#   c - Cut short
+#   d - Rand Dura/Flags
+# Source: mdk4(2) OPTIONS -m <modifiers>
+fuzzer_modifiers={{ (values | default({})).fuzzer_modifiers | default('ns') }}
+
+# -----------------------------------------------------------------------------
+# PoC Testing Mode (c) Configuration
+# -----------------------------------------------------------------------------
+# Custom Hex IEs to append to frames (-i).
+# User-defined Information Elements in hexadecimal.
+# Source: mdk4(2) OPTIONS -i <HEX>
+custom_hex_ie={{ (values | default({})).custom_hex_ie | default('') }}
+
+# Vendor test file name for PoC Testing (-v).
+# Source: mdk4(2) OPTIONS -v <vendor>
+poc_vendor_test={{ (values | default({})).poc_vendor_test | default('') }}
+
+# Station MAC address for PoC Testing (-S).
+# Source: mdk4(2) OPTIONS -S <Station MAC>
+poc_station_mac={{ (values | default({})).poc_station_mac | default('') }}
+
+# -----------------------------------------------------------------------------
+# Final Command Construction
+# -----------------------------------------------------------------------------
+# The following block constructs the final mdk4 command line based on the
+# selected mode and parameters.
+# Note: Jinja does not support imperative list mutation via 'do'.
+# We construct the command string conditionally using if/else logic and
+# string concatenation to ensure valid Jinja2 syntax.
+
+{% set v = values | default({}) %}
+{% set cmd_base = 'mdk4 ' ~ (v.interface | default('wlan0mon')) | string ~ ' ' ~ (v.mode | default('d')) | string %}
+{% set common_flags = '' %}
+
+{% if (v.target_bssid | default('')) != '' %}
+  {% set common_flags = common_flags ~ ' -t ' ~ (v.target_bssid | default('')) %}
+{% endif %}
+
+{% if (v.target_essid | default('')) != '' %}
+  {% set common_flags = common_flags ~ ' -E ' ~ (v.target_essid | default('')) %}
+{% endif %}
+
+{% if (v.speed_pps | default('')) != '' %}
+  {% set common_flags = common_flags ~ ' -s ' ~ (v.speed_pps | default('')) %}
+{% endif %}
+
+{% set mode_flags = '' %}
+{% set current_mode = v.mode | default('d') %}
+
+{% if current_mode == 'b' %}
+  # Beacon Flooding Mode
+  {% if (v.channel | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -c ' ~ (v.channel | default('')) %}
+  {% endif %}
+  {% if (v.encryption_types | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -w ' ~ (v.encryption_types | default('')) %}
+  {% endif %}
+  {% if (v.ssid_file | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -f ' ~ (v.ssid_file | default('')) %}
+  {% endif %}
+  {% if (v.bitrate | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -b ' ~ (v.bitrate | default('')) %}
+  {% endif %}
+  {% if (v.use_valid_ap_mac | default(False)) or (v.use_valid_client_mac | default(False)) %}
+    {% set mode_flags = mode_flags ~ ' -m' %}
+  {% endif %}
+
+{% elif current_mode == 'd' %}
+  # Deauthentication Mode
+  {% if (v.whitelist_file | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -w ' ~ (v.whitelist_file | default('')) %}
+  {% endif %}
+  {% if (v.blacklist_file | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -b ' ~ (v.blacklist_file | default('')) %}
+  {% endif %}
+  {% if (v.enable_channel_hopping | default(False)) %}
+    {% if (v.channel | default('')) != '' %}
+      {% set mode_flags = mode_flags ~ ' -c ' ~ (v.channel | default('')) %}
+    {% endif %}
+  {% endif %}
+
+{% elif current_mode == 'p' %}
+  # SSID Probe Mode
+  {% if (v.target_ssid_probe | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -e ' ~ (v.target_ssid_probe | default('')) %}
+  {% elif (v.wordlist_file | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -f ' ~ (v.wordlist_file | default('')) %}
+  {% endif %}
+  {% if (v.bruteforce_charset | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -b ' ~ (v.bruteforce_charset | default('')) %}
+  {% endif %}
+  {% if (v.start_word | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -p ' ~ (v.start_word | default('')) %}
+  {% endif %}
+
+{% elif current_mode == 'm' %}
+  # Michael Countermeasures Mode
+  {% if (v.mc_wait_seconds | default(10)) != 10 %}
+    {% set mode_flags = mode_flags ~ ' -w ' ~ (v.mc_wait_seconds | default(10)) %}
+  {% endif %}
+  {% if (v.mc_packets_per_burst | default(70)) != 70 %}
+    {% set mode_flags = mode_flags ~ ' -n ' ~ (v.mc_packets_per_burst | default(70)) %}
+  {% endif %}
+  {% if (v.mc_use_qos_exploit | default(False)) %}
+    {% set mode_flags = mode_flags ~ ' -j' %}
+  {% endif %}
+
+{% elif current_mode == 'e' %}
+  # EAPOL Key Flood Mode
+  {% if (v.use_logoff_messages | default(False)) %}
+    {% set mode_flags = mode_flags ~ ' -l' %}
+  {% endif %}
+
+{% elif current_mode == 'f' %}
+  # Packet Fuzzing Mode
+  {% if (v.fuzzer_sources | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -s ' ~ (v.fuzzer_sources | default('')) %}
+  {% endif %}
+  {% if (v.fuzzer_modifiers | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -m ' ~ (v.fuzzer_modifiers | default('')) %}
+  {% endif %}
+
+{% elif current_mode == 'c' %}
+  # PoC Testing Mode
+  {% if (v.poc_vendor_test | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -v' ~ (v.poc_vendor_test | default('')) %}
+  {% endif %}
+  {% if (v.poc_station_mac | default('')) != '' %}
+    {% set mode_flags = mode_flags ~ ' -S ' ~ (v.poc_station_mac | default('')) %}
+  {% endif %}
+
+{% endif %}
+
+# Render the final command line as a JSON string for safe consumption by Ansible/Shell
+rendered_command={{ (cmd_base ~ common_flags ~ mode_flags) | trim | default('mdk4 wlan0mon d') | tojson }}

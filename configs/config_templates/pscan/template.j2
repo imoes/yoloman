@@ -1,0 +1,57 @@
+# =============================================================================
+# pscan Configuration Wrapper
+# =============================================================================
+# This script wraps the 'pscan' utility (a C source code scanner for format
+# string vulnerabilities) with default options. All variables are sourced
+# from this configuration section.
+# =============================================================================
+
+# source_dir: Directory containing C source code to scan for format string vulnerabilities.
+# Default: '/src'
+{% set source_dir = source_dir | default('/src') %}
+SOURCE_DIR="{{ source_dir }}"
+
+# output_format: Output format for pscan results. Supported values: text, xml, json.
+# Default: 'text'
+{% set output_format = output_format | default('text') %}
+OUTPUT_FORMAT="{{ output_format }}"
+
+# recursive: Whether to recursively scan subdirectories.
+# Default: True
+{% set recursive = recursive | default(True) %}
+RECURSIVE="{{ 'yes' if recursive else 'no' }}"
+
+# ignore_patterns: List of filename patterns to ignore during scanning (e.g., '*.h', 'third_party/*').
+# Default: [] (empty list)
+{% set ignore_patterns = ignore_patterns | default([]) %}
+IGNORE_PATTERNS="{% for pattern in ignore_patterns %}{{ pattern }} {% endfor %}"
+
+# max_depth: Maximum recursion depth (0 for unlimited).
+# Default: 0
+{% set max_depth = max_depth | default(0) %}
+MAX_DEPTH="{{ max_depth }}"
+
+# strict_mode: Exit with error code 1 if any format string issues are found.
+# Default: False
+{% set strict_mode = strict_mode | default(False) %}
+STRICT_MODE="{{ 'yes' if strict_mode else 'no' }}"
+
+# =============================================================================
+# Execution Section
+# =============================================================================
+# This block constructs and executes the pscan command based on the variables above.
+# =============================================================================
+
+pscan \
+  {% if recursive == 'yes' %}-r \
+  {% endif %}
+  {% if output_format == 'xml' %}-x \
+  {% elif output_format == 'json' %}-j \
+  {% endif %}
+  {% if max_depth != '0' and max_depth != '' %}-d {{ max_depth }} \
+  {% endif %}
+  {% for pattern in ignore_patterns %}-i {{ pattern }} \
+  {% endfor %}
+  {% if strict_mode == 'yes' %}-e \
+  {% endif %}
+  "${SOURCE_DIR}"

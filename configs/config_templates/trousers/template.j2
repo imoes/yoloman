@@ -1,0 +1,118 @@
+#!/bin/sh
+
+#
+# Init script for the Trusted Computing Platform (TPM) daemon (tcsd).
+# Managed by Ansible via the 'trousers' package role.
+#
+# This script starts, stops, and monitors the tcsd daemon, which implements
+# the TCG Software Stack (TSS) for TPM access. It relies on the existence
+# of /dev/tpm* devices.
+#
+
+### BEGIN INIT INFO
+# Provides:		tcsd trousers
+# Required-Start:	$local_fs $remote_fs $network
+# Required-Stop:	$local_fs $remote_fs $network
+# Should-Start:
+# Should-Stop:
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	starts tcsd
+# Description:		tcsd belongs to the TrouSerS TCG Software Stack
+### END INIT INFO
+
+# Standard PATH for system daemons
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# The executable path for the TPM daemon
+DAEMON=/usr/sbin/tcsd
+
+# The service/daemon script identifier (e.g., 'tcsd')
+# Schema: name (string, default='tcsd')
+NAME={{ name | default('tcsd') }}
+
+# Human-readable description of the service
+DESC="Trusted Computing daemon"
+
+# The system user account under which the tcsd daemon runs.
+# Schema: user (string, default='tss')
+USER="{{ user | default('tss') }}"
+
+# Exit immediately if the daemon binary is missing or not executable
+[ ! -x "${DAEMON}" ] && exit 0
+
+# Read configuration variable file if it is present (allows /etc/default/$NAME overrides)
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load LSB init functions for standardized logging and status output
+. /lib/lsb/init-functions
+
+case "${1}" in
+	start)
+		log_daemon_msg "Starting $DESC" "$NAME"
+
+		# Check if the primary TPM device exists; if not, the kernel driver
+		# may not be loaded, and starting the daemon would be futile.
+		if [ ! -e /dev/tpm0 ]
+		then
+			log_warning_msg "device driver not loaded, skipping."
+			exit 0
+		fi
+
+		# Validate ownership of all available TPM devices.
+		# The daemon requires read/write access to /dev/tpm*.
+		# If the device is owned by another user (e.g., root), the daemon may fail.
+		for tpm_dev in /dev/tpm*; do
+			TPM_OWNER=$(stat -c %U $tpm_dev)
+			if [ "x$TPM_OWNER" != "x$USER" ]
+			then
+				log_warning_msg "TPM device owner for $tpm_dev is not $USER, this can cause problems."
+			fi
+		done
+
+		# Start the daemon with specific user privileges.
+		# --user ensures the process runs as the configured USER.
+		# --exec specifies the binary to run.
+		# ${DAEMON_OPTS} allows passing extra arguments from /etc/default/$NAME.
+		start-stop-daemon --start --quiet --oknodo --pidfile /var/run/${NAME}.pid --user ${USER} --exec ${DAEMON} -- ${DAEMON_OPTS}
+		RETVAL="$?"
+		log_end_msg $RETVAL
+		
+		# If start was successful, write the PID file manually as start-stop-daemon
+		# might not capture the correct PID in some environments.
+		[ "$RETVAL" = 0 ] && pidof $DAEMON > /var/run/${NAME}.pid
+		exit $RETVAL
+		;;
+
+	stop)
+		log_daemon_msg "Stopping $DESC" "$NAME"
+
+		# Stop the daemon gracefully.
+		start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/${NAME}.pid --user ${USER} --exec ${DAEMON}
+		RETVAL="$?"
+		log_end_msg $RETVAL
+		
+		# Clean up the PID file
+		rm -f /var/run/${NAME}.pid
+		exit $RETVAL
+		;;
+
+	restart|force-reload)
+		"${0}" stop
+		sleep 1
+		"${0}" start
+		exit $?
+		;;
+
+	status)
+		# Check if the daemon is running and report its status.
+		status_of_proc -p /var/run/${NAME}.pid "${DAEMON}" "${NAME}" && exit 0 || exit $?
+		;;
+
+	*)
+		echo "Usage: ${NAME} {start|stop|restart|force-reload|status}" >&2
+		exit 3
+		;;
+esac
+
+exit 0

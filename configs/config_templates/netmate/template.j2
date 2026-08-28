@@ -1,0 +1,27 @@
+# Netmate Configuration Template
+#
+# Netmate is primarily a GTK+ GUI application and does not have a traditional server-side configuration file.
+# However, for headless or scripted usage (e.g., via command line arguments passed through a wrapper),
+# the following parameters can be used to define default inputs and output formatting.
+
+# Path to the input pcap/pcapng file to analyze.
+# Default: /var/log/capture.pcap
+input_file: {{ input_file | default('/var/log/capture.pcap') }}
+
+# The display format for protocol headers. 'rfc' aligns fields as per RFCs.
+# Other options might include 'ascii' depending on version, but 'rfc' is the standard.
+# Default: rfc
+output_format: {{ output_format | default('rfc') }}
+
+# Enable verbose output to stderr/stdout.
+# When true, provides detailed logging information during parsing.
+# Default: false
+verbose: {{ verbose | default(false) | lower }}
+
+# List of protocols to display. Supported: Ethernet, SLL, ARP, ICMP, ICMPv6, IPv4, IPv6, TCP, UDP.
+# Only the specified protocols will be shown in the output.
+# Default: IPv4, TCP
+filtered_protocols:
+{% for protocol in protocols | default(['IPv4', 'TCP']) %}
+  - {{ protocol }}
+{% endfor %}

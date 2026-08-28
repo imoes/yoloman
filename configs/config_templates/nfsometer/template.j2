@@ -1,0 +1,69 @@
+# ==============================================================================
+# nfsometer Configuration Template
+# ==============================================================================
+# This file is self-documenting. Each directive is preceded by a comment
+# describing its purpose, the corresponding CLI flag, and the default value.
+# Variables are resolved from Ansible variables with safe defaults provided.
+# ==============================================================================
+
+# Result directory for saving traces and reports.
+# Schema field: result_dir
+# Default: '/root/nfsometer_results'
+# CLI flag: --resultdir
+RESULT_DIR = "{{ result_dir | default('/root/nfsometer_results') }}"
+
+# Number of runs for each trace configuration.
+# Schema field: num_runs
+# Default: 1
+# CLI flag: --num-runs
+NUM_RUNS = {{ num_runs | default(1) }}
+
+# Mount options to iterate through (e.g., NFS protocol versions like v3, v4, v4.1).
+# Schema field: mount_options
+# Default: ['-o v3', '-o v4', '-o v4.1']
+# CLI flag: -o
+MOUNT_OPTIONS = [
+{% for option in mount_options | default(['-o v3', '-o v4', '-o v4.1']) %}  "{{ option }}",
+{% endfor %}]
+
+# Always options added to every trace.
+# Schema field: always_options
+# Default: []
+# CLI flag: -a
+ALWAYS_OPTIONS = [
+{% for option in always_options | default([]) %}  "{{ option }}",
+{% endfor %}]
+
+# Tags to mark new traces.
+# Schema field: tags
+# Default: []
+# CLI flag: -t
+TAGS = [
+{% for tag in tags | default([]) %}  "{{ tag }}",
+{% endfor %}]
+
+# NFS server and export path to test against.
+# Schema field: server_path
+# Default: 'server:/export'
+# CLI flag: <server:path>
+SERVER_PATH = "{{ server_path | default('server:/export') }}"
+
+# Workload(s) to run against the server.
+# Schema field: workloads
+# Default: ['cthon']
+# CLI flag: [workloads...]
+WORKLOADS = [
+{% for workload in workloads | default(['cthon']) %}  "{{ workload }}",
+{% endfor %}]
+
+# Generate graphs inline during report generation.
+# Schema field: serial_graphs
+# Default: False
+# CLI flag: --serial-graphs
+SERIAL_GRAPHS = {{ serial_graphs | default(False) | lower }}
+
+# Randomize the order of traces.
+# Schema field: rand
+# Default: False
+# CLI flag: --rand
+RAND = {{ rand | default(False) | lower }}

@@ -1,0 +1,36 @@
+# ==============================================================================
+# vinetto Configuration Template
+# ==============================================================================
+# This configuration file drives the vinetto tool, which extracts thumbnails
+# and metadata from Microsoft Thumbs.db files.
+#
+# Fields map directly to command-line options:
+#   -o  : output_dir
+#   -H  : html_report
+#   -U  : utf8_encoding
+#   -s  : create_symlinks
+#   <arg>: input_files
+# ==============================================================================
+
+# Directory where extracted thumbnails and metadata will be written.
+# Corresponds to the -o option.
+output_dir: "{{ output_dir | default('/var/lib/vinetto/output') }}"
+
+# Whether to generate an HTML report to preview thumbnails.
+# Corresponds to the -H option.
+html_report: {{ html_report | default(False) | lower }}
+
+# Whether to use UTF-8 encodings for metadata extraction.
+# Corresponds to the -U option.
+utf8_encoding: {{ utf8_encoding | default(True) | lower }}
+
+# Whether to create symlinks of the picture realname to the numbered name.
+# Corresponds to the -s option.
+create_symlinks: {{ create_symlinks | default(False) | lower }}
+
+# List of Thumbs.db file paths to process.
+# Corresponds to the positional file argument in the command line.
+input_files:
+{% for f in input_files | default([]) %}
+  - {{ f }}
+{% endfor %}

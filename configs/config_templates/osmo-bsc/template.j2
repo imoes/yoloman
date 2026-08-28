@@ -1,0 +1,213 @@
+! ============================================================================
+! OsmoBSC (Base Station Controller) Configuration Template
+! This file configures the OsmoBSC service for a GSM network.
+! ============================================================================
+
+! ---------------------------------------------------------------------------
+! Global Logging Configuration
+! ---------------------------------------------------------------------------
+log stderr
+ logging color 1
+ logging print category-hex 0
+ logging print category 1
+ logging timestamp 0
+ logging print file basename last
+ logging print level 1
+
+! ---------------------------------------------------------------------------
+! E1 Input Configuration
+! ---------------------------------------------------------------------------
+e1_input
+ ! Uses IPA driver for E1 interface line 0
+ e1_line 0 driver ipa
+
+! ---------------------------------------------------------------------------
+! Network Configuration
+! ---------------------------------------------------------------------------
+network
+ ! ---------------------------------------------------------------------------
+ ! Mobile Network Identity (MNC/MCC)
+ ! ---------------------------------------------------------------------------
+ ! Mobile Country Code (MCC): Unique identifier for the country of the network.
+ network country code {{ network_country_code | default('1') }}
+ ! Mobile Network Code (MNC): Unique identifier for the specific operator within the country.
+ mobile network code {{ mobile_network_code | default('1') }}
+
+ ! ---------------------------------------------------------------------------
+ ! Encryption and Security Settings
+ ! ---------------------------------------------------------------------------
+ ! Encryption algorithm: 0 = No encryption (often used for testing or specific regulatory requirements).
+ ! a5 0 disables encryption.
+ encryption a5 0
+ ! New Encryption Cipher Indicator: 1 = Enable NECI.
+ neci 1
+
+ ! ---------------------------------------------------------------------------
+ ! Paging and Handover Settings
+ ! ---------------------------------------------------------------------------
+ ! Paging strategy: 0 = Use TCH (Traffic Channel) for paging.
+ paging any use tch 0
+
+ ! Handover settings
+ handover 0
+ handover algorithm 1
+ handover1 window rxlev averaging 10
+ handover1 window rxqual averaging 1
+ handover1 window rxlev neighbor averaging 10
+ handover1 power budget interval 6
+ handover1 power budget hysteresis 3
+ handover1 maximum distance 9999
+
+ ! ---------------------------------------------------------------------------
+ ! Timer Configuration: T3212
+ ! ---------------------------------------------------------------------------
+ ! T3212 is a timer used for network-controlled idle mode mobile station (MS) reception.
+ ! It is specified in units of 6 minutes.
+ ! Example: If units=5, total duration is 5 * 6 = 30 minutes.
+ ! T3212 Units: Number of 6-minute intervals.
+ timer net T3212 {{ t3212_units | default('5') }}
+
+! ---------------------------------------------------------------------------
+ ! Media Gateway (MGW) Configuration
+ ! ---------------------------------------------------------------------------
+mgw 0
+ ! Remote IP address of the Media Gateway (MGW) handling media streams.
+ remote-ip {{ mgw_remote_ip | default('127.0.0.1') }}
+ ! Remote port on the MGW to connect to.
+ remote-port {{ mgw_remote_port | default(2427) }}
+ ! Local port on this BSC to bind for the connection to the MGW.
+ local-port {{ mgw_local_port | default(2727) }}
+
+! ---------------------------------------------------------------------------
+ ! BTS (Base Transceiver Station) Configuration
+ ! ---------------------------------------------------------------------------
+bts 0
+ ! Type of the BTS software.
+ type osmo-bts
+ ! Frequency band used by the BTS (e.g., DCS1800, GSM900).
+ band DCS1800
+
+ ! ---------------------------------------------------------------------------
+ ! Cell Identity and Area Codes
+ ! ---------------------------------------------------------------------------
+ ! Unique Cell Identity (CI) for this specific cell within the LAC.
+ cell_identity {{ cell_identity | default(6969) }}
+ ! Location Area Code (LAC): Identifies the location area where the cell resides.
+ location_area_code {{ location_area_code | default('0x0001') }}
+ ! Base Station Identity Code (BSIC): Used by MS to identify the BTS.
+ base_station_id_code {{ base_station_id_code | default(63) }}
+
+ ! ---------------------------------------------------------------------------
+ ! Radio Resource Management
+ ! ---------------------------------------------------------------------------
+ ! Maximum transmit power of the Mobile Station (MS) allowed in this cell (dBm).
+ ms max power {{ ms_max_power | default(15) }}
+ ! Hysteresis for cell reselection to prevent ping-pong effects.
+ cell reselection hysteresis 4
+ ! Minimum RX level required for a mobile station to access the cell.
+ rxlev access min {{ rxlev_access_min | default(0) }}
+ ! Radio link timeout value (units defined by protocol).
+ radio-link-timeout {{ radio_link_timeout | default(32) }}
+
+ ! ---------------------------------------------------------------------------
+ ! RACH (Random Access Channel) Settings
+ ! ---------------------------------------------------------------------------
+ ! Channel allocator mode.
+ channel allocator mode set-all ascending
+ ! RACH Tx Integer: Parameter for random access timing/power adjustment.
+ rach tx integer {{ rach_tx_integer | default(9) }}
+ ! RACH Max Transmission: Maximum number of transmission attempts for RACH.
+ rach max transmission {{ rach_max_transmission | default(7) }}
+
+ ! ---------------------------------------------------------------------------
+ ! Channel Description and IPA Settings
+ ! ---------------------------------------------------------------------------
+ ! Allow attachment to the cell.
+ channel-description attach 1
+ ! BS Paging Frame Multiple: Number of frames for paging.
+ channel-description bs-pa-mfrms 5
+ ! BS Alternate Barring Access Class: Number of blocks reserved.
+ channel-description bs-ag-blks-res 1
+ ! Early Classmark Sending: forbidden = Disable early classmark sending.
+ early-classmark-sending forbidden
+ ! IPA Unit ID: Identifier for the IPA (IP Access) connection to the BTS.
+ ipa unit-id {{ ipa_unit_id | default(6969) }} 0
+ ! OML (Open Mobile Layer) IPA Stream ID.
+ oml ipa stream-id 255 line 0
+
+ ! ---------------------------------------------------------------------------
+ ! Codec and GPRS Settings
+ ! ---------------------------------------------------------------------------
+ ! Support Full Rate speech codecs.
+ codec-support fr
+ ! GPRS mode: none = Disable GPRS/EDGE data services.
+ gprs mode none
+
+ ! ---------------------------------------------------------------------------
+ ! TRX (Transceiver) Configuration
+ ! ---------------------------------------------------------------------------
+trx 0
+ ! RF Locked: 0 = Unlocked (active).
+ rf_locked 0
+ ! Absolute Radio Frequency Channel Number (ARFCN): The specific frequency channel.
+ arfcn {{ arfcn | default(871) }}
+ ! Nominal transmit power of the TRX in dBm.
+ nominal power {{ nominal_power | default(23) }}
+ ! Maximum Power Reduction (MPR): Adjusts max power for spectral mask compliance.
+ ! Set to 0 to use full TRX power.
+ max_power_red {{ max_power_red | default(20) }}
+
+ ! ---------------------------------------------------------------------------
+ ! RSL (Relocation Signaling Link) and Timeslots
+ ! ---------------------------------------------------------------------------
+ ! RSL E1 TEI (Terminal Endpoint Identifier).
+ rsl e1 tei 0
+
+ ! Timeslot 0: Control Channel (CCCH + SDCCH4)
+ timeslot 0
+  phys_chan_config CCCH+SDCCH4
+  hopping enabled 0
+
+ ! Timeslots 1-7: Traffic Channels (TCH/F)
+ timeslot 1
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 2
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 3
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 4
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 5
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 6
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+ timeslot 7
+  phys_chan_config TCH/F
+  hopping enabled 0
+
+! ---------------------------------------------------------------------------
+ ! MSC (Mobile Switching Center) Configuration
+ ! ---------------------------------------------------------------------------
+msc 0
+ ! Emergency Call Handling: deny = Reject emergency calls unless routed to local services.
+ ! Do not allow emergency calls unless you can route them to the local emergency services.
+ allow-emergency deny
+
+! ---------------------------------------------------------------------------
+ ! BSC General Configuration
+ ! ---------------------------------------------------------------------------
+bsc
+ ! Mid-call timeout: 0 = Disable or use default.
+ mid-call-timeout 0

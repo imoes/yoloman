@@ -1,0 +1,37 @@
+# ==============================================================================
+# zbackup CLI configuration template
+# ==============================================================================
+# This template generates a command-line invocation for zbackup to perform a backup.
+# It supports encryption options, threading limits, and specifies the repository
+# and target backup paths.
+# ==============================================================================
+
+# --non-encrypted: If set to true, the --non-encrypted flag is passed to zbackup,
+# bypassing encryption for the backup repository.
+# Default: False
+{% if non_encrypted | default(False) %}--non-encrypted
+{% endif %}
+
+# --password-file: Path to the file containing the password for encryption/decryption.
+# This file must be readable by the user running the zbackup command.
+# Default: ~/.my_backup_password
+--password-file {{ password_file | default('~/.my_backup_password') }}
+
+# --threads: Number of threads to limit partial LZMA compression to.
+# Increasing this may improve compression speed on multi-core systems but uses more CPU.
+# Default: 1
+--threads {{ threads | default(1) }}
+
+# Command: backup
+# Specifies that zbackup should perform a backup operation.
+backup
+
+# Arguments: Backup repository path
+# The directory used to hold the backup repository (index, data chunks, etc.).
+# Default: /my/backup/repo
+{{ repo_path | default('/my/backup/repo') }}
+
+# Arguments: Backup file path (destination)
+# The target file path for the new backup set within the repository.
+# Default: /my/backup/repo/backups/backup-current
+{{ backup_path | default('/my/backup/repo/backups/backup-current') }}

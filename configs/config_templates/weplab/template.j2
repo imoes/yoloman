@@ -1,0 +1,95 @@
+# ===========================================================================
+# weplab Configuration Template
+# ===========================================================================
+# This file configures weplab, a tool for WEP key analysis, capture,
+# bruteforcing, and statistical attack execution on wireless networks.
+#
+# The `mode` directive determines which features are active.
+# ===========================================================================
+
+# Operation mode: analyze, capture, bruteforce, heuristics, or dictionary.
+# - analyze: Analyze existing pcap files.
+# - capture: Capture packets from the wireless interface.
+# - bruteforce: Attempt WEP key cracking via brute force.
+# - heuristics: Attempt WEP key cracking via statistical attacks.
+# - dictionary: Attempt WEP key cracking via dictionary attacks.
+mode: {{ mode | default('analyze') }}
+
+# Path to the input/output pcap file.
+# In capture mode, this is where packets are saved. In other modes, this is
+# the file to be processed.
+pcap_file: {{ pcap_file | default('/var/lib/weplab/packets.pcap') }}
+
+# Wireless interface name for capture mode.
+# This interface must support monitor mode if capturing is required.
+interface: {{ interface | default('wlan0') }}
+
+# ===========================================================================
+# Brute Force / Heuristics / Dictionary Settings
+# ===========================================================================
+# The following fields are primarily used when mode is 'bruteforce',
+# 'heuristics', or 'dictionary'.
+
+# WEP key length in bits (64 or 128).
+# Determines the complexity of the key space.
+key_length: {{ key_length | default(64) }}
+
+# WEP key ID (0-3) for 64-bit keys.
+# WEP packets carry a 4-bit key ID. Specify which ID to target or test.
+key_id: {{ key_id | default(0) }}
+
+# Target BSSID in hex format AA:BB:CC:DD:EE:FF.
+# Filter packets by the access point's MAC address. Empty string means all.
+bssid: {{ bssid | default('') }}
+
+# ===========================================================================
+# Packet Capture & Analysis Options
+# ===========================================================================
+# These settings apply to packet handling regardless of the main mode,
+# but are most critical during 'capture'.
+
+# Whether packets include a 1-byte FCS (Frame Check Sequence) tail.
+# Set to true if the pcap file contains FCS data; usually false for standard captures.
+include_fcs: {{ include_fcs | default(false) | lower }}
+
+# Whether packets include a PrismHeader.
+# Prism headers are vendor-specific headers (e.g., Aironet). Set to true
+# if the capture was done with specific driver support enabling this.
+include_prismheader: {{ include_prismheader | default(false) | lower }}
+
+# Maximum bytes per packet to log during capture.
+# Truncates packets to this length. 0 usually means no truncation (full packet).
+caplen: {{ caplen | default(1500) }}
+
+# ===========================================================================
+# Bruteforce Specific Settings
+# ===========================================================================
+
+# Number of threads for bruteforce attacks.
+# Increases cracking speed but also CPU usage.
+multiprocess_threads: {{ multiprocess_threads | default(1) }}
+
+# Restrict bruteforce to ASCII characters.
+# If true, the key space is limited to printable ASCII, significantly
+# reducing the search space compared to all possible byte values.
+ascii_only: {{ ascii_only | default(false) | lower }}
+
+# ===========================================================================
+# Heuristics / Statistical Attack Settings
+# ===========================================================================
+
+# Minimum probability for statistical attacks (1-100).
+# Threshold for determining if a key candidate is viable based on statistical analysis.
+prob_threshold: {{ prob_threshold | default(50) }}
+
+# Stability level for statistical attacks (1-5).
+# Higher levels require more consistent statistical evidence before declaring a key.
+stability_level: {{ stability_level | default(3) }}
+
+# Comma-separated list of attack numbers (1-17) to run in heuristics mode.
+# If empty, the tool uses a default set of attacks determined by stability_level.
+specific_attacks: {{ specific_attacks | default('') }}
+
+# Known key for debugging statistical attacks.
+# Provide a hex-formatted known key to verify or debug the statistical engine.
+debug_key: {{ debug_key | default('') }}

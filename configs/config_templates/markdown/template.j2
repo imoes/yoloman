@@ -1,0 +1,29 @@
+# Configuration for markdown (discount) conversion
+# This file configures the behavior of the markdown processor, typically
+# invoked via a wrapper script or service that consumes this configuration.
+
+# url_base: Base URL to prefix links starting with / in the markdown source.
+# This ensures that relative links generated in the HTML output resolve correctly.
+# Default: '/'
+url-base: {{ url_base | default('/') }}
+
+# footnote_prefix: Prefix for Markdown Extra-style footnotes.
+# Used to generate unique IDs for footnote markers and definitions.
+# Default: 'fn'
+footnote-prefix: {{ footnote_prefix | default('fn') }}
+
+# flags: List of comma-delimited flags for translation options.
+# Use '+' to enable, '-' to disable.
+# Common flags: links, image, smarty, html, strict, ext, cdata, superscript,
+# emphasis, tables, del, toc, autolink, safelink, header, tabstop, footnote, style.
+# See markdown(1) for the full list of supported flags.
+flags:
+{% for item in flags | default([]) %}
+  - {{ item }}
+{% endfor %}
+
+# output_style_blocks: If true, enables the -S option to output <style> blocks.
+# This maps to the -S CLI flag in some markdown wrappers, allowing CSS extraction
+# rather than inline styles or no styling.
+# Default: false
+output-style-blocks: {{ output_style_blocks | default(false) | lower }}

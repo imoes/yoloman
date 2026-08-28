@@ -1,0 +1,117 @@
+# pv configuration for data transfer monitoring
+# See pv(1) for full documentation.
+# This template generates a YAML-like key-value configuration file for `pv`.
+
+# Display switches
+# List of display switch arguments. Common values: --progress, --timer, --eta, --rate, --bytes, --average-rate, --buffer-percent, --line-mode.
+# Overrides format_string if empty; otherwise format_string takes precedence in pv behavior.
+display_switches: {{ display_switches | default(['--progress', '--timer', '--eta', '--rate', '--bytes']) | join(' ') }}
+
+# Formatting
+# Custom format string for the progress display (e.g., '%t %b %r %p').
+# Overrides display_switches if non-empty. See FORMATTING section in pv(1).
+format_string: '{{ format_string | default("") }}'
+
+# Output modifiers
+# Display and interpret suffixes as multiples of 1000 (SI) rather than 1024 (IEC).
+# Corresponds to --si.
+si_units: {{ si_units | default(false) | ternary('true', 'false') }}
+
+# Wait until first byte transferred before showing progress
+# Wait until the first byte has been transferred before showing progress or calculating ETAs.
+# Corresponds to --wait.
+wait_for_first_byte: {{ wait_for_first_byte | default(false) | ternary('true', 'false') }}
+
+# Delay start in seconds
+# Wait this many seconds before showing progress. Can be decimal.
+# Corresponds to --delay-start.
+delay_start: {{ delay_start | default(0) }}
+
+# Assume total data size is SIZE bytes
+# Total amount of data to be transferred in bytes. Suffixes K, M, G, T supported.
+# Can start with @ to specify a filename. Corresponds to --size.
+total_size: '{{ total_size | default("") }}'
+
+# Use bits instead of bytes for counters (suffix 'b')
+# Use bits instead of bytes for counters. Corresponds to --bits.
+use_bits: {{ use_bits | default(false) | ternary('true', 'false') }}
+
+# Count lines instead of bytes
+# Count lines instead of bytes. Corresponds to --line-mode.
+line_mode: {{ line_mode | default(false) | ternary('true', 'false') }}
+
+# Update interval in seconds (can be decimal)
+# Seconds between updates. Can be decimal. Corresponds to --interval.
+update_interval: {{ update_interval | default(1) }}
+
+# Average rate window in seconds (integer)
+# Seconds window for average rate calculation. Must be integer. Corresponds to --average-rate-window.
+average_rate_window: {{ average_rate_window | default(30) }}
+
+# Terminal width (columns)
+# Assume terminal width in columns. 0 means auto-detect. Corresponds to --width.
+terminal_width: {{ terminal_width | default(0) }}
+
+# Terminal height (rows)
+# Assume terminal height in rows. 0 means auto-detect. Corresponds to --height.
+terminal_height: {{ terminal_height | default(0) }}
+
+# Name prefix for output
+# Prefix the output information with NAME. Corresponds to --name.
+name_prefix: '{{ name_prefix | default("") }}'
+
+# Progress bar style: plain, block, granular, or shaded
+# Progress bar style: plain, block, granular, or shaded. Corresponds to --bar-style.
+bar_style: '{{ bar_style | default("plain") }}'
+
+# Data transfer modifiers
+# Write data to FILE instead of standard output. Corresponds to --output.
+output_file: '{{ output_file | default("") }}'
+
+# Limit transfer rate to RATE bytes per second
+# Maximum transfer rate in bytes per second. Suffixes K, M, G, T supported.
+# Corresponds to --rate-limit.
+rate_limit: '{{ rate_limit | default("") }}'
+
+# Transfer buffer size in bytes
+# Transfer buffer size in bytes. Suffixes K, M, G, T supported.
+# Corresponds to --buffer-size.
+buffer_size: '{{ buffer_size | default("") }}'
+
+# Never use splice(2) system call
+# Never use splice(2) system call. Corresponds to --no-splice.
+no_splice: {{ no_splice | default(false) | ternary('true', 'false') }}
+
+# Show last NUM bytes written
+# Show the last NUM bytes written. Corresponds to --last-written.
+last_written_bytes: {{ last_written_bytes | default(0) }}
+
+# Ignore read errors by skipping past offending sections
+# Ignore read errors by skipping past offending sections. Corresponds to --skip-errors.
+skip_errors: {{ skip_errors | default(false) | ternary('true', 'false') }}
+
+# Error skip block size (when using skip_errors)
+# Error skip block size when using skip_errors. Suffixes K, M, G, T supported.
+# Corresponds to --error-skip-block.
+error_skip_block: '{{ error_skip_block | default("") }}'
+
+# Stop transferring once SIZE bytes have been written (if --size was used)
+# Stop transferring once total_size bytes have been written. Corresponds to --stop-at-size.
+stop_at_size: {{ stop_at_size | default(false) | ternary('true', 'false') }}
+
+# Synchronise buffer caches to disk with fdatasync(2)
+# Synchronise buffer caches to disk after every write. Corresponds to --sync.
+sync_output: {{ sync_output | default(false) | ternary('true', 'false') }}
+
+# Set O_DIRECT flag on inputs/outputs
+# Set O_DIRECT flag on inputs/outputs. Corresponds to --direct-io.
+direct_io: {{ direct_io | default(false) | ternary('true', 'false') }}
+
+# Alternative operating modes
+# Watch file descriptor FD of process PID. Format: PID:FD or just PID.
+# Corresponds to --watchfd.
+watch_fd: '{{ watch_fd | default("") }}'
+
+# Remotely control another pv instance with process ID PID
+# Remotely control another pv instance with this process ID. Corresponds to --remote.
+remote_pid: {{ remote_pid | default(0) }}

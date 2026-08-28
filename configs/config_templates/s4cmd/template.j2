@@ -1,0 +1,57 @@
+# s4cmd configuration file
+# Self-documented by Ansible Jinja2 template
+
+# The section header for the configuration file. Defaults to 'default'.
+[{{ (config | default({'section': 'default'})).section | default('default') }}]
+
+# S3 endpoint host. Used for access_host if endpoint_url is not provided.
+# Defaults to AWS public S3 endpoint. Override for S3-compatible services (MinIO, Ceph, etc.).
+access_host={{ (config | default({'endpoint_url': 's3.amazonaws.com'})).endpoint_url | default('s3.amazonaws.com') }}
+
+# AWS Access Key ID.
+# Empty string disables static key config if not passed via args.
+aws_access_key_id={{ (config | default({'access_key': ''})).access_key | default('') }}
+
+# AWS Secret Access Key.
+# Empty string disables static key config if not passed via args.
+aws_secret_access_key={{ (config | default({'secret_key': ''})).secret_key | default('') }}
+
+# Number of concurrent threads for S3 operations.
+# Controls parallelism for uploads/downloads.
+num_threads={{ (config | default({'num_threads': 8})).num_threads | default(8) }}
+
+# Number of retries before giving up on a failed operation.
+retry={{ (config | default({'retry': 2})).retry | default(2) }}
+
+# Seconds to sleep between retries.
+retry_delay={{ (config | default({'retry_delay': 2})).retry_delay | default(2) }}
+
+# Size in bytes to split multipart transfers (default 15MB).
+multipart_split_size={{ (config | default({'multipart_split_size': 15728640})).multipart_split_size | default(15728640) }}
+
+# Max file size in bytes for singlepart downloads.
+max_singlepart_download_size={{ (config | default({'max_singlepart_download_size': 15728640})).max_singlepart_download_size | default(15728640) }}
+
+# Max file size in bytes for singlepart uploads.
+max_singlepart_upload_size={{ (config | default({'max_singlepart_upload_size': 15728640})).max_singlepart_upload_size | default(15728640) }}
+
+# Max file size in bytes for singlepart copies.
+max_singlepart_copy_size={{ (config | default({'max_singlepart_copy_size': 15728640})).max_singlepart_copy_size | default(15728640) }}
+
+# Number of files (<1000) to be combined in batch delete.
+batch_delete_size={{ (config | default({'batch_delete_size': 10})).batch_delete_size | default(10) }}
+
+# Canonical name for the user (for ACLs).
+user_canonical_name={{ (config | default({'user_canonical_name': ''})).user_canonical_name | default('') }}
+
+# Canonical ID for the user (for ACLs).
+user_canonical_id={{ (config | default({'user_canonical_id': ''})).user_canonical_id | default('') }}
+
+# Use SSL connection to S3.
+use_ssl={{ (config | default({'use_ssl': true})).use_ssl | default(true) | lower }}
+
+# Verbosity level: 0=quiet, 1=verbose, 2=debug.
+verbose={{ (config | default({'verbose': 0})).verbose | default(0) }}
+
+# Enable debug output.
+debug={{ (config | default({'debug': false})).debug | default(false) | lower }}

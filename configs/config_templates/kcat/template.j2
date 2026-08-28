@@ -1,0 +1,87 @@
+# kcat configuration
+# Note: kcat is primarily a command-line tool. This configuration file
+# serves as a wrapper script or environment configuration generator.
+# For persistent producer/consumer behavior, arguments are passed via CLI.
+# This template generates a script that runs kcat with specified defaults.
+
+#!/bin/bash
+# Generated kcat wrapper script
+
+# Kafka broker connection string
+BROKERS="{{ brok }}"
+
+# Operation mode: C (Consumer), P (Producer), L (List/Metadata)
+MODE="{{ mode }}"
+
+# Target topic (required for C, P, L modes)
+TOPIC="{{ topic }}"
+
+# Partition (optional, -1 for all, or specific integer)
+PARTITION="{{ partition }}"
+
+# Message delimiter for input (Producer) or output (Consumer)
+DELIM="{{ delim }}"
+
+# Key delimiter (if messages have keys)
+KEY_DELIM="{{ key_delim }}"
+
+# Compression type (none, snappy, gzip)
+COMPRESSION="{{ compression }}"
+
+# Security/Authentication properties (Kafka client config)
+# Each item in the list becomes an -X key=value argument
+{% for prop in security_props %}
+# Security property: {{ prop.name }}={{ prop.value }}
+SECURITY_ARGS="$SECURITY_ARGS -X {{ prop.name }}={{ prop.value }}"
+{% endfor %}
+
+# Construct the kcat command
+cmd="kcat"
+cmd="$cmd -b $BROKERS"
+
+if [ "$MODE" = "C" ]; then
+    cmd="$cmd -C"
+elif [ "$MODE" = "P" ]; then
+    cmd="$cmd -P"
+    {% if compression != 'none' %}
+    cmd="$cmd -z {{ compression }}"
+    {% endif %}
+elif [ "$MODE" = "L" ]; then
+    cmd="$cmd -L"
+else
+    echo "Error: MODE must be C, P, or L"
+    exit 1
+fi
+
+if [ -n "$TOPIC" ]; then
+    cmd="$cmd -t $TOPIC"
+fi
+
+if [ -n "$PARTITION" ]; then
+    cmd="$cmd -p $PARTITION"
+fi
+
+{% if delim != '\\n' %}
+# Consumer/Producer delimiter
+if [ "$MODE" = "C" ]; then
+    cmd="$cmd -D $DELIM"
+else
+    cmd="$cmd -D $DELIM"
+fi
+{% endif %}
+
+{% if key_delim %}
+# Key delimiter for producer
+if [ "$MODE" = "P" ]; then
+    cmd="$cmd -K $KEY_DELIM"
+fi
+{% endif %}
+
+# Append security properties
+cmd="$cmd $SECURITY_ARGS"
+
+echo "Running: $cmd"
+# Execute the command
+# eval is used here to properly expand the constructed string
+# In production, consider passing arguments directly to avoid eval risks
+$cmd

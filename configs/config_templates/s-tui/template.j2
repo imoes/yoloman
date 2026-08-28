@@ -1,0 +1,92 @@
+# =============================================================================
+# S-TUI Configuration Template
+# =============================================================================
+# This file configures the `s-tui` (Stress-TUI) monitoring tool.
+# It uses an INI-style format with sections: [general], [cpu], [sensors].
+#
+# Variables are sourced from Ansible inventory/vars. All variables have
+# safe defaults applied via the `| default()` Jinja2 filter to prevent
+# render failures if a role variable is undefined.
+# =============================================================================
+
+[general]
+
+# -----------------------------------------------------------------------------
+# Enable debug mode to output logs to _s-tui.log or a custom debug file.
+# If true, s-tui will write verbose diagnostic information to the file
+# specified by debug_file.
+# Type: boolean
+# -----------------------------------------------------------------------------
+debug = {{ debug | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Path to the custom debug log file.
+# Only used if debug is enabled. Defaults to _s-tui.log in the current
+# working directory unless overridden.
+# Type: string (file path)
+# -----------------------------------------------------------------------------
+debug_file = {{ debug_file | default('_s-tui.log') }}
+
+# -----------------------------------------------------------------------------
+# Enable saving statistics to a CSV file.
+# If true, s-tui will export its monitoring data to csv_file in CSV format.
+# Type: boolean
+# -----------------------------------------------------------------------------
+csv_enabled = {{ csv_enabled | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Path to the custom CSV log file.
+# Only used if csv_enabled is true. Defaults to s-tui_log.csv.
+# Type: string (file path)
+# -----------------------------------------------------------------------------
+csv_file = {{ csv_file | default('s-tui_log.csv') }}
+
+# -----------------------------------------------------------------------------
+# Disable mouse support for TTY systems.
+# Set to true if running s-tui in a terminal emulator where mouse events
+# interfere with the UI or if the terminal does not support mouse tracking.
+# Type: boolean
+# -----------------------------------------------------------------------------
+no_mouse = {{ no_mouse | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# High temperature threshold in Celsius.
+# When a monitored CPU temperature exceeds this value, s-tui may alert
+# visually. Used for threshold-based highlighting in the TUI.
+# Type: integer
+# -----------------------------------------------------------------------------
+t_threshold = {{ t_threshold | default(80) }}
+
+[cpu]
+
+# -----------------------------------------------------------------------------
+# List of CPU core indices to monitor.
+# If this list is empty, s-tui monitors all available CPU cores by default.
+# If populated, only the specified core indices will be tracked.
+# Example: [0, 1, 2, 3]
+# Type: list of integers
+# -----------------------------------------------------------------------------
+# Render the list as a comma-separated string of integers if populated,
+# otherwise empty. s-tui expects a space or comma separated list in the config.
+cores = {% if cores | default([]) | length > 0 %}{{ cores | default([]) | join(', ') }}{% else %}{% endif %}
+
+[sensors]
+
+# -----------------------------------------------------------------------------
+# List of custom temperature sensor strings to monitor.
+# Format: "<sensor_bus>,<index>" (e.g., "it8792,0" for temp1).
+# Allows monitoring non-standard or hidden thermal zones exposed by
+# hardware monitoring drivers.
+# See s-tui man page for details on -ct flag.
+# Type: list of strings
+# -----------------------------------------------------------------------------
+custom_temperatures = {% if custom_temperatures | default([]) | length > 0 %}{{ custom_temperatures | default([]) | join(', ') }}{% else %}{% endif %}
+
+# -----------------------------------------------------------------------------
+# List of custom fan sensor strings to monitor.
+# Format: "<sensor_bus>,<index>" (e.g., "thinkpad,0" for fan1).
+# Allows monitoring non-standard or hidden fan speed sensors.
+# See s-tui man page for details on -cf flag.
+# Type: list of strings
+# -----------------------------------------------------------------------------
+custom_fans = {% if custom_fans | default([]) | length > 0 %}{{ custom_fans | default([]) | join(', ') }}{% else %}{% endif %}

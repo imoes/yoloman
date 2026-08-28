@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# pgreplay execution configuration and command builder
+# ==============================================================================
+# This template generates a Python script to run pgreplay against a PostgreSQL
+# log file. It supports two modes:
+#   1. Parse mode (when outfile is set): extracts SQL statements to a file.
+#   2. Replay mode (default): executes the SQL against a target database.
+#
+# All configuration variables are sourced from Ansible/Jinja2 context with
+# safe defaults derived from the schema.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Configuration Variables
+# ------------------------------------------------------------------------------
+
+# Path to the PostgreSQL log file or replay file to process.
+LOG_FILE = '{{ log_file | default("/var/log/postgresql/postgresql-15-main.log") }}'
+
+# Target database host (PGHOST).
+# Empty string uses local socket; otherwise specifies the TCP host.
+DB_HOST = '{{ db_host | default("") }}'
+
+# Target database port (PGPORT).
+DB_PORT = {{ db_port | default(5432) }}
+
+# Replay speed factor (-s).
+# >1 for fast forward, <1 for slow motion.
+SPEED_FACTOR = {{ speed_factor | default(1.0) }}
+
+# Connection password for the target database (-W).
+# Empty string implies trust/no password.
+DB_PASSWORD = '{{ db_password | default("") }}'
+
+# Log file start timestamp filter (-b).
+# Format: YYYY-MM-DD HH:MM:SS.FFF.
+START_TIME = '{{ start_time | default("") }}'
+
+# Log file end timestamp filter (-e).
+# Format: YYYY-MM-DD HH:MM:SS.FFF.
+END_TIME = '{{ end_time | default("") }}'
+
+# Use CSV log format (-c).
+USE_CSV = {{ use_csv | default(True) | lower }}
+
+# Debug trace level (-d).
+# Allowed values: 0 (none), 1-3 (increasing verbosity).
+DEBUG_LEVEL = {{ debug_level | default(0) }}
+
+# Output replay file name (-o) for parse mode.
+# Empty string implies replay mode.
+OUTFILE = '{{ outfile | default("") }}'
+
+# Skip idle time to speed up replay (-j).
+SKIP_IDLE = {{ skip_idle | default(False) | lower }}
+
+# Client encoding for the log file (-E).
+ENCODING = '{{ encoding | default("UTF8") }}'
+
+# Treat backslash as escape in literals (-q) for older DB versions.
+ESCAPE_QUOTES = {{ escape_quotes | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# Command Construction Logic
+# ------------------------------------------------------------------------------
+
+cmd = ['pgreplay']
+
+# Determine mode: Parse vs Replay based on whether an output file is specified.
+{% if (outfile | default("")) %}
+    # Parse mode: extract SQL to outfile.
+    cmd.append('-f')
+    
+    # Use CSV log format if enabled.
+    {% if (use_csv | default(True)) %}
+        cmd.append('-c')
+    {% endif %}
+
+    # Start timestamp filter if provided.
+    {% if (start_time | default("")) %}
+        cmd.append('-b')
+        cmd.append('{{ start_time | default("") }}')
+    {% endif %}
+
+    # End timestamp filter if provided.
+    {% if (end_time | default("")) %}
+        cmd.append('-e')
+        cmd.append('{{ end_time | default("") }}')
+    {% endif %}
+
+    # Escape backslash in literals for older server versions if enabled.
+    {% if (escape_quotes | default(False)) %}
+        cmd.append('-q')
+    {% endif %}
+
+    # Output file argument.
+    cmd.append('-o')
+    cmd.append('{{ outfile | default("") }}')
+
+    # Input log file argument.
+    cmd.append('{{ log_file | default("/var/log/postgresql/postgresql-15-main.log") }}')
+
+{% else %}
+    # Replay mode: execute SQL from log or replay file.
+    cmd.append('-r')
+
+    # Target host (-h) if explicitly set.
+    {% if (db_host | default("")) %}
+        cmd.append('-h')
+        cmd.append('{{ db_host | default("") }}')
+    {% endif %}
+
+    # Target port (-p) if non-default.
+    {% if (db_port | default(5432)) != 5432 %}
+        cmd.append('-p')
+        cmd.append('{{ db_port | default(5432) }}')
+    {% endif %}
+
+    # Password (-W) if explicitly set.
+    {% if (db_password | default("")) %}
+        cmd.append('-W')
+        cmd.append('{{ db_password | default("") }}')
+    {% endif %}
+
+    # Speed factor (-s).
+    cmd.append('-s')
+    cmd.append('{{ speed_factor | default(1.0) }}')
+
+    # Client encoding (-E) if explicitly set.
+    {% if (encoding | default("UTF8")) %}
+        cmd.append('-E')
+        cmd.append('{{ encoding | default("UTF8") }}')
+    {% endif %}
+
+    # Skip idle time (-j) if enabled.
+    {% if (skip_idle | default(False)) %}
+        cmd.append('-j')
+    {% endif %}
+
+    # Debug level (-d) if greater than 0.
+    {% if (debug_level | default(0)) > 0 %}
+        cmd.append('-d')
+        cmd.append('{{ debug_level | default(0) }}')
+    {% endif %}
+
+    # Input log file argument.
+    cmd.append('{{ log_file | default("/var/log/postgresql/postgresql-15-main.log") }}')
+
+{% endif %}
+
+# Print the constructed command for execution/verification.
+print('Executing:', ' '.join(cmd))

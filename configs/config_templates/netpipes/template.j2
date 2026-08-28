@@ -1,0 +1,108 @@
+#!/bin/sh
+# =============================================================================
+# netpipes 'faucet' Configuration Script
+# =============================================================================
+#
+# Self-documenting configuration for the 'faucet' utility from the netpipes suite.
+# 'faucet' acts as a simple TCP proxy/server. It listens for incoming connections
+# on a specified port and either forwards them to a foreign host/port or executes
+# a local command for each accepted connection.
+#
+# This script generates a shell-compatible environment for running 'faucet'.
+# All variables are derived from the Ansible role variables with safe defaults.
+#
+# See 'man faucet' for detailed documentation on the underlying utility behavior.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Port Configuration
+# -----------------------------------------------------------------------------
+
+# The TCP port to listen on for incoming connections.
+# This is the primary entry point for clients connecting to this proxy.
+# Source: faucet SYNOPSIS [--port port]
+PORT={{ port | default(3000) }}
+
+# -----------------------------------------------------------------------------
+# Bind Address Configuration
+# -----------------------------------------------------------------------------
+
+# The local IP address to bind to.
+# Setting this to '0.0.0.0' allows connections from all network interfaces.
+# Setting to '127.0.0.1' restricts access to the local loopback interface.
+# Source: faucet SYNOPSIS [--localhost addr]
+LOCALHOST={{ localhost | default('127.0.0.1') }}
+
+# -----------------------------------------------------------------------------
+# Forwarding / Client Mode Configuration
+# -----------------------------------------------------------------------------
+
+# Remote host address. Used when faucet acts as a client or proxy.
+# If empty (default), faucet runs in server mode only (listening locally).
+# If set, connections are forwarded to this host.
+# Source: faucet SYNOPSIS [--foreignhost addr]
+FOREIGN_HOST={{ foreign_host | default('') }}
+
+# Remote port address. Used when faucet acts as a client or proxy.
+# Only meaningful if FOREIGN_HOST is also set.
+# 0 means no remote port is specified (used in pure server mode).
+# Source: faucet SYNOPSIS [--foreignport port]
+FOREIGN_PORT={{ foreign_port | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Connection Queue Configuration
+# -----------------------------------------------------------------------------
+
+# Maximum length of the queue of pending connections.
+# This corresponds to the listen(2) backlog parameter in the OS kernel.
+# If the queue fills up, new connections may be refused until space frees up.
+# Source: faucet SYNOPSIS [--backlog n]
+BACKLOG={{ backlog | default(5) }}
+
+# -----------------------------------------------------------------------------
+# Execution Control Configuration
+# -----------------------------------------------------------------------------
+
+# Enable verbose output/logging.
+# When true, faucet prints connection details, errors, and status messages to stderr.
+# Useful for debugging connection issues.
+# Source: faucet SYNOPSIS [--verbose]
+# Note: We pass the boolean value as a string flag for shell compatibility.
+VERBOSE={{ verbose | default(False) | lower }}
+
+# Run the process in the background.
+# When true, faucet detaches from the controlling terminal and forks.
+# Requires write permissions to the directory specified in PIDFILE.
+# Source: faucet SYNOPSIS [--daemon]
+DAEMON={{ daemon | default(False) | lower }}
+
+# Path to the file where the process ID will be stored.
+# Only used when DAEMON is enabled.
+# The directory must exist and be writable by the user running the process.
+# Source: faucet SYNOPSIS [--pidfile filename]
+PIDFILE={{ pidfile | default('/var/run/netpipes-faucet.pid') }}
+
+# -----------------------------------------------------------------------------
+# Command Execution Configuration
+# -----------------------------------------------------------------------------
+
+# The command to execute when a connection is accepted.
+# If FOREIGN_HOST and FOREIGN_PORT are set, this command's stdin/stdout
+# are typically not used (data flows through the network).
+# If FOREIGN_* are empty, this command runs locally for each connection.
+# 'cat' is the default, effectively acting as a transparent pipe for the connection.
+# Source: faucet SYNOPSIS command args
+COMMAND={{ command | default('cat') }}
+
+# Arguments to pass to the command. Items should be strings.
+# These are appended to COMMAND when executing.
+# The list is joined into a space-separated string for shell parsing.
+# Source: faucet SYNOPSIS command args
+ARGS={{ args | default([]) | join(' ') }}
+
+# =============================================================================
+# End of Configuration
+# =============================================================================
+# To run: env $(grep -v '^#' "$0" | tr '\n' ' ') faucet
+# Or source this file and call faucet with the variables.
+# =============================================================================

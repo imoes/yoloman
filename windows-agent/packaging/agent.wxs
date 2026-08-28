@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE AGENT AS AN MSI — milestone 7b of docs/windows-management.md.
+
+  WHY AN MSI AT ALL, when install-agent.ps1 already installs the agent correctly: a script leaves no trace
+  Windows itself tracks. An MSI is in Programs and Features, it has a version Windows compares on upgrade, it
+  uninstalls by product code, and — the one that matters for a fleet — it can be deployed by every mechanism
+  that already exists for Windows software (GPO software installation, Intune, SCCM, `msiexec /qn`). The
+  PowerShell installer stays: it is what a human runs on one host, and it is what this package's own custom
+  action would otherwise have to duplicate.
+
+  WHAT IT DOES NOT DO, deliberately:
+  - it does NOT enrol. Enrolment happens when the agent starts with BOSSMAN_URL set, which is one
+    implementation in the agent rather than a second one in a custom action.
+  - it does NOT open the firewall. The agent does that itself at startup (WindowsFirewall.EnsurePortOpen),
+    because the port it needs is the port it was configured with, and only the process knows that.
+  - it does NOT remove the state directory on uninstall. The TLS certificate and Bossman's pinned key live
+    there; dropping them turns "reinstall the agent" into "re-enrol the host", which is a different decision.
+
+  CONFIGURATION IS PASSED ON THE COMMAND LINE and written to the SERVICE's own environment, not the machine's:
+      msiexec /i agentic-mcp-agent.msi /qn AGENT_NAME=web01 AGENT_TOKEN=... BOSSMAN_URL=http://bossman:8123 AGENT_WRITE=true
+  A machine-wide AGENT_TOKEN would be readable by everything on the host and would follow any other process
+  that happened to look for it.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="yoloman agent (agentic-mcp)"
+           Manufacturer="yoloman"
+           Version="$(var.AgentVersion)"
+           UpgradeCode="6f2b7c14-9a3d-4c58-8b21-0e9f4d7a1c30"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <!-- ONE CAB, INSIDE THE MSI. A folder of loose files next to the package is a folder somebody copies
+         without, and then the install fails at the point of no return. -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- An upgrade REPLACES; it never installs a second copy beside the first. AllowSameVersionUpgrades so a
+         rebuilt package of the same version can be pushed during development without a version dance. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of the yoloman agent is already installed. Uninstall it first if you really mean to go back." />
+
+    <!-- Windows Server 2016 and up (the versions the agent's .NET 10 runtime supports at all). Refused HERE
+         rather than failing later: a service that cannot start is a much worse answer than a package that
+         says why it will not install. -->
+    <Launch Condition="Installed OR (VersionNT &gt;= 603)"
+            Message="The yoloman agent needs Windows Server 2016 or newer." />
+
+    <!-- The values an operator passes. Defaults are the SAFE half of each decision: no Bossman to enrol
+         against, and the write gate CLOSED — a host that can be changed by whoever reaches it, before anybody
+         decided that, is not a safe default. -->
+    <Property Id="AGENT_NAME" Secure="yes" />
+    <Property Id="AGENT_TOKEN" Secure="yes" />
+    <Property Id="AGENT_LISTEN" Value="0.0.0.0:8051" Secure="yes" />
+    <Property Id="AGENT_ADDRESS" Secure="yes" />
+    <Property Id="BOSSMAN_URL" Secure="yes" />
+    <Property Id="AGENT_WRITE" Value="false" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="agentic-mcp" />
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="StateParent" Name="agentic-mcp">
+        <Directory Id="STATEFOLDER" Name="state" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- The state directory is CREATED by the package (so its ACL is the one Windows gives ProgramData) and
+         left behind on uninstall, per the note at the top. -->
+    <ComponentGroup Id="StateGroup" Directory="STATEFOLDER">
+      <Component Id="StateDirectory" Guid="1c4e9b77-2f6a-4d31-9c0e-5b8a3f2d6e41" Permanent="yes">
+        <CreateFolder />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\yoloman\agentic-mcp" Name="StateDir"
+                       Value="[STATEFOLDER]" Type="string" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- The service, and its environment. ServiceInstall does not carry environment variables, so they go
+         where the SCM reads them from: the service's own key. Written by the package so an upgrade rewrites
+         them and an uninstall takes them with it. -->
+    <ComponentGroup Id="ServiceGroup" Directory="INSTALLFOLDER">
+      <Component Id="AgentService" Guid="4a7d2e58-8c1b-4f96-ae3d-7b2c9f01a5d8">
+        <File Id="AgentExe" Source="$(var.PublishDir)\AgenticMcp.Agent.Host.exe" KeyPath="yes" />
+
+        <ServiceInstall Id="AgentServiceInstall"
+                        Name="agentic-mcp-agent"
+                        DisplayName="yoloman agent (agentic-mcp)"
+                        Description="Reports this host to Bossman and executes its modules. Read-only unless AGENT_WRITE=true."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <!-- Restart three times, then stop trying: an agent that crash-loops forever looks alive to the
+               SCM and answers nothing, and the poller's "unreachable" is the honest signal for that. -->
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="none"
+                              RestartServiceDelayInSeconds="5"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="AgentServiceControl" Name="agentic-mcp-agent"
+                        Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+
+        <RegistryValue Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\agentic-mcp-agent"
+                       Name="Environment" Type="multiString" Action="write">
+          <MultiStringValue Value="AGENT_NAME=[AGENT_NAME]" />
+          <MultiStringValue Value="AGENT_TOKEN=[AGENT_TOKEN]" />
+          <MultiStringValue Value="AGENT_LISTEN=[AGENT_LISTEN]" />
+          <MultiStringValue Value="AGENT_ADDRESS=[AGENT_ADDRESS]" />
+          <MultiStringValue Value="AGENT_STATE_DIR=[STATEFOLDER]" />
+          <MultiStringValue Value="AGENT_WRITE=[AGENT_WRITE]" />
+          <MultiStringValue Value="BOSSMAN_URL=[BOSSMAN_URL]" />
+        </RegistryValue>
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="yoloman agent" Level="1">
+      <ComponentGroupRef Id="ServiceGroup" />
+      <ComponentGroupRef Id="StateGroup" />
+      <!-- Every other published file, generated by build-msi.py from the publish output: a self-contained
+           .NET agent is ~450 files including PowerShell's module tree, and a hand-written list would be a
+           list that is wrong after the next build. -->
+      <ComponentGroupRef Id="PayloadGroup" />
+    </Feature>
+  </Package>
+</Wix>

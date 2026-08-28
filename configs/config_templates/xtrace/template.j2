@@ -1,0 +1,105 @@
+# ==============================================================================
+# xtrace configuration template
+# ==============================================================================
+# xtrace is an X protocol tracer/debugger that intercepts X11 connections.
+# It sits between a real X server and X clients, forwarding requests and
+# optionally logging them.
+#
+# This file contains environment-style variables used by the xtrace daemon.
+# All variables are self-documented with their schema description and default
+# values. Ensure all defaults are explicitly provided to guarantee idempotent
+# rendering.
+# ==============================================================================
+
+# The display name of the real X server to forward connections to
+# (e.g., ':0' or 'localhost:1'). Empty string uses the $DISPLAY environment
+# variable.
+# Corresponds to -d / --display.
+DISPLAY={{ display | default('') }}
+
+# The display name for the faked X server that listens for incoming clients.
+# Empty string uses $FAKEDISPLAY or defaults to ':9'.
+# Corresponds to -D / --fakedisplay.
+FAKEDISPLAY={{ fakedisplay | default(':9') }}
+
+# The path to the xauth file for retrieving authentication tokens from the
+# real X server. If empty, xtrace uses $XAUTHORITY or ~/.Xauthority.
+# Corresponds to -f / --authfile.
+AUTHFILE={{ authfile | default('') }}
+
+# The path to the xauth file where authentication tokens for the faked
+# server are saved. If empty, tokens are copied automatically from the real
+# server file.
+# Corresponds to -F / --newauthfile.
+NEW_AUTHFILE={{ new_authfile | default('') }}
+
+# If true, copy MIT-MAGIC-COOKIE-1 authentication tokens from the real
+# server to the faked server.
+# Corresponds to -c / --copyauthentication.
+COPY_AUTH={{ copy_authentication | default(true) | lower }}
+
+# If true, modify server replies to claim that no X extensions are
+# available to clients (strict X11 base protocol only).
+# Corresponds to -e / --denyextensions.
+DENY_EXTENSIONS={{ deny_extensions | default(false) | lower }}
+
+# If true, print byte counts for X11 protocol reads and writes (debugging).
+# Corresponds to -w / --readwritedebug.
+READ_WRITE_DEBUG={{ read_write_debug | default(false) | lower }}
+
+# If true, enable interactive mode. xtrace will require stdin confirmation
+# for each intercepted client request.
+# Corresponds to -i / --interactive.
+INTERACTIVE={{ interactive | default(false) | lower }}
+
+# The output filename to dump the X11 trace log into. If empty, traces
+# are written to standard output.
+# Corresponds to -o / --outfile.
+OUTFILE={{ outfile | default('') }}
+
+# If true, use buffered output for the trace file (waits for buffers to
+# fill before flushing).
+# Corresponds to -b / --buffered.
+BUFFERED={{ buffered | default(false) | lower }}
+
+# The type of timestamps to include in trace output. Valid values:
+# 'standard' (wall-clock time), 'relative' (time since start), or 'monotonic'
+# (monotonic clock).
+# Corresponds to --timestamps flags.
+TIMESTAMPS={{ timestamps | default('standard') }}
+
+# If true, print field offsets in the trace output for debugging protocol
+# structure descriptions.
+# Corresponds to --print-offsets.
+PRINT_OFFSETS={{ print_offsets | default(false) | lower }}
+
+# If true, print list counts in the trace output for debugging protocol
+# structure descriptions.
+# Corresponds to --print-counts.
+PRINT_COUNTS={{ print_counts | default(false) | lower }}
+
+# The maximum number of elements to print from X11 lists. Set to 0 for
+# no limit.
+# Corresponds to -m / --maxklistlength.
+MAX_KLIST_LENGTH={{ max_klist_length | default(0) }}
+
+# If true, keep the faked X server process running even after all connected
+# clients have disconnected.
+# Corresponds to -k / --keeprunning.
+KEEP_RUNNING={{ keep_running | default(false) | lower }}
+
+# If true, wait for a client connection if the launched COMMAND exits
+# immediately. Prevents xtrace from terminating prematurely.
+# Corresponds to -W / --waitforclient.
+WAIT_FOR_CLIENT={{ wait_for_client | default(false) | lower }}
+
+# The directory containing .proto description files for the X11 protocol.
+# Used to customize trace output parsing. If empty, uses default locations.
+# Corresponds to -I.
+PROTOCOL_DIR={{ protocol_dir | default('') }}
+
+# The shell command to execute with the faked DISPLAY environment variable
+# set. If empty, xtrace runs in daemon mode, merely forwarding existing
+# connections without launching a new process.
+# Corresponds to -c / --command.
+COMMAND={{ command | default('') }}

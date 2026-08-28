@@ -6,6 +6,7 @@ actually runs (see bossman/main.py, bossman/db/session.py).
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi import Depends
 from fastapi.testclient import TestClient
@@ -24,7 +25,7 @@ def _make_app(monkeypatch, jwt_secret="test-secret-at-least-32-bytes-long"):
 
 async def test_login_success_returns_jwt(monkeypatch, db_session):
     app = _make_app(monkeypatch)
-    user = new_bossman_user(f"alice-{uuid.uuid4().hex[:8]}", "s3cret!", role="admin")
+    user = new_bossman_user(owned_name("alice"), "s3cret!", role="admin")
     db_session.add(user)
     await db_session.flush()
     await db_session.commit()
@@ -69,7 +70,7 @@ def _protected_test_app(monkeypatch, jwt_secret="test-secret-at-least-32-bytes-l
 
 async def test_protected_route_accepts_jwt_from_login(monkeypatch, db_session):
     app = _protected_test_app(monkeypatch)
-    user = new_bossman_user(f"carol-{uuid.uuid4().hex[:8]}", "s3cret!", role="operator")
+    user = new_bossman_user(owned_name("carol"), "s3cret!", role="operator")
     db_session.add(user)
     await db_session.flush()
     await db_session.commit()

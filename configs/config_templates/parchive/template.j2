@@ -1,0 +1,57 @@
+# ==============================================================================
+# parchive Configuration Template
+# ==============================================================================
+# This configuration drives the parchive (par v1.0) utility for creating and
+# managing parity volumes used for data integrity verification and recovery.
+# The settings below map directly to command-line options for automated parity
+# generation and maintenance scripts.
+# ==============================================================================
+
+# source_dir (string): The directory containing the source files to be protected
+# by parchive. This is the root path that will be scanned for files matching
+# the 'file_extensions' criteria.
+# Corresponds to the target directory in par commands.
+source_dir: {{ source_dir | default('/var/lib/par/archive') }}
+
+# parity_dir (string): The directory where the generated .par parity volumes
+# will be stored. Parity files are created alongside or within this directory.
+# Corresponds to the output directory for parity data.
+parity_dir: {{ parity_dir | default('/var/lib/par/parity') }}
+
+# num_parity_volumes (integer): Number of parity volumes to create. This allows
+# recovery of 'X' missing source volumes given 'X' parity volumes. Higher values
+# increase storage overhead but improve redundancy against multiple file losses.
+# Corresponds to the '-n' flag in parchive.
+num_parity_volumes: {{ num_parity_volumes | default(2) }}
+
+# verbosity (integer): Verbosity level for parchive output/logging.
+# 0: Errors only
+# 1: Standard informational output
+# 2+: Debug/detailed output
+# Corresponds to the '-v' flag in parchive.
+verbosity: {{ verbosity | default(0) }}
+
+# action (string): The primary parchive operation to perform.
+# Options:
+#   - 'add': Create or update parity files for the source directory.
+#   - 'check': Verify the integrity of source files against existing parity.
+#   - 'recover': Restore missing or corrupted source files using parity.
+# Corresponds to the sub-command mode of parchive.
+action: {{ action | default('add') }}
+
+# file_extensions (list): List of file extensions to include in the parity
+# calculation. If this list is empty or omitted, all files in 'source_dir'
+# are included. This helps exclude temporary or log files from parity sets.
+# Corresponds to the file filter pattern in parchive.
+{% if file_extensions is defined and file_extensions | length > 0 %}
+file_extensions: {{ file_extensions | default(['.nzb', '.rar', '.zip']) }}
+{% else %}
+file_extensions: []
+{% endif %}
+
+# files_per_par_volume (integer): Number of source files to pack into a single
+# parity volume file. This controls the granularity of the parity data.
+# Lower values create more parity files but may improve recovery speed for
+# small sets of missing files; higher values reduce file system overhead.
+# Corresponds to the '-p' flag in parchive.
+files_per_par_volume: {{ files_per_par_volume | default(100) }}

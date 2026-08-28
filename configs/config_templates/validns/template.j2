@@ -1,0 +1,60 @@
+# validns configuration file
+# https://www.nlnetlabs.nl/projects/validns/
+#
+# This template is self-documenting. Every directive is preceded by its
+# schema description and flag mapping. All variables use inline defaults
+# to ensure safe rendering even when the caller omits them.
+
+# -f: Quit on first validation error.
+# Default: false (continue after errors)
+# Note: The original template had a bug here: it commented out the line
+# when quiet was true, but 'quiet' and 'quit_on_first_error' are distinct
+# directives in validns. We render both explicitly.
+quit_on_first_error = {{ quit_on_first_error | default(false) | lower }}
+
+# -q: Suppress all output (-q flag).
+# Default: false
+quiet = {{ quiet | default(false) | lower }}
+
+# -v: Produce extra verbose output (-v flag).
+# Default: false
+verbose = {{ verbose | default(false) | lower }}
+
+# -s: Print validation summary/stats (-s flag).
+# Default: false
+stats = {{ stats | default(false) | lower }}
+
+# -n: Number of worker threads for parallelization (-n flag).
+# Default: 0 (no parallelization)
+worker_threads = {{ worker_threads | default(0) }}
+
+# -M: Use SOA MINTTL as default TTL for records without explicit TTL (-M flag).
+# Default: false
+use_soa_minttl = {{ use_soa_minttl | default(false) | lower }}
+
+# -z: Initial $ORIGIN for the zone (-z flag).
+# Default: '' (empty string)
+# If empty, validns uses the zone file's $ORIGIN or current directory.
+origin = {{ origin | default('') }}
+
+# -I: Directory path for $INCLUDE directives (-I flag).
+# Default: '' (empty string)
+# If empty, includes are resolved relative to the current directory.
+include_path = {{ include_path | default('') }}
+
+# -t: List of epoch times for signature verification (-t flag).
+# Default: [] (empty list uses current time)
+# Can be specified multiple times; each entry becomes a 'time' directive.
+{% for t in verification_times | default([]) %}
+time = {{ t }}
+{% endfor %}
+
+# -p: List of policy check names to activate (-p flag).
+# Default: [] (empty list means no specific policies activated? Or all?
+# The schema says "Use 'all' for all standard checks". We render what is given.)
+# Valid policies: single-ns, cname-other-data, dname, dnskey, nsec3param-not-apex,
+# mx-alias, ns-alias, rp-txt-exists, tlsa-host, ksk-exists, smimea-host,
+# permit-starting-hyphen, all
+{% for policy in policies | default([]) %}
+policy = {{ policy }}
+{% endfor %}

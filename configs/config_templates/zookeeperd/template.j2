@@ -1,0 +1,27 @@
+# ZooKeeper configuration template
+# This template generates the JVM settings for ZooKeeper based on the provided schema.
+
+# -----------------------------------------------------------------------------
+# JMX Configuration
+# -----------------------------------------------------------------------------
+# jmxlocalonly: Whether to allow only local JMX connections for ZooKeeper.
+# Default: False
+# If set to true, JMX connections are restricted to localhost only.
+# This is a security best practice to prevent remote JMX exploitation.
+# The property is commented out by default in the original template, so we
+# ensure it is explicitly written.
+{%- if jmxlocalonly is defined %}
+JMXLOCALONLY={{ jmxlocalonly | default(False) | lower }}
+{%- else %}
+# By default JMX is allowed from local connections.
+#JMXLOCALONLY={{ jmxlocalonly | default(False) | lower }}
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# Java Options
+# -----------------------------------------------------------------------------
+# java_opts: Additional Java options passed to the ZooKeeper JVM.
+# Default: ''
+# Use this variable to pass custom JVM flags (e.g., memory settings, logging).
+# The value is wrapped in double quotes to handle spaces and special characters.
+JAVA_OPTS="{{ java_opts | default('') | string }}"

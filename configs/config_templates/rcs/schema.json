@@ -1,11 +1,49 @@
 {
-  "rcS_env_file": {
+  "default_runlevel": {
+    "default": "2",
+    "description": "Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode.",
+    "enum": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "s",
+      "S",
+      "single"
+    ],
     "type": "string",
-    "default": "/etc/default/rcS",
-    "description": "Path to optional environment configuration file sourced at boot."
+    "enum_open": true
+  },
+  "fsck_force": {
+    "default": false,
+    "description": "Force filesystem check even if filesystems appear clean.",
+    "type": "bool"
+  },
+  "hostname": {
+    "default": "",
+    "description": "System hostname to set during boot. Leave empty to skip hostname configuration.",
+    "type": "string"
+  },
+  "modules": {
+    "default": [],
+    "description": "List of kernel modules to load at boot.",
+    "items": {
+      "name": {
+        "description": "Module name (e.g., 'e1000e').",
+        "type": "string"
+      },
+      "options": {
+        "default": "",
+        "description": "Optional module parameters (e.g., 'Option1=1 Option2=2').",
+        "type": "string"
+      }
+    },
+    "type": "list"
   },
   "mount_points": {
-    "type": "list",
     "default": [
       {
         "target": "/proc",
@@ -23,65 +61,30 @@
     "description": "List of filesystems to mount during early boot.",
     "items": {
       "target": {
-        "type": "string",
-        "description": "Mount point path."
+        "description": "Mount point path.",
+        "type": "string"
       },
       "type": {
-        "type": "string",
-        "description": "Filesystem type (e.g., proc, sysfs, devtmpfs)."
+        "description": "Filesystem type (e.g., proc, sysfs, devtmpfs).",
+        "type": "string"
       }
-    }
-  },
-  "hostname": {
-    "type": "string",
-    "default": "",
-    "description": "System hostname to set during boot. Leave empty to skip hostname configuration."
-  },
-  "system_clock": {
-    "type": "object",
-    "default": {
-      "mode": "auto"
     },
-    "description": "System clock configuration.",
-    "items": {
-      "mode": {
-        "type": "string",
-        "enum": [
-          "auto",
-          "manual"
-        ],
-        "description": "'auto' (leave to NTP/hardware), 'manual' to set specific time."
-      },
-      "datetime": {
-        "type": "string",
-        "default": "2024-01-01 00:00:00",
-        "description": "Date/time string (e.g., 'YYYY-MM-DD HH:MM:SS') for manual mode."
-      }
-    }
+    "type": "list"
   },
-  "modules": {
-    "type": "list",
+  "rcS_env_file": {
+    "default": "/etc/default/rcS",
+    "description": "Path to optional environment configuration file sourced at boot.",
+    "type": "string"
+  },
+  "s_scripts": {
     "default": [],
-    "description": "List of kernel modules to load at boot.",
+    "description": "List of scripts in /etc/init.d/ to execute with 'start' argument before runlevel switching.",
     "items": {
-      "name": {
-        "type": "string",
-        "description": "Module name (e.g., 'e1000e')."
-      },
-      "options": {
-        "type": "string",
-        "default": "",
-        "description": "Optional module parameters (e.g., 'Option1=1 Option2=2')."
-      }
-    }
-  },
-  "swap_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable swap activation during boot."
+      "type": "string"
+    },
+    "type": "list"
   },
   "swap_devices": {
-    "type": "list",
     "default": [
       "/swapfile",
       "/dev/sda2"
@@ -89,37 +92,15 @@
     "description": "List of swap devices/files to activate.",
     "items": {
       "type": "string"
-    }
-  },
-  "fsck_force": {
-    "type": "bool",
-    "default": false,
-    "description": "Force filesystem check even if filesystems appear clean."
-  },
-  "tmp_setup": {
-    "type": "object",
-    "default": {
-      "mode": "clean"
     },
-    "description": "Configuration for /tmp directory setup.",
-    "items": {
-      "mode": {
-        "type": "string",
-        "enum": [
-          "clean",
-          "size_limited"
-        ],
-        "description": "'clean' removes all contents; 'size_limited' trims oversized files."
-      },
-      "max_size_mb": {
-        "type": "number",
-        "default": 100,
-        "description": "Maximum size (in MB) for files in /tmp when using 'size_limited' mode."
-      }
-    }
+    "type": "list"
+  },
+  "swap_enabled": {
+    "default": true,
+    "description": "Enable swap activation during boot.",
+    "type": "bool"
   },
   "sysctl_params": {
-    "type": "list",
     "default": [
       "kernel/sysrq = 1",
       "vm.swappiness = 60",
@@ -128,36 +109,60 @@
     "description": "List of sysctl key=value pairs to apply (as 'key=value' strings).",
     "items": {
       "type": "string"
-    }
+    },
+    "type": "list"
   },
-  "default_runlevel": {
-    "type": "string",
-    "default": "2",
-    "description": "Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode.",
-    "enum": [
-      "0",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "s",
-      "S",
-      "single"
-    ]
-  },
-  "s_scripts": {
-    "type": "list",
-    "default": [],
-    "description": "List of scripts in /etc/init.d/ to execute with 'start' argument before runlevel switching.",
+  "system_clock": {
+    "default": {
+      "mode": "auto"
+    },
+    "description": "System clock configuration.",
     "items": {
-      "type": "string"
-    }
+      "datetime": {
+        "default": "2024-01-01 00:00:00",
+        "description": "Date/time string (e.g., 'YYYY-MM-DD HH:MM:SS') for manual mode.",
+        "type": "string"
+      },
+      "mode": {
+        "description": "'auto' (leave to NTP/hardware), 'manual' to set specific time.",
+        "enum": [
+          "auto",
+          "manual"
+        ],
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "tmp_setup": {
+    "default": {
+      "mode": "clean"
+    },
+    "description": "Configuration for /tmp directory setup.",
+    "items": {
+      "max_size_mb": {
+        "default": 100,
+        "description": "Maximum size (in MB) for files in /tmp when using 'size_limited' mode.",
+        "type": "number"
+      },
+      "mode": {
+        "description": "'clean' removes all contents; 'size_limited' trims oversized files.",
+        "enum": [
+          "clean",
+          "size_limited"
+        ],
+        "type": "string"
+      }
+    },
+    "type": "object"
   },
   "use_sysv_init": {
-    "type": "bool",
     "default": false,
-    "description": "If true, attempt to switch to the default runlevel after initialization (only on SysV-only systems)."
+    "description": "If true, attempt to switch to the default runlevel after initialization (only on SysV-only systems).",
+    "type": "bool"
+  },
+  "using_devtmpfs": {
+    "source": "inferred-from-template",
+    "type": "string"
   }
 }

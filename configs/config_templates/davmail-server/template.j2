@@ -1,184 +1,127 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          {{ init_script_name | default('davmail-server') }}
-# Required-Start:    $local_fs $remote_fs
-# Required-Stop:     $local_fs $remote_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Launch Davmail Exchange gateway
-# Description:       Prepare environement and launch the Davmail Exchange
-#                    gateway daemon.
-### END INIT INFO
+# DavMail settings, see http://davmail.sourceforge.net/ for documentation
 
-# Author: Alexandre Rossi <alexandre.rossi@gmail.com>
+#############################################################
+# Basic settings
 
-# Do NOT "set -e"
+# Server or workstation mode
+davmail.server=true
+# Exchange/Office 365 connection mode:
+# - O365Modern Office 365 modern authentication (Oauth2)
+# - O365Interactive Office 365 with interactive browser window, not available in headless mode (OpenJFX required)
+# - O365Manual Office 365 with interactive dialog, not available in headless mode
+# - O365 Office 365 EWS mode
+# - EWS Exchange 2007 and later
+# - WebDav Exchange 2007 and earliear WebDav mode
+# - Auto WebDav mode with EWS failover
+davmail.mode={{ davmail_mode }}
+# base Exchange OWA or EWS url
+davmail.url={{ davmail_url }}
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# Listener ports
+davmail.caldavPort={{ davmail_caldav_port }}
+davmail.imapPort={{ davmail_imap_port }}
+davmail.ldapPort={{ davmail_ldap_port }}
+davmail.popPort={{ davmail_pop_port }}
+davmail.smtpPort={{ davmail_smtp_port }}
 
-# Description of the service displayed in logs
-DESC="Davmail Exchange gateway"
+#############################################################
+# Network settings
 
-# Name of the init script and daemon binary (without path)
-# Default: davmail-server
-NAME={{ init_script_name | default('davmail-server') }}
+# Network proxy settings
+davmail.enableProxy={{ davmail_enable_proxy | lower }}
+davmail.useSystemProxies={{ davmail_use_system_proxies | lower }}
+davmail.proxyHost={{ davmail_proxy_host }}
+davmail.proxyPort={{ davmail_proxy_port }}
+davmail.proxyUser={{ davmail_proxy_user }}
+davmail.proxyPassword={{ davmail_proxy_password }}
 
-# Full path to the daemon binary
-DAEMON=/usr/bin/$NAME
+# proxy exclude list
+davmail.noProxyFor={{ davmail_no_proxy_for }}
 
-# System user under which the daemon runs
-# The user is typically created as _davmail-server
-DAEMON_USER=_$NAME
+# allow remote connection to DavMail
+davmail.allowRemote={{ davmail_allow_remote | lower }}
+# bind server sockets to a specific address
+davmail.bindAddress={{ davmail_bind_address }}
+# client connection timeout in seconds - default 300, 0 to disable
+davmail.clientSoTimeout={{ davmail_client_so_timeout }}
 
-# Home directory for the daemon user
-HOME=/var/lib/$DAEMON_USER
+# DavMail listeners SSL configuration
+# systemd startup script expects keyStoreFile at /etc/davmail/keystoreFile
+# (which can be a symlink).
+#davmail.ssl.keystoreType=
+#davmail.ssl.keystoreFile=/etc/davmail/keystoreFile
+#davmail.ssl.keystorePass=
+#davmail.ssl.keyPass=
 
-# Path to the PID file for the daemon
-PIDFILE=/var/run/$NAME.pid
+# Accept specified certificate even if invalid according to trust store
+davmail.server.certificate.hash={{ davmail_server_certificate_hash }}
 
-# Path to the log file for the daemon
-LOGFILE=/var/log/$NAME/$NAME.log
+# disable SSL for specified listeners
+davmail.ssl.nosecurecaldav={{ davmail_ssl_nosecurecaldav | lower }}
+davmail.ssl.nosecureimap={{ davmail_ssl_nosecureimap | lower }}
+davmail.ssl.nosecureldap={{ davmail_ssl_nosecureldap | lower }}
+davmail.ssl.nosecurepop={{ davmail_ssl_nosecurepop | lower }}
+davmail.ssl.nosecuresmtp={{ davmail_ssl_nosecuresmtp | lower }}
 
-# Path to this init script itself
-SCRIPTNAME=/etc/init.d/$NAME
+davmail.oauth.tokenFilePath={{ davmail_oauth_token_file_path }}
 
+# disable update check
+davmail.disableUpdateCheck={{ davmail_disable_update_check | lower }}
 
-# Exit if the package is not installed
-[ -x "$DAEMON" ] || exit 0
+# Send keepalive character during large folder and messages download
+davmail.enableKeepAlive={{ davmail_enable_keepalive | lower }}
+# Message count limit on folder retrieval
+davmail.folderSizeLimit={{ davmail_folder_size_limit }}
+# Default windows domain for NTLM and basic authentication
+davmail.defaultDomain={{ davmail_default_domain }}
 
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
+#############################################################
+# Caldav settings
 
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
+# override default alarm sound
+davmail.caldavAlarmSound={{ davmail_caldav_alarm_sound }}
+# retrieve calendar events not older than 90 days
+davmail.caldavPastDelay={{ davmail_caldav_past_delay }}
+# EWS only: enable server managed meeting notifications
+davmail.caldavAutoSchedule={{ davmail_caldav_auto_schedule | lower }}
+# WebDav only: force event update to trigger ActiveSync clients update
+davmail.forceActiveSyncUpdate={{ davmail_force_active_sync_update | lower }}
 
-# Exit if the user does not exist
-if ! getent passwd $DAEMON_USER > /dev/null; then
-    log_action_msg "If using systemd, please use: $ systemctl start $NAME "
-    log_failure_msg "Aborting as user $DAEMON_USER does not exist"
-    exit 1
-fi
+#############################################################
+# IMAP settings
 
-# Arguments passed to the daemon.
-# Here it specifies the path to the davmail properties file.
-# Davmail reads configuration from this properties file.
-DAEMON_ARGS="/etc/davmail/davmail.properties"
+# Delete messages immediately on IMAP STORE \Deleted flag
+davmail.imapAutoExpunge={{ davmail_imap_auto_expunge | lower }}
+# Enable IDLE support, set polling delay in minutes
+davmail.imapIdleDelay={{ davmail_imap_idle_delay }}
+# Always reply to IMAP RFC822.SIZE requests with Exchange approximate message size for performance reasons
+davmail.imapAlwaysApproxMsgSize={{ davmail_imap_always_approx_msg_size }}
 
-# Create logfiles if they do not exist
-if [ ! -r "$LOGFILE" ]
-then
-    touch $LOGFILE
-    chown $DAEMON_USER:adm $LOGFILE
-fi
+#############################################################
+# POP settings
 
-do_start()
-{
-    # Return
-    #   0 if daemon has been started
-    #   2 if daemon could not be started
-    $ENABLE_DAEMON
-    is_alive && return 0
-    start-stop-daemon --start --pidfile $PIDFILE --chuid $DAEMON_USER\
-        --background --make-pidfile\
-        --exec $DAEMON -- $DAEMON_ARGS \
-        || return 2
-}
+# Delete messages on server after 30 days
+davmail.keepDelay={{ davmail_keep_delay }}
+# Delete messages in server sent folder after 90 days
+davmail.sentKeepDelay={{ davmail_sent_keep_delay }}
+# Mark retrieved messages read on server
+davmail.popMarkReadOnRetr={{ davmail_pop_mark_read_on_retr | lower }}
 
-do_stop()
-{
-    # Return
-    #   0 if daemon has been stopped
-    #   1 if daemon was already stopped
-    #   2 if daemon could not be stopped
-    #   other if a failure occurred
-    start-stop-daemon --user $DAEMON_USER --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
-    RETVAL="$?"
-    [ "$RETVAL" = 2 ] && return 2
-    start-stop-daemon --user $DAEMON_USER --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
-    [ "$?" = 2 ] && return 2
-    rm -f $PIDFILE
-    return "$RETVAL"
-}
+#############################################################
+# SMTP settings
 
-do_reload() {
-    #
-    # If the daemon can reload its configuration without
-    # restarting (for example, when it is sent a SIGHUP),
-    # then implement that here.
-    #
-    start-stop-daemon --user $DAEMON_USER --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
-    return 0
-}
+# let Exchange save a copy of sent messages in Sent folder
+davmail.smtpSaveInSent={{ davmail_smtp_save_in_sent | lower }}
 
-is_alive () {
-    ret=1
-    if [ -r $PIDFILE ] ; then
-        pid=`cat $PIDFILE`
-        if [ -e /proc/$pid ] ; then
-            procname=`/bin/ps h -p $pid -C $NAME`
-            [ -n "$procname" ] && ret=0
-        fi
-    fi
-    return $ret
-}
+#############################################################
+# Loggings settings
 
-
-case "$1" in
-    start)
-        [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-        do_start
-        case "$?" in
-            0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-            2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-        esac
-        ;;
-    stop)
-        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-        do_stop
-        case "$?" in
-            0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-            2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-        esac
-        ;;
-    reload|force-reload)
-        log_daemon_msg "Reloading $DESC" "$NAME"
-        do_reload
-        log_end_msg $?
-        ;;
-    restart)
-        log_daemon_msg "Restarting $DESC" "$NAME"
-        do_stop
-        case "$?" in
-            0|1)
-            do_start
-            case "$?" in
-                0) log_end_msg 0 ;;
-                1) log_end_msg 1 ;; # Old process is still running
-                *) log_end_msg 1 ;; # Failed to start
-            esac
-            ;;
-        *)
-            # Failed to stop
-            log_end_msg 1
-            ;;
-        esac
-        ;;
-    status)
-        echo -n "Status of $DESC: "
-        if is_alive ; then
-            echo "alive."
-        else
-            echo "dead."
-            exit 1
-        fi
-        ;;
-    *)
-        echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
-        exit 3
-        ;;
-esac
-
-:
-# vim: ts=4 sw=4 expandtab
+# log file path, leave empty for default path
+davmail.logFilePath={{ davmail_log_file_path }}
+# maximum log file size, use Log4J syntax, set to 0 to use an external rotation mechanism, e.g. logrotate
+davmail.logFileSize={{ davmail_log_file_size }}
+# log levels
+log4j.logger.davmail={{ log4j_logger_davmail }}
+log4j.logger.httpclient.wire={{ log4j_logger_httpclient_wire }}
+log4j.logger.org.apache.commons.httpclient={{ log4j_logger_org_apache_commons_httpclient }}
+log4j.rootLogger={{ log4j_root_logger }}

@@ -1,0 +1,33 @@
+# ============================================================================
+# Lighttpd mod_wolfssl Configuration
+# ============================================================================
+# This template configures the Lighttpd web server to use the WolfSSL
+# cryptographic library for HTTPS support. It defines the SSL module
+# loading, the PEM certificate/key path, and the listening socket
+# for HTTPS traffic.
+#
+# Self-documenting: All variables are sourced from the Ansible schema
+# with safe defaults to prevent render failures or incorrect runtime
+# values.
+# ============================================================================
+
+# Load the mod_wolfssl module. This replaces or works alongside standard
+# OpenSSL modules if mutually exclusive options are used.
+server.modules += ( "mod_wolfssl" )
+
+# Path to the SSL PEM certificate and key file.
+# This single file must contain both the public certificate and the
+# private key (unencrypted) in PEM format.
+ssl.pemfile = "{{ ssl_pemfile | default('/etc/lighttpd/server.pem') }}"
+
+# Define the SSL listener socket.
+# Binds the SSL engine to a specific address and port.
+$SERVER["socket"] == "{{ ssl_bind_addr | default('0.0.0.0') }}:{{ ssl_bind_port | default(443) }}" {
+    # Enable the SSL engine for this socket.
+    # This ensures HTTPS is active on the configured bind address/port.
+    ssl.engine = "enable"
+}
+
+# Include shell command to automatically handle IPv6 configuration
+# for the specified SSL port. This helps in dual-stack environments.
+include_shell "/usr/share/lighttpd/use-ipv6.pl {{ ssl_bind_port | default(443) }}"

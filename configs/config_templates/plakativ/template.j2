@@ -1,0 +1,82 @@
+# =============================================================================
+# Plakativ Configuration Template
+# =============================================================================
+# Plakativ is a tool for splitting large posters from PDFs or images into
+# smaller printable pages. This configuration controls input sources, output
+# dimensions, layout algorithms, and printing aids.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Input & Output Paths
+# ------------------------------------------------------------------------------
+
+# Path to the input PDF or image file to be turned into a poster.
+# If not specified or empty, the service may default to stdin or a standard location.
+input_file: "{{ input_file | default('/var/lib/plakativ/input.pdf') }}"
+
+# Path to the output PDF file containing the split poster pages.
+output_file: "{{ output_file | default('/var/lib/plakativ/poster.pdf') }}"
+
+# ------------------------------------------------------------------------------
+# Poster Dimensions & Paper Size
+# ------------------------------------------------------------------------------
+
+# Target size of the final assembled poster.
+# Can be dimensions like '594mmx841mm' or paper size shorthands like 'A1', 'A0', 'Legal'.
+poster_size: "{{ poster_size | default('A1') }}"
+
+# Paper size of the sheets to be printed (the individual output pages).
+# Can be dimensions or shorthands like 'A4', 'Letter', 'Tabloid'.
+output_paper_size: "{{ output_paper_size | default('A4') }}"
+
+# ------------------------------------------------------------------------------
+# Layout & Borders
+# ------------------------------------------------------------------------------
+
+# Layout algorithm to use for arranging pages.
+# 'simple' keeps pages upright; 'complex' rotates pages to optimize space usage.
+layouter: "{{ layouter | default('simple') }}"
+
+# Border sizes for gluing overlap and printer margins.
+# Format: Top:Right:Bottom:Left in mm. Colon-separated.
+borders: "{{ borders | default('10:10:10:10') }}"
+
+# ------------------------------------------------------------------------------
+# Page Selection & Processing
+# ------------------------------------------------------------------------------
+
+# Page number of the input PDF to use as the source for the poster.
+# Useful if the PDF contains multiple posters or cover pages.
+page_number: "{{ page_number | default(1) }}"
+
+# Remove alpha channel from input raster images.
+# Makes the resulting PDF not lossless but compatible with tools like img2pdf.
+remove_alpha: "{{ remove_alpha | default(false) | lower }}"
+
+# ------------------------------------------------------------------------------
+# Output Enhancements
+# ------------------------------------------------------------------------------
+
+# Add a cover page showing the final layout arrangement.
+# Helps users understand how to assemble the printed pages.
+cover_page: "{{ cover_page | default(false) | lower }}"
+
+# Print dashed lines to indicate where to cut individual pages.
+cutting_guides: "{{ cutting_guides | default(false) | lower }}"
+
+# Print page numbers on the output sheets.
+page_numbers: "{{ page_numbers | default(false) | lower }}"
+
+# Print a dashed border around the entire poster outline for accurate cutting.
+poster_border: "{{ poster_border | default(false) | lower }}"
+
+# ------------------------------------------------------------------------------
+# Runtime Behavior
+# ------------------------------------------------------------------------------
+
+# Enable verbose logging output to stderr for debugging.
+verbose: "{{ verbose | default(false) | lower }}"
+
+# Run the application in GUI mode (tkinter).
+# Set to false for CLI/daemonized usage in services.
+use_gui: "{{ use_gui | default(false) | lower }}"

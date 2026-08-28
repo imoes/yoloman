@@ -1,219 +1,223 @@
 {
-  "cupsd": {
-    "type": "object",
-    "description": "Configuration parameters for the CUPS daemon",
-    "properties": {
-      "ListenAddress": {
-        "type": "string",
-        "default": "*",
-        "description": "IP address or hostname to bind the CUPS server to (use * for all interfaces)"
+ "browse_protocols": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "cupsd": {
+  "description": "Configuration parameters for the CUPS daemon",
+  "properties": {
+   "AccessLogFile": {
+    "default": "/var/log/cups/access_log",
+    "description": "Path to the CUPS access log (records HTTP requests to admin/printer pages)",
+    "type": "string"
+   },
+   "AllowFrom": {
+    "default": [],
+    "description": "List of allowed client addresses (IP/CIDR or hostnames); empty = allow none beyond localhost",
+    "items": {
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "BindLocalhostOnly": {
+    "default": false,
+    "description": "If true, restricts listening to localhost only (recommended for security)",
+    "type": "bool"
+   },
+   "BrowseProtocols": {
+    "default": [
+     "cups",
+     "mdns"
+    ],
+    "description": "Protocols to use for printer discovery; allowed values: 'cups', 'mdns'",
+    "items": {
+     "enum": [
+      "cups",
+      "mdns"
+     ],
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "BrowsingEnabled": {
+    "default": true,
+    "description": "Enable broadcasting of local printers to the network via mDNS and/or CUPS-SLP",
+    "type": "bool"
+   },
+   "DefaultAuthType": {
+    "default": "Basic",
+    "description": "Default authentication method for administrative operations",
+    "enum": [
+     "None",
+     "Basic",
+     "Negotiate",
+     "Digest",
+     "Kerberos"
+    ],
+    "type": "string"
+   },
+   "DefaultPrinterName": {
+    "default": "",
+    "description": "Name of the default printer (must exist in printer database)",
+    "type": "string"
+   },
+   "JobLog": {
+    "default": "",
+    "description": "Path to per-job log file (optional; leave empty to disable)",
+    "type": "string"
+   },
+   "KeepFiles": {
+    "default": true,
+    "description": "If true, retain print files until job completes; if false, delete immediately after printing",
+    "type": "bool"
+   },
+   "ListenAddress": {
+    "default": "*",
+    "description": "IP address or hostname to bind the CUPS server to (use * for all interfaces)",
+    "type": "string"
+   },
+   "ListenPort": {
+    "default": 631,
+    "description": "Port number for CUPS HTTP(S) listener",
+    "type": "number"
+   },
+   "LogFile": {
+    "default": "/var/log/cups/error_log",
+    "description": "Path to the main CUPS error log file",
+    "type": "string"
+   },
+   "LogLevel": {
+    "default": "info",
+    "description": "Verbosity level of the main log file (debug, info, notice, warn, error, crit)",
+    "enum": [
+     "debug",
+     "info",
+     "notice",
+     "warn",
+     "error",
+     "crit"
+    ],
+    "type": "string"
+   },
+   "MaxJobTime": {
+    "default": 10800,
+    "description": "Maximum time (in seconds) a job may remain in the queue before cancellation",
+    "type": "number"
+   },
+   "MaxJobs": {
+    "default": 500,
+    "description": "Maximum number of queued jobs to retain",
+    "type": "number"
+   },
+   "Policies": {
+    "default": [
+     {
+      "AuthInfoRequired": "none",
+      "OperationAllow": [],
+      "OperationDeny": [],
+      "name": "default"
+     }
+    ],
+    "description": "Print job policies (e.g., job creation, cancellation, administration)",
+    "items": {
+     "properties": {
+      "AuthInfoRequired": {
+       "default": "none",
+       "description": "Whether user authentication is required for operations",
+       "enum": [
+        "none",
+        "user",
+        "negotiate",
+        "digest",
+        "kerberos",
+        "basic"
+       ],
+       "type": "string"
       },
-      "ListenPort": {
-        "type": "number",
-        "default": 631,
-        "description": "Port number for CUPS HTTP(S) listener"
+      "OperationAllow": {
+       "default": [],
+       "description": "List of allowed operations (e.g., 'Cancel-Jobs', 'Validate-Job')",
+       "items": {
+        "type": "string"
+       },
+       "type": "list"
       },
-      "BindLocalhostOnly": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, restricts listening to localhost only (recommended for security)"
+      "OperationDeny": {
+       "default": [],
+       "description": "List of denied operations",
+       "items": {
+        "type": "string"
+       },
+       "type": "list"
       },
-      "AllowFrom": {
-        "type": "list",
-        "default": [],
-        "description": "List of allowed client addresses (IP/CIDR or hostnames); empty = allow none beyond localhost",
-        "items": {
-          "type": "string"
-        }
-      },
-      "ServerName": {
-        "type": "string",
-        "default": "localhost",
-        "description": "Canonical hostname of the CUPS server (displayed in web interface and job banners)"
-      },
-      "ServerAlias": {
-        "type": "string",
-        "default": "",
-        "description": "Alternative hostname(s) for the server (comma-separated)"
-      },
-      "SSLEnabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable HTTPS on port 443 for web interface (requires valid SSL certificate)"
-      },
-      "RunAsUser": {
-        "type": "string",
-        "default": "root",
-        "description": "System user account under which cupsd runs (change only if security policy requires)"
-      },
-      "RunAsGroup": {
-        "type": "string",
-        "default": "lp",
-        "description": "System group account for cupsd processes"
-      },
-      "LogLevel": {
-        "type": "string",
-        "default": "info",
-        "description": "Verbosity level of the main log file (debug, info, notice, warn, error, crit)",
-        "enum": [
-          "debug",
-          "info",
-          "notice",
-          "warn",
-          "error",
-          "crit"
-        ]
-      },
-      "LogFile": {
-        "type": "string",
-        "default": "/var/log/cups/error_log",
-        "description": "Path to the main CUPS error log file"
-      },
-      "AccessLogFile": {
-        "type": "string",
-        "default": "/var/log/cups/access_log",
-        "description": "Path to the CUPS access log (records HTTP requests to admin/printer pages)"
-      },
-      "JobLog": {
-        "type": "string",
-        "default": "",
-        "description": "Path to per-job log file (optional; leave empty to disable)"
-      },
-      "MaxJobs": {
-        "type": "number",
-        "default": 500,
-        "description": "Maximum number of queued jobs to retain"
-      },
-      "MaxJobTime": {
-        "type": "number",
-        "default": 10800,
-        "description": "Maximum time (in seconds) a job may remain in the queue before cancellation"
-      },
-      "KeepFiles": {
-        "type": "bool",
-        "default": true,
-        "description": "If true, retain print files until job completes; if false, delete immediately after printing"
-      },
-      "BrowsingEnabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable broadcasting of local printers to the network via mDNS and/or CUPS-SLP"
-      },
-      "BrowseProtocols": {
-        "type": "list",
-        "default": [
-          "cups",
-          "mdns"
-        ],
-        "description": "Protocols to use for printer discovery; allowed values: 'cups', 'mdns'",
-        "items": {
-          "type": "string",
-          "enum": [
-            "cups",
-            "mdns"
-          ]
-        }
-      },
-      "WebInterfaceEnabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable remote web interface (accessible over network); set to false for local-only admin"
-      },
-      "DefaultAuthType": {
-        "type": "string",
-        "default": "Basic",
-        "description": "Default authentication method for administrative operations",
-        "enum": [
-          "None",
-          "Basic",
-          "Negotiate",
-          "Digest",
-          "Kerberos"
-        ]
-      },
-      "Policies": {
-        "type": "list",
-        "default": [
-          {
-            "name": "default",
-            "AuthInfoRequired": "none",
-            "OperationAllow": [],
-            "OperationDeny": []
-          }
-        ],
-        "description": "Print job policies (e.g., job creation, cancellation, administration)",
-        "items": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "default": "default",
-              "description": "Policy name (must match existing policy names like 'default', 'admin', 'system')"
-            },
-            "AuthInfoRequired": {
-              "type": "string",
-              "default": "none",
-              "description": "Whether user authentication is required for operations",
-              "enum": [
-                "none",
-                "user",
-                "negotiate",
-                "digest",
-                "kerberos",
-                "basic"
-              ]
-            },
-            "OperationAllow": {
-              "type": "list",
-              "default": [],
-              "description": "List of allowed operations (e.g., 'Cancel-Jobs', 'Validate-Job')",
-              "items": {
-                "type": "string"
-              }
-            },
-            "OperationDeny": {
-              "type": "list",
-              "default": [],
-              "description": "List of denied operations",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      },
-      "DefaultPrinterName": {
-        "type": "string",
-        "default": "",
-        "description": "Name of the default printer (must exist in printer database)"
-      },
-      "PrintcapFile": {
-        "type": "string",
-        "default": "/etc/printcap",
-        "description": "Location of the legacy BSD printcap file"
-      },
-      "PrintcapFormat": {
-        "type": "string",
-        "default": "bsd",
-        "description": "Format of the printcap file (e.g., 'bsd', 'solaris', 'linux')",
-        "enum": [
-          "bsd",
-          "solaris",
-          "linux",
-          "aix",
-          "hp-ux"
-        ]
-      },
-      "SharePrinters": {
-        "type": "bool",
-        "default": true,
-        "description": "Allow sharing of locally connected printers via CUPS"
-      },
-      "RemoteAdminEnabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable remote administration via web interface (\u26a0\ufe0f disable in untrusted environments)"
+      "name": {
+       "default": "default",
+       "description": "Policy name (must match existing policy names like 'default', 'admin', 'system')",
+       "type": "string"
       }
-    }
-  }
+     },
+     "type": "object"
+    },
+    "type": "list"
+   },
+   "PrintcapFile": {
+    "default": "/etc/printcap",
+    "description": "Location of the legacy BSD printcap file",
+    "type": "string"
+   },
+   "PrintcapFormat": {
+    "default": "bsd",
+    "description": "Format of the printcap file (e.g., 'bsd', 'solaris', 'linux')",
+    "enum": [
+     "bsd",
+     "solaris",
+     "linux",
+     "aix",
+     "hp-ux"
+    ],
+    "type": "string"
+   },
+   "RemoteAdminEnabled": {
+    "default": false,
+    "description": "Enable remote administration via web interface (⚠️ disable in untrusted environments)",
+    "type": "bool"
+   },
+   "RunAsGroup": {
+    "default": "lp",
+    "description": "System group account for cupsd processes",
+    "type": "string"
+   },
+   "RunAsUser": {
+    "default": "root",
+    "description": "System user account under which cupsd runs (change only if security policy requires)",
+    "type": "string"
+   },
+   "SSLEnabled": {
+    "default": true,
+    "description": "Enable HTTPS on port 443 for web interface (requires valid SSL certificate)",
+    "type": "bool"
+   },
+   "ServerAlias": {
+    "default": "",
+    "description": "Alternative hostname(s) for the server (comma-separated)",
+    "type": "string"
+   },
+   "ServerName": {
+    "default": "localhost",
+    "description": "Canonical hostname of the CUPS server (displayed in web interface and job banners)",
+    "type": "string"
+   },
+   "SharePrinters": {
+    "default": true,
+    "description": "Allow sharing of locally connected printers via CUPS",
+    "type": "bool"
+   },
+   "WebInterfaceEnabled": {
+    "default": false,
+    "description": "Enable remote web interface (accessible over network); set to false for local-only admin",
+    "type": "bool"
+   }
+  },
+  "type": "object"
+ }
 }

@@ -470,29 +470,12 @@ async def put_scope_vars(
     return {"id": str(row.id), "scope_type": row.scope_type, "vars": display, "secret_keys": secret_keys}
 
 
-@router.get("/api/v1/runbook-runs")
-async def list_runbook_runs(
-    agent_id: UUID | None = None, limit: int = 50,
-    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
-) -> dict[str, Any]:
-    """The runbook-run audit trail (newest first), optionally for one host."""
-    stmt = select(RunbookRun).where(RunbookRun.tenant_id == DEFAULT_TENANT_ID)
-    if agent_id is not None:
-        stmt = stmt.where(RunbookRun.agent_id == agent_id)
-    rows = (await session.scalars(stmt.order_by(RunbookRun.created_at.desc()).limit(limit))).all()
-    return {"runs": [{"id": str(r.id), "runbook": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
-                      "dry_run": r.dry_run, "status": r.status, "changed": r.changed,
-                      "created_at": r.created_at.isoformat() if r.created_at else None} for r in rows]}
-
-
-@router.get("/api/v1/runbook-runs/{run_id}")
-async def get_runbook_run(run_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
-    r = await session.get(RunbookRun, run_id)
-    if r is None:
-        raise HTTPException(status_code=404, detail="no such run")
-    return {"id": str(r.id), "runbook": r.runbook_name, "agent_id": str(r.agent_id) if r.agent_id else None,
-            "dry_run": r.dry_run, "status": r.status, "changed": r.changed, "result": r.result,
-            "requested_by": r.requested_by, "created_at": r.created_at.isoformat() if r.created_at else None}
+# NOTE: two further GET /api/v1/runbook-runs routes used to be registered here. They
+# were shadowed — FastAPI keeps the FIRST match, which is the richer pair above
+# (filters, resolved hostnames, per-step result) — so they never ran, while looking
+# like they did. Worse, they named a field `runbook` where the live pair returns
+# `runbook_name`: had the registration order ever changed, every caller would have
+# broken silently. Removed (docs/logik-audit.md area 8.1).
 
 
 @router.post("/api/v1/runbooks/role/compile")

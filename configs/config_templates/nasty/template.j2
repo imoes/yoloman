@@ -1,0 +1,43 @@
+# nasty configuration for passphrase recovery
+# See nasty(1) for details.
+# This file is managed by Ansible. Do not edit manually.
+
+# Minimum length of the passphrase to generate or try.
+# Range: 8-126, default 8.
+min_length = {{ (min_length | default(8)) | int }}
+
+# Maximum length of the passphrase to generate or try.
+# Range: 8-126, must be >= min_length, default 12.
+max_length = {{ (max_length | default(12)) | int }}
+
+# Guessing mode: incremental, random, or file.
+# - incremental: systematic charset expansion
+# - random: random combinations
+# - file: read from input_file
+mode = {{ (mode | default('incremental')) | lower }}
+
+# Path to the file containing passphrases to try (used when mode is 'file').
+input_file = {{ (input_file | default('/etc/nasty/wordlist.txt')) | string | trim }}
+
+# Path to the file where the recovered passphrase will be written.
+output_file = {{ (output_file | default('/var/lib/nasty/found_passphrase.txt')) | string | trim }}
+
+# List of character sets for generation.
+# Options:
+#   'a' = a-z
+#   'A' = A-Z
+#   '0' = 0-9
+#   '.' = ASCII 32-126 (printable)
+#   '+' = ASCII 32-255 (extended)
+# Default is ['+'].
+# Output is space-separated.
+charsets = {{ (charsets | default(['+'])) | join(' ') }}
+
+# Filter string to select a specific GPG key ID or fingerprint.
+# Empty string means use all keys.
+key_filter = {{ (key_filter | default('')) | string | trim }}
+
+# Enable verbose output during execution.
+# true = print debugging/info messages to stderr
+# false = quiet mode
+verbose = {{ verbose | default(False) | ternary('true', 'false') }}

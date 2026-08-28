@@ -1,0 +1,69 @@
+# termdebug script configuration
+# Generated from termdebug(1) grammar
+#
+# This template configures the `termdebug` interactive debugging environment.
+# It defines environment variables, window dimensions, the client program,
+# and a sequence of interaction steps (expect/send/interact).
+
+# List of environment variable assignments.
+# Each object must have 'name' and 'value' fields.
+# Default: []
+{% for env in ((values | default({})).envs | default([])) %}
+env {{ env.name }} {{ env.value }}
+{% endfor %}
+
+# Terminal window width in columns.
+# Default: 80
+# Terminal window height in lines.
+# Default: 24
+# Optional delay in milliseconds for window size changes.
+# Default: 0
+# Minimum delay in milliseconds to force wait regardless of program options.
+# Default: 0
+# Format: window_size <columns> <lines> <window_delay> <window_min_delay>
+window_size {{ (values | default({})).columns | default(80) }} {{ (values | default({})).lines | default(24) }} {{ (values | default({})).window_delay | default(0) }} {{ (values | default({})).window_min_delay | default(0) }}
+
+# The client program to start.
+# Default: 'bash'
+# Arguments to pass to the client program.
+# Default: []
+# Format: start <client> [args...]
+start {{ (values | default({})).client | default('bash') }}
+{% for arg in ((values | default({})).client_args | default([])) %}
+{{ arg }}
+{% endfor %}
+
+# List of interaction steps to perform after start.
+# Each object must have 'type' and other relevant fields.
+# Supported types: 'expect', 'send', 'expect_exit', 'expect_suspend', 'interact'.
+# Default: []
+{% for step in ((values | default({})).steps | default([])) %}
+{% if step.type == 'expect' %}
+# Step type: expect
+# Waits for specified strings in the output.
+expect
+{% for s in (step.strings | default([])) %}
+{{ s }}
+{% endfor %}
+{% elif step.type == 'send' %}
+# Step type: send
+# Sends data with an optional delay.
+# step.delay is optional, step.items is a list of objects with 'string' and 'min_delay'.
+send {{ step.delay | default(0) }}
+{% for item in (step.items | default([])) %}
+{{ item.string }} {{ item.min_delay }}
+{% endfor %}
+{% elif step.type == 'expect_exit' %}
+# Step type: expect_exit
+# Expects the program to exit with a specific status.
+expect_exit {{ step.status | default(0) }}
+{% elif step.type == 'expect_suspend' %}
+# Step type: expect_suspend
+# Expects the program to be suspended.
+expect_suspend
+{% elif step.type == 'interact' %}
+# Step type: interact
+# Passes control to the user/terminal.
+interact
+{% endif %}
+{% endfor %}

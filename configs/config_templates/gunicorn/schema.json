@@ -1,138 +1,144 @@
 {
-  "bind": {
-    "type": "string",
-    "default": "127.0.0.1:8000",
-    "description": "Host and port (e.g., '0.0.0.0:8000') or Unix socket path (e.g., 'unix:/run/gunicorn.sock') to bind to."
-  },
-  "workers": {
-    "type": "number",
-    "default": 4,
-    "description": "Number of worker processes. Typically set to 2\u20134 \u00d7 number of CPU cores."
-  },
-  "worker_class": {
-    "type": "string",
-    "default": "sync",
-    "description": "Type of worker class to use. Common options: 'sync' (default), 'gevent', 'tornado', or async worker classes like 'uvicorn.workers.UvicornWorker'."
-  },
-  "worker_connections": {
-    "type": "number",
-    "default": 1000,
-    "description": "Maximum number of simultaneous clients per worker (only applicable for async worker classes)."
-  },
-  "timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Request timeout in seconds. If a request takes longer, the worker is restarted."
-  },
-  "graceful_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum seconds to wait for workers to finish handling current requests before force-killing them during reloads or restarts."
-  },
   "accesslog": {
-    "type": "string",
     "default": "-",
-    "description": "Path to access log file. Use '-' to log to stdout, or a path like '/var/log/gunicorn/access.log'."
+    "description": "Path to access log file. Use '-' to log to stdout, or a path like '/var/log/gunicorn/access.log'.",
+    "type": "string"
+  },
+  "backlog": {
+    "default": 2048,
+    "description": "Maximum number of pending connections in the socket listen queue.",
+    "type": "number"
+  },
+  "bind": {
+    "default": "127.0.0.1:8000",
+    "description": "Host and port (e.g., '0.0.0.0:8000') or Unix socket path (e.g., 'unix:/run/gunicorn.sock') to bind to.",
+    "type": "string"
+  },
+  "daemon": {
+    "default": false,
+    "description": "If true, run Gunicorn as a background (daemon) process.",
+    "type": "boolean"
   },
   "errorlog": {
-    "type": "string",
     "default": "-",
-    "description": "Path to error log file. Use '-' to log to stderr, or a path like '/var/log/gunicorn/error.log'."
+    "description": "Path to error log file. Use '-' to log to stderr, or a path like '/var/log/gunicorn/error.log'.",
+    "type": "string"
+  },
+  "extra_config": {
+    "description": "Additional Gunicorn configuration options as key-value pairs (for advanced or future compatibility).",
+    "items": {
+      "key": {
+        "description": "Configuration option name.",
+        "type": "string"
+      },
+      "value": {
+        "description": "Value of the configuration option.",
+        "type": "string|number|boolean"
+      }
+    },
+    "type": "object"
+  },
+  "graceful_timeout": {
+    "default": 30,
+    "description": "Maximum seconds to wait for workers to finish handling current requests before force-killing them during reloads or restarts.",
+    "type": "number"
+  },
+  "group": {
+    "default": "",
+    "description": "Unix group name to drop privileges to after binding to port.",
+    "type": "string"
+  },
+  "keepalive": {
+    "default": 2,
+    "description": "Time (in seconds) to keep idle connections open for reuse.",
+    "type": "number"
   },
   "loglevel": {
-    "type": "string",
     "default": "info",
     "description": "Minimum log level: 'debug', 'info', 'warning', 'error', or 'critical'.",
     "enum": [
       "debug",
       "info",
       "warning",
+      "error",
       "critical"
-    ]
-  },
-  "daemon": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, run Gunicorn as a background (daemon) process."
-  },
-  "proc_name": {
-    "type": "string",
-    "default": "gunicorn",
-    "description": "Process name to use in process listings and logs."
-  },
-  "pidfile": {
-    "type": "string",
-    "default": "/run/gunicorn.pid",
-    "description": "Path to file where the main process ID (PID) will be written."
-  },
-  "user": {
-    "type": "string",
-    "default": "",
-    "description": "Unix username to drop privileges to after binding to port (requires root to bind to privileged ports)."
-  },
-  "group": {
-    "type": "string",
-    "default": "",
-    "description": "Unix group name to drop privileges to after binding to port."
-  },
-  "ssl_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable SSL/TLS for HTTPS. Requires keyfile and certfile paths below."
-  },
-  "ssl_keyfile": {
-    "type": "string",
-    "default": "",
-    "description": "Path to SSL private key file (e.g., '/etc/ssl/private/server.key'). Required if ssl_enabled=true."
-  },
-  "ssl_certfile": {
-    "type": "string",
-    "default": "",
-    "description": "Path to SSL certificate file (e.g., '/etc/ssl/certs/server.crt'). Required if ssl_enabled=true."
-  },
-  "preload_app": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, load the application code before forking worker processes (improves memory efficiency with copy-on-write)."
-  },
-  "reload": {
-    "type": "boolean",
-    "default": false,
-    "description": "If true, automatically reload workers when source code changes (useful for development only)."
+    ],
+    "type": "string"
   },
   "max_requests": {
-    "type": "number",
     "default": 0,
-    "description": "Restart workers after this many requests (helps prevent memory leaks). Use 0 to disable."
+    "description": "Restart workers after this many requests (helps prevent memory leaks). Use 0 to disable.",
+    "type": "number"
   },
   "max_requests_jitter": {
-    "type": "number",
     "default": 0,
-    "description": "Randomize restart jitter (\u00b1 this many requests) to avoid thundering herd."
+    "description": "Randomize restart jitter (\u00b1 this many requests) to avoid thundering herd.",
+    "type": "number"
   },
-  "backlog": {
-    "type": "number",
-    "default": 2048,
-    "description": "Maximum number of pending connections in the socket listen queue."
+  "pidfile": {
+    "default": "/run/gunicorn.pid",
+    "description": "Path to file where the main process ID (PID) will be written.",
+    "type": "string"
   },
-  "keepalive": {
-    "type": "number",
-    "default": 2,
-    "description": "Time (in seconds) to keep idle connections open for reuse."
+  "preload_app": {
+    "default": false,
+    "description": "If true, load the application code before forking worker processes (improves memory efficiency with copy-on-write).",
+    "type": "boolean"
   },
-  "extra_config": {
-    "type": "object",
-    "default": {},
-    "description": "Additional Gunicorn configuration options as key-value pairs (for advanced or future compatibility).",
-    "items": {
-      "key": {
-        "type": "string",
-        "description": "Configuration option name."
-      },
-      "value": {
-        "type": "string|number|boolean",
-        "description": "Value of the configuration option."
-      }
-    }
+  "proc_name": {
+    "default": "gunicorn",
+    "description": "Process name to use in process listings and logs.",
+    "type": "string"
+  },
+  "reload": {
+    "default": false,
+    "description": "If true, automatically reload workers when source code changes (useful for development only).",
+    "type": "boolean"
+  },
+  "ssl_certfile": {
+    "default": "",
+    "description": "Path to SSL certificate file (e.g., '/etc/ssl/certs/server.crt'). Required if ssl_enabled=true.",
+    "type": "string"
+  },
+  "ssl_enabled": {
+    "default": false,
+    "description": "Enable SSL/TLS for HTTPS. Requires keyfile and certfile paths below.",
+    "type": "boolean"
+  },
+  "ssl_keyfile": {
+    "default": "",
+    "description": "Path to SSL private key file (e.g., '/etc/ssl/private/server.key'). Required if ssl_enabled=true.",
+    "type": "string"
+  },
+  "timeout": {
+    "default": 30,
+    "description": "Request timeout in seconds. If a request takes longer, the worker is restarted.",
+    "type": "number"
+  },
+  "user": {
+    "default": "",
+    "description": "Unix username to drop privileges to after binding to port (requires root to bind to privileged ports).",
+    "type": "string"
+  },
+  "worker_class": {
+    "default": "sync",
+    "description": "Type of worker class to use. Common options: 'sync' (default), 'gevent', 'tornado', or async worker classes like 'uvicorn.workers.UvicornWorker'.",
+    "type": "string",
+    "enum": [
+      "sync",
+      "gevent",
+      "tornado"
+    ],
+    "enum_open": true
+  },
+  "worker_connections": {
+    "default": 1000,
+    "description": "Maximum number of simultaneous clients per worker (only applicable for async worker classes).",
+    "type": "number"
+  },
+  "workers": {
+    "default": 4,
+    "description": "Number of worker processes. Typically set to 2\u20134 \u00d7 number of CPU cores.",
+    "type": "number"
   }
 }

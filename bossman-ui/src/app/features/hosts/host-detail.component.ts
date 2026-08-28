@@ -1,8 +1,11 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { ProvisionDbDialogComponent } from './provision-db-dialog.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
-import { formatBytes, formatMetricValue, thresholdContext } from '../../shared/format.util';
+import { formatBytes, formatMetricValue, serviceMetricSpec, thresholdContext } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -21,8 +24,8 @@ import { RunService } from '../../core/services/run.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
-import { Agent, ConfigResource, ConfigTemplate, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
-import { HostEdge } from '../../core/models/edge.model';
+import { Agent, ConfigResource, ConfigTemplateIndexEntry, DirectiveSpec, EbpfDetail, EbpfL7Event, LatestMetric, MetricPoint, ObservedResource, ObservedState, Process, StateGeneration, StatePlan, StateResourceChange } from '../../core/models/agent.model';
+import { HostEdgeGroup } from '../../core/models/edge.model';
 import { PlanRun } from '../../core/models/run.model';
 import { Availability, FleetHost, ServiceHistoryPoint, ServiceState } from '../../core/models/monitoring.model';
 import { BM_GREEN, BM_GOLD, BM_RED, BM_UNKNOWN } from '../../shared/bm-colors';
@@ -44,14 +47,13 @@ import { HostManagementComponent } from './management/host-management.component'
 import { HostResourcesComponent } from './host-resources.component';
 import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
+import { WindowsEventlogComponent } from './windows-eventlog.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
-import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
-import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
-import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
-import { EffectiveThresholdsComponent } from './effective-thresholds.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
-import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { agentHealthStatus, availabilityColor, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { HostConfigScopeService } from './host-config-scope.service';
+import { driftRows as driftRowsOf } from './management/drift-rows';
 import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
@@ -98,38 +100,6 @@ function familyMembers(metric: string): string[] {
   return COMBINED_GRAPHS.find((f) => f.includes(metric)) ?? [metric];
 }
 
-/** Where an agent-reported check's chart data comes from. Agent checks carry
- * an empty `metric` (their state arrives pre-computed), so we map the check by
- * name onto the real telemetry metric(s) it grades — otherwise the service
- * detail chart has nothing to plot ("no data"). Disk checks additionally pin
- * a mount, since all mounts share the one `disk_used_pct` series. */
-function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string; perLabel?: string; fallback?: string; labelKey?: string; labelValue?: string } | null {
-  // CPU utilization: one line PER CORE (cpu_core_pct{core=N}), falling back to
-  // the aggregate cpu_pct on a single-core host / older agent.
-  if (name === 'CPU load' || metric === 'cpu_pct') return { members: ['cpu_core_pct'], perLabel: 'core', fallback: 'cpu_pct' };
-  // A "Disk <mount>" service MUST pin its mount, and this has to be tested BEFORE
-  // the generic `metric` branch below. Every mount shares the one `disk_used_pct`
-  // series (distinguished only by the `mount` label), so returning the bare metric
-  // dropped the mount and the chart drew every filesystem overlaid — nine lines
-  // under a single legend entry, filling in as one solid block. The Disk branch
-  // used to sit after `if (metric)` and was therefore unreachable for any service
-  // that carries a metric, which these do.
-  // The leading slash matters: "Disk IOPS" is a service, not a mount point.
-  if (name.startsWith('Disk /')) return { members: ['disk_used_pct'], mount: name.slice('Disk '.length) };
-  // A per-interface lnx_if service ("Interface ens18"): its throughput lives in
-  // the agent's net_rx_bytes/net_tx_bytes telemetry, labelled by `iface` — the
-  // check itself only grades link state, so without this the service charts
-  // nothing. Same shape as the disk-mount pin, on the `iface` label.
-  if (name.startsWith('Interface ')) {
-    return { members: ['net_rx_bytes', 'net_tx_bytes'], labelKey: 'iface', labelValue: name.slice('Interface '.length) };
-  }
-  if (metric) return { members: [metric] };
-  if (name === 'CPU load') return { members: ['cpu_load1', 'cpu_load5', 'cpu_load15'] };
-  if (name === 'Memory') return { members: ['mem_used_pct'] };
-  if (name === 'Uptime') return { members: ['uptime_seconds'] };
-  return null;
-}
-
 @Component({
   selector: 'app-host-detail',
   standalone: true,
@@ -145,8 +115,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostStatusBadgeComponent,
     HostInventoryComponent,
     StandaloneOverviewComponent,
-    ResourceNodeComponent,
-    ParamFormComponent,
     HostChecksComponent,
     HostConsoleComponent,
     TopologyComponent,
@@ -154,14 +122,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostResourcesComponent,
     DeploymentEdgesComponent,
     KubernetesDeployComponent,
+    WindowsEventlogComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
     PerfOMeterComponent,
     LatencyHeatmapComponent,
     ProcessHistoryChartComponent,
-    DesiredStateReportComponent,
-    EffectiveThresholdsComponent,
     FormsModule,
   ],
   template: `
@@ -178,7 +145,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               <!-- Cockpit view (same component as the standalone console): live
                    gauges + filterable services grid + alerts, from this agent's
                    metrics. -->
-              <app-standalone-overview [agentId]="agent.id" [hostName]="agent.name" />
+              <!-- The snapshot this page already fetched: two components asking the same endpoint made the
+                   host page request the same 13 kB twice, 50 ms apart. -->
+              <app-standalone-overview [agentId]="agent.id" [hostName]="agent.name"
+                                       [metricsFrom]="seriesSnapshot()" />
               @if (overview(); as ov) {
                 @if (ov.parent_name) {
                   <p class="bm-parent-note">
@@ -529,451 +499,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </ng-template></mat-tab>
 
-          <mat-tab label="Configuration"><ng-template matTabContent>
-            <div class="bm-tab-content">
-             <mat-tab-group class="bm-cfg-sub" (selectedTabChange)="onConfigSubTab($event)">
-              <mat-tab label="Settings"><ng-template matTabContent>
-              @if (observedLoading()) {
-                <p class="bm-empty">Reading the host's configuration…</p>
-              } @else if (observedError(); as err) {
-                <p class="bm-empty">{{ err }}</p>
-              } @else if (observed(); as obs) {
-                <div class="bm-cfg-head">
-                  <span class="bm-dim">The host as one document — {{ obs.config.length }} config file(s).
-                    @if (observedCachedAt()) { <em>cached {{ observedCachedAt() | date: 'short' }} — Reload for live.</em> }
-                  </span>
-                  <button mat-stroked-button (click)="loadObserved(true)"><mat-icon>refresh</mat-icon> Reload</button>
-                </div>
-                @if (drift().managed.length) {
-                  <div class="bm-drift-banner" [class.bm-drift-on]="drift().drift.length">
-                    <mat-icon>{{ drift().drift.length ? 'sync_problem' : 'verified' }}</mat-icon>
-                    @if (drift().drift.length) {
-                      <span>{{ drift().drift.length }} of {{ drift().managed.length }} managed file(s) drifted from desired.</span>
-                      <button mat-button (click)="driftOpen.set(!driftOpen())">{{ driftOpen() ? 'Hide' : 'Show' }} diff</button>
-                      <button mat-flat-button color="primary" (click)="reapplyConfig()" [disabled]="driftBusy()">Re-sync to desired</button>
-                    } @else {
-                      <span>{{ drift().managed.length }} managed file(s), all in sync with desired.</span>
-                    }
-                  </div>
-                  @if (drift().drift.length && driftOpen()) {
-                    <div class="bm-drift-diff">
-                      @for (c of drift().drift; track c.path) {
-                        <div class="bm-drift-file">
-                          <div class="bm-drift-fname" (click)="jumpToFile(c.path)" title="Open this file">
-                            <mat-icon>description</mat-icon>{{ c.path }}
-                            <span class="bm-drift-n">{{ driftRows(c.path).length }} change(s)</span>
-                          </div>
-                          <table class="bm-drift-tbl">
-                            <thead><tr><th>Setting</th><th>Live (on host)</th><th></th><th>Desired</th></tr></thead>
-                            <tbody>
-                              @for (d of driftRows(c.path); track d.key) {
-                                <tr>
-                                  <td class="bm-mono">{{ d.key }}</td>
-                                  <td class="bm-mono bm-drift-live">{{ d.live }}</td>
-                                  <td class="bm-drift-arrow">→</td>
-                                  <td class="bm-mono bm-drift-want">{{ d.desired }}</td>
-                                </tr>
-                              }
-                            </tbody>
-                          </table>
-                        </div>
-                      }
-                    </div>
-                  }
-                }
-                <input
-                  class="bm-gpo-search"
-                  type="search"
-                  placeholder="Search settings…"
-                  [ngModel]="gpoSearch()"
-                  (ngModelChange)="gpoSearch.set($event)"
-                />
-                <!-- #5: add a config file the host doesn't have on disk yet, from
-                     the codec catalog, then define it as policy (host/OU/group). -->
-                <div class="bm-cfg-addfile">
-                  <mat-icon class="bm-dim">note_add</mat-icon>
-                  <input class="bm-kvin bm-addfile-in" list="bm-catalog-files"
-                         placeholder="Add a config file the host doesn't have yet (e.g. /etc/apt/apt.conf)…"
-                         [ngModel]="addFilePath()" (ngModelChange)="addFilePath.set($event)"
-                         (keydown.enter)="addCatalogFile(addFilePath())" />
-                  <datalist id="bm-catalog-files">
-                    @for (f of catalogAddOptions(); track f) { <option [value]="f"></option> }
-                  </datalist>
-                  <button mat-stroked-button (click)="addCatalogFile(addFilePath())" [disabled]="!addFilePath().trim()">
-                    <mat-icon>add</mat-icon> Add file
-                  </button>
-                </div>
-                <div class="bm-gpo">
-                  <!-- Miller column 1: categories -->
-                  <div class="bm-gpo-col">
-                    @for (c of gpoCategories(obs); track c.key) {
-                      <div class="bm-gpo-cat" [class.bm-gpo-sel]="gpoActiveCat() === c.key" (click)="selectGpoCat(c.key)">
-                        <mat-icon class="bm-gpo-cat-ic">{{ c.icon }}</mat-icon>{{ c.label }}
-                        <span class="bm-gpo-count">{{ c.count }}</span>
-                      </div>
-                    }
-                  </div>
-                  <!-- Miller column 2: the category's items (thresholds / plans / files) -->
-                  <div class="bm-gpo-col">
-                    @for (it of gpoColItems(obs); track it.pane) {
-                      <div class="bm-gpo-file" [class.bm-gpo-sel]="selectedPane() === it.pane" (click)="selectPane(it.pane)" [title]="it.title">
-                        {{ it.label }}
-                        @if (it.drift) { <span class="bm-dot-drift">●</span> }
-                      </div>
-                    } @empty {
-                      <p class="bm-gpo-empty">Pick a category.</p>
-                    }
-                  </div>
-                  <!-- Miller column 3: the selected pane -->
-                  <div class="bm-gpo-main">
-                    @if (selectedPane() === '::thresholds') {
-                      <h3 class="bm-gpo-h">
-                        Monitoring thresholds
-                        <button mat-button (click)="startAddThr()" [disabled]="thrBusy()">
-                          <mat-icon>add</mat-icon> Add threshold
-                        </button>
-                      </h3>
-                      <!-- The table lists the thresholds the host INHERITS (compiled
-                           desired state). A metric nobody has a rule for isn't in it
-                           yet, so adding one needs its own affordance. -->
-                      @if (addThr()) {
-                        <mat-card class="bm-setting-dlg">
-                          <strong>New threshold</strong>
-                          <p class="bm-dim">Pick a check configured on this host, then set its warn/crit. Everything is documented — the selected check's description is shown on the right.</p>
-                          <div class="bm-thr-miller">
-                            <!-- Column 1: the checks/services configured on this host -->
-                            <div class="bm-thr-col bm-thr-checks">
-                              <input class="bm-kvin bm-thr-search" type="search" placeholder="filter checks…" [value]="thrSearch()" (input)="thrSearch.set($any($event.target).value)" />
-                              @for (s of addThrServices(); track s.id) {
-                                <div class="bm-thr-item" [class.sel]="newMetric() === s.metric && newService() === s.name" (click)="pickThrService(s)">
-                                  <span class="bm-thr-dot" [style.background]="availabilityColor(s.state)"></span>
-                                  <span class="bm-thr-item-name">{{ s.name }}</span>
-                                  <span class="bm-thr-item-metric">{{ s.metric }}</span>
-                                </div>
-                              } @empty { <p class="bm-dim bm-thr-pad">No checks match.</p> }
-                              <div class="bm-thr-other" [class.sel]="thrOther()" (click)="pickThrOther()">
-                                <mat-icon>tune</mat-icon> Other metric…
-                              </div>
-                            </div>
-                            <!-- Column 2: description + the threshold settings -->
-                            <div class="bm-thr-col bm-thr-settings">
-                              @if (newMetric() || thrOther()) {
-                                <div class="bm-thr-desc">
-                                  <div class="bm-thr-desc-h">{{ newService() || newMetric() || 'New check' }}</div>
-                                  <pre class="bm-thr-desc-body">{{ thrDesc() }}</pre>
-                                </div>
-                                @if (thrOther()) {
-                                  <label>Metric
-                                    <input class="bm-kvin" list="bm-metric-options" [value]="newMetric()"
-                                           (input)="onNewMetric($any($event.target).value)" placeholder="e.g. uptime_seconds" />
-                                    <datalist id="bm-metric-options">
-                                      @for (m of metricOptions(); track m) { <option [value]="m"></option> }
-                                    </datalist>
-                                  </label>
-                                  <label>Service <input class="bm-kvin" [value]="newService()" (input)="newService.set($any($event.target).value)" placeholder="display name" /></label>
-                                }
-                                <div class="bm-thr-inputs">
-                                  <label>Comparison
-                                    <select class="bm-kvin" [value]="newComparison()" (change)="newComparison.set($any($event.target).value)">
-                                      @for (c of comparisons; track c.v) { <option [value]="c.v">{{ c.label }}</option> }
-                                    </select>
-                                  </label>
-                                  <label>Warn <input class="bm-kvin" [value]="newWarn()" (input)="newWarn.set($any($event.target).value)" /></label>
-                                  <label>Crit <input class="bm-kvin" [value]="newCrit()" (input)="newCrit.set($any($event.target).value)" /></label>
-                                </div>
-                                <label class="bm-scope">Scope:
-                                  <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                                    <option value="host">this host</option>
-                                    @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                                    @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                                  </select>
-                                </label>
-                                <p class="bm-dim">A threshold set here always wins over a policy — it appears in the
-                                  desired state with source <code>host:…</code> once the change is compiled.</p>
-                                @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                              } @else {
-                                <p class="bm-dim bm-thr-pad">Pick a check on the left to set its warn/crit — its description appears here.</p>
-                              }
-                              <div class="bm-rollback-actions">
-                                <button mat-button (click)="addThr.set(false)" [disabled]="thrBusy()">Cancel</button>
-                                <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy() || !newMetric().trim()">Add</button>
-                              </div>
-                            </div>
-                          </div>
-                        </mat-card>
-                      }
-                      <table class="bm-gpo-settings">
-                        <thead><tr><th>Service</th><th>Metric</th><th>Warn</th><th>Crit</th><th>Source</th></tr></thead>
-                        <tbody>
-                          @for (t of thresholds(); track t.metric) {
-                            <tr (click)="openThr(t)" [class.bm-row-sel]="thrKey() === t.metric">
-                              <td>{{ t.service_name ?? '—' }}</td><td class="bm-gpo-key">{{ t.metric }}</td>
-                              <td>{{ t.warn ?? '—' }}</td><td>{{ t.crit ?? '—' }}</td>
-                              <td><span class="bm-tag">{{ t.source ?? '—' }}</span></td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                      @if (thrKey(); as tk) {
-                        <mat-card class="bm-setting-dlg">
-                          <strong>{{ tk }}</strong>
-                          <label class="bm-radio"><input type="radio" name="thrmode" [checked]="thrMode() === 'configured'" (change)="thrMode.set('configured')" /> Configured at this scope</label>
-                          @if (thrMode() === 'configured') {
-                            <div class="bm-thr-inputs">
-                              <label>Warn <input class="bm-kvin" [value]="thrWarn()" (input)="thrWarn.set($any($event.target).value)" /></label>
-                              <label>Crit <input class="bm-kvin" [value]="thrCrit()" (input)="thrCrit.set($any($event.target).value)" /></label>
-                            </div>
-                          }
-                          <label class="bm-radio"><input type="radio" name="thrmode" [checked]="thrMode() === 'notconf'" (change)="thrMode.set('notconf')" /> Not configured at this scope (remove the rule)</label>
-                          <label class="bm-scope">Scope:
-                            <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                              <option value="host">this host</option>
-                              @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                              @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                            </select>
-                          </label>
-                          @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                          <div class="bm-rollback-actions">
-                            <button mat-button (click)="thrKey.set(null)" [disabled]="thrBusy()">Cancel</button>
-                            <button mat-flat-button color="primary" (click)="applyThr()" [disabled]="thrBusy()">Apply</button>
-                          </div>
-                        </mat-card>
-                      }
-                    } @else if (selectedPane() === '::plans') {
-                      <h3 class="bm-gpo-h">Applied plans / policies</h3>
-                      @if (appliedPlans().length) {
-                        <table class="bm-gpo-settings">
-                          <thead><tr><th>Policy</th><th>Type</th><th>Version</th><th>Source</th></tr></thead>
-                          <tbody>
-                            @for (p of appliedPlans(); track p.name) {
-                              <tr><td>{{ p.name }}</td><td class="bm-dim">{{ p.type }}</td><td>{{ p.version ?? '—' }}</td><td><span class="bm-tag">{{ p.source }}</span></td></tr>
-                            }
-                          </tbody>
-                        </table>
-                      } @else { <p class="bm-empty">No plans/policies apply to this host. Link one in OU / Policy.</p> }
-                    } @else if (selRes(obs); as r) {
-                      <div class="bm-cfg-row">
-                        <code class="bm-cfg-path">{{ r.path }}</code>
-                        <span class="bm-tag">{{ r.format || 'raw' }}</span>
-                        @if (isManaged(r.path)) {
-                          @if (driftFor(r.path)) { <span class="bm-tag bm-tag-drift">drifted</span> } @else { <span class="bm-tag bm-tag-sync">managed ✓</span> }
-                        }
-                        @if (templateFor(r.path); as tpl) {
-                          <button mat-button (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
-                        }
-                      </div>
-                      <div class="bm-cfg-viewtoggle">
-                        <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'editor'" (click)="configView.set('editor')">Settings editor</button>
-                        <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'resource'" (click)="configView.set('resource')">Resource view</button>
-                        <span class="bm-dim bm-vt-note">Resource view = the generic config node (host-direct state + generations). The Settings editor keeps scope/policy, source, Removed and restart-after-apply.</span>
-                      </div>
-                      @if (configView() === 'resource') {
-                        <app-resource-node kind="config" [name]="r.path" [agentId]="agent.id" />
-                      } @else {
-                      @if (tplEditPath() === r.path) {
-                        <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
-                        <app-param-form [params]="tplSchema()" [initial]="tplInitial()" [agentId]="agent.id"
-                                        (valuesChange)="tplParamValues.set($event)" />
-                        @if (tplError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                        @if (tplRendered(); as rendered) {
-                          <p class="bm-dim">Rendered file (would be written):</p>
-                          <pre class="bm-cfg-values">{{ rendered }}</pre>
-                        }
-                        <label class="bm-scope">Apply to:
-                          <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                            <option value="host">this host</option>
-                            @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                            @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                          </select>
-                        </label>
-                        <div class="bm-rollback-actions">
-                          <button mat-button (click)="cancelTemplateEdit()" [disabled]="tplBusy()">Cancel</button>
-                          <button mat-button (click)="previewTemplate(r)" [disabled]="tplBusy()">Preview (render)</button>
-                          <button mat-flat-button color="primary" (click)="applyTemplate(r)" [disabled]="tplBusy()">{{ applyScope() === 'host' ? 'Apply' : 'Apply to scope' }}</button>
-                        </div>
-                      } @else if (r.values) {
-                        <table class="bm-gpo-settings">
-                          <thead><tr><th>Setting</th><th>State</th><th>Value</th><th>Source</th></tr></thead>
-                          <tbody>
-                            @for (row of filteredSettingRows(r); track row.key) {
-                              <tr (click)="openSetting(r, row)" [class.bm-row-sel]="settingKey() === row.key">
-                                <td class="bm-gpo-key">{{ row.key }}</td>
-                                <td [class.bm-dim]="row.state === 'Host based'">{{ row.state }}</td>
-                                <td>
-                                  @if (row.state === 'Configured') { {{ row.desired }} }
-                                  @else if (row.state === 'Removed') { <s>{{ row.live || '—' }}</s> }
-                                  @else { <span class="bm-dim">{{ row.live }}</span> }
-                                </td>
-                                <td>@if (row.source) { <span class="bm-tag" [class.bm-tag--baseline]="row.state === 'Host based'">{{ row.source }}</span> }</td>
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                        <div class="bm-cfg-addkey">
-                          <input class="bm-kvin" placeholder="Add a setting key…"
-                                 [ngModel]="newSettingKey()" (ngModelChange)="newSettingKey.set($event)"
-                                 (keydown.enter)="addSettingKey(r)" />
-                          <button mat-stroked-button (click)="addSettingKey(r)" [disabled]="!newSettingKey().trim()">Add</button>
-                        </div>
-                        @if (settingKey(); as sk) {
-                          <mat-card class="bm-setting-dlg">
-                            <strong>{{ sk }}</strong>
-                            @if (directiveSpec(r); as ds) {
-                              @if (ds.description) { <p class="bm-dim bm-directive-desc">{{ ds.description }}@if (ds.default) { <span> · default: <code>{{ ds.default }}</code></span> }</p> }
-                            }
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'notconf'" (change)="settingMode.set('notconf')" /> Host based — no policy; the file keeps its own value</label>
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'configured'" (change)="settingMode.set('configured')" /> Configured</label>
-                            @if (settingMode() === 'configured') {
-                              @if (valueOptions(r); as opts) {
-                                <select class="bm-kvin bm-setting-val" [ngModel]="settingValue()" (ngModelChange)="settingValue.set($event)">
-                                  @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
-                                </select>
-                              } @else {
-                                <input class="bm-kvin bm-setting-val" [value]="settingValue()" (input)="settingValue.set($any($event.target).value)" />
-                              }
-                            }
-                            <label class="bm-radio"><input type="radio" name="setmode" [checked]="settingMode() === 'removed'" (change)="settingMode.set('removed')" /> Removed — enforce the key's absence in the file</label>
-                            <label class="bm-scope">Scope:
-                              <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                                <option value="host">this host</option>
-                                @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                                @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                              </select>
-                            </label>
-                            @if (settingService(r.path); as svc) {
-                              <label class="bm-scope bm-restart-svc">
-                                <input type="checkbox" [checked]="restartAfterApply()" (change)="restartAfterApply.set($any($event.target).checked)" />
-                                Restart <span class="bm-mono">{{ svc }}</span> after applying, so the change takes effect
-                              </label>
-                            }
-                            @if (settingError(); as se) { <p class="bm-cfg-err">{{ se }}</p> }
-                            <div class="bm-rollback-actions">
-                              <button mat-button (click)="closeSetting()" [disabled]="settingBusy()">Cancel</button>
-                              <button mat-flat-button color="primary" (click)="applySetting(r)" [disabled]="settingBusy()">
-                                {{ (settingService(r.path) && restartAfterApply()) ? ('Apply & restart ' + settingService(r.path)) : 'Apply' }}
-                              </button>
-                            </div>
-                          </mat-card>
-                        }
-                        @if (driftRows(r.path).length) {
-                          <p class="bm-dim bm-drift-h">Drift — live vs desired:</p>
-                          <table class="bm-diff">
-                            <thead><tr><th>Key</th><th>Live</th><th>Desired</th></tr></thead>
-                            <tbody>
-                              @for (d of driftRows(r.path); track d.key) {
-                                <tr><td>{{ d.key }}</td><td>{{ d.live }}</td><td>{{ d.desired }}</td></tr>
-                              }
-                            </tbody>
-                          </table>
-                        }
-                      } @else if (r.raw) {
-                        @if (editingPath() === r.path) {
-                          <textarea class="bm-cfg-edit" rows="14" [value]="editText()" (input)="editText.set($any($event.target).value)"></textarea>
-                          @if (editError(); as ee) { <p class="bm-cfg-err">{{ ee }}</p> }
-                          @if (editPreview(); as ep) { <p class="bm-dim">{{ ep }}</p> }
-                          <div class="bm-rollback-actions">
-                            <button mat-button (click)="cancelEdit()" [disabled]="editBusy()">Cancel</button>
-                            <button mat-button (click)="previewEdit(r)" [disabled]="editBusy()">Preview (dry-run)</button>
-                            <button mat-flat-button color="primary" (click)="applyEdit(r)" [disabled]="editBusy()">Apply &amp; push</button>
-                          </div>
-                        } @else {
-                          <pre class="bm-cfg-values">{{ r.raw }}</pre>
-                          <button mat-button class="bm-cfg-editbtn" (click)="startEdit(r)"><mat-icon>edit</mat-icon> Edit (raw fallback)</button>
-                        }
-                      } @else if (r.sha256) {
-                        <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
-                      }
-                      }
-                    }
-                  </div>
-                </div>
-                @if (!obs.config.length) { <p class="bm-empty">No config files discovered on this host.</p> }
-
-                <!-- Block F2: generation history + rollback -->
-                @if (generations().length) {
-                  <h3 class="bm-cfg-gen-h">Generations</h3>
-                  <table class="bm-cfg-gen">
-                    <thead><tr><th>#</th><th>Applied</th><th>Hash</th><th>Resources</th><th></th></tr></thead>
-                    <tbody>
-                      @for (g of generations(); track g.number) {
-                        <tr [class.bm-gen-current]="isCurrentGeneration(g.number)">
-                          <td>{{ g.number }}</td>
-                          <td>{{ g.applied_at | date: 'medium' }}</td>
-                          <td><code>{{ g.hash.slice(0, 12) }}…</code></td>
-                          <td>{{ g.resources }}</td>
-                          <td>
-                            @if (isCurrentGeneration(g.number)) {
-                              <span class="bm-tag">current</span>
-                            } @else {
-                              <button mat-button (click)="previewRollback(g.number)" [disabled]="rollbackBusy()">Roll back to #{{ g.number }}…</button>
-                            }
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-
-                  @if (rollbackTarget() !== null) {
-                    <mat-card class="bm-rollback">
-                      <div class="bm-rollback-head">
-                        <strong>Roll back to generation #{{ rollbackTarget() }}</strong>
-                        <span class="bm-dim">— dry-run preview, nothing applied yet</span>
-                      </div>
-                      @if (rollbackBusy() && !rollbackPlan()) {
-                        <p class="bm-empty">Computing the diff…</p>
-                      } @else if (rollbackError(); as rerr) {
-                        <p class="bm-cfg-err">{{ rerr }}</p>
-                      } @else if (rollbackPlan(); as plan) {
-                        @if (rollbackDiffRows().length) {
-                          <table class="bm-diff">
-                            <thead><tr><th>File</th><th>Action</th><th>Change</th></tr></thead>
-                            <tbody>
-                              @for (d of rollbackDiffRows(); track d.path + d.detail) {
-                                <tr><td><code>{{ d.path }}</code></td><td>{{ d.action }}</td><td>{{ d.detail }}</td></tr>
-                              }
-                            </tbody>
-                          </table>
-                        } @else {
-                          <p class="bm-dim">No changes — the host already matches generation #{{ rollbackTarget() }}.</p>
-                        }
-                      }
-                      <div class="bm-rollback-actions">
-                        <button mat-button (click)="cancelRollback()" [disabled]="rollbackBusy()">Cancel</button>
-                        <button mat-flat-button color="warn" (click)="applyRollback()"
-                                [disabled]="rollbackBusy() || !rollbackPlan() || !rollbackDiffRows().length">
-                          Apply rollback
-                        </button>
-                      </div>
-                    </mat-card>
-                  }
-                }
-              } @else {
-                <p class="bm-empty">Open this tab to read the host's configuration.</p>
-              }
-              </ng-template></mat-tab>
-              <mat-tab label="Effective thresholds"><ng-template matTabContent>
-                <app-effective-thresholds [agentId]="agent.id" />
-              </ng-template></mat-tab>
-              <mat-tab label="Desired state"><ng-template matTabContent>
-                <div class="bm-ds-head">
-                  <span class="bm-dim">The full compiled desired_state for this host — the GPO-merged result of the global, OU, group and host layers.</span>
-                  <button mat-stroked-button (click)="loadDesiredJson()" [disabled]="desiredJsonLoading()"><mat-icon>refresh</mat-icon> Reload</button>
-                </div>
-                @if (desiredJsonLoading()) {
-                  <p class="bm-empty">Compiling the desired state…</p>
-                } @else if (desiredJsonError(); as e) {
-                  <p class="bm-empty">{{ e }}</p>
-                } @else if (desiredStateFull(); as ds) {
-                  <app-desired-state-report [state]="ds" [config]="desiredConfig()" />
-                }
-              </ng-template></mat-tab>
-             </mat-tab-group>
-            </div>
-          </ng-template></mat-tab>
-
           <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
-              <app-host-management [agentId]="agent.id" />
+              <app-host-management [agentId]="agent.id" [hostName]="agent.name" [initialSnapin]="initialSnapin" />
             </div>
           </ng-template></mat-tab>
 
@@ -1003,28 +531,41 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               <div class="bm-rel-map"><app-topology [agentId]="agent.id" /></div>
               <h3 class="bm-rel-h">Connections</h3>
               @if (edges().length) {
+                <p class="bm-dim">
+                  {{ edges().length }} of {{ edgeTotals().groups }} process→destination pair(s),
+                  from {{ edgeTotals().edges }} recorded connection(s).
+                  @if (edgeTotals().truncated) { Showing the busiest. }
+                </p>
                 <table class="bm-table">
                   <thead>
                     <tr>
                       <th>Process</th>
                       <th>Destination</th>
+                      <th>Ports</th>
                       <th>Events</th>
-                      <th>Latency (p50)</th>
+                      <th>Latency (p50, busiest)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (edge of edges(); track edge.dst_addr + edge.dst_port) {
+                    <!-- track by the GROUP KEY. It used to be dst_addr + dst_port, which is not unique —
+                         the same destination appears for every process talking to it. -->
+                    @for (edge of edges(); track edge.src_comm + '|' + edge.dst_addr + '|' + edge.dst_port) {
                       <tr>
                         <td>{{ edge.src_comm }}</td>
-                        <td>{{ edge.dst_addr }}:{{ edge.dst_port }}</td>
+                        <!-- A folded client-port edge is named, not shown as port 0: the peer picked those
+                             ports at random, so the relationship is "this process talks to that address". -->
+                        <td>{{ edge.dst_addr }}@if (edge.dst_port !== null) {:{{ edge.dst_port }}}@if (edge.client_ports) {<span class="bm-dim"> · client ports</span>}</td>
+                        <td>{{ edge.ports > 1 ? edge.ports : (edge.dst_port !== null ? 1 : (edge.client_ports ? 'client' : '—')) }}</td>
                         <td>{{ edge.event_count }}</td>
-                        <td>{{ edge.latency_ms_p50 !== null ? (edge.latency_ms_p50 | number: '1.1-1') + ' ms' : '—' }}</td>
+                        <td>{{ edge.latency_ms_p50_busiest !== null ? (edge.latency_ms_p50_busiest | number: '1.1-3') + ' ms' : '—' }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
-              } @else {
+              } @else if (edgesLoaded()) {
                 <p class="bm-empty">No connections recorded for this host yet.</p>
+              } @else {
+                <p class="bm-dim">Loading connections…</p>
               }
             </div>
           </ng-template></mat-tab>
@@ -1384,6 +925,17 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               <app-deployment-edges [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
+          <!-- WINDOWS ONLY, and absent rather than disabled on a Linux host: an event log is not a thing
+               that machine has, and a greyed-out tab would imply it could be turned on. The Linux side has
+               its own log view (journald grep). -->
+          @if (isWindows(agent)) {
+            <mat-tab label="Event log"><ng-template matTabContent>
+              <div class="bm-tab-content">
+                <app-windows-eventlog [agentId]="agent.id" />
+              </div>
+            </ng-template></mat-tab>
+          }
+
           <mat-tab label="Kubernetes"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-kubernetes-deploy [agentId]="agent.id" />
@@ -1393,6 +945,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       </div>
     }
   `,
+  // One apply-scope per HOST PAGE, not per app: a scope silently carried from one host to another is
+  // how an edit meant for one machine lands on a whole OU. Component-level providers give an instance
+  // created and destroyed with this page, and that every pane split out of it can inject.
+  providers: [HostConfigScopeService],
   styles: [
     `
       .bm-svc-control {
@@ -1468,21 +1024,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tpl-field { margin: 8px 0; }
       .bm-tpl-field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
       .bm-tpl-field label .bm-dim { font-weight: 400; }
-      .bm-drift-banner { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); font-size: 13px; }
-      .bm-drift-banner.bm-drift-on { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 16%, transparent); }
-      .bm-drift-diff { margin: 0 0 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; }
-      .bm-drift-file { margin: 6px 0; }
-      .bm-drift-fname { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 12.5px; cursor: pointer; }
-      .bm-drift-fname:hover { color: var(--mat-sys-primary); }
-      .bm-drift-fname mat-icon { font-size: 16px; height: 16px; width: 16px; opacity: 0.7; }
-      .bm-drift-n { opacity: 0.6; font-family: inherit; font-size: 11px; }
-      .bm-drift-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 2px; }
-      .bm-drift-tbl th { text-align: left; font-size: 10.5px; opacity: 0.6; padding: 2px 10px; font-weight: 500; }
-      .bm-drift-tbl td { padding: 2px 10px; border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent); }
-      .bm-drift-live { color: var(--mat-sys-error, #c62828); }
-      .bm-drift-want { color: var(--bm-green, #2e7d32); }
-      .bm-drift-arrow { opacity: 0.5; }
-      .bm-drift-banner mat-icon { flex: 0 0 auto; }
       .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
       /* Baseline "Host" (the host's own value) muted; policy sources keep the accent tag. */
@@ -2046,9 +1587,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 })
 export class HostDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
   private agentService = inject(AgentService);
   private checkService = inject(CheckService);
-  private thrCatalog = signal<CheckCatalogEntry[]>([]);
   private searchService = inject(SearchService);
   private relationshipService = inject(RelationshipService);
   private runService = inject(RunService);
@@ -2144,7 +1685,9 @@ export class HostDetailComponent implements OnInit {
       return { group, rows: grpRows, state };
     }).filter((g) => g.rows.length > 0);
   });
-  edges = signal<HostEdge[]>([]);
+  edges = signal<HostEdgeGroup[]>([]);
+  edgesLoaded = signal(false);
+  edgeTotals = signal({ groups: 0, edges: 0, truncated: false });
   runs = signal<PlanRun[]>([]);
   /** Host Runs tab (unified): runbook executions against this host, merged
    * with plan runs into one host-scoped timeline. Deployments stay on the
@@ -2296,16 +1839,8 @@ export class HostDetailComponent implements OnInit {
   overview = signal<FleetHost | null>(null);
 
   // Block F1 — server-as-a-document (Configuration tab), lazily loaded.
-  observed = signal<ObservedState | null>(null);
-  observedLoading = signal(false);
-  observedError = signal<string | null>(null);
-  observedCachedAt = signal<string | null>(null); // when the served cache was captured (null = just fetched live)
-  // Block F2 — generation history + rollback (same tab).
-  generations = signal<StateGeneration[]>([]);
-  rollbackTarget = signal<number | null>(null); // generation being previewed
-  rollbackPlan = signal<StatePlan | null>(null); // dry-run diff for that target
-  rollbackBusy = signal(false);
-  rollbackError = signal<string | null>(null);
+  // Block F2's generation history + rollback state moved to
+  // management/host-config-generations.component, which owns its own fetch too.
 
   healthStatus = signal(agentHealthStatus({ enrollment_state: 'pending', last_seen_at: null }));
   private since = new Date(Date.now() - 3_600_000).toISOString();
@@ -2315,33 +1850,49 @@ export class HostDetailComponent implements OnInit {
   // Order MUST match the <mat-tab> order in the template (index → ?tab= deep link).
   // Grouped by theme: status (overview/services/inventory) → config & manage
   // (configuration + management adjacent) → checks/diagnostics → ops.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+
+  /** Retired tab names, mapped to where their content lives now.
+   *
+   * ?tab=configuration is in bookmarks, in this repo's own docs and in every link I used while testing.
+   * Dropping the tab without this would silently land those on Overview — the URL would still "work" and
+   * quietly show something else, which is worse than a 404. The Configuration tab's three panes are now
+   * the Management console's Configuration category. */
+  private readonly retiredTabs: Record<string, { tab: string; snapin?: string }> = {
+    configuration: { tab: 'management', snapin: 'config-settings' },
+  };
+  /** Snap-in to pre-select in the Management console, when arriving via a retired tab name. */
+  initialSnapin: string | null = null;
   initialTabIndex = 0;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
     const tab = (this.route.snapshot.queryParamMap.get('tab') || '').toLowerCase();
-    const idx = this.tabOrder.indexOf(tab);
+    const retired = this.retiredTabs[tab];
+    const idx = this.tabOrder.indexOf(retired?.tab ?? tab);
     if (idx >= 0) this.initialTabIndex = idx;
+    this.initialSnapin = retired?.snapin ?? null;
 
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
       this.healthStatus.set(agentHealthStatus(agent));
-      // Deep-linked initial tab fires no (selectedTabChange) event, so kick the
-      // lazy Configuration loads here when it's the landing tab.
-      if (this.tabOrder[this.initialTabIndex] === 'configuration') {
-        this.loadConfigCatalogs();
-        this.loadObserved();
-      }
+      // The Configuration tab needed a kick here once, because a deep-linked initial tab fires no
+      // (selectedTabChange) event and its data lived on this page. It fetches its own now, from inside
+      // app-host-settings-editor's constructor — and matTabContent does not construct that until the tab
+      // is actually shown, deep-linked or clicked. The special case is gone, not moved.
     });
 
     this.loadLatest(id);
 
-    this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
+    // NOT here. The relationships fetch moved to loadEdges(), called when the Relationships tab opens:
+    // every host page used to pay for it whether or not the operator ever looked (measured, 5.46 MB), and
+    // it was one of six requests that then queued behind the page's own asset downloads.
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
     this.runService.runbookRuns(100, id).subscribe((res) => this.runbookRuns.set(res.runs ?? []));
     this.reloadServices(id);
-    this.monitoringService.fleetHosts().subscribe((hosts) => this.overview.set(hosts.find((h) => h.id === id) ?? null));
+    // ONE row, asked for by id. This used to fetch the whole fleet table — every agent, EVERY SERVICE OF
+    // EVERY HOST, three fleet-wide metric lookups — and then .find() the one row this page shows.
+    this.monitoringService.fleetHosts(id).subscribe((hosts) => this.overview.set(hosts[0] ?? null));
   }
 
   /** Both latest-data shapes in one go: the per-METRIC list for the raw table,
@@ -2408,6 +1959,17 @@ export class HostDetailComponent implements OnInit {
    * expanding loads its chart + state history via selectService. */
   /** Friendly agent-role label: a managed agent is a Duppy (satellite) or a
    * Selecta (proxy, fronts satellites); 'standalone' = un-enrolled/self-managed. */
+  /** Is this a Windows host? Read from the reported family, never guessed from the platform string.
+   *
+   * `facts.os_family` is what the agent SAYS it is; deriving it from `os.id` here would put a second
+   * family-resolution rule in the UI, and two rules for one fact is how a Windows host ends up looking like
+   * Debian in one view and Windows in another. An unknown family is not Windows — the tab stays absent
+   * rather than guessing, and the Inventory tab shows what the host actually reported.
+   */
+  isWindows(agent: Agent): boolean {
+    return (agent.facts?.os_family ?? '').toLowerCase() === 'windows';
+  }
+
   modeLabel(mode: string | null | undefined): string {
     // 'cluster' (C1): a host whose services are computed from its nodes rather than
     // polled — nothing ever contacts it, which is why it has no address.
@@ -2611,9 +2173,10 @@ export class HostDetailComponent implements OnInit {
   }
 
   /** A CheckMK-style state colour for the availability bar segments. */
-  availabilityColor(state: string): string {
-    return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
-  }
+  /** The shared state→colour mapping, exposed for the template. A field pointing at the imported
+   * function rather than a re-implementation: one definition, and the three call sites in the views
+   * stay untouched, which is what makes this a move and not a rewrite. */
+  availabilityColor = availabilityColor;
 
   /** Lazy-load a tab's live data the first time it is opened. */
   onTabChange(event: MatTabChangeEvent): void {
@@ -2628,1174 +2191,29 @@ export class HostDetailComponent implements OnInit {
     if (event.tab.textLabel === 'eBPF' && !this.ebpfLoaded() && !this.ebpfLoading()) {
       this.loadEbpf();
     }
-    if (event.tab.textLabel === 'Configuration') {
-      this.loadConfigCatalogs();
-      if (this.observed() === null && !this.observedLoading()) this.loadObserved();
+    if (event.tab.textLabel === 'Relationships' && !this.edgesLoaded()) {
+      this.loadEdges();
     }
   }
 
-  /** The two host-independent config catalogs (directives ~1.9 MB, codecs ~0.6 MB)
-   * are ONLY needed by the Configuration tab's editors, so they are loaded lazily
-   * on first open rather than on every host page load — the single biggest chunk
-   * of the Host Overview's initial payload. Guarded so it fetches at most once. */
-  private configCatalogsLoaded = false;
-  private loadConfigCatalogs(): void {
-    if (this.configCatalogsLoaded) return;
-    this.configCatalogsLoaded = true;
-    // ADMX: the per-directive value catalog, so a config setting's editor can
-    // offer the real allowed values (enum) instead of guessing a yes/no family.
-    this.agentService.configDirectives().subscribe({
-      next: (r) => this.directiveCatalog.set(r.directives || {}),
-      error: () => { this.configCatalogsLoaded = false; },
-    });
-    // Host-independent codec catalog: every config file we know how to parse.
-    // Lets the operator add a file this host doesn't have yet (e.g. apt.conf)
-    // and define it as policy — parity with the OU policy editor (#5).
-    this.agentService.configCodecs().subscribe({
-      next: (r) => {
-        const seen = new Set<string>();
-        const files: { path: string; format: string; separator: string }[] = [];
-        for (const e of r.entries ?? []) {
-          const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
-          if (!path || path.includes('*') || seen.has(path)) continue;
-          seen.add(path);
-          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec, separator: e.separator ?? '' });
-        }
-        this.codecCatalog.set(files);
-      },
-      error: () => {},
-    });
-  }
-
-  /** Inner Configuration tabs: lazy-load the desired_state JSON on first open. */
-  onConfigSubTab(event: MatTabChangeEvent): void {
-    if (event.tab.textLabel === 'Desired state' && this.desiredStateFull() === null && !this.desiredJsonLoading()) {
-      this.loadDesiredJson();
-    }
-  }
-
-  /** Block F1 — the server-as-a-document read. Live agent pull (slow-ish), so
-   * loaded lazily when the Configuration tab is first opened. */
-  loadObserved(refresh = false): void {
+  /** What this host talks to — fetched when the Relationships tab opens, not on page load.
+   *
+   * Grouped by (process, destination) server-side: the raw edges are one row per PORT, and ephemeral-port
+   * traffic turns that into 28 203 rows / 5.46 MB on one measured host — for a table whose 87 real lines
+   * fit on a screen. */
+  loadEdges(): void {
     const agent = this.agent();
     if (!agent) return;
-    this.observedLoading.set(true);
-    this.observedError.set(null);
-    this.rollbackTarget.set(null);
-    this.rollbackPlan.set(null);
-    // Default open = the Postgres cache (instant); Reload = live re-fetch.
-    this.agentService.observedState(agent.id, refresh).subscribe({
+    this.relationshipService.list(agent.id).subscribe({
       next: (res) => {
-        this.observed.set(res.observed);
-        this.observedCachedAt.set((res as { cached_at?: string }).cached_at ?? null);
-        this.observedLoading.set(false);
-      },
-      error: (e) => {
-        this.observedError.set(e?.error?.detail ?? 'could not read observed state');
-        this.observedLoading.set(false);
-      },
-    });
-    // Generation history (Block F2) — independent of the observed read.
-    this.agentService.stateGenerations(agent.id).subscribe({
-      next: (res) => this.generations.set(res.generations ?? []),
-      error: () => this.generations.set([]),
-    });
-    // Class-B template catalog (Block K2), for path↔template binding.
-    if (!this.templates().length) {
-      this.agentService.configTemplates().subscribe({
-        next: (res) => this.templates.set(res.templates ?? []),
-        error: () => this.templates.set([]),
-      });
-    }
-    // Drift: desired (Bossman DB) vs observed (Block K3).
-    this.agentService.configDrift(agent.id).subscribe({
-      next: (res) => this.drift.set(res),
-      error: () => this.drift.set({ managed: [], drift: [] }),
-    });
-    // Thresholds + applied plans for the GPO categories (Block G).
-    this.loadDesiredMonitoring();
-    // Host groups for the apply-to-group scope (Block K4). All groups are
-    // offered — targeting a group the host isn't in still creates the policy +
-    // converges that group's members (agents.groups can lag the membership
-    // table, so we don't filter by it).
-    if (!this.hostGroups().length) {
-      this.hostGroupService.list().subscribe({
-        next: (gs) => this.hostGroups.set((gs || []).map((g) => ({ id: g.id, name: g.name }))),
-        error: () => this.hostGroups.set([]),
-      });
-    }
-  }
-
-  // Block K3: drift = the recorded desired config re-planned against the host.
-  drift = signal<{
-    managed: string[]; drift: StateResourceChange[]; sources?: Record<string, string>;
-    desired?: Record<string, Record<string, unknown>>; key_sources?: Record<string, Record<string, string>>;
-  }>({ managed: [], drift: [], sources: {} });
-  driftBusy = signal(false);
-
-  // ---- Block G: GPO-style settings editor (gpedit model: category tree left,
-  // settings list right, per-setting Not configured / Configured / Removed) ----
-  selectedPane = signal<string>('::thresholds');
-  selectPane(p: string): void {
-    this.selectedPane.set(p);
-    this.closeSetting();
-    this.cancelEdit();
-    this.cancelTemplateEdit();
-    this.thrKey.set(null);
-    this.configView.set('editor');   // each file opens in the scope-aware editor
-  }
-
-  // Per config file: the scope-aware Settings editor (default) or the generic
-  // config ResourceNode ("Resource view", host-direct state + generations). The
-  // node COMPLEMENTS the editor — it doesn't replace scope/policy/removed/restart.
-  configView = signal<'editor' | 'resource'>('editor');
-
-  // gpedit Miller columns: category (col 1) → its items (col 2) → pane (col 3).
-  // Monitoring + Policies are pseudo-categories; the rest are config-file
-  // categories from categoryGroups().
-  gpoActiveCat = signal<string>('::mon');
-  selectGpoCat(key: string): void { this.gpoActiveCat.set(key); }
-
-  // Drift diff: the banner can expand to show every drifted file + its
-  // key-level live→desired changes, and jump to a file in the Miller view.
-  driftOpen = signal(false);
-  jumpToFile(path: string): void {
-    this.gpoSearch.set('');
-    this.gpoActiveCat.set(categorizeConfigPath(path).key);
-    this.selectPane(path);
-  }
-
-  gpoCategories(obs: ObservedState): { key: string; label: string; icon: string; count: number }[] {
-    const cats: { key: string; label: string; icon: string; count: number }[] = [
-      { key: '::mon', label: 'Monitoring', icon: 'speed', count: this.thresholds().length },
-      { key: '::pol', label: 'Policies', icon: 'policy', count: this.appliedPlans().length },
-    ];
-    for (const g of this.categoryGroups(obs)) {
-      cats.push({ key: g.cat.key, label: g.cat.label, icon: g.cat.icon, count: g.files.length });
-    }
-    return cats;
-  }
-
-  gpoColItems(obs: ObservedState): { pane: string; label: string; title: string; drift: boolean }[] {
-    const cat = this.gpoActiveCat();
-    if (cat === '::mon') return [{ pane: '::thresholds', label: 'Thresholds', title: 'Monitoring thresholds', drift: false }];
-    if (cat === '::pol') return [{ pane: '::plans', label: 'Applied plans', title: 'Applied plans', drift: false }];
-    const grp = this.categoryGroups(obs).find((g) => g.cat.key === cat);
-    return (grp?.files ?? []).map((f) => ({ pane: f.path, label: this.baseName(f.path), title: f.path, drift: !!this.driftFor(f.path) }));
-  }
-  baseName(p: string): string {
-    return p.split('/').pop() || p;
-  }
-  /** gpedit live search: filters the category tree by file path OR any
-   * setting key inside the file (searching "PermitRoot" surfaces sshd_config
-   * under Security even though the filename doesn't match). */
-  gpoSearch = signal('');
-  categoryGroups(obs: ObservedState): { cat: ConfigCategory; files: ObservedResource[] }[] {
-    const q = this.gpoSearch().trim().toLowerCase();
-    const all = this.allConfig(obs);
-    const files = !q
-      ? all
-      : all.filter(
-          (r) =>
-            r.path.toLowerCase().includes(q) ||
-            this.flatKeys(r).some((k) => k.toLowerCase().includes(q)),
-        );
-    return groupByCategory(files);
-  }
-  private flatKeys(r: ObservedResource): string[] {
-    const flat = r.format === 'keyvalue' ? Object.entries(r.values ?? {}) : this.flatten(r.values ?? {});
-    return flat.map(([k]) => k);
-  }
-  selRes(obs: ObservedState): ObservedResource | null {
-    return this.allConfig(obs).find((r) => r.path === this.selectedPane()) ?? null;
-  }
-
-  /** The settings list narrowed by the live search: when the query matched
-   * the file by a KEY (not its path), only the matching keys are shown, so
-   * searching "PermitRoot" jumps straight to the setting. */
-  filteredSettingRows(r: ObservedResource): { key: string; state: string; desired: string; live: string; source: string | null }[] {
-    const rows = this.settingRows(r);
-    const q = this.gpoSearch().trim().toLowerCase();
-    if (!q || r.path.toLowerCase().includes(q)) return rows;
-    const hit = rows.filter((row) => row.key.toLowerCase().includes(q));
-    return hit.length ? hit : rows;
-  }
-
-  /** Setting rows for a codec'd file: the union of live keys and desired keys.
-   * State per key: Configured (managed with a value), Removed (managed null =
-   * enforced absent), Not configured (live only, unmanaged). */
-  settingRows(r: ObservedResource): { key: string; state: string; desired: string; live: string; source: string | null }[] {
-    const desired = this.drift().desired?.[r.path] ?? {};
-    const srcs = this.drift().key_sources?.[r.path] ?? {};
-    const flat = (v: Record<string, unknown> | undefined) =>
-      r.format === 'keyvalue' ? Object.entries(v ?? {}) : this.flatten(v ?? {});
-    const live = new Map(flat(r.values));
-    const des = new Map(flat(desired));
-    // Union in the file's known ADMX directives so every settable key shows as
-    // a row (configured or not) — like the Group Policy Editor lists all known
-    // settings, not just the ones already present in the file.
-    const specs = this.specsForPath(r.path);
-    const keys = [...new Set([...live.keys(), ...des.keys(), ...Object.keys(specs)])].sort();
-    return keys.map((key) => {
-      const managed = des.has(key);
-      const dv = des.get(key);
-      return {
-        key,
-        state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
-        desired: dv === null || dv === undefined ? '' : this.scalarStr(dv),
-        // Unmanaged key: the host's live value, or the directive default as a hint.
-        live: live.has(key) ? this.scalarStr(live.get(key)) : this.scalarStr(specs[key]?.default ?? ''),
-        // A managed key is sourced from the GPO scope it won at (Host/Group/OU/
-        // Default *policy*); an unmanaged key is just the host's own baseline
-        // value → "Host". So policy-set settings read as a policy, and the
-        // host's own values read as "Host".
-        source: managed ? this.sourceLabel(srcs[key]) : 'Host',
-      };
-    });
-  }
-
-  /** Human GPO-scope label for a config key's winning source. */
-  sourceLabel(scope: string | null | undefined): string {
-    switch (scope) {
-      case 'host': return 'Host policy';
-      case 'group': return 'Group policy';
-      case 'ou': return 'OU policy';
-      case 'global': return 'Default policy';
-      default: return scope || 'Policy';
-    }
-  }
-  private flatten(v: Record<string, unknown>, prefix = ''): [string, unknown][] {
-    const out: [string, unknown][] = [];
-    for (const [k, val] of Object.entries(v)) {
-      const key = prefix ? `${prefix}.${k}` : k;
-      if (val !== null && typeof val === 'object' && !Array.isArray(val)) out.push(...this.flatten(val as Record<string, unknown>, key));
-      else out.push([key, val]);
-    }
-    return out;
-  }
-  private unflatten(key: string, value: unknown, deep: boolean): Record<string, unknown> {
-    if (!deep || !key.includes('.')) return { [key]: value };
-    const parts = key.split('.');
-    const root: Record<string, unknown> = {};
-    let node = root;
-    for (const p of parts.slice(0, -1)) {
-      const n: Record<string, unknown> = {};
-      node[p] = n;
-      node = n;
-    }
-    node[parts[parts.length - 1]] = value;
-    return root;
-  }
-
-  // Per-setting dialog (gpedit's Not configured / Enabled / Disabled).
-  settingKey = signal<string | null>(null);
-  settingMode = signal<'notconf' | 'configured' | 'removed'>('configured');
-  settingValue = signal('');
-  settingBusy = signal(false);
-  settingError = signal<string | null>(null);
-  openSetting(r: ObservedResource, row: { key: string; state: string; desired: string; live: string }): void {
-    this.settingKey.set(row.key);
-    this.settingMode.set(row.state === 'Removed' ? 'removed' : row.state === 'Configured' ? 'configured' : 'notconf');
-    this.settingValue.set(row.desired || row.live || '');
-    this.settingError.set(null);
-  }
-  closeSetting(): void {
-    this.settingKey.set(null);
-    this.settingError.set(null);
-  }
-  /** ADMX per-directive value catalog ({file: {directive: spec}}), loaded once. */
-  directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
-
-  /** ADMX directive specs for a file. config_directives.json is keyed by FULL
-   * path (e.g. /etc/apt/apt.conf.d/…); basename is a legacy fallback. Keying by
-   * basename alone (the old bug) missed every full-path entry, so settings fell
-   * back to a generic text input instead of the enum/bool/int field the catalog
-   * defines — the same bug that was fixed in the OU policy editor. */
-  private specsForPath(path: string): Record<string, DirectiveSpec> {
-    const cat = this.directiveCatalog();
-    const base = (path || '').split('/').pop() || '';
-    return cat[path] ?? cat[base] ?? {};
-  }
-
-  /** The mined spec for the setting currently being edited on this resource.
-   * Null if unmined. */
-  directiveSpec(r: ObservedResource): DirectiveSpec | null {
-    const key = this.settingKey();
-    if (!key) return null;
-    return this.specsForPath(r.path)[key] ?? null;
-  }
-
-  /** Possible values as a listbox. Prefers the ADMX catalog (enum's real
-   * allowed values / bool), so e.g. PermitRootLogin offers all four values —
-   * not just the yes/no family guessed from the current value. Falls back to
-   * the family heuristic when the directive isn't in the catalog, and to a
-   * free-text input (null) otherwise. */
-  valueOptions(r: ObservedResource): string[] | null {
-    const spec = this.directiveSpec(r);
-    if (spec) {
-      if (spec.type === 'enum' && spec.values?.length) {
-        const val = this.settingValue();
-        return spec.values.includes(val) || !val ? spec.values : [val, ...spec.values];
-      }
-      if (spec.type === 'bool') return ['yes', 'no'];
-      if (spec.type === 'int' || spec.type === 'string' || spec.type === 'list') return null;
-    }
-    const key = this.settingKey();
-    if (!key) return null;
-    const row = this.settingRows(r).find((x) => x.key === key);
-    const cur = (row?.desired || row?.live || '').trim().toLowerCase();
-    const families = [['yes', 'no'], ['true', 'false'], ['on', 'off'], ['enabled', 'disabled']];
-    const fam = families.find((f) => f.includes(cur));
-    if (!fam) return null;
-    const val = this.settingValue();
-    return fam.includes(val) ? fam : [val, ...fam].filter((v, i, a) => v !== '' && a.indexOf(v) === i);
-  }
-  /** The systemd service that owns a config path, from the observed-state
-   * discovery (service -> config_paths). Lets the Apply button also restart the
-   * right unit so the change takes effect. Null when no service claims it. */
-  settingService(path: string): string | null {
-    const svcs = (this.observed()?.services as { service: string; config_paths?: string[] }[] | undefined) ?? [];
-    const hit = svcs.find((s) => (s.config_paths ?? []).includes(path));
-    return hit ? hit.service.replace(/@$/, '') : null; // strip template unit suffix (getty@)
-  }
-  restartAfterApply = signal(true);
-
-  // #5 — reach a config file the host doesn't have yet. The codec catalog lists
-  // every known file; picking one injects a synthetic (empty) resource so the
-  // existing settings editor + Apply path can define it as desired config at
-  // host/OU/group scope (stateApply doesn't require the file to pre-exist).
-  codecCatalog = signal<{ path: string; format: string; separator: string }[]>([]);
-  extraConfigFiles = signal<ObservedResource[]>([]);
-  addFilePath = signal('');
-
-  /** Observed files ∪ catalog files the operator added (dedup by path). */
-  private allConfig(obs: ObservedState): ObservedResource[] {
-    const extra = this.extraConfigFiles().filter((e) => !obs.config.some((c) => c.path === e.path));
-    return [...obs.config, ...extra];
-  }
-
-  /** Catalog paths not already shown, for the "add a file" datalist. */
-  catalogAddOptions(): string[] {
-    const have = new Set<string>([
-      ...(this.observed()?.config ?? []).map((c) => c.path),
-      ...this.extraConfigFiles().map((c) => c.path),
-    ]);
-    return this.codecCatalog().map((e) => e.path).filter((p) => !have.has(p));
-  }
-
-  addCatalogFile(path: string): void {
-    const p = (path || '').trim();
-    if (!p) return;
-    this.addFilePath.set('');
-    const obs = this.observed();
-    const present = (obs?.config ?? []).some((c) => c.path === p) || this.extraConfigFiles().some((c) => c.path === p);
-    if (!present) {
-      const cat = this.codecCatalog().find((e) => e.path === p);
-      const res = { path: p, format: cat?.format || 'keyvalue', separator: cat?.separator || '=', values: {} } as ObservedResource;
-      this.extraConfigFiles.update((xs) => [...xs, res]);
-    }
-    if (obs) {
-      const grp = this.categoryGroups(obs).find((g) => g.files.some((f) => f.path === p));
-      if (grp) this.gpoActiveCat.set(grp.cat.key);
-    }
-    this.selectPane(p);
-  }
-
-  // Add an arbitrary setting key to the selected file (for files with no mined
-  // directives, or a key the catalog doesn't list) — mirrors the OU editor.
-  newSettingKey = signal('');
-  addSettingKey(r: ObservedResource): void {
-    const k = this.newSettingKey().trim();
-    if (!k) return;
-    this.newSettingKey.set('');
-    this.openSetting(r, { key: k, state: 'Host based', desired: '', live: '' });
-  }
-
-  applySetting(r: ObservedResource): void {
-    const agent = this.agent();
-    const key = this.settingKey();
-    if (!agent || !key) return;
-    const mode = this.settingMode();
-    this.settingBusy.set(true);
-    this.settingError.set(null);
-    const svc = this.settingService(r.path);
-    const restart = !!svc && this.restartAfterApply() && mode !== 'notconf';
-    const finish = () => { this.settingBusy.set(false); this.closeSetting(); this.loadObserved(); };
-    const done = () => {
-      // After the config is applied, restart the owning service so the change
-      // takes effect (the user's "apply + restart" ask) — best-effort: a
-      // restart failure surfaces but the config change itself already landed.
-      if (restart) {
-        this.agentService.serviceControl(agent.id, svc!, 'restart').subscribe({
-          next: finish,
-          error: (e: { error?: { detail?: string } }) => {
-            this.settingError.set(`Config applied, but restarting ${svc} failed: ${e?.error?.detail ?? 'error'}`);
-            this.settingBusy.set(false);
-            this.loadObserved();
-          },
+        this.edges.set(res.groups ?? []);
+        this.edgeTotals.set({
+          groups: res.total_groups ?? 0, edges: res.total_edges ?? 0, truncated: !!res.truncated,
         });
-      } else {
-        finish();
-      }
-    };
-    const fail = (e: { error?: { detail?: string } }) => { this.settingError.set(e?.error?.detail ?? 'failed'); this.settingBusy.set(false); };
-    if (mode === 'notconf') {
-      // Stop managing at the chosen scope; the live file is untouched.
-      const scope = this.scopeArg();
-      this.agentService.unsetDesired(agent.id, { path: r.path, key, ou_id: scope?.ouId, host_group_id: scope?.groupId }).subscribe({ next: done, error: fail });
-      return;
-    }
-    const value = mode === 'removed' ? null : this.settingValue();
-    const values = this.unflatten(key, value, r.format !== 'keyvalue');
-    const resource: ConfigResource = { type: 'config', path: r.path, format: r.format, separator: r.separator, values };
-    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({ next: done, error: fail });
-  }
-
-  // Thresholds category (check_rules as GPO settings) + applied plans.
-  thresholds = signal<{ metric: string; service_name?: string; warn?: number | null; crit?: number | null; comparison?: string; source?: string }[]>([]);
-  appliedPlans = signal<{ name: string; version: number | null; type: string; source: string }[]>([]);
-  thrKey = signal<string | null>(null);
-  thrMode = signal<'configured' | 'notconf'>('configured');
-  thrWarn = signal('');
-  thrCrit = signal('');
-  thrBusy = signal(false);
-  thrError = signal<string | null>(null);
-  // Desired-state sub-tab: the full compiled desired_state document for this host
-  // (the GPO-merged result of global/OU/group/host layers), rendered as a
-  // gpresult-style collapsible report.
-  desiredStateFull = signal<CompiledHostState | null>(null);
-  desiredConfig = signal<ConfigDesiredResource[] | null>(null);
-  desiredJsonLoading = signal(false);
-  desiredJsonError = signal<string | null>(null);
-  loadDesiredJson(): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.desiredJsonLoading.set(true);
-    this.desiredJsonError.set(null);
-    forkJoin({
-      state: this.orchestration.desiredState(agent.id),
-      config: this.agentService.configDesired(agent.id),
-    }).subscribe({
-      next: ({ state, config }) => {
-        this.desiredStateFull.set(state);
-        this.desiredConfig.set(config.resources);
-        this.desiredJsonLoading.set(false);
+        this.edgesLoaded.set(true);
       },
-      error: (e: { error?: { detail?: string } }) => {
-        this.desiredJsonError.set(e?.error?.detail ?? 'failed to load desired state');
-        this.desiredJsonLoading.set(false);
-      },
+      error: () => this.edgesLoaded.set(true),
     });
-  }
-  loadDesiredMonitoring(): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.orchestration.desiredState(agent.id).subscribe({
-      next: (d) => {
-        const t = (d.state.monitoring.thresholds ?? {}) as Record<string, { service_name?: string; warn?: number; crit?: number; comparison?: string; source?: string }>;
-        this.thresholds.set(Object.entries(t).map(([metric, v]) => ({ metric, ...v })));
-        const explain = (d.explain ?? {}) as { assignments?: { plan: string; source: string; version: number | null }[] };
-        const srcByPlan = new Map((explain.assignments ?? []).map((a) => [a.plan, a.source] as const));
-        this.appliedPlans.set(d.state.orchestration.plans.map((p) => ({ name: p.name, version: p.version, type: p.type, source: srcByPlan.get(p.name) ?? 'ou' })));
-      },
-      error: () => { this.thresholds.set([]); this.appliedPlans.set([]); },
-    });
-  }
-  openThr(t: { metric: string; warn?: number | null; crit?: number | null }): void {
-    this.thrKey.set(t.metric);
-    this.thrWarn.set(t.warn === null || t.warn === undefined ? '' : String(t.warn));
-    this.thrCrit.set(t.crit === null || t.crit === undefined ? '' : String(t.crit));
-    this.thrMode.set('configured');
-    this.thrError.set(null);
-  }
-  // --- add a NEW threshold -------------------------------------------------
-  // The table above lists what the host INHERITS (from the compiled desired
-  // state), so a metric that has no rule anywhere never appears and could not be
-  // configured. This adds one; the metric list is seeded from the host's own
-  // metrics so it stays a choice rather than free-text guessing.
-  addThr = signal(false);
-  newMetric = signal('');
-  newService = signal('');
-  newComparison = signal('ge');
-  newWarn = signal('');
-  newCrit = signal('');
-  metricOptions = signal<string[]>([]);
-  readonly comparisons = [
-    { v: 'ge', label: '≥ (at or above)' }, { v: 'gt', label: '> (above)' },
-    { v: 'le', label: '≤ (at or below)' }, { v: 'lt', label: '< (below)' },
-    { v: 'eq', label: '= (equals)' }, { v: 'ne', label: '≠ (differs)' },
-  ];
-
-  startAddThr(): void {
-    this.addThr.set(true);
-    this.thrKey.set(null);
-    this.thrError.set(null);
-    this.newMetric.set(''); this.newService.set(''); this.newWarn.set(''); this.newCrit.set('');
-    // The check catalog (name, short_description, summary) — so a picked service
-    // can show its real check description (the yaml text), not just a glossary.
-    if (!this.thrCatalog().length) {
-      this.checkService.listChecks().subscribe({
-        next: (r) => this.thrCatalog.set(r.checks || []),
-        error: () => this.thrCatalog.set([]),
-      });
-    }
-    const agent = this.agent();
-    if (agent && !this.metricOptions().length) {
-      // the host's own metric names, minus the ones that already have a threshold
-      this.agentService.metricNames(agent.id).subscribe({
-        next: (r) => {
-          const taken = new Set(this.thresholds().map((t) => t.metric));
-          this.metricOptions.set([...new Set(r.metrics ?? [])].filter((m) => !taken.has(m)).sort());
-        },
-        error: () => this.metricOptions.set([]),
-      });
-    }
-  }
-
-  /** Pre-fill a readable service name from the metric (user can override). */
-  onNewMetric(v: string): void {
-    this.newMetric.set(v);
-    if (!this.newService().trim()) {
-      this.newService.set(v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
-    }
-    this.thrDesc.set(this.metricGlossary(v) || 'A custom metric threshold. Warn/crit grade the reported value.');
-  }
-
-  // ---- Add-threshold Miller: pick a check configured on the host ----------
-  thrSearch = signal('');
-  thrOther = signal(false);
-  thrDesc = signal('');
-
-  /** The checks configured on this host = its monitored services, filtered by
-   * the search box. This is the left Miller column of Add threshold. */
-  addThrServices = computed<ServiceState[]>(() => {
-    const q = this.thrSearch().trim().toLowerCase();
-    return this.services()
-      .filter((s) => s.metric && s.name !== 'Config drift' ? true : !!s.metric)
-      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.metric || '').toLowerCase().includes(q))
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
-
-  /** Pick a host check → prefill the threshold form from it + show its
-   * description (self-explaining: what it measures, its live result, and what
-   * it is currently graded against). */
-  pickThrService(s: ServiceState): void {
-    this.thrOther.set(false);
-    this.newMetric.set(s.metric);
-    this.newService.set(s.name);
-    if (s.comparison) this.newComparison.set(s.comparison);
-    if (s.warn_threshold !== null && s.warn_threshold !== undefined) this.newWarn.set(String(s.warn_threshold));
-    if (s.crit_threshold !== null && s.crit_threshold !== undefined) this.newCrit.set(String(s.crit_threshold));
-    // Show the real check description. Live parts first so something is always
-    // there; the check's yaml description is fetched + prepended when resolved.
-    const live: string[] = [];
-    if (s.output) live.push(`Latest result: ${s.output}`);
-    const graded = thresholdContext(s);
-    if (graded) live.push(`Currently graded: ${graded}.`);
-    live.push(`Metric: ${s.metric}.`);
-    const compose = (desc: string) => this.thrDesc.set([desc, ...live].filter(Boolean).join('\n\n'));
-    compose(this.metricGlossary(s.metric));
-
-    // Resolve the check's real description. Try the best candidate names in turn
-    // (catalog match, the raw service name, the metric) — robust even if the
-    // catalog hasn't loaded yet, since services are often named after their check.
-    const match = this.matchCheckForService(s);
-    const candidates = [...new Set([match?.name, s.name, s.metric].filter((x): x is string => !!x))];
-    const tryNext = (i: number): void => {
-      if (i >= candidates.length) { if (match?.summary) compose(match.summary); return; }
-      this.checkService.getCheck(candidates[i]).subscribe({
-        next: (r) => {
-          const d = (r as { metadata?: { description?: string } })?.metadata?.description || '';
-          if (d) compose(d); else tryNext(i + 1);
-        },
-        error: () => tryNext(i + 1),
-      });
-    };
-    tryNext(0);
-  }
-
-  /** Best-effort map from a running service to its library check, so we can show
-   * the check's own description. Match on the service-name template (short_desc
-   * with %s stripped) exactly or as a prefix, else on the metric/name token. */
-  private matchCheckForService(s: ServiceState): CheckCatalogEntry | null {
-    const cat = this.thrCatalog();
-    if (!cat.length) return null;
-    const label = (c: CheckCatalogEntry) => (c.short_description || '').replace(/%s/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const sn = (s.name || '').trim().toLowerCase();
-    const metric = (s.metric || '').trim().toLowerCase();
-    // Exact raw name/metric first (services named after their check, e.g.
-    // systemd_units_services_summary); then the service-name template exactly;
-    // then as a prefix at a word boundary. No loose substring — "md" must not
-    // match "systemd…".
-    return cat.find((c) => c.name && (c.name.toLowerCase() === sn || c.name.toLowerCase() === metric))
-      || cat.find((c) => label(c) && label(c) === sn)
-      || cat.find((c) => label(c) && (sn === label(c) || sn.startsWith(label(c) + ' ')))
-      || null;
-  }
-  pickThrOther(): void {
-    this.thrOther.set(true);
-    this.newMetric.set(''); this.newService.set('');
-    this.thrDesc.set('Set a threshold on any metric this host reports, even one without a service yet. Start typing a metric name.');
-  }
-
-  /** One-line "what this measures" for the common builtin metrics, so the
-   * threshold editor is self-documenting even for metrics without a library
-   * check description. */
-  private metricGlossary(metric: string): string {
-    const m = (metric || '').toLowerCase();
-    const G: [RegExp, string][] = [
-      [/cpu_load|load1|load5|load15/, 'System load average — the mean number of processes waiting to run; compare against the core count.'],
-      [/cpu.*pct|cpu.*percent|cpu_usage/, 'CPU utilisation in percent across all cores.'],
-      [/mem.*used.*pct|mem.*percent|memory.*used/, 'RAM in use as a percent of total physical memory.'],
-      [/swap/, 'Swap space in use — sustained swapping indicates memory pressure.'],
-      [/disk.*used.*pct|fs.*used|filesystem/, 'Filesystem usage in percent; crit before it fills up.'],
-      [/disk.*io|iops|read_bytes|write_bytes/, 'Disk I/O throughput / operations per second.'],
-      [/uptime/, 'Time since last boot — a sudden drop means the host rebooted.'],
-      [/net.*rx|net.*tx|bandwidth|throughput/, 'Network throughput on the interface.'],
-      [/temp|temperature/, 'Hardware temperature sensor reading.'],
-      [/process|proc_/, 'Per-process resource usage.'],
-      [/config_drift/, 'Number of managed config files drifted from desired (out-of-band changes).'],
-    ];
-    for (const [re, desc] of G) if (re.test(m)) return desc;
-    return '';
-  }
-
-  createThr(): void {
-    const agent = this.agent();
-    const metric = this.newMetric().trim();
-    if (!agent || !metric) return;
-    this.thrBusy.set(true);
-    this.thrError.set(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const body: any = {
-      service_name: this.newService().trim() || metric,
-      metric,
-      comparison: this.newComparison(),
-      warn_threshold: this.newWarn() === '' ? null : Number(this.newWarn()),
-      crit_threshold: this.newCrit() === '' ? null : Number(this.newCrit()),
-      ...this.thrScopeFields(agent),
-      enabled: true,
-    };
-    if (body.warn_threshold === null && body.crit_threshold === null) {
-      this.thrError.set('set at least a warn or a crit value');
-      this.thrBusy.set(false);
-      return;
-    }
-    this.monitoringService.createCheckRule(body).subscribe({
-      next: () => { this.thrBusy.set(false); this.addThr.set(false); this.loadDesiredMonitoring(); },
-      error: (e: { error?: { detail?: string } }) => {
-        this.thrError.set(e?.error?.detail ?? 'failed'); this.thrBusy.set(false);
-      },
-    });
-  }
-
-  /** The CheckRule scope fields for the currently selected apply-scope. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private thrScopeFields(agent: { name: string; ou_id?: string | null }): any {
-    const scope = this.applyScope();
-    if (scope === 'ou') return { scope_type: 'ou', scope_ou_id: agent.ou_id, scope_value: null };
-    if (scope.startsWith('group:')) {
-      return { scope_type: 'group', scope_ou_id: null,
-               scope_value: this.hostGroups().find((g) => 'group:' + g.id === scope)?.name ?? '' };
-    }
-    return { scope_type: 'host', scope_value: agent.name, scope_ou_id: null };
-  }
-
-  applyThr(): void {
-    const agent = this.agent();
-    const metric = this.thrKey();
-    if (!agent || !metric) return;
-    const t = this.thresholds().find((x) => x.metric === metric);
-    const scope = this.applyScope();
-    const scopeFields = scope === 'ou'
-      ? { scope_type: 'ou', scope_ou_id: agent.ou_id, scope_value: null }
-      : scope.startsWith('group:')
-        ? { scope_type: 'group', scope_value: this.hostGroups().find((g) => 'group:' + g.id === scope)?.name ?? '', scope_ou_id: null }
-        : { scope_type: 'host', scope_value: agent.name, scope_ou_id: null };
-    this.thrBusy.set(true);
-    this.thrError.set(null);
-    const done = () => { this.thrBusy.set(false); this.thrKey.set(null); this.loadDesiredMonitoring(); };
-    const fail = (e: { error?: { detail?: string } }) => { this.thrError.set(e?.error?.detail ?? 'failed'); this.thrBusy.set(false); };
-    this.monitoringService.listCheckRules().subscribe({
-      next: (rules) => {
-        const existing = rules.find((ru) =>
-          ru.metric === metric && ru.scope_type === scopeFields.scope_type &&
-          (scopeFields.scope_type === 'ou' ? ru.scope_ou_id === agent.ou_id : ru.scope_value === scopeFields.scope_value));
-        if (this.thrMode() === 'notconf') {
-          if (!existing) { this.thrError.set('no rule at this scope to remove'); this.thrBusy.set(false); return; }
-          this.monitoringService.deleteCheckRule(existing.id).subscribe({ next: done, error: fail });
-          return;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const body: any = {
-          service_name: t?.service_name ?? metric, metric, comparison: t?.comparison ?? 'ge',
-          warn_threshold: this.thrWarn() === '' ? null : Number(this.thrWarn()),
-          crit_threshold: this.thrCrit() === '' ? null : Number(this.thrCrit()),
-          ...scopeFields, enabled: true,
-        };
-        if (existing) this.monitoringService.updateCheckRule(existing.id, body).subscribe({ next: done, error: fail });
-        else this.monitoringService.createCheckRule(body).subscribe({ next: done, error: fail });
-      },
-      error: fail,
-    });
-  }
-  // Block K4: apply scope — 'host', 'ou', or 'group:<id>'. OU/group applies save
-  // a config policy + converge every member host ("Host A = Host B").
-  applyScope = signal<string>('host');
-  hostGroups = signal<{ id: string; name: string }[]>([]); // groups this host is in
-  private scopeArg(): { ouId?: string; groupId?: string } | undefined {
-    const s = this.applyScope();
-    if (s === 'ou') return { ouId: this.agent()?.ou_id ?? undefined };
-    if (s.startsWith('group:')) return { groupId: s.slice(6) };
-    return undefined;
-  }
-  sourceFor(path: string): string | null {
-    return this.drift().sources?.[path] ?? null;
-  }
-
-  isManaged(path: string): boolean {
-    return this.drift().managed.includes(path);
-  }
-  driftFor(path: string): StateResourceChange | null {
-    return this.drift().drift.find((c) => c.path === path) ?? null;
-  }
-  /** Per-key drift rows for a managed file that has drifted. */
-  driftRows(path: string): { key: string; desired: string; live: string }[] {
-    const changed = this.driftFor(path)?.changed;
-    if (!changed) return [];
-    // plan diff is observed(before) → desired(after); for drift we show desired
-    // vs the live value, i.e. after=desired, before=live.
-    return Object.entries(changed).map(([key, [live, desired]]) => ({
-      key,
-      desired: desired === null || desired === undefined ? '(remove)' : this.scalarStr(desired),
-      live: live === null || live === undefined ? '—' : this.scalarStr(live),
-    }));
-  }
-
-  /** Re-sync the whole host to its recorded desired config (converge drift). */
-  reapplyConfig(): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.driftBusy.set(true);
-    this.agentService.reapplyConfig(agent.id).subscribe({
-      next: () => {
-        this.driftBusy.set(false);
-        this.loadObserved();
-      },
-      error: () => this.driftBusy.set(false),
-    });
-  }
-
-  /** True for the newest generation — the one currently applied. */
-  isCurrentGeneration(n: number): boolean {
-    const gens = this.generations();
-    return gens.length > 0 && n === Math.max(...gens.map((g) => g.number));
-  }
-
-  /** Preview a rollback to generation `n`: a dry-run whose plan IS the
-   * observed→target diff. Nothing is written. */
-  previewRollback(n: number): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.rollbackTarget.set(n);
-    this.rollbackPlan.set(null);
-    this.rollbackError.set(null);
-    this.rollbackBusy.set(true);
-    this.agentService.stateRollback(agent.id, n, true).subscribe({
-      next: (res) => {
-        this.rollbackPlan.set(res.plan);
-        this.rollbackBusy.set(false);
-      },
-      error: (e) => {
-        this.rollbackError.set(e?.error?.detail ?? 'rollback preview failed');
-        this.rollbackBusy.set(false);
-      },
-    });
-  }
-
-  cancelRollback(): void {
-    this.rollbackTarget.set(null);
-    this.rollbackPlan.set(null);
-    this.rollbackError.set(null);
-  }
-
-  /** Apply the previewed rollback for real, then reload the tab. */
-  applyRollback(): void {
-    const agent = this.agent();
-    const n = this.rollbackTarget();
-    if (!agent || n === null) return;
-    this.rollbackBusy.set(true);
-    this.rollbackError.set(null);
-    this.agentService.stateRollback(agent.id, n, false).subscribe({
-      next: () => {
-        this.rollbackBusy.set(false);
-        this.cancelRollback();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.rollbackError.set(e?.error?.detail ?? 'rollback failed');
-        this.rollbackBusy.set(false);
-      },
-    });
-  }
-
-  // --- Block F1b: render stored JSON values in the file's native format, and
-  // edit + push keyvalue configs (the "server is a key-value document") ---
-
-  /** The config file's values rendered in its native format (ini/yaml/keyvalue)
-   * — the DB/API carry structured JSON, but an admin reads ini/yaml. */
-  configText(r: { format: string; separator?: string; values?: Record<string, unknown> }): string {
-    const v = r.values;
-    if (!v) return '';
-    switch (r.format) {
-      case 'keyvalue':
-        return this.kvText(v, r.separator || ' ');
-      case 'ini':
-        return this.iniText(v);
-      case 'yaml':
-      case 'json':
-        return this.yamlText(v, 0);
-      default:
-        return JSON.stringify(v, null, 2);
-    }
-  }
-
-  private scalarStr(v: unknown): string {
-    if (v === null || v === undefined) return '';
-    if (typeof v === 'string') return v;
-    return JSON.stringify(v);
-  }
-
-  private kvText(v: Record<string, unknown>, sep: string): string {
-    return Object.entries(v)
-      .map(([k, val]) => {
-        const s = this.scalarStr(val);
-        return s === '' ? k : `${k}${sep}${s}`;
-      })
-      .join('\n');
-  }
-
-  private iniText(v: Record<string, unknown>): string {
-    const lines: string[] = [];
-    const globals = v[''] as Record<string, unknown> | undefined;
-    if (globals) for (const [k, val] of Object.entries(globals)) lines.push(`${k} = ${this.scalarStr(val)}`);
-    for (const [sec, kv] of Object.entries(v)) {
-      if (sec === '') continue;
-      if (lines.length) lines.push('');
-      lines.push(`[${sec}]`);
-      for (const [k, val] of Object.entries((kv as Record<string, unknown>) || {})) lines.push(`${k} = ${this.scalarStr(val)}`);
-    }
-    return lines.join('\n');
-  }
-
-  private yamlText(v: unknown, indent: number): string {
-    const pad = '  '.repeat(indent);
-    if (Array.isArray(v)) {
-      if (!v.length) return `${pad}[]`;
-      return v
-        .map((item) =>
-          item !== null && typeof item === 'object'
-            ? `${pad}-\n${this.yamlText(item, indent + 1)}`
-            : `${pad}- ${this.scalarStr(item)}`,
-        )
-        .join('\n');
-    }
-    if (v !== null && typeof v === 'object') {
-      const entries = Object.entries(v as Record<string, unknown>);
-      if (!entries.length) return `${pad}{}`;
-      return entries
-        .map(([k, val]) =>
-          val !== null && typeof val === 'object'
-            ? `${pad}${k}:\n${this.yamlText(val, indent + 1)}`
-            : `${pad}${k}: ${this.scalarStr(val)}`,
-        )
-        .join('\n');
-    }
-    return `${pad}${this.scalarStr(v)}`;
-  }
-
-  /** A config is editable when we carried its verbatim text (textual file under
-   * the size cap). The edit pushes the whole file back via `copy`, so every
-   * format works and comments/order/deletions are preserved. */
-  isEditable(r: { raw?: string }): boolean {
-    return !!r.raw;
-  }
-
-  editingPath = signal<string | null>(null);
-  editMode = signal<'kv' | 'raw'>('kv');
-  editText = signal(''); // raw fallback tier
-  editBusy = signal(false);
-  editError = signal<string | null>(null);
-  editPreview = signal<string | null>(null); // raw dry-run message
-
-  // K1 value editor (codec'd files): key-value rows + the document-loop plan.
-  kvRows = signal<{ key: string; value: string }[]>([]);
-  private kvOriginalKeys: string[] = [];
-  kvPlan = signal<StateResourceChange | null>(null);
-
-  startEdit(r: { path: string; format: string; separator?: string; raw?: string; values?: Record<string, unknown> }): void {
-    this.editingPath.set(r.path);
-    this.editError.set(null);
-    this.editPreview.set(null);
-    this.kvPlan.set(null);
-    if (r.values) {
-      // Codec'd file → edit VALUES via a key-value table (the document loop).
-      this.editMode.set('kv');
-      const rows = Object.entries(r.values).map(([key, v]) => ({ key, value: this.scalarStr(v) }));
-      this.kvRows.set(rows);
-      this.kvOriginalKeys = rows.map((x) => x.key);
-    } else {
-      // No codec → raw-text fallback tier.
-      this.editMode.set('raw');
-      this.editText.set(r.raw ?? '');
-    }
-  }
-
-  cancelEdit(): void {
-    this.editingPath.set(null);
-    this.editPreview.set(null);
-    this.editError.set(null);
-    this.kvPlan.set(null);
-  }
-
-  setKvKey(i: number, key: string): void {
-    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, key } : r)));
-  }
-  setKvValue(i: number, value: string): void {
-    this.kvRows.update((rows) => rows.map((r, j) => (j === i ? { ...r, value } : r)));
-  }
-  removeKvRow(i: number): void {
-    this.kvRows.update((rows) => rows.filter((_, j) => j !== i));
-  }
-  addKvRow(): void {
-    this.kvRows.update((rows) => [...rows, { key: '', value: '' }]);
-  }
-
-  /** Build the desired values map: every current row (key→value) plus any
-   * original key the user removed, set to null (codec-level delete). */
-  private kvValues(): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    const present = new Set<string>();
-    for (const { key, value } of this.kvRows()) {
-      const k = key.trim();
-      if (!k) continue;
-      out[k] = value;
-      present.add(k);
-    }
-    for (const k of this.kvOriginalKeys) if (!present.has(k)) out[k] = null;
-    return out;
-  }
-
-  private kvResource(r: { path: string; format: string; separator?: string }): ConfigResource {
-    return { type: 'config', path: r.path, format: r.format, separator: r.separator, values: this.kvValues() };
-  }
-
-  /** Dry-run the value edit through the document loop → per-key diff. */
-  previewKv(r: { path: string; format: string; separator?: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.statePlan(agent.id, [this.kvResource(r)]).subscribe({
-      next: (res) => {
-        this.editBusy.set(false);
-        this.kvPlan.set((res.changes || []).find((c) => c.path === r.path) ?? { type: 'config', path: r.path, action: 'noop' });
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'plan failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
-
-  /** Apply the value edit → codec merge-write + a new generation, then reload. */
-  applyKv(r: { path: string; format: string; separator?: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.stateApply(agent.id, [this.kvResource(r)], false, this.scopeArg()).subscribe({
-      next: () => {
-        this.editBusy.set(false);
-        this.cancelEdit();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'apply failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
-
-  // --- Block K2: bind a discovered file to a Class-B template + edit via a
-  // schema-driven form (opt-in; the raw codec-less alternative is K1's raw
-  // fallback, and codec'd files still have the K1 KV editor) ---
-
-  templates = signal<ConfigTemplate[]>([]);
-
-  /** The template whose name matches a config file's basename (sans a
-   * .conf/.cfg extension) — chrony.conf→chrony, rsyslog.conf→rsyslog, hosts. */
-  templateFor(path: string): ConfigTemplate | null {
-    const base = (path.split('/').pop() || '').replace(/\.(conf|cfg)$/, '');
-    return this.templates().find((t) => t.name === base) ?? null;
-  }
-
-  tplEditPath = signal<string | null>(null);
-  tplName = signal('');
-  // The shared ParamForm renders the template's fields (one editor across the
-  // app — replaced the bespoke tplFields form). It parses per type + emits the
-  // full typed value map via (valuesChange); we just hold that.
-  tplSchema = signal<ParamSchema>({});
-  tplInitial = signal<Record<string, unknown>>({});
-  tplParamValues = signal<Record<string, unknown>>({});
-  private tplTemplate = '';
-  tplRendered = signal<string | null>(null);
-  tplBusy = signal(false);
-  tplError = signal<string | null>(null);
-
-  startTemplateEdit(r: { path: string }, tpl: ConfigTemplate): void {
-    this.cancelEdit();
-    this.tplEditPath.set(r.path);
-    this.tplName.set(tpl.name);
-    this.tplTemplate = tpl.template;
-    this.tplRendered.set(null);
-    this.tplError.set(null);
-    this.tplSchema.set((tpl.schema || {}) as ParamSchema);
-    this.tplInitial.set((tpl.sample || {}) as Record<string, unknown>);
-    this.tplParamValues.set({});
-  }
-
-  cancelTemplateEdit(): void {
-    this.tplEditPath.set(null);
-    this.tplRendered.set(null);
-    this.tplError.set(null);
-  }
-
-  /** ParamForm already parsed each field by its schema type and emitted the full
-   * value map — just return it (no manual JSON parsing / no throw). */
-  private tplValues(): Record<string, unknown> {
-    return this.tplParamValues();
-  }
-
-  private tplResource(path: string): ConfigResource {
-    return { type: 'template_render', path, template: this.tplTemplate, values: this.tplValues() };
-  }
-
-  /** Render the template with the form values (dry-run) → the file that would
-   * be written. */
-  previewTemplate(r: { path: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    let values: Record<string, unknown>;
-    try {
-      values = this.tplValues();
-    } catch (e) {
-      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
-      return;
-    }
-    this.tplBusy.set(true);
-    this.tplError.set(null);
-    this.agentService.renderTemplate(agent.id, this.tplTemplate, values, r.path).subscribe({
-      next: (res) => {
-        this.tplBusy.set(false);
-        this.tplRendered.set(res.result?.data?.rendered ?? '(empty render)');
-      },
-      error: (e) => {
-        this.tplError.set(e?.error?.detail ?? 'render failed');
-        this.tplBusy.set(false);
-      },
-    });
-  }
-
-  /** Apply the template through the document loop → renders + writes the file
-   * and records a generation. */
-  applyTemplate(r: { path: string }): void {
-    const agent = this.agent();
-    if (!agent) return;
-    let resource: ConfigResource;
-    try {
-      resource = this.tplResource(r.path);
-    } catch (e) {
-      this.tplError.set('invalid JSON in a list/object field: ' + (e as Error).message);
-      return;
-    }
-    this.tplBusy.set(true);
-    this.tplError.set(null);
-    this.agentService.stateApply(agent.id, [resource], false, this.scopeArg()).subscribe({
-      next: () => {
-        this.tplBusy.set(false);
-        this.cancelTemplateEdit();
-        this.loadObserved();
-      },
-      error: (e) => {
-        this.tplError.set(e?.error?.detail ?? 'apply failed');
-        this.tplBusy.set(false);
-      },
-    });
-  }
-
-  /** Per-key diff rows for the KV preview (key: before → after). */
-  kvDiffRows(): { key: string; before: string; after: string }[] {
-    const changed = this.kvPlan()?.changed;
-    if (!changed) return [];
-    return Object.entries(changed).map(([key, [b, a]]) => ({
-      key,
-      before: b === null || b === undefined ? '—' : this.scalarStr(b),
-      after: a === null || a === undefined ? '(removed)' : this.scalarStr(a),
-    }));
-  }
-
-  private pushConfig(r: { path: string }, dryRun: boolean, onDone: (changed: boolean) => void): void {
-    const agent = this.agent();
-    if (!agent) return;
-    this.editBusy.set(true);
-    this.editError.set(null);
-    this.agentService.writeFileContent(agent.id, r.path, this.editText(), dryRun).subscribe({
-      next: (res) => {
-        this.editBusy.set(false);
-        onDone(!!res.result?.changed);
-      },
-      error: (e) => {
-        this.editError.set(e?.error?.detail ?? 'config write failed');
-        this.editBusy.set(false);
-      },
-    });
-  }
-
-  /** Dry-run the edit: the agent reports whether the file would change, without
-   * writing. */
-  previewEdit(r: { path: string }): void {
-    this.pushConfig(r, true, (changed) =>
-      this.editPreview.set(changed ? `preview: ${r.path} would change (nothing written yet)` : 'preview: no changes'),
-    );
-  }
-
-  /** Apply the edit for real (writes the whole file), then reload the tab. */
-  applyEdit(r: { path: string }): void {
-    this.pushConfig(r, false, () => {
-      this.cancelEdit();
-      this.loadObserved();
-    });
-  }
-
-  /** Flatten a plan's non-noop changes into readable "path: key before→after"
-   * rows for the rollback preview. */
-  rollbackDiffRows(): { path: string; action: string; detail: string }[] {
-    const plan = this.rollbackPlan();
-    if (!plan) return [];
-    const rows: { path: string; action: string; detail: string }[] = [];
-    for (const c of plan.changes) {
-      if (c.action === 'noop') continue;
-      if (c.changed && Object.keys(c.changed).length) {
-        for (const [k, [before, after]] of Object.entries(c.changed)) {
-          rows.push({ path: c.path, action: c.action, detail: `${k}: ${JSON.stringify(before)} → ${JSON.stringify(after)}` });
-        }
-      } else {
-        rows.push({ path: c.path, action: c.action, detail: c.error ? `error: ${c.error}` : c.action });
-      }
-    }
-    return rows;
   }
 
   /** Lazy-load the eBPF tab's context tables (top outbound connections +

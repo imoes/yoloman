@@ -1,0 +1,60 @@
+# =============================================================================
+# ksshaskpass Configuration Template
+# =============================================================================
+#
+# This file configures ksshaskpass, a passphrase agent for KDE applications
+# that integrates with the SSH authentication agent. It provides a graphical
+# dialog for entering SSH passphrases.
+#
+# This template is self-documenting: every directive includes a comment
+# derived from the schema description and a safe default value.
+#
+# Variables used:
+#   ksshaskpass.ssh_sock_path   - Path to the SSH agent socket
+#   ksshaskpass.kde_config_db   - Path to the KDE configuration database
+#   ksshaskpass.enable_dialog   - Enable or disable the passphrase dialog
+#   ksshaskpass.timeout         - Timeout in seconds for the prompt
+#   ksshaskpass.icon_path       - Icon for the dialog window
+#   ksshaskpass.ssh_commands    - List of SSH commands to handle
+#   ksshaskpass.verbose         - Verbosity level (0=quiet, 1=normal, 2=verbose)
+#   ksshaskpass.lock_file       - Lock file to prevent multiple instances
+# =============================================================================
+
+# Path to the SSH agent socket file.
+# Default: /tmp/ssh-agent.sock
+SSH_ASKPASS_SOCK={{ (ksshaskpass | default({})).ssh_sock_path | default('/tmp/ssh-agent.sock') }}
+
+# Path to the KDE configuration database file (for KDE4/KF5/KF6).
+# Default: /etc/ksshaskpass/kdefile.kcfg
+KDE_CONFIG_DB={{ (ksshaskpass | default({})).kde_config_db | default('/etc/ksshaskpass/kdefile.kcfg') }}
+
+# Whether to enable the passphrase dialog.
+# If set to false, ksshaskpass will not display the GUI prompt.
+# Default: true
+ENABLE_DIALOG={{ (ksshaskpass | default({})).enable_dialog | default(true) | lower }}
+
+# Timeout in seconds for the passphrase prompt.
+# If the user does not respond within this time, the prompt expires.
+# Default: 30
+TIMEOUT={{ (ksshaskpass | default({})).timeout | default(30) }}
+
+# Path to the icon for the dialog window.
+# Must point to a valid image file accessible by the display server.
+# Default: /usr/share/icons/hicolor/48x48/apps/ksshaskpass.png
+ICON_PATH={{ (ksshaskpass | default({})).icon_path | default('/usr/share/icons/hicolor/48x48/apps/ksshaskpass.png') }}
+
+# List of SSH commands to handle.
+# These commands are intercepted or assisted by ksshaskpass.
+# The list is joined with commas in the config.
+# Default: ['ssh-add']
+SSH_COMMANDS={{ ((ksshaskpass | default({})).ssh_commands | default(['ssh-add'])) | join(', ') }}
+
+# Verbosity level (0=quiet, 1=normal, 2=verbose).
+# Controls how much log output ksshaskpass generates.
+# Default: 0
+VERBOSE={{ (ksshaskpass | default({})).verbose | default(0) }}
+
+# Path to the lock file to prevent multiple instances.
+# Ensures only one copy of the helper runs at a time.
+# Default: /var/lock/ksshaskpass.lock
+LOCK_FILE={{ (ksshaskpass | default({})).lock_file | default('/var/lock/ksshaskpass.lock') }}

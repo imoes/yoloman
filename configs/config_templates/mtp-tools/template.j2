@@ -1,0 +1,33 @@
+# /etc/mtp-tools.conf
+# Global configuration for mtp-tools
+#
+# This configuration file controls the behavior of mtp-tools, a set of utilities
+# for communicating with Media Transfer Protocol (MTP) devices.
+# It supports both USB and TCP transport methods for device connectivity.
+
+# transport_type: The default transport protocol used by mtp-tools.
+# Valid values are 'usb' or 'tcp'. If 'tcp' is selected, the tool will attempt
+# to connect to an MTP device over the network using tcp_port.
+transport_type={{ transport_type | default('usb') }}
+
+# tcp_port: The TCP port number used when transport_type is set to 'tcp'.
+# This setting is ignored if transport_type is 'usb'.
+tcp_port={{ (transport_type | default('usb')) == 'tcp' | ternary(tcp_port | default(3498), '') | default(3498) if transport_type | default('usb') == 'tcp' else '' }}
+{# Correction: Simplified logic for tcp_port to avoid complex ternary in value #}
+{# The original template just set the variable. We need to ensure it's defined. #}
+{# If transport_type is not 'tcp', this setting is irrelevant, but we still default it. #}
+tcp_port={{ tcp_port | default(3498) }}
+
+# connection_timeout: Timeout in seconds for connecting to an MTP device.
+# This applies to both USB enumeration timeouts (if applicable) and TCP connection attempts.
+connection_timeout={{ connection_timeout | default(10) }}
+
+# verbose_logging: Enable verbose debug output for mtp-tools commands.
+# Set to 'true' to enable detailed logging, or 'false' for standard output.
+verbose_logging={{ verbose_logging | default(false) | lower }}
+
+# excluded_vendor_ids: List of USB Vendor IDs to exclude from automatic device detection.
+# Format: List of integers in decimal or hex.
+# Example: [0x04e8, 0x05c6] or [1256, 1478]
+# This is useful for ignoring specific devices (e.g., cameras, phones) that are handled by other drivers.
+excluded_vendor_ids={{ excluded_vendor_ids | default([]) }}

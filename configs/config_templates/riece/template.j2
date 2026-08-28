@@ -1,0 +1,29 @@
+;; -*-emacs-lisp-*-
+;;
+;; Emacs startup file for the Debian riece package
+;;
+;; This template is self-documenting: every variable reference is annotated
+;; with its schema description and default value. It is safe to reuse in
+;; any Ansible role managing riece (an Emacs-based IRC client).
+
+;; The riece package follows the Debian/GNU Linux 'emacsen' policy and
+;; byte-compiles its elisp files for each 'emacs flavor' (emacs19,
+;; xemacs19, emacs20, xemacs20...).  The compiled code is then
+;; installed in a subdirectory of the respective site-lisp directory.
+;; We have to add this to the load-path:
+
+;; Check if the data directory exists; if not, skip setup with a warning.
+;; This handles the case where the package was removed but not purged.
+(if (not (file-exists-p "{{ riece_data_directory | default('/usr/share/emacs/site-lisp/riece') }}"))
+    (message "Package riece removed but not purged.  Skipping setup.")
+  (debian-pkg-add-load-path-item
+   (concat "/usr/share/" (symbol-name debian-emacs-flavor)
+	   "/site-lisp/riece"))
+
+  ;; Autoload the main riece entry point so it is loaded on demand.
+  (autoload 'riece "riece" nil t)
+
+  ;; Set the data directory where riece stores and loads its data files.
+  ;; Schema description: The directory where riece data files are stored and loaded from.
+  ;; Schema default: /usr/share/emacs/site-lisp/riece
+  (setq riece-data-directory "{{ riece_data_directory | default('/usr/share/emacs/site-lisp/riece') }}"))

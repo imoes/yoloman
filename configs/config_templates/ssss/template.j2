@@ -1,0 +1,51 @@
+{# =============================================================================
+  # ssss (Shamir's Secret Sharing Scheme) Configuration
+  # =============================================================================
+  # This file documents the parameters for the ssss-split command.
+  # ssss is a command-line utility, not a daemon. These values are intended
+  # to be used by automation scripts or role handlers to construct the
+  # ssss-split command arguments dynamically.
+  #
+  # Schema Reference:
+  # - threshold: int, default 3
+  # - shares: int, default 5
+  # - token: str, default 'backup_key'
+  # - security_level: int, default 0
+  # - hex_mode: bool, default False
+  # - quiet_mode: bool, default True
+  # - extra_quiet_mode: bool, default False
+  # - disable_diffusion: bool, default False
+  # ============================================================================= #}
+
+{# Threshold: The number of shares required to reconstruct the secret. #}
+{# Corresponds to: -t <threshold> #}
+threshold: {{ threshold | default(3) }}
+
+{# Shares: The total number of shares to generate. #}
+{# Corresponds to: -n <shares> #}
+shares: {{ shares | default(5) }}
+
+{# Token: A text token used to prefix generated shares to distinguish them. #}
+{# Corresponds to: -w <token> #}
+token: "{{ token | default('backup_key') }}"
+
+{# Security Level: The security level in bits (must be multiple of 8, 8-1024). #}
+{# 0 means automatic selection. #}
+{# Corresponds to: -s <level> #}
+security_level: {{ security_level | default(0) }}
+
+{# Hex Mode: If true, use hexadecimal digits for input/output instead of ASCII. #}
+{# Corresponds to: -x #}
+hex_mode: {{ hex_mode | default(False) | lower }}
+
+{# Quiet Mode: If true, disable all unnecessary output (useful for scripts). #}
+{# Corresponds to: -q #}
+quiet_mode: {{ quiet_mode | default(True) | lower }}
+
+{# Extra Quiet Mode: If true, suppress warnings in addition to quiet mode. #}
+{# Corresponds to: -Q #}
+extra_quiet_mode: {{ extra_quiet_mode | default(False) | lower }}
+
+{# Disable Diffusion: If true, disable the diffusion layer (compatibility with ssss < 0.2). #}
+{# Corresponds to: -D #}
+disable_diffusion: {{ disable_diffusion | default(False) | lower }}

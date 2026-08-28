@@ -1,0 +1,70 @@
+# Nitrocli configuration for Nitrokey device access
+# This file generates command-line arguments and environment variables for the nitrocli tool.
+
+# --model
+# Restrict connections to 'pro' or 'storage'. Leave empty to connect to any.
+{% set model_val = model | default('pro') %}
+{% if model_val is defined and model_val %}
+--model {{ model_val }}
+{% endif %}
+
+# --verbose / -v
+# Enable additional logging and control its verbosity.
+# Verbosity level: 1 for warnings, up to 5 for highest.
+{% set verbose_val = verbose | default(False) | bool %}
+{% set verbosity_val = verbosity_level | default(1) | int %}
+{% if verbose_val %}
+--verbose{% for _ in range(1, verbosity_val) %} -v{% endfor %}
+{% endif %}
+
+# --numlock
+# HOTP slot number to bind Numlock key to. If not needed, use 0.
+{% set numlock_val = numlock_slot | default(0) | int %}
+{% if numlock_val > 0 %}
+--numlock {{ numlock_val }}
+{% endif %}
+
+# --capslock
+# Configuration: Bind Capslock key to an HOTP slot.
+{% set capslock_val = capslock_slot | default(0) | int %}
+{% if capslock_val > 0 %}
+--capslock {{ capslock_val }}
+{% endif %}
+
+# --scrollock
+# Configuration: Bind Scrollock key to an HOTP slot.
+{% set scrollock_val = scrollock_slot | default(0) | int %}
+{% if scrollock_val > 0 %}
+--scrollock {{ scrollock_val }}
+{% endif %}
+
+# --otp-pin / --no-otp-pin
+# Configuration: Require user PIN for OTP generation.
+{% set require_otp_pin_val = require_otp_pin | default(False) | bool %}
+{% if require_otp_pin_val %}
+--otp-pin
+{% else %}
+--no-otp-pin
+{% endif %}
+
+# NITROCLI_ADMIN_PIN
+# Environment: Admin PIN for administrative tasks.
+NITROCLI_ADMIN_PIN={{ admin_pin | default('') | string }}
+
+# NITROCLI_USER_PIN
+# Environment: User PIN for user-level tasks.
+NITROCLI_USER_PIN={{ user_pin | default('') | string }}
+
+# NITROCLI_NO_CACHE
+# Environment: Disable gpg-agent caching of secrets.
+{% set no_cache_val = no_cache | default(False) | bool %}
+{% if no_cache_val %}
+NITROCLI_NO_CACHE=1
+{% endif %}
+
+# sample_values
+# Reserved field for sample values.
+{% set sample_values_val = sample_values | default('') %}
+{% if sample_values_val %}
+# Sample values provided: {{ sample_values_val }}
+{% endif %}

@@ -1,0 +1,35 @@
+# Wfuzz CLI Configuration
+# See wfuzz(1) man page for details on the command-line fuzzer.
+# This template generates a configuration file or command-line argument set
+# for Wfuzz to automate web application security testing.
+
+# Base URL to fuzz.
+# This is the target URL against which the fuzzing requests will be sent.
+# The default 'Host' header is often sufficient for virtual hosting setups.
+wfuzz_url: {{ wfuzz_url | default('http://example.com/') }}
+
+# HTTP Method to use for the fuzzing requests.
+# Common methods include GET, POST, HEAD, OPTIONS, or FUZZ if Wfuzz handles substitution internally.
+wfuzz_method: {{ wfuzz_method | default('GET') }}
+
+# Payloads configuration.
+# Defines the payload sets to use for fuzzing. Each entry specifies the type of payload,
+# its source (e.g., list, file, range), and optionally an encoder (e.g., url, md5).
+# Format: -z type,source[:encoder]
+{% if wfuzz_payloads is defined and wfuzz_payloads is iterable %}
+{% for payload in wfuzz_payloads %}-z {{ payload.type | default('list') }},{{ payload.source | default('') }}{% if payload.encoder is defined and payload.encoder %}:{{ payload.encoder }}{% endif %}
+{% endfor %}
+{% else %}
+# No payloads defined. Add wfuzz_payloads to configure fuzzing data.
+{% endif %}
+
+# POST data to send with the request.
+# If the HTTP method is POST, this data will be included in the body of the request.
+# Supports Wfuzz payload tags like FUZZ within the string.
+wfuzz_postdata: '{{ wfuzz_postdata | default("") }}'
+
+# Default Header to send.
+# This header is sent with every request. Useful for setting the Host header or
+# other standard headers required by the target application.
+# Format: Key: Value
+wfuzz_header: {{ wfizz_header | default('Host: example.com') }}

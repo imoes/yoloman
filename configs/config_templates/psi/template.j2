@@ -1,0 +1,70 @@
+# Psi XMPP Client Profile Configuration
+# This file configures the default profile for the Psi Jabber/XMPP client.
+# See `man psi` or `man psi.conf` for detailed options.
+
+[psi]
+# The base directory where Psi stores user data, preferences, and logs for this profile.
+# Default: '/home/user/.psi'
+profile_path={{ (values | default({})).profile_path | default('/home/' + (username | default('user')) + '/.psi') }}
+
+# The presence status to set on startup. Valid values: online, chat, away, xa, dnd, offline.
+# Default: 'online'
+initial_status={{ (values | default({})).initial_status | default('online') }}
+
+# The custom status message to display alongside the initial status.
+# Default: '' (empty)
+initial_status_message={{ (values | default({})).initial_status_message | default('') }}
+
+# A list of account configurations to load into Psi.
+# Each account is a flat map of account settings.
+# Default: [] (empty list)
+# Note: accounts is rendered as a JSON array string in the [psi] section or iterated below.
+# Based on schema, accounts is a list of flat maps. We render individual account blocks.
+accounts_json={{ (values | default({})).accounts | default([]) | tojson }}
+
+{% for account in (values | default({})).accounts | default([]) %}
+[account.{{ loop.index0 }}]
+# Jabber ID (JID) for this account.
+jid={{ (account | default({})).jid | default('') }}
+
+# Password for the account (stored encrypted in keychain or plain in older configs).
+password={{ (account | default({})).password | default('') }}
+
+# Server host to connect to (empty usually implies DNS SRV lookup based on JID).
+# Default: '' (empty)
+server={{ (account | default({})).server | default('') }}
+
+# Server port to connect to (5222 is standard XMPP).
+# Default: 5222
+port={{ (account | default({})).port | default(5222) }}
+
+# Use TLS/SSL for the connection.
+# Default: true
+tls_enabled={{ (account | default({})).tls_enabled | default(true) }}
+
+# Use legacy SSL (deprecated) instead of StartTLS.
+# Default: false
+ssl_enabled={{ (account | default({})).ssl_enabled | default(false) }}
+
+# Resource name for this client instance (e.g., 'linux', 'psi').
+# Default: 'psi'
+resource={{ (account | default({})).resource | default('psi') }}
+
+# Priority for this resource (higher numbers take precedence).
+# Default: 0
+priority={{ (account | default({})).priority | default(0) }}
+
+{% endfor %}
+
+[settings]
+# Whether to automatically log in to configured accounts on startup.
+# Default: true
+autologin={{ (values | default({})).autologin | default(true) | lower }}
+
+# Whether to retrieve offline messages upon connection.
+# Default: true
+offline_msgs={{ (values | default({})).offline_msgs | default(true) | lower }}
+
+# Whether to enable Multi-User Chat (MUC) support.
+# Default: true
+muc_enabled={{ (values | default({})).muc_enabled | default(true) | lower }}

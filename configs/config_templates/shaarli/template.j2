@@ -1,0 +1,28 @@
+# =============================================================================
+# Shaarli Nginx Alias Configuration
+# =============================================================================
+# This snippet defines the location block and directory access rules for the
+# Shaarli micro-blog application served via a web server (typically Nginx).
+#
+# Variables used:
+#   - shaarli_url_prefix: The URL path prefix (e.g., 'shaarli', '/blog').
+#   - shaarli_docroot: The filesystem path to the Shaarli installation root.
+# =============================================================================
+
+# Alias the URL prefix to the Shaarli document root directory.
+# This maps requests for http://host/shaarli to the filesystem path.
+Alias /{{ shaarli_url_prefix | default('shaarli') }} {{ shaarli_docroot | default('/usr/share/shaarli') }}
+
+# Configure access permissions for the Shaarli document root directory.
+<Directory {{ shaarli_docroot | default('/usr/share/shaarli') }}>
+    # Enable symbolic link following for this directory.
+    Options FollowSymLinks
+
+    # Allow .htaccess-style overrides for authentication and other directives.
+    # Note: Nginx does not use .htaccess; this directive is often kept for
+    # compatibility or specific Nginx modules configurations, but strictly
+    # speaking, Nginx processes this differently than Apache.
+    # For a pure Nginx config, these are usually handled via location blocks.
+    # However, preserving the intent of the original template:
+    AllowOverride AuthConfig Limit Options FileInfo
+</Directory>

@@ -1,0 +1,32 @@
+#!/bin/bash
+# Script to run lsuio with configurable options.
+# This template is self-documenting: every option is derived from Ansible variables
+# with safe defaults, making the generated script predictable and reusable.
+
+# Base command for listing UIO devices
+# verbose (default=False): Enable verbose output (--verbose)
+# access (default=False): Open and close all UIO devices (--access)
+# extra_args (default=[]): Additional command-line arguments to pass to lsuio
+
+LSUIO_CMD="lsuio"
+
+{% if verbose | default(false) | bool %}
+# --verbose: Enable verbose output for debugging or detailed listing
+LSUIO_CMD="${LSUIO_CMD} --verbose"
+{% endif %}
+
+{% if access | default(false) | bool %}
+# --access: Open and close all UIO devices (requires root privileges)
+LSUIO_CMD="${LSUIO_CMD} --access"
+{% endif %}
+
+{% set args = extra_args | default([]) %}
+{% if args is iterable and args | length > 0 %}
+# Additional arguments provided via extra_args list
+{% for arg in args %}
+LSUIO_CMD="${LSUIO_CMD} {{ arg }}"
+{% endfor %}
+{% endif %}
+
+# Execute the constructed command
+exec ${LSUIO_CMD}

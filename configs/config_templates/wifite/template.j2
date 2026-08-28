@@ -1,0 +1,221 @@
+{# ============================================================================ #}
+{# Wifite Configuration Template                                                  #}
+{#                                                                                #}
+{# This template generates a command-line string for the Wifite tool.             #}
+{# Wifite is an automated wireless attack tool.                                   #}
+{#                                                                                #}
+{# Variables are sourced from the `values` mapping (typically provided by         #}
+{# an Ansible task or role variables). All variables have safe defaults           #}
+{# as defined in the schema.                                                      #}
+{#                                                                                #}
+{# Usage:                                                                         #}
+{#   wifite {{ cmd_line | default('', True) }}                                    #}
+{#                                                                                #}
+{# ============================================================================ #}
+
+{# Initialize an empty list to build the command line arguments. #}
+{% set cmd = [] %}
+
+{# --- Global Settings --- #}
+
+{# Wireless interface for capturing (e.g., 'wlan0', 'auto'). #}
+{% if (values | default({})).interface | default('auto') != 'auto' %}
+{% set _ = cmd.append('-i ' + ((values | default({})).interface | default('auto') | string)) %}
+{% endif %}
+
+{# Channel to scan for targets (e.g., '6', 'auto'). #}
+{% if (values | default({})).channel | default('auto') != 'auto' %}
+{% set _ = cmd.append('-c ' + ((values | default({})).channel | default('auto') | string)) %}
+{% endif %}
+
+{# Target a specific access point by SSID (e.g., 'MyNetwork', 'ask'). #}
+{% if (values | default({})).essid | default('ask') != 'ask' %}
+{% set _ = cmd.append('-e ' + ((values | default({})).essid | default('ask') | string)) %}
+{% endif %}
+
+{# Target a specific access point by BSSID (e.g., 'AA:BB:CC:DD:EE:FF', 'auto'). #}
+{% if (values | default({})).bssid | default('auto') != 'auto' %}
+{% set _ = cmd.append('-b ' + ((values | default({})).bssid | default('auto') | string)) %}
+{% endif %}
+
+{# Minimum signal strength in dB to attack targets. #}
+{% if (values | default({})).signal_threshold | default(0) > 0 %}
+{% set _ = cmd.append('-pow ' + ((values | default({})).signal_threshold | default(0) | string)) %}
+{% endif %}
+
+{# Display target BSSIDs after scan. #}
+{% if (values | default({})).show_bssids | default(False) %}
+{% set _ = cmd.append('-showb') %}
+{% endif %}
+
+{# Do not print list of APs during scan. #}
+{% if (values | default({})).quiet_mode | default(False) %}
+{% set _ = cmd.append('-q') %}
+{% endif %}
+
+{# Change MAC address of interface to a random MAC. #}
+{% if (values | default({})).mac_change | default(False) %}
+{% set _ = cmd.append('-mac') %}
+{% endif %}
+
+{# Attack all targets found. #}
+{% if (values | default({})).attack_all | default(False) %}
+{% set _ = cmd.append('-all') %}
+{% endif %}
+
+{# --- WPA Settings --- #}
+
+{# Only target WPA networks. #}
+{% if (values | default({})).target_wpa_only | default(False) %}
+{% set _ = cmd.append('-wpa') %}
+{% endif %}
+
+{# Time to wait for WPA attack to complete (seconds). #}
+{% if (values | default({})).wpa_timeout | default(500) > 0 %}
+{% set _ = cmd.append('-wpat ' + ((values | default({})).wpa_timeout | default(500) | string)) %}
+{% endif %}
+
+{# Time to wait between sending deauth packets (seconds). #}
+{% if (values | default({})).deauth_interval | default(10) > 0 %}
+{% set _ = cmd.append('-wpdt ' + ((values | default({})).deauth_interval | default(10) | string)) %}
+{% endif %}
+
+{# Strip handshake using tshark or pyrit. #}
+{% if (values | default({})).strip_handshake | default(False) %}
+{% set _ = cmd.append('-strip') %}
+{% endif %}
+
+{# Crack WPA handshakes using dictionary. #}
+{% if (values | default({})).crack_handshake | default(False) %}
+{% set _ = cmd.append('-crack') %}
+{% endif %}
+
+{# Path to dictionary file for cracking WPA. #}
+{% if (values | default({})).dictionary_file | default('phpbb.txt') != 'phpbb.txt' %}
+{% set _ = cmd.append('-dict ' + ((values | default({})).dictionary_file | default('phpbb.txt') | string)) %}
+{% endif %}
+
+{# Verify handshake using aircrack. Note: 'False' in schema means 'Verify', so we negate. #}
+{% if not (values | default({})).verify_aircrack | default(True) %}
+{% set _ = cmd.append('-noaircrack') %}
+{% endif %}
+
+{# Verify handshake using pyrit. #}
+{% if (values | default({})).verify_pyrit | default(False) %}
+{% set _ = cmd.append('-pyrit') %}
+{% endif %}
+
+{# Verify handshake using tshark. Note: 'False' in schema means 'Verify', so we negate. #}
+{% if not (values | default({})).verify_tshark | default(True) %}
+{% set _ = cmd.append('-notshark') %}
+{% endif %}
+
+{# --- WEP Settings --- #}
+
+{# Only target WEP networks. #}
+{% if (values | default({})).target_wep_only | default(False) %}
+{% set _ = cmd.append('-wep') %}
+{% endif %}
+
+{# Number of packets per second to inject. #}
+{% if (values | default({})).packets_per_second | default(600) > 0 %}
+{% set _ = cmd.append('-pps ' + ((values | default({})).packets_per_second | default(600) | string)) %}
+{% endif %}
+
+{# Seconds to wait for each WEP attack (0 for endless). #}
+{% if (values | default({})).wep_timeout | default(600) > 0 %}
+{% set _ = cmd.append('-wept ' + ((values | default({})).wep_timeout | default(600) | string)) %}
+{% endif %}
+
+{# Use chopchop attack. Note: 'False' means disable. #}
+{% if not (values | default({})).chopchop | default(True) %}
+{% set _ = cmd.append('-no-chopchop') %}
+{% endif %}
+
+{# Use arpreplay attack. Note: 'False' means disable. #}
+{% if not (values | default({})).arpreplay | default(True) %}
+{% set _ = cmd.append('-no-arpreplay') %}
+{% endif %}
+
+{# Use fragmentation attack. Note: 'False' means disable. #}
+{% if not (values | default({})).fragmentation | default(True) %}
+{% set _ = cmd.append('-no-fragmentation') %}
+{% endif %}
+
+{# Use caffe-latte attack. Note: 'False' means disable. #}
+{% if not (values | default({})).caffelatte | default(True) %}
+{% set _ = cmd.append('-no-caffelatte') %}
+{% endif %}
+
+{# Use -p0841 attack. Note: 'False' means disable. #}
+{% if not (values | default({})).p0841 | default(True) %}
+{% set _ = cmd.append('-no-p0841') %}
+{% endif %}
+
+{# Use hirte (cfrag) attack. Note: 'False' means disable. #}
+{% if not (values | default({})).hirte | default(True) %}
+{% set _ = cmd.append('-no-hirte') %}
+{% endif %}
+
+{# Stop attack if fake authentication fails. #}
+{% if (values | default({})).stop_on_fakeauth_failure | default(False) %}
+{% set _ = cmd.append('-nofakeauth') %}
+{% endif %}
+
+{# Start cracking when number of IVs surpasses this number. #}
+{% if (values | default({})).wep_ivs_threshold | default(10000) > 0 %}
+{% set _ = cmd.append('-wepca ' + ((values | default({})).wep_ivs_threshold | default(10000) | string)) %}
+{% endif %}
+
+{# Directory to save .cap files (e.g., '/tmp/caps', 'off'). #}
+{% if (values | default({})).cap_save_dir | default('off') != 'off' %}
+{% set _ = cmd.append('-wepsave ' + ((values | default({})).cap_save_dir | default('off') | string)) %}
+{% endif %}
+
+{# --- WPS Settings --- #}
+
+{# Only target WPS networks. #}
+{% if (values | default({})).target_wps_only | default(False) %}
+{% set _ = cmd.append('-wps') %}
+{% endif %}
+
+{# Max wait for new retry before giving up (0: never). #}
+{% if (values | default({})).wps_timeout | default(660) > 0 %}
+{% set _ = cmd.append('-wpstime ' + ((values | default({})).wps_timeout | default(660) | string)) %}
+{% endif %}
+
+{# Min ratio of successful PIN attempts/total tries. #}
+{% if (values | default({})).wps_ratio | default(0) > 0 %}
+{% set _ = cmd.append('-wpsr ' + ((values | default({})).wps_ratio | default(0) | string)) %}
+{% endif %}
+
+{# Max number of retries for same PIN before giving up. #}
+{% if (values | default({})).wps_max_retries | default(0) > 0 %}
+{% set _ = cmd.append('-wpsmaxr ' + ((values | default({})).wps_max_retries | default(0) | string)) %}
+{% endif %}
+
+{# --- Other Commands --- #}
+
+{# Check capfile for handshakes (e.g., '/path/to/cap.pcap'). #}
+{% if (values | default({})).check_capfile | default('') | length > 0 %}
+{% set _ = cmd.append('-check ' + ((values | default({})).check_capfile | default('') | string)) %}
+{% endif %}
+
+{# Display previously-cracked access points. #}
+{% if (values | default({})).display_cracked | default(False) %}
+{% set _ = cmd.append('-cracked') %}
+{% endif %}
+
+{# Checks for new version. #}
+{% if (values | default({})).upgrade_check | default(False) %}
+{% set _ = cmd.append('-upgrade') %}
+{% endif %}
+
+{# Checks for new version. #}
+{% if (values | default({})).update_check | default(False) %}
+{% set _ = cmd.append('-update') %}
+{% endif %}
+
+{# Output the constructed command line arguments joined by spaces. #}
+{% set cmd_line = cmd | join(' ') %}
+{{ cmd_line }}

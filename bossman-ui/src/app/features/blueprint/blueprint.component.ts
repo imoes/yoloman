@@ -71,13 +71,29 @@ interface RunbookRow { id: string; name: string; folder: string }
           <input #fileInput type="file" accept=".yml,.yaml,.json" hidden (change)="onFile($event)" />
           <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Clear</button>
 
+          <label class="bm-fld"><span>Folder (tree path, e.g. web/wordpress)</span>
+            <input [ngModel]="store.folderPath()" (ngModelChange)="store.folderPath.set($event)" placeholder="(root)" />
+          </label>
+
           <div class="bm-pal-h" style="margin-top:14px">Fleet</div>
-          <select class="bm-w bm-bp-pick" [ngModel]="''" (ngModelChange)="loadBackend($event)"
-                  title="Load a saved blueprint from the fleet into the editor">
-            <option value="" disabled selected>Load saved blueprint…</option>
-            @for (b of backendList(); track b.id) { <option [value]="b.id">{{ b.name }} ({{ b.status }})</option> }
-          </select>
-          <button mat-flat-button color="primary" class="bm-w" (click)="saveToFleet()" [disabled]="store.saving() || !store.services().length">
+          <div class="bm-tree" title="Saved blueprints, organised by folder path">
+            @for (r of blueprintTree(); track r.kind + r.path + (r.id || '')) {
+              @if (r.kind === 'folder') {
+                <div class="bm-tree-folder" [style.paddingLeft.px]="6 + r.depth * 14" (click)="toggleFolder(r.path)">
+                  <mat-icon>{{ r.collapsed ? 'chevron_right' : 'expand_more' }}</mat-icon>
+                  <mat-icon class="bm-tree-fic">folder</mat-icon><span>{{ r.label }}</span>
+                </div>
+              } @else {
+                <button type="button" class="bm-tree-leaf" [class.on]="store.backendId() === r.id"
+                        [style.paddingLeft.px]="6 + r.depth * 14 + 16" (click)="loadBackend(r.id!)"
+                        [title]="'Load ' + r.label">
+                  <mat-icon>description</mat-icon><span class="bm-tree-name">{{ r.label }}</span>
+                  <span class="bm-tree-st">{{ r.status }}</span>
+                </button>
+              }
+            } @empty { <p class="bm-hint" style="padding:4px 6px">No saved blueprints yet.</p> }
+          </div>
+          <button mat-flat-button color="primary" class="bm-w" style="margin-top:8px" (click)="saveToFleet()" [disabled]="store.saving() || !store.services().length">
             <mat-icon>cloud_upload</mat-icon> {{ store.backendId() ? 'Update in fleet' : 'Save to fleet' }}
           </button>
           @if (store.backendId(); as id) {
@@ -103,6 +119,24 @@ interface RunbookRow { id: string; name: string; folder: string }
             <p class="bm-err">Cycle in depends_on: {{ order().cycle.join(' → ') }}</p>
           } @else if (order().order.length > 1) {
             <p class="bm-dim">Start order (depends_on, topological): <code>{{ order().order.join(' → ') }}</code></p>
+          }
+
+          <!-- Whole-blueprint plausibility (fleet-aware): every requirement resolved
+               and every connection field supplied? Live from the backend. -->
+          @if (store.plausibility(); as pl) {
+            <div class="bm-plaus" [class.bm-plaus-ok]="pl.ok" [class.bm-plaus-bad]="!pl.ok">
+              <div class="bm-plaus-h">
+                <mat-icon>{{ pl.ok ? 'verified' : 'report_problem' }}</mat-icon>
+                @if (pl.ok) { Plausible — {{ pl.resolved }} connection(s) fully wired }
+                @else { {{ pl.problems.length }} issue(s) — {{ pl.resolved }} connection(s) wired }
+              </div>
+              @for (p of pl.problems; track $index) {
+                <div class="bm-plaus-p" [class.err]="p.severity === 'error'" [class.warn]="p.severity === 'warning'">
+                  <mat-icon>{{ p.severity === 'error' ? 'error' : 'warning' }}</mat-icon>
+                  <span>{{ p.message }}</span>
+                </div>
+              }
+            </div>
           }
 
           <!-- The document is the payoff, so it stays visible by default — but it
@@ -185,18 +219,24 @@ interface RunbookRow { id: string; name: string; folder: string }
                     <p class="bm-warn">Needs <code class="bm-req">{{ req.capability }}</code>@if (req.backends?.length) { <span class="bm-req-be">({{ req.backends!.join(' | ') }})</span> }</p>
                     @if (suggestionFor(req.capability); as sug) {
                       @if (sug.providers.length) {
-                        <div class="bm-sug-sec">Available in inventory:</div>
+                        <div class="bm-sug-sec">Available in inventory — click to connect:</div>
                         @for (p of sug.providers; track p.agent_id) {
-                          <div class="bm-sug"><code>{{ p.hostname || p.address }}</code>
+                          <button type="button" class="bm-sug bm-sug-btn" (click)="connectFleetHost(s.name, req.capability, p)"
+                                  title="Connect {{ s.name }} to this existing host">
+                            <mat-icon>link</mat-icon>
+                            <code>{{ p.hostname || p.address }}</code>
                             <span class="bm-sug-be">{{ p.backend }}{{ p.port ? ':' + p.port : '' }}</span>
-                          </div>
+                          </button>
                         }
                       } @else if (sug.roles.length) {
-                        <div class="bm-sug-sec">No host provides it — new server with role:</div>
+                        <div class="bm-sug-sec">No host provides it — click to add a new server:</div>
                         @for (r of sug.roles; track r.role) {
-                          <div class="bm-sug"><code>{{ r.label || r.role }}</code>
+                          <button type="button" class="bm-sug bm-sug-btn" (click)="addRoleProvider(s.name, req.capability, r)"
+                                  title="Add a new {{ r.label || r.role }} server and connect it">
+                            <mat-icon>add_circle</mat-icon>
+                            <code>{{ r.label || r.role }}</code>
                             <span class="bm-sug-be">{{ r.backend }}</span>
-                          </div>
+                          </button>
                         }
                       } @else {
                         <p class="bm-hint">No provider known yet (catalog is being enriched).</p>
@@ -347,6 +387,35 @@ interface RunbookRow { id: string; name: string; folder: string }
     .bm-dim { opacity: .6; font-size: 12px; }
     .bm-warn { color: var(--bm-gold, #b8860b); font-size: 11.5px; margin: 2px 0 8px; }
     .bm-err { color: var(--mat-sys-error, #c62828); font-size: 12.5px; }
+    .bm-plaus { margin: 8px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); font-size: 12.5px; }
+    .bm-plaus-ok { border-color: color-mix(in srgb, #66bb6a 50%, transparent); }
+    .bm-plaus-bad { border-color: color-mix(in srgb, var(--mat-sys-error, #c62828) 45%, transparent); }
+    .bm-plaus-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+    .bm-plaus-h mat-icon, .bm-plaus-p mat-icon { font-size: 16px; height: 16px; width: 16px; }
+    .bm-plaus-ok .bm-plaus-h { color: #66bb6a; }
+    .bm-plaus-p { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; }
+    .bm-plaus-p.err { color: var(--mat-sys-error, #c62828); }
+    .bm-plaus-p.warn { color: var(--bm-gold, #b8860b); }
+    .bm-sug-sec { font-size: 11px; opacity: .6; margin: 6px 0 3px; }
+    .bm-sug-btn { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none;
+      border: 1px solid var(--mat-sys-outline-variant); border-radius: 7px; padding: 5px 8px; margin-bottom: 4px;
+      color: inherit; cursor: pointer; font: inherit; font-size: 12px; }
+    .bm-sug-btn:hover { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); border-color: var(--mat-sys-primary); }
+    .bm-sug-btn mat-icon { font-size: 15px; height: 15px; width: 15px; opacity: .8; }
+    .bm-sug-btn code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .bm-sug-be { font-size: 10.5px; opacity: .6; }
+    .bm-tree { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px; max-height: 260px; overflow: auto; }
+    .bm-tree-folder { display: flex; align-items: center; gap: 3px; padding: 3px 6px; cursor: pointer; border-radius: 5px; font-size: 12.5px; }
+    .bm-tree-folder:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
+    .bm-tree-folder mat-icon { font-size: 16px; height: 16px; width: 16px; opacity: .75; }
+    .bm-tree-fic { color: var(--bm-gold, #b8860b); }
+    .bm-tree-leaf { display: flex; align-items: center; gap: 5px; width: 100%; text-align: left; background: none; border: 0;
+      border-radius: 5px; padding: 3px 6px; color: inherit; cursor: pointer; font: inherit; font-size: 12.5px; }
+    .bm-tree-leaf:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
+    .bm-tree-leaf.on { background: color-mix(in srgb, var(--mat-sys-primary) 15%, transparent); }
+    .bm-tree-leaf mat-icon { font-size: 15px; height: 15px; width: 15px; opacity: .7; }
+    .bm-tree-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bm-tree-st { font-size: 10px; opacity: .5; }
     code { font-family: ui-monospace, monospace; }
   `],
 })
@@ -426,6 +495,44 @@ export class BlueprintComponent implements OnInit {
       error: () => { /* offline / empty — picker just stays empty */ },
     });
   }
+
+  // ---- blueprint tree (path-organised, replaces the flat picker) ----------
+  readonly treeCollapsed = signal<Set<string>>(new Set());
+  toggleFolder(path: string): void {
+    this.treeCollapsed.update((s) => { const n = new Set(s); n.has(path) ? n.delete(path) : n.add(path); return n; });
+  }
+
+  /** Flatten the saved blueprints into a depth-tagged, collapsible tree by their
+   *  `path` ("web/wordpress" → folders web › wordpress › <blueprint>). Rendered as
+   *  an indented list so no recursive template is needed. */
+  readonly blueprintTree = computed<{ kind: 'folder' | 'leaf'; depth: number; label: string; path: string; id?: string; status?: string; collapsed?: boolean }[]>(() => {
+    const rows = this.backendList();
+    const collapsed = this.treeCollapsed();
+    // children[folderPath] = { folders:Set, leaves:[] }; root is "".
+    const folders = new Map<string, { subfolders: Set<string>; leaves: BackendBlueprintRow[] }>();
+    const ensure = (p: string) => { if (!folders.has(p)) folders.set(p, { subfolders: new Set(), leaves: [] }); return folders.get(p)!; };
+    ensure('');
+    for (const b of rows) {
+      const segs = (b.path || '').split('/').map((s) => s.trim()).filter(Boolean);
+      let acc = '';
+      for (const seg of segs) { const parent = acc; acc = acc ? `${acc}/${seg}` : seg; ensure(parent).subfolders.add(acc); ensure(acc); }
+      ensure(acc).leaves.push(b);
+    }
+    const out: { kind: 'folder' | 'leaf'; depth: number; label: string; path: string; id?: string; status?: string; collapsed?: boolean }[] = [];
+    const walk = (path: string, depth: number) => {
+      const node = folders.get(path); if (!node) return;
+      for (const sub of [...node.subfolders].sort()) {
+        const isCollapsed = collapsed.has(sub);
+        out.push({ kind: 'folder', depth, label: sub.split('/').pop() || sub, path: sub, collapsed: isCollapsed });
+        if (!isCollapsed) walk(sub, depth + 1);
+      }
+      for (const b of node.leaves.slice().sort((a, z) => a.name.localeCompare(z.name))) {
+        out.push({ kind: 'leaf', depth, label: b.name, path: b.path || '', id: b.id, status: b.status });
+      }
+    };
+    walk('', 0);
+    return out;
+  });
 
   /** Load a saved blueprint from the fleet into the editor. */
   loadBackend(id: string): void {
@@ -544,6 +651,52 @@ export class BlueprintComponent implements OnInit {
   /** The suggestion for one open-requirement capability (for the template). */
   suggestionFor(capability: string): ProvidersResponse | undefined {
     return this.suggestions()[capability];
+  }
+
+  /** Palette archetype that provides a capability — so a newly-placed provider node
+   *  satisfies the consumer's requirement even before its role contract loads. */
+  private capabilityIcon(cap: string): string {
+    const map: Record<string, string> = {
+      database: 'database', cache: 'cache', message_queue: 'queue', web_server: 'proxy',
+      reverse_proxy: 'proxy', app_runtime: 'container', storage: 'storage', virtualization: 'hypervisor',
+    };
+    return map[cap] || 'server';
+  }
+
+  private placePos(): { x: number; y: number } {
+    const n = this.store.services().length;
+    return { x: 140 + (n % 4) * 190, y: 130 + Math.floor(n / 4) * 165 };
+  }
+
+  /** Step 2 (new server): place a provider node carrying `role` and connect the
+   *  consumer's open requirement to it. The role's contract loads async and upgrades
+   *  the wiring to backend/field grain. */
+  addRoleProvider(consumer: string, cap: string, role: { role: string; template?: string | null }): void {
+    const entry = paletteFor(this.capabilityIcon(cap)) ?? paletteFor('server')!;
+    const pos = this.placePos();
+    const name = this.store.add(entry, pos.x, pos.y);
+    const template = role.template || role.role.replace(/^install-/, '');
+    this.store.update(name, { role: role.role, template });
+    if (role.role) this.loadSchema(role.role);
+    if (template) this.loadContract(template);
+    this.store.connect(consumer, name);
+    this.store.selected.set(consumer);
+  }
+
+  /** Step 2 (existing server): represent a real fleet host as an external provider
+   *  node (its address + the capability it provides) and connect the consumer to it. */
+  connectFleetHost(consumer: string, cap: string, p: any): void {
+    const entry = paletteFor('external') ?? paletteFor('server')!;
+    const pos = this.placePos();
+    const name = this.store.add(entry, pos.x, pos.y);
+    const caps: RoleContract = {
+      provides: [{ capability: cap, backend: p.backend, default_port: p.port ?? null,
+                   field_sources: p.detail?.provides?.[0]?.field_sources }],
+      requires: [],
+    };
+    this.store.update(name, { host: p.hostname || undefined, address: p.address || undefined, caps });
+    this.store.connect(consumer, name);
+    this.store.selected.set(consumer);
   }
 
   /** Fetch a role's parameters once (GET /runbooks lists names only, the detail

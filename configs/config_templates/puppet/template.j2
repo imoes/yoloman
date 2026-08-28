@@ -1,0 +1,57 @@
+# Puppet Agent Configuration
+# See puppet.conf(5) for documentation.
+# This template is self-documenting: every directive is preceded by its schema description.
+
+[main]
+    # The local hostname of the agent node. Defaults to system FQDN if omitted, but explicit setting is safer for template rendering.
+    hostname = {{ hostname | default('puppet-agent') }}
+
+    # The DNS hostname or IP address of the Puppet Master server.
+    server = {{ server | default('puppet.example.com') }}
+
+    # The port number the Puppet Master listens on for agent connections.
+    server_port = {{ server_port | default(8140) }}
+
+    # The directory where Puppet agent logs are stored.
+    logdir = {{ logdir | default('/var/log/puppetlabs/puppet') }}
+
+    # The directory where Puppet agent runtime state files (pids, etc.) are stored.
+    rundir = {{ rundir | default('/var/run/puppetlabs/puppet') }}
+
+    # Path to a local file containing configuration settings specific to this node.
+    localfile = {{ localfile | default('/etc/puppetlabs/puppet/localfile.conf') }}
+
+    # Enables debug-level logging, which is very verbose and useful for troubleshooting.
+    debug = {{ debug | default(false) | ternary('true', 'false') }}
+
+    # Enables verbose logging, showing more detail than standard logs but less than debug.
+    verbose = {{ verbose | default(false) | ternary('true', 'false') }}
+
+[agent]
+    # The interval in seconds between automatic agent runs.
+    runinterval = {{ runinterval | default(1800) }}
+
+    # The Puppet environment this agent should use (e.g., production, development).
+    environment = {{ environment | default('production') }}
+
+    # The URI from which the agent fetches facts.
+    factsource = {{ factsource | default('puppet://' + (server | default('puppet.example.com')) + '/facts') }}
+
+    # Deprecated in newer versions but kept for compatibility; controls whether to send configuration data back to the master.
+    storeconfigs = {{ storeconfigs | default(false) | ternary('true', 'false') }}
+
+    # The backend service to store configuration data in (e.g., puppetdb, yaml).
+    storeconfigs_backend = {{ storeconfigs_backend | default('puppetdb') }}
+
+    # The URL of the PuppetDB server if storeconfigs_backend is set to puppetdb.
+    puppetdb_server = {{ puppetdb_server | default('http://localhost:8081') }}
+
+    # The timeout in seconds for various agent operations.
+    timeout = {{ timeout | default(600) }}
+
+    # Whether the agent should download custom plugins and modules from the master.
+    pluginsync = {{ pluginsync | default(true) | ternary('true', 'false') }}
+
+    # The unique certificate name for this agent. Usually matches the hostname.
+    # If certname is not explicitly provided, falls back to the hostname variable.
+    certname = {{ certname | default(hostname | default('puppet-agent')) }}

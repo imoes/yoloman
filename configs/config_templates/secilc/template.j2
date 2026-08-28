@@ -1,0 +1,42 @@
+# ==============================================================================
+# secilc (SELinux CIL Compiler) Command Generator
+# ==============================================================================
+# This template generates the command-line invocation for `secilc`, the SELinux
+# policy compiler. secilc does not read a configuration file; it operates purely
+# via command-line arguments passed at execution time.
+#
+# This template ensures that all arguments are correctly formatted with their
+# appropriate flags, using defaults derived from the Ansible variable schema.
+# ==============================================================================
+
+secilc \
+{# Input CIL policy file to compile #}
+    {{ input_file | default('policy.cil') }} \
+{# Output binary policy file path #}
+    -o {{ output_file | default('policy.31') }} \
+{# Output file contexts file path #}
+    -f {{ filecontext_file | default('file_contexts') }} \
+{# Target architecture: selinux or xen #}
+    --target={{ target_type | default('selinux') }} \
+{# Build an MLS (Multi-Level Security) policy #}
+    --mls={{ mls_mode | default(False) | lower }} \
+{# SELinux policy version number #}
+    --policyvers={{ policy_version | default('31') }} \
+{# Action for unknown classes/permissions: deny, allow, or reject #}
+    --handle-unknown={{ handle_unknown_action | default('deny') }} \
+{# Do not add dontaudit rules #}
+    {% if disable_dontaudit | default(False) %}--disable-dontaudit \{% endif %}
+{# Treat tunables as booleans #}
+    {% if preserve_tunables | default(False) %}--preserve-tunables \{% endif %}
+{# Allow qualified names #}
+    {% if qualified_names | default(False) %}--qualified-names \{% endif %}
+{# Allow re-declaration of statements #}
+    {% if multiple_decls | default(False) %}--multiple-decls \{% endif %}
+{# Do not check neverallow rules #}
+    {% if disable_neverallow | default(False) %}--disable-neverallow \{% endif %}
+{# Expand and remove auto-generated attributes #}
+    {% if expand_generated | default(False) %}--expand-generated \{% endif %}
+{# Optimize final policy #}
+    {% if optimize_policy | default(True) %}--optimize \{% endif %}
+{# Verbosity level: 0=off, >0=on (prints -v if > 0) #}
+    {% if verbose_level | default(0) > 0 %}-v{% endif %}

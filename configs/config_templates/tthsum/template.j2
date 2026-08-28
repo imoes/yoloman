@@ -1,0 +1,48 @@
+# TTHSUM Configuration File
+# This configuration controls the behavior of the TTH (Trace Tree Hash) utility.
+
+# ==============================================================================
+# Locale Settings
+# ==============================================================================
+# Locale setting to ensure proper UTF-8 representation of non-ASCII characters.
+# Corresponds to LANG/LC_CTYPE environment variables.
+# Default: 'en_US.UTF-8'
+LOCALE="{{ locale | default('en_US.UTF-8') }}"
+
+# ==============================================================================
+# Check Mode Settings
+# ==============================================================================
+# Path to the file containing checksums and filenames to be verified with -c option.
+# Default: '/etc/tthsum/checked_files.tth'
+CHECK_FILE="{{ check_file | default('/etc/tthsum/checked_files.tth') }}"
+
+# ==============================================================================
+# Output & Behavior Flags
+# ==============================================================================
+# Enable verbose mode (-v flag). Prints filenames when checking.
+# Default: False
+# Note: Boolean values are explicitly lowercased for config parsing consistency.
+VERBOSE="{{ verbose | default(False) | lower }}"
+
+# Show progress during hashing (-p flag). Prints percentage of completeness.
+# Default: False
+PROGRESS="{{ progress | default(False) | lower }}"
+
+# Use mmap instead of read for file hashing (-m flag). Can be faster depending on system.
+# Default: False
+MMAP="{{ mmap | default(False) | lower }}"
+
+# Warn on improperly formatted lines when checking (-w flag).
+# Default: True
+WARN_FORMAT="{{ warn_format | default(True) | lower }}"
+
+# ==============================================================================
+# File List
+# ==============================================================================
+# List of files to process. Each item contains path and optional checksum for verification mode.
+# Format: <checksum> <path>
+# If checksum is omitted or empty, the entry serves as a reference or placeholder.
+# Default: []
+{% for item in files | default([]) %}
+{{ item.checksum | default('') }} {{ item.path }}
+{% endfor %}

@@ -1,0 +1,70 @@
+# ==============================================================================
+# pwdsphinx configuration template
+# ==============================================================================
+# This template configures the pwdsphinx service, which consists of a client
+# component, an optional oracle server, and a websphinx component.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [client] section
+# Configures the local client that interacts with the pwdsphinx oracle.
+# ------------------------------------------------------------------------------
+[client]
+
+# Whether to produce some output on the console for the client.
+verbose = {{ verbose_client | default(false) | lower }}
+
+# The IP address or hostname the client server is listening on.
+address = "{{ address_client | default('127.0.0.1') }}"
+
+# The port on which the client server is listening.
+port = {{ port_client | default(2355) }}
+
+# The directory where the client stores its master secret.
+datadir = "{{ datadir_client | default('~/.sphinx/') }}"
+
+# Stores a check digit of 5 bits in the rule blob to notice typos of the master password.
+validate_password = {{ validate_password_client | default(true) | lower }}
+
+# ------------------------------------------------------------------------------
+# [server] section
+# Configures the local oracle server if you run it yourself.
+# ------------------------------------------------------------------------------
+[server]
+
+# The port on which the server is listening.
+port = {{ port_server | default(2355) }}
+
+# The path to the SSL key file.
+ssl_key = "{{ ssl_key_server | default('/etc/ssl/sphinx/server.der') }}"
+
+# The path to the SSL certificate file.
+ssl_cert = "{{ ssl_cert_server | default('/etc/ssl/sphinx/cert.pem') }}"
+
+# The root directory where all data is stored.
+datadir = "{{ datadir_server | default('/var/lib/sphinx') }}"
+
+# Whether to produce some output on the console for the server.
+verbose = {{ verbose_server | default(false) | lower }}
+
+# Decay ratelimit after rl_decay seconds.
+rl_decay = {{ rl_decay | default(1800) }}
+
+# Increase hardness after rl_threshold attempts if not decaying.
+rl_threshold = {{ rl_threshold | default(1) }}
+
+# When checking freshness of puzzle solution, allow this extra gracetime in
+# addition to the hardness max solution time.
+rl_gracetime = {{ rl_gracetime | default(10) }}
+
+# ------------------------------------------------------------------------------
+# [websphinx] section
+# Configures the browser webextension component.
+# ------------------------------------------------------------------------------
+[websphinx]
+
+# The path of your pinentry program.
+pinentry = "{{ pinentry | default('/usr/bin/pinentry') }}"
+
+# A file where websphinx logs, this is only for dev/debug purposes.
+log = "{{ log_websphinx | default('') }}"

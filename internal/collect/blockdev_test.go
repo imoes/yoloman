@@ -74,11 +74,11 @@ func fakePVE(t *testing.T) string {
 	}
 	write("qemu-server/221103.conf", `boot: order=scsi0
 ide2: none,media=cdrom
-name: docker0218.example.com
+name: host.example.internal
 scsi0: linstor:pm-95db8b13_221103,iothread=1,size=200G
 scsihw: virtio-scsi-single
 `)
-	write("qemu-server/221101.conf", `name: elrond.example.com
+	write("qemu-server/221101.conf", `name: host.example.internal
 scsi0: linstor:pm-573e2517_221101,discard=on,iothread=1,size=32G
 scsi1: linstor:pm-bb2a3396_221101,discard=on,iothread=1,size=60G
 unused0: local-zfs:vm-221101-disk-9
@@ -92,7 +92,7 @@ mp0: local-zfs:subvol-131-disk-1,mp=/data,size=50G
 	write("qemu-server/notes.txt", "ignored") // not a <vmid>.conf
 	// A guest running on ANOTHER node. Its DRBD replica still lives on this host
 	// and still costs local I/O, so its config must be read too.
-	write("nodes/vpp0223/qemu-server/223104.conf", `name: hal.example.com
+	write("nodes/vpp0223/qemu-server/223104.conf", `name: host4.example.internal
 scsi0: linstor:pm-121314d1_223104,iothread=1,size=100G
 `)
 	return root

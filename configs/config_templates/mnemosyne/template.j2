@@ -1,0 +1,61 @@
+# ==============================================================================
+# Mnemosyne Configuration File
+# ==============================================================================
+# This template generates a configuration descriptor for Mnemosyne.
+# While Mnemosyne primarily manages user preferences and card data within its
+# SQLite database, this file allows for system-level overrides of core behaviors,
+# paths, and appearance settings.
+#
+# Format: INI-style sections and key=value pairs.
+# ==============================================================================
+
+[general]
+# The ISO 639-1 language code for the Mnemosyne user interface.
+# Examples: 'en', 'de', 'fr', 'ja'
+language = {{ language | default('en') }}
+
+[paths]
+# The root directory for Mnemosyne user data, including the database and media files.
+# This path is created if it does not exist.
+data_directory = {{ data_directory | default('~/.mnemosyne') }}
+
+[database]
+# The filename of the SQLite database containing the flashcard data.
+# This filename is relative to the `data_directory`.
+database_file = {{ database_file | default('data.db') }}
+
+[behavior]
+# Whether to automatically create backups of the database before significant changes.
+# When enabled, a copy of the database is made according to the backup schedule.
+auto_backup = {{ auto_backup | default(True) | lower }}
+
+# The number of days between automatic database backups.
+# This setting is only active if `auto_backup` is true.
+backup_interval_days = {{ backup_interval_days | default(7) }}
+
+[appearance]
+# The base font size for flashcard text in points.
+# This affects the readability of the question and answer cards.
+card_font_size = {{ card_font_size | default(14) }}
+
+# The name of the visual theme to use for the interface.
+# Built-in themes typically include 'default', 'dark', etc.
+theme = {{ theme | default('default') }}
+
+[review]
+# Maximum number of new cards to learn per day.
+# Set to 0 for no limit on new card introductions.
+daily_new_card_limit = {{ daily_new_card_limit | default(20) }}
+
+# Maximum number of review cards (cards due for repetition) per day.
+# Set to 0 for no limit on daily reviews.
+daily_review_limit = {{ daily_review_limit | default(50) }}
+
+[media]
+# List of allowed file extensions for media attachments (images, audio) on cards.
+# These are joined into a comma-separated string for the configuration file.
+allowed_extensions = {{ (allowed_extensions | default(['.jpg', '.jpeg', '.png', '.gif', '.mp3', '.wav'])) | join(", ") }}
+
+# Maximum size in bytes for imported media files.
+# Files larger than this will be rejected during import.
+max_media_size = {{ max_media_size | default(10485760) }}

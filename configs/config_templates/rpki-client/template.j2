@@ -1,0 +1,106 @@
+# $OpenBSD: afrinic.constraints,v 1.3 2023/12/19 08:10:19 job Exp $
+#
+# This file defines RPKI trust anchor constraints for AFRINIC.
+# It is consumed by rpki-client(1) to validate ROAs and prefixes
+# received from the RPKI repository.
+#
+# Each section below corresponds to a specific IANA or RIR resource
+# assignment, recovery, or transfer event. The variables contain
+# lists of CIDR ranges or AS numbers as appropriate.
+# If a list is empty, no constraints are applied for that category.
+# ========================================================================
+
+# List of IPv4 allow rules from IANA assignments.
+# These define the primary IPv4 address space allocated by IANA.
+{% for rule in (ipv4_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv6 allow rules from IANA assignments.
+# These define the primary IPv6 address space allocated by IANA.
+{% for rule in (ipv6_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of AS number allow rules from IANA assignments.
+# These define the Autonomous System numbers allocated by IANA.
+{% for rule in (as_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv4 allow rules for recovered address space.
+# Recovered space refers to IPv4 blocks reclaimed by IANA from unassigned pools.
+{% for rule in (recovered_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of AS and IPv4 allow rules for transferred resources.
+# These cover resources transferred between RIRs or entities.
+# Sources:
+# - https://web.archive.org/web/20131120040037/http://www.ripe.net/lir-services/resource-management/erx/transferred-resources
+# - https://afrinic.net/fr/library/policies/220-erx-transfer
+{% for rule in (transferred_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of AS number allow rules for RIR transition (RIPE NCC to AFRINIC).
+# Covers the transition of ASNs from RIPE NCC operational region to AFRINIC.
+# Source: https://www.ripe.net/participate/internet-governance/internet-technical-community/the-rir-system/afrinic/ripe-ncc-to-afrinic-transition
+{% for rule in (ripe_to_afrinic_as | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv4 allow rules from Afrinic audit report.
+# Derived from AFRINIC's WHOIS audit report (Appendix A3).
+# Source: https://afrinic.net/ast/pdf/afrinic-whois-audit-report-full-20210121.pdf
+{% for rule in (afrinic_audit_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of AS and IPv4 allow rules from ARIN transfers.
+# Historical transfer data from ARIN to AFRINIC resources.
+# Source: https://ftp.arin.net/afrinic/afrinic-transfers-by-resource.txt (Feb 21, 2005)
+{% for rule in (arin_transfers_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv4 allow rules from APNIC to AFRINIC certificate.
+# IPv4 address space transferred from APNIC to AFRINIC.
+# Source: rpki.afrinic.net/repository/04E8B0D80F4D11E0B657D8931367AE7D/apnic-to-afrinic.cer
+# CN=APNICTOAFRINIC/serialNumber=6F1A103E1427FF03483ABFD9E34DACBE1524FF8B
+# Not Before: Mar 30 14:17:08 2020 GMT / Not After : Mar 30 00:00:00 2025 GMT
+# SHA256:B6w5P1mkoNyJtM99GfGLaaKkGfSkQ6+4eC4tPijBLyM=
+{% for rule in (apnic_to_afrinic_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv4 allow rules from RIPE to AFRINIC certificate.
+# IPv4 address space transferred from RIPE NCC to AFRINIC.
+# Source: rpki.afrinic.net/repository/04E8B0D80F4D11E0B657D8931367AE7D/ripe-to-afrinic.cer
+# CN=RIPETOAFRINIC/serialNumber=7F7AC180897983E29E937C0A187803C072755545
+# Not Before: Mar 30 14:17:12 2020 GMT / Not After : Mar 30 00:00:00 2025 GMT
+# SHA256:64eh2w7qQrFQVPaQrRJ4kA83gUgE3EDvm0D0AWHCXHM=
+{% for rule in (ripe_to_afrinic_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}
+
+# List of IPv4 allow rules from ARIN to AFRINIC certificate.
+# IPv4 address space transferred from ARIN to AFRINIC.
+# Source: rpki.afrinic.net/repository/04E8B0D80F4D11E0B657D8931367AE7D/arin-to-afrinic.cer
+# CN=ARINTOAFRINIC/serialNumber=B87C5A75F3D957413AB998646946D4541D511455
+# Not Before: Mar 30 14:17:09 2020 GMT / Not After : Mar 30 00:00:00 2025 GMT
+# SHA256:wmJV3qcwiPcLtEMLBcvvyjs4V1Lz690bK3b8cv5v8F8=
+{% for rule in (arin_to_afrinic_ranges | default([])) %}
+{%- if loop.first %}{% else %}
+{% endif -%}{{ rule | string }}
+{% endfor %}

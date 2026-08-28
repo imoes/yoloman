@@ -1,0 +1,55 @@
+# ==============================================================================
+# OpenKeychain SSH (opkssh) Configuration Template
+# ==============================================================================
+# This file configures opkssh, an SSH authentication mechanism that leverages
+# OpenID Connect (OIDC) for public key management.
+#
+# The configuration is split into two logical sections defined by the schema:
+# 1. Providers: Trusted OIDC identity providers.
+# 2. Policy Rules: Rules mapping OIDC identities to local Linux users (principals).
+#
+# Variables are sourced from Ansible task/role variables. Defaults are applied
+# inline to ensure the template renders even if upstream variables are unset.
+# ==============================================================================
+
+# /etc/opk/providers
+# ------------------------------------------------------------------------------
+# Defines allowed OpenID Providers (OPs) for opkssh authentication.
+# Format per line: <issuer_uri> <client_id> <expiration_policy>
+#
+# Schema Field: providers (list of dicts)
+# Each dict must contain: issuer_uri, client_id, expiration.
+# ------------------------------------------------------------------------------
+{% set providers_list = providers | default([]) %}
+{% if providers_list | length > 0 %}
+{% for provider in providers_list %}
+# Provider Entry:
+#   Issuer URI:     {{ provider.issuer_uri | default('') | string }}
+#   Client ID:      {{ provider.client_id | default('') | string }}
+#   Expiration:     {{ provider.expiration | default('24h') | string }}
+{{ provider.issuer_uri | default('') }} {{ provider.client_id | default('') }} {{ provider.expiration | default('24h') }}
+{% endfor %}
+{% else %}
+# No providers configured. Add entries to the 'providers' list.
+{% endif %}
+
+# /etc/opk/policy
+# ------------------------------------------------------------------------------
+# Defines SSH access policies mapping principals to OP identities/claims.
+# Format per line: <principal> <identity_spec> [<provider_issuer>]
+#
+# Schema Field: policy_rules (list of dicts)
+# Each dict must contain: principal, identity_spec, provider_issuer (optional).
+# ------------------------------------------------------------------------------
+{% set policy_rules_list = policy_rules | default([]) %}
+{% if policy_rules_list | length > 0 %}
+{% for rule in policy_rules_list %}
+# Policy Rule:
+#   Principal:      {{ rule.principal | default('') | string }}
+#   Identity Spec:  {{ rule.identity_spec | default('') | string }}
+#   Provider Issuer:{{ rule.provider_issuer | default('') | string }}
+{{ rule.principal | default('') }} {{ rule.identity_spec | default('') }}{% if rule.provider_issuer is defined and rule.provider_issuer is string and rule.provider_issuer != '' %} {{ rule.provider_issuer }}{% endif %}
+{% endfor %}
+{% else %}
+# No policy rules configured. Add entries to the 'policy_rules' list.
+{% endif %}

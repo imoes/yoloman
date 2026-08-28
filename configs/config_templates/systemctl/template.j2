@@ -1,0 +1,33 @@
+# systemctl configuration template
+# --system: Connect to system manager (default)
+systemctl --system
+
+# --type=TYPE: List units of a particual type
+{% for unit_type in types %}
+systemctl --type={{ unit_type }}
+{% endfor %}
+
+# --state=STATE: List units with particular LOAD or SUB or ACTIVE state
+{% for state in states %}
+systemctl --state={{ state }}
+{% endfor %}
+
+# --property=NAME: Show only properties by this name
+{% for prop in properties %}
+systemctl --property={{ prop }}
+{% endfor %}
+
+# -a, --all: Show all loaded units/properties, including dead empty ones
+{% if all_units %}
+systemctl --all
+{% endif %}
+
+# -l, --full: Don't ellipsize unit names on output
+{% if full_output %}
+systemctl --full
+{% endif %}
+
+# --quiet: Suppress output
+{% if quiet_mode %}
+systemctl --quiet
+{% endif %}

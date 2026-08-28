@@ -1,0 +1,46 @@
+# impass configuration for sway window manager
+# This file configures sway to handle the 'impass' GUI application appropriately.
+# It ensures the application appears as a floating, sticky window and provides
+# a default keyboard shortcut to launch it.
+
+# ---------------------------------------------------------------------------
+# Application Identification
+# ---------------------------------------------------------------------------
+# The 'app_id' is constructed by joining the prefix and suffix with a dot.
+# Sway uses this regex to match the window and apply specific rules.
+
+# app_id_prefix: The first component of the application ID regex prefix.
+# Default: 'net'
+{% set prefix = app_id_prefix | default('net') %}
+
+# app_id_suffix: The remaining components of the application ID regex suffix.
+# Default: 'cmrg.impass'
+{% set suffix = app_id_suffix | default('cmrg.impass') %}
+
+# ---------------------------------------------------------------------------
+# Window Rules
+# ---------------------------------------------------------------------------
+# Rule: for_window [app_id="<prefix>.<suffix>"]
+# Action: floating enable, sticky enable
+# This ensures the impass dialog does not get tiled by sway's default rules,
+# keeping it visible and persistent on the current workspace.
+
+for_window [app_id="^{{ prefix }}\\.{{ suffix }}$" ] {
+   floating enable
+   sticky enable
+}
+
+# ---------------------------------------------------------------------------
+# Keybindings
+# ---------------------------------------------------------------------------
+# Bind a key combination to launch the impass GUI.
+# $mod+p is the default keybinding (usually Super+P or Alt+P).
+
+# binary_name: The name of the executable binary for the GUI.
+# Default: 'impass'
+{% set binary = binary_name | default('impass') %}
+
+# Note: The template uses 'exec exec' as per the original configuration.
+# This effectively runs the command twice in the shell context, which is
+# harmless but redundant. We preserve it to maintain exact behavior.
+bindsym $mod+p exec exec {{ binary }} gui

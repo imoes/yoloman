@@ -6,6 +6,7 @@ matters here is tested through that endpoint.
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -48,10 +49,11 @@ TARGET_DEVICES = [
 
 
 async def _token(db_session):
-    name = f"img-caller-{uuid.uuid4().hex[:6]}"
+    name = owned_name("img-caller")
     row, raw = new_api_token(name)
     db_session.add(row)
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
+    await db_session.flush()  # the grant references this token by uid — it must exist first
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, subject_token_id=row.id, scope="all"))
     await db_session.commit()
     return row, raw
 
@@ -63,7 +65,7 @@ def _h(raw):
 async def _ready_image(db_session, name=None) -> DiskImage:
     layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
     img = DiskImage(
-        name=name or f"golden-{uuid.uuid4().hex[:6]}",
+        name=name or owned_name("golden"),
         status="ready",
         manifest=layout_to_dict(layout),
         files={"root-ubuntu-lv": {"name": "root-ubuntu-lv.pcl.zst", "bytes": 2 * GiB, "sha256": "x"}},
@@ -100,7 +102,7 @@ async def test_an_image_reports_its_shape_without_the_caller_reading_the_manifes
 
 async def test_a_duplicate_image_name_is_a_conflict(db_session):
     token, raw = await _token(db_session)
-    name = f"dup-{uuid.uuid4().hex[:6]}"
+    name = owned_name("dup")
     with TestClient(create_app()) as client:
         first = client.post("/api/v1/images", json={"name": name}, headers=_h(raw))
         second = client.post("/api/v1/images", json={"name": name}, headers=_h(raw))
@@ -113,7 +115,7 @@ async def test_a_new_image_starts_out_capturing(db_session):
     """It is not deployable until the capture says so — see the ready-check on job creation."""
     token, raw = await _token(db_session)
     with TestClient(create_app()) as client:
-        body = client.post("/api/v1/images", json={"name": f"cap-{uuid.uuid4().hex[:6]}"}, headers=_h(raw)).json()
+        body = client.post("/api/v1/images", json={"name": owned_name("cap")}, headers=_h(raw)).json()
     assert body["status"] == "capturing"
     img = await db_session.get(DiskImage, uuid.UUID(body["id"]))
     await _cleanup(db_session, img, token)
@@ -142,7 +144,7 @@ async def test_an_image_with_an_active_job_cannot_be_deleted(db_session):
 
 async def test_a_job_cannot_be_armed_from_an_unfinished_image(db_session):
     token, raw = await _token(db_session)
-    img = DiskImage(name=f"half-{uuid.uuid4().hex[:6]}", status="capturing")
+    img = DiskImage(name=owned_name("half"), status="capturing")
     db_session.add(img)
     await db_session.commit()
     with TestClient(create_app()) as client:
@@ -368,7 +370,7 @@ def _img_headers(image_id):
 
 
 async def _capturing_image(db_session) -> DiskImage:
-    img = DiskImage(name=f"cap-{uuid.uuid4().hex[:6]}", status="capturing")
+    img = DiskImage(name=owned_name("cap"), status="capturing")
     db_session.add(img)
     await db_session.commit()
     return img
@@ -598,7 +600,7 @@ async def test_deployment_template_save_list_and_delete(db_session):
     an upsert by name, so re-saving updates in place instead of 409'ing."""
     token, raw = await _token(db_session)
     img = await _ready_image(db_session)
-    name = f"deploytmpl-{uuid.uuid4().hex[:6]}"
+    name = owned_name("deploytmpl")
     body = {
         "name": name, "description": "web tier", "image_id": str(img.id),
         "grow_mode": "absolute", "grow_policy": {"root": 0, "var": 30},
@@ -630,7 +632,7 @@ async def test_deployment_template_rejects_a_bad_grow_mode(db_session):
     token, raw = await _token(db_session)
     with TestClient(create_app()) as client:
         r = client.post("/api/v1/provisioning/templates",
-                        json={"name": f"bad-{uuid.uuid4().hex[:6]}", "grow_mode": "sideways"}, headers=_h(raw))
+                        json={"name": owned_name("bad"), "grow_mode": "sideways"}, headers=_h(raw))
     assert r.status_code == 422
 
 
@@ -649,7 +651,7 @@ async def test_vm_host_crud_detects_kind_and_encrypts_the_secret(db_session, mon
     monkeypatch.setattr(images_api, "_vault", lambda: Vault("", str(tmp_path / "vault.key")))
 
     token, raw = await _token(db_session)
-    name = f"pve-{uuid.uuid4().hex[:6]}"
+    name = owned_name("pve")
     with TestClient(create_app()) as client:
         created = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
             "name": name, "host": "pve.example", "username": "root@pam", "password": "s3cret"})
@@ -680,5 +682,5 @@ async def test_vm_host_registration_rejects_an_undetectable_host(db_session, mon
     token, raw = await _token(db_session)
     with TestClient(create_app()) as client:
         r = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
-            "name": f"bad-{uuid.uuid4().hex[:6]}", "host": "nope", "username": "x", "password": "y"})
+            "name": owned_name("bad"), "host": "nope", "username": "x", "password": "y"})
     assert r.status_code == 422 and "probe failed" in r.json()["detail"]

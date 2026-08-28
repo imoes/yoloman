@@ -1,0 +1,52 @@
+# wmifs system-wide configuration file
+# /etc/wmifsrc
+#
+# This file configures the wmifs (Window Manager Interface Statistics) tool.
+# It monitors network traffic and displays it in a terminal UI.
+# All settings here have sensible defaults if variables are not provided by Ansible.
+
+# ==============================================================================
+# Interface Selection
+# ==============================================================================
+# Network interface to monitor initially. Use 'auto' for the first active interface.
+# CLI flag: -i <interface_name>
+# If not specified, wmifs attempts to detect the primary active interface.
+interface {{ interface | default('auto') }}
+
+# ==============================================================================
+# Timing / Refresh Rates
+# ==============================================================================
+# Sampling interval in seconds for network traffic updates.
+# This controls how frequently the tool reads the /proc/net/dev (or equivalent) stats.
+# A lower value means higher CPU usage but smoother real-time data.
+# CLI flag: -I <interval>
+sampling_interval {{ sampling_interval | default(0.05) }}
+
+# Scrolling interval in seconds for the graph display.
+# This determines how often the history window scrolls or updates its visual representation.
+# CLI flag: -s <interval>
+scrolling_interval {{ scrolling_interval | default(5) }}
+
+# ==============================================================================
+# Behavior Modes
+# ==============================================================================
+# Lock mode: prevents automatic switching to the next available interface.
+# If false (0), wmifs may automatically switch to another active interface if the
+# current one goes down or is manually deselected. If true (1), it stays fixed.
+# CLI flag: -l
+# Note: Stored as 1 for true, 0 for false in the config file.
+lock_mode {% if lock_mode | default(false) | bool %}1{% else %}0{% endif %}
+
+# Waveform mode: changes the graph visualization style.
+# If false (0), uses the classic bar graph. If true (1), uses a continuous waveform line.
+# CLI flag: -w
+# Note: Stored as 1 for true, 0 for false in the config file.
+waveform_mode {% if waveform_mode | default(false) | bool %}1{% else %}0{% endif %}
+
+# ==============================================================================
+# Visuals
+# ==============================================================================
+# Color string for the graph display.
+# Common values: green, blue, red, yellow, cyan, magenta, white.
+# CLI flag: -c <color>
+color {{ color | default('green') }}

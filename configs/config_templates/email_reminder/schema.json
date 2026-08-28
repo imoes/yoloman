@@ -1,152 +1,149 @@
 {
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+ "event_sources": {
+  "default": [],
+  "description": "List of event sources to poll (e.g., calendar feeds or APIs).",
+  "items": {
+   "enabled": {
+    "default": true,
+    "description": "Whether to poll this source.",
+    "type": "bool"
+   },
+   "interval_minutes": {
+    "default": 5,
+    "description": "How often to poll this source (in minutes).",
+    "type": "number"
+   },
+   "name": {
+    "default": "",
+    "description": "Unique name for this source (used in logging and metadata).",
+    "type": "string"
+   },
+   "query": {
+    "default": "",
+    "description": "Optional filter query (e.g., CalDAV query string or API parameter).",
+    "type": "string"
+   },
+   "type": {
+    "default": "ics",
+    "description": "Source type: 'ics' (iCalendar), 'google', 'webhook', etc.",
+    "type": "string"
+   },
+   "url": {
+    "default": "",
+    "description": "URL or path to the event data source (e.g., CalDAV URL or local .ics file).",
+    "type": "string"
+   }
   },
-  "log_file": {
-    "type": "string",
-    "default": "/var/log/email-reminder/email-reminder.log",
-    "description": "Path to the log file."
-  },
-  "pid_file": {
-    "type": "string",
-    "default": "/run/email-reminder/email-reminder.pid",
-    "description": "Path to the PID file for the service."
-  },
-  "smtp": {
-    "type": "object",
-    "default": {},
-    "description": "SMTP server configuration for sending emails.",
-    "items": {
-      "host": {
-        "type": "string",
-        "default": "smtp.example.com",
-        "description": "SMTP server hostname."
-      },
-      "port": {
-        "type": "number",
-        "default": 587,
-        "description": "SMTP server port (typically 25, 465, or 587)."
-      },
-      "use_tls": {
-        "type": "bool",
-        "default": true,
-        "description": "Enable TLS encryption (STARTTLS)."
-      },
-      "use_ssl": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable SSL encryption (implicit TLS)."
-      },
-      "user": {
-        "type": "string",
-        "default": "",
-        "description": "SMTP username (optional for auth)."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "SMTP password (optional for auth; use secrets manager in production)."
-      },
-      "from_address": {
-        "type": "string",
-        "default": "noreply@example.com",
-        "description": "Sender email address shown in 'From' field."
-      }
-    }
-  },
-  "templates": {
-    "type": "object",
-    "default": {},
-    "description": "Email template defaults.",
-    "items": {
-      "default_subject": {
-        "type": "string",
-        "default": "Reminder: {{ event.title }} is coming up!",
-        "description": "Default subject line. May include {{ event.* }} placeholders."
-      },
-      "default_body": {
-        "type": "string",
-        "default": "Hello,\n\nThis is a reminder that the following event is scheduled:\n\nTitle: {{ event.title }}\nTime: {{ event.start_time }}\nLocation: {{ event.location }}\n\nBest regards,\nThe Email Reminder Service",
-        "description": "Default email body template. Supports Jinja2-style event field interpolation."
-      }
-    }
-  },
-  "reminders": {
-    "type": "object",
-    "default": {},
-    "description": "Global reminder timing settings.",
-    "items": {
-      "default_lead_time": {
-        "type": "number",
-        "default": 60,
-        "description": "Minutes before an event to send a reminder by default."
-      },
-      "max_lead_time": {
-        "type": "number",
-        "default": 1440,
-        "description": "Maximum allowed lead time in minutes (e.g., 1440 = 24 hours) to prevent overly early reminders."
-      }
-    }
-  },
-  "event_sources": {
-    "type": "list",
+  "type": "list"
+ },
+ "log_file": {
+  "default": "/var/log/email-reminder/email-reminder.log",
+  "description": "Path to the log file.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "INFO",
+  "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, or CRITICAL.",
+  "type": "string"
+ },
+ "pid_file": {
+  "default": "/run/email-reminder/email-reminder.pid",
+  "description": "Path to the PID file for the service.",
+  "type": "string"
+ },
+ "recipient_groups": {
+  "default": [],
+  "description": "List of recipient groups. Each group is addressed by name and sends reminders to all listed recipients.",
+  "items": {
+   "name": {
+    "default": "",
+    "description": "Unique name for the group (referenced in event mappings).",
+    "type": "string"
+   },
+   "recipients": {
     "default": [],
-    "description": "List of event sources to poll (e.g., calendar feeds or APIs).",
+    "description": "List of email addresses for this group.",
     "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name for this source (used in logging and metadata)."
-      },
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether to poll this source."
-      },
-      "type": {
-        "type": "string",
-        "default": "ics",
-        "description": "Source type: 'ics' (iCalendar), 'google', 'webhook', etc."
-      },
-      "url": {
-        "type": "string",
-        "default": "",
-        "description": "URL or path to the event data source (e.g., CalDAV URL or local .ics file)."
-      },
-      "interval_minutes": {
-        "type": "number",
-        "default": 5,
-        "description": "How often to poll this source (in minutes)."
-      },
-      "query": {
-        "type": "string",
-        "default": "",
-        "description": "Optional filter query (e.g., CalDAV query string or API parameter)."
-      }
-    }
+     "default": "",
+     "description": "A valid email address.",
+     "type": "string"
+    },
+    "type": "list"
+   }
   },
-  "recipient_groups": {
-    "type": "list",
-    "default": [],
-    "description": "List of recipient groups. Each group is addressed by name and sends reminders to all listed recipients.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name for the group (referenced in event mappings)."
-      },
-      "recipients": {
-        "type": "list",
-        "default": [],
-        "description": "List of email addresses for this group.",
-        "items": {
-          "type": "string",
-          "default": "",
-          "description": "A valid email address."
-        }
-      }
-    }
-  }
+  "type": "list"
+ },
+ "reminders": {
+  "description": "Global reminder timing settings.",
+  "items": {
+   "default_lead_time": {
+    "default": 60,
+    "description": "Minutes before an event to send a reminder by default.",
+    "type": "number"
+   },
+   "max_lead_time": {
+    "default": 1440,
+    "description": "Maximum allowed lead time in minutes (e.g., 1440 = 24 hours) to prevent overly early reminders.",
+    "type": "number"
+   }
+  },
+  "type": "object"
+ },
+ "smtp": {
+  "description": "SMTP server configuration for sending emails.",
+  "items": {
+   "from_address": {
+    "default": "noreply@example.com",
+    "description": "Sender email address shown in 'From' field.",
+    "type": "string"
+   },
+   "host": {
+    "default": "smtp.example.com",
+    "description": "SMTP server hostname.",
+    "type": "string"
+   },
+   "password": {
+    "default": "",
+    "description": "SMTP password (optional for auth; use secrets manager in production).",
+    "type": "string"
+   },
+   "port": {
+    "default": 587,
+    "description": "SMTP server port (typically 25, 465, or 587).",
+    "type": "number"
+   },
+   "use_ssl": {
+    "default": false,
+    "description": "Enable SSL encryption (implicit TLS).",
+    "type": "bool"
+   },
+   "use_tls": {
+    "default": true,
+    "description": "Enable TLS encryption (STARTTLS).",
+    "type": "bool"
+   },
+   "user": {
+    "default": "",
+    "description": "SMTP username (optional for auth).",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "templates": {
+  "description": "Email template defaults.",
+  "items": {
+   "default_body": {
+    "default": "Hello,\n\nThis is a reminder that the following event is scheduled:\n\nTitle: {{ event.title }}\nTime: {{ event.start_time }}\nLocation: {{ event.location }}\n\nBest regards,\nThe Email Reminder Service",
+    "description": "Default email body template. Supports Jinja2-style event field interpolation.",
+    "type": "string"
+   },
+   "default_subject": {
+    "default": "Reminder: {{ event.title }} is coming up!",
+    "description": "Default subject line. May include {{ event.* }} placeholders.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ }
 }

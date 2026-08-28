@@ -1,0 +1,181 @@
+# This is the ProFTPD configuration file
+#
+# See: http://www.proftpd.org/docs/directives/linked/by-name.html
+
+# Security-Enhanced Linux (SELinux) Notes:
+#
+# In Fedora and Red Hat Enterprise Linux, ProFTPD runs confined by SELinux
+# in order to mitigate the effects of an attacker taking advantage of an
+# unpatched vulnerability and getting control of the ftp server. By default,
+# ProFTPD cannot read or write most files on a system nor connect to many
+# external network services, but these restrictions can be relaxed by
+# setting SELinux booleans as follows:
+#
+# setsebool -P ftpd_anon_write=1
+#   This allows the ftp daemon to write to files and directories labelled
+#   with the public_content_rw_t context type; the daemon would only have
+#   read access to these files normally. Files to be made available by ftp
+#   but not writeable should be labelled public_content_t.
+#   On older systems this boolean was called allow_ftpd_anon_write.
+#
+# setsebool -P ftpd_full_access=1
+#   This allows the ftp daemon to read and write all files on the system.
+#   On older systems this boolean was called allow_ftpd_full_access, and there
+#   was a separate boolean ftp_home_dir to allow the ftp daemon access to
+#   files in users' home directories.
+#
+# setsebool -P ftpd_use_cifs=1
+#   This allows the ftp daemon to read and write files on CIFS-mounted
+#   filesystems.
+#   On older systems this boolean was called allow_ftpd_use_cifs.
+#
+# setsebool -P ftpd_use_fusefs=1
+#   This allows the ftp daemon to read and write files on ntfs/fusefs-mounted
+#   filesystems.
+#
+# setsebool -P ftpd_use_nfs=1
+#   This allows the ftp daemon to read and write files on NFS-mounted
+#   filesystems.
+#   On older systems this boolean was called allow_ftpd_use_nfs.
+#
+# setsebool -P ftpd_connect_all_unreserved=1
+#   This setting is only available from Fedora 16/RHEL-7 onwards, and is
+#   necessary for active-mode ftp transfers to work reliably with non-Linux
+#   clients (see http://bugzilla.redhat.com/782177), which may choose to
+#   use port numbers outside the "ephemeral port" range of 32768-61000.
+#
+# setsebool -P ftpd_connect_db=1
+#   This setting allows the ftp daemon to connect to commonly-used database
+#   ports over the network, which is necessary if you are using a database
+#   back-end for user authentication, etc.
+#
+# setsebool -P ftpd_use_passive_mode=1
+#   This setting allows the ftp daemon to bind to all unreserved ports for
+#   passive mode.
+#
+# All of these booleans are unset by default.
+#
+# See also the "ftpd_selinux" manpage.
+#
+# Note that the "-P" option to setsebool makes the setting permanent, i.e.
+# it will still be in effect after a reboot; without the "-P" option, the
+# effect only lasts until the next reboot.
+#
+# Restrictions imposed by SELinux are on top of those imposed by ordinary
+# file ownership and access permissions; in normal operation, the ftp daemon
+# will not be able to read and/or write a file unless *all* of the ownership,
+# permission and SELinux restrictions allow it.
+
+# Load DSO modules as required
+Include /etc/proftpd/modules.conf
+
+# Server Config - config used for anything outside a <VirtualHost> or <Global> context
+# See: http://www.proftpd.org/docs/howto/Vhost.html
+
+# Trace logging, disabled by default for performance reasons
+# (http://www.proftpd.org/docs/howto/Tracing.html)
+#TraceLog			/var/log/proftpd/trace.log
+#Trace				DEFAULT:0
+
+ServerName			"{{ server_name }}"
+ServerIdent			on "FTP Server ready."
+ServerAdmin			{{ server_admin }}
+DefaultServer			on
+
+# Cause every FTP user except adm to be chrooted into their home directory
+DefaultRoot			~ !adm
+
+# Use pam to authenticate (default) and be authoritative
+AuthPAMConfig			proftpd
+AuthOrder			mod_auth_pam.c* mod_auth_unix.c
+# If you use NIS/YP/LDAP you may need to disable PersistentPasswd
+#PersistentPasswd		off
+
+# Don't do reverse DNS lookups (hangs on DNS problems)
+UseReverseDNS			off
+
+# Set the user and group that the server runs as
+User				nobody
+Group				nobody
+
+# To prevent DoS attacks, set the maximum number of child processes
+# to 20.  If you need to allow more than 20 concurrent connections
+# at once, simply increase this value.  Note that this ONLY works
+# in standalone mode; in inetd mode you should use an inetd server
+# that allows you to limit maximum number of processes per service
+# (such as xinetd)
+MaxInstances			{{ max_instances }}
+
+# Disable sendfile by default since it breaks displaying the download speeds in
+# ftptop and ftpwho
+UseSendfile			off
+
+# Define the log formats
+LogFormat			default	"%h %l %u %t \"%r\" %s %b"
+LogFormat			auth	"%v [%P] %h %t \"%r\" %s"
+
+# Don't log hostname or timestamps because systemd will do that for us
+LogOptions			-Timestamp -Hostname +RoleBasedProcessLabels
+
+# Enable basic controls via ftpdctl
+# (http://www.proftpd.org/docs/modules/mod_ctrls.html)
+ControlsEngine			on
+ControlsACLs			all allow user root
+ControlsSocketACL		allow user *
+ControlsLog			/var/log/proftpd/controls.log
+
+# Enable admin controls via ftpdctl
+# (http://www.proftpd.org/docs/contrib/mod_ctrls_admin.html)
+<IfModule mod_ctrls_admin.c>
+  AdminControlsEngine		on
+  AdminControlsACLs		all allow user root
+</IfModule>
+
+# Enable mod_vroot by default for better compatibility with PAM
+# (http://bugzilla.redhat.com/506735)
+<IfModule mod_vroot.c>
+  VRootEngine			on
+</IfModule>
+
+# TLS (http://www.castaglia.org/proftpd/modules/mod_tls.html)
+# Enable this with PROFTPD_OPTIONS=-DTLS in /etc/sysconfig/proftpd
+<IfDefine TLS>
+Include /etc/proftpd/mod_tls.conf
+</IfDefine>
+
+# Dynamic ban lists (http://www.proftpd.org/docs/contrib/mod_ban.html)
+# Enable this with PROFTPD_OPTIONS=-DDYNAMIC_BAN_LISTS in /etc/sysconfig/proftpd
+<IfModule mod_ban.c>
+Include /etc/proftpd/mod_ban.conf
+</IfModule>
+
+# Set networking-specific "Quality of Service" (QoS) bits on the packets used
+# by the server (http://www.proftpd.org/docs/contrib/mod_qos.html)
+<IfModule mod_qos.c>
+Include /etc/proftpd/mod_qos.conf
+</IfModule>
+
+# Global Config - config common to Server Config and all virtual hosts
+# See: http://www.proftpd.org/docs/howto/Vhost.html
+<Global>
+
+  # Umask 022 is a good standard umask to prevent new dirs and files
+  # from being group and world writable
+  Umask				022
+
+  # Allow users to overwrite files and change permissions
+  AllowOverwrite		yes
+  <Limit ALL SITE_CHMOD>
+    AllowAll
+  </Limit>
+
+</Global>
+
+# A basic anonymous configuration, with an upload directory
+# Enable this with PROFTPD_OPTIONS=-DANONYMOUS_FTP in /etc/sysconfig/proftpd
+<IfDefine ANONYMOUS_FTP>
+Include /etc/proftpd/anonftp.conf
+</IfDefine>
+
+# Include other custom configuration files
+Include /etc/proftpd/conf.d/*.conf

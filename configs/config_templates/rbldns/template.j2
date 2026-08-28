@@ -1,0 +1,94 @@
+#!/usr/bin/env /lib/init/init-d-script
+#
+# This script is an LSB-compatible init script for the `rbldns` service.
+# It relies on `runit` (via `chpst` and the `/etc/sv/${NAME}/run` directory)
+# for actual process management, but provides the standard start/stop/
+# restart interface expected by the operating system's service manager.
+#
+# The service name is defined by the `name` variable. If not overridden,
+# it defaults to 'rbldns'.
+
+### BEGIN INIT INFO
+# Provides:          rbldns
+# Required-Start:    $syslog $time $local_fs
+# Required-Stop:     $syslog $time $local_fs
+# Should-Start:      $network
+# Should-Stop:       $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Real-time blackhole list server
+# Description:       rbldns provides a DNS-based real-time blackhole list
+#                    (RTBL) service. It allows domain administrators to
+#                    block traffic from known malicious sources efficiently
+#                    via DNS queries.
+### END INIT INFO
+
+#
+# Service configuration
+#
+# name: The service name used for the script, runit service directory, and
+#       daemon invocation. Defaults to 'rbldns'.
+NAME='{{ name | default("rbldns") }}'
+
+#
+# Daemon path and description
+#
+# DESC: A human-readable description of the service.
+DESC='real time blackhole list server'
+
+# DAEMON: The path to the rbldns binary. This is assumed to be a static
+#         system path as it is not configurable in the schema.
+DAEMON='/usr/sbin/rbldns'
+
+#
+# Dependency checks
+#
+# The script requires two specific external tools to function correctly:
+# 1. `daemon`: Part of the 'daemon' package, used to interact with the runit
+#    service supervisor.
+# 2. `chpst`: Part of the 'runit' package, used to set the execution environment
+#    (specifically the conf directory) before launching the daemon.
+
+if ! test -x '/usr/bin/daemon' ; then
+	log_failure_msg "install \`daemon\' package to use ${NAME} script"
+	exit 1
+fi
+
+if ! test -x '/usr/bin/chpst' ; then
+	log_failure_msg "install \`runit\' package to use ${NAME} script"
+	exit 1
+fi
+
+#
+# Daemon helper function
+#
+# Wraps the call to `/usr/bin/daemon` to ensure consistent invocation
+# parameters for all service commands.
+# Arguments are passed through to the daemon command.
+daemon_ () { /usr/bin/daemon -D "/etc/sv/${NAME}" --noconfig --name "${NAME}" "$@"; }
+
+#
+# Start command
+#
+# Overrides the default start behavior to explicitly launch the rbldns
+# process via runit's `chpst`, setting the environment directory to
+# `/etc/sv/${NAME}/conf`.
+do_start_cmd_override () {
+	# Execute chpst with the environment conf dir, running the shell script
+	# located at ./run within the service directory.
+	daemon_ -- /usr/bin/chpst -e "/etc/sv/${NAME}/conf" /bin/sh ./run;
+}
+
+#
+# Stop command
+#
+# Overrides the default stop behavior. It first checks if the service is
+# currently running before attempting to stop it, preventing errors in
+# cases where the service is already stopped.
+do_stop_cmd_override () {
+	# Check if the daemon is running.
+	if daemon_ --running ; then
+		# Gracefully stop the daemon.
+		daemon_ --stop
+	fi
+}

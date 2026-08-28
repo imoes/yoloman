@@ -1,50 +1,50 @@
 {
-  "server": {
-    "address": ":67",
-    "log_level": "info",
-    "ipv6_enabled": true
+ "global_options": {
+  "bootfile_name": "coredhcp.pxe",
+  "vendor_class_id": "CoreDHCP-Server"
+ },
+ "leases": {
+  "backend": "file",
+  "path": "/var/lib/coredhcp/leases.dat"
+ },
+ "plugins": [
+  "builtin:dns",
+  "builtin:ntp",
+  "builtin:file"
+ ],
+ "server": {
+  "address": ":67",
+  "ipv6_enabled": true,
+  "log_level": "info"
+ },
+ "subnets": [
+  {
+   "dns_servers": [
+    "10.0.0.2",
+    "8.8.8.8"
+   ],
+   "gateway": "10.0.0.1",
+   "network": "10.0.0.0",
+   "ntp_servers": [
+    "10.0.0.3"
+   ],
+   "options": {
+    "bootfile_name": "pxelinux.0",
+    "vendor_class_id": "PXEClient"
+   },
+   "prefix": 24,
+   "range": {
+    "end": "10.0.0.200",
+    "start": "10.0.0.100"
+   }
   },
-  "plugins": [
-    "builtin:dns",
-    "builtin:ntp",
-    "builtin:file"
-  ],
-  "leases": {
-    "backend": "file",
-    "path": "/var/lib/coredhcp/leases.dat"
-  },
-  "subnets": [
-    {
-      "network": "10.0.0.0",
-      "prefix": 24,
-      "gateway": "10.0.0.1",
-      "dns_servers": [
-        "10.0.0.2",
-        "8.8.8.8"
-      ],
-      "ntp_servers": [
-        "10.0.0.3"
-      ],
-      "range": {
-        "start": "10.0.0.100",
-        "end": "10.0.0.200"
-      },
-      "options": {
-        "bootfile_name": "pxelinux.0",
-        "vendor_class_id": "PXEClient"
-      }
-    },
-    {
-      "network": "192.168.42.0",
-      "gateway": "192.168.42.1",
-      "range": {
-        "start": "192.168.42.10",
-        "end": "192.168.42.250"
-      }
-    }
-  ],
-  "global_options": {
-    "vendor_class_id": "CoreDHCP-Server",
-    "bootfile_name": "coredhcp.pxe"
+  {
+   "gateway": "192.168.42.1",
+   "network": "192.168.42.0",
+   "range": {
+    "end": "192.168.42.250",
+    "start": "192.168.42.10"
+   }
   }
+ ]
 }

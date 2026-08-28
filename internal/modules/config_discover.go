@@ -107,7 +107,6 @@ func (c *ConfigDiscover) Run(ctx context.Context, params map[string]any, dryRun 
 		}
 	}
 
-
 	// Core system config files that no long-running daemon "owns", so the
 	// unit/man-page discovery above never finds them, yet operators need to see
 	// and edit them — /etc/fstab (read by mount at boot) is the canonical case.

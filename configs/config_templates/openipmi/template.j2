@@ -1,0 +1,92 @@
+## Path:        Hardware/IPMI
+## Description: Enable standard hardware interfaces (KCS, BT, SMIC)
+## Type:        yesno
+## Default:     "yes"
+## Config:      ipmi
+# Enable standard hardware interfaces (KCS, BT, SMIC).
+# This is generally recommended as most servers rely on these interfaces
+# for out-of-band management and hardware monitoring.
+# Set to 'yes' unless you are running in a specific container or virtualized
+# environment where these kernel interfaces are unnecessary or conflicting.
+IPMI_SI={{ IPMI_SI | default('yes') }}
+
+## Path:        Hardware/IPMI
+## Description: Enable /dev/ipmi0 interface, used by ipmitool, ipmicmd,
+## Type:        yesno
+## Default:     "yes"
+## Config:      ipmi
+# Enable /dev/ipmi0 interface, used by ipmitool, ipmicmd,
+# and other userspace IPMI-using applications.
+# This creates a device node that allows userspace tools to communicate
+# with the IPMI BMC. Without this, standard tools like ipmitool will
+# fail to send commands to the management controller.
+# Set to 'no' if you are using a different interface or running headless
+# without userspace IPMI access needs.
+DEV_IPMI={{ DEV_IPMI | default('yes') }}
+
+## Path:        Hardware/IPMI
+## Description: Enable IPMI_WATCHDOG if you want the IPMI watchdog
+## Type:        yesno
+## Default:     "no"
+## Config:      ipmi
+# Enable IPMI_WATCHDOG if you want the IPMI watchdog
+# to reboot the system if it hangs.
+# This loads the ipmi_watchdog kernel module, allowing the system
+# to automatically reset if the OS becomes unresponsive for a set period.
+# Use with caution: ensure your system is stable and that the watchdog
+# timeout is long enough to allow for legitimate long-running maintenance
+# tasks to complete without triggering a reboot.
+IPMI_WATCHDOG={{ IPMI_WATCHDOG | default('no') }}
+
+## Path:        Hardware/IPMI
+## Description: Watchdog options - modinfo ipmi_watchdog for details
+## Type:        string
+## Default:     "timeout=60"
+## Config:      ipmi
+# Watchdog options - modinfo ipmi_watchdog for details.
+# Sets parameters for the IPMI watchdog module.
+# The 'timeout' specifies the number of seconds before the watchdog
+# triggers a reboot.
+# Since there is no userspace ping application that runs during shutdown,
+# be sure to give it enough time for any device drivers to
+# do their cleanup (e.g. megaraid cache flushes)
+# without the watchdog triggering prematurely.
+# Format: key=value pairs as accepted by the kernel module.
+IPMI_WATCHDOG_OPTIONS="{{ IPMI_WATCHDOG_OPTIONS | default('timeout=60') }}"
+
+## Path:        Hardware/IPMI
+## Description: Enable IPMI_POWEROFF if you want the IPMI poweroff module to be loaded.
+## Type:        yesno
+## Default:     "no"
+## Config:      ipmi
+# Enable IPMI_POWEROFF if you want the IPMI poweroff module to be loaded.
+# This allows the system to use the IPMI command to gracefully power off
+# the server via the BMC, rather than using ACPI or other hardware-specific
+# power-off mechanisms. Useful for remote power management.
+IPMI_POWEROFF={{ IPMI_POWEROFF | default('no') }}
+
+## Path:        Hardware/IPMI
+## Description: Enable IPMI_POWERCYCLE if you want the system to be power-cycled on reboot
+## Type:        yesno
+## Default:     "no"
+## Config:      ipmi
+# Enable IPMI_POWERCYCLE if you want the system to be power-cycled (power
+# down, delay briefly, power on) rather than power off, on systems
+# that support such. IPMI_POWEROFF=yes is also required.
+# This is useful for systems that need a full power cycle on reboot to
+# ensure hardware state is reset, or for remote recovery scenarios where
+# a simple reboot command is not enough.
+IPMI_POWERCYCLE={{ IPMI_POWERCYCLE | default('no') }}
+
+## Path:        Hardware/IPMI
+## Description: Enable "legacy" interfaces for applications
+## Type:        yesno
+## Default:     "no"
+## Config:      ipmi
+# Enable "legacy" interfaces for applications
+# Intel IMB driver interface.
+# This loads the ipmi_mb kernel module, providing a legacy interface
+# for applications that expect the old Intel Message Bus interface.
+# Generally not needed on modern systems, but required for compatibility
+# with older IPMI management applications or scripts.
+IPMI_IMB={{ IPMI_IMB | default('no') }}

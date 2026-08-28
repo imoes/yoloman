@@ -1,0 +1,80 @@
+# ==============================================================================
+# OTKeyPad Configuration Template
+# ==============================================================================
+# This template generates a configuration file for the `otp` tool (often
+# associated with `otkeypad`), which generates random keys/passwords for
+# one-time password pads or similar cryptographic materials.
+#
+# The configuration is structured as a series of key-value pairs followed
+# by a list of user-specific pad definitions.
+# ==============================================================================
+
+# --- Global Key Generation Parameters ---
+
+# keys_count: Number of keys to generate per pad.
+# Corresponds to the `-nnkeys` command-line flag.
+# Determines the total number of individual keys within a single pad file.
+keys_count: {{ keys_count | default(50) }}
+
+# key_length: Length of each key in characters.
+# Corresponds to the `-cchars` (for uppercase), `-ddigits` (for digits),
+# or `-lchars` (for lowercase) command-line flags.
+# Defines how long each generated string will be.
+key_length: {{ key_length | default(8) }}
+
+# key_type: Type of characters allowed in the generated keys.
+# Corresponds to the `-c` (uppercase), `-d` (digits), or `-l` (lowercase) flags.
+# Options:
+#   - 'uppercase': Generates keys using A-Z only.
+#   - 'digits': Generates keys using 0-9 only.
+#   - 'lowercase': Generates keys using a-z only.
+key_type: {{ key_type | default('uppercase') }}
+
+# english_style: Use English digraph statistics for key generation.
+# Corresponds to the `-e` flag.
+# If true, the generator uses statistical models of English digraphs
+# to create keys that are easier for humans to read and memorize.
+# This is primarily effective when key_type is 'lowercase' or 'uppercase'.
+# Note: This reduces entropy compared to purely random generation.
+english_style: {{ english_style | default(false) | lower }}
+
+# separator_interval: Insert a hyphen separator every n characters.
+# Corresponds to the `-snchars` command-line flag.
+# Improves readability of long keys by breaking them into chunks.
+separator_interval: {{ separator_interval | default(4) }}
+
+# line_length: Maximum line length for the output keys.
+# Corresponds to the `-wlinelen` command-line flag.
+# Controls how many characters fit on a single line before wrapping or truncating.
+line_length: {{ line_length | default(79) }}
+
+# --- Randomness and Verification Parameters ---
+
+# seed: Random seed for reproducible key generation.
+# Corresponds to the `-rseed` command-line flag.
+# If empty or omitted, the system uses a non-deterministic source
+# (e.g., /dev/urandom) for true randomness.
+# Provide a string or number here to generate the same pads every time.
+seed: "{{ seed | default('') }}"
+
+# signature_file: Path to write MD5 signatures for verification.
+# Corresponds to the `-msigfile` command-line flag.
+# If empty or omitted, no signature file is created.
+# Useful for verifying the integrity of generated key pads later.
+signature_file: "{{ signature_file | default('') }}"
+
+# --- User/Pad Definitions ---
+
+# users: List of pad configurations or user contexts to process.
+# Each item in this list defines a specific pad generation task.
+# The `otp` tool processes these sequentially.
+# Required fields per item:
+#   - name: Identifier for the pad/user.
+#   - output_file: Path where the generated key file will be saved.
+users:
+{% for user in (users | default([])) %}
+  # Name of the user or context for this pad
+  - name: {{ user.name }}
+    # File path where the generated keys for this user will be stored
+    output_file: {{ user.output_file }}
+{% endfor %}

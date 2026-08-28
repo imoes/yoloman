@@ -1,0 +1,36 @@
+{# ============================================================================== #}
+{# transmission-qt Configuration Template                                          #}
+{# This template generates the configuration for the Transmission Qt GUI client.     #}
+{# It connects to an existing transmission-daemon instance via RPC.                  #}
+{# ============================================================================== #}
+
+{# config_dir: The directory where configuration files are stored. Can be overridden #}
+{# by -g flag or TRANSMISSION_HOME env var.                                          #}
+config-dir: {{ (config_dir | default('/home/' ~ (user_name | default('user')) + '/.config/transmission')) }}
+
+{# minimized: Start the application minimized in the notification area.              #}
+{# Corresponds to --minimized flag.                                                  #}
+minimized: {{ minimized | default(false) | lower }}
+
+{# rpc_port: Port to use when connecting to an existing session (daemon).            #}
+{# Corresponds to --port flag.                                                       #}
+rpc-port: {{ rpc_port | default(9091) }}
+
+{# rpc_host: Hostname to connect to for an existing session.                         #}
+{# Corresponds to --remote flag.                                                     #}
+rpc-host: {{ rpc_host | default('localhost') }}
+
+{# rpc_username: Username to use when connecting to an existing session.             #}
+{# Corresponds to --username flag.                                                   #}
+rpc-username: {{ rpc_username | default('transmission') }}
+
+{# rpc_password: Password to use when connecting to an existing session.             #}
+{# Corresponds to --password flag.                                                   #}
+rpc-password: {{ rpc_password | default('password') }}
+
+{# torrent_files: List of torrent file paths to add at startup.                      #}
+{# Corresponds to appending files to command line.                                   #}
+torrent-files:
+{% for file in torrent_files | default([]) %}
+  - {{ file }}
+{% endfor %}

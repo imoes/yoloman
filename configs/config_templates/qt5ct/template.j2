@@ -1,0 +1,18 @@
+# qt5ct Platform Theme Configuration
+#
+# This template configures the default Qt5 platform theme. It ensures that
+# Qt5 applications use 'qt5ct' as their theme engine unless the user has
+# explicitly set the QT_QPA_PLATFORMTHEME environment variable or is running
+# within a KDE desktop environment (where KDE's own theme plugin takes precedence).
+#
+# Variable Mapping:
+#   qt_qpa_platformtheme_default: The name of the platform theme plugin to use.
+
+# Check if QT_QPA_PLATFORMTHEME is currently unset or empty.
+# If it is empty, we proceed to set the default.
+if [ -z "${QT_QPA_PLATFORMTHEME:-}" ] && [ "$XDG_CURRENT_DESKTOP" != "KDE" ]
+then
+    # Set the default Qt5 platform theme.
+    # This variable tells Qt which theme engine to load (e.g., qt5ct, kvantum, breeze).
+    export QT_QPA_PLATFORMTHEME={{ qt_qpa_platformtheme_default | default('qt5ct') }}
+fi

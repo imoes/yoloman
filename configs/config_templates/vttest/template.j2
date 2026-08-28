@@ -1,0 +1,41 @@
+# vttest configuration file
+# This file controls the behavior of the vttest terminal emulator test suite.
+# Each directive corresponds to a command-line option.
+# Variables are sourced from the Ansible role variables, with schema defaults applied inline.
+
+# Screen geometry: lines x minimum_columns . maximum_columns
+# Controls the initial window size for the test session.
+# Example: '24x80.132' means 24 lines, min 80 cols, max 132 cols.
+screen_geometry={{ screen_geometry | default('24x80.132') }}
+
+# Replay commands: Path to a file containing recorded test commands
+# Allows re-running a previously logged test session (-c flag)
+replay_commands={{ replay_commands | default('') }}
+
+# Font file: Path to a font file containing DRCS (Double-Byte Character Set) strings
+# Used for testing alternate character sets (-f flag)
+font_file={{ font_file | default('') }}
+
+# Log results: Enable or disable logging of test results to vttest.log (-l flag)
+# When true, test output is appended to the log file.
+log_results={{ log_results | default(false) | ternary('true', 'false') }}
+
+# Use padding: Enable padding for high-speed lines (-p flag)
+# Adds delays to simulate slower line processing for testing.
+use_padding={{ use_padding | default(false) | ternary('true', 'false') }}
+
+# Show recent only: Show only the most recent part of continuous responses (-q flag)
+# Useful for scrolling tests where full history is not needed.
+show_recent_only={{ show_recent_only | default(false) | ternary('true', 'false') }}
+
+# Add delay: Add time-delays in panning/scrolling options (-s flag)
+# Inserts artificial delays to test scroll-back behavior.
+add_delay={{ add_delay | default(false) | ternary('true', 'false') }}
+
+# Suppress UTF-8 switch: Suppress switch from UTF-8 mode on startup (-u flag)
+# Keeps the terminal in UTF-8 mode instead of resetting to ASCII.
+suppress_utf8_switch={{ suppress_utf8_switch | default(false) | ternary('true', 'false') }}
+
+# Use 8-bit controls: Use 8-bit controls instead of 7-bit (-8 flag)
+# Allows testing of high-bit control characters.
+use_8bit_controls={{ use_8bit_controls | default(false) | ternary('true', 'false') }}

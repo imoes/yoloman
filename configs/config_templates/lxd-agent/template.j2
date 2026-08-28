@@ -1,0 +1,37 @@
+# LXD-Agent Configuration Template
+#
+# This template generates a configuration script for the LXD agent.
+# Note: LXD-Agent does not use a traditional static configuration file.
+# Behavior is primarily controlled via command-line flags passed to the daemon
+# (e.g., --debug, --verbose). This script documents the effective settings
+# and can be sourced or used to generate systemd overrides.
+#
+# The variables `debug` and `verbose` are expected to be provided by the
+# Ansible role consuming this template. If not provided, they default to false.
+
+# Debug Mode Configuration
+# Description: Enable debug message logging for lxd-agent.
+# When enabled, the agent will output detailed debug information to the log stream.
+{% set debug_val = debug | default(false) | bool %}
+DEBUG_ENABLED={{ debug_val | ternary('true', 'false') }}
+{% if debug_val %}
+# Note: With DEBUG_ENABLED=true, the lxd-agent should be started with the --debug flag.
+# Example systemd override: ExecStart=/usr/bin/lxd-agent --debug
+{% endif %}
+
+# Verbose Mode Configuration
+# Description: Enable verbose informational message logging for lxd-agent.
+# When enabled, the agent will output general informational messages to the log stream.
+{% set verbose_val = verbose | default(false) | bool %}
+VERBOSE_ENABLED={{ verbose_val | ternary('true', 'false') }}
+{% if verbose_val %}
+# Note: With VERBOSE_ENABLED=true, the lxd-agent should be started with the --verbose flag.
+# Example systemd override: ExecStart=/usr/bin/lxd-agent --verbose
+{% endif %}
+
+# Combined Flags Example
+# If both debug and verbose are enabled, the flag combination would be:
+# --debug --verbose
+# This script serves as a documentation and configuration state reference.
+# To apply these settings in a real environment, ensure your systemd unit file
+# or init script incorporates these flags based on the ENABLED variables above.

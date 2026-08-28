@@ -1,0 +1,88 @@
+# ==============================================================================
+# prometheus-trafficserver-exporter Configuration
+# ==============================================================================
+# This configuration file controls the Prometheus exporter for Apache Traffic Server.
+# It allows exposing Traffic Server's internal statistics (via the stats_over_http plugin)
+# as Prometheus-compatible metrics.
+#
+# All variables use `| default(...)` to ensure safe rendering even if the variable
+# is undefined in the Ansible inventory. Do not remove these defaults unless you
+# guarantee the variables are always defined.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Traffic Server's stats_over_http plugin URL
+# --------------------------------------------------------------------------
+# The base URL used by the exporter to fetch raw statistics from Traffic Server.
+# Typically points to the stats_over_http plugin endpoint.
+# Default: http://127.0.0.1/_stats
+endpoint: {{ endpoint | default('http://127.0.0.1/_stats') }}
+
+# --------------------------------------------------------------------------
+# YAML file containing the metrics definition
+# --------------------------------------------------------------------------
+# Path to an external YAML file defining custom metric mappings.
+# Leave empty to use the package's built-in default metrics definition.
+# If specified, must be a valid path on the target system.
+# Default: '' (empty string uses package default)
+metrics_file: {{ metrics_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Address to bind and listen on
+# --------------------------------------------------------------------------
+# The network interface address for the Prometheus exposition HTTP server.
+# Set to an empty string to listen on all available interfaces (0.0.0.0).
+# Specific IPs (e.g., 127.0.0.1) restrict access to that interface only.
+# Default: '' (all interfaces)
+addr: {{ addr | default('') }}
+
+# --------------------------------------------------------------------------
+# Port to bind and listen on
+# --------------------------------------------------------------------------
+# The TCP port number for the Prometheus exposition HTTP server.
+# Ensure this port is allowed through any local firewalls (e.g., firewalld, ufw).
+# Default: 9122
+port: {{ port | default(9122) }}
+
+# --------------------------------------------------------------------------
+# Path to trafficserver PID file
+# --------------------------------------------------------------------------
+# Absolute path to the Traffic Server server lock/PID file.
+# This is required when `procstats` is enabled to collect process-level metrics.
+# The exporter reads this file to identify the Traffic Server process.
+# Default: /var/run/trafficserver/server.lock
+pidfile: {{ pidfile | default('/var/run/trafficserver/server.lock') }}
+
+# --------------------------------------------------------------------------
+# Enable process metric collection
+# --------------------------------------------------------------------------
+# When true, the exporter collects additional metrics about the Traffic Server
+# process itself (e.g., CPU usage, memory consumption) via the pidfile.
+# Default: true
+procstats: {{ procstats | default(True) | lower }}
+
+# --------------------------------------------------------------------------
+# Disable SSL certificate verification on metric collection
+# --------------------------------------------------------------------------
+# If true, the exporter will NOT verify the SSL/TLS certificate of Traffic Server
+# when fetching stats. Useful for self-signed certificates or internal labs.
+# Set to false in production if proper certificates are in place.
+# Default: true
+no_ssl_verification: {{ no_ssl_verification | default(True) | lower }}
+
+# --------------------------------------------------------------------------
+# Maximum retries for DNS lookups or connection timeouts/failures
+# --------------------------------------------------------------------------
+# The number of times the exporter will retry connecting to Traffic Server if
+# a connection fails or times out. 0 disables retries (immediate failure).
+# Default: 0
+max_retries: {{ max_retries | default(0) }}
+
+# --------------------------------------------------------------------------
+# Verbose logging level
+# --------------------------------------------------------------------------
+# Controls the verbosity of the exporter's own logs.
+# 0 = minimal/off. Higher values (1, 2, ...) increase debug output.
+# Useful for troubleshooting connection issues or metric parsing errors.
+# Default: 0
+verbose: {{ verbose | default(0) }}

@@ -1,0 +1,61 @@
+# =============================================================================
+# ZDBSP Nodes Builder Configuration
+# =============================================================================
+# This file represents the command-line defaults and behavior parameters for
+# zdbsp(1). While zdbsp does not have a standard config file (section 5),
+# this template generates a structured representation of default invocation
+# parameters for documentation or helper script generation purposes.
+#
+# This template is self-documenting: each variable reference is accompanied
+# by its schema description and default value.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Output WAD file path
+# -----------------------------------------------------------------------------
+# Schema: output_wad
+# Default: 'output.wad'
+# Description: The path to the output WAD file containing the built nodes.
+# Corresponds to the -o option in zdbsp synopsis.
+OUTPUT_WAD: {{ output_wad | default('output.wad') }}
+
+# -----------------------------------------------------------------------------
+# Input WAD files
+# -----------------------------------------------------------------------------
+# Schema: input_wads
+# Default: ['doom1.wad']
+# Description: A list of input WAD files to process for node building.
+# Corresponds to input.wad ... in zdbsp synopsis.
+INPUT_WADS:
+{% for wad in input_wads | default(['doom1.wad']) %}
+- {{ wad }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Help/Usage Flag
+# -----------------------------------------------------------------------------
+# Schema: show_help
+# Default: False
+# Description: If true, zdbsp will display command line options summary and exit.
+# Corresponds to the --help option.
+SHOW_HELP: {{ show_help | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Verbose Mode
+# -----------------------------------------------------------------------------
+# Schema: verbose
+# Default: False
+# Description: If true, zdbsp will output verbose information during node building.
+# Although not explicitly listed in the short man page options,
+# zdbsp typically supports --verbose or -v in its source code
+# for debugging node building. We default to false.
+VERBOSE: {{ verbose | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Optimizer Level
+# -----------------------------------------------------------------------------
+# Schema: optimization_level
+# Default: 1
+# Description: Level of optimization for the GL-Friendly Nodes tree (0-2).
+# 0: Basic, 1: Moderate, 2: Heavy optimization
+OPTIMIZATION_LEVEL: {{ optimization_level | default(1) }}

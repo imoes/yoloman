@@ -31,17 +31,10 @@ services:
       db:
         condition: service_healthy
 
-  seed:
-    build: ./bossman
-    environment:
-      BOSSMAN_DATABASE_URL: postgresql+asyncpg://bossman:bossman@db:5432/bossman
-      SEED_ADMIN_USERNAME: admin
-      SEED_ADMIN_PASSWORD: admin123
-    command: ["uv", "run", "python", "scripts/seed_admin.py"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
+  # THE SEED SERVICE IS GONE. It ran seed_admin.py to plant admin/admin123, which meant every fresh stack
+  # started with a published default password and an operator who might never change it. The web console now
+  # asks for the first administrator itself (GET/POST /api/v1/auth/setup) and that route refuses once any
+  # account exists — a one-shot, not a default credential.
   bossman:
     build: ./bossman
     environment:
@@ -66,6 +59,12 @@ services:
       BOSSMAN_PXE_VNC_HOST: ${BOSSMAN_PXE_VNC_HOST:-192.0.2.130}
       BOSSMAN_NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
       BOSSMAN_IMAGE_BASE_URL: ${BOSSMAN_IMAGE_BASE_URL:-}
+      # Agent release channel (GitHub). Repo the yoloman-agent package is
+      # published to; the token is only needed while that repo is PRIVATE (put
+      # the real value in the gitignored .env, never here). Public repo → leave
+      # the token empty. See services/agent_release.py.
+      BOSSMAN_AGENT_RELEASE_REPO: ${BOSSMAN_AGENT_RELEASE_REPO:-imoes/yoloman}
+      BOSSMAN_GITHUB_TOKEN: ${BOSSMAN_GITHUB_TOKEN:-}
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
     # Privileged 514/162 on the host map to the unprivileged in-container ports;
@@ -74,23 +73,29 @@ services:
       - "514:1514/udp"
       - "162:1162/udp"
     volumes:
-      - ${PWD}/bossman/plans:/app/plans:ro
+      # RELATIVE, not ${PWD}. Compose resolves a relative bind mount against the COMPOSE FILE's
+      # directory; ${PWD} resolves against whatever shell happened to launch it. Running
+      # `docker compose up -d --build bossman-ui` from bossman-ui/ (e.g. right after `ng build`, which
+      # leaves you there) therefore mounted bossman-ui/configs/* — and Docker CREATES a missing bind
+      # source as an empty directory, so the server came up with an empty config catalog and served an
+      # empty template index instead of failing. Silent, and the container looked healthy.
+      - ./bossman/plans:/app/plans:ro
       # RW so Bossman itself can create a package's config files (codec /
       # directives / template / enum) via the on-demand qualify endpoint — the
       # same artifacts the host batch writes; both target these repo configs.
-      - ${PWD}/configs/config_templates:/app/config-templates
-      - ${PWD}/configs/config_codecs.json:/app/config_codecs.json
-      - ${PWD}/configs/config_directives.json:/app/config_directives.json
-      - ${PWD}/configs/package_catalog.json:/app/package_catalog.json
-      - ${PWD}/configs/package_doc_audit.json:/app/package_doc_audit.json:ro
+      - ./configs/config_templates:/app/config-templates
+      - ./configs/config_codecs.json:/app/config_codecs.json
+      - ./configs/config_directives.json:/app/config_directives.json
+      - ./configs/package_catalog.json:/app/package_catalog.json
+      - ./configs/package_doc_audit.json:/app/package_doc_audit.json:ro
       # The whole configs/ tree, RW — the on-demand qualify endpoint runs the
       # qualify scripts in-container with AGENTIC_CONFIGS_DIR=/app/configs, so they
       # write templates/codecs/directives/catalog + their .state files straight
       # into the repo configs (same files the app serves from the mounts above).
-      - ${PWD}/configs:/app/configs
+      - ./configs:/app/configs
       # Generated Ansible playbooks that seed the installation-wizard runbooks
       # (scripts/wizards_to_playbooks.py output; wizard_seed reads them here).
-      - ${PWD}/configs/wizard_playbooks:/app/wizard_playbooks:ro
+      - ./configs/wizard_playbooks:/app/wizard_playbooks:ro
       - bossman-tls:/app/data/tls
       # Persist the downloaded CVE feed (+ its parsed descriptions) across
       # restarts/rebuilds so it isn't re-fetched (78MB) and CVE descriptions
@@ -103,8 +108,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       migrate:
-        condition: service_completed_successfully
-      seed:
         condition: service_completed_successfully
 
   bossman-ui:
@@ -167,8 +170,8 @@ services:
       - pxe-tftp:/srv/tftp
       - pxe-pe:/pe-root
       # Bind mounts for the QEMU install path (ISO to install from, template disk to install into):
-      - ${PWD}/deploy/pxe/iso:/srv/iso
-      - ${PWD}/deploy/pxe/templates:/srv/templates
+      - ./deploy/pxe/iso:/srv/iso
+      - ./deploy/pxe/templates:/srv/templates
       # Node-agent config + state, so the enrollment/token survive a restart (managed-host mode).
       - pxe-agent-conf:/etc/agentic-mcp
       - pxe-agent-data:/var/lib/agentic-mcp

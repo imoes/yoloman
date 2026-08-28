@@ -1,0 +1,41 @@
+# /etc/radeontool.conf
+# Configuration file for radeontool
+#
+# This configuration file controls the behavior of the radeontool utility.
+# It allows enabling debug output, skipping specific Radeon cards,
+# and executing a list of command-line subcommands (such as light on/off).
+
+# -----------------------------------------------------------------------------
+# Debug Mode
+# -----------------------------------------------------------------------------
+# Description: Enable debug output. Corresponds to the --debug flag.
+# Type: boolean
+# Default: False
+debug = {{ debug | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Card Skipping
+# -----------------------------------------------------------------------------
+# Description: Number of cards to skip before acting. Corresponds to the --skip flag.
+# If set to 0, radeontool acts on the first available card.
+# Type: integer
+# Default: 0
+skip_cards = {{ skip_cards | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Command List
+# -----------------------------------------------------------------------------
+# Description: List of commands to run. Each item is a map with 'command' (string)
+# and 'args' (list of strings). Corresponds to radeontool subcommands like
+# 'light', 'dac', 'stretch'.
+# Example entries would look like:
+#   command = light on
+#   command = dac off
+
+{% for cmd in commands | default([]) %}
+# Command configuration entry
+# The command name (e.g., 'light', 'dac', 'stretch') defaults to 'light'.
+# The arguments for the command (e.g., ['on'], ['off'], ['auto']) default to ['on'].
+# Constructed line: command = {{ cmd.command | default('light') }} {{ cmd.args | default(['on']) | join(' ') }}
+command = {{ cmd.command | default('light') }}{% for arg in cmd.args | default(['on']) %} {{ arg }}{% endfor %}
+{% endfor %}

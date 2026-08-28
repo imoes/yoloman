@@ -1,0 +1,48 @@
+{# prettyping configuration file
+   prettyping is a user-space CLI wrapper around ping that produces
+   human-friendly statistics. This file is a shell-sourceable
+   environment configuration, typically placed in /etc/default/prettyping
+   and sourced by wrapper scripts or init hooks.
+   See prettyping(1) for documentation #}
+
+{# Global configuration namespace from schema #}
+{% set cfg = prettyping | default({}) %}
+
+{# Enable/disable color output. (default: true) #}
+export PRETTYPING_COLOR={{ (cfg.color | default(true)) | ternary('true', 'false') }}
+
+{# Enable/disable multi-color unicode output. (default: true) #}
+export PRETTYPING_MULTICOLOR={{ (cfg.multicolor | default(true)) | ternary('true', 'false') }}
+
+{# Enable/disable unicode characters. (default: true) #}
+export PRETTYPING_UNICODE={{ (cfg.unicode | default(true)) | ternary('true', 'false') }}
+
+{# Enable/disable the latency legend. (default: true) #}
+export PRETTYPING_LEGEND={{ (cfg.legend | default(true)) | ternary('true', 'false') }}
+
+{# Use the last 'n' pings at the statistics line. (default: 60) #}
+export PRETTYPING_LAST={{ cfg.last | default(60) }}
+
+{# Override auto-detection of terminal dimensions (columns).
+   Leave empty to use auto-detection. #}
+export PRETTYPING_COLUMNS={{ cfg.columns | default('') }}
+
+{# Override auto-detection of terminal dimensions (lines).
+   Leave empty to use auto-detection. #}
+export PRETTYPING_LINES={{ cfg.lines | default('') }}
+
+{# Minimum RTT represented in the unicode graph (in ms).
+   Leave empty to use default calculation. #}
+export PRETTYPING_RTTMIN={{ cfg.rttmin | default('') }}
+
+{# Maximum RTT represented in the unicode graph (in ms).
+   Leave empty to use default calculation. #}
+export PRETTYPING_RTTMAX={{ cfg.rttmax | default('') }}
+
+{# Override the awk interpreter path.
+   Leave empty to use default system awk. #}
+export PRETTYPING_AWKBIN={{ cfg.awkbin | default('') }}
+
+{# Override the ping tool path.
+   Leave empty to use default system ping. #}
+export PRETTYPING_PINGBIN={{ cfg.pingbin | default('') }}

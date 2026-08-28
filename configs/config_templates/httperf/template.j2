@@ -1,0 +1,254 @@
+# Ansible template for httperf command generation
+# httperf is a tool for measuring web server performance.
+# This template generates the command-line arguments for httperf
+# based on the variables provided by the Ansible play/role.
+
+# Target server IP or hostname
+# Default: localhost
+# Schema: server (str)
+--server {{ server | default('localhost') }} \
+
+# Port number on which the web server is listening
+# Default: 80
+# Schema: port (int)
+--port {{ port | default(80) }} \
+
+# Enable SSL protocol for communication
+# Default: False
+# Schema: ssl (bool)
+{% if ssl | default(False) %}
+--ssl \
+
+  # List of cipher suites for SSL negotiation, separated by colon
+  # Default: ''
+  # Schema: ssl_ciphers (str)
+  {% if ssl_ciphers | default('') %}
+  --ssl-ciphers {{ ssl_ciphers | default('') }} \
+  {% endif %}
+
+  # Do not reuse SSL session IDs
+  # Default: False
+  # Schema: ssl_no_reuse (bool)
+  {% if ssl_no_reuse | default(False) %}
+  --ssl-no-reuse \
+  {% endif %}
+{% endif %}
+
+# HTTP method to use for requests
+# Default: GET
+# Schema: method (str)
+{% if method | default('GET') != '' %}
+--method {{ method | default('GET') }} \
+{% endif %}
+
+# URI to access on the server
+# Default: /
+# Schema: uri (str)
+{% if uri | default('/') != '' %}
+--uri {{ uri | default('/') }} \
+{% endif %}
+
+# Total number of connections to create for request-oriented workloads
+# Default: 1
+# Schema: num_conns (int)
+{% if num_conns | default(1) > 0 %}
+--num-conns {{ num_conns | default(1) }} \
+{% endif %}
+
+# Fixed rate at which connections or sessions are created (0 = auto)
+# Default: 0
+# Schema: rate (int)
+{% if rate | default(0) > 0 %}
+--rate {{ rate | default(0) }} \
+{% endif %}
+
+# Timeout in seconds for server reaction
+# Default: 0
+# Schema: timeout (int)
+{% if timeout | default(0) > 0 %}
+--timeout {{ timeout | default(0) }} \
+{% endif %}
+
+# Additional time allowed for server to initiate sending reply
+# Default: 0
+# Schema: think_timeout (int)
+{% if think_timeout | default(0) > 0 %}
+--think-timeout {{ think_timeout | default(0) }} \
+{% endif %}
+
+# Length of bursts for session-oriented workloads
+# Default: 1
+# Schema: burst_length (int)
+{% if burst_length | default(1) > 0 %}
+--burst-length {{ burst_length | default(1) }} \
+{% endif %}
+
+# Total number of calls to issue on each connection
+# Default: 1
+# Schema: num_calls (int)
+{% if num_calls | default(1) > 0 %}
+--num-calls {{ num_calls | default(1) }} \
+{% endif %}
+
+# HTTP version string (1.0 or 1.1)
+# Default: 1.1
+# Schema: http_version (str)
+{% if http_version | default('1.1') != '' %}
+--http-version {{ http_version | default('1.1') }} \
+{% endif %}
+
+# Server name for the Host header
+# Default: ''
+# Schema: server_name (str)
+{% if server_name | default('') != '' %}
+--server-name {{ server_name | default('') }} \
+{% endif %}
+
+# Do not include Host header
+# Default: False
+# Schema: no_host_hdr (bool)
+{% if no_host_hdr | default(False) %}
+--no-host-hdr \
+{% endif %}
+
+# Use up as many TCP ports as necessary
+# Default: False
+# Schema: hog (bool)
+{% if hog | default(False) %}
+--hog \
+{% endif %}
+
+# Enable verbose mode output
+# Default: False
+# Schema: verbose (bool)
+{% if verbose | default(False) %}
+--verbose \
+{% endif %}
+
+# HTTP status code to treat as a failure
+# Default: 0
+# Schema: failure_status (int)
+{% if failure_status | default(0) > 0 %}
+--failure-status {{ failure_status | default(0) }} \
+{% endif %}
+
+# Max connections per session
+# Default: 0
+# Schema: max_connections (int)
+{% if max_connections | default(0) > 0 %}
+--max-connections {{ max_connections | default(0) }} \
+{% endif %}
+
+# Max piped calls per connection
+# Default: 0
+# Schema: max_piped_calls (int)
+{% if max_piped_calls | default(0) > 0 %}
+--max-piped-calls {{ max_piped_calls | default(0) }} \
+{% endif %}
+
+# Enable cookie management per session
+# Default: False
+# Schema: session_cookie (bool)
+{% if session_cookie | default(False) %}
+--session-cookie \
+{% endif %}
+
+# Retry call on failure
+# Default: False
+# Schema: retry_on_failure (bool)
+{% if retry_on_failure | default(False) %}
+--retry-on-failure \
+{% endif %}
+
+# Close TCP connections with RESET
+# Default: False
+# Schema: close_with_reset (bool)
+{% if close_with_reset | default(False) %}
+--close-with-reset \
+{% endif %}
+
+# Debug level
+# Default: 0
+# Schema: debug (int)
+{% if debug | default(0) > 0 %}
+--debug {{ debug | default(0) }} \
+{% endif %}
+
+# Maximum size of socket send buffers
+# Default: 0
+# Schema: send_buffer (int)
+{% if send_buffer | default(0) > 0 %}
+--send-buffer {{ send_buffer | default(0) }} \
+{% endif %}
+
+# Maximum size of socket receive buffers
+# Default: 0
+# Schema: recv_buffer (int)
+{% if recv_buffer | default(0) > 0 %}
+--recv-buffer {{ recv_buffer | default(0) }} \
+{% endif %}
+
+# URI log file configuration in B,F format
+# Default: ''
+# Schema: wlog (str)
+{% if wlog | default('') != '' %}
+--wlog {{ wlog | default('') }} \
+{% endif %}
+
+# Session workload configuration in N1,N2,X format
+# Default: ''
+# Schema: wsess (str)
+{% if wsess | default('') != '' %}
+--wsess {{ wsess | default('') }} \
+{% endif %}
+
+# Session log workload configuration in N,X,F format
+# Default: ''
+# Schema: wsesslog (str)
+{% if wsesslog | default('') != '' %}
+--wsesslog {{ wsesslog | default('') }} \
+{% endif %}
+
+# Working set configuration in N,X format
+# Default: ''
+# Schema: wset (str)
+{% if wset | default('') != '' %}
+--wset {{ wset | default('') }} \
+{% endif %}
+
+# Interarrival time specification
+# Default: 0
+# Schema: period (str)
+{% if period | default('0') != '0' %}
+--period {{ period | default('0') }} \
+{% endif %}
+
+# Print reply headers/body
+# Default: ''
+# Schema: print_reply (str)
+{% if print_reply | default('') != '' %}
+--print-reply={{ print_reply | default('') }} \
+{% endif %}
+
+# Print request headers/body
+# Default: ''
+# Schema: print_request (str)
+{% if print_request | default('') != '' %}
+--print-request={{ print_request | default('') }} \
+{% endif %}
+
+# List of additional request headers
+# Default: []
+# Schema: add_headers (list)
+{% if add_headers | default([]) %}
+{% for header in add_headers | default([]) %}
+--add-header "{{ header }}" \
+{% endfor %}
+{% endif %}
+
+# Client identity specification in I/N format
+# Default: ''
+# Schema: client (str)
+{% if client | default('') != '' %}
+--client {{ client | default('') }} \
+{% endif %}

@@ -27,13 +27,6 @@ export interface HostGroupDialogData {
         <label>Description</label>
         <input class="bm-in" formControlName="description" />
       </div>
-      <div class="bm-field">
-        <label>OU (optional)</label>
-        <select class="bm-in" formControlName="ou_id">
-          <option [ngValue]="null">(none)</option>
-          @for (n of data.nodes; track n.id) { <option [ngValue]="n.id">{{ n.path }}</option> }
-        </select>
-      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
@@ -47,7 +40,6 @@ export class HostGroupDialogComponent {
   form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     description: new FormControl('', { nonNullable: true }),
-    ou_id: new FormControl<string | null>(null),
   });
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: HostGroupDialogData) {

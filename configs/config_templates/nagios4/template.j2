@@ -1,0 +1,161 @@
+# Nagios4 Main Configuration File
+# Generated from nagios4(8) specification
+# This file is self-documenting: every directive is preceded by its schema description.
+
+# LOG FILE
+# The file where Nagios will write its internal status information.
+log_file={{ log_file | default('/var/log/nagios4/nagios.log') }}
+
+# CONFIG DIRECTORY
+# The directory containing additional configuration files.
+config_dir={{ config_dir | default('/etc/nagios4/conf.d') }}
+
+# RESOURCE FILE
+# External variable definitions file.
+resource_file={{ resource_file | default('/etc/nagios4/resource.cfg') }}
+
+# OBJECT CACHE FILE
+# File where Nagios stores object definitions for faster loading.
+object_cache_file={{ object_cache_file | default('/var/cache/nagios4/objects.cache') }}
+
+# STATUS FILE
+# File where Nagios stores current status information.
+status_file={{ status_file | default('/var/log/nagios4/status.dat') }}
+
+# COMMAND FILE
+# Named pipe used to pass commands to Nagios.
+command_file={{ command_file | default('/var/lib/nagios4/rw/nagios.cmd') }}
+
+# PID FILE
+# File where the Nagios process ID is stored.
+pid_file={{ pid_file | default('/var/run/nagios4/nagios4.pid') }}
+
+# LOG ROTATION METHOD
+# Rotation strategy: n=Nagios, w=Weekly, d=Daily, h=Hourly, m=Monthly, y=Yearly.
+log_rotation_method={{ log_rotation_method | default('d') }}
+
+# LOG ARCHIVE PATH
+# Directory for archived log files.
+log_archive_path={{ log_archive_path | default('/var/log/nagios4/archives') }}
+
+# USE AGGRESSIVE HOST CHECKING
+# Whether to re-check hosts/services immediately after state change.
+use_aggressive_host_checking={{ use_aggressive_host_checking | default(True) | ternary(1, 0) }}
+
+# INTERVAL LENGTH
+# Length of a minute in seconds.
+interval_length={{ interval_length | default(60) }}
+
+# CHECK FOR UPDATES
+# Whether to check for new Nagios versions at nagios.org.
+check_for_updates={{ check_for_updates | default(True) | ternary(1, 0) }}
+
+# BINARY PLUGINS PATH
+# Directory where external plugins are stored.
+binary_plugins_path={{ binary_plugins_path | default('/usr/lib/nagios4/plugins') }}
+
+# ICON IMAGE
+# Path to the default icon image for the web interface.
+icon_image={{ icon_image | default('/nagios4/images/nagios-logo.png') }}
+
+# ICON IMAGE SMALL
+# Path to the small icon image for the web interface.
+icon_image_small={{ icon_image_small | default('/nagios4/images/nagios-logo.png') }}
+
+# STATUSMAP BACKGROUND IMAGE
+# Path to the background image for the statusmap CGIs.
+statusmap_background_image={{ statusmap_background_image | default('/nagios4/images/smbackground.png') }}
+
+# STATUSMAP TRANSPARENCY INDEX
+# Hex color code for transparency in the statusmap.
+statusmap_transparency_index={{ statusmap_transparency_index | default('eeffff') }}
+
+# DEFAULT CONTACT GROUPS
+# Default contact group for services/hosts.
+default_contact_groups={{ default_contact_groups | default('nagiosadmins') }}
+
+# CHECK EXTERNAL COMMANDS
+# Whether to allow checking external commands from the CGI.
+check_external_commands={{ check_external_commands | default(True) | ternary(1, 0) }}
+
+# COMMAND FILE PERMISSIONS
+# Permissions for the command file (octal).
+command_file_permissions={{ command_file_permissions | default(600) }}
+
+# EXTERNAL COMMAND INTERVAL
+# Interval between checking for external commands.
+external_command_interval={{ external_command_interval | default(1) }}
+
+# MAX CHECK RESULT RETRIEVAL AGE
+# How long to keep old check results in seconds.
+max_check_result_retrieval_age={{ max_check_result_retrieval_age | default(3600) }}
+
+# MAX CONCURRENT CHECKS
+# Maximum number of service checks to run concurrently (0=unlimited).
+max_concurrent_checks={{ max_concurrent_checks | default(0) }}
+
+# ENABLE EVENT HANDLERS
+# Whether to allow event handlers to run.
+enable_event_handlers={{ enable_event_handlers | default(True) | ternary(1, 0) }}
+
+# ENABLE HOST EVENTS
+# Whether to allow host events.
+enable_host_events={{ enable_host_events | default(True) | ternary(1, 0) }}
+
+# ENABLE SERVICE EVENTS
+# Whether to allow service events.
+enable_service_events={{ enable_service_events | default(True) | ternary(1, 0) }}
+
+# ENABLE FLAP DETECTION
+# Whether to detect flapping hosts/services.
+enable_flap_detection={{ enable_flap_detection | default(True) | ternary(1, 0) }}
+
+# LOW FLAP THRESHOLD
+# Threshold for low flapping detection.
+low_flap_threshold={{ low_flap_threshold | default(5.0) }}
+
+# HIGH FLAP THRESHOLD
+# Threshold for high flapping detection.
+high_flap_threshold={{ high_flap_threshold | default(20.0) }}
+
+# PROCESS PERFORMANCE DATA
+# Whether to process performance data for graphs.
+process_performance_data={{ process_performance_data | default(False) | ternary(1, 0) }}
+
+# HOST PERFORMANCE DATA FILE
+# File where host performance data is written.
+host_perfdata_file={{ host_perfdata_file | default('/var/lib/nagios4/host-perfdata.out') }}
+
+# SERVICE PERFORMANCE DATA FILE
+# File where service performance data is written.
+service_perfdata_file={{ service_perfdata_file | default('/var/lib/nagios4/service-perfdata.out') }}
+
+# HOST PERFORMANCE DATA FILE TEMPLATE
+# Template for host performance data items.
+# Iterates over the list defined by perfdata_host_items.
+host_perfdata_file_template=[{% for item in (perfdata_host_items | default([{'name': 'execution_time', 'metric': 'EXECUTION_TIME', 'value': '{{host.execution_time}}'}, {'name': 'latency', 'metric': 'LATENCY', 'value': '{{host.latency}}'}])) %}{{ item.name }}{{ " " if not loop.last else "" }}{% endfor %}] {% for item in (perfdata_host_items | default([{'name': 'execution_time', 'metric': 'EXECUTION_TIME', 'value': '{{host.execution_time}}'}, {'name': 'latency', 'metric': 'LATENCY', 'value': '{{host.latency}}'}])) %}{{ item.metric }}={{ item.value | default('{{host.' + item.name + '}}') }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# SERVICE PERFORMANCE DATA FILE TEMPLATE
+# Template for service performance data items.
+# Iterates over the list defined by perfdata_service_items.
+service_perfdata_file_template=[{% for item in (perfdata_service_items | default([{'name': 'execution_time', 'metric': 'EXECUTION_TIME', 'value': '{{service.execution_time}}'}, {'name': 'latency', 'metric': 'LATENCY', 'value': '{{service.latency}}'}, {'name': 'check_duration', 'metric': 'CHECK_DURATION', 'value': '{{service.check_duration}}'}])) %}{{ item.name }}{{ " " if not loop.last else "" }}{% endfor %}] {% for item in (perfdata_service_items | default([{'name': 'execution_time', 'metric': 'EXECUTION_TIME', 'value': '{{service.execution_time}}'}, {'name': 'latency', 'metric': 'LATENCY', 'value': '{{service.latency}}'}, {'name': 'check_duration', 'metric': 'CHECK_DURATION', 'value': '{{service.check_duration}}'}])) %}{{ item.metric }}={{ item.value | default('{{service.' + item.name + '}}') }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# RETAIN STATUS INFORMATION
+# Whether to retain status information between restarts.
+retain_status_information={{ retain_status_information | default(True) | ternary(1, 0) }}
+
+# RETAIN PROGRAM STATUS
+# Whether to retain program status between restarts.
+retain_program_status={{ retain_program_status | default(True) | ternary(1, 0) }}
+
+# RETAIN CONTACT INFORMATION
+# Whether to retain contact information between restarts.
+retain_contact_information={{ retain_contact_information | default(True) | ternary(1, 0) }}
+
+# NOTIFICATION INTERVAL
+# Interval between repeated notifications in seconds.
+notification_interval={{ notification_interval | default(60) }}
+
+# NOTIFICATION TIMEOUT
+# Timeout for notifications in seconds.
+notification_timeout={{ notification_timeout | default(30) }}

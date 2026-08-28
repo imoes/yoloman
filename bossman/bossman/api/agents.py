@@ -24,7 +24,8 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric, MetricRaw, MetricSeries
 from bossman.db.session import get_session
-from bossman.services import module_library
+from bossman.services import host_membership, module_library
+from bossman.services.metrics_query import measurable_sql_filter
 from bossman.services.monitoring import is_infra_agent
 from bossman.services.agent_client import AgentClientError
 from bossman.services.metrics_query import query_series
@@ -170,15 +171,24 @@ _AGENT_CHILD_DELETES = (
     "DELETE FROM downtimes WHERE agent_id = :id",
     "DELETE FROM service_state_history WHERE agent_id = :id",
     "DELETE FROM services WHERE agent_id = :id",
-    # metrics is now a view. The points must go FIRST and time-bounded: the FK no
-    # longer cascades (migration e7a1c93b5d21) because a cascade against a compressed
-    # hypertable decompresses wholesale and aborts. `time >= now() - 1 day` lets chunk
-    # exclusion skip the compressed chunks; whatever still owns compressed points is
-    # left for the housekeeping orphan sweep once retention drops those chunks.
-    "DELETE FROM metrics_raw WHERE time >= now() - interval '1 day' AND series_id IN "
+    # metrics is now a view, and its points must go FIRST because metrics_raw's FK to metric_series
+    # does NOT cascade (migration e7a1c93b5d21: a cascade against a compressed hypertable decompresses
+    # wholesale and aborts).
+    #
+    # ALL OF THEM, not the last day. The time bound that used to be here left older series in place and
+    # then deleted `metric_series` only where no points remained — but `agents` cascades to
+    # metric_series, so the rows the bound had spared were deleted anyway, by the cascade, straight into
+    # the FK: "update or delete on table metric_series violates ... Key (series_id)=(73834791) is still
+    # referenced from table metrics_raw". Measured while removing one leftover test host: deleting ANY
+    # host with metrics older than a day was impossible, and the 500 said nothing an operator could act
+    # on. The decompression cap is already disabled for this transaction (above), which is what the
+    # bound was working around.
+    "DELETE FROM metrics_raw WHERE series_id IN "
     "(SELECT series_id FROM metric_series WHERE agent_id = :id)",
-    "DELETE FROM metric_series WHERE agent_id = :id "
-    "AND NOT EXISTS (SELECT 1 FROM metrics_raw r WHERE r.series_id = metric_series.series_id)",
+    "DELETE FROM metric_series WHERE agent_id = :id",
+    # The host's own record of what it DID. Deleted with it: the rows carry the agent's id and nothing
+    # else identifies the host, so keeping them would leave a log nobody can attribute.
+    "DELETE FROM operation_log WHERE agent_id = :id",
 )
 
 
@@ -227,9 +237,14 @@ async def update_agent_groups(
     the unit a check_rules row can target with scope_type=group, which a
     host-scoped rule can then override. Replaces the whole list rather
     than adding/removing one at a time, matching how the Settings UI's
-    host-groups editor naturally works (a multi-select, not a diff)."""
+    host-groups editor naturally works (a multi-select, not a diff).
+
+    Writes through services/host_membership, which owns `host_group_members` and derives
+    `agents.groups` from it. Assigning the array directly (as this did) left the membership
+    table untouched, so the group editor and this endpoint reported different memberships for
+    the same host — see that module's header for the measurement."""
     agent = await _get_agent_or_404(session, agent_id)
-    agent.groups = body.groups
+    await host_membership.set_agent_groups(session, agent, list(body.groups))
     await session.commit()
     return AgentOut.from_model(agent)
 
@@ -290,13 +305,15 @@ async def mass_update_agent_groups(
         if not await user_can_manage_agent(session, identity, agent.id):
             raise HTTPException(status_code=403, detail=f"not authorized to manage host {agent.name!r}")
 
+    # Through services/host_membership so the bulk editor writes the same source of truth as
+    # the single-host and group-side editors (it used to touch only agents.groups).
     for agent in agents:
         if body.op == "replace":
-            agent.groups = list(body.groups)
+            await host_membership.set_agent_groups(session, agent, list(body.groups))
         elif body.op == "add":
-            agent.groups = list(dict.fromkeys([*agent.groups, *body.groups]))  # dedupe, preserve order
+            await host_membership.add_agent_groups(session, agent, list(body.groups))
         else:  # remove
-            agent.groups = [g for g in agent.groups if g not in body.groups]
+            await host_membership.remove_agent_groups(session, agent, list(body.groups))
 
     await session.commit()
     return [AgentOut.from_model(a) for a in agents]
@@ -349,6 +366,113 @@ async def mass_assign_facets(
 
     await session.commit()
     return [AgentOut.from_model(a) for a in agents]
+
+
+@router.get("/api/v1/agents/{agent_id}/disks")
+async def get_agent_disks(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """The host's disk + partition layout (gparted-style Disks view, read-only):
+    disks with their partitions (fs, mount, used/avail, flags), the partition-table
+    type, and FREE segments. Live read over the agent (lsblk + parted)."""
+    from bossman.services import disk_layout
+
+    agent = await _get_agent_or_404(session, agent_id)
+    return await disk_layout.read_disk_layout(agent, client_factory, settings)
+
+
+class DiskPlanBody(BaseModel):
+    """A gparted-style op queue. `allow_nonloop` must be set to touch a real disk;
+    without it, apply refuses anything but a loopback scratch device."""
+    ops: list = []
+    allow_nonloop: bool = False
+
+
+class ScratchBody(BaseModel):
+    action: str = "create"           # create | destroy
+    size_mb: int = 256
+    device: str | None = None        # destroy: the loop device
+    backing_file: str | None = None  # destroy: its backing file
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/preview")
+async def preview_disk_plan(
+    agent_id: UUID, body: DiskPlanBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Compile the op queue to concrete commands + a safety verdict — nothing runs."""
+    from bossman.services import disk_layout, disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    layout = await disk_layout.read_disk_layout(agent, client_factory, settings)
+    steps = disk_ops.compile({"ops": body.ops})
+    problems = disk_ops.safety_check(steps, layout, allow_nonloop=body.allow_nonloop)
+    return {"steps": steps, "problems": problems,
+            "ok": not any(p["severity"] == "error" for p in problems)}
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/apply")
+async def apply_disk_plan(
+    agent_id: UUID, body: DiskPlanBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Run the op queue on the host (guarded: loop-only unless allow_nonloop)."""
+    from bossman.services import disk_layout, disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    layout = await disk_layout.read_disk_layout(agent, client_factory, settings)
+    return await disk_ops.apply(agent, client_factory, settings, {"ops": body.ops}, layout,
+                                allow_nonloop=body.allow_nonloop)
+
+
+class DiskToolsBody(BaseModel):
+    """Binaries to provide — only ones the disk editor drives are accepted."""
+    bins: list[str] = []
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/tools")
+async def install_disk_tools(
+    agent_id: UUID, body: DiskToolsBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Install the packages that provide the disk tools a host is missing (the Disks
+    view's "install missing tools" button). The read-only scan only REPORTS what is
+    missing — installing on a mere page view would be a surprising side effect — while
+    `disks/apply` still auto-installs whatever its plan needs."""
+    from bossman.services import disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    if not body.bins:
+        raise HTTPException(422, "bins must not be empty")
+    return await disk_ops.install_tools(agent, client_factory, settings, body.bins)
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/scratch")
+async def disk_scratch(
+    agent_id: UUID, body: ScratchBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Create/destroy a throwaway loopback disk so partition ops can be tested for
+    real without a spare disk."""
+    from bossman.services import disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    if body.action == "create":
+        return await disk_ops.scratch_setup(agent, client_factory, settings, size_mb=body.size_mb)
+    if body.action == "destroy":
+        if not body.device:
+            raise HTTPException(422, "destroy needs the loop device")
+        return await disk_ops.scratch_teardown(agent, client_factory, settings,
+                                               device=body.device, backing_file=body.backing_file or "")
+    raise HTTPException(422, "action must be create|destroy")
 
 
 @router.post("/api/v1/agents/{agent_id}/update")
@@ -559,7 +683,9 @@ async def sync_agent_modules(
                 "fqcn": fqcn,
                 "star": star_code,
                 "sidecar": sidecar_text,
-                "sidecar_format": "nt" if meta_path.suffix == ".nt" else "yaml",
+                # Always yaml — the only sidecar format left. Deriving it from the suffix kept a branch alive
+                # for a file type nothing writes any more.
+                "sidecar_format": "yaml",
                 "sha256": hashlib.sha256(star_code.encode()).hexdigest(),
             }
         )
@@ -617,10 +743,15 @@ async def get_agent_metrics(
         # Catalog discovery (see docs/plan.md's "Offene Punkte"): let a
         # caller find out what metric names exist for this agent before
         # asking for any specific one's history.
+        # The SAME exclusion rule the fleet-wide /metric-catalog uses
+        # (services/metrics_query.measurable_sql_filter): a check's 0/1/2/3 verdict and the
+        # per-PID process_* series are not pickable metrics. This endpoint used to drop only
+        # process_*, so the two catalogs answered "which metrics exist?" differently — and the
+        # chart editor's picker had to filter check_*_state again on the client.
         names = (
             await session.scalars(
                 select(Metric.metric)
-                .where(Metric.agent_id == agent_id, Metric.metric.not_like("process_%"))
+                .where(Metric.agent_id == agent_id, measurable_sql_filter(Metric.metric))
                 .distinct()
                 .order_by(Metric.metric)
             )

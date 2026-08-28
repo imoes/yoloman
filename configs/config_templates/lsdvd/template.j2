@@ -1,0 +1,55 @@
+#!/bin/bash
+# Configuration for lsdvd execution context
+# The default DVD device path
+DVD_DEVICE={{ dvd_device | default('/dev/sr0') }}
+
+# Output format selection: h (human readable), j (JSON), p (Perl hash), y (Python), r (Ruby), x (XML)
+# Default is human readable (-Oh)
+OUTPUT_FORMAT={{ output_format | default('h') }}
+
+# List of information types to dump
+# Valid items: audio, cells, angles, chapters, subpicture, palette, video, all
+# Corresponds to flags: -a, -d, -n, -c, -s, -P, -v, -x
+# If 'all' is present, other specific dumps are generally included or overridden by the -x flag
+DUMP_TYPES={{ dump_types | default([]) }}
+
+# Quiet mode suppresses summary output
+QUIET={{ quiet | default(false) | lower }}
+
+# Track number to inspect (optional, specific to -t)
+TRACK_NUMBER={{ track_number | default(None) }}
+
+# Build command
+CMD="lsdvd"
+{% if output_format != 'h' %}
+CMD="${CMD} -O{{ output_format }}"
+{% endif %}
+{% if quiet %}
+CMD="${CMD} -q"
+{% endif %}
+{% for dtype in dump_types %}
+{% if dtype == 'all' %}
+CMD="${CMD} -x"
+{% elif dtype == 'audio' %}
+CMD="${CMD} -a"
+{% elif dtype == 'cells' %}
+CMD="${CMD} -d"
+{% elif dtype == 'angles' %}
+CMD="${CMD} -n"
+{% elif dtype == 'chapters' %}
+CMD="${CMD} -c"
+{% elif dtype == 'subpicture' %}
+CMD="${CMD} -s"
+{% elif dtype == 'palette' %}
+CMD="${CMD} -P"
+{% elif dtype == 'video' %}
+CMD="${CMD} -v"
+{% endif %}
+{% endfor %}
+{% if track_number is not none %}
+CMD="${CMD} -t {{ track_number }}"
+{% endif %}
+CMD="${CMD} ${DVD_DEVICE}"
+
+echo "Executing: $CMD"
+# eval "$CMD"

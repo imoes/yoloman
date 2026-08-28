@@ -79,7 +79,7 @@
   - generic [ref=f257e211]:
     - generic [ref=f257e214]:
       - generic [ref=f257e215]:
-        - heading "docker-test.test.example.com" [level=1] [ref=f257e216]
+        - heading "host1.example.internal" [level=1] [ref=f257e216]
         - generic [ref=f257e218]: enrolled
       - generic [ref=f257e219]:
         - tablist [ref=f257e222]:
@@ -128,7 +128,7 @@
                   - img [ref=f257e322]: data_object
                   - generic [ref=f257e323]: Variables…
               - generic [ref=f257e516]:
-                - generic [ref=f257e517]: Discovered checks for docker-test.test.example.com
+                - generic [ref=f257e517]: Discovered checks for host1.example.internal
                 - generic [ref=f257e518]:
                   - generic [ref=f257e519]:
                     - checkbox [ref=f257e520]
@@ -511,12 +511,12 @@
                     - cell "Remove" [ref=f257e341]:
                       - button "Remove" [ref=f257e342]:
                         - generic [ref=f257e343]: Remove
-                  - row "http HTTP service host url=\"https://llamacpp03.example.com/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000 Remove" [ref=f257e346]:
+                  - row "http HTTP service host url=\"https://llm.example.internal/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000 Remove" [ref=f257e346]:
                     - cell "http HTTP service" [ref=f257e347]:
                       - text: http
                       - generic [ref=f257e348]: HTTP service
                     - cell "host" [ref=f257e349]
-                    - cell "url=\"https://llamacpp03.example.com/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000" [ref=f257e350]
+                    - cell "url=\"https://llm.example.internal/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000" [ref=f257e350]
                     - cell "Remove" [ref=f257e351]:
                       - button "Remove" [ref=f257e352]:
                         - generic [ref=f257e353]: Remove

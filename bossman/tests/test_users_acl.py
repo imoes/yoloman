@@ -7,13 +7,14 @@ from fastapi.testclient import TestClient
 from bossman.config import get_settings
 from bossman.db.models import AccessGrant, Agent, HostGroup, HostGroupMember
 from bossman.main import create_app
+from tests.naming import owned_name
 from bossman.services.auth import Identity, create_access_token, new_api_token, new_bossman_user, user_can_manage_agent
 
 DEFAULT_TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 async def _agent(db_session, **kw):
-    fields = {"name": f"acl-{uuid.uuid4().hex[:8]}", "token": "t", "mode": "standalone", "enrollment_state": "enrolled",
+    fields = {"name": owned_name("acl"), "token": "t", "mode": "standalone", "enrollment_state": "enrolled",
               "address": "10.0.0.9:8010"}
     fields.update(kw)
     a = Agent(**fields)
@@ -24,7 +25,7 @@ async def _agent(db_session, **kw):
 
 
 async def _user(db_session, role="operator"):
-    u = new_bossman_user(f"u-{uuid.uuid4().hex[:6]}", "pw", role)
+    u = new_bossman_user(owned_name("u"), "pw", role)
     db_session.add(u)
     await db_session.flush()
     await db_session.commit()
@@ -74,15 +75,40 @@ async def test_host_grant_allows(db_session):
     await db_session.commit()
 
 
-async def test_all_grant_allows_token(db_session):
+async def test_all_grant_allows_the_token_it_was_issued_to(db_session):
+    """A wildcard grant lets THAT token through — and only that one.
+
+    The test used to build `Identity(kind="api_token", name="ci")` with no token row at all,
+    because authorisation matched on the NAME. That is what changed: a grant now names its subject
+    by uid, so a second token called "ci" no longer inherits anything. Measured before the change:
+    one grant on "mon-caller" authorised 28 different tokens.
+    """
     a = await _agent(db_session)
-    g = AccessGrant(subject_kind="api_token", subject_ref="ci", scope="all")
+    token, _raw = new_api_token(owned_name("acl-caller"))
+    twin, _raw2 = new_api_token(token.name)  # same NAME, different token
+    db_session.add_all([token, twin])
+    await db_session.flush()  # the grant references a token by uid — it must exist first
+    g = AccessGrant(
+        subject_kind="api_token", subject_ref=token.name, subject_token_id=token.id, scope="all"
+    )
     db_session.add(g)
     await db_session.commit()
-    ident = Identity(kind="api_token", name="ci")
-    assert await user_can_manage_agent(db_session, ident, a.id) is True
-    # a token WITHOUT the grant is denied
-    assert await user_can_manage_agent(db_session, Identity(kind="api_token", name="other"), a.id) is False
+
+    granted = Identity(kind="api_token", name=token.name, token_id=token.id)
+    assert await user_can_manage_agent(db_session, granted, a.id) is True
+
+    # The namesake must NOT inherit it — the whole point of referencing by uid.
+    namesake = Identity(kind="api_token", name=twin.name, token_id=twin.id)
+    assert await user_can_manage_agent(db_session, namesake, a.id) is False
+
+    # And an identity carrying no uid is refused rather than falling back to the name.
+    assert await user_can_manage_agent(db_session, Identity(kind="api_token", name=token.name), a.id) is False
+
+    await db_session.delete(g)
+    await db_session.delete(token)
+    await db_session.delete(twin)
+    await db_session.delete(a)
+    await db_session.commit()
     await db_session.delete(g)
     await db_session.delete(a)
     await db_session.commit()
@@ -90,7 +116,7 @@ async def test_all_grant_allows_token(db_session):
 
 async def test_group_grant_via_membership(db_session):
     a = await _agent(db_session)
-    hg = HostGroup(tenant_id=DEFAULT_TENANT, name=f"grp-{uuid.uuid4().hex[:6]}")
+    hg = HostGroup(tenant_id=DEFAULT_TENANT, name=owned_name("grp"))
     db_session.add(hg)
     await db_session.flush()
     db_session.add(HostGroupMember(tenant_id=DEFAULT_TENANT, host_group_id=hg.id, agent_id=a.id))
@@ -136,7 +162,7 @@ async def test_users_api_admin_only(db_session):
         assert client.get("/api/v1/users", headers=_h(_jwt(op))).status_code == 403
         assert client.get("/api/v1/users", headers=_h(_jwt(admin))).status_code == 200
         # create a user + grant it a host
-        cu = client.post("/api/v1/users", json={"username": f"nu-{uuid.uuid4().hex[:5]}", "password": "pw", "role": "operator"}, headers=_h(_jwt(admin)))
+        cu = client.post("/api/v1/users", json={"username": owned_name("nu"), "password": "pw", "role": "operator"}, headers=_h(_jwt(admin)))
         assert cu.status_code == 200
         gid = client.post("/api/v1/access-grants", json={"subject_kind": "user", "subject_ref": cu.json()["username"], "scope": "all"}, headers=_h(_jwt(admin)))
         assert gid.status_code == 200

@@ -1,0 +1,17 @@
+# leave configuration template
+# leave is primarily a CLI tool that takes time arguments directly.
+# It does not use a persistent configuration file (like /etc/leave.conf) in standard distributions.
+# However, for automation or wrapper scripts, we can parameterize the default time format or reminder behavior if a hypothetical config existed.
+# Since leave(1) has no config file, this template is illustrative for a hypothetical 'leave-agent' wrapper script config.
+
+# The target time to remind the user (HHMM format, 24h clock)
+# This is the absolute clock time to trigger the reminder if use_relative_time is false.
+target_time: {{ target_time | default('0900') }}
+
+# Whether to use relative time (minutes from now) instead of absolute clock time
+# If true, target_time is interpreted as minutes from the current time (preceded by '+').
+use_relative_time: {{ use_relative_time | default(false) | lower }}
+
+# The message to display when reminding
+# Standard leave ignores this and prints a fixed string, but included for wrapper flexibility.
+reminder_message: {{ reminder_message | default('Time to leave') }}

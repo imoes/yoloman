@@ -1,0 +1,118 @@
+# ==============================================================================
+# OutGuess Configuration / Command Generator
+# ==============================================================================
+# This template generates shell commands for the OutGuess steganography tool.
+# OutGuess hides data within JPEG, PPM, or PNM image files using a secret key.
+#
+# The generated script supports three modes:
+#   1. Embed: Hides a message from a data file into an image.
+#   2. Embed (Second Message): Hides a fallback message for plausible deniability.
+#   3. Extract: Retrieves a hidden message from an image.
+#
+# Variables used from Ansible inventory/host_vars:
+#   - input_file:      Source image path
+#   - output_file:     Destination image path
+#   - data_file:       Data file to hide or extract into
+#   - secret_key:      Encryption key
+#   - extract_mode:    Boolean, if true, generate extraction command
+#   - preserve_statistics: Boolean, preserve stats to hinder detection (-F)
+#   - seed:            Initial seed for iterator (0 = auto-search)
+#   - iterator_limit:  Upper limit for iterator seed search
+#   - error_correction: Boolean, use Golay code for error correction
+#   - jpeg_quality:    JPEG quality parameter (75-100)
+#   - mark_modified:   Boolean, mark modified pixels (-m)
+#   - max_keys:        Max keys to derive if second key fails
+#   - second_message:  List of dicts {key, data_file} for deniability
+# ==============================================================================
+
+{% if extract_mode | default(False) %}
+# ==============================================================================
+# Mode: EXTRACT
+# Retrieves hidden data from an image file.
+# ==============================================================================
+# -k: Secret key used to decrypt the hidden data
+# -r: Extract mode flag
+# -d: Destination file for the extracted data
+# ==============================================================================
+outguess \
+  -k "{{ secret_key | default('my secret pass phrase') }}" \
+  -r \
+  -d "{{ data_file | default('message.txt') }}" \
+  "{{ input_file | default('image.jpg') }}"
+
+{% else %}
+# ==============================================================================
+# Mode: EMBED
+# Hides a message from a data file into an image file.
+# ==============================================================================
+
+# --- Common Embed Command ---
+# This section generates the primary command to embed the main message.
+
+# -k: Secret key for encryption/hiding
+outguess \
+{# -F: Preserve frequency-based statistics to make steganalysis harder #}
+{% if preserve_statistics | default(True) %}
+  -F \
+{% endif %}
+  -k "{{ secret_key | default('my secret pass phrase') }}" \
+{# -d: Data file to embed (or extract into) #}
+  -d "{{ data_file | default('message.txt') }}" \
+{# -s: Initial seed for the PRNG. 0 triggers automatic seed search. #}
+{% if seed | default(0) != 0 %}
+  -s {{ seed | default(0) }} \
+{% endif %}
+{# -i: Iterator limit for seed search #}
+{% if iterator_limit | default(65535) != 0 %}
+  -i {{ iterator_limit | default(65535) }} \
+{% endif %}
+{# -e: Enable error correction (Golay code) #}
+{% if error_correction | default(False) %}
+  -e \
+{% endif %}
+{# -p: JPEG quality factor (75-100). Higher quality hides more data. #}
+  -p {{ jpeg_quality | default(100) }} \
+{# -m: Mark pixels that have been modified #}
+{% if mark_modified | default(False) %}
+  -m \
+{% endif %}
+{# -x: Max keys to derive if the second key embedding fails #}
+{% if max_keys | default(100) != 100 %}
+  -x {{ max_keys | default(100) }} \
+{% endif %}
+{# Input and Output Image Files #}
+  "{{ input_file | default('image.jpg') }}" \
+  "{{ output_file | default('output.jpg') }}"
+
+{% if second_message | default([]) | length > 0 %}
+# ==============================================================================
+# Mode: SECOND MESSAGE (Plausible Deniability)
+# Embeds a fallback message using a different key and data file.
+# This allows for multiple layers of hidden data.
+# ==============================================================================
+{% for msg in second_message | default([]) | default([]) %}
+# --- Second Message {{ loop.index }} ---
+# Key: {{ msg.key | default('N/A') }}
+# Data File: {{ msg.data_file | default('N/A') }}
+# This uses -E (uppercase) which typically implies a second pass or specific
+# handling for deniability in some outguess versions, often coupled with -K/-D.
+outguess \
+  -k "{{ secret_key | default('my secret pass phrase') }}" \
+  -d "{{ data_file | default('message.txt') }}" \
+{% if seed | default(0) != 0 %}
+  -s {{ seed | default(0) }} \
+{% endif %}
+{# -K: Key specifically for this second message #}
+  -K "{{ (msg | default({})).key | default('') }}" \
+{# -D: Data file for this second message #}
+  -D "{{ (msg | default({})).data_file | default('') }}" \
+{# -E: Error correction for second message (if enabled globally or here) #}
+{% if error_correction | default(False) %}
+  -E \
+{% endif %}
+  "{{ input_file | default('image.jpg') }}" \
+  "{{ output_file | default('output.jpg') }}"
+
+{% endfor %}
+{% endif %}
+{% endif %}

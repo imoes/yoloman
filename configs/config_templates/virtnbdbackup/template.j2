@@ -1,0 +1,164 @@
+# =============================================================================
+# virtnbdbackup Configuration Template
+# This file configures the behavior of virtnbdbackup, a tool for backing up
+# libvirt virtual machines using NBD (Network Block Device).
+# =============================================================================
+
+# --- General Backup Settings ---
+
+# Name of the libvirt domain to backup.
+# This identifies the VM target for the backup operation.
+domain: {{ domain | default('vm1') }}
+
+# Backup level: copy, full, inc, diff, or auto.
+# Controls how data is selected for backup (e.g., incremental vs full).
+level: {{ level | default('full') }}
+
+# Output type: stream or raw.
+# Determines the format of the backup data written to disk.
+output_type: {{ output_type | default('stream') }}
+
+# Output target directory for backup files.
+# The base path where backup artifacts will be stored.
+output_dir: {{ output_dir | default('/backup') }}
+
+# Persistent libvirt checkpoint storage directory.
+# Directory where libvirt stores state for block jobs/checkpoints.
+checkpoint_dir: {{ checkpoint_dir | default('/var/lib/virtnbdbackup/checkpoints') }}
+
+# Target dir for temporary scratch files.
+# Temporary workspace for backup operations.
+scratch_dir: {{ scratch_dir | default('/var/tmp') }}
+
+# --- VM & Disk Control ---
+
+# Start virtual machine if it is offline.
+# If true, virtnbdbackup will attempt to start the domain before backing up.
+start_domain: {{ start_domain | default(false) | lower }}
+
+# Include full provisioned disk images in backup.
+# If true, includes all allocated space, not just used blocks.
+raw: {{ raw | default(false) | lower }}
+
+# Compress with lz4 compression level.
+# If true, applies lz4 compression to the backup stream.
+compress: {{ compress | default(false) | lower }}
+
+# Amount of concurrent workers used to backup multiple disks.
+# Empty string uses the default (usually number of disks).
+# A number specifies explicit worker count.
+workers: {{ workers | default('') }}
+
+# --- Libvirt Connection & Authentication ---
+
+# Libvirt connection URI.
+# Defines how to connect to the libvirt daemon (e.g., qemu:///system).
+uri: {{ uri | default('qemu:///system') }}
+
+# User to authenticate against libvirtd.
+# If empty, relies on system/auth mechanism or anonymous.
+user: {{ user | default('') }}
+
+# Password to authenticate against libvirtd.
+# Used if 'user' is specified and password-based auth is required.
+password: {{ password | default('') }}
+
+# --- NBD Service Settings ---
+
+# Port used by remote NBD Service.
+# The port virtnbdbackup uses for NBD communication.
+nbd_port: {{ nbd_port | default(10809) }}
+
+# IP used to bind remote NBD service on.
+# If empty, binds to all available interfaces.
+nbd_ip: {{ nbd_ip | default('') }}
+
+# Enable and use TLS for NBD connection.
+# Encrypts NBD traffic if enabled.
+tls: {{ tls | default(false) | lower }}
+
+# Path to TLS certificates used during offline backup and restore.
+# Directory or file path containing TLS keys/certs.
+tls_cert: {{ tls_cert | default('/etc/pki/qemu/') }}
+
+# --- SSH Remote Copy Settings ---
+
+# User to authenticate against remote sshd for remote file copy.
+# Used when backing up to remote storage via SSH.
+ssh_user: {{ ssh_user | default('abi') }}
+
+# Port to connect to remote sshd for remote file copy.
+# Standard SSH port if default.
+ssh_port: {{ ssh_port | default(22) }}
+
+# --- Logging & Output Control ---
+
+# Additionally send log messages to syslog.
+# Enables dual logging to syslog in addition to local logs.
+syslog: {{ syslog | default(false) | lower }}
+
+# Disable logging to stderr.
+# If true, suppresses output on the terminal.
+quiet: {{ quiet | default(false) | lower }}
+
+# Disable colored output.
+# If true, outputs plain text without ANSI color codes.
+nocolor: {{ nocolor | default(false) | lower }}
+
+# --- Advanced Operation Flags ---
+
+# Use Qemu tools to query extents.
+# If true, uses qemu-img/qemu-io to determine block allocation.
+qemu: {{ qemu | default(false) | lower }}
+
+# Only initialize backup job via libvirt, do not backup any data.
+# Useful for testing job creation without performing the actual I/O.
+startonly: {{ startonly | default(false) | lower }}
+
+# Kill any running block job.
+# If true, attempts to abort existing backup jobs on the domain.
+killonly: {{ killonly | default(false) | lower }}
+
+# Quit after printing estimated checkpoint size.
+# Diagnostic mode to estimate space requirements.
+printonly: {{ printonly | default(false) | lower }}
+
+# Enable debug output.
+# If true, enables verbose debugging information.
+verbose: {{ verbose | default(false) | lower }}
+
+# Execute backup only if threshold is reached.
+# 0 disables check. Used for conditional backups based on usage metrics.
+threshold: {{ threshold | default(0) }}
+
+# Skip detection of sparse ranges during incremental or differential backup.
+# Improves performance but may increase backup size.
+no_sparse_detection: {{ no_sparse_detection | default(false) | lower }}
+
+# If qemu agent available, freeze only filesystems on specified mountpoints within virtual machine.
+# Comma-separated list of mountpoints. Empty string freezes all.
+freeze_mountpoints: {{ freeze_mountpoints | default('') }}
+
+# --- Disk Inclusion/Exclusion ---
+
+# Backup only disk with target dev name.
+# List of strings like 'vda'. Empty list includes all disks.
+include_disks: {{ include_disks | default([]) | tojson }}
+
+# Exclude disk(s) with target dev name.
+# List of strings like 'vda'. Empty list excludes nothing.
+exclude_disks: {{ exclude_disks | default([]) | tojson }}
+
+# --- Error Handling & Progress ---
+
+# Change exit code if warnings occur during backup operation.
+# If true, warnings result in a non-zero exit status.
+strict: {{ strict | default(false) | lower }}
+
+# Disable progress bar.
+# If true, suppresses the interactive progress indicator.
+noprogress: {{ noprogress | default(false) | lower }}
+
+# Socket file for NBD Server.
+# Local socket path used for NBD server communication.
+socketfile: {{ socketfile | default('/var/tmp/virtnbdbackup.socket') }}

@@ -37,6 +37,9 @@ type DownsampleStats struct {
 	HourlyRowsAggregated int
 	DailyRowsCreated     int
 	EdgesPruned          int
+	// Member rows removed by the client-port fold — see SQLiteStore.foldClientPorts. Counted separately
+	// from EdgesPruned because they did not age out: they were never a relationship in the first place.
+	EdgesFolded int
 }
 
 // Edge is one persisted (process, destination) connection relationship —

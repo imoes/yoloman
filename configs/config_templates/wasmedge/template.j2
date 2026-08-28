@@ -1,0 +1,103 @@
+# WasmEdge Execution Configuration
+# Self-documenting template for WasmEdge runtime options.
+# Every directive includes its schema description and a safe default.
+
+# Path to the WebAssembly file (.wasm) or shared object (.so) to execute.
+wasm_file: {{ wasm_file|default('/opt/wasmedge/app.wasm') }}
+
+# Execution mode: 'command' for standalone WASI apps, 'reactor' for calling exported functions.
+mode: {{ mode|default('command') }}
+
+# Name of the exported function to invoke when in reactor mode.
+reactor_function: {{ reactor_function|default('main') }}
+
+# Command line arguments for the WASM program.
+# In reactor mode, first is function name, rest are params.
+args:
+{% for arg in (args | default([])) %}
+  - {{ arg }}
+{% endfor %}
+
+# Directory bindings for WASI virtual filesystem.
+# Format: guest_path:host_path or host_path.
+directories:
+{% for dir in (directories | default([])) %}
+  - {{ dir }}
+{% endfor %}
+
+# Environment variables to set in the runtime.
+# Format: NAME=VALUE.
+env_vars:
+{% for env in (env_vars | default([])) %}
+  - {{ env }}
+{% endfor %}
+
+# Enable reactor mode flag (alias for mode: reactor in some CLI usages, kept for explicit flag support).
+# Note: This flag is logically derived from `mode`. If `mode` is not defined, default to false.
+reactor_flag: {{ (mode|default('command') == 'reactor') | lower }}
+
+# Forcibly run WASM in interpreter mode rather than JIT.
+force_interpreter: {{ force_interpreter|default(false) | lower }}
+
+# List of plugin names to ignore/disable.
+forbidden_plugins:
+{% for plugin in (forbidden_plugins | default([])) %}
+  - {{ plugin }}
+{% endfor %}
+
+# Enable generating code for counting execution time.
+enable_time_measuring: {{ enable_time_measuring|default(false) | lower }}
+
+# Enable generating code for counting gas burned.
+enable_gas_measuring: {{ enable_gas_measuring|default(false) | lower }}
+
+# Enable generating code for counting WebAssembly instructions executed.
+enable_instruction_count: {{ enable_instruction_count|default(false) | lower }}
+
+# Enable all statistics options (time, gas, instruction counting).
+enable_all_statistics: {{ enable_all_statistics|default(false) | lower }}
+
+# Limitation of maximum execution time in milliseconds. 0 for no limit.
+time_limit: {{ time_limit|default(0) }}
+
+# Limitation of execution gas. 0 for no limit.
+gas_limit: {{ gas_limit|default(0) }}
+
+# Limitation of pages (64 KiB each) in every memory instance. 0 for no limit.
+memory_page_limit: {{ memory_page_limit|default(0) }}
+
+# Disable Import/Export of mutable globals proposal.
+disable_import_export_mut_globals: {{ disable_import_export_mut_globals|default(false) | lower }}
+
+# Disable Non-trapping float-to-int conversions proposal.
+disable_non_trap_float_to_int: {{ disable_non_trap_float_to_int|default(false) | lower }}
+
+# Disable Sign-extension operators proposal.
+disable_sign_extension_operators: {{ disable_sign_extension_operators|default(false) | lower }}
+
+# Disable Multi-value proposal.
+disable_multi_value: {{ disable_multi_value|default(false) | lower }}
+
+# Disable Bulk memory operations proposal.
+disable_bulk_memory: {{ disable_bulk_memory|default(false) | lower }}
+
+# Disable Reference types proposal.
+disable_reference_types: {{ disable_reference_types|default(false) | lower }}
+
+# Disable SIMD proposal.
+disable_simd: {{ disable_simd|default(false) | lower }}
+
+# Enable Multiple memories proposal.
+enable_multi_memory: {{ enable_multi_memory|default(false) | lower }}
+
+# Enable Tail-call proposal.
+enable_tail_call: {{ enable_tail_call|default(false) | lower }}
+
+# Enable Extended-const proposal.
+enable_extended_const: {{ enable_extended_const|default(false) | lower }}
+
+# Enable Threads proposal.
+enable_threads: {{ enable_threads|default(false) | lower }}
+
+# Enable all WebAssembly proposals and features.
+enable_all: {{ enable_all|default(false) | lower }}

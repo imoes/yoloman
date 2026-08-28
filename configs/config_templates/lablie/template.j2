@@ -1,0 +1,64 @@
+# Lablie Configuration Template
+# This template generates a configuration file for 'lablie', a label generation tool.
+# It defines the source of the label template, the data source for instances,
+# and the physical layout of the labels on the paper.
+
+# Path to JSON file containing descriptor of template.
+# Default: /etc/lablie/template.json
+TEMPLATE: {{ template_descriptor | default('/etc/lablie/template.json') }}
+
+# Source file for the label generation.
+# Default: source_file.dat
+SOURCE: {{ source | default('source_file.dat') }}
+
+# Target output file for the generated labels.
+# Default: target_file.pdf
+TARGET: {{ target | default('target_file.pdf') }}
+
+# Data Source Configuration
+# Specifies which dataset source to use. Only one should be active.
+# If instances_json, instance_json, dataset_json, or dataset_csv are provided,
+# the corresponding section is rendered. dataset_csv_format is included when
+# dataset_csv is used (or potentially if CSV is the fallback, depending on logic,
+# but here it is grouped with the CSV/JSON block in the original).
+# Based on the original logic, DATASET_CSV_FORMAT is printed if the first four conditions fail
+# (implied by the endif placement in original, though strictly it was inside the block).
+# Let's follow the original structure: The block checks for json/csv sources.
+# If instances_json is set, print it.
+{% if instances_json | default('') %}
+INSTANCES_JSON: {{ instances_json | default('') }}
+{% elif instance_json | default('') %}
+INSTANCE_JSON: {{ instance_json | default('') }}
+{% elif dataset_json | default('') %}
+DATASET_JSON: {{ dataset_json | default('') }}
+{% elif dataset_csv | default('') %}
+DATASET_CSV: {{ dataset_csv | default('') }}
+DATASET_CSV_FORMAT: {{ dataset_csv_format | default('Default') }}
+{% endif %}
+
+# Key of instance to be rendered.
+# If defined, this specific instance key is used for generation.
+# Default: '' (empty/unset)
+{% if instance is defined %}
+INSTANCE: {{ instance | default('') }}
+{% endif %}
+
+# Paper Layout Configuration
+# Defines the physical dimensions and spacing of labels on the paper.
+# Values are lists of integers/floats representing [X, Y].
+
+# Width and height of the paper in mm, ie. 210 297 for A4 paper portrait.
+# Default: [210, 297]
+PAPER_SIZE: {{ paper_size | default([210, 297]) | join(' ') }}
+
+# X and Y offset of the first label in mm, ie. 5 5.
+# Default: [5, 5]
+LABEL_OFFSET: {{ label_offset | default([5, 5]) | join(' ') }}
+
+# X and Y delta between labels in mm, ie. 5 5.
+# Default: [5, 5]
+LABEL_DELTA: {{ label_delta | default([5, 5]) | join(' ') }}
+
+# Width and height of label in mm, ie. 50 30.
+# Default: [50, 30]
+LABEL_SIZE: {{ label_size | default([50, 30]) | join(' ') }}

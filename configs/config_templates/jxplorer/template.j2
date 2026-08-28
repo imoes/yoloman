@@ -1,0 +1,77 @@
+# ==============================================================================
+# JXplorer Configuration Template
+# ==============================================================================
+# This file configures default connection parameters for the JXplorer LDAP browser.
+# JXplorer stores user-specific settings in ~/.jxplorer/, but this template
+# provides a canonical schema for initial deployment or automation via Ansible.
+#
+# Structure:
+# - Global defaults for the default server connection.
+# - A dynamic list of additional connection presets (`jxplorer.connection.<index>.<key>`).
+#
+# All variables use `default()` to ensure safe rendering even if variables are undefined.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Default LDAP Server Connection Settings
+# --------------------------------------------------------------------------
+
+# The hostname or IP address of the default LDAP server.
+# If not provided, defaults to 'localhost'.
+jxplorer.default.server = {{ jxplorer_default_server | default('localhost') }}
+
+# The port number of the default LDAP server.
+# Standard LDAP ports are 389 (unencrypted) or 636 (SSL/TLS).
+# Defaults to 389.
+jxplorer.default.port = {{ jxplorer_default_port | default(389) }}
+
+# Whether to use SSL/TLS for the default connection.
+# If true, JXplorer will attempt an LDAPS connection on the specified port.
+# Defaults to false (plain LDAP).
+jxplorer.default.ssl = {{ jxplorer_default_ssl | default(false) | lower }}
+
+# The Distinguished Name (DN) to use for binding (authenticating) to the default LDAP server.
+# Leave empty for anonymous binding.
+jxplorer.default.bind_dn = {{ jxplorer_default_bind_dn | default('') }}
+
+# The password for the bind DN specified above.
+# Leave empty if bind_dn is empty or if the directory supports anonymous binds.
+jxplorer.default.bind_pw = {{ jxplorer_default_bind_pw | default('') }}
+
+# The base Distinguished Name (DN) for search operations in the default server.
+# This is the starting point for tree views and searches.
+# Defaults to 'dc=example,dc=com'.
+jxplorer.default.base_dn = {{ jxplorer_default_base_dn | default('dc=example,dc=com') }}
+
+# The default search scope for the default server.
+# Valid values: 'base' (only the entry itself), 'one' (immediate children), 'sub' (entire subtree).
+# Defaults to 'sub'.
+jxplorer.default.search_scope = {{ jxplorer_default_search_scope | default('sub') }}
+
+# --------------------------------------------------------------------------
+# Additional Connection Presets
+# --------------------------------------------------------------------------
+
+# List of additional connection presets for rapid access in the JXplorer UI.
+# Each item in `jxplorer_connections` is a mapping with keys:
+#   - name:  Label for the connection profile.
+#   - server: Hostname or IP of the secondary LDAP server.
+#   - port:  Port number for the secondary server.
+#   - ssl:   Boolean, whether to use SSL/TLS for this secondary server.
+#   - base_dn: Base DN for search operations on this secondary server.
+#   - bind_dn: Bind DN for authentication on this secondary server.
+#
+# Note: `jxplorer_connections` is expected to be a list of dictionaries.
+# We iterate using `| default([])` to handle cases where the variable is undefined.
+{% for conn in jxplorer_connections | default([]) %}
+# =============================================================================
+# Connection Profile: {{ conn.name | default('Unnamed Connection') }}
+# =============================================================================
+# This block defines a secondary LDAP connection preset.
+jxplorer.connection.{{ loop.index0 }}.name = {{ conn.name | default('Unnamed Connection') }}
+jxplorer.connection.{{ loop.index0 }}.server = {{ conn.server | default('localhost') }}
+jxplorer.connection.{{ loop.index0 }}.port = {{ conn.port | default(389) }}
+jxplorer.connection.{{ loop.index0 }}.ssl = {{ conn.ssl | default(false) | lower }}
+jxplorer.connection.{{ loop.index0 }}.base_dn = {{ conn.base_dn | default('dc=example,dc=com') }}
+jxplorer.connection.{{ loop.index0 }}.bind_dn = {{ conn.bind_dn | default('') }}
+{% endfor %}

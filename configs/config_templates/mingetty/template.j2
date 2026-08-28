@@ -1,0 +1,94 @@
+# ===========================================================================
+# mingetty Configuration Template
+# ===========================================================================
+# This template generates the configuration file for mingetty, a program
+# that manages virtual console login prompts. It is designed to be self-
+# documenting: every setting is commented with its source description and
+# safe defaults are applied via Jinja2 defaults to prevent render errors
+# when variables are undefined.
+# ===========================================================================
+
+# --- Console Device ---
+# The virtual console device to manage (e.g., tty1, tty2).
+# Default: tty1
+TTY: {{ (tty | default('tty1')) | string }}
+
+# --- Screen Clearing ---
+# Do not clear the screen before prompting for the login name.
+# When 0: Clear screen (default behavior).
+# When 1: Do not clear.
+# Default: 0 (False)
+CLEAR: {% if noclear | default(False) %}1{% else %}0{% endif %}
+
+# --- Newline Handling ---
+# Do not print a newline before writing out /etc/issue.
+# When 0: Print newline.
+# When 1: Do not print newline.
+# Default: 0 (False)
+NONEWLINE: {% if nonewline | default(False) %}1{% else %}0{% endif %}
+
+# --- Issue File Output ---
+# Do not output /etc/issue.
+# When 0: Output /etc/issue.
+# When 1: Do not output.
+# Default: 0 (False)
+NOISSUE: {% if noissue | default(False) %}1{% else %}0{% endif %}
+
+# --- Hangup Handling ---
+# Do not call vhangup() to disable writing to this tty by other applications.
+# When 0: Call vhangup() (default).
+# When 1: Do not call vhangup().
+# Default: 0 (False)
+NOHANGUP: {% if nohangup | default(False) %}1{% else %}0{% endif %}
+
+# --- Hostname Display ---
+# Do not print the hostname before the login prompt.
+# When 0: Print hostname.
+# When 1: Do not print.
+# Default: 0 (False)
+NOHOSTNAME: {% if nohostname | default(False) %}1{% else %}0{% endif %}
+
+# --- Long Hostname ---
+# Show the full text from gethostname() instead of stopping at the first dot.
+# When 0: Stop at first dot (short hostname).
+# When 1: Show full hostname.
+# Default: 0 (False)
+LONG_HOSTNAME: {% if long_hostname | default(False) %}1{% else %}0{% endif %}
+
+# --- Login Program ---
+# The login application to execute.
+# Default: /bin/login
+LOGINPROG: {{ (loginprog | default('/bin/login')) | string }}
+
+# --- Process Priority ---
+# Nice value (priority) for the mingetty process.
+# Range: -20 to 19. Lower values mean higher priority.
+# Default: 10
+NICE: {{ (nice | default(10)) | int }}
+
+# --- Startup Delay ---
+# Number of seconds to sleep after startup of mingetty.
+# Default: 5
+DELAY: {{ (delay | default(5)) | int }}
+
+# --- Working Directory ---
+# Directory to change into before calling the login prog.
+# Default: /
+CHDIR: {{ (chdir | default('/')) | string }}
+
+# --- Chroot ---
+# Directory to chroot into. Empty string disables chroot.
+# Default: ''
+CHROOT: {{ (chroot | default('')) | string }}
+
+# --- Autologin ---
+# Username to log in automatically. Empty string disables autologin.
+# Default: ''
+AUTOLOGIN: {{ (autologin | default('')) | string }}
+
+# --- Login Pause ---
+# Wait for any key before dropping to the login prompt.
+# When 0: Do not pause.
+# When 1: Pause.
+# Default: 0 (False)
+LOGINPAUSE: {% if loginpause | default(False) %}1{% else %}0{% endif %}

@@ -1,0 +1,54 @@
+# Yaz ILL Client Configuration
+# This template generates the command-line arguments for the yaz-illclient tool.
+# It handles server connection, OCLC authentication, and debug settings.
+
+# Path to a file containing command-line arguments.
+# If specified, yaz-illclient reads these arguments from the file instead of the command line.
+# -f filename
+{% set _filename = (filename | default('')) %}
+{% if _filename %}
+-f {{ _filename }}
+{% endif %}
+
+# Log level verbosity. 0 disables logging, higher values enable more detail.
+# Accepted range is typically 0-15.
+# -v loglevel
+-v {{ log_level | default(0) }}
+
+# Enable OCLC authentication mechanism.
+# When true, includes the authentication flag and credentials.
+# -o
+{% if oclc_auth | default(False) %}
+-o
+{% endif %}
+
+# Username for OCLC authentication.
+# Used in conjunction with the OCLC authentication toggle.
+# -u user
+{% set _user = (user | default('')) %}
+{% if _user %}
+-u {{ _user }}
+{% endif %}
+
+# Password for OCLC authentication.
+# Used in conjunction with the OCLC authentication toggle.
+# -p password
+{% set _password = (password | default('')) %}
+{% if _password %}
+-p {{ _password }}
+{% endif %}
+
+# List of key-value pairs to pass to the yaz library for debugging or configuration via -D flags.
+# Each item in the list generates a -D name=value argument.
+# -D name=value...
+{% for pair in (debug_options | default([])) %}
+-D {{ (pair | default({})).name | default('') }}={{ (pair | default({})).value | default('') }}
+{% endfor %}
+
+# Target server address (required, positional argument).
+# The hostname or IP address of the remote ILL server to connect to.
+# [server_address]
+{% set _server_addr = (server_addr | default('')) %}
+{% if _server_addr %}
+{{ _server_addr }}
+{% endif %}

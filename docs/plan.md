@@ -1,0 +1,4071 @@
+# Plan: YOLO-MANager (`agentic-mcp`) — AI-native Linux management system (Node Agent v1)
+
+**Project name:** YOLO-MANager — the user-facing brand (MCP server title, web UI, systemd
+description); `agentic-mcp` remains the underlying Go module path, binary name, and config/data
+directory names (`/etc/agentic-mcp`, `/var/lib/agentic-mcp`, ...), since a full technical rename
+touches every file's import path for no functional benefit. See `docs/assets/yolo-man.jpg` for
+the mascot.
+
+**The running daemon itself is nicknamed "Duppy"** — Jamaican patois for a ghost/spirit, chosen
+because it lines up with genuine Unix folklore (a "daemon" was named for a *helpful* supernatural
+entity, not an evil one) the same way a duppy is Jamaica's own version of an unseen, lingering
+presence. Branding only, same split as above: `agentic-mcpd` stays the binary/directory/module
+name; "Duppy" appears in prose, the systemd unit's Description, and the README.
+
+Fitting alongside the other in-universe nicknames established so far: **Bossman** (the future
+Fleet Commander, see Roadmap) and **Selecta** (this agent's `proxy` operating mode, see "Three
+operating modes" below).
+
+## Context & Vision
+
+Today, running a fleet of servers requires **a handful of separate tools**:
+
+- **CheckMK** → monitoring / health state
+- **Coroot** → eBPF observability / service map
+- **Ansible** → configuration / changes
+
+In the age of AI, **a capable AI should be able to take over all of this**. The goal of this
+product is to close the gap between these systems and replace them with **a single, AI-native
+management layer** — observe (Coroot), assess (CheckMK), and change (Ansible) through *one*
+declarative API, operable by an external AI.
+
+### North-star UX: "describe the machine in prose"
+
+The end user writes **in plain language / Markdown** how the machine should be configured — the
+AI carries it out on its own. Example:
+
+> "This server should run nginx, have port 443 open, timezone Europe/Berlin, a `deploy` user
+>  with sudo, and `/etc/motd` set to our banner."
+
+Flow (the AI orchestrates; the agent supplies the safe building blocks):
+
+1. **Read current state** — `setup` (facts), `stat`, `service_facts`, … → the AI learns the
+   actual state
+2. **Plan** — call every affected module in **`check_mode`** → preview "what would change"
+   (`changed: true|false`), without touching anything
+3. **Apply** — only after approval / when `write:true`, idempotently (a second run changes
+   nothing)
+
+This is exactly what idempotent `ansible.builtin`-style modules with `check_mode` are built for:
+prose → plan → apply becomes **reliable and safe**, not a blind shell flight. The reverse
+direction is just as simple: **retrieving performance data** — `GET /api/v1/metrics/cpu?range=1h`
+or resource `metrics://…`, with no query language to learn.
+
+**Two components (deliberately separate, as with Prometheus/Coroot/CheckMK):**
+
+| Component | Runs where | Responsibility | Language | When |
+|---|---|---|---|---|
+| **Node Agent** (`agentic-mcpd`) | on *every* server | /proc, commands+pipelines, eBPF, API mode, write gate, local TSDB | **Go** (static binary, CO-RE eBPF) | **v1 — this plan** |
+| **Fleet Commander** | *once*, centrally | fleet API, aggregation, orchestration, MCP for the AI | **Python/FastAPI** | last step (separate plan) |
+
+**Why Go for the agent** (confirmed by the user): eBPF à la Coroot needs `cilium/ebpf` + CO-RE
+(one binary for every kernel, no clang/headers on the target), and zero-dependency distribution
+across N servers is the core of the idea — a static binary instead of an interpreter+venv per
+box. Python stays reserved for the central Commander layer, where it shines and matches the
+existing `~/skills` stack.
+
+## Differentiation / market gap (research findings)
+
+- [rhel-lightspeed/linux-mcp-server](https://github.com/rhel-lightspeed/linux-mcp-server) (Python, read-only, via SSH from the outside) — no daemon on the host, no eBPF, no write, no package
+- [tumf/mcp-shell-server](https://github.com/tumf/mcp-shell-server), [MladenSU/cli-mcp-server](https://github.com/MladenSU/cli-mcp-server), [sonirico/mcp-shell](https://github.com/sonirico/mcp-shell) — command execution only, no /proc, no eBPF, no fleet
+- [Coroot](https://github.com/coroot/coroot) — excellent eBPF observability, but **no management/write**, no AI API
+- **Cockpit** (Red Hat) — a web UI for *humans*, no stable automation API
+- [SUSE MLM MCP](https://techcommunity.microsoft.com/blog/linuxandopensourceblog/getting-started-with-the-suse-multi-linux-manager-mcp-server-and-github-copilot/4513494) / [Red Hat AAP MCP](https://www.redhat.com/en/blog/it-automation-agentic-ai-introducing-mcp-server-red-hat-ansible-automation-platform) — MCP bolted *in front of* an existing management platform; here, we *are* the platform
+
+**Nobody combines:** eBPF observability + a typed management API (read *and* write) +
+zero-dependency agent + fleet orchestration, all AI-native via MCP. That's the gap.
+
+## Node Agent v1 — Scope
+
+1. **Structured /proc** — cpuinfo, meminfo, loadavg, uptime, mounts, net/dev, diskstats,
+   `<pid>/status` → as JSON, not raw text
+2. **`ansible.builtin` modules (native Go)** — the management verbs. Instead of wrapping raw
+   binaries, the agent reimplements the well-known Ansible modules (`file`, `copy`, `template`,
+   `service`, `systemd`, `apt`, `command`, `stat`, `find`, `lineinfile`, `user`, …) — **idempotent,
+   with `check_mode`/dry-run and a `changed: true|false` report**, with no Ansible installation
+   required. This is the capability set that "covers everything you'd do on Linux."
+3. **Commands + pipelines** — for everything beyond the modules: whitelisted read-only commands
+   (`fdisk -l`, `blkid`, …), pipelines (`cmd1 | cmd2 | …`) natively chained in Go, argv-based,
+   per-stage argument policy (equivalent to `ansible.builtin.command`/`shell`, but controlled)
+3. **eBPF observability (Coroot-style)** — TCP connection tracking + process exec events via
+   `cilium/ebpf` (CO-RE); data in a local ring buffer + SQLite persistence
+4. **Data storage** — **local SQLite** instead of RRD: a flexible schema holds both time series
+   *and* labeled eBPF events (which RRD cannot do), queryable along any dimension, a single file,
+   no external service, survives restarts. A **retention/downsampling job** (raw data → hourly/
+   daily averages) gives the bounded size one would expect from RRD — without its rigidity.
+   A DB abstraction exists; the Commander later uses MariaDB/PostgreSQL.
+
+   **Implemented (step 6):** `internal/store` — a `Store` interface (`WritePoints`, `Query`,
+   `Downsample`, `Close`) and a `modernc.org/sqlite`-backed implementation (pure Go, no cgo). A
+   `Point` is `{metric, timestamp, value, labels map[string]string, resolution}`; labels are
+   stored as canonical (sorted-key) JSON so identical label sets `GROUP BY` correctly during
+   consolidation. `Downsample(rawCutoff, hourlyCutoff)` runs two consolidation passes — raw→hourly
+   then hourly→daily — each averaging every `(metric, labels)` series' old points into
+   bucket-aligned rows via one SQL `GROUP BY` query, inserting the consolidated rows, then
+   deleting the source rows; safe to call repeatedly on a ticker. `config.DB.Retention`
+   (`raw`/`hourly`/`interval`, parsed from strings like `"24h"`) drives a background retention
+   loop in `main.go`. A `metrics_query` MCP tool (always active, matching the "retrieve
+   performance data easily" requirement) reads the store with RFC3339-or-relative-duration time
+   bounds and label filtering; a startup marker point is written on daemon start so the store has
+   real, queryable data before the eBPF collector (step 10) exists. Verified end-to-end: the
+   daemon wrote a real SQLite file, `metrics_query` returned the startup marker over live MCP,
+   and the file's contents were independently confirmed with Python's stdlib `sqlite3` — a
+   genuine, standards-compliant SQLite file, not a proprietary format.
+5. **Two access modes:** **(a) MCP over Streamable HTTP** (for AI clients) and **(b) a plain
+   REST API mode** (same capabilities, plain JSON — usable without an MCP client)
+6. **Write gate:** a global `write: true|false` switch in the config (default `false`). When
+   `false`, all mutating tools (`mode: put|update|delete`) are hard-disabled and never even
+   registered. The architecture carries write from day one — v1 delivers the read foundation
+   plus 1–2 first write tools as a reference (e.g. systemd service restart).
+7. **Packaging** — `.deb` with a systemd unit; token auth; audit log
+
+## Architecture (Node Agent)
+
+```
+External AI  ──MCP/HTTP──┐        Fleet Commander (Python, later) ──┐
+Human/script  ─REST/HTTP─┤                                          │
+                         ▼                                          ▼
+┌────────────────────────────────────────────────────────────────────┐
+│ agentic-mcpd  (systemd, Go)                                         │
+│ ├─ internal/server   Mux: MCP (Streamable HTTP) + REST + web UI     │
+│ │                    Auth: bearer token (AI) | PAM login (human)    │
+│ ├─ internal/authz    PAM login, sessions, ACL enforcement           │
+│ ├─ internal/webui    embedded admin frontend (go:embed)             │
+│ ├─ internal/proc     /proc parser → JSON  (resources + proc_read)   │
+│ ├─ internal/tools    registry (YAML tools.d/) + executor            │
+│ │                    exec.go (argv), pipeline.go (native pipes)     │
+│ │                    write gate (mode check against config.write)  │
+│ ├─ internal/ebpf     CO-RE collector: TCP conns + exec events       │
+│ │                    → ring buffer → store                          │
+│ ├─ internal/store    DB abstraction (v1: SQLite), retention          │
+│ └─ internal/audit    structured audit log per call → journald       │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### The "API" — layers, one semantics
+
+All layers expose the same capabilities, just a different protocol:
+
+- **MCP resources** = GET on state: `proc://meminfo`, `net://connections`, `metrics://cpu?range=1h`
+- **MCP tools** = actions with a `mode`: `get` (read) / `put|update|delete` (write, only when `write:true`)
+- **REST** = classic: `GET /api/v1/proc/meminfo`, `GET /api/v1/net/connections`,
+  `POST /api/v1/tools/{name}` (body = validated params). For automation without an MCP client.
+  ACL management: `GET/PATCH /api/v1/acl/tools/{name}` (enable/disable), `GET/PUT /api/v1/acl/rules`.
+
+  **Implemented (step 7):** `internal/server/rest.go` — `GET /api/v1/proc` (list) and
+  `GET /api/v1/proc/{name}` (mirrors the MCP proc resources via the same `procResourceDefs`/
+  `RenderProcResource`, no duplicated parsing logic), `GET /api/v1/tools` (list, respecting the
+  write gate) and `POST /api/v1/tools/{name}` (dispatches to the same `modules.Registry`/`tasks.Task`
+  list/`run_pipeline` used by MCP — one shared `components` struct in `main.go` feeds both layers
+  so they can never drift apart), and `GET /api/v1/metrics/{metric}` (same time-bound/label-filter
+  semantics as `metrics_query`). Mounted at `/api/v1/` behind the same bearer-token middleware as
+  `/mcp`. Verified end-to-end: 401 without/with a wrong token, real live `/proc/meminfo` returned,
+  a real task execution (`disk_list` running actual `fdisk -l`), a real 3-stage `run_pipeline`
+  over the live process list, a real metrics query, and the write gate correctly returning 403 for
+  `copy`/`run_pipeline` while `stat` stays 200 when `write:false`.
+- **Web frontend** (`/ui`): PAM login; tool list from `tools.d/` with enable/disable switches;
+  ACL rule editing; metrics/facts view; audit log. Self-contained (no external CDN).
+
+  **Implemented (step 9):** `internal/webui` — a single self-contained `index.html`
+  (`go:embed`, no external CDN/build step, plain HTML/CSS/vanilla JS) mounted at `/ui/`,
+  served as public static assets (the page itself authenticates against `/api/v1/` once
+  loaded — either PAM username/password via `/api/v1/auth/login`, or pasting the bearer
+  token directly). Three views: **Tools** (live list with kind/read-write tag/enable switch,
+  `PATCH /api/v1/acl/tools/{name}` on toggle), **ACL Rules** (table + add-row form +
+  `PUT /api/v1/acl/rules` bulk save), **Facts & Metrics** (`setup` module + `metrics_query`
+  via REST). No separate audit-log view yet — deferred until step 11 actually produces
+  audit data, rather than shipping a UI panel for nonexistent data.
+
+  Fixed a real latent bug found while wiring this up: `cmd/agentic-mcpd/http.go` was
+  double-gating `/api/v1/` — `rest.go`'s own `withIdentity` middleware (bearer **or**
+  session) was wrapped by the *old* bearer-only `withBearerAuth` from step 7, which would
+  have silently rejected every PAM-session login at the transport layer. The step 8 unit
+  tests never caught this because they call `NewRESTHandler`'s output directly, bypassing
+  `http.go` entirely. Removed the redundant outer wrapper.
+
+  Verified with a real, browser-driven Playwright session against the live daemon (not
+  just Go `httptest`): logged in via the API-token tab, saw all 20 real registered tools;
+  clicked a tool's enable switch off — confirmed via `curl` that the ACL row flipped to
+  `enabled:false` *and* a direct call now 403s; toggled it back on and confirmed 200 again;
+  loaded real facts (`host4.example.internal`, Ubuntu 24.04, 8 vCPUs, 32GB) and the real startup
+  metric point; added an ACL rule through the form UI, saved it, confirmed via `curl` it
+  persisted in SQLite *and* correctly flipped the system to default-deny (the token identity's
+  own `stat` call now 403'd, since no rule covered "token"); removed the rule through the UI,
+  saved, confirmed reversion to allow-all; logged out and confirmed return to the login screen.
+
+### Module system (`ansible.builtin`-compatible, native Go)
+
+The core of the agent is a set of **built-in modules** that reimplement `ansible.builtin`
+modules — each one automatically becomes an MCP tool *and* a REST endpoint. Principles taken
+directly from Ansible:
+
+- **Same parameter names** as the Ansible module (`path`, `state`, `owner`, `mode`, `content`, …)
+- **Idempotency** — the module checks the current state first, changes only if needed, reports `changed: true|false`
+- **`check_mode`** (dry-run) — predicts the change without executing it. Mapping onto the write
+  gate: read/dry-run is always allowed; **actually applying only when `write: true`**
+- **No Ansible installation required** — a pure Go implementation (differentiation + zero dependency)
+
+Module set (representative; "covers everything"):
+
+- **Read/facts (always active):** `setup` (facts, as in Ansible), `stat`, `find`, `slurp` (read a
+  file), `service_facts`, `package_facts`, `getent`, `command`/`shell` (read, see pipelines)
+- **Write (only when `write:true`):** `file`, `copy`, `template`, `lineinfile`, `blockinfile`,
+  `replace`, `service`, `systemd`, `apt`/`package`, `user`, `group`, `cron`, `sysctl`, `mount`,
+  `get_url`, `hostname`, `timezone`
+- v1 implements the **module framework** + all read/facts modules + a first write set (`file`,
+  `copy`, `lineinfile`, `service`/`systemd`, `apt`, `command`); the rest follows module by module
+
+**Descriptions are written like a skill, not a one-liner.** The goal is that an AI can take a
+task from *any* configuration-management format — an Ansible playbook task, a Chef recipe
+resource, a Puppet manifest type, a Salt state, a Terraform resource/provisioner — and translate
+it into a call to one of these tools without external documentation. Every module's
+`Description()` therefore includes: what it does and when to use it, then a "Cross-tool
+equivalents" section naming the corresponding Ansible/Chef/Puppet/Salt/Terraform construct (or
+noting there is none). `InputSchema()` returns an explicit, hand-written JSON Schema (not
+inferred from a generic `map[string]any`) so parameter names, types, and per-parameter
+descriptions are precise. All descriptions are in English. This pattern is established for the
+v1 read modules and must carry through to the write modules (step 4) and the `tools.d` task
+definitions (step 5).
+
+### Tool definitions in `tools.d/` — as simple as an Ansible task
+
+Every file in `/etc/agentic-mcp/tools.d/*.yaml` is essentially an Ansible task: a module call with
+fixed/pre-supplied parameters. The user has nothing new to learn — **it *is* Ansible syntax**:
+
+```yaml
+# tools.d/restart_nginx.yaml — looks like an Ansible task
+name: restart_nginx
+description: "restart nginx"
+ansible.builtin.service:          # module reference, as in a playbook
+  name: nginx
+  state: restarted
+# mode is derived from the module + state (restarted ⇒ write); only active when write:true
+```
+
+```yaml
+# tools.d/disk_list.yaml — a free-form command, still Ansible-module style
+name: disk_list
+description: "partition tables of all disks"
+ansible.builtin.command:
+  cmd: fdisk -l
+```
+
+```yaml
+# tools.d/deploy_motd.yaml — a parameter to be filled by the caller (Ansible vars-style {{ }})
+name: deploy_motd
+description: "set the message of the day"
+ansible.builtin.copy:
+  dest: /etc/motd
+  content: "{{ message }}"        # {{ }} = a validated parameter filled in by the caller
+params:
+  message: { type: string, required: true }
+```
+
+Free, generic module calls (without a tools.d file) are also possible: the AI can call a tool
+like `file` / `service` directly with the Ansible parameters. `tools.d/` exists to **curate/
+pre-configure** named, narrow actions (least privilege).
+
+### Pipelines (part of the shell — but controlled)
+
+Two ways, both **without `sh -c`**; the pipe is wired natively in Go (stdout→stdin):
+
+1. **Predefined** in YAML: a `pipeline:` list of argv stages instead of an `ansible.builtin.*:` key
+   (a tools.d file is exactly one or the other, never both)
+2. **Ad-hoc** via the `run_pipeline` tool/REST endpoint: stages as argv arrays
+   (`[["ps","aux"],["grep","nginx"],["wc","-l"]]`). Each stage is checked against
+   `/etc/agentic-mcp/commands.yaml` (binary whitelist + argument policy; forbidden flags like
+   `find -exec`, `-delete` are blocked). No redirects/substitution/globs via a shell.
+
+**Implemented (step 5):** `internal/pipeline` (policy + native `exec.Cmd` stdout→stdin chaining,
+timeout, output cap) and `internal/tasks` (the tools.d YAML parser: module tasks with
+`{{ param }}` placeholder substitution — whole-value substitutions preserve the argument's native
+type, partial/embedded substitutions are stringified — validated per-param via `type`/`required`/
+`pattern` before substitution, and pipeline tasks). A task's write-gate status is derived
+automatically: a module task inherits its underlying module's `Writes()`; a pipeline task is
+always treated as writing, since arbitrary chained commands can't be assumed read-only. `run_pipeline`
+itself is therefore also gated on `write:true`. Verified end-to-end against the real system:
+`disk_list` (task wrapping `ansible.builtin.command`) ran real `fdisk -l`; `deploy_motd` (task with
+`{{ message }}` substitution into `ansible.builtin.copy`) correctly surfaced a real permission
+error against `/etc/motd`; `run_pipeline` ran a live `ps aux | grep agentic-mcpd | wc -l` through
+three chained real processes and correctly rejected an unlisted binary (`rm`).
+
+### eBPF collector (Coroot-style)
+
+- `github.com/cilium/ebpf`, CO-RE (one binary, kernel ≥ ~5.8 with BTF)
+- **TCP connection tracking** (kprobes on tcp_connect/tcp_accept) → who talks to whom, latency,
+  failed attempts
+- **Exec events** (tracepoint sched_process_exec) → what gets started
+- Ring buffer → periodic flush into `internal/store` (SQLite), configurable retention
+- Exposed as: `net_connections`, `top_talkers`, `exec_events(since)`, `metrics://…`
+- **Graceful degradation:** no BTF / kernel too old → eBPF disabled, everything else keeps
+  running (log warning)
+- Inspiration: coroot-node-agent (Apache-2.0, Go) — the pattern is adopted, not the agent itself
+
+**Implemented (step 10) — design refinement:** the actual implementation uses **tracepoints
+instead of kprobes**, specifically `sock:inet_sock_set_state` (covers both connect() and
+accept() completions as transitions to `ESTABLISHED`, plus every other state change) and
+`sched:sched_process_exec`, both hardcoded from their real, verified `format` layout (via
+`bpftool btf dump file /sys/kernel/btf/vmlinux format c`) rather than via CO-RE/vmlinux.h. This
+is a deliberate simplification over the original kprobe+CO-RE plan: both tracepoints are part of
+the kernel's **stable tracepoint ABI** (the `/sys/kernel/tracing/events/.../format` contract
+does not change across kernel versions the way raw kernel struct layouts do), so no BTF
+relocation is needed at all for reading their arguments — only `BPF_MAP_TYPE_RINGBUF` still sets
+the practical minimum kernel version (~5.8). `internal/ebpf/bpf/collector.c` (+
+`tracepoints.h`) is compiled via `bpf2go` (`go generate`, needs clang/libbpf-dev only when
+regenerating); the resulting `.go`+`.o` are committed and embedded (`go:embed`), so a plain
+`go build` needs no BPF toolchain. `internal/ebpf.Collector` loads/attaches both programs,
+reads the shared ring buffer, and keeps bounded in-memory event lists (`RecentConns`,
+`RecentExecs`, `TopTalkers` — aggregated by comm+destination over `ESTABLISHED` transitions).
+IPv4 only in v1 (IPv6 still not implemented). Graceful degradation is real: `startEBPFCollector`
+in `main.go` logs a warning and returns `nil` on any failure (missing CAP_BPF, old kernel, ...),
+and every registration point (`RegisterEBPF`, `RegisterEBPFRoutes`) is a no-op for a nil collector
+— verified locally in this sandbox (no root) where the daemon started fine with the log warning
+and the eBPF tools were simply absent.
+
+**Extended in v3** with two more stable tracepoints (`block:block_rq_issue`/`block:block_rq_complete`
+for disk I/O latency) and `/proc`-based container-awareness enrichment on every event type — see
+the "v3" section below for full detail and real-verification evidence.
+
+Verified for real on the remote test host (`host1.example.internal`, kernel 6.12.94,
+Debian 13, real root via `sudo`): the eBPF programs loaded and attached successfully
+("`eBPF collector attached`"), and `net_connections`/`top_talkers`/`exec_events` captured
+**genuine kernel activity** — the daemon's own listening-socket transition, a real `curl` to
+`example.com`'s actual IP over TLS, the complete real TCP lifecycle of ad hoc `curl` calls
+against the daemon's own API (`CLOSE→SYN_SENT→ESTABLISHED→FIN_WAIT1`/`CLOSE_WAIT`), real
+background SSH/Kerberos/LDAP traffic from the very SSH session used to run these tests, and the
+entire real process chain of an SSH login's MOTD scripts (`sss_ssh_authorizedkeys` →
+`selinux_child` → `run-parts` → `10-uname` → `bash` → `curl`). This surfaced and fixed a real
+bug: `net.IP` marshals to JSON as a string (via `MarshalText`), but its underlying Go type
+(`[]byte`) makes JSON-Schema inference describe it as an array — a genuine schema/runtime
+mismatch that the MCP Inspector's strict client-side validator caught (`CallTool` failed with a
+type-mismatch error) when calling `top_talkers`/`net_connections` over the real MCP protocol.
+Fixed by using plain dotted-decimal strings for all address fields instead of `net.IP`,
+redeployed to the remote host, and re-verified the exact same MCP calls succeed.
+
+### User management via PAM
+
+- Authentication against the system PAM stack via `github.com/msteinert/pam` (cgo). A dedicated
+  PAM service `/etc/pam.d/agentic-mcp` (defaults to delegating to `common-auth`). A user logs
+  into the **web frontend / API** with their system username + password → PAM verifies it.
+- Identity = system user + groups (`getgrouplist`). The daemon then issues a session token/cookie.
+- **cgo note:** PAM forces cgo ⇒ the binary dynamically links against `libpam`/`libc` (present on
+  every Linux system — in practice still effectively dependency-free). A `-tags nopam` build tag
+  allows a fully static variant without PAM (token auth only) for special cases.
+
+### ACL — enabling/disabling tools + authorization
+
+Two layers, both manageable via **API and web frontend**, persisted in SQLite:
+
+1. **Tool enable state** (global): every tool from `tools.d/` can be switched on/off. A disabled
+   tool is not served (not registered, or 403) — a kill switch per capability.
+2. **Per-user/group ACL:** rules mapping PAM identity → allowed tools + read/write permission
+   (e.g. group `wheel` → all tools including write; `ops` → read-only tools). The bearer token
+   (AI/machine) is its own service identity with its own ACL row.
+
+- **Enforcement** happens centrally in the server before every dispatch: (a) is the tool active?
+  (b) is the caller authorized per ACL? (c) write gate. Every decision goes into the audit log.
+
+  **Implemented (step 8):** `internal/authz` — `PAMAuthenticator` (real `github.com/msteinert/pam/v2`
+  cgo calls: `Authenticate` + `AcctMgmt`, then resolves group membership) returning an `Identity`;
+  `SessionStore` (in-memory, TTL-based, opaque random tokens); `ACL` (SQLite-backed: `tool_state`
+  table for the enable/disable kill switch, `acl_rules` table for principal→tools→write-permission
+  rules) with `Authorize(identity, tool, writes) Decision`. **ACL semantics**: with zero rules
+  configured, every enabled tool is allowed (opt-in layer, doesn't break installs that haven't
+  set up ACL yet); once at least one rule exists, access becomes default-deny — identity must
+  match a rule covering that tool, and a further rule must grant `allow_write` for write calls.
+  A disabled tool is denied unconditionally regardless of rules.
+
+  Wired into **both** protocols against the *same* ACL store: REST (`internal/server/rest.go`)
+  resolves identity from a bearer token or a `Session <token>`/cookie (from
+  `POST /api/v1/auth/login`, which verifies the password and creates a session), and enforces ACL in
+  `handleToolCall`; MCP (`modules.go`/`tasks.go`) enforces the same `Authorize` call for every
+  tool dispatch using the fixed `authz.TokenIdentity` (v1 has one shared bearer token — true
+  per-connection MCP identity is listed under the v3 roadmap's "RBAC pro Token"). ACL admin REST
+  endpoints: `GET/PATCH /api/v1/acl/tools/{name}`, `GET/PUT /api/v1/acl/rules` (both require
+  `write:true`, since changing the security posture is itself a mutating operation).
+
+  Verified with unit tests (real, non-mocked PAM calls via `pam_permit.so`/`pam_deny.so` through
+  a throwaway `StartConfDir` service — success, denial, group-lookup-failure propagation; session
+  create/resolve/expire/revoke; ACL rule matching for user/group/token principals, tool disable,
+  write-permission scoping, rule-scoped tool lists) and end-to-end against the live daemon: PATCH
+  disabling `stat` → 403, re-enabling → 200 again, the real SQLite ACL file inspected directly
+  showing the persisted row, and — the key cross-protocol proof — an ACL rule added via
+  `PUT /api/v1/acl/rules` (REST) correctly scoping the token identity on the **MCP** endpoint too
+  (`stat` allowed, `copy` denied with the exact `Decision.Reason` string), confirming both access
+  modes enforce identical rules from one shared store.
+
+### Security model
+
+- **No shell interpreter.** `exec.Command` + argv; parameters validated only via regex/enum;
+  pipelines only from whitelisted stages; no redirects/substitution — **with one deliberate,
+  explicitly confirmed exception: the `shell` module** (`internal/modules/shell.go`, part of
+  Batch 6's `ansible.builtin` coverage). Real Ansible's `shell` exists specifically to run shell
+  syntax (pipes, redirects, globbing, `$()`) that an argv array cannot express; implementing it
+  faithfully means `/bin/sh -c <string>` and therefore genuinely does reintroduce shell-injection
+  surface for that one tool. This trade-off was raised explicitly and confirmed by the project
+  owner rather than made unilaterally — the module's own description carries the same warning
+  for any AI client reading tool docs before calling it: don't pass untrusted content into `cmd`,
+  and prefer `command`/`raw` (argv-only, no shell) whenever shell syntax isn't actually needed.
+- **Write gate:** `config.write=false` ⇒ mutating tools are not registered at all (not merely
+  hidden). Layered above it: the ACL (per tool, per user/group/token)
+- Minimal child environment, timeout + output cap per tool/pipeline
+- Bearer token in `/etc/agentic-mcp/config.yaml` (mode 0600, `postinst` generates a random
+  token), constant-time comparison; TLS/mTLS as an option
+- eBPF needs elevated privileges ⇒ the daemon runs as root, tightly sandboxed via systemd:
+  `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`,
+  `CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_NET_ADMIN CAP_SYS_PTRACE CAP_DAC_READ_SEARCH`,
+  `ReadWritePaths=/var/lib/agentic-mcp /var/log/agentic-mcp`
+- **Audit:** every tool/write invocation as a JSON line (who/what/args/exit/duration) → journald
+
+## Repository layout (`/home/mutkluge/Dev/code/Agentic-mcp/`)
+
+```
+cmd/agentic-mcpd/main.go        # flags: --config, --stdio, --listen
+internal/proc/                  # /proc parser + tests (fixtures)
+internal/modules/               # ansible.builtin modules (Go): module interface (check_mode,
+                                 # changed), file.go, copy.go, service.go, apt.go, setup.go … + tests
+internal/tools/                 # config.go, registry.go (module↔tool), taskyaml.go (Ansible task
+                                 # parser for tools.d), pipeline.go, gate.go + tests
+internal/ebpf/                  # collector.go, bpf/*.c (CO-RE), bpf2go-generated code, tests
+internal/store/                 # store.go (interface), sqlite.go, retention.go + tests
+internal/authz/                 # pam.go (login), session.go, acl.go (enforcement) + tests
+internal/webui/                 # embed.go + assets/ (HTML/CSS/JS, self-contained)
+internal/server/                # mcp.go, rest.go, acl_api.go, auth.go, health.go
+internal/audit/                 # audit.go
+configs/config.yaml              # listen, token, tls, write:false, ebpf:on, db:{driver,path},
+                                 # pam:{service:agentic-mcp}, ui:{enabled:true}
+packaging/pam.d-agentic-mcp      # /etc/pam.d/agentic-mcp (delegates to common-auth)
+configs/commands.yaml            # binary whitelist + argument policies for run_pipeline
+configs/tools.d/                 # Ansible-task style: restart_nginx, disk_list, deploy_motd …
+packaging/nfpm.yaml               # .deb (later .rpm)
+packaging/agentic-mcp.service     # hardened systemd unit
+packaging/postinst / postrm       # create user/dirs, generate token, enable service
+Makefile                          # build, generate(bpf2go), test, deb, run
+README.md
+```
+
+## Work steps (each block individually testable → commit after each)
+
+1. **Scaffold** — Go module, main.go, config loader (incl. `write`, `db`, `ebpf`), an empty MCP
+   server over stdio. Test: `go build`, MCP handshake (Go client / Inspector)
+2. **/proc resources** — parser + unit tests (real /proc fixtures), MCP resources + `proc_read`
+   with a path guard (symlink/`..` tests)
+3. **Module framework + read/facts modules** — module interface (`Check`/`Apply`, `changed`,
+   `check_mode`), registry module↔tool↔REST. Read modules: `setup` (facts), `stat`, `find`,
+   `slurp`, `service_facts`, `package_facts`, `getent`. Tests against real system state/fixtures.
+   Reference: Ansible module docs for parameter names and return fields
+4. **Write modules + write gate** — first write set (`file`, `copy`, `lineinfile`, `service`,
+   `systemd`, `apt`, `command`), each idempotent + `check_mode`. `gate.go`: apply only when
+   `config.write:true`, otherwise dry-run/`get` only. Tests: idempotency (2nd run =
+   `changed:false`), check_mode changes nothing, write:false blocks apply
+5. **tools.d/ (Ansible task parser) + pipelines** — `taskyaml.go` reads the Ansible task style
+   (`ansible.builtin.<module>:` + params with `{{ }}`), produces named tools; native pipe
+   chaining + `run_pipeline` + commands.yaml policy. Tests incl. injection (`; rm -rf`, `$(...)`),
+   forbidden flags, "write tool not registered when write:false"
+6. **Store (SQLite)** — DB interface + SQLite impl + retention/downsampling job (raw data →
+   hourly/daily averages, bounded size). Tests: write/read, expiry, compaction
+7. **HTTP: MCP + REST + auth** — Streamable HTTP MCP, REST router (`/api/v1/…`), bearer
+   middleware (constant-time), `/healthz`. Test: curl with/without token, MCP client, REST call
+8. **PAM + ACL + enforcement** — `authz`: PAM login (`msteinert/pam`), sessions, ACL store in
+   SQLite (tool enable state + user/group/token rules), enforcement before every dispatch;
+   ACL REST (`/api/v1/acl/…`). Tests: PAM login (test user), disabled tool → 403, group without
+   write permission is blocked, token identity is honored
+9. **Web frontend** — embedded admin UI (`go:embed`, self-contained): PAM login, tool
+   enable/disable switches, ACL editor, metrics/facts, audit log. Test: browser login
+   (Playwright), toggling a tool takes effect on the API immediately
+10. **eBPF collector** — TCP conns + exec events (CO-RE, bpf2go), ring buffer→store, tools
+    `net_connections`/`top_talkers`/`exec_events`, graceful degradation. Test (root): generate
+    connections/processes → query via MCP/REST; degrade cleanly on a kernel without BTF
+11. **Audit + systemd hardening** — audit logger, hardened unit. Test: a call → journald entry
+12. **.deb** — nfpm.yaml, postinst (user, token, PAM file, enable). Test: install in a Debian
+    Docker container, `systemctl status`, end-to-end query from outside (MCP *and* REST *and* UI)
+13. **README** — install, extending the toolset, write gate, ACL/PAM, security model, eBPF prerequisites
+
+## Build/verification prerequisites (packages)
+
+So that **every** work step can be built *and* verified (rule: finish a module → verify →
+proceed). Already present on this system: gcc/make, **bpftool**, **BTF in the kernel**
+(`/sys/kernel/btf/vmlinux` ⇒ CO-RE works), kernel headers (6.17), Docker, Node/npx, curl/jq/git,
+**claude CLI** (user context `~/.local/bin/claude`, logged in → serves as a real MCP client).
+
+**Installed for this project:**
+
+| Package | What for | From step |
+|---|---|---|
+| **Go** 1.26.4 (from go.dev) | the whole build/test flow (`go build`, `go test`) | 1 |
+| `libpam0g-dev` | PAM login (cgo against libpam) | 8 |
+| `clang` `llvm` `libbpf-dev` `libelf-dev` `zlib1g-dev` | compiling eBPF programs via bpf2go (CO-RE) | 10 |
+| **nfpm** (`go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest`) | building the `.deb` | 12 |
+
+Already usable for verification, **no extra package needed**: `go test` (unit/injection/gate),
+`claude` as an MCP client, `curl`+`jq` for REST, `docker` for the clean-install test, Node/npx for
+`@modelcontextprotocol/inspector` and Playwright (UI step), `bpftool` for eBPF debugging.
+
+**Remote test host:** `host1.example.internal`, user `marvin`, key `~/.ssh/marvin.key`.
+Available for later steps needing a real target beyond this dev machine — primarily the `.deb`
+clean-install test (step 12) and systemd-hardening verification (step 11), where a disposable
+real host is more representative than a local Docker container.
+
+SQLite note: `modernc.org/sqlite` (pure Go, no cgo) — no system package needed.
+
+## Verification (end to end)
+
+- **Per step** (the working rule): `go test ./<package>/...` green + a functional smoke test of
+  the block, only then commit and move on. At the end, `go test ./...` green overall.
+- Start the daemon locally (with sudo for eBPF), then test it with the **installed claude CLI**
+  as a real MCP client:
+  `claude mcp add --transport http agentic-test http://localhost:8010/mcp --header "Authorization: Bearer <token>"`
+  → read `proc://meminfo`, call `setup` (facts)/`stat`/`find`, check `net_connections`, call the
+  `file`/`copy` module in `check_mode` (preview) and for real (idempotency: 2nd run
+  `changed:false`), reject injection args, confirm write modules are **not registered** when
+  `write:false` and present when `write:true`
+- REST in parallel: `curl -H "Authorization: Bearer …" localhost:8010/api/v1/proc/meminfo`
+- ACL/UI: `curl … PATCH /api/v1/acl/tools/disk_list {enabled:false}` → tool returns 403; PAM
+  login in the frontend via Playwright, toggling a tool takes effect immediately
+- Install the `.deb` in a fresh Debian Docker container → the service runs, a token is
+  generated, and a query from outside succeeds
+
+## Nagios/CheckMK-compatible custom checks (implemented after step 8)
+
+A third tools.d task kind, `check:`, alongside the existing module (`ansible.builtin.*:`) and
+`pipeline:` kinds — mutually exclusive with both. Runs a script/binary following the standard
+Nagios Plugin API (also used by CheckMK's local/MRPE checks): exit code 0/1/2/3 =
+OK/WARNING/CRITICAL/UNKNOWN, stdout's first line as `<message>[ | <perfdata>]`, further lines as
+long-output. `internal/checks` parses this into `{status, message, long_output, perfdata[],
+exit_code}`. Only a `description` is required per check (same cross-tool-equivalents philosophy
+as step 3) — the check binary itself can be an existing Nagios/CheckMK plugin (`check_disk`,
+`check_http`, …) or a custom script following the same convention, giving instant compatibility
+with the existing plugin ecosystem with zero adapter code.
+
+A check task is always read-only (`Writes()` is always `false`) and therefore always registered
+regardless of the write gate — a monitoring check inspects and reports, it never mutates state.
+`{{ param }}` placeholder substitution works exactly as for module/pipeline tasks (e.g. a
+`{{ warn_threshold }}` argument).
+
+Verified with unit tests (Nagios-format parsing incl. perfdata with full
+label/warn/crit/min/max, multi-line long-output, empty output, real subprocess exit codes via
+`/bin/sh`; task-level: parsing, always-read-only, placeholder substitution, missing-required-param
+rejection) and end-to-end: `configs/tools.d/check_root_disk.yaml` — a real, self-contained
+Nagios-style plugin (checks `df -P /` against 80%/90% thresholds, no external plugin package
+needed) — registered and callable via both MCP and REST even with `write:false`, returning the
+real root filesystem usage (verified against `df` directly) with correctly parsed status,
+message, and perfdata.
+
+## Step 11 — audit logging + systemd hardening (implemented)
+
+`internal/audit`: a `Logger` writing one JSON line per tool/module/task/pipeline dispatch to
+stderr — under systemd this lands in the journal automatically, and being valid JSON it's
+directly consumable via `journalctl -u agentic-mcp -o cat | jq` with no native journal-protocol
+dependency. Each entry: `time`, `identity` (`kind:name`, e.g. `token:service-token` or
+`user:alice`), `tool`, `write`, `changed`, `params` (values under a key containing "password"/
+"secret"/"token" are redacted), `duration_ms`, `error` (omitted on success). Wired into every
+dispatch point on both protocols — MCP (`registerModuleTool`, `registerTaskTool`,
+`run_pipeline`) and REST (`handleToolCall`) — via a nil-safe `*audit.Logger` (a nil logger is a
+no-op, so call sites never branch on whether auditing is configured).
+
+**systemd hardening — a deliberate design correction from the original plan.** The original
+plan text (see "Security model" above) called for `ProtectSystem=strict` with narrow
+`ReadWritePaths` and a capability allow-list. Implementing `packaging/agentic-mcp.service`
+surfaced that this would silently break the product's core feature the moment `write:true` is
+set: a filesystem sandbox can't distinguish "the AI editing `/etc/nginx.conf` on purpose" from
+an attacker doing the same, and a narrowed `CapabilityBoundingSet` would block apt/dpkg
+maintainer scripts, user/group management, and file ownership changes. Confirmed with the user:
+**no filesystem/capability sandbox** — access control is enforced at the application layer (ACL
++ write gate + audit log) instead, since the daemon's job is genuinely open-ended system
+management. The unit file keeps every hardening directive that narrows privilege
+*escalation* and kernel attack surface *without* conflicting with any implemented module
+(`NoNewPrivileges`, `PrivateTmp`, `ProtectKernelModules`, `ProtectControlGroups`, `ProtectClock`,
+`ProtectHostname`, `RestrictRealtime`, `RestrictNamespaces`, `LockPersonality`,
+`MemoryDenyWriteExecute`, `RemoveIPC`) — each verified against actual implemented behavior (e.g.
+`ProtectKernelLogs` was deliberately left off because the `recent_log_errors` example pipeline
+uses `dmesg`, which it would have blocked).
+
+Verified: `systemd-analyze verify` reports no errors/warnings on the unit file; the daemon was
+run as a real transient systemd unit (`systemd-run --user`, journal-backed stdout/stderr — no
+full package install needed for this check, which is step 12's job) and three real API calls
+(a read, a write, and one that errors on a missing parameter) each produced a correctly
+structured, `jq`-parseable audit line in `journalctl`, including `changed:true` on the
+successful write and the exact validation error message on the failing call.
+
+## Three operating modes: standalone / satellite / proxy ("Selecta")
+
+A node agent can run in one of three modes (`mode:` in config.yaml), reflecting how its
+performance data relates to a central Fleet Commander — the CheckMK site/proxy/agent hierarchy
+adapted to this project's MCP/REST-native design:
+
+1. **Standalone** (default, current v1 behavior) — all performance metrics are stored and
+   served locally only. No relationship to any other agent or a Commander.
+2. **Satellite** — the same agent, but a central Fleet Commander is expected to pull this
+   agent's data on an interval and store it server-side (CheckMK's pull-agent logic). No new
+   agent-side behavior is strictly required for this — the existing `GET /api/v1/metrics`
+   bulk-dump endpoint (see below) is exactly the efficient pull path a Commander needs; `mode:
+   satellite` in config.yaml is documentation of intent rather than a behavioral switch in v1.
+3. **Proxy** (nicknamed **Selecta**, per the user) — an agent that itself pulls from a list of
+   configured satellites (over TLS directly to each satellite's own REST port, see below) and
+   stores their data alongside its own, so a Commander that can't reach every satellite directly
+   (firewalled segments, distributed networks) can instead pull one aggregate feed from the proxy.
+   From the Commander's point of view, pulling from a proxy looks identical to pulling from a
+   single agent — just with more data, tagged by origin. The `mode: proxy` config value itself is
+   unchanged; "Selecta" is branding for docs/README, not a technical rename.
+
+**Bulk metrics endpoint (implemented, needed by all three modes):** `metrics_dump` (MCP tool)
+and `GET /api/v1/metrics` (REST, note: no `{metric}` path segment — that continues to mean
+"query one named metric") return *every* metric this agent has recorded in one call, keyed by
+metric name. This is what makes efficient polling possible without a Commander needing to know
+every metric name in advance — the single building block satellite-mode pulling and proxy-mode
+aggregation both rely on. `internal/store.Store` gained `ListMetricNames` to support it.
+
+**Proxy mode auth (implemented, revised twice after user feedback): TLS client certificates,
+authorizing the *caller* — not a server-identity pin.** This went through two iterations before
+landing on the confirmed design:
+1. First pass: an SSH tunnel (rejected — the user meant the SSH *trust model*, not the protocol).
+2. Second pass: the proxy pins the satellite's server public key (TLS, no CA, `VerifyPeerCertificate`)
+   — built and verified, but the user then clarified the trust direction should be the other way
+   round: **the caller (a Fleet Commander, or a proxy acting on its behalf) holds a private key;
+   every node agent it wants to reach holds that caller's public key and uses it to authorize
+   access to REST/MCP.** This is now the implemented design.
+
+Confirmed scope (via follow-up questions): only the client-authentication direction is checked —
+satellites do **not** pin the caller's server key in return (accepted trade-off: a compromised
+network path could still impersonate a satellite to a proxy, since `InsecureSkipVerify` disables
+the proxy's server-identity check entirely — mitigated by the fact that the interesting data flow,
+metrics being read, requires no write access and the response is HTTP GET-only). Client-cert
+authorization is checked **in addition to**, not instead of, the existing bearer token. And it is
+implemented as a **general REST/MCP authorization mechanism**, not proxy-specific: any node agent
+can configure `tls.trusted_client_keys`, and any caller presenting a matching client certificate
+(a Fleet Commander connecting directly in satellite mode, or a proxy pulling from a satellite)
+gets past the gate — the SSH `authorized_keys` model, over TLS.
+
+Implementation:
+- **Server side (`config.TLS.TrustedClientKeys`, any agent):** each entry is `{name,
+  public_key_path}` — a PEM-encoded PKIX public key extracted from an authorized caller's client
+  certificate (e.g. via `openssl x509 -pubkey -noout`), distributed out of band. When non-empty,
+  `Config.Validate` requires `tls.enabled`. `cmd/agentic-mcpd/http.go`'s `serveHTTP` sets
+  `tls.Config.ClientAuth: tls.RequestClientCert` (requested, not required, at the transport level
+  — so PAM-login browser access to `/ui/` keeps working without a client cert) and wraps only
+  `/mcp` and `/api/v1/` with `requireTrustedClientCert`, an application-layer gate that 401s
+  unless `r.TLS.PeerCertificates[0]`'s public key matches one of the loaded trusted keys
+  (`internal/tlsauth.MatchesAny`, comparing DER-encoded SubjectPublicKeyInfo). `/healthz` and
+  `/ui/` are unaffected either way.
+- **Client side (`config.Proxy.ClientCertFile`/`ClientKeyFile`, proxy mode):** the proxy's own
+  TLS client identity, loaded once at startup (`fleet.LoadClientCert`) and presented via
+  `tls.Config.Certificates` on every request `fleet.Puller.PullOnce` makes. `config.Satellite`
+  dropped the earlier `public_key_path` field entirely (no more server-key pinning); a satellite
+  entry is now just `{name, address, token, poll_interval}`. `Config.Validate` requires
+  `proxy.client_cert_file`/`client_key_file` whenever `mode: proxy`.
+- **New package `internal/tlsauth`:** `LoadTrustedKey(name, path)` and `MatchesAny(cert, keys)` —
+  shared, independently unit-tested logic for the authorized-keys-style comparison, used by
+  `cmd/agentic-mcpd/http.go`'s gate.
+
+Confirmed design points (unchanged from the original discussion):
+- **Pull, not push** — the proxy initiates; satellites need no knowledge of the proxy beyond its
+  pinned public key.
+- **Full history relayed** — every point the proxy pulls from a satellite is written into the
+  proxy's *own* `internal/store`, labeled with the satellite's identity (`{"satellite": "<name>"}`
+  merged into each point's existing labels), so the proxy's retention/downsampling job (already
+  built in step 6) applies to satellite data too, and a Commander pulling from the proxy sees the
+  same time resolution it would from a direct connection.
+
+**Verification (real, end to end, on `host1.example.internal`):** two independent
+`agentic-mcpd` processes were run as genuinely separate satellite and proxy instances.
+- Satellite: `mode: standalone`, `tls.enabled: true` with its own self-signed server cert
+  (unrelated to the client-auth mechanism) plus `tls.trusted_client_keys` pinning the proxy's
+  client public key (copied out to simulate out-of-band distribution).
+- Proxy: `mode: proxy`, `proxy.client_cert_file`/`client_key_file` pointing at its own freshly
+  generated ECDSA client certificate, one satellite entry at `127.0.0.1:8030`, `poll_interval: 5s`.
+- **Direct HTTP verification before even starting the proxy daemon**, via `curl`: `/healthz`
+  returns 200 with no client cert; `/api/v1/metrics` returns 401 with no client cert; `--cert
+  --key` with the satellite's pinned proxy cert + correct bearer token returns 200; the same call
+  with an unrelated, untrusted client cert returns 401 (`client certificate not trusted`) — proving
+  the gate is enforced exactly where intended (`/api/v1/` protected, `/healthz` open) before any
+  proxy-specific code even ran.
+- **Full proxy loop:** confirmed via the proxy's own log and `GET /api/v1/metrics` on the proxy —
+  the satellite's `agentic_mcpd_start` points arrived labeled `{"satellite": "sat-e2e"}` at the
+  expected 5-second cadence (`satellite poll completed satellite=sat-e2e points=1`).
+- **Negative case, also verified live (not just unit-tested):** a second, independent proxy
+  process was started with an unrelated client certificate not in the satellite's trusted list.
+  Its poll failed against the real satellite with `unexpected status 401: client certificate not
+  trusted`, proving the rejection holds under genuine network traffic end to end, not just the
+  in-process test harness or a bare `curl` call.
+- Unit tests: `internal/tlsauth/tlsauth_test.go` covers key loading and matching in isolation;
+  `internal/fleet/puller_test.go` covers the puller presenting its client cert against a real
+  in-process TLS server configured with `ClientAuth: RequireAnyClientCert` (success, untrusted-cert
+  rejection via a genuine TLS handshake failure, and missing-token rejection).
+
+## Enrollment (`agentic-mcpd register`, implemented)
+
+The three operating modes above rely on `tls.trusted_client_keys` being populated with a caller's
+pinned public key — previously only achievable by manually copying a key file to every agent.
+`agentic-mcpd register` is this agent's client-side half of a one-time bootstrap handshake that
+automates it. It is deliberately generic: the same command works against **either** enrollment
+authority in this project —
+
+- a future central Fleet Commander ("Bossman," see the Roadmap), or
+- a **Selecta** — a `mode: proxy` agent that itself accepts dynamically enrolled satellites (see
+  "Selecta: dynamic satellite enrollment" below) —
+
+since both speak the identical wire protocol defined here. A Duppy (standalone node agent) simply
+points `register` at whichever one it's joining.
+
+**Protocol:** `POST <enroll-url>/api/v1/enroll` with a JSON body `{name, enroll_secret, token,
+address}` — `name` identifies this agent (defaults to its hostname), `enroll_secret` is a shared
+bootstrap secret proving this agent is authorized to join (the only authentication possible before
+any trust exists — no pinned key, no client cert yet), `token` is this agent's own existing
+REST/MCP bearer token (so the enrolling authority knows how to call it back), `address` is
+optionally this agent's own reachable `host:port`. A successful response is `{bossman_public_key,
+agent_id}` — `bossman_public_key` (field name kept for wire compatibility regardless of which
+authority answers) is the enroller's PEM-encoded PKIX public key, written to disk and referenced
+from `tls.trusted_client_keys` so the enroller can subsequently authenticate itself over TLS client
+certificates (see `internal/tlsauth`) exactly like a proxy talking to a satellite.
+
+**Deliberately does not auto-edit config.yaml.** `register` writes the fetched public key to a
+file (`--trusted-key-path`, default `/etc/agentic-mcp/trusted/enroller.pub.pem`) and prints the
+`tls.trusted_client_keys` YAML snippet for the operator to add (pinned under `--key-name`, default
+`enroller`) — round-tripping arbitrary hand-edited YAML while preserving comments/structure was
+judged too risky for a first implementation; safer to have the operator (or a provisioning tool)
+confirm the change explicitly.
+
+**`--generate-token` is a separate, standalone flag**, not part of `register`: `agentic-mcpd
+--generate-token` prints a fresh 32-byte (64 hex char) cryptographically random token via
+`crypto/rand` and exits — for bootstrapping a new agent's own `config.yaml` token (or rotating an
+existing one) independently of any enrollment interaction. `register` reads this token back out of
+the already-loaded config rather than generating one inline, keeping the two concerns cleanly
+separate as confirmed with the user.
+
+**Implementation:** new `internal/enroll` package (`Register(ctx, enrollURL, Request) (Result,
+error)`) does the HTTP POST/JSON exchange using the standard library's default TLS verification
+(a normal CA-signed or pre-trusted cert on the enrollment endpoint — there's no pinned key to
+verify against yet, since establishing one is the whole point of this call). `cmd/agentic-mcpd`
+dispatches `os.Args[1] == "register"` to `runRegister` (its own flag set: `--enroll-url`,
+`--enroll-secret`, `--name`, `--address`, `--config`, `--key-name`, `--trusted-key-path`) in
+`cmd/agentic-mcpd/register.go`; `newBearerToken()` in the same file backs `--generate-token`.
+
+**Verification:** `internal/enroll/enroll_test.go` covers success, wrong-secret rejection, an
+empty-public-key response, an unreachable server, and a 500 whose message propagates into the
+returned error — all against a real `httptest.Server`, not a mocked interface. End to end: a
+minimal mock enrollment server (a ~30-line Python `http.server` implementing exactly the
+`POST /api/v1/enroll` contract above) was run for real, and the actual `agentic-mcpd` binary was
+invoked against it — `register` with the correct secret wrote a real key file to disk and printed
+the correct config snippet; the same call with a wrong secret failed with the server's real 401
+response propagated into the CLI's error message. `--generate-token` was run twice, confirmed to
+produce distinct 64-character hex strings each time.
+
+## Selecta: dynamic satellite enrollment (implemented)
+
+`mode: proxy` (a Selecta) originally only polled the fixed list of satellites in its own
+`config.yaml`'s `proxy.satellites` — adding or removing one required an edit + restart. A Selecta
+now additionally accepts satellites enrolling themselves at runtime via the exact same
+`agentic-mcpd register` command and `internal/enroll` wire protocol Bossman enrollment uses (see
+above) — no second protocol was introduced, since the trust direction is identical: the entity
+that will poll (the Selecta) needs its public key pinned by the entity it polls (the satellite),
+which is exactly the enrollment handshake's shape.
+
+**Config additions** (`internal/config`): `proxy.enroll_secret` — shared bootstrap secret; when
+empty, `POST /api/v1/enroll` is not registered at all (enrollment stays off by default).
+`proxy.satellites_path` — SQLite file backing the dynamic satellite registry, defaulting to
+`/var/lib/agentic-mcp/satellites.db`. Validation no longer requires at least one static satellite
+under `mode: proxy` — a Selecta with zero satellites configured up front (everything arrives via
+enrollment) is now a valid, supported configuration; it still requires a client cert/key pair,
+since that's the identity it presents when polling any satellite, static or dynamic.
+
+**`internal/fleet.SatelliteRegistry`** (`registry.go`, new): a small SQLite-backed store — one
+`satellites` table (`name` PK, `address`, `token`, `poll_interval_ns`, `created_at`) — with
+`Add`/`Remove`/`List`. Poll interval is persisted as raw nanoseconds, not seconds: an early version
+stored `int64(interval.Seconds())`, which silently truncated any sub-second interval to `0` and
+fell back to the 1-minute default — caught by a real test using a 10ms interval, fixed by storing
+`int64(interval)` directly.
+
+**`internal/fleet.Manager`** (`manager.go`, new): reconciles the static `config.yaml` satellite
+list with the dynamic registry and takes immediate effect on mutation — `Enroll`/`Remove` start or
+cancel that satellite's polling goroutine right away, rather than waiting for a periodic
+reconciliation pass or a restart. `Start` loads both static and dynamic satellites once at daemon
+startup; re-enrolling a name that collides with a static entry cancels and restarts its poller
+under the new parameters (same cancel-and-restart path used for any re-enrollment).
+
+**Own public key without a second keypair:** a Selecta hands out its public key during enrollment
+by extracting it directly from `proxy.client_cert_file` — the identity it already uses when
+polling satellites — via the new `tlsauth.PublicKeyPEMFromCertFile(certFile string) ([]byte,
+error)`, rather than minting an enrollment-specific keypair nobody else needs.
+
+**REST surface** (`internal/server/enroll.go`, new), mounted only when `mode: proxy` and a
+satellite manager exists:
+- `POST /api/v1/enroll` — gated behind both `cfg.Write` and a non-empty `proxy.enroll_secret`;
+  absent entirely (404, not 403) otherwise, so an unconfigured Selecta reveals nothing about
+  whether enrollment could ever be turned on.
+- `GET /api/v1/proxy/satellites` — lists currently polled satellites (static + dynamic).
+- `DELETE /api/v1/proxy/satellites/{name}` — the requested "delete a satellite again" capability;
+  gated behind `cfg.Write` like every other mutating route in this project; stops that satellite's
+  poller immediately and removes it from the registry.
+
+**`cmd/agentic-mcpd/main.go`** wiring: `startProxyManager` (opens the registry, loads the client
+cert, starts the `Manager`) replaces the old one-ticker-per-satellite `startProxyPollLoop`;
+`loadProxyPublicKeyOrWarn` reads the Selecta's own public key for the enrollment endpoint to hand
+out, only when `proxy.enroll_secret` is actually set. Both degrade gracefully (log + continue
+without satellite polling / without the enrollment endpoint) rather than failing the whole daemon,
+consistent with every other optional subsystem here (eBPF, PAM).
+
+**Verification:** `internal/fleet/registry_test.go` (8 tests) and `manager_test.go` (8 tests,
+including a `fakePuller` test double and immediate start/stop-on-mutation coverage) unit-test the
+registry and manager in isolation; `internal/server/enroll_test.go` (8 tests) covers the REST
+layer including write-gate enforcement, wrong-secret rejection, and route absence outside proxy
+mode; `internal/tlsauth/tlsauth_test.go` gained 3 tests for `PublicKeyPEMFromCertFile`, including a
+round-trip through `LoadTrustedKey`/`MatchesAny` proving the extracted key is actually usable as a
+pin, not just textually similar. `agentic-mcpd register` now uses generic `--enroll-url` (was
+`--bossman-url`) and `--key-name` flags so the identical CLI command targets a Selecta or a future
+Bossman.
+
+**Real end-to-end verification** (two real `agentic-mcpd` binaries on
+`host1.example.internal`, not mocked): a Selecta (`mode: proxy`, `write: true`,
+`proxy.enroll_secret` set, `proxy.satellites: []` — zero satellites configured up front) and a
+Duppy (`mode: standalone`, TLS enabled, empty `trusted_client_keys`) were started as separate
+processes. `agentic-mcpd register --enroll-url http://<selecta>:8051 --enroll-secret ... --name
+duppy1 --address 127.0.0.1:8052 --key-name selecta` was run for real against the Selecta:
+- The call succeeded, printed `Registered "duppy1" ... (agent id: duppy1)`, and wrote the
+  Selecta's real public key to disk.
+- `GET /api/v1/proxy/satellites` on the Selecta immediately showed `duppy1` — proving `Enroll`
+  takes effect without a restart.
+- The Selecta's first poll tick (60s default, since enrolled satellites carry no
+  `poll_interval`) **succeeded even before Duppy trusted the Selecta's certificate**
+  (`satellite poll completed satellite=duppy1 points=1`) — confirming bearer-token auth alone is
+  sufficient when `trusted_client_keys` is empty, and mTLS pinning is an additive, not required,
+  layer (matches `internal/tlsauth`'s documented "empty list ⇒ no client-cert enforcement"
+  behavior).
+- The printed `tls.trusted_client_keys` snippet was then added to Duppy's config.yaml and Duppy
+  was restarted; the Selecta's next poll tick still succeeded
+  (`satellite poll completed satellite=duppy1 points=1`), confirming the Selecta's client
+  certificate (the same one it hands out during enrollment) is genuinely accepted under full mTLS
+  enforcement, not just coincidentally matching by bearer token.
+- `DELETE /api/v1/proxy/satellites/duppy1` returned `{"name":"duppy1","removed":true}`;
+  `GET /api/v1/proxy/satellites` immediately showed `{"satellites":null}`; and — checked over the
+  next full poll interval, not just the list view — the Selecta's log gained **zero** further
+  "satellite poll" lines for `duppy1`, confirming the poller goroutine was actually cancelled, not
+  merely hidden from the list.
+- Test processes and directories were removed from the test host afterward.
+
+## File upload (staging)
+
+A gap identified while designing the README/multi-orchestrator-compatibility work: none of the
+existing modules can get a *new* file (a config file, a `.deb` package, a binary artifact) onto
+the managed host in the first place. `copy` can write inline text content or copy a file that
+already exists on the host; `file`/`slurp` manage/read existing paths. There was no ingestion path
+for content that doesn't yet exist on the target machine.
+
+**Sizing constraint that shapes the design:** the largest realistic artifact is a kernel package —
+up to 274 MiB. That rules out base64 for the bulk path entirely: base64 costs ~33% more data
+(274 MiB → ~365 MiB) and CPU to en-/decode, for no benefit — an HTTP request body is already
+binary-safe; base64 only earns its keep when the transport *forces* text (like a JSON/MCP tool-call
+argument).
+
+**Why that distinction matters specifically for an LLM-driven MCP client:** when a plain REST/script
+client calls an API, bytes flow straight from disk to socket. But when an LLM-driven MCP client
+(Claude Code/Desktop) calls a tool, the model itself has to *generate* the tool-call arguments as
+part of its own output, token by token. A base64 string for a 1 MB file is roughly 300–400k output
+tokens — far beyond what a single response turn typically allows (commonly 4k–64k). A plain REST
+caller (a script, or the future Fleet Commander) doesn't hit this limit, because those bytes never
+pass through the model's generation loop.
+
+**Design, accordingly two paths:**
+1. **MCP tool `upload_file`** (small, base64, capped around 64 KB) — for content an AI would
+   plausibly compose/edit itself (a config snippet, a small script). Parameters: a destination
+   filename (name only, no path) and `content_base64`. Always writes into a fixed staging directory
+   (`uploads_dir`, e.g. `/var/lib/agentic-mcp/uploads/`) — never an arbitrary destination path;
+   ownership/mode/final placement stays the `copy` module's job (reusing its existing `check_mode`,
+   write-gate, ACL, and audit wiring rather than duplicating it).
+2. **REST endpoint `PUT /api/v1/upload?name=<filename>`** — no multipart, no base64: the entire
+   request body *is* the raw file (`Content-Type: application/octet-stream`), e.g.
+   `curl -T kernel-package.deb "https://host/api/v1/upload?name=kernel-package.deb"`. The server
+   streams the body directly (`io.Copy` against an `io.LimitReader` bounded by `max_upload_size`) —
+   the full 274 MiB is never buffered in memory. It's written to a temp file in the same staging
+   directory first, then atomically renamed (`os.Rename`) into place once the copy completes fully,
+   so an interrupted transfer never leaves a half-written file behind. Meant for a script or the
+   future Fleet Commander ("Bossman") to call directly, not for an AI to generate.
+3. Both paths go through the same **write gate** (`config.write: true` required, otherwise not
+   registered/403) and **ACL** as every other write tool, and are recorded in the **audit log** —
+   no bypass of the existing security architecture.
+4. After upload, the caller uses the existing `copy` module with `src:
+   /var/lib/agentic-mcp/uploads/<name>` and `dest: <target path>` to place the file at its final
+   destination with the right owner/group/mode — upload handles transport only, `copy` handles
+   placement (with its own `check_mode` preview and idempotency).
+
+**Implemented.** New `internal/upload` package (`ValidateFilename`, `WriteStaged`) holds the shared
+staging logic used by both paths — filename validation rejects empty names, path separators, and
+`.`/`..`; `WriteStaged` streams into a temp file via `io.CopyN` against `maxSize+1` (so exceeding
+the limit is detected without ever buffering the full oversized body) and only `os.Rename`s into
+place once the copy fully succeeds, cleaning up the temp file on any failure path. `config.Config`
+gained `UploadsDir` (default `/var/lib/agentic-mcp/uploads`) and `MaxUploadSize` (default 512 MiB,
+comfortably above the 274 MiB kernel-package case), both validated in `Config.Validate`.
+`internal/server/upload.go` wires the MCP tool (`RegisterUploadFile`, write-gated, ACL- and
+audit-wrapped exactly like every other write tool, capped at `maxMCPUploadBytes` = 64 KiB
+independent of `MaxUploadSize`) and the REST handler (`PUT /api/v1/upload?name=...`, with an early
+413 when `Content-Length` alone already exceeds the limit, before streaming even starts).
+
+**Verified:**
+- Unit tests (`internal/upload/upload_test.go`, 8 cases): filename validation table, successful
+  write, directory auto-creation, overwrite idempotency (with a check that no stray temp files are
+  left behind), path-traversal rejection, size-limit enforcement at and past the boundary, and —
+  using a `Reader` that fails mid-stream — confirmation that an interrupted transfer leaves no
+  partial file in the staging directory at all.
+- REST + MCP tests (`internal/server/upload_test.go`, 12 cases): success, write-gate 403, ACL 403,
+  path-traversal rejection, size-limit rejection (both the streamed-body case and the
+  fast `Content-Length` pre-check), overwrite idempotency, tool-not-registered-when-write-false,
+  invalid-base64 rejection, and the 64 KiB MCP cap.
+- **Real, end to end:** a live daemon (`write: true`, `max_upload_size: 64MiB`) received a genuine
+  5 MiB random binary via `curl -T ... PUT /api/v1/upload` — `cmp` confirmed the staged file was
+  byte-identical to the source. The same daemon correctly returned 401 with no bearer token, 422
+  for a `../../etc/evil` path-traversal attempt (with no file appearing outside the staging
+  directory), and 413 when the upload exceeded a deliberately small `max_upload_size` (1 MiB
+  against a 5 MiB body). Separately, the real `claude` CLI was connected to the daemon as a
+  genuine MCP client (`claude mcp add --transport http`) and asked to call `upload_file` directly
+  — the tool call succeeded and the staged file's content matched exactly what was requested.
+
+## Write-error propagation audit
+
+Prompted by a direct question: does every write call actually surface a non-2xx status/MCP error
+on failure, or could any silently report success? A full pass across every write module and both
+access layers found the propagation code itself already correct everywhere — but two write
+modules (`apt`, `systemd`) and one (`copy`) had no automated test proving it, so a real failure
+regressing to a false "success" would have gone unnoticed.
+
+**What was checked:** all 6 write modules (`file`, `copy`, `lineinfile`, `systemd`/`service`,
+`apt`, `command`), the MCP wrapping layer (`registerModuleTool`, `registerTaskTool`,
+`RegisterRunPipeline`, `RegisterUploadFile` in `internal/server`), the REST wrapping layer
+(`handleToolCall`'s three branches, the ACL admin endpoints, `handleUpload`), and
+`internal/pipeline.Run`. Every one of these correctly returns/propagates a non-nil `error` on
+failure, which both `mcp.AddTool`'s handler contract (returning a non-nil error sets
+`CallToolResult.IsError = true`) and every REST handler (`writeError(w, <non-2xx>, err)`) turn
+into a caller-visible failure. `writeError` always requires an explicit status code argument —
+there is no code path that can fall through to a default 200.
+
+One deliberate, documented exception: `command`'s and the pipeline's non-zero *exit code* is
+data, not a Go error (`data.rc`/`exit_code` in the result) — matching `ansible.builtin.command`'s
+own behavior, where a non-zero return code doesn't fail the task unless the caller checks it.
+This is intentional, not a gap, and is called out in both modules' tool descriptions.
+
+**Gap found and fixed:** `apt` and `systemd` had tests for every idempotency/dry-run/invalid-input
+path but none for "the underlying `apt-get`/`systemctl` command itself fails" (e.g. a broken
+package, a unit that fails to start) — a real regression there (e.g. someone changing `Run` to
+ignore the runner's returned error) would have passed the existing suite. `copy` was similarly
+missing coverage for a missing `src` file and an unwritable `dest`. Added:
+`TestApt_InstallFailurePropagatesError`, `TestApt_UpdateCacheFailurePropagatesError`,
+`TestSystemd_ActionFailurePropagatesError`, `TestSystemd_EnableFailurePropagatesError`,
+`TestCopy_MissingSrcPropagatesError`, `TestCopy_UnwritableDestPropagatesError` — each constructs a
+fake `CommandRunner` (or, for copy, a real missing/unwritable path) that fails the way the real
+tool would, and asserts `Run` returns a non-nil error.
+
+**Verified live, not just unit-tested:** against a real running daemon (`write: true`), REST calls
+were made with inputs guaranteed to fail for real — `systemd` restarting a unit that doesn't exist,
+`copy` writing into a nonexistent parent directory, and `apt` installing a package that doesn't
+exist. All three returned HTTP 422 with the real underlying error message (including apt-get's
+actual exit code 100 for "unable to locate package" — genuine system tool failure, not a
+simulated one). The same `systemd` failure was also called through a real MCP session (the
+`claude` CLI connected as a genuine MCP client) and confirmed to come back with `isError: true`
+and the same error message.
+
+**Follow-up fix (same audit, one more turn): the exit code alone still wasn't enough.** The
+initial audit confirmed every failure surfaces *an* error, but the error text for anything routed
+through `internal/modules.CommandRunner` (`apt`, `systemd`, and every future runner-based module)
+was just `"<cmd>: exit status N"` — no indication of *why*. An AI deciding what to do next needs
+the real reason ("Unit not found" vs "permission denied" vs "dependency failed"), not just a
+number. `defaultCommandRunner` (`internal/modules/runner.go`) now wraps a failing command's error
+with its actual stderr text via `wrapExitError` — `cmd.Output()` already populates
+`exec.ExitError.Stderr` whenever `cmd.Stderr` is left nil, so this required no new capture
+plumbing, just surfacing what was already collected. Re-running the exact same live failures above
+confirms the difference: the `systemd` case now reads `"...exit status 1: Failed to restart
+this-unit-definitely-does-not-exist.service: Die Wartezeit für die Verbindung ist abgelaufen"`
+(a timeout, not a missing unit — the real reason) instead of the bare exit code, and `apt` now
+surfaces the actual dpkg lock/permission error instead of just "exit status 100".
+
+The same gap existed in `internal/pipeline.Run`: `Result` only ever exposed the *last* stage's
+stderr, so `failing-stage | trivially-successful-stage` (e.g. `ls <missing> | cat`) would report
+overall success with zero visibility into why the first stage didn't do what was expected.
+`Result` gained a `Stages []StageResult` field (`{cmd, exit_code, stderr}` per stage) alongside the
+existing last-stage-mirroring `Stdout`/`Stderr`/`ExitCode` fields (kept for backward compatibility).
+
+Verified: `internal/modules/runner_test.go` (new) covers a real failing command's error including
+its actual (locale-independent-asserted) stderr text, a clean success path, and a missing-binary
+error. `internal/pipeline/exec_test.go` gained `TestRun_EarlierStageFailureVisibleInStages`,
+constructing exactly the `ls <missing> | cat` scenario above and asserting stage 0's real exit code
+and stderr both survive in `Result.Stages` even though the pipeline "succeeds" overall.
+
+## `ansible.builtin` module coverage plan
+
+Prompted by the real count from `ansible-doc -l` (71 modules in `ansible.builtin` on the local
+core 2.16.3 install — matches the ballpark "~74" the user cited). Not all 71 are in scope:
+
+- **~19 controller-side directives excluded entirely** — `add_host`, `assert`, `async_status`,
+  `debug`, `fail`, `gather_facts` (meta-alias of `setup`, already covered), `group_by`,
+  `import_playbook`, `import_role`, `import_tasks`, `include_role`, `include_tasks`,
+  `include_vars`, `meta`, `pause`, `set_fact`, `set_stats`, `validate_argument_spec`,
+  `wait_for_connection`. These are Ansible-*controller*-side constructs (control flow, variable/
+  inventory manipulation on the machine running Ansible itself) with no corresponding action a
+  node agent executes on a managed host — implementing them would be building the wrong thing.
+  Confirmed with the user.
+- **Both package-manager families in scope** (confirmed with the user, not Debian-only): the
+  existing `apt` module's Debian-family siblings (`apt_key`, `apt_repository`,
+  `deb822_repository`, `dpkg_selections`) *and* the RedHat family (`yum`, `yum_repository`,
+  `dnf`, `dnf5`, `rpm_key`) — the latter unit-tested only (fake `CommandRunner`, matching the
+  existing `apt`/`systemd` test pattern) since the project's real test host
+  (`host1.example.internal`) is Debian 13, not a RedHat-family distro.
+- **Real remaining scope: ~28 modules**, genuine host-management actions that fit this project's
+  existing `Module` interface pattern: `blockinfile`, `replace`, `template`, `get_url`,
+  `hostname`, `timezone`, `cron`, `user`, `group`, `tempfile`, `unarchive`, `script`, `expect`,
+  `git`, `subversion`, `pip`, `package`, `systemd_service` (alias of `systemd`, like `service`
+  already is), `sysvinit`, `wait_for`, `uri`, `known_hosts`, `iptables`, `reboot`, `fetch`,
+  `assemble`, `debconf`, `ping`.
+
+**Batching, per the user's explicit direction** ("in Batches nacheinander, jeweils testen und
+committen"): work through in groups, testing and committing each before starting the next —
+Batch 1 (text/file), Batch 2 (system/user identity), Batch 3 (Debian packaging), Batch 4 (RedHat
+packaging), Batch 5 (network/download), Batch 6 (everything else). Real end-to-end verification
+uses `host1.example.internal` (user `marvin`, key `~/.ssh/marvin.key`, passwordless sudo) —
+the user explicitly offered this host for the batch work.
+
+### Batch 1 — text/file modules (implemented): blockinfile, replace, assemble, tempfile, template
+
+All five follow the existing `Module` interface exactly (idempotent, `check_mode` via
+`dry_run`, cross-tool-equivalents description, registered in
+`server.NewDefaultModuleRegistry` gated by the write flag like every other write module).
+
+- **`blockinfile`** — insert/update/remove a marker-comment-delimited block, identified by its
+  `# BEGIN/END ANSIBLE MANAGED BLOCK`-style markers so re-running with different content replaces
+  the block in place rather than duplicating it. Missing markers → append at EOF. A documented
+  subset of the real module (no `insertafter`/`insertbefore`/`backup`).
+- **`replace`** — regex find-and-replace across a whole file's content (not line-scoped like
+  `lineinfile`), Go RE2 syntax with `$1`-style backreferences (Ansible's own `replace` uses Python
+  `\1` syntax — a real, documented syntax difference, not a bug).
+- **`assemble`** — concatenates every file in a source directory (sorted by name, optional
+  filename-regexp filter, optional delimiter) into a single destination file — the classic
+  `conf.d/*.conf` → one real config file pattern. Reuses `applyOwnerGroupMode` (already built for
+  `file`/`copy`) for the destination's owner/group/mode.
+- **`tempfile`** — creates a uniquely-named temp file/directory and returns its path. Deliberately
+  *not* idempotent (like `mktemp`, every real call creates something new and reports
+  `changed=true`) — documented as an intentional exception to the idempotency pattern the rest of
+  the module set follows, the same way `command`'s non-zero-exit-isn't-an-error is a documented
+  exception.
+- **`template`** — renders `{{ variable }}` placeholders against a `vars` map. Explicitly *not* a
+  Jinja2 implementation: Ansible's `template` module is full Jinja2 (filters/conditionals/loops/
+  macros); reimplementing that is out of scope, so this covers plain variable substitution only,
+  reusing the exact `{{ }}` placeholder convention this project's own `tools.d` task definitions
+  already use (`internal/tasks`) rather than introducing a second templating syntax. A referenced
+  placeholder with no matching `vars` entry is a hard error, not a silently-blank substitution.
+
+**Verified:** 32 new unit tests across the five modules (idempotency, dry-run, error paths —
+missing src, invalid regexp/marker, missing template var — and the `blockinfile`/`assemble`/
+`template` marker/sort-order/placeholder logic specifically). All five also run for real on
+`host1.example.internal`: `blockinfile` inserted a real marked block into a scratch file and
+was confirmed idempotent on a second identical call; `replace` real-edited that file's content;
+`assemble` concatenated two real fragment files in `/tmp/confd` into one destination; `tempfile`
+created a real file under `/tmp` with the requested prefix/suffix; `template` rendered real
+`{{ host }}`/`{{ port }}` placeholders to disk — all via genuine REST calls against the compiled
+binary, not mocks.
+
+### Batch 2 — system/user identity modules (implemented): user, group, cron, hostname, timezone
+
+- **`group`** — ensures a system group's existence/gid via `getent group` (check) +
+  `groupadd`/`groupmod`/`groupdel` (apply).
+- **`user`** — ensures a system account's existence/uid/primary group/shell/home/comment/
+  secondary groups via `getent passwd` + `id -Gn` (check) + `useradd`/`usermod`/`userdel`
+  (apply). Secondary `groups` supports both replace (default) and `append=true` modes, each
+  computed against the account's *actual* current secondary groups (via `id -Gn`) so an
+  append-mode call is genuinely idempotent once the group is already present, not just
+  unconditionally re-running `usermod -aG`. Password/credential management is deliberately out
+  of scope — setting a hash through a tool call that ends up in the audit log was judged the
+  wrong shape for that concern.
+- **`cron`** — present/absent crontab entries identified by a `#Ansible: <name>` marker comment
+  (Ansible's own convention), so changing a schedule or command later replaces the same entry
+  rather than appending a duplicate. `crontab -l` for a user with no crontab yet is treated as an
+  empty crontab, not an error (matching real `crontab`'s own behavior). Writing uses `crontab
+  -u <user> <tempfile>` — `crontab` accepts a filename argument directly, so no stdin-piping
+  plumbing was needed in `CommandRunner`.
+- **`hostname`** / **`timezone`** — systemd-only (`hostnamectl`/`timedatectl`), matching this
+  project's existing systemd-only scope (see `service`/`systemd`). Both read their current value
+  without shelling out — `hostname` via `os.Hostname()`, `timezone` by resolving `/etc/localtime`'s
+  symlink target and extracting the suffix after `zoneinfo/` (works whether the link is absolute
+  or the relative form `../usr/share/zoneinfo/...` that `timedatectl` actually produces in
+  practice — confirmed during live verification below).
+
+**Verified:** 44 new unit tests (idempotency including the append-mode secondary-groups case,
+dry-run, invalid state, and failure-propagation for every runner-backed module). All five also run
+for real, as root, on `host1.example.internal`: created a real `batch2testgroup`/
+`batch2testuser` pair (confirmed idempotent on a repeat call), added and then rescheduled a real
+crontab entry for that user (confirmed the marker-based replace-in-place behavior, and that a
+brand-new user's "no crontab for X" is handled as empty rather than an error), changed the box's
+real hostname and timezone away from and back to their original values (`host1.example.internal`
+/ `Europe/Berlin`) with idempotent no-op calls confirmed at each starting point, and finally
+removed the test user/group again via the modules' own `state: absent` path.
+
+### Batch 3 — Debian packaging modules (implemented): apt_key, apt_repository, deb822_repository, dpkg_selections
+
+- **`apt_repository`** — present/absent one-line `deb ...` entries in a specific
+  `/etc/apt/sources.list.d/<filename>.list` file. `filename` is required (a focused subset —
+  Ansible auto-derives a default from the repo string via its own heuristic; requiring it keeps
+  behavior simple and predictable), and `state: absent` only searches that one file rather than
+  every configured source file. Optional `update_cache` runs `apt-get update` afterward.
+- **`deb822_repository`** — present/absent modern RFC822-style (`.sources`) stanzas, the format
+  apt 2.4+ (Debian 12+/Ubuntu 24.04+) uses in place of the older one-line syntax. Covers
+  types/uris/suites/components/signed_by (a focused subset of the real module's many optional
+  per-field options).
+- **`apt_key`** — implemented via `gpg --dearmor` writing straight to
+  `/etc/apt/trusted.gpg.d/<id>.gpg`, **not** the `apt-key` binary itself, which upstream Debian/
+  Ubuntu have deprecated and removed from newer releases (real Ansible's own `apt_key` module is
+  itself marked deprecated for the same reason) — this is the same replacement approach Debian's
+  release notes recommend. Accepts the key as inline `data` or fetched from a `url` (a small
+  injectable `HTTPGet` using Go's own `net/http`, no external download tool needed).
+- **`dpkg_selections`** — sets a package's dpkg selection (most commonly `hold`, to freeze it
+  against future apt upgrades) via `dpkg --get-selections`/`--set-selections`. This is the first
+  module needing stdin (`dpkg --set-selections` has no file-argument alternative, unlike
+  `crontab`), so `internal/modules/runner.go` gained a `CommandRunnerWithStdin` /
+  `defaultCommandRunnerWithStdin` counterpart to `CommandRunner` — reused immediately by `apt_key`
+  for `gpg --dearmor`, which also only accepts its input via stdin.
+
+**Also fixed while implementing this batch:** a systematic re-check of every enum-shaped
+parameter across all modules turned up two that declared a JSON-schema `enum` for MCP clients but
+never actually validated it in Go — `dpkg_selections`'s `selection` and `cron`'s `special_time`.
+Both now reject an out-of-range value explicitly instead of silently passing it through to the
+underlying command (which would likely have failed anyway, but with a much less clear error).
+
+**Verified:** 42 new unit tests, including a genuine `gpg`-binary integration test for `apt_key`
+(`TestAptKey_RealGPGDearmor`: generates a real throwaway Ed25519 key via `gpg --quick-generate-key`
+in an isolated `GNUPGHOME`, exports it armored, dearmors it through the actual module code, and
+confirms the output is real binary OpenPGP data, not the fake/simulated transform the other tests
+use). All four also run for real on `host1.example.internal`: created and removed a real
+`apt_repository` entry and a real `deb822_repository` stanza; generated a genuine GPG key on the
+host, imported it via `apt_key`, and confirmed with `file` that the written keyring is real OpenPGP
+data — then removed it; and toggled the real, already-installed `bash` package's dpkg selection to
+`hold` and back to `install`, confirming both the change and the idempotent no-op with `dpkg
+--get-selections` at each step.
+
+### Batch 4 — RedHat packaging modules (implemented, unit-tested only): yum, dnf, dnf5, yum_repository, rpm_key
+
+Per the confirmed scope (both package-manager families in coverage, not just Debian): this batch
+has **no real end-to-end verification** — `host1.example.internal`, this project's only
+real test host, is Debian 13, not a RedHat-family distro, so there is nowhere to run these against
+a genuine `yum`/`dnf`/`rpm` toolchain. Each module's doc comment and description say so explicitly,
+mirroring how `command`'s non-zero-exit-isn't-an-error and `tempfile`'s not-idempotent-by-design
+are called out as deliberate, documented departures from the rest of the module set's guarantees.
+
+- **`yum` / `dnf` / `dnf5`** — share a single implementation (`internal/modules/rpm_pkg.go`'s
+  unexported `rpmPackageManager`, parameterized by binary name), since all three expose
+  essentially the same install/remove/update CLI surface for the common case; `Yum`/`Dnf`/`Dnf5`
+  are thin wrappers each supplying their own `Name()`/`Description()`. Presence is checked via the
+  shared `rpm` database (`rpm -q --queryformat`) rather than the frontend binary, since all three
+  ultimately record installs there regardless of which one performed them. For `state: latest`,
+  `dry_run` against an already-installed package conservatively predicts `changed: true` — genuine
+  certainty would need a real repository query, which isn't worth the complexity for a family this
+  project can't verify end to end; a real (non-dry-run) call instead compares the installed
+  version before and after running `update`, so `changed` reflects what actually happened rather
+  than a guess.
+- **`yum_repository`** — present/absent INI-style `.repo` stanzas in `/etc/yum.repos.d/`, the
+  RedHat-family analogue of `apt_repository`. Same injectable-directory pattern for testability
+  without root.
+- **`rpm_key`** — `rpm --import`/`rpm -e` (rpm's own current, non-deprecated tools for this,
+  unlike `apt_key`'s workaround for the deprecated `apt-key`). Presence is checked via `rpm -qa
+  "gpg-pubkey-<keyid>-*"`, matching how rpm actually stores imported keys as
+  `gpg-pubkey-<last-8-hex-of-fingerprint>-<date>` pseudo-packages — a glob query since the date
+  suffix isn't known in advance, then the exact matched package name is used for removal (`rpm -e`
+  needs an exact NVR).
+
+**Verified:** 41 new unit tests. The `yum`/`dnf`/`dnf5` suite (`rpm_pkg_test.go`) is written once
+against an `rpmModule` interface and table-driven over all three real `Module` implementations —
+not just the shared core — so each concrete type is genuinely exercised, including present/absent/
+latest transitions, the before/after version-comparison logic, dry-run, and failure propagation.
+
+### Batch 5 — network/download modules (implemented): get_url, uri, wait_for, fetch, known_hosts, iptables
+
+- **`fetch`** — a thin alias over `slurp` (same underlying `Run`, different parameter name
+  `src` vs. `path`). Real Ansible's `fetch` copies a file *from* the managed host *to* the
+  separate machine running Ansible; this agent has no such separate control-node filesystem (it
+  *is* both ends), so fetching and slurping a file's content are the same operation here — no
+  point building two things that behave identically.
+- **`get_url`** — downloads a file, deliberately matching real Ansible's *conservative*
+  idempotency rather than a naive "always check": if `dest` already exists, it's left alone
+  entirely unless `force: true` or a `checksum` is given that doesn't match — no HEAD request or
+  hash comparison "just to check" when neither was asked for, avoiding needless network traffic
+  for a file presumably already correct.
+- **`uri`** — an arbitrary HTTP request tool, deliberately **write-gated regardless of method**.
+  `method` is a runtime parameter (GET vs. POST/PUT/DELETE/...), and this tool can reach and
+  mutate arbitrary remote systems; trusting the caller's stated method to decide the write gate
+  would mean a write:false agent still has an SSRF-shaped hole for anyone routing a mutating
+  request through what looks like a "read" tool. Uniformly gating it, even for plain GETs, is the
+  conservative default here.
+- **`wait_for`** — polls a TCP port or file for a state transition. Read-only (never mutates
+  system state, so it isn't write-gated) but capped at a 600-second maximum timeout regardless of
+  the requested value, so a single tool call can't be used to tie up server resources indefinitely.
+- **`known_hosts`** — present/absent SSH known_hosts entries, identified by hostname (the entry's
+  first field) so a changed host key replaces the same entry rather than accumulating stale
+  duplicates. Host-key hashing (`ssh-keygen -H` style) is not implemented — entries are always
+  written in plain hostname form.
+- **`iptables`** — present/absent netfilter rules, idempotent via `iptables -C` (the check flag
+  purpose-built for exactly this: exit 0 means the exact rule exists, exit 1 means it doesn't — a
+  normal negative result, not an error; anything else is a genuine failure). A focused subset of
+  real Ansible's ~40 parameters (protocol/source/destination/ports/interfaces/jump/comment cover
+  the common case).
+
+**Verified:** 47 new unit tests (including `TestWaitFor_RealPortDetection`, exercising a real
+`net.Listen`-backed TCP listener rather than a fake dialer, and the `uri` suite running against
+real `httptest.Server` instances rather than mocked HTTP). All six also run for real on
+`host1.example.internal`. `fetch`/`wait_for`/`known_hosts` ran directly: `fetch` read a real
+`/etc/hostname`; `wait_for` confirmed the daemon's own real listening port; `known_hosts` wrote and
+read back a real entry. `get_url`/`uri` needed a workaround — the test host turned out to have no
+outbound internet access (an isolated test network), so a real local Python `http.server` was
+started on the host itself as a genuine, independently-reachable HTTP endpoint: `get_url`
+downloaded from it (confirmed idempotent on a repeat call, and confirmed a `sha256:` checksum
+verifies correctly against a real download), and `uri` performed a real GET with real response
+headers and a real 404 correctly rejected as not in the default `status_code` allow-list.
+`iptables` was verified most carefully, given the blast radius of a mistake: a brand-new, entirely
+unreferenced custom chain (`BATCH5TEST`, "0 references" the whole time, confirmed via `iptables -L
+-v`) was created first so the test rule could never affect real traffic; the module added a rule
+with the exact expected match criteria (`tcp dpt:12345`, the given comment) and packet counters at
+zero, confirmed idempotent on a repeat call, removed the rule, and the custom chain itself was then
+deleted — `INPUT`/`OUTPUT`/`FORWARD` were never touched.
+
+### Batch 6 — everything else (implemented): ping, systemd_service, package, script, git, unarchive, pip, debconf, sysvinit, subversion, expect, reboot
+
+The final batch, completing the confirmed `ansible.builtin` coverage scope from the plan above.
+
+- **`ping`** — trivial `{"ping": "pong"}`, read-only, no parameters; the connectivity-check
+  module every Ansible inventory implicitly relies on.
+- **`systemd_service`** — a second alias over the same `Systemd` implementation as `service`,
+  under Ansible's systemd-specific module name.
+- **`package`** — an OS-family-agnostic dispatcher: detects the available package manager
+  (`apt-get` → `dnf` → `dnf5` → `yum`, in that order, via an injectable `LookPath`) and delegates
+  to the already-implemented Apt/Dnf/Dnf5/Yum module for that backend, so callers that don't want
+  to name a specific package manager get one call that works on either family.
+- **`script`** — a thin wrapper over `command`: splits `cmd` into argv and delegates. Real
+  Ansible's `script` copies a file from the control node to the managed host before running it;
+  this agent has no separate control-node filesystem (it *is* both ends), so this reduces to
+  running an already-present executable, the same operation `command` performs — `script` exists
+  purely for drop-in familiarity with real Ansible task syntax that names it explicitly.
+- **`git`** — clone/checkout to a desired branch/tag/commit, idempotent via comparing
+  `git rev-parse HEAD` before and after. A real correctness bug was caught and fixed while
+  writing the end-to-end test: `git checkout <branch>` right after `git fetch origin` is a no-op
+  when `<branch>` is already checked out locally — fetch only advances the remote-tracking ref
+  (`origin/<branch>`), never the local branch pointer, so the original implementation would have
+  silently never applied upstream updates to a tracked branch, defeating the module's entire
+  purpose. Fixed by resolving to `origin/<version>` (a detached HEAD at the exact fetched commit)
+  whenever that remote-tracking ref exists via `git rev-parse --verify`, falling back to the
+  literal `version` for tags/commits, which have no `origin/` form.
+- **`unarchive`** — extracts `.zip`/`.tar`/`.tar.gz`/`.tgz`/`.tar.bz2` archives already on the
+  host, via Go's standard library `archive/zip`/`archive/tar`/`compress/gzip`/`compress/bzip2` —
+  no external `tar`/`unzip` binary needed. Every archive member's target path is checked against
+  a `../`-escape guard (`safeJoin`) before being written, so a hostile or malformed archive can't
+  write outside the requested destination. Idempotency relies on `creates`, the same practical
+  limitation real Ansible has without a working `creates` check: without it, every call extracts.
+- **`pip`** — Python package presence/absence/latest via `pip show`/`pip install`/`pip
+  uninstall`, with an optional `virtualenv` path created via `python3 -m venv` on demand (then
+  that venv's own pip is used instead of a system-wide one). `state=latest` always attempts
+  `pip install --upgrade` and determines `changed` from the version actually observed before vs.
+  after, the same before/after-comparison approach `yum`/`dnf`'s `state=latest` uses.
+- **`debconf`** — sets a single debconf database value via `debconf-set-selections`, idempotent
+  against `debconf-show`'s current value; an optional `unseen` flag also clears the question's
+  "seen" bit via `debconf-communicate` so a package will prompt for it again if reconfigured.
+- **`sysvinit`** — the legacy-init counterpart to `systemd`/`service`, for hosts or individual
+  services still on `/etc/init.d` scripts. Running state is checked via the init script's own
+  `status` action (LSB convention: exit 0 means running); enabled-at-boot state is checked by
+  globbing for an `S##<name>` symlink across the standard runlevel directories, and toggled via
+  `update-rc.d enable`/`disable`.
+- **`subversion`** — checkout/update a working copy to a desired revision, idempotent via
+  comparing `svn info`'s `Revision:` before and after — the same shape as `git`, but without
+  `git`'s local-branch-vs-remote-tracking-ref complication (svn has no local commits to conflict
+  with an update).
+- **`expect`** — runs a command and answers interactive prompts via a `responses` map (regex →
+  answer), each firing at most once as soon as its pattern matches the accumulated output.
+  **Stated limitation:** this pipes stdout/stderr rather than allocating a real pseudo-terminal,
+  unlike Ansible's own `pexpect`-based implementation, so programs that specifically need tty
+  semantics (echo suppression, terminal-size queries, raw mode) may not behave correctly — suited
+  to straightforward line-buffered prompts, not full terminal emulation. The core prompt-matching
+  logic (`firstUnansweredMatch`) is factored out and unit-tested independent of process spawning;
+  a real end-to-end test additionally spawns a genuine shell script with a real `read` prompt to
+  confirm the poll/match/write-to-stdin loop actually works against a real process.
+- **`reboot`** — issues `shutdown -r now` and returns immediately. **Stated architectural
+  limitation:** real Ansible's `reboot` module runs from a separate control node over SSH and can
+  therefore poll the target until it reappears before reporting success; this agent runs *on* the
+  host being rebooted, so the process handling the call is terminated the moment the reboot
+  happens — there is no possibility of waiting for the host to come back up from inside itself.
+  Verifying the host actually returns is the caller's responsibility (e.g. a later call, from a
+  new connection, to `wait_for` or `ping`).
+
+**Verified:** 50 new unit tests, including a real interactive-prompt test for `expect`
+(`TestExpect_RealScriptRespondsToPrompt`, a genuine shell script with a real `read`) and the
+`git` regression test (`TestGit_RealCloneAndUpdate`) that caught the branch-advancement bug above.
+`reboot` deliberately has **no** real invocation anywhere, including in this batch's manual
+verification below — the module's own doc comment explains why (the calling process would be
+killed by the very action it triggers), and actually rebooting the shared test host would disrupt
+whatever else runs there; coverage is fake-`Runner`-only; this mirrors the precedent already set
+by Batch 4's RedHat-family modules (unit-tested only, no real toolchain available to test against)
+and Batch 5's `iptables` (real command's exact argv verified without ever touching a live traffic
+chain).
+
+Eleven of the twelve modules also ran for real against `host1.example.internal`: `ping`,
+`systemd_service` (status query against the real `ssh.service`), and `script` (a real `/bin/echo`
+call) round-tripped over genuine REST calls. `git` cloned a real local repository, confirmed
+idempotent on a repeat call, then confirmed a second real upstream commit was correctly fetched
+and checked out — the exact scenario the branch-advancement fix targets. `unarchive` extracted a
+real zip (built via Python's `zipfile` module, since neither `zip` nor a suitable substitute was
+preinstalled) and confirmed the `creates` idempotency skip. `package` correctly detected the
+Debian `apt-get` backend and reported the already-installed `bash` package as `changed: false`.
+`sysvinit` — expected to be untestable on a systemd-only host — turned out to work fully for real:
+this Debian 13 install still ships LSB-compatible `/etc/init.d` scripts (e.g. `cron`), so both the
+running-state (`status`) and enabled-state (`S##` symlink glob) checks were confirmed against a
+genuine service. `expect` answered a real interactive `read` prompt in a throwaway shell script.
+`debconf` needed the daemon restarted as root (writing debconf's database requires root even
+though the read side doesn't) — once running as root, it set a real value, confirmed via
+`debconf-show`, and confirmed idempotent on a repeat call. `pip` and `subversion` needed two
+packages the test host didn't have yet (`python3-venv`, `subversion` — both installed via
+`apt-get install`, left in place afterward as harmless additions, not reverted): `pip` created a
+real virtualenv and confirmed its own pip's version via `pip show`; `subversion` checked out a
+real local `file://` repository, confirmed idempotent, then confirmed a second commit was
+correctly fetched and updated — the same update-detection shape as the `git` test. Only `reboot`
+was not exercised against the live daemon, for the reason stated above. This completes the
+`ansible.builtin` module coverage plan: all ~28 modules in the confirmed real-remaining scope are
+now implemented.
+
+**Addendum — two modules missed by the original scoping pass:** a user recount of
+`ansible-doc -l | grep ansible.builtin | wc -l` (71) against this project's own confirmed
+19-module exclusion list turned up a real gap the original Batch 6 scoping missed: `raw` and
+`shell` were never explicitly added to either the "excluded" or "in scope" list, and so were
+simply never built. Both are now closed out:
+
+- **`raw`** — a trivial alias of `command`. Real Ansible's `raw` exists to run a command over SSH
+  on a target with no Python installed yet, bypassing the module subsystem entirely as a
+  bootstrapping mechanism; this agent is a single compiled Go binary with no such bootstrap
+  problem, so `raw` and `command` behave identically here, the same reasoning that already makes
+  `fetch` an alias of `slurp` and `script` an alias of `command`. Unit-tested only (there's
+  nothing `command`'s own tests don't already cover); no separate real-host verification needed
+  for the same reason.
+- **`shell`** — required an explicit decision rather than a unilateral one, since a faithful
+  implementation directly conflicts with this project's stated security model ("no shell
+  interpreter" — see Security model above). Real `ansible.builtin.shell` runs a command through
+  `/bin/sh -c`, meaning pipes, redirects, globbing, and `$()` substitution all work — none of
+  which an argv array can express. Presented three options to the project owner (real `sh -c`
+  accepting the injection-risk trade-off; a fake "shell" that's actually routed through the
+  existing whitelisted pipeline system with no real shell involved; or leaving it deliberately
+  unimplemented) — **the real `/bin/sh -c` option was chosen**. `internal/modules/shell.go`
+  implements it accordingly, with the trade-off stated prominently in the module's own
+  `Description()` (so any AI client reading tool docs before calling it sees the warning) and
+  cross-referenced from the Security model section above. Verified with a real end-to-end test
+  proving genuine shell interpretation — a real pipe (`echo hello | tr a-z A-Z` → `HELLO`) and a
+  real redirect + glob (`echo redirected > out.txt && cat out*.txt`) — since that's the entire
+  point of the module and something no fake-Exec unit test could actually prove. Both `raw` and
+  `shell` also ran for real against `host1.example.internal` via genuine REST calls against
+  the compiled binary: `raw` executed a plain `/bin/echo`; `shell` reproduced the same pipe and
+  redirect+glob behavior confirmed locally, over the network against the real daemon.
+
+## Roadmap (after this v1 — separate plans)
+
+- **Multi-task plan/apply (playbook-style) with confirmation** — the full Ansible replacement,
+  building on the now-complete `ansible.builtin` module coverage above.
+- **Fleet Commander (Python/FastAPI, the last step, codename "Bossman"):** agent registry,
+  fleet-wide aggregation in MariaDB/PostgreSQL, cross-host service map, an MCP facade for the AI,
+  alerting (the CheckMK replacement), discovery via NetBox. Also owns translating foreign
+  orchestrator formats into this agent's module calls: a tiered strategy — a real parser for
+  Ansible playbooks and SaltStack states (both plain YAML, structurally close to this project's
+  own `tools.d` format: a list of `module: {params}` steps — parsing them directly avoids ever
+  having the AI read the raw playbook text, the most token-efficient option), and a lightweight
+  mapping reference (not a parser) for Puppet manifests and Chef recipes, since both are full
+  DSLs/imperative languages (Chef is Ruby) that an AI can already read fluently on its own — it
+  only needs the vocabulary mapping to this project's module names, not a translation engine.
+  Terraform is lower priority: it mostly manages cloud infrastructure rather than host state, so
+  only its `local-exec`/`remote-exec` provisioner blocks are a natural fit. This strategy is
+  deliberately *not* implemented in this repo — the Node Agent stays narrowly scoped to exposing
+  metrics and executing well-defined module calls; foreign-format translation is Fleet Commander
+  work.
+- **v3 (implemented — see "v3" section below):** mTLS (verified already generic), per-token RBAC
+  (token → allowed tool set), `.rpm`, eBPF expansion (disk I/O latency, container awareness)
+
+## v3 — mTLS verification, per-token RBAC, `.rpm` packaging, eBPF expansion (implemented)
+
+Prompted by the user's explicit direction to work through the v3 roadmap items before starting on
+Bossman. All four items below are implemented, tested, and real-verified.
+
+### mTLS — verified already generic (no code change needed, but previously untested)
+
+`cmd/agentic-mcpd/http.go`'s `requireTrustedClientCert`/`withBearerAuth` already gated **any**
+direct caller to `/mcp` and `/api/v1/*` whenever `tls.trusted_client_keys` is configured — not
+just the proxy/satellite-puller path. This was true before this session but had **zero dedicated
+test coverage** (`internal/fleet/puller_test.go` only exercises the *client* side against a
+hand-mimicked test server, not the real production gate function). Added
+`cmd/agentic-mcpd/http_test.go`: real TLS handshakes via `httptest`-style servers proving a direct
+caller (not a proxy) is correctly gated by both the bearer token and the client-cert pin, that
+they compose as defense-in-depth (right cert + wrong token fails, right token + wrong cert fails),
+and that `loadTrustedClientKeys` skips broken entries gracefully. No production code changed;
+existing behavior confirmed correct and now has regression coverage it lacked.
+
+### Per-token RBAC — `internal/authz.TokenEntry`/`ResolveBearerToken`, `config.NamedToken`
+
+Previously every bearer-token caller — MCP or REST — resolved to the same fixed
+`authz.TokenIdentity` ("service-token"), so an ACL rule scoped to a token principal could never
+actually differentiate between callers. Implemented:
+
+- `internal/authz/token.go`: `TokenEntry{Name, Token}` + `ResolveBearerToken(presented, legacyToken,
+  extra []TokenEntry) (Identity, bool)` — constant-time comparison against the legacy token (→
+  fixed `TokenIdentity`, unchanged for backward compatibility) and each named entry (→
+  `Identity{Kind: KindToken, Name: entry.Name}`).
+- `internal/authz/context.go`: `WithIdentity`/`IdentityFromContext` — since MCP tool-call handlers
+  only ever receive a `context.Context`, not the originating `*http.Request`, the resolved
+  identity has to travel via the request context the bearer-auth middleware already touches.
+- `internal/config`: new `Config.Tokens []NamedToken` (validated: unique non-empty names, no
+  collision with the reserved `service-token` name, non-empty token values) +
+  `Config.TokenEntries()` conversion helper.
+- `cmd/agentic-mcpd/http.go`'s `withBearerAuth` now resolves and attaches the caller's `Identity`
+  to the request context on a match (MCP path); `internal/server/rest.go`'s `identityFromRequest`
+  does the same for REST via a new `RESTConfig.Tokens` field.
+- `internal/server/modules.go`/`tasks.go`/`upload.go`: `checkACL`/`registerModuleTool` etc. now
+  resolve the caller's identity from context (`mcpCallerIdentity`, falling back to the fixed
+  `TokenIdentity` when nothing was attached — e.g. auth disabled entirely) instead of hardcoding
+  it, so a named token's ACL rules actually apply to its own MCP calls.
+
+**Verified:** unit tests for the resolver/context helpers and config validation; a decisive
+`cmd/agentic-mcpd/rbac_test.go` end-to-end test using a **real** `mcp.Client` over a **real**
+`mcp.NewStreamableHTTPHandler` HTTP connection (not an in-memory transport) — two different tokens
+presented over the wire resolve to two different identities and get genuinely different ACL-scoped
+tool access; confirmed this test would have failed against the old code (temporarily reverted
+`mcpCallerIdentity` to always return the fixed identity — the test failed exactly as expected,
+then restored). Also verified live against `host1.example.internal`: a daemon configured
+with a legacy token and two named tokens (`bossman`, `readonly-ci`), an ACL rule granting only
+`bossman` access to `ping`, confirmed via real REST calls — `bossman` token can call `ping` (200)
+but not `setup` (403); the legacy token and the other named token are both denied `ping` (403),
+proving the ACL rule genuinely differentiates between tokens rather than granting blanket access
+to anyone with *a* valid token.
+
+### `.rpm` packaging — `packaging/nfpm.yaml`, `postinst`, `postrm`
+
+One shared `nfpm.yaml` (nfpm builds both `.deb` and `.rpm` from the same config) plus `postinst`
+(first-install-only: bootstraps `config.yaml` from the shipped example, generates a random token
+via `agentic-mcpd --generate-token`, `chmod 0600`, `systemctl enable`+`restart`) and `postrm`
+(stops/disables the service; deliberately never deletes `/etc/agentic-mcp` or
+`/var/lib/agentic-mcp` — losing the bearer token or accumulated metrics/audit history on a routine
+package removal would be a destructive surprise). `.deb` install-testing remains explicitly
+deferred per the user's direction (Schritt 12 of the original v1 plan); only `.rpm` was built and
+verified this round, since that's what v3 actually asked for.
+
+**Verified, real, end to end:** built via `nfpm package -f nfpm.yaml -p rpm`; installed with real
+`rpm -ivh` in a plain `rockylinux:9` container (files/permissions/token-generation correct;
+reinstall after `rpm -e` correctly leaves `config.yaml` in place and does **not** regenerate the
+token); installed and run in a **real systemd-enabled** `rockylinux/rockylinux:9-ubi-init`
+container (`--privileged --cgroupns=host`) — `systemctl status` showed the service genuinely
+`active (running)`, `enabled`, eBPF collector attached, and a real `curl` REST call
+(`POST /api/v1/tools/ping`) against the systemd-managed daemon succeeded.
+
+### eBPF expansion — disk I/O latency + container-awareness
+
+**Disk I/O latency** (`internal/ebpf/bpf/collector.c`, `tracepoints.h`): two new stable tracepoints,
+`block:block_rq_issue` and `block:block_rq_complete`, correlated in-kernel by `(dev, sector)` (the
+standard blktrace correlation key, same approach BCC's `biolatency` uses) via a
+`BPF_MAP_TYPE_HASH` — a request seen mid-flight when the collector attaches (issue missed) is
+silently skipped rather than reported with a guessed latency. New `DiskIOEvent` Go type
+(comm/pid/dev/sector/nr_sector/latency/rwbs/error), `RecentDiskIO`/`SlowestDiskIO` accessors, new
+MCP tools `disk_io`/`slow_disk_io` and REST routes `GET /api/v1/disk-io`/`/api/v1/disk-io/slowest`.
+
+Hit a real verifier rejection during development: reading `ctx->ent.pid` (the tracepoint's *common*
+header, shared across all tracepoint types) is rejected by the BPF verifier for
+`tracepoint/*` programs ("invalid bpf_context access") — only the tracepoint-*specific* fields
+after the common header are checked/allowed. Fixed by using `bpf_get_current_pid_tgid() >> 32`
+instead (the same technique `trace_inet_sock_set_state` already used), which is verifier-safe
+regardless of tracepoint argument layout. Caught immediately by real-host verification (unit tests
+alone, which don't load real BPF bytecode, could not have caught this).
+
+**Container-awareness** (`internal/ebpf/container.go`): deliberately **not** implemented as
+further eBPF/kernel work — walking kernel cgroup structs directly would need CO-RE/BTF relocation
+(exactly the complexity this collector's tracepoint-only design otherwise avoids), whereas every
+event already carries a pid, and `/proc/<pid>/cgroup` is a stable userspace interface for the same
+lookup. `containerIDForPID`/`containerIDFromCgroupData`: reads `/proc/<pid>/cgroup`, extracts the
+longest hex run (12–64 chars) across all lines — matching Docker's own cgroup driver
+(`/docker/<64-hex>`), Docker via the systemd cgroup driver (`docker-<64-hex>.scope`), and
+containerd/CRI (`cri-containerd-<64-hex>.scope`, used for both standalone containerd and
+Kubernetes) uniformly, without special-casing each runtime. Best-effort: empty string (omitted
+from JSON via `omitempty`) if the process already exited, isn't containerized, or the path doesn't
+match — never an error, since this is enrichment, not core event data. Added to `TCPConnEvent`,
+`ExecEvent`, and the new `DiskIOEvent` (which needed a `pid` field added to its eBPF-side
+correlation map value, populated at issue time, since `block_rq_complete` itself carries no pid).
+
+**Verified:** unit tests against realistic real-world cgroup path formats for all three runtime
+patterns plus bare-metal (no false positives), an injectable-reader test, and a real
+`/proc/<pid>/cgroup` read against the test binary's own PID. Real, end-to-end verification on
+`host1.example.internal`: real disk I/O generated (`dd`/`sync`/`cat` of a 100 MiB file) and
+retrieved via the real REST endpoints — genuine device numbers, sectors, and latencies (a 17.6ms
+journal write, ~30–45µs small kworker writes, real process names like `sssd_be` and
+`kworker/1:1H`). Container-awareness verified without needing a real container runtime (the test
+host has no outbound internet access to pull an image): manually placed a real process into a
+Docker-style cgroup path (`/sys/fs/cgroup/docker-test-fake/docker-<64-hex>.scope/cgroup.procs`,
+real cgroupfs, no simulation) and confirmed real `exec_events` captured from within it carried the
+exact matching `container_id` — proving the full pipeline (kernel event → pid capture → `/proc`
+lookup → JSON output) end to end.
+
+## Bossman — Block A: durable connection-edge persistence (implemented)
+
+The first piece of the Bossman plan (see the "Ergänzung: Bossman (Fleet Commander)" plan history):
+Bossman's design assumes it can pull connection-relationship data with real history from every
+node agent, the same way it already pulls metrics via `GET /api/v1/metrics`. Before this block,
+`ebpf.Collector`'s TCP connection data lived only in a RAM-only, capped ring buffer — no
+persistence, no cursor, no bulk-dump path, and a lossy window under any polling gap or restart.
+
+- **`internal/store`**: new `connection_edges` table (`comm`, `dst_addr`, `dst_port`,
+  `event_count`, `first_seen`, `last_seen`, `latency_ns`, unique on `(comm, dst_addr, dst_port)`)
+  plus `Store.UpsertEdge`/`ListEdgesSince` — the exact shape from the earlier Bossman planning
+  session, deliberately its own table rather than shoehorned into the generic
+  `Point{metric,value,labels}` schema (an edge has several non-numeric dimensions that don't fit).
+  `Downsample` now also prunes edges last seen before the raw cutoff (`DownsampleStats.EdgesPruned`),
+  riding the exact same retention cadence as metrics rather than a second cron mechanism.
+- **`internal/ebpf`**: new `EdgeSink` interface (`UpsertEdge(ctx, comm, dstAddr, dstPort, latencyNs)
+  error`) — deliberately *not* an import of `internal/store` from `internal/ebpf`, since
+  `store.Store` already has this exact method set and therefore satisfies `EdgeSink` structurally,
+  no adapter needed. `Collector.SetEdgeSink` wires it optionally (nil is a fully valid, working
+  collector — same graceful-degradation posture as every other dependency here); on each
+  `ESTABLISHED` transition (the same aggregation `TopTalkers` already computes in memory), the
+  collector also calls the sink, best-effort (a logged warning, never a fatal error, on failure).
+- **`internal/server`**: new `GET /api/v1/net/connections/dump?since=<RFC3339 or duration>` —
+  the durable, cursor-based counterpart to the existing live `net_connections` tool/route.
+  Deliberately **REST-only, no MCP tool** — this endpoint is for machine-to-machine fleet polling
+  (a proxy, or Bossman), not for an AI to call directly (which already has `net_connections`/
+  `top_talkers` for the live view) — directly matching the user's explicit direction that Bossman
+  should poll node agents over REST, not MCP.
+- **`cmd/agentic-mcpd/main.go`**: `collector.SetEdgeSink(st)` wired right after the collector
+  starts, since `st` (the already-open `store.Store`) satisfies `ebpf.EdgeSink` with zero glue code.
+
+**Verified:** unit tests for the store methods (idempotent upsert-by-identity, event count
+increments, `first_seen` stays fixed across repeats, latency preserved when a later observation
+carries none, cursor filtering, pruning), a fake-`EdgeSink` test proving only `ESTABLISHED`
+transitions trigger a persist call, and REST route tests. Real, end-to-end, on
+`host1.example.internal`: generated genuine loopback TCP connections, confirmed the dump
+endpoint returned them with correctly aggregated `event_count` (4 for 4 repeated connections to
+the same port) — then **killed and restarted the daemon** and confirmed the previously observed
+edges were still present in the dump afterward, the exact guarantee (restart-survival) that
+motivated moving off the RAM-only ring buffer in the first place.
+
+## Bossman — Block B1/B2: FastAPI scaffold + TimescaleDB schema (implemented)
+
+`bossman/` (a new subdirectory of this same repo, per the confirmed monorepo-not-separate-repo
+decision): a `uv`-managed Python project, app-factory pattern (`create_app`, not a module-level
+singleton, so tests don't need the real lifespan/DB pool to run), `pydantic-settings` config read
+from `BOSSMAN_`-prefixed env vars (not a YAML file like the Go agent — Bossman follows this team's
+conventional env-var-configured service pattern instead), `/healthz` matching the Go daemon's own
+bare, unauthenticated liveness-check convention.
+
+**Schema** (SQLAlchemy 2.0 declarative models in `bossman/db/models.py`, Alembic migration in
+`bossman/alembic/versions/`): `agents`, `host_edges` (aggregated relationships), `connection_events`
++ `metrics` (TimescaleDB hypertables — raw history), `metrics_hourly` (continuous aggregate, the
+RRD-replacement rollup), `plan_runs`/`plan_run_steps` (the Ansible-replacement audit trail),
+`bossman_users`/`api_tokens` (the dual human/machine auth split already decided). Hypertable/
+continuous-aggregate/retention-policy calls are raw SQL in the migration (`op.execute(...)`) since
+none of that is expressible via SQLAlchemy's own DDL — the ORM models only describe each table's
+plain relational shape.
+
+**Two real bugs found and fixed while actually running this against a real database** (not just
+reviewing the code):
+1. `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` cannot run inside a transaction
+   block by default (it tries to materialize immediately, which TimescaleDB implements outside
+   transactional DDL) — Alembic wraps every migration in a transaction. Fixed with `WITH NO DATA`
+   on the `CREATE MATERIALIZED VIEW`, which skips the immediate materialization; the continuous
+   aggregate policy refreshes it on its own schedule regardless, so nothing is lost.
+2. Every timestamp column defaulted to Postgres `TIMESTAMP WITHOUT TIME ZONE` (SQLAlchemy's plain
+   `DateTime()`), which `asyncpg` then refuses to bind a timezone-aware Python `datetime` into — a
+   real, immediate failure the moment a real integration test tried to insert one. Since a fleet
+   spans hosts across timezones, comparing/bucketing naive timestamps would have been silently
+   wrong even if the driver had allowed it. Fixed by making every timestamp column explicitly
+   `DateTime(timezone=True)`.
+
+**Verified, real, not mocked:** a real `timescale/timescaledb:latest-pg16` Docker container as the
+dev database (see `bossman/README.md`); `alembic upgrade head` / `alembic downgrade base` both run
+successfully against it; confirmed via `psql` that `connection_events`/`metrics` are genuine
+hypertables (`timescaledb_information.hypertables`), `metrics_hourly` is a genuine continuous
+aggregate, and all three retention/refresh policies are actually registered as scheduled background
+jobs (`timescaledb_information.jobs`) — not just that the migration ran without erroring. A real
+pytest integration suite (`tests/test_models.py`, skips gracefully if no database is reachable
+rather than mocking one away) inserts and queries rows through the actual ORM models against the
+real hypertables, including the two bugs above being caught by this exact test suite before ever
+being committed.
+
+## Bossman — Block B3: enrollment server (implemented)
+
+Bossman's server side of the exact same handshake the Selecta section above already implements —
+`POST /api/v1/enroll` accepting `{name, enroll_secret, token, address}` and returning
+`{bossman_public_key, agent_id}`. No new wire protocol: this is the contract `internal/enroll`
+(the Go `agentic-mcpd register` client) was written against from the start.
+
+**`bossman/bossman/services/keys.py`** (new): `ensure_client_keypair(key_path, cert_path)`
+generates a P-256 keypair + self-signed certificate once and persists it to disk — idempotent, a
+restart reuses the existing identity rather than silently rotating it (rotation would require
+re-running enrollment against every already-enrolled agent, an accepted v1 trade-off per the plan
+above). `own_public_key_pem(cert_path)` extracts the PEM-encoded PKIX public key from that
+certificate — the direct Python counterpart of the Go node agent's
+`tlsauth.PublicKeyPEMFromCertFile`, handed out during enrollment so a Duppy can pin it in its own
+`tls.trusted_client_keys` exactly like a Selecta's client certificate.
+
+**`bossman/bossman/services/enrollment.py`** (new): `enroll_agent(session, configured_secret,
+EnrollRequest)` — framework-free business logic (no FastAPI import), so it stays reachable from
+the REST API, a future MCP facade, and tests without duplicating logic. Validates the caller's
+`enroll_secret` with `secrets.compare_digest` (constant-time, mirroring the Go daemon's own
+`crypto/subtle.ConstantTimeCompare`) and upserts an `Agent` row by name — a first-time enrollment
+creates it `enrolled`; re-enrolling an already-known name (reinstall, token rotation) updates the
+existing row in place instead of erroring, mirroring the Go Selecta's `Manager.Enroll`
+re-enrollment semantics.
+
+**`bossman/bossman/api/enroll.py`** (new): the FastAPI route, mounted in `create_app()` only when
+`settings.enroll_secret` is non-empty — an unconfigured Bossman accepts no enrollments at all,
+identical gating to the Go Selecta's `proxy.enroll_secret`. `400` on an empty `name`/`token`,
+`401` on a wrong `enroll_secret` (propagating `InvalidEnrollSecret`), `200` with the freshly
+generated/loaded public key and the agent's UUID on success.
+
+**Real bug found and fixed while wiring this up, not by code review:** a DB-backed HTTP test using
+two separately-constructed `TestClient` instances failed with `RuntimeError: ... got Future ...
+attached to a different loop` — `bossman/db/session.py`'s original `_engine` was a module-level
+singleton created once at import time, but each `TestClient` spins up its own event loop, and a
+pooled `asyncpg` connection created under one loop cannot be reused under another (this is exactly
+the DB-pool wiring Block B1's scaffold had explicitly deferred to "a later block" in
+`bossman/main.py`'s lifespan, just never exercised until a DB-backed HTTP test existed). Fixed by
+binding the engine's lifetime to the FastAPI app instance instead of the process: `make_engine()`
+is now called inside `lifespan()`, storing the session factory on `app.state`, and
+`get_session(request: Request)` reads it from there — disposed cleanly in `lifespan`'s `finally`
+block on shutdown. This is also the architecturally correct shape per the original B1 plan, not
+just a test workaround.
+
+**Verification:**
+- `tests/test_keys.py` (3 tests): keypair generation, idempotency (identical bytes across two
+  calls), and that the extracted public key is well-formed PEM.
+- `tests/test_enrollment_service.py` (3 tests, real DB via `db_session`): new-agent creation,
+  re-enrollment updating the existing row in place (not creating a duplicate), and wrong-secret
+  rejection creating no row.
+- `tests/test_enroll_api.py` (4 tests, real DB, real HTTP via `TestClient(app)` as a context
+  manager so the lifespan actually runs): success end to end, the same keypair being returned
+  across two different enrollments (proving persistence, not per-call regeneration), wrong-secret
+  rejection, and route absence (404) when no `enroll_secret` is configured.
+- **Real end-to-end run, the actual Go binary against the actual Bossman dev server** (not just
+  Python-side tests): `uv run uvicorn bossman.main:app` was started for real against the same
+  `timescale/timescaledb` dev container Block B1/B2 verified against, with a real
+  `BOSSMAN_ENROLL_SECRET` set. The real, freshly-built `agentic-mcpd` binary's `register`
+  subcommand was run against it (`--enroll-url http://127.0.0.1:8090 --enroll-secret e2e-secret
+  --name duppy-e2e-1 --address 127.0.0.1:8091`) and succeeded, printing a real agent UUID and
+  writing a real PEM public key to disk (confirmed valid with `openssl pkey -pubin -text`, a real
+  P-256 key, not just PEM-shaped text). `psql` confirmed the real row in `agents`
+  (`enrollment_state='enrolled'`, correct `token`/`address`). A second `register` call with a
+  wrong `--enroll-secret` failed for real with the server's actual 401 propagated into the CLI's
+  error message (`register: enrollment rejected: 401 Unauthorized: {"detail":"invalid
+  enroll_secret"}`). Test rows and the dev Bossman process were cleaned up afterward.
+
+## Bossman — Block B4: agent client + poller (implemented)
+
+For each enrolled agent, pulls `GET /api/v1/metrics` and `GET /api/v1/net/connections/dump` on an
+interval and writes the results into `metrics`/`host_edges` — the RRD-replacement and
+relationship-graph ingestion path described in the plan above (section B.4).
+
+**`bossman/bossman/services/agent_client.py`** (new): `AgentClient` mirrors the Go proxy's own
+`internal/fleet.Puller` byte for byte in protocol terms — `Authorization: Bearer <token>` header,
+Bossman's own client certificate presented for mTLS, `verify=False` (Bossman does not verify the
+agent's server identity; trust runs the other way, matching the already-documented proxy-mode
+trade-off). `metrics_dump(from_)`/`connections_dump(since)` omit the query parameter entirely when
+given `None` rather than inventing a lookback window — the agent's own REST defaults (1h for
+metrics, 24h for connections) apply on a first pull, and an explicit cursor is passed on every
+pull after that.
+
+**`bossman/bossman/services/poller.py`** (new): `poll_once(session_factory, settings,
+client_factory=...)` loads every `enrollment_state='enrolled'` agent and polls each concurrently,
+bounded by `asyncio.Semaphore(settings.poll_concurrency)` (default 10) — no task queue
+(Celery/Redis), matching the plan's stated reasoning at this fleet's targeted scale (~100 hosts).
+`client_factory` exists solely so tests can substitute a fake `AgentClient` instead of a real one
+— the same test seam the Go proxy's `Manager.pullerFactory` already established
+(`internal/fleet/manager.go`) for an identical reason. `poll_agent` pulls metrics and connection
+edges independently (either can fail without blocking the other) and only advances each resource's
+own cursor (`Agent.last_metrics_pulled_at`/`last_edges_pulled_at`, added in this block's migration)
+on that resource's success — `Agent.last_seen_at` updates if *either* pull reached the agent at
+all. Metric inserts use `ON CONFLICT DO NOTHING` (idempotent against cursor-boundary overlap
+without erroring on the hypertable's `(time, agent_id, metric)` primary key); `HostEdge` upserts by
+its natural key (`src_agent_id, src_comm, dst_addr, dst_port`), overwriting `event_count` (already
+a lifetime cumulative counter from the agent, not a per-window delta) and best-effort resolving
+`dst_agent_id` by matching a known agent's `address` host part against the edge's `dst_addr`.
+`poller_loop` runs `poll_once` on `settings.poll_interval_seconds` until an `asyncio.Event` is set.
+
+**`bossman/bossman/main.py`**: the poller is started as a background `asyncio.create_task` in the
+app's `lifespan`, and — critically — **cancelled**, not just signaled-and-awaited, on shutdown: a
+poll cycle can be blocked on a slow/unreachable agent's HTTP call (up to its own 30s timeout), and
+`task.cancel()` interrupts that immediately via `asyncio.CancelledError` rather than stalling every
+test that exercises the lifespan (and a real shutdown) for up to 30 seconds.
+
+**Schema change:** `alembic/versions/8ddf50da59f5_agent_poll_cursors.py` adds
+`agents.last_metrics_pulled_at`/`last_edges_pulled_at`. Autogenerate also proposed *dropping*
+`connection_events_time_idx` and `metrics_time_idx` — deliberately not applied. Both are
+TimescaleDB's own indexes, created automatically by `create_hypertable()` in the initial migration
+and invisible to SQLAlchemy's model introspection, which is exactly why autogenerate misread them
+as removed; applying that diff would have silently degraded every time-range query against both
+hypertables. Caught by reading the generated migration before running it, not by a failing test —
+a reminder that autogenerate output is a draft, not a commit-ready artifact.
+
+**Real bug found in bootstrapping this block's own tests, not in the poller logic itself:**
+`HostEdge.dst_addr` is a Postgres `INET` column, so SQLAlchemy returns an `ipaddress.IPv4Address`
+object on read, not a `str` — a first version of `tests/test_poller.py` asserted
+`edge.dst_addr == "9.9.9.9"` and failed immediately with a real, informative `AssertionError`,
+fixed by comparing `str(edge.dst_addr)` instead. A second, separate issue in the same test file:
+deleting a `HostEdge` and its parent `Agent` in the same session without an intermediate
+`session.flush()` let SQLAlchemy attempt the `DELETE FROM agents` before the child `DELETE FROM
+host_edges` had actually executed, raising a real `ForeignKeyViolationError` — fixed by flushing
+after deleting child rows and before deleting the parent in every test's cleanup.
+
+**Verification:**
+- `tests/test_agent_client.py` (6 tests, `httpx.MockTransport` — no real network, no real cert
+  files needed since httpx doesn't validate `cert=` paths when a custom transport is supplied):
+  correct URL/headers/query params, RFC3339 UTC formatting of the `from` cursor, and every error
+  path (non-200 status, network failure, invalid JSON).
+- `tests/test_poller.py` (6 tests, real DB via `db_session`, `FakeAgentClient` injected via
+  `client_factory`): metrics + edges both written and cursors both advance on success; a failing
+  metrics pull leaves `last_metrics_pulled_at` unset while a succeeding edges pull still advances
+  `last_edges_pulled_at` and `last_seen_at` (independent-failure proof); an agent with no address
+  is skipped without any network attempt; the first poll passes no cursor while the second passes
+  the first's timestamp; re-polling the same edge updates the existing row in place (not a
+  duplicate) with the new `event_count`; `poll_once` only ever selects `enrolled` agents, skipping
+  `pending` ones.
+- **Real end-to-end run against an actual `agentic-mcpd` binary** (not the Python-side fake):
+  reused this block's own B3 enrollment flow for real (`agentic-mcpd register` against a live
+  Bossman dev server) to enroll a real, TLS-enabled Duppy, added the handed-out Bossman public key
+  to the Duppy's own `trusted_client_keys`, and restarted it — confirmed `client certificate
+  required` when polled without one first, proving mTLS was actually enforced, not just configured.
+  Called `poll_once` directly against the real dev database with the **real** (non-fake)
+  `client_factory`, presenting Bossman's real client certificate: the real `agentic_mcpd_start`
+  startup-marker metric (the same marker the v3 proxy/satellite work already relied on for its own
+  real-traffic verification) was pulled and written — `psql` confirmed two real rows (one per
+  Duppy process start observed) with correct `agent_id`/`metric`/`value`/`time`. A second
+  `poll_once` call against the same, now-current cursor wrote zero additional rows — the dedup
+  path was exercised for real, not just asserted against a mock. `edges_written` was `0` in this
+  run since no eBPF connections existed on the disposable local test agent — the edges write path
+  itself is covered by the real-DB `FakeAgentClient` tests above and by the Selecta section's own
+  earlier real-eBPF verification on `host1.example.internal`, so this run's scope was
+  deliberately the metrics/cursor path. All test rows, processes, and scratch files were removed
+  afterward.
+
+## Bossman — Block B5: plan loader + plan engine (implemented)
+
+The filesystem-native plan format from the plan above (section B.5): "take plan X, run it against
+host Y" instead of the AI orchestrating individual module calls itself.
+
+**`bossman/bossman/services/plan_loader.py`** (new): deliberately byte-for-byte syntax-compatible
+with the Go node agent's own `tools.d/*.yaml` single-task format (`internal/tasks/task.go`) — same
+`ansible.builtin.<module>:` key, `params: {type, required, pattern, default}`, and `{{ placeholder
+}}` substitution rules (a string that is *entirely* one placeholder keeps the argument's native
+type; embedded placeholders stringify; an unresolved reference is a hard error, never a silent
+no-op) — ported statement-for-statement so an operator who already knows tools.d syntax needs
+nothing new to write a plan step. What a plan adds on top of a single task: an ordered `steps:`
+list where each step is a module call, a `pipeline:`, or a new `upload:` step type (`local_path` +
+`remote_name`, driving the file-upload staging path documented earlier in this file), plus
+per-step `check_mode`/`on_failure` ("abort" default, or "continue"). `load_plans_dir()` mirrors the
+Go tools.d loader's behavior exactly: sorted, duplicate-name detection, a missing directory yields
+no plans rather than erroring. `load_host_vars()` reads
+`<plans_dir>/host_vars/<hostname>.yaml`. `resolve_params()` merges `params.default < host_vars <
+explicit-call-params` (in that precedence) and validates required/type/pattern, mirroring the Go
+parser's `buildArgs`. `Plan.version()` is a sha256 of the plan file's own bytes — a drift-detection
+value for `plan_runs.plan_version` ("was the file edited since this run happened"), not a
+hand-maintained version number.
+
+**`bossman/bossman/services/agent_client.py`** extended with `call_tool(name, body)` (`POST
+/api/v1/tools/{name}`) and `upload_file(remote_name, data)` (`PUT /api/v1/upload?name=`, the raw-
+body path documented in this file's "File upload (staging)" section) — both raising
+`AgentClientError` on any non-200/network failure, same contract as the existing
+`metrics_dump`/`connections_dump` methods.
+
+**`bossman/bossman/services/plan_engine.py`** (new): `run_plan(session, agent, plan, host_vars,
+explicit_params, dry_run, client, requested_by)` resolves parameters, creates the `PlanRun` row,
+then executes every step in order, recording each into `plan_run_steps` regardless of outcome —
+`PlanError`/`AgentClientError`/`OSError` are all caught per-step and stored as that step's `error`,
+never allowed to abort the whole run and leave nothing persisted. Only a parameter-resolution
+failure *before* the `PlanRun` row is created propagates as a raised `PlanError` — once the row
+exists, a persisted partial audit trail is the point of a plan run, not an exception.
+
+Per-step `check_mode` (or the run's own top-level `dry_run`) only actually changes behavior for a
+**module** step, where it's injected as `"dry_run": true` in the request body sent to
+`/api/v1/tools/{module}` — this is genuinely how the Go node agent's own modules implement
+check_mode (a `dry_run` boolean *parameter inside the module's own params*, confirmed by reading
+`internal/modules/apt.go` et al.; the REST/MCP server layers always call `Module.Run(..., false)`
+for the wrapper argument, so this is the *only* way to trigger it over the wire). `pipeline` and
+`upload` steps have no such capability on the agent side — a dry-run pipeline or upload step is
+therefore **skipped entirely** (no HTTP call at all) with a synthetic `{"skipped": "..."}` response
+body recorded, rather than either running for real during a preview or pretending to predict an
+effect neither step type can actually preview.
+
+`PlanRun.status` becomes `"failed"` if *any* step errored (regardless of whether `on_failure` let
+the run continue past it) or `"succeeded"` otherwise — `"aborted"` (also a valid value per the
+schema's `CheckConstraint`) is reserved for a future explicit-cancellation feature, not produced by
+this block.
+
+**Verification:**
+- `tests/test_plan_loader.py` (25 tests, no DB, no network): every step kind parses correctly
+  (module/pipeline/upload), every malformed-plan error case (missing name/steps, multiple module
+  keys, unknown step key, bad `on_failure`), `load_plans_dir`/`load_host_vars` behavior including
+  duplicate-name and missing-directory cases, `resolve_params`'s full precedence chain and every
+  validation failure (missing required, pattern mismatch, wrong type, unknown param),
+  `substitute`'s type-preservation vs. stringification rules and nested dict/list walking, and
+  `Plan.version()` actually changing when the file's content changes.
+- `tests/test_plan_engine.py` (11 tests, real DB via `db_session`, `FakeAgentClient` — the same
+  test-seam pattern as the poller and the Go proxy's own `Manager.pullerFactory`): a full
+  successful run recording the right step/status/params/version; a failing step recorded with its
+  error and the run marked `failed`; `on_failure: continue` running the remaining steps vs. the
+  default `abort` stopping immediately; a module step's dry-run correctly injecting `dry_run: true`
+  into the body; a step-level `check_mode: true` forcing dry-run behavior even when the overall run
+  isn't a dry run; pipeline and upload steps both actually invoked when not a dry run and both
+  genuinely skipped (zero calls to the fake client) when they are; a missing required parameter
+  raising before any `PlanRun` row is created (no orphan row left behind).
+- **Real end-to-end run against an actual, write-enabled `agentic-mcpd` binary** (not the Python
+  fake): a three-step plan (a `copy` module step, a `pipeline` step chaining `echo`/`wc` through
+  the agent's real command-whitelist policy, and an `upload` step) was run for real via `run_plan`
+  with a genuine (non-fake) `AgentClient` against a real, running Duppy. All three steps came back
+  `changed: true`/`http_status: 200` with no errors, `PlanRun.status == "succeeded"`, and — checked
+  independently of the recorded results — the actual side effects were real: `motd.txt` on disk
+  contained the exact substituted parameter value (`"hello from e2e"`), and the uploaded file
+  landed byte-for-byte in the agent's real staging directory. Test rows, processes, and scratch
+  files were removed afterward.
+
+## Bossman — Block B6: auth (implemented)
+
+The dual auth model confirmed earlier in this file: a human-operator login (JWT, for the future
+dashboard) and a separate machine/AI bearer token (for the future MCP facade), both landing on the
+identical `Authorization: Bearer` header — mirroring the Go node agent's own PAM-for-humans/
+bearer-token-for-machines split one level up at the Bossman layer.
+
+**`bossman/bossman/services/auth.py`** (new, framework-free like every other `services/` module):
+- `hash_password`/`verify_password` — bcrypt via `passlib.context.CryptContext`.
+- `authenticate_user(session, username, password)` — on an unknown username, still hashes the
+  supplied password against a fixed dummy hash before raising, so a caller can't distinguish
+  "no such user" from "wrong password" by response timing, on top of already returning an
+  identical error message either way.
+- `create_access_token`/`decode_access_token` — `PyJWT`, `HS256` by default (`config.py`'s
+  `jwt_secret`/`jwt_algorithm`/`jwt_ttl_minutes`, already scaffolded in Block B1). Claims are
+  `sub` (username) and `role`.
+- `generate_api_token()` — a fresh 32-byte hex token, deliberately mirroring the Go node agent's
+  own `newBearerToken()` convention (`cmd/agentic-mcpd/register.go`) for consistency across the
+  project. `hash_api_token()` is a **fast, deterministic** hash (SHA-256), not bcrypt — an API
+  token already carries its own 256 bits of entropy so a fast hash has no meaningful enumeration
+  risk, and a fast, deterministic hash is what makes an O(1) "look up the row by token" query
+  possible at all (bcrypt's per-hash random salt only supports verifying against a hash you
+  already know the row for, not looking one up by it). `new_api_token(name)` returns `(row-to-
+  persist, raw-token-to-hand-out-once)` — the raw value is never retrievable again afterward.
+  `revoke_api_token` sets `revoked_at`.
+- `resolve_identity(session, settings, bearer)` — the single entry point REST routes (Block B7)
+  authenticate against: tries a JWT decode first (a JWT is a distinctly structured, signed string;
+  a random hex API token will simply fail to decode as one) and falls back to an API-token lookup,
+  returning a small `Identity(kind, name, role)` shape — the direct counterpart of the Go node
+  agent's own `internal/authz.IdentityFromContext`, abstracting which of the two mechanisms
+  actually authenticated the caller behind one type request handlers dispatch on.
+
+**`bossman/bossman/api/auth.py`** (new): `POST /api/v1/auth/login` (always mounted, unlike the
+enrollment route — there's no "not configured" state for human auth the way enrollment has
+`proxy.enroll_secret`) exchanges `{username, password}` for `{access_token, token_type: "bearer"}`,
+401 on any `AuthError`. `get_current_identity` is the FastAPI dependency every protected route from
+here on uses — extracts the `Authorization: Bearer` header and calls `resolve_identity`, 401 if
+missing or invalid. Not yet wired to any actual resource route (that's Block B7's REST API); tests
+mount it on a throwaway `/api/v1/whoami` route to verify the dependency end to end.
+
+**Verification:**
+- `tests/test_auth.py` (16 tests, mostly real DB via `db_session`): password hash/verify
+  round-trip and mismatch; JWT round-trip, wrong-secret rejection, and a genuinely expired token
+  (`exp` set to the Unix epoch) rejected; API token generation is random/hex and its hash is
+  deterministic; `authenticate_user` success, wrong password, and unknown username (identical
+  error either way); API token issuance + lookup, an unknown token, and — the case that actually
+  exercises `revoked_at`, not just its presence in the schema — a *revoked* token rejected even
+  though it's otherwise a valid, known row; `resolve_identity`'s JWT path, API-token path, and a
+  garbage string that's neither.
+- `tests/test_auth_api.py` (6 tests, real DB + real HTTP via `TestClient(app)` as a context
+  manager): login success returns a usable JWT, wrong credentials get a real 401, and — mounted on
+  a throwaway protected route — `get_current_identity` genuinely accepts a JWT obtained from a real
+  `/api/v1/auth/login` call, genuinely accepts a real API token from the database, and genuinely
+  rejects both a missing header and a garbage bearer value.
+- No separate Go-binary round trip for this block (unlike B3/B4/B5): B6 is entirely Bossman-
+  internal (no interaction with a node agent), so the real-Postgres + real-HTTP `TestClient` tests
+  above already are the "real, not mocked" verification this project's discipline calls for —
+  consistent with how Block B1/B2's own scaffold and schema work was verified.
+- **Known gap, explicitly not addressed here:** there is currently no way to create the *first*
+  `bossman_users` row (an admin bootstrap account) other than a direct database insert or Python
+  call to `new_bossman_user` — no seed script or CLI exists yet. Left for Block B7 (a user-
+  management REST surface) or a small provisioning script, whichever turns out to be the right
+  home for it once that block's actual shape is clearer.
+
+## Bossman — Block B7: REST API (implemented)
+
+The resource surface tying every earlier block together: `/agents`, `/agents/{id}/metrics`,
+`/relationships`, `/plans`, `/plans/{name}/run`, `/runs` (see docs/plan.md's Bossman plan, section
+B.7) — the first block where `get_current_identity` (Block B6) actually gates real routes, not just
+a throwaway test route.
+
+**`bossman/bossman/api/agents.py`** (new): `GET /api/v1/agents` (inventory), `GET
+/api/v1/agents/{id}` (404 if unknown), `GET /api/v1/agents/{id}/metrics` — omitting `metric=`
+returns catalog discovery (every distinct metric name recorded for that agent, per the "Offene
+Punkte" note above: "damit der Host-Detail-Tab automatisch weiß, welche Graphen es zeichnen kann");
+passing it returns that metric's points, optionally bounded by `since=`. Always serves Bossman's
+own already-aggregated Postgres data (`services/poller.py`'s target) — never a live pull from the
+agent itself, which is the entire point of polling ahead of time.
+
+**`bossman/bossman/api/relationships.py`** (new): `GET /api/v1/relationships[?agent_id=]` reads
+straight from `host_edges`. v1 scope is direct edges only (depth=1) — the plan's own DB-choice
+reasoning ("eine relationale Edges-Tabelle mit `WITH RECURSIVE` reicht völlig aus") already
+anticipated multi-hop traversal as an available, not yet needed, extension; not built speculatively
+here.
+
+**`bossman/bossman/api/plans.py`** (new): `GET /api/v1/plans` / `GET /api/v1/plans/{name}` list/
+describe plans straight off disk via `plan_loader.load_plans_dir` (no caching — plans are small,
+infrequently read files; correctness over micro-optimization). `POST /api/v1/plans/{name}/run` is
+the actual "take plan X, run it against host Y" instruction: `{agent, params, dry_run}` where
+`agent` is a **name** (matching `Agent.name`), not a UUID — the plan's own MCP-facade design
+(`run_plan(plan, host, params, dry_run)`) already establishes host-by-name as the natural caller
+shape. Looks up the agent, loads its `host_vars`, builds an `AgentClient` via a new
+`get_client_factory` FastAPI dependency (defaulting to the shared `agent_client.client_for`, added
+in this block by extracting it out of `services/poller.py`'s own private factory so both the
+poller and this route construct clients identically) — and delegates to
+`services.plan_engine.run_plan`. `get_client_factory` is overridable via
+`app.dependency_overrides`, the FastAPI-native counterpart of the `client_factory` test seam
+already used by the poller and the plan engine's own tests.
+
+**`bossman/bossman/api/runs.py`** (new): `GET /api/v1/runs[?agent_id=&plan_name=&status=&limit=]`
+and `GET /api/v1/runs/{id}` (with its ordered `plan_run_steps`, via `selectinload`) — the Ansible-
+replacement audit trail's read side.
+
+**Verification:**
+- `tests/test_agents_api.py` (5 tests), `tests/test_relationships_api.py` (3), `tests/
+  test_plans_api.py` (5, a `FakeAgentClient` injected via `app.dependency_overrides[
+  get_client_factory]`), `tests/test_runs_api.py` (5) — all real HTTP via `TestClient(app)` as a
+  context manager, real Postgres via `db_session`, real API-token auth (`services.auth.
+  new_api_token`, not a stub): every route's success path, its `401` when unauthenticated, `404`s
+  for unknown agents/plans/runs, catalog-discovery vs. filtered metric queries, `on_failure`/
+  parameter-validation propagating as `422`, and confirming a rejected run leaves no orphan
+  `PlanRun` row.
+- **Real end-to-end run, the whole stack at once** — the first time in this project's Bossman work
+  that auth, agent inventory, plans, and runs were all exercised together through actual separate
+  processes rather than in-process `TestClient` calls: a real Bossman (`uvicorn`) and a real,
+  write-enabled `agentic-mcpd` Duppy were started as independent processes; a real
+  `bossman_users` row and a real enrolled `Agent` row were inserted directly (the "known gap" noted
+  in Block B6 — no seed script exists yet); then, purely via `curl` against the running Bossman
+  HTTP server: `POST /api/v1/auth/login` returned a genuine JWT, `GET /api/v1/agents` listed the
+  real agent, `GET /api/v1/plans` listed a real plan file from disk, `POST
+  /api/v1/plans/demo_plan/run` executed for real against the real Duppy (an actual `copy` module
+  call over the real REST API, not a fake), and `GET /api/v1/runs/{id}` showed the correct
+  `requested_by` (the logged-in username) and the step's real request/response bodies. `cat` on the
+  agent's own filesystem independently confirmed the substituted message was actually written.
+  All test rows, processes, and scratch files were removed afterward.
+
+## Bossman — Block B8: MCP facade + prompt caching (implemented)
+
+The AI-facing tool surface (see docs/plan.md's Bossman plan, sections B.6/B.8) — deliberately kept
+at plan+host granularity only (`list_hosts`, `host_status`, `host_relationships`, `list_plans`,
+`get_catalog`, `run_plan`, `get_plan_run`), never the ~52 granular module tools a standalone node
+agent exposes directly. That granularity exists for the standalone case the plan explicitly ruled
+out for Bossman ("per MCP macht keinen Sinn nur wenn der Client als standalone läuft").
+
+**`bossman/bossman/services/plan_loader.py`** gained `render_catalog_text(plans_dir)` — a
+deterministic, sorted rendering of every plan's name/description/params, built to be
+**byte-identical across calls given the same files on disk**: Anthropic prompt caching only pays
+off if the cached prefix never changes call to call (see the earlier prompt-caching research in
+this file), so nothing here may vary run to run (no timestamps, no dict-ordering nondeterminism —
+plans and their params are both explicitly sorted).
+
+**`bossman/bossman/services/catalog.py`** (new): `CatalogCache` holds that rendered text in
+memory, generated once at construction and only regenerated when `.reload()` is called explicitly
+— never per request. This is the concrete mechanism behind "Der System-Prompt-Text wird nur bei
+POST /api/v1/plans/reload neu gerendert" from the earlier prompt-caching design section: the
+in-process cache *is* what stays byte-identical; the reload endpoint is the only thing allowed to
+invalidate it.
+
+**`bossman/bossman/api/plans.py`** gained `POST /api/v1/plans/reload` (auth-gated like every other
+route in this block), reading the shared `CatalogCache` off `app.state.catalog_cache` and returning
+the new rendered length — confirming the reload actually happened without dumping the whole text
+back over the wire.
+
+**`bossman/bossman/mcp/server.py`** (new): `build_mcp_server(session_factory, settings,
+catalog_cache, client_factory=client_for)` is a factory, not a module-level singleton — the same
+test-seam discipline every other `services/`-adjacent module in this project follows, letting tests
+construct an instance against a throwaway database and a fake `AgentClient`. `FastMCP`'s
+`instructions` field is set from `catalog_cache.text` at construction — a best-effort initial value
+many MCP clients fold directly into their own system prompt at session-initialize time (the actual
+prompt-caching handoff point: whatever orchestrates the real LLM conversation is what applies
+`cache_control: {"type": "ephemeral"}`, not Bossman itself, since Bossman only serves MCP tools, it
+doesn't call the Anthropic API on its own behalf). `get_catalog()` additionally exposes the same
+text as a plain tool call, for a caller that wants the guaranteed-current cached text after a
+reload without restarting its own MCP session. `run_plan`'s `requested_by` reads
+`bossman.mcp.auth.current_identity`, a `contextvars.ContextVar` set by the auth middleware below —
+task-local, so it doesn't leak between concurrent requests, and falls back to the literal string
+`"mcp-facade"` if unset (defensive, not expected to happen in practice).
+
+**`bossman/bossman/mcp/auth.py`** (new): `McpBearerAuthMiddleware` is raw ASGI middleware, not the
+`mcp` SDK's own OAuth-flavored `TokenVerifier`/`AuthSettings` machinery — that machinery targets
+full OAuth2 resource-server flows (issuer URLs, scopes, a registered authorization server), far
+more than Bossman's single shared-secret bearer token needs, and using it would mean
+re-implementing `services.auth`'s already-correct `api_tokens` verification a second time inside an
+OAuth adapter instead of just calling it directly. The MCP facade is exclusively for machine/AI
+callers — never a human JWT — so this middleware only ever accepts a valid, unrevoked API token.
+
+**`bossman/bossman/main.py`** wiring: the MCP server is built and mounted **inside** `lifespan`
+(not `create_app()`), because it needs a real `session_factory` to close over, which only exists
+once the lifespan has started; `app.mount()` during startup is safe since it completes before the
+ASGI server accepts any real HTTP scope. `mcp_server.streamable_http_app()` is called once (to
+force lazy `session_manager` initialization) before `async with mcp_server.session_manager.run():
+yield` — the officially documented pattern for mounting a `FastMCP` streamable-HTTP server inside a
+larger ASGI app, per the `mcp` SDK's own `session_manager` property docstring ("exposed to enable
+advanced use cases like mounting multiple FastMCP servers in a single FastAPI application").
+
+**Two real bugs found only by running an actual separate-process MCP client against a real running
+Bossman — neither would have been caught by any in-process test, and weren't, until the manual run
+surfaced them:**
+1. `FastMCP`'s own internal streamable-HTTP route defaults to path `/mcp`. Mounting the wrapped app
+   at `/mcp` in `main.py` therefore doubled up to an effective `/mcp/mcp`, and every real request
+   404'd after an initial redirect. An in-process `TestClient` auth test that only checked for a
+   non-`401` status code passed anyway (a `404` is not `401`), masking the bug completely — status-
+   code-only assertions were not enough here. Fixed by constructing `FastMCP(...,
+   streamable_http_path="/")`, so the outer mount ("/mcp") is the *only* "/mcp" in the path.
+2. The MCP transport's own DNS-rebinding protection (`transport_security`) rejects a `Host` header
+   it doesn't recognize — encountered while writing an in-process regression test for bug 1, using
+   `httpx.ASGITransport` with the default `base_url="http://testserver"`; fixed by pointing the test
+   client's `base_url` at `FastMCP`'s own configured default host/port (`127.0.0.1:8000`) instead.
+
+**Verification:**
+- `tests/test_mcp_server.py` (11 tests, real DB via `db_session`, `FakeAgentClient` injected via
+  `client_factory` — calls tool closures directly through `FastMCP.call_tool`, the same "test the
+  function, not the transport" approach the poller/plan-engine tests already use): every tool's
+  success path against real rows, `host_status`/`host_relationships`/`get_plan_run`'s unknown-
+  target error paths, `run_plan` writing a real `PlanRun` with `requested_by` correctly sourced from
+  `current_identity`, and `CatalogCache`'s "unchanged until explicit reload" contract proven by
+  editing a file on disk between two reads.
+- `tests/test_mcp_auth.py` (3 tests): missing/garbage bearer both rejected with `401`, and — after
+  the two bugs above were fixed — a **real, full MCP protocol session** (`initialize` →
+  `list_tools`) driven in-process via `httpx.ASGITransport` and the real `mcp` client library, not
+  just a bare HTTP status-code check. This test is written specifically because a weaker version of
+  it (checking only `!= 401`) is exactly what let bug 1 slip past review earlier in this block.
+- **Real end-to-end run, an actual separate MCP client process against a real running Bossman and a
+  real running Duppy** (the run that found both bugs above, before they were fixed): a real
+  `bossman_users`-free, API-token-authenticated session was opened with `mcp.client.streamable_http
+  .streamablehttp_client` against a live `uvicorn` Bossman instance; `initialize()` returned the
+  real rendered catalog as `instructions`; `list_tools()` showed all seven tools; `list_plans()`
+  found a real plan file from disk; `run_plan(plan="mcp_e2e_plan", host="duppy-b8-e2e", params=
+  {"message": "hello via real MCP client"})` executed for real against a real, write-enabled
+  `agentic-mcpd` binary and returned `status: "succeeded"`; `get_plan_run(...)` showed the correct
+  step detail. Independently confirmed via `cat` on the agent's own filesystem that the exact
+  substituted message was actually written. All test rows, processes, and scratch files were removed
+  afterward (a stray leftover row's cleanup was itself only fixed by running each `DELETE` as its
+  own `psql -c` invocation — `psql -c "stmt1; stmt2; stmt3;"` runs all three statements as one
+  implicit transaction, so an error partway through silently rolled back deletes that had already
+  printed `DELETE 1`).
+
+---
+
+This closes out Block B (Bossman backend, B1–B8) from the Bossman plan above. Remaining per that
+plan: Block C (Angular frontend) and Block D (deployment/docs).
+
+## Bossman — Block C: Angular frontend (implemented)
+
+`bossman-ui/`, scaffolded with `ng new` (Angular 20, standalone components, no NgRx — the same
+conventions as the team's `CentralStation/frontend` reference project cited in the plan above) and
+`ng add @angular/material`. Covers the six routes from the plan's section C.1: Fleet Overview,
+Hosts (list + detail), Topology, Plans (list + detail + run dialog), Runs (list + detail), Settings
+— plus a Login screen with the one deliberately stronger branding moment (per section C.2).
+
+**Structure** (`core/{auth,models,services}`, `shared/components/*`, `features/*`) matches the
+plan's section C.3 layout exactly: `HostStatusBadge`, `MetricChart` (ngx-echarts), `TopologyGraph`
+(cytoscape + cytoscape-dagre), `HostPicker`, `TimeRangePicker`, `StatusFilterChips` as shared
+components; `core/auth` has `AuthService` (JWT decoded client-side for display only — Bossman's
+`/api/v1/auth/login` has no refresh-token endpoint, so "logged in" is just "a token is present and
+its own `exp` hasn't passed"), `auth.interceptor.ts` (attaches the bearer, logs out on any 401
+outside the login call itself), `auth.guard.ts`.
+
+**Design**: Material's `mat.theme()` with `$green-palette` as primary and dark-by-default
+(`theme-type: dark`), plus the four `--bm-green`/`--bm-gold`/`--bm-red`/`--bm-black` custom
+properties from the plan's section C.2, used only for status badges/accents — never as a table,
+chart, or body background. No multi-theme switcher (the plan explicitly ruled that out); no
+light/dark toggle either, since "dark by default, ops-tool convention" was the stated requirement,
+not a togglable preference.
+
+**Scope cut, deliberately**: the plan called for Gridstack-based draggable dashboard widgets on
+Fleet Overview. Shipped instead: a fixed CSS-grid layout of the same information (health-count
+tiles, recent runs, quick actions) — Bossman's REST API has no per-user layout-preference storage
+endpoint yet, so a drag-customizable grid would have nothing to persist to. Revisit once such an
+endpoint exists; `gridstack` is still an installed dependency for when that day comes.
+
+**Run dialog** (`features/plans/run-plan-dialog.component.ts`) implements the plan's
+"Ausführen"-Dialog exactly: host picker → dynamically-built parameter form (validators derived from
+each plan param's `required`/`pattern`) → preview (`dry_run: true`) → confirm → real apply
+(`dry_run: false`) → link to the resulting run. Two separate `POST .../run` calls, matching the
+REST API's own shape — a preview and its later real apply are two distinct `PlanRun` rows, not one
+resumed run.
+
+**Two real bugs found only by pointing this app at an actual running Bossman + a real
+`agentic-mcpd` Duppy — neither existed in any Python-side test, because nothing before this had
+ever driven Bossman's API from a genuinely different browser origin, or run a plan against an
+agent that was never enrolled through `/api/v1/enroll`:**
+
+1. **Missing CORS configuration.** Bossman's FastAPI app had no `CORSMiddleware` at all. The
+   browser's preflight for the login `POST` (JSON body + custom headers) was silently rejected
+   before the request ever reached a route — the login button appeared to do nothing, with no
+   error surfaced anywhere in the UI (a stalled preflight isn't a `4xx`/`5xx` the interceptor's
+   `catchError` could react to). Fixed by adding `fastapi.middleware.cors.CORSMiddleware` in
+   `bossman/main.py`, configured via a new `Settings.cors_allowed_origins` (defaulting to the
+   Angular CLI's own default dev-server ports, `4200`/`4300`). Verified with a real preflight
+   `OPTIONS` request in `bossman/tests/test_cors.py` (allowed origin gets the right
+   `Access-Control-Allow-Origin` header; an unconfigured origin gets none) — not just "the browser
+   stopped complaining."
+2. **Bossman's own mTLS client keypair was only ever created as a side effect of
+   `/api/v1/enroll`'s handler**, never unconditionally at startup. An `Agent` row inserted directly
+   (the same shortcut every earlier block's manual E2E verification in this project used, and what
+   `bossman-ui`'s own Playwright setup also did) meant `services/agent_client.client_for`'s
+   `httpx.AsyncClient(cert=(key_path, cert_path))` raised a bare `FileNotFoundError` the moment any
+   plan step tried to actually reach the agent. Because `plan_engine.run_plan` — correctly, by its
+   own design — catches per-step errors and records them rather than raising, this surfaced as a
+   confusing partial success: `POST .../run` returned `200` with `status: "failed"`, and the UI's
+   preview stage rendered as if something had happened, when nothing had reached the agent at all.
+   Fixed by calling `services.keys.ensure_client_keypair` unconditionally in `main.py`'s lifespan
+   (best-effort, not fatal — a read-only Bossman instance shouldn't refuse to start over an
+   unwritable default `/etc/bossman/tls` path). Verified in `bossman/tests/test_main_lifespan.py`
+   (keypair is created if missing, reused byte-for-byte if already present) and by the real
+   Playwright run below, which failed with this exact error before the fix and succeeded after.
+
+**Verification:**
+- `npx ng build` — production build succeeds, no errors.
+- **Real Playwright end-to-end run against actual running services** (not a mocked backend): a
+  real Bossman (`uvicorn`, Postgres/TimescaleDB-backed) and a real, write-enabled `agentic-mcpd`
+  Duppy were started as genuine separate processes; a real `bossman_users` row, a real directly-
+  inserted `Agent` row, and a real plan file were set up; `ng serve` was pointed at that Bossman
+  instance. Seven Playwright tests, run in a real headless Chromium against the real dev server,
+  all passed: unauthenticated access redirects to `/login`; wrong credentials show a real rejection
+  from the real API; a correct login reaches `/fleet` and shows all six nav items; logout returns
+  to `/login`; the hosts list and detail page show the real enrolled agent (name, address, all four
+  tabs); the topology page mounts its graph container against real agent data; and — the full
+  round trip — opening `ui_demo_plan`, running it through the actual dialog (host picker → preview,
+  confirmed step-by-step in the dialog → apply for real → view run) produced a genuinely
+  `"succeeded"` run whose step detail matched, and the plan's substituted message was independently
+  confirmed written to the real agent's filesystem via `cat`. All test rows, processes, and scratch
+  files were removed afterward.
+- Karma/Jasmine unit tests (`ng test`) were attempted but not completed in this environment — the
+  available headless Chromium binary hung under Karma's launcher in this sandbox for reasons not
+  fully diagnosed (unrelated to `ng build`, which succeeds cleanly); the real, load-bearing
+  verification for this block is the Playwright run above, which exercises real user flows against
+  a real backend rather than isolated component rendering. Revisit Karma if per-component unit
+  coverage becomes valuable later.
+
+## Bossman — Block B8 refinement: chunked plan caching + Ansible ingestion (implemented)
+
+Two goals from this session: stop re-parsing every plan file on every call (pure performance), and
+extend the plan format enough to faithfully translate a real Ansible role — proven against the
+actual `img_docker` role from `~/Dev/ansible/ansible03/roles/img_docker` — into Bossman's plan
+format, laying the groundwork for a future incremental (only-retranslate-what-changed) translator
+without yet building that translator.
+
+**`bossman/bossman/services/plan_loader.py`** reworked around a new `Chunk` dataclass: a `Plan` is
+now `chunks: list[Chunk]`, not `steps: list[PlanStep]` directly (a `steps` property still exposes
+the flattened view for callers that don't care about chunk boundaries, e.g. the REST API's plan-
+detail listing). Each `Chunk` carries `name`, `steps`, an optional `os_family: list[str]` (the
+Ansible `include_tasks: "{{ ansible_distribution }}.packages.yml"` equivalent), and an optional
+`source_hash` (a sha256 of the *foreign* source text — an Ansible task file — a chunk was
+translated from, set by the translator at authoring time). `chunk_id` is a sha256 of the chunk's
+own canonical JSON (name + os_family + steps), making every chunk content-addressed: identical
+steps always hash to the same id regardless of which file produced them. `Plan.version()` — the
+`plan_runs.plan_version` drift-detection value — is now a hash over all `chunk_id`s instead of
+re-reading `source_path.read_bytes()` on every call (proven in tests by deleting the source file
+after parsing and confirming `version()` still works). `PlanStep` gained `when: str | None` and
+`register: str | None`. A plain flat `steps:` list (the pre-chunking syntax) still parses — it
+becomes one implicit `Chunk(name="main", ...)` — proven byte-identical (`chunk_id`/`version()`
+equality) to the equivalent explicit `chunks:` syntax, so every plan written before chunking
+existed keeps working unchanged. New `chunks_needing_retranslation(existing_chunks,
+current_source_hashes)` — the incremental-retranslation scaffold: diffs a plan's persisted chunks
+against a fresh `{chunk_name: source_hash}` map and returns which chunk names actually need
+re-running through a (future) translator, purely by hash comparison, fully testable independent of
+any real orchestrator parser. New `hash_source_text(text)` (sha256 hex) is what a translator calls
+once at authoring time to compute a chunk's `source_hash`.
+
+**`bossman/bossman/services/when_eval.py`** (new): a small, deliberately non-Turing-complete
+grammar for a step's `when:` — `not <expr>`, `<path> is [not] defined`, `<path> == /!=  <literal>`,
+or a bare truthy path — evaluated against one flat context dict combining resolved plan params and
+every prior step's `register`ed result (the same single-namespace model Ansible itself uses for
+variables). This is a deliberate security boundary, not just a scoping cut: a plan file may
+originate from an LLM translation of an untrusted source (an Ansible role, a Salt state), so
+evaluating a small whitelisted grammar rather than `eval()`ing arbitrary text matters even though
+nothing in this project currently generates plans from an LLM yet.
+
+**`bossman/bossman/services/plan_engine.py`** extended: `_distribution_family()` normalizes the
+`setup` module's raw `ansible_distribution` fact (e.g. "Debian GNU/Linux") to the canonical family
+id (`debian`/`ubuntu`/`redhat`/...) a chunk's `os_family` matches against — done Bossman-side, not
+in the Go agent's `setup` module, keeping it a normalization concern scoped to what OS-dispatch
+needs. `run_plan()` now: resolves the host's distribution family via exactly one lazy `setup` call
+— only if at least one chunk actually declares `os_family` — and always records that resolution as
+a `PlanRunStep` (success or failure), since an OS-dispatch decision is as much part of the audit
+trail as any other step; skips a whole `os_family`-restricted chunk with one summary row if the
+family doesn't match; evaluates each step's `when:` against a running `context` dict (params +
+registered results), recording a skip row (not a failure) on `false`, and folding a `WhenError`
+into that step's own error row; stores a step's response into `context` when `register:` is set;
+and, after every chunk, runs an optional `plan.final_handler` step once — only if the run wasn't
+aborted and at least one step actually reported `changed: True` — the normalized form of Ansible's
+`notify:`/handler pattern.
+
+**`bossman/bossman/services/catalog.py`** (from the prior refinement) needed no further change:
+`CatalogCache` already cached parsed `Plan` objects wholesale, so chunk-awareness came for free —
+`render_catalog_markdown()` still only surfaces name/description/params (chunk/step detail stays
+out of the cached prefix on purpose).
+
+**Real capability gap found and fixed in the Go node agent while translating `img_docker`:**
+`internal/modules/file.go`'s own doc comment already flagged it — `state=link` (symlinks) was
+"not yet implemented", only `file|directory|absent|touch`. The role's very first two Docker-specific
+tasks are exactly this (`/var/lib/docker -> /data1/var_lib_docker`,
+`/var/lib/containerd -> /data1/var_lib_containerd`), so this was a hard blocker, not a nice-to-have.
+Implemented `state: link` (`src` = link target, new required-when-used param): idempotent (a
+symlink already pointing at `src` is `changed: false`; a stale target is atomically removed and
+recreated); `check_mode`-safe (predicts `changed` without touching the filesystem); rejects a path
+that exists and is anything other than a symlink, rather than silently clobbering a real file/
+directory. Owner/group on a symlink use a new `applyOwnerGroupOnLink` (`os.Lchown`, operating on
+the link itself) rather than the existing `applyOwnerGroupMode` (`os.Chown`, which follows the
+symlink) — reusing the latter would have chowned the *target* every run while still reporting the
+*link's* unrelated ownership as unchanged next time, a permanent non-convergence bug. Mode on a
+symlink is intentionally unsupported (Linux mostly ignores symlink permission bits, and neither the
+translated role nor real Ansible usage here needs it). Six new table-driven-style unit tests in
+`internal/modules/file_test.go` (create+idempotent, dry-run doesn't touch disk, retarget when `src`
+differs, missing `src` errors, existing-non-symlink errors, and a targeted proof that chowning the
+link never touches the target's own owner/group).
+
+**`configs/commands.yaml`** gained `curl`, `gpg`, and `systemctl` (the last with `forbid_patterns`
+blocking `stop`/`disable`/`mask`/`poweroff`/`reboot`/`halt`/`kill`, the same blacklist-known-
+dangerous-flags pattern already used for `find`) — needed for the role's GPG-key-import pipeline
+(`curl ... | gpg --dearmor -o ...`, Ubuntu chunk) and the unconditional `systemctl daemon-reload`
+pipeline step every chunk set converges on.
+
+**`bossman/plans/img_docker.yaml`** (new): the actual translated role, seven chunks
+(`data_dirs`, `debian_packages`/`ubuntu_packages`/`redhat_packages` each restricted via
+`os_family`, `proxy_config`, `docker_compose_wrapper`, `daemon_reload`) plus a `restart_docker`
+`final_handler`, every OS/task-file-derived chunk carrying the real sha256 `source_hash` of the
+Ansible source file it was translated from (computed once via `hash_source_text`). Deliberate,
+documented translation decisions instead of fabricating unsupported Ansible features:
+- `ansible.builtin.file`'s symlink steps translate directly now that `state: link` exists (see
+  above) — no workaround needed after the Go-side fix.
+- `templates/docker.list`'s `{{ ansible_distribution | lower() }}` / `{{
+  ansible_distribution_release }}` (a Jinja2 filter plus a fact the Go agent's `setup` module
+  doesn't gather) become a flat `docker_apt_codename` plan param (default `bookworm`, overridable
+  per host via `host_vars/<hostname>.yaml`) plus the OS name hardcoded per already-OS-dispatched
+  chunk — the chunk selection itself *is* the distribution branch, so no filter is needed inside it.
+- `templates/http-proxy.conf`'s nested `docker.proxy`/`docker.noproxy` vars (Bossman params are
+  flat) become `docker_proxy_url`/`docker_noproxy`, gated by `when: docker_proxy_url is defined` —
+  an unset optional param with no default is absent from the step's context entirely, which is
+  exactly what `is defined` needs to evaluate false.
+- The Debian chunk's real Read-Modify-Write `daemon.json` merge (`slurp` → `b64decode | from_json`
+  → `combine` → `to_nice_json`, dependent on the file's pre-existing content) is explicitly out of
+  scope — no Read-Modify-Write primitive or runtime Jinja2 exists yet. Translated instead as the
+  static, pre-computed result of merging the role's own `docker_daemon_base` +
+  `docker_daemon_gelf` defaults (the fresh-install case), matching the same static-`copy`-of-a-
+  fully-rendered-file pattern the *same real role* already uses, un-simplified, for Ubuntu/RHEL
+  (`templates/daemon.json`) — an honest simplification mirroring existing behavior elsewhere in the
+  role, not a fabrication.
+- The RHEL chunk drops `rpm_key` (the Go module requires a `fingerprint` param real Ansible derives
+  automatically; guessing Docker's GPG fingerprint by hand was rejected as unverifiable) and the
+  RHEL8-specific `containerd-selinux` swap `block:` (out of scope, documented) in favor of
+  `ansible.builtin.yum_repository` with `gpgkey:` pointing at the same key URL — the Go agent's
+  native, simpler equivalent for exactly this case — and `ansible.builtin.package` (backend auto-
+  detected) instead of a hardcoded `yum`/`dnf` module name.
+- `systemctl daemon-reload` (no dedicated flag on the Go `systemd` module) becomes a `pipeline:`
+  step, the established Bossman convention for anything without a purpose-built module.
+
+**`bossman/plans/host_vars/host1.example.internal.yaml`** (new): `docker_apt_codename:
+trixie` — this project's real verification host runs Debian 13, confirmed live via its own `setup`
+facts during the E2E run below.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres/TimescaleDB via the `bossman-dev-db` dev container): `test_when_eval.py` (11
+  new tests), `test_catalog.py` (7, unchanged from the prior refinement, still passing chunk-aware),
+  `test_plan_loader.py` (+19 tests: chunk-id content-addressing, flat-vs-chunks byte-equality,
+  when/register/os_family/final_handler parsing and validation, `chunks_needing_retranslation`,
+  `hash_source_text` determinism, and a dedicated `test_img_docker_plan_parses_and_has_expected_
+  chunk_shape` loading the real `bossman/plans/img_docker.yaml` off disk — not a synthetic
+  fixture), `test_plan_engine.py` (+9: register→when, unsupported-when-is-a-step-error, OS-dispatch
+  selects/skips/setup-failure-skips-everything/not-triggered-when-unneeded, final_handler runs-on-
+  change/skips-on-no-change/skips-on-abort). 169 tests total, `ruff check` clean.
+- `go build`/`go vet`/`go test ./...` clean across the whole module after the `file.go` change;
+  `internal/modules` alone: 2.2s, all green, including the six new symlink tests.
+- **Real end-to-end run against `host1.example.internal`** (this project's standing real-
+  Debian-13 verification host, already provisioned by the *actual* `img_docker` Ansible role
+  months prior — an unusually strong fidelity check, since a faithful translation should mostly
+  find *nothing* to change): built `agentic-mcpd` fresh (with the `state: link` fix), deployed it
+  to a scratch directory over SSH with a generated bearer token, `write: true`, TLS enabled via a
+  locally-generated self-signed server cert and Bossman's own real `ensure_client_keypair`-
+  generated P-256 client identity pinned in the daemon's `tls.trusted_client_keys` (exactly the
+  enrollment trust model Block B3 already established, just without going through the `/api/v1/
+  enroll` HTTP round-trip for a disposable test run) — confirmed a request without the client cert
+  was rejected (`401 client certificate required`) before running anything for real. Called
+  `plan_engine.run_plan()` directly against a real `Agent` row and the real, non-fake `AgentClient`:
+  - **`dry_run=true`**: succeeded, 22 recorded steps. OS-dispatch correctly resolved
+    `ansible_distribution: "Debian GNU/Linux"` → family `debian` and selected the `debian_packages`
+    chunk, recording `ubuntu_packages (chunk)`/`redhat_packages (chunk)` as skipped with no agent
+    calls. The `_containerd_dir.data.exists` `when:`-gated symlink step correctly skipped (the real
+    symlink already existed) — proof `register`/`when`/the real `stat` module's `data.exists` shape
+    all compose correctly end to end, not just in mocked unit tests. Nearly every step reported
+    `changed: false` because the host was already correctly configured by the real role months ago
+    — the strongest possible fidelity signal for a translation.
+  - **`dry_run=false` (real apply)**: succeeded, 22 steps, zero errors. `docker.list` and
+    `daemon.json` reported `changed: true` (the translated content omits Ansible's own
+    `# Ansible managed ...` banner comment and re-serializes the JSON with different key
+    order/whitespace — a cosmetic, expected difference, not a semantic one) and were rewritten for
+    real; `final_handler` fired (`systemctl daemon-reload` + `systemd: docker restarted`) since
+    something had changed. Confirmed for real afterward: `systemctl is-active docker` → `active`;
+    `docker run --rm hello-world` completed successfully post-restart; `cat /etc/apt/sources.list.d/
+    docker.list` and `/etc/docker/daemon.json` showed exactly the applied content.
+  - **Second real apply (idempotency check)**: `docker.list`/`daemon.json`/packages/etc. all
+    correctly reported `changed: false` this time. One genuine, documented non-bug surfaced:
+    `create_var_lib_docker_dir` (`file`, `state: directory`, `mode: "0755"`) reported `changed:
+    true` — modern `dockerd` itself `chmod`s its data-root directory to `0710` on every startup as a
+    security hardening default, which the *first* run's own `final_handler` restart had just
+    triggered. This is a real, permanent two-state oscillation between Docker's own runtime
+    behavior and the role's declared `mode: "0755"` — and it is **not specific to this
+    translation**: the original, unmodified Ansible role declares the identical `mode: "0755"` on
+    the identical directory, so a real `ansible-playbook` run against a modern `dockerd` would
+    oscillate in exactly the same way. Documented here rather than "fixed" by dropping the mode
+    assertion, since doing so would mean the translation is no longer faithful to the source role.
+  - No containers were running on the test host before this verification (`docker ps -a` empty),
+    so the real `systemd: docker restarted` was safe to execute. All scratch state (the temporary
+    daemon process, its config/TLS/SQLite files under `/tmp/agentic-mcp-e2e`, the throwaway `Agent`/
+    `PlanRun`/`PlanRunStep` rows) was removed afterward; confirmed via `psql` that zero rows
+    referencing the E2E run's identifiers remain.
+
+## Bossman — Chunk-similarity embedding cache (implemented)
+
+A fuzzy, additive layer on top of `services/plan_loader.py`'s exact `chunk_id`/`source_hash`
+comparison (see the earlier "Chunk-based, inhalts-adressiertes Plan-Caching" plan): for a source
+chunk that comes back "new" from `chunks_needing_retranslation()` (no exact hash match), embed its
+foreign source text and search for an already-translated chunk that's merely a *close* match — a
+candidate a future translator (or a human) can choose to reuse instead of re-translating from
+scratch. The exact hash path remains primary and free; this is strictly additive for the cases it
+can't catch (a role fork with a trivial edit, for example).
+
+**Endpoint reality (verified by probing before building anything):** the LLM endpoint named in the
+original ask (`llm.example.internal/qwen79b`, `qwen3next-79b`) is completion-only — its own
+`/v1/embeddings` responds `501 "This server does not support embeddings"`. A sibling route,
+`llm.example.internal/embed`, runs a dedicated `bge-m3` embedding model instead: 1024-dimensional,
+OpenAI-compatible (`POST /v1/embeddings`, batched `input` list, response `index`-ordered), valid TLS
+certificate (no `verify=False` needed, unlike the node-agent-facing `AgentClient`), no auth required
+today. Also verified before writing any schema: **pgvector 0.8.1 is already available** (not yet
+enabled) in the project's existing `timescale/timescaledb:latest-pg16` dev-DB image — no image swap,
+no dev-DB recreation, just `CREATE EXTENSION IF NOT EXISTS vector` in a migration.
+
+**`bossman/bossman/db/models.py`**: `ChunkEmbedding` — `chunk_id` (the content-addressed id from
+`plan_loader.Chunk.chunk_id`) as the primary key, so one row per distinct translated chunk *content*
+regardless of which plan/file produced it; `plan_name`/`chunk_name`/`source_hash`/`source_text`;
+`embedding: Vector(1024)` via `pgvector.sqlalchemy.Vector`; `model` (the embedding model that
+produced it — a model switch's old rows become invisible to lookups rather than silently compared
+across incompatible vector spaces, since they live in different geometric spaces entirely).
+
+**`bossman/alembic/versions/6bf60cdbd2f1_chunk_embeddings.py`**: hand-written (not autogenerated,
+same reason the TimescaleDB hypertable/continuous-aggregate calls in the initial migration are raw
+SQL — pgvector's type and its HNSW index kind aren't things SQLAlchemy's reflection understands).
+`CREATE EXTENSION IF NOT EXISTS vector`, the `chunk_embeddings` table, and `CREATE INDEX ... USING
+hnsw (embedding vector_cosine_ops)` matching how `chunk_similarity.py` queries
+(`.cosine_distance(...)`). `downgrade()` drops the table but deliberately leaves the extension
+enabled (mirrors the initial migration's own choice not to drop `timescaledb` on downgrade). Full
+upgrade/downgrade/upgrade round-trip verified against the real dev DB.
+
+**`bossman/bossman/services/embedding_client.py`** (new): `EmbeddingClient`/`EmbeddingClientError`,
+mirroring `agent_client.AgentClient`'s shape exactly (transport test-seam, central JSON-decode
+helper, a factory function `embedding_client_for(settings)`) but with `verify=True` (the endpoint's
+TLS is valid) and no client certificate (a plain internal HTTPS service, not a pinned-key node
+agent). `embed(texts: list[str]) -> list[list[float]]` re-sorts the response by its own `index`
+field rather than trusting positional order, and validates every returned vector's length against
+`expected_dim` — a real "wrong model/endpoint" mistake surfaces immediately as a clear error instead
+of a malformed vector silently reaching pgvector.
+
+**`bossman/bossman/services/chunk_similarity.py`** (new, framework-free like `plan_engine.py`):
+`index_chunk(...)` short-circuits (no embedding call at all) if a row for the given `chunk_id` under
+the given model already exists — the cache hit this whole cache exists for — otherwise embeds and
+upserts (`INSERT ... ON CONFLICT (chunk_id) DO UPDATE`). `find_similar_chunks(...)` embeds the query
+text and orders by `ChunkEmbedding.embedding.cosine_distance(...)`, filtering to rows from the
+caller's current model and to a similarity (`1 - distance`) at or above `threshold`, most similar
+first.
+
+**`bossman/bossman/api/chunks.py`** (new) + `bossman/bossman/config.py` (new `BOSSMAN_EMBEDDING_*`
+and `BOSSMAN_CHUNK_SIMILARITY_THRESHOLD` settings) + `main.py` wiring (`app.state.embedding_client`,
+mirroring `app.state.catalog_cache`'s lifecycle): `POST /api/v1/chunks/index` and `POST
+/api/v1/chunks/similar`, both auth-gated like every other route in this project. This exists as a
+usable authoring-time API even before a real automated translator does: a human (or an AI in a chat
+session, as `img_docker.yaml`'s own translation was done) calls `similar` before hand-translating a
+chunk and `index` after — without a consumer, the whole store would be dead code.
+
+**Real calibration finding, from testing against the actual endpoint with the actual `img_docker`
+source (not a synthetic fixture) — not a bug, but a load-bearing fact about how this cache should be
+used:** a bare topical paraphrase of *part* of a whole-task-file chunk ("install docker-ce and
+containerd via apt on a debian host") scored only **0.61** cosine similarity against the real,
+multi-task `debian.packages.yml` chunk (which also handles GPG keys, the apt repo file, and
+`daemon.json`) — well under the default 0.85 threshold. A **forked-role near-duplicate** of the same
+file (a tweaked comment + one added package, the realistic scenario this cache actually targets —
+catching a lightly-edited copy of a role across repos/forks) scored **0.99**. Identical text scored
+exactly **1.0** (a sanity check that the embed→store→cosine-search pipeline is correct end to end).
+Conclusion documented here rather than "fixed" by lowering the threshold: this cache is calibrated
+for **near-duplicate source reuse** (the same or a lightly-modified task file appearing twice), not
+generic "semantically related" retrieval — at whole-task-file chunk granularity, a mere prose
+paraphrase of one aspect of a multi-task chunk is a meaningfully different vector, and treating it as
+a match would produce false-positive reuse suggestions. A future translator working at finer
+(single-task) chunk granularity would likely see this distinction sharpen further, not blur it.
+
+**Verification (real, not mocked):**
+- `pytest` against the real dev DB: `tests/test_embedding_client.py` (9 tests, `httpx.MockTransport`
+  — URL/body/headers, response re-sorting by `index`, every error path including the dimension-
+  mismatch guard); `tests/test_chunk_similarity.py` (8 tests, real Postgres + a deterministic
+  `FakeEmbeddingClient` with hand-picked padded 1024-dim vectors — `index_chunk`'s upsert and exact-
+  hash short-circuit, a model switch forcing re-embedding, `find_similar_chunks`'s threshold
+  filtering/descending sort/`top_k`/per-model isolation); `tests/test_chunks_api.py` (4 tests, real
+  FastAPI + real Postgres, `FakeEmbeddingClient` injected via `app.dependency_overrides` on the new
+  `get_embedding_client` dependency — both routes' auth gate, an index→similar round trip, and the
+  configured-threshold default). 190 tests total (up from 169), `ruff check` clean. Migration
+  upgrade/downgrade/upgrade round-trip confirmed clean.
+- **Real end-to-end run against the live `bge-m3` endpoint** (no fakes, no mocks): indexed the real
+  `debian_packages` chunk from the real, already-committed `bossman/plans/img_docker.yaml` — using
+  its actual content-addressed `chunk_id` and the real `tasks/debian.packages.yml` source text, not
+  a synthetic fixture — via a real `embed()` call; re-indexing the identical `chunk_id` confirmed the
+  exact-hash short-circuit (`indexed: False`, zero additional embed calls); querying with the forked-
+  role near-duplicate text found the real chunk at similarity `0.9896` (above the `0.85` threshold);
+  querying with genuinely unrelated text ("configure an nginx virtual host with TLS termination")
+  returned zero candidates. The paraphrase-vs-near-duplicate calibration finding above was captured
+  during this same run. All inserted `chunk_embeddings` rows were removed afterward; confirmed via
+  `psql` that the table is empty again.
+
+## Bossman — Plan-catalog RAG + real LLM translator (implemented)
+
+Two independent features on the chunk-similarity foundation above: finding relevant plans by
+natural-language intent instead of dumping the whole catalog into the system prompt, and a real
+automated translator (foreign source text → Bossman chunk) that closes the loop the previous
+increment's docstrings already anticipated ("later a real automated translator ... calls `index`
+after translating").
+
+### Plan-catalog RAG (`search_plans`)
+
+**Calibration, measured against the real endpoint before writing any code:** genuine plan-
+description matches score **0.79–0.85** cosine similarity against a short natural-language query,
+genuine non-matches **0.66–0.73** — a real but narrower gap than the chunk cache's whole-task-file
+comparisons. The existing `chunk_similarity_threshold` (0.85) would have rejected a real match in
+this test, so plan search got its **own** setting, `plan_search_threshold` (default `0.75`).
+
+**`bossman/bossman/db/models.py`**: `PlanEmbedding` — `name` primary key, `description`,
+`content_hash` (sha256 of `"{name}: {description}"`, the batch-upsert short-circuit key),
+`embedding: Vector(1024)`, `model`, `created_at`. New migration
+`bd020d926560_plan_embeddings.py` (hand-written, mirrors the `chunk_embeddings` migration's own
+raw-SQL HNSW index creation).
+
+**`bossman/bossman/services/plan_search.py`** (new, framework-free): `index_plan_catalog(session,
+embedding_client, plans)` — the **batch** analogue of `chunk_similarity.index_chunk`'s short-
+circuit: computes every plan's content hash, embeds only the changed/new ones in a **single**
+batched `embed()` call (not N sequential calls), upserts, returns how many were re-embedded (0 =
+everything already current). `search_plans(session, embedding_client, *, query, top_k, threshold)`
+— cosine search identical in shape to `chunk_similarity.find_similar_chunks`.
+
+**`bossman/bossman/api/plans.py`**: `POST /api/v1/plans/search` — the first route combining
+`CatalogCache` + `EmbeddingClient` + a DB session (previously only pairwise combinations existed:
+`chunks.py` had embeddings+session, `plans.py`'s run route had catalog+session). Calls
+`index_plan_catalog` on the current `cache.plans` before searching, so there's no separate
+"reindex" endpoint to remember — a search after a plan change just costs one extra (cheap,
+short-circuited) pass.
+
+**`bossman/bossman/mcp/server.py`**: new `search_plans(query, top_k=5)` tool. Required extending
+`build_mcp_server(...)`'s signature with an `embedding_client` parameter (previously only
+`session_factory`/`settings`/`catalog_cache`/`client_factory`) — updated the one call site in
+`main.py`'s `lifespan()` and every test call site (10 in `test_mcp_server.py`) to pass a
+(possibly-fake) embedding client. `catalog_markdown`/`list_plans`/`get_catalog` are unchanged and
+remain the default for the current small catalog — `search_plans` is additive, not a replacement,
+and the query (like the host in `run_plan`) is always a tool-call argument, never baked into the
+cached system-prompt prefix.
+
+### Real LLM translator
+
+**Endpoint capability, verified by probing before writing any code:** the completions endpoint
+(`llm.example.internal/qwen79b`, `qwen3next-79b`) supports OpenAI's `response_format:
+{"type":"json_schema", ...}` with genuine grammar-level constraint (llama.cpp/GBNF) — tested with a
+schema containing a **dotted literal key** (`"ansible.builtin.apt"`) and confirmed clean, fence-
+free JSON output (unlike `response_format: json_object`, which wrapped output in markdown fences).
+Since LLM-generated JSON is valid YAML, **`plan_loader.parse_plan()` is reused unmodified** as the
+translator's entire validation gate — no bespoke validator was written; `PlanError` messages
+already are the right retry-feedback signal.
+
+**`bossman/bossman/services/chat_client.py`** (new), mirrors `embedding_client.py`'s shape
+(`ChatClientError`, transport test-seam, central JSON-decode helper, a `chat_client_for(settings)`
+factory) but posts to `/v1/chat/completions` with a `response_format.json_schema` body and a 300s
+default timeout (a 79B model generating hundreds of tokens is a tens-of-seconds affair, measured on
+a real basic probe). Logs `usage.prompt_tokens`/`completion_tokens` and, if present,
+`usage.prompt_tokens_details.cached_tokens` — llama.cpp has its own server-side prompt-prefix
+caching, confirmed present in a real response, conceptually the same cost-saving idea as Anthropic's
+`cache_control` even though the mechanism/header differs.
+
+**`bossman/bossman/services/translator.py`** (new, framework-free): `KNOWN_MODULES` — the **exact**
+53 module names from `internal/modules/*.go`'s own `Name()` methods (found via a corrected grep;
+the first attempt's naive regex silently missed `yum`/`dnf`, which use extra gofmt alignment
+whitespace before their opening brace — caught only because the real end-to-end translation of a
+role that uses `yum:` would otherwise have failed with a schema-enum rejection). This list becomes
+a JSON-schema `enum` on the `module` field — **grammar-level**, not prompt-text — so the model
+cannot structurally hallucinate a module Bossman doesn't actually have. `translate_chunk(session,
+embedding_client, chat_client, *, plan_name, chunk_name, source_text, similarity_threshold,
+max_retries=2)`:
+1. Calls `find_similar_chunks` first; a hit whose row has `translated_json` set short-circuits the
+   whole LLM call and reconstructs a real `Chunk` by feeding the stored JSON back through
+   `parse_plan` (no separate deserializer).
+2. Otherwise calls `chat_client.complete_json` with a schema requiring `{name, module, params}` per
+   step (`when`/`register`/`check_mode` optional) and `steps: minItems 1`.
+3. Reshapes `{module, params}` into the real `ansible.builtin.<module>: params` form in Python
+   (a literal dotted key is more failure-prone for a model to produce directly than a plain
+   enum-constrained string field) and validates via `parse_plan`.
+4. On `PlanError`, appends the invalid output plus the error text as new messages and retries (up
+   to `max_retries`); on exhaustion, raises `TranslationError` carrying the last error.
+5. On success, persists via `chunk_similarity.index_chunk(..., translated_json=...)` — the concrete
+   fulfillment of what `chunk_similarity.py`'s and `api/chunks.py`'s own docstrings had been
+   anticipating since the previous increment.
+
+**`ChunkEmbedding` schema change** (migration `f095218bdf99`): new nullable `translated_json: Text`
+column — makes a cache row **self-sufficient** for reuse (the actual translated chunk content, not
+just a pointer to a plan file that might not exist/be loaded). `index_chunk()` gained a matching
+optional parameter; existing callers/tests are unaffected (defaults to `None`, still fuzzy-
+findable, just not directly reuse-reconstructable — the same graceful two-tier behavior as before
+this change).
+
+**`bossman/bossman/api/translate.py`** (new): `POST /api/v1/translate`. REST-only, no MCP tool —
+translation is a one-off authoring action for a human/CI to review before a plan file is committed,
+consistent with the already-established scope cut ("kein KI-Übersetzer via MCP heute") and with
+plans being pure git-managed filesystem content (no "AI writes its own plans" API).
+
+**Explicitly out of scope for this first translator increment** (documented, same discipline as
+`img_docker`'s own scope cuts): only module-call steps are translated — `pipeline:`/`upload:` steps
+and `final_handler:` still need to be added by hand afterward, exactly like `img_docker.yaml`'s own
+`systemctl daemon-reload` pipeline step and `Restart Docker` handler were. OS-dispatch is not
+inferred by the model — the caller decides `os_family`, matching how a translator would be invoked
+once per already-known OS-specific source file, not asked to guess dispatch logic from prose.
+
+**Real, documented parameter-fidelity gap** (found during the real end-to-end run, not assumed):
+probing the schema with real Ansible source containing `pkg: [...]` (Ansible's alias for `apt`'s
+package list) showed the model faithfully echoes the *source's* key name rather than Bossman's own
+canonical one — `parse_plan` can't catch this (it validates shape, not per-module parameter
+vocabulary against the real Go module registry, which no Python-side code has access to). Mitigated
+with one explicit system-prompt clarification for the single most common alias mismatch
+(`pkg`→`name`, `dest`→`path` for symlinks) — not solved for all 53 modules' full alias surface,
+which is why translator output is explicitly a **draft for review**, not directly-trusted-and-run
+output; this matches the project's existing "plans are git-reviewed content" design, not a new
+weakness introduced here.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres via `bossman-dev-db`): `test_plan_search.py` (6: batch short-circuit, batching
+  only changed plans in one `embed()` call, threshold filtering, cross-model isolation);
+  `test_chat_client.py` (9, `httpx.MockTransport`: schema/body shape, bearer header, defensive
+  fence-stripping, every error path); `test_translator.py` (5: LLM path persists a reusable row,
+  reuse path makes zero LLM calls, **retry path** — a mocked first response of `{"steps": []}`
+  triggers the real `PlanError` "'steps' must be a non-empty list", second response succeeds —
+  exhausted-retries path, `ChatClientError` propagation); `test_translate_api.py` (3: auth gate,
+  success round-trip, 422 after exhausted retries) plus new `search_plans` route/tool tests in
+  `test_plans_api.py`/`test_mcp_server.py`. 217 tests total (up from 190), `ruff check` clean.
+  Migration round-trips (both new revisions) confirmed clean. One real test bug found and fixed
+  along the way: a test manually recomputed a `chunk_id` using the *chunk's* name for the *step's*
+  own name field — content-addressing is per-step, so this silently produced the wrong hash and
+  masked itself as "row not found" rather than an assertion mismatch; fixed and left a comment
+  explaining the distinction so it doesn't recur.
+- **Real end-to-end run against both live endpoints** (no fakes): `index_plan_catalog` against the
+  real, currently-committed `img_docker` plan, then `search_plans("set up docker with a proxy and
+  docker-compose")` found it at `0.7953` similarity — above threshold. A bare `"install docker"`
+  query scored `0.745`, just *below* the `0.75` threshold against `img_docker`'s real (long,
+  detailed) description — the same "verbose content dilutes short-query similarity" lesson already
+  found for chunk search, now confirmed at the plan-description level too; documented as a
+  calibration note (use a query that echoes more of the actual description, or pass a lower
+  `threshold`) rather than papered over by silently lowering the default. Then translated the real,
+  previously-untranslated `~/Dev/ansible/ansible03/roles/img_proftpd/tasks/main.yml` (chosen
+  specifically for being small and free of secrets/PII — a sibling role in the same tree was
+  rejected for this precise reason, containing real password hashes and an employee's SSH key) via
+  the real `qwen3next-79b` endpoint: succeeded on the first attempt, correctly used the `yum`
+  module (the exact module the `KNOWN_MODULES` gofmt-whitespace bug above would have broken),
+  correctly mapped the source's `vars: packages:` indirection to a flat `name` list, and correctly
+  reshaped old-style Ansible inline `key=value` argument strings (`service: name=proftpd
+  state=restarted`-style) into a proper JSON object. Re-translating the identical source text a
+  second time returned `source: "reused"` with the same `chunk_id` and zero further LLM calls,
+  proving the fuzzy-cache short-circuit works end to end with a real translation, not just a
+  synthetic fixture. All inserted `chunk_embeddings`/`plan_embeddings` rows were removed afterward;
+  confirmed via `psql` that both tables are empty again.
+
+## Bossman — Block E1: UX-Fixes (login logo, enrollment UX) (implemented)
+
+Real user feedback against the running compose stack, four points — this block covers two of them
+(the other two, `ansible.builtin`'s internal handling and the CheckMK-style monitoring rework, are
+covered separately: the former needed no code, just an explanation; the latter is Blocks E2–E4).
+
+**Root cause confirmed for "I can't create a new run":** the run-plan dialog
+(`bossman-ui/src/app/features/plans/run-plan-dialog.component.ts`) loads hosts via
+`agentService.list()`; with zero enrolled agents the `<app-host-picker>` renders an empty dropdown,
+`canPreview()` stays `false`, and the "Preview" button stays permanently disabled with no
+explanation — a silent dead end, not a bug in the run logic itself. Enrollment was CLI-only
+(`agentic-mcpd register --enroll-url ... --enroll-secret ...`) with no discoverable command
+anywhere in the UI, and `POST /api/v1/enroll` is only mounted when `BOSSMAN_ENROLL_SECRET` is
+configured (`main.py`) — in the compose stack it wasn't set at all, so enrollment was impossible
+even from the CLI.
+
+**Login (`login.component.ts`):** replaced the two 96×96 mascot images sitting side by side with
+one large (180×180), centered Bossman logo — the logo image already contains the "BOSSMAN / LINUX
+SOLUTIONS" wordmark, so the separate `<mat-card-title>`/`<mat-card-subtitle>` text was dropped too
+(redundant, and part of what read as "thrown together"). Verified visually via a real browser
+(Playwright) against a live `ng serve`.
+
+**Enrollment UX:**
+- `bossman/bossman/config.py`: new `Settings.public_url` — the address a real node agent reaches
+  this Bossman at (deliberately distinct from any browser-facing UI URL behind a reverse proxy).
+- `bossman/bossman/api/enroll_info.py` (new): `GET /api/v1/enroll/info` — **always mounted** (unlike
+  `POST /api/v1/enroll`), so a logged-in operator gets a real "not configured yet" answer instead of
+  a bare 404. Returns `{configured, enroll_url, enroll_secret, register_command}` — the exact
+  command to paste onto a new host.
+- `bossman-ui`: new `EnrollService`/`EnrollInfo` model, and a "Enrollment" card on the Settings page
+  showing the real command with a copy-to-clipboard button (or a plain-language explanation of what
+  to configure, when enrollment isn't set up).
+- Run dialog: when `agents()` is empty (and has actually finished loading — `agentsLoaded()` guards
+  against a false "no hosts" flash before the first API response arrives), the host picker/param
+  form is replaced with a message and a link to Settings; the "Preview" button is hidden entirely
+  rather than shown disabled with no explanation.
+- `docker-compose.yml` gained `BOSSMAN_ENROLL_SECRET` (a portable dev-only default, alongside the
+  existing `BOSSMAN_JWT_SECRET` dev default); `docker-compose.override.yml` gained
+  `BOSSMAN_PUBLIC_URL` (genuinely host-specific — this host's real reachable hostname,
+  `http://host4.example.internal:8123`, not a docker-internal address).
+
+**How `ansible.builtin.*` is handled internally (a question asked, not a bug — answered here for
+the record since it clarifies the whole module dispatch path):** the prefix is pure naming
+convention for familiarity; no Ansible runs anywhere. `plan_loader._parse_step` strips
+`ANSIBLE_PREFIX` and stores only the bare module name (`module="copy"`); `plan_engine._execute_step`
+calls `client.call_tool("copy", body)` → `POST https://{agent}/api/v1/tools/copy`; the Go agent's
+`POST /api/v1/tools/{name}` route (`internal/server/rest.go`) looks the name up in its module
+registry (`internal/server/modules.go`) and runs the native Go implementation
+(`internal/modules/copy.go`) — idempotent, `check_mode`-aware, no Ansible installed or invoked.
+
+**Verification (real, not mocked):**
+- `pytest` (Postgres via `bossman-dev-db`): `tests/test_enroll_info_api.py` (4 tests: auth gate,
+  "not configured" shape, full command when configured, placeholder-URL fallback when
+  `BOSSMAN_PUBLIC_URL` is unset). 221 tests total, `ruff check` clean.
+- **Real end-to-end run against the actual compose stack**: rebuilt `bossman`/`bossman-ui` images,
+  restarted the stack, confirmed `GET /api/v1/enroll/info` (authenticated) returns the real command
+  with the real configured secret/URL. In a real browser (Playwright) against the running stack:
+  Settings page renders the Enrollment card with the exact copy-pasteable command; opening the Run
+  dialog for `img_docker` with zero enrolled hosts shows the new empty-state message and a working
+  link to Settings instead of a dead, permanently-disabled form.
+
+## Monitoring core: CheckMK/Zabbix-style Service/State/Problem model (Blocks E2–E4, implemented)
+
+The fourth point of the same user-feedback round ("the host topology doesn't look like CheckMK —
+research how to build a real monitoring system") plus a follow-up instruction to also read the
+Zabbix docs and make every monitoring capability an MCP tool, since Bossman "is meant as an MCP
+server and administration entry point". Research (CheckMK's and Zabbix's own docs, plus the Four
+Golden Signals/RED/USE method literature for what to actually threshold) converged on the same
+shape both real monitoring systems use: Host → **Service** with a **State**
+(OK/WARN/CRIT/UNKNOWN) → **Problem** (a non-OK, unacknowledged, non-downtime service) →
+Acknowledge/Downtime as the two distinct problem-suppression mechanisms → a drill-down IA
+(Overview → Problems → Host → Service → Graph). Two explicit product decisions, confirmed via
+`AskUserQuestion`:
+
+1. **Rule evaluation is Bossman-side**, not the Go agent's own already-existing Nagios/CheckMK
+   plugin-compatible `internal/checks` package (that stays unused for this feature — an optional,
+   separate, later block). Rules are defined per **group** (CheckMK-style) but a **host**-scoped
+   rule always overrides a group rule, which overrides a global rule, for the same metric —
+   `host > group > global`, exactly CheckMK's own rule-set precedence.
+2. **No self-enrolling demo node agent** added to the compose stack — only the enrollment *UX*
+   improves (Block E1, above). Verification against a real host uses the existing, real
+   `host1.example.internal` enrollment path plus, for this window's UI verification,
+   synthetic rows inserted directly via `psql`/the real REST API against the real compose stack
+   (cleaned up afterward) — see the Verification section below for exactly which was used where.
+
+### Block E2 — schema + evaluator (`bossman/bossman/services/monitoring.py`, new)
+
+New Alembic migration (hand-edited after autogenerate to strip the now-familiar spurious
+TimescaleDB/pgvector index-drop false positives — see the recurring note in earlier Bossman
+blocks):
+
+- `agents.groups` — new `TEXT[]` column (`default='{}'`), the host-group membership a
+  `scope_type=group` rule can target. Editable via `PATCH /api/v1/agents/{id}/groups` (whole-list
+  replace, not add/remove-one — matches how a multi-select group editor naturally works).
+- `check_rules` — the rule definitions: `service_name` (the resulting Service's display name),
+  `metric`, `comparison` (`gt|lt|ge|le|eq|ne`), `warn_threshold`/`crit_threshold` (nullable —
+  a threshold that's never checked never trips), `scope_type` (`global|group|host`) +
+  `scope_value` (NULL for global; a group name or exact host name otherwise, enforced by a
+  CheckConstraint), `enabled`.
+- `services` — the per-host materialized state (CheckMK's own "Service" concept): `agent_id`,
+  `name`, `metric`, `state`, `value`, `output` (human-readable one-liner), `rule_id` (which rule
+  produced this state, nullable), `last_state_change`/`last_checked`, `acknowledged`/
+  `ack_comment`/`ack_by`. `UNIQUE(agent_id, name)`.
+- `service_state_history` — a TimescaleDB hypertable (30-day retention, same pattern as `metrics`/
+  `connection_events`): one row per actual state *change*, not per evaluation — the Zustands-Historie
+  half of the eventual Service→Graph drill-down.
+- `downtimes` — `agent_id`, `service_name` (nullable — NULL means the whole host, CheckMK's own
+  host-vs-service downtime distinction), `starts_at`/`ends_at`, `comment`, `created_by`.
+
+`services/monitoring.py` (framework-free, like `plan_engine.py`/`poller.py` — reachable from the
+poller, REST, MCP, and tests without duplicating logic):
+
+- `resolve_effective_rule(rules, host_name, host_groups, metric) -> CheckRule | None` — pure,
+  no DB: filters to enabled rules for the exact metric that actually match this host (global
+  always matches; group matches if in `host_groups`; host matches if `scope_value == host_name`),
+  then picks the most specific scope, breaking ties among equally-specific rules by
+  most-recently-created (two stable sorts: newest-first, then by scope precedence — a stable sort
+  preserves recency-order within each precedence tier).
+- `compute_state(comparison, value, warn, crit) -> (state, output)` — Nagios-style: CRIT checked
+  before WARN (a value tripping both is CRIT, never WARN); `UNKNOWN` when there's no metric value
+  at all (a stale/never-polled host), never silently `OK`.
+- `evaluate_host(session, agent)` — for every metric any enabled rule cares about, resolves the
+  effective rule, reads the latest polled value, computes state, upserts the `services` row, and
+  — only on an actual state change — writes a `service_state_history` row and **clears any
+  acknowledgement** (an ack is tied to the specific problem occurrence it was made for, CheckMK's
+  own model; any state change means a new occurrence, so a stale ack must not silently suppress
+  it). Doesn't commit — same transaction-boundary-is-the-caller's-job convention as the rest of
+  this codebase's service layer.
+- Hooked into `services/poller.py`'s `poll_agent`: `evaluate_host` runs right after a successful
+  metrics pull, in the same transaction, on the metrics that pull just wrote — no second polling
+  loop.
+
+`tests/test_monitoring.py` (21 tests): pure unit tests for `resolve_effective_rule`/`compute_state`
+covering every comparison, tie-breaking, disabled/wrong-metric exclusion; real-DB tests for
+`evaluate_host` including the one that actually proves the precedence requirement:
+`test_evaluate_host_host_rule_overrides_group_rule_for_real` creates a group rule (warn=10) *and*
+a host rule (warn=80) for the same host/metric, writes a metric value of 50.0, and asserts the
+resulting state is `OK` with `rule_id` pointing at the host rule — proving the override actually
+took effect, not just that the precedence function returns the right rule in isolation.
+
+### Block E3 — REST + MCP (the "MCP is the administration entry point" requirement)
+
+All problems/services/acknowledge/downtime/fleet-summary query and mutation logic lives in
+`services/monitoring.py` (`query_problems`, `query_agent_services`, `service_state_history`,
+`acknowledge_service`, `unacknowledge_service`, `create_downtime`, `fleet_summary`, plus the
+`ServiceView`/`to_view`/`is_in_downtime` helpers that join in the agent name and the point-in-time
+downtime check) — `bossman/bossman/api/monitoring.py`'s REST routes are thin wrappers around these
+same functions, and so are the five new MCP tools, so the two facades can never drift apart. (An
+earlier draft had this logic written twice, once inline per REST route; refactored onto the shared
+functions before writing the MCP tools, specifically so they wouldn't become a third copy.)
+
+REST (`bossman/bossman/api/monitoring.py`, mounted in `main.py`, every route behind
+`get_current_identity` like the rest of Block B7's surface):
+
+- `GET /api/v1/problems` — every non-OK service, filterable by `state`/`host`/`acknowledged`,
+  excludes services under an active downtime unless `include_downtime=true`.
+- `GET /api/v1/agents/{id}/services` — one host's full service list (404 if the host doesn't
+  exist, vs. an empty list if it exists but has none — the two are meaningfully different).
+- `GET /api/v1/agents/{id}/services/{name}/history` — the state timeline for one service (newest
+  first, `limit` capped 1–1000) — the "Zustands-Historie" half of the Service→Graph drill-down;
+  the metric *value* history is already served by the existing `agents/{id}/metrics` endpoint, so
+  this endpoint only needed to add the derived state dimension.
+- `POST`/`DELETE /api/v1/services/{id}/acknowledge` — acknowledge (with a comment, `ack_by` taken
+  from the authenticated identity) / clear.
+- `GET`/`POST`/`DELETE /api/v1/downtimes` — list (filterable by `agent_id`/`active_only`), create
+  (422 if `ends_at <= starts_at`), delete.
+- `GET`/`POST`/`PUT`/`DELETE /api/v1/check-rules` — rule CRUD, with `scope_type`/`scope_value`
+  consistency validated the same way the DB CheckConstraint validates it (global ⇒ no
+  `scope_value`; group/host ⇒ `scope_value` required).
+- `PATCH /api/v1/agents/{id}/groups` — host-group membership (added to `api/agents.py`).
+- `GET /api/v1/fleet/summary` — hosts by enrollment state, services by monitoring state, and
+  `open_problems` (non-OK, unacknowledged, not in downtime — the number that should actually draw
+  attention, distinct from the raw non-OK count).
+
+MCP (`bossman/bossman/mcp/server.py`) — the five tools the plan called for, each a thin call into
+the same shared functions:
+
+```
+list_problems(state?, acknowledged?) -> [{service_id, host, name, state, value, output,
+                                           acknowledged, in_downtime, last_state_change}]
+host_services(host) -> [... same shape, all services for one host]
+acknowledge_problem(host, service, comment) -> the updated service view
+schedule_downtime(host, minutes, service?, comment) -> {downtime_id, host, service_name,
+                                                         starts_at, ends_at}
+fleet_health() -> {hosts_total, hosts_by_enrollment, services_by_state, open_problems}
+```
+
+`schedule_downtime` takes a duration in minutes from *now* rather than explicit start/end
+timestamps — matching how an AI caller (or a human via the UI's own downtime dialog, which mirrors
+this same shape) naturally thinks about "silence this for the next half hour", not absolute
+timestamps.
+
+`tests/test_monitoring_api.py` (16 tests) and 9 new tests appended to `tests/test_mcp_server.py`
+(`test_mcp_list_problems_*`, `test_mcp_host_services_*`, `test_mcp_acknowledge_problem_*`,
+`test_mcp_schedule_downtime_*`, `test_mcp_fleet_health_reports_counters`) — full suite 267 tests,
+`ruff check` clean.
+
+### Block E4 — frontend (`bossman-ui`)
+
+- **Fleet Overview** reworked: the enrollment-state tiles are joined by services-by-state tiles
+  (OK/WARN/CRIT/UNKNOWN) and an "Open problems" tile that links to `/problems`, plus a prominent
+  **Unhandled problems** table (top 10, unacknowledged) with an inline Acknowledge action —
+  CheckMK's own "lead with the problems, not just a health percentage" landing principle.
+- **`/problems`** (new route/component): the full filterable problem list — state chips (reusing
+  `StatusFilterChipsComponent`, generalized with a `statuses` input so the existing runs-list usage
+  is unaffected), a host-name filter, and a "show acknowledged" toggle (default off — CheckMK's own
+  default view hides what's already handled). Row actions: Acknowledge (opens a new
+  `AcknowledgeDialogComponent` — comment field, closes with the comment string) and Downtime
+  (opens a new `DowntimeDialogComponent` — minutes + comment, closes with `{minutes, comment}`;
+  the caller computes `starts_at=now`/`ends_at=now+minutes` client-side, mirroring the MCP tool's
+  own shape).
+- **Host detail** gains a **Services** tab: a service table (state badge, value, since, inline
+  Acknowledge/Unacknowledge/Downtime) plus, on row click, a detail panel reusing the existing
+  `MetricChartComponent` (fed by the already-existing `agents/{id}/metrics` endpoint, keyed to the
+  service's own `metric`) and a new compact state-history list (fed by the new
+  `/services/{name}/history` endpoint) — completing Übersicht→Host→Service→Graph.
+- **Settings** gains two editors: a **Check rules** table (create/edit via a new
+  `CheckRuleDialogComponent` with a comparison dropdown, warn/crit threshold fields, and a
+  scope selector that conditionally reveals a group-name/host-name field depending on
+  `scope_type`) and a **Host groups** table (one comma-separated-groups text field per host,
+  `AgentService.updateGroups` on Save).
+- New `MonitoringService` (`core/services/monitoring.service.ts`) + `monitoring.model.ts`, mirroring
+  `RunService`/`AgentService`'s existing shape (typed methods over `HttpClient`, no extra
+  abstraction). `Agent` gained a `groups: string[]` field to match the REST response.
+- Reused the existing `--bm-green/--bm-gold/--bm-red/--bm-unknown` status-badge palette throughout
+  (via `serviceStateBadge()`, a new mapping alongside the existing `agentHealthStatus`/
+  `runStatusBadge` in `status.util.ts`) — no new color language introduced for this feature.
+
+**Deliberately out of scope for this increment** (documented boundary, not an oversight): alerting
+channels (Slack/Teams/email), CheckMK-style service auto-discovery (services here are entirely
+rule-derived, not auto-detected), agent-side Nagios plugin checks (the existing `internal/checks`
+package stays unused), and escalation/flapping-detection/SLA reporting.
+
+### Verification (real, not mocked)
+
+- **pytest against real Postgres** (`bossman-dev-db`): 267 tests total (21 evaluator, 16 REST,
+  9 new MCP, plus all pre-existing suites), `ruff check` clean.
+- **`npx ng build`**: clean, no new bundle warnings.
+- **Real compose-stack rebuild caught a real staleness bug**: `docker compose build bossman
+  bossman-ui` alone left the `migrate`/`seed` services on stale images from before Block E2's
+  migration existed (compose gives each `build:`-only service its own image unless told
+  otherwise) — `GET /api/v1/agents` 500'd with `UndefinedColumnError: column agents.groups does
+  not exist`. Confirmed via `docker exec … psql … select version_num from alembic_version` showing
+  the pre-E2 revision; fixed by rebuilding `migrate`/`seed` too and re-running `docker compose up`,
+  after which `alembic upgrade head` actually printed `Running upgrade f095218bdf99 ->
+  50e78cc78c2a, monitoring core` and the column existed.
+- **Real end-to-end run against the rebuilt stack**: inserted a real agent row + a real `cpu_pct`
+  metric via `psql`, created a real global `CheckRule` via the REST API, ran `evaluate_host`
+  directly (one-shot `docker exec … uv run python -c ...`, since the poller only evaluates hosts it
+  actually reached over the network, which this synthetic agent isn't) — produced a real CRIT
+  `Service` row, confirmed via `GET /api/v1/problems` and `/fleet/summary`. Then, in a real browser
+  (Playwright) against the running stack: logged in; Fleet Overview showed the correct state tiles
+  and the CRIT row in the Unhandled Problems table; acknowledged it from that table (dialog →
+  real `POST /services/{id}/acknowledge` → `ack_by="admin"` persisted); `/problems` correctly hid
+  it by default and revealed it via the "show acknowledged" toggle; scheduled a real 60-minute
+  downtime from there (dialog → real `POST /downtimes`, confirmed via the REST API); Host detail's
+  Services tab showed the service, and clicking it rendered the metric chart + a state-history
+  entry (the chart itself showed no visible line for this single synthetic data point — confirmed
+  this is pre-existing `MetricChartComponent` behavior, reproducible identically on the older
+  Metrics tab, not a regression); Settings' Check rules editor created a group-scoped rule (the
+  conditional group-name field appeared correctly), listed it with the right "group: webservers"
+  label, and deleted it; the Host groups editor saved `webservers, prod` for the host and the REST
+  API confirmed the persisted list. All synthetic rows (`service_state_history`, `downtimes`,
+  `services`, `metrics`, `check_rules`, `agents`) deleted afterward via `psql`, one `DELETE` per
+  `-c` invocation; confirmed `GET /api/v1/agents`/`/check-rules`/`/fleet/summary` all empty again.
+
+## Node-agent — Block F1/F1b: metric sampler + built-in checks + GET /api/v1/hosts/overview (implemented)
+
+Real user feedback after a live 3-tier deploy (Duppy → Selecta → Bossman): Bossman only ever showed
+the Selecta, never the satellite behind it, and the whole UI had no host-overview table with real
+CPU/RAM/disk values anywhere — an honest audit found the root cause was one level below the UI: the
+Go node agent **wrote no real metric at all**. The only point it had ever written was a one-shot
+`agentic_mcpd_start` startup marker (`cmd/agentic-mcpd/main.go`'s `recordStartupMarker`); `internal/
+checks` (a Nagios/CheckMK-plugin-compatible runner) existed but never ran on a schedule and wasn't
+exposed as a route. A fleet cockpit had nothing to show. This block is the fix, plus the single
+aggregate endpoint the user proposed as "die einfachste Methode": one endpoint per agent that
+returns every host it knows about (itself, plus — for a proxy — every satellite) with its metrics.
+
+**`internal/collect` (new package)** — the metric-collection foundation:
+- `Sample(procRoot, now, statfs)` reads `/proc` via the existing `internal/proc` parsers (no second,
+  parallel `/proc` reader) and returns a `Snapshot{Points, Checks}`: canonical metrics `cpu_load1/5/
+  15`, `cpu_count`, `mem_used_pct`/`mem_used_bytes`/`mem_total_bytes`, `disk_used_pct`/`_total_bytes`/
+  `_used_bytes` (labeled `mount=`), `uptime_seconds`, `net_rx_bytes`/`net_tx_bytes` (labeled `iface=`,
+  loopback excluded). Disk usage comes from a real `statfs(2)` syscall (`statfs_linux.go`), injected
+  as a `statfsFunc` for testability (mirrors `internal/checks.ExecFunc`'s own injection pattern) —
+  a `/proc` fixture file cannot answer a real usage query, only a real mount point can.
+- Mount filtering (`dedupeRealMounts`): an allow-list of real on-disk filesystem types (ext2/3/4,
+  xfs, btrfs, zfs, vfat, ntfs, exfat, f2fs, jfs, reiserfs) plus de-duplication by backing device —
+  without this, a Docker host's `/proc/mounts` lists dozens of per-container `overlay` mounts under
+  `/var/lib/docker` that would flood every sample with noise (confirmed on the real test hosts,
+  which are themselves Docker hosts).
+- **Built-in checks** (`checks.go`), derived from the same sample with zero extra config: "CPU load"
+  (per-core, from load5), "Memory", one "Disk <mount>" per real mount, "Uptime" — pure Go threshold
+  evaluation (`thresholdStatus`, warn/crit constants matching common Nagios/CheckMK defaults), not an
+  external plugin exec, so every host gets meaningful services with no nagios-plugins package
+  installed anywhere. A `CheckRegistry` (thread-safe, `Set`/`Snapshot`) caches the latest
+  `checks.Result` per named check (built-in or external) for the overview endpoint, since a
+  `Result`'s message/perfdata carry information the numeric state metric alone can't.
+- Every check's numeric state is also written to the store as `check_<slug>_state` (0–3, `internal/
+  checks.StatusFromExitCode`'s own convention) via `CheckStatusMetricName`/`StatusValue` — graphable
+  exactly like any other metric, for an operator who wants a state-history chart.
+- `internal/config`: `Collect{Enabled, Interval}` (default `enabled: true, interval: 30s` — metric
+  collection is on by default, since without it the whole cockpit has nothing to show) and `Checks
+  []CheckSpec{Name, Command, Interval, Timeout}` for external Nagios-plugin-style commands, run on
+  their own ticker via `checks.RunDefault`, recorded into the same `CheckRegistry` as the built-ins.
+- `cmd/agentic-mcpd/main.go`: `startCollectLoop` (samples once immediately, then on `cfg.Collect.
+  Interval`) and `startConfiguredCheckLoops` (one ticker per `CheckSpec`) wire the sampler/checks
+  into the store and registry at startup, alongside the existing retention/proxy loops.
+
+**`GET /api/v1/hosts/overview`** (`internal/server/hostoverview.go`, new) — the single endpoint the
+user asked for ("der Selecta braucht einen Endpoint der alle Hosts mit ihren Metriken ausgibt —
+vermutlich die einfachste Methode"): returns `{"hosts": [...]}`, one `HostSnapshot{host, parent?,
+mode, last_sample_at, metrics: [{metric,value,labels}], checks: [...]}` per host.
+- **Self snapshot** (`selfSnapshot`/`latestMetrics`): reuses the existing `ListMetricNames`+`Query`
+  Store interface (same pattern as `metrics.go`'s `dumpAllMetrics`) rather than widening the Store
+  interface for one caller, keeping only the single latest point per distinct (metric, label-set)
+  series — a fleet "latest data" table needs one number per metric per host, not a full history
+  (which the existing `/api/v1/metrics` endpoint already serves for graphing).
+- **Proxy aggregation**: when `cfg.Mode == "proxy"`, every currently cached satellite snapshot (see
+  below) is appended, `Parent` set to this proxy's own host name, `Mode` forced to `"satellite"` —
+  so Bossman polling either a leaf or a proxy always gets back a plain list of 1..N real hosts,
+  never needing to know in advance which kind of agent it's talking to.
+- Same auth chain as every other `/api/v1/` route (bearer token + optional mTLS client-cert gate).
+
+**Proxy-side aggregation** (`internal/fleet`, extended):
+- `SnapshotCache` (new, `snapshot_cache.go`): a thread-safe `map[satelliteName]HostSnapshot`,
+  deliberately in-memory only (not persisted to the local store) — a satellite's overview snapshot
+  is a point-in-time "latest state" view, not a time series this proxy itself needs to retain; the
+  existing `/api/v1/metrics` relay (`Puller.PullOnce`) already covers graphable history.
+- `Puller.PullOverviewOnce` (new method): calls the satellite's own `GET /api/v1/hosts/overview` over
+  the same mTLS client cert as the existing metrics pull, takes the first (and, for a non-proxy
+  satellite, only) entry from its response, and relabels it with the name this proxy knows the
+  satellite by. Multi-hop (a satellite that is itself a proxy) is explicitly out of scope for v1
+  (see the earlier "bewusst außerhalb" note on Multi-Hop-Topologie) — any further entries are
+  ignored rather than recursively re-exposed.
+- `Manager` gained an optional `overviewPuller` (nil in every existing test/caller — `newManager`'s
+  signature is untouched, so no existing test needed to change) that `startPolling`'s ticker also
+  invokes each cycle, best-effort/log-only on failure, alongside the existing metrics pull;
+  `NewManager` gained a `*SnapshotCache` parameter (nil disables overview polling entirely); `Remove`
+  evicts a departing satellite's cached snapshot immediately, not just its poller.
+
+**Verification (real, not mocked):**
+- `go test ./...`: full suite green, including `internal/collect`'s new tests (canonical metrics
+  written; real-mount deduplication — bind mount and Docker `overlay` mounts correctly excluded;
+  built-in checks reflect thresholds — OK at 50%, CRITICAL at 95%; graceful degradation when
+  `/proc` is entirely missing) and `internal/server`'s new `TestHostsOverview_*` tests (self-only
+  shape; only-the-latest-point-per-series; proxy aggregation with a fake cached satellite; a
+  standalone agent never appends satellites even if a cache happens to be set).
+- A real, non-test smoke run against the actual `/proc` on this dev machine (a throwaway
+  `cmd/collect-smoke`, removed afterward) confirmed real values: 67 points, 8 checks, including a
+  genuine `WARNING` on a real `/data1` mount at 80.6% used — proving the sampler works against a
+  real, unpredictable filesystem layout, not just curated fixtures.
+- **Real end-to-end redeploy** onto the same two hosts the earlier live-3-tier enrollment used
+  (`host1.example.internal` = Duppy, `host2.example.internal` = Selecta, already
+  enrolled and mTLS-trusted from that session — no re-enrollment needed, only the binary was
+  replaced and the daemon restarted): `GET /api/v1/hosts/overview` on Duppy (queried via the
+  Selecta's own trusted client cert, since Duppy's `trusted_client_keys` gates all of `/api/v1/`)
+  returned real CPU/mem/disk/uptime metrics and 12 real checks (all `OK`, including per-mount disk
+  checks for `/`, `/boot`, `/data1`, `/home`, `/opt`, `/systems`, `/tmp`, `/usr`, `/var`). After
+  restarting the Selecta, its own next satellite poll tick logged `satellite poll completed
+  satellite=duppy-docker-test points=204` (the existing metrics relay, now carrying real data for
+  the first time) — and, queried from inside the real running Bossman container (using Bossman's
+  own pinned client certificate, the exact identity that will poll this endpoint once Block F2 is
+  built), the Selecta's `GET /api/v1/hosts/overview` returned **two** hosts: itself
+  (`host2.example.internal`, `mode: proxy`, 108 metrics, 12 checks) and the satellite
+  (`duppy-docker-test`, `mode: satellite`, `parent: host2.example.internal`, 52 metrics, 12
+  checks) — with genuinely different values per host (different uptimes: 325.6h vs. 115.3h; different
+  disk usage), proving this is real per-host data, not a duplicated/merged snapshot. This is the
+  exact shape Block F2 (Bossman ingestion) needs to make the satellite appear as its own host.
+- `ruff`/Python side untouched by this block (pure Go); `go vet ./...` clean.
+
+## Bossman — Block F2: satellites as first-class hosts + GET /api/v1/fleet/hosts (implemented)
+
+The other half of the same user feedback: Bossman only ever showed the Selecta, never
+`docker-test` behind it, because nothing read the `satellite` label the poller already attached to
+relayed metrics, and there was no bulk endpoint returning real CPU/mem/disk values per host at all
+(`GET /api/v1/agents` had no metrics; `GET /api/v1/agents/{id}/metrics` needs one metric name at a
+time). Block F1's new `GET /api/v1/hosts/overview` (previous section) is what makes this fixable:
+Bossman now polls that endpoint the same way it already polled `/api/v1/metrics`, and ingests every
+host it returns — not just the one it dialed.
+
+**Schema**: `agents.parent_agent_id` (new migration `7bd8fbf091a8`, nullable self-FK) — NULL for a
+directly enrolled agent, set to the proxy's own `agents.id` for a satellite discovered through it.
+Round-tripped (upgrade/downgrade/upgrade) against the real dev DB before use; the usual autogenerate
+false-positive index drops (TimescaleDB/pgvector) stripped as in every prior migration.
+
+**`services/agent_client.py`**: new `AgentClient.hosts_overview()` — `GET /api/v1/hosts/overview`,
+no cursor (always a full "latest state" snapshot, unlike the history-pull `metrics_dump`/
+`connections_dump`).
+
+**`services/monitoring.py`**: new `ingest_agent_checks(session, agent, checks)` — upserts one
+`Service` row per agent-reported check, mirroring `evaluate_host`'s own upsert-with-history shape
+(state-change detection, `service_state_history`, ack-clearing on state change) so agent-native
+checks and Bossman-rule-derived services behave identically for problems/ack/downtime. The two are
+told apart by `rule_id IS NULL` (agent-reported) vs. set (Bossman check_rule) — no extra "source"
+column needed. `_AGENT_CHECK_STATUS` maps the Go agent's `OK/WARNING/CRITICAL/UNKNOWN` vocabulary
+onto this project's own `OK/WARN/CRIT/UNKNOWN` (`ck_services_state`) — the two were named
+independently and don't line up character-for-character.
+
+**`services/poller.py`** (`_ingest_hosts_overview`, `_find_or_create_satellite`,
+`_write_snapshot_metrics`): for every host in a `/hosts/overview` response, the **self entry is
+identified by an absent `parent` field — not by `host == agent.name`.** This was a real bug caught
+against the actual running stack: the Go agent reports its own OS hostname (`os.Hostname()`) as
+`host`, which need not match whatever arbitrary name an operator enrolled it under in Bossman
+(`agentic-mcpd register --name ...`) — the first version matched by name and silently created a
+bogus satellite-of-itself Agent row for the proxy whenever the two names differed (confirmed live:
+`selecta-ansible-runner`'s own real hostname is `host2.example.internal`, a different
+string). Fixed and covered by a regression test using exactly this real name mismatch. Every other
+entry (an actual satellite) is `find_or_create`d by name (`token=""`, `enrollment_state="enrolled"`,
+`mode` taken from the report, `parent_agent_id` set) — a satellite Agent row is never directly
+polled itself (no `address`), so `poll_once`'s own `enrollment_state == "enrolled"` selection
+harmlessly no-ops on it; all its real data arrives via the proxy's relay. Its latest metrics are
+written via `_write_snapshot_metrics` (all sharing the snapshot's `last_sample_at`, an
+approximation — real history for a directly-polled agent still comes from the existing
+`metrics_dump` cursor-pull), its checks ingested, and Bossman's own `evaluate_host` (check_rules)
+runs against it exactly like any directly-enrolled host.
+
+**A second real bug caught by a test, not by inspection**: `metrics`' primary key is `(time,
+agent_id, metric)` — it does not include `labels`. Block F1's agent-side sampler timestamps every
+point in one tick identically (a single `now` passed to every `add()` call in `collect.Sample`), so
+two label-partitioned series of the same metric — disk_used_pct for two different mounts,
+net_rx_bytes for two different interfaces — collide on that primary key, and
+`ON CONFLICT DO NOTHING` silently keeps only one of them (verified directly against Postgres: a
+two-row `VALUES` list with an identical key inserts exactly one row). This risk didn't exist before
+Block F1, since the agent previously never wrote a labeled multi-series metric at all. Fixed with
+`_disambiguate_colliding_timestamps` (nudges every same-key row after the first forward by 1
+microsecond — invisible for graphing, keeps every series' data point), applied in both `_write_metrics`
+(the pre-existing history-pull path, which had this same latent exposure) and the new
+`_write_snapshot_metrics`. Caught by `test_poll_agent_keeps_same_timestamp_multi_label_metrics`,
+which asserts both mounts survive a same-timestamp write — it failed before the fix.
+
+**`GET /api/v1/fleet/hosts`** (new, `api/monitoring.py`) + **`services/monitoring.fleet_hosts`**: one
+row per host — `{id, name, parent_agent_id, parent_name, mode, enrollment_state, last_seen_at,
+state_rollup, cpu_load, mem_used_pct, disk_used_pct_max, service_counts}` — in exactly 5 queries
+total regardless of fleet size (agents, services, and 3 latest-metric lookups via Postgres
+`DISTINCT ON`), never a per-host fan-out. `state_rollup` is CheckMK's own worst-service-wins
+convention (a single CRIT service makes the whole host read CRIT). `disk_used_pct_max` takes the
+worst mount, not an arbitrary one, so a host with one nearly-full disk reads as "nearly full" even
+if its other mounts are empty. This is the data source Block F3's host-overview table needs.
+`AgentOut`/`api/agents.py` gained `parent_agent_id`; the MCP `list_hosts` tool gained `parent`; a new
+MCP tool `fleet_hosts` mirrors the REST route exactly (same underlying function, no duplicated logic
+— this project's standing REST/MCP-parity convention).
+
+**Verification (real, not mocked):**
+- `pytest` against real Postgres: 276 tests total (12 poller tests covering satellite discovery,
+  self-vs-satellite identification by the real bug's exact scenario, the timestamp-collision fix,
+  and failure handling; 2 new `fleet_hosts` REST tests; 1 new MCP `fleet_hosts` test), `ruff check`
+  clean. Migration round-tripped (upgrade/downgrade/upgrade) against the real dev DB.
+- **Real end-to-end run against the actual docker-compose stack and the already-enrolled live
+  3-tier hosts** (`docker-test` = Duppy, `ansible-runner` = Selecta, from the earlier live
+  enrollment session): rebuilt `bossman`/`migrate`/`seed` images (the same staleness trap as every
+  prior block — each compose service gets its own image), ran the real migration, restarted
+  Bossman. Its very first poll cycle logged real `GET https://ansible-runner...:18051/api/v1/hosts/
+  overview "200 OK"`; `agents` immediately showed **`duppy-docker-test` as its own row**, `mode:
+  satellite`, `parent_agent_id` pointing at the Selecta — the concrete fix for "only the Selecta is
+  visible". The first deploy also reproduced the self-vs-satellite bug live (a bogus
+  `host2.example.internal` row appeared, parented to the Selecta's own enrollment name)
+  before the fix; after correcting the code, rebuilding, and cleaning up the bad row, a fresh poll
+  cycle showed exactly the right two rows. `GET /api/v1/fleet/hosts` (queried with a real login
+  token against the running stack) returned both hosts with genuinely different real values
+  (`selecta-ansible-runner`: cpu_load 0.0, mem 27.2%, disk 33.5%; `duppy-docker-test`: cpu_load 0.0,
+  mem 18.6%, disk 26.4%; each with 12 real `OK` services) — and `GET /api/v1/agents` (the existing
+  Hosts list's own backend, untouched by this block) already shows both, confirming the fix reaches
+  the current UI immediately, before Block F3's dedicated overview table even exists.
+- `ruff check .` clean; full `pytest` suite green; no leftover rows in either the dev DB or the
+  live compose DB after cleanup.
+
+## Bossman-UI — Block F3: real host-overview table + Perf-O-Meter + host-detail Overview tab (implemented)
+
+The frontend half of the same complaint: the Hosts list showed Name/Address/Mode/Status/Last-seen
+and nothing else — no CPU/RAM/disk anywhere, exactly the "CheckMK/Zabbix host overview with real
+values" gap identified in the audit (CheckMK/Zabbix documentation research: a Perf-O-Meter inline
+bar per key metric, worst-state-wins host rollup, drill-down into a per-host detail). Block F2's
+`GET /api/v1/fleet/hosts` is the data source; this block is purely presentation.
+
+**`shared/components/perf-o-meter`** (new): a compact inline bar — CheckMK's own "Perf-O-Meter" —
+threshold-colored (reusing the existing `--bm-green/--bm-gold/--bm-red/--bm-unknown` vars, no new
+palette introduced), with a numeric label. Deliberately tiny: the full history graph is one click
+away in host detail's existing Metrics/Services tabs, so this only needs to answer "is this fine at
+a glance", not replace the drill-down chain.
+
+**Hosts list rewritten** (`features/hosts/hosts-list.component.ts`): now a real "Latest data" table
+— Name / State (rollup badge) / CPU load / Memory (Perf-O-Meter) / Disk max (Perf-O-Meter) /
+Services (OK/WARN/CRIT counts) / Last seen — sourced from `MonitoringService.fleetHosts()` instead
+of `AgentService.list()`. Satellites are grouped directly under their parent proxy, indented with a
+`↳` glyph (a simple flattened two-level tree — this project's proxy nesting is deliberately
+single-hop, so no recursive tree component was needed). CPU load is shown as plain text, not a
+Perf-O-Meter bar, matching CheckMK's own convention: load isn't naturally a 0–100% quantity, only
+RAM/disk are.
+
+**Host detail gained a new first tab, "Overview"** (`features/hosts/host-detail.component.ts`): four
+tiles — CPU load, Memory (Perf-O-Meter), Disk max (Perf-O-Meter), Services (state counts) — plus a
+"Behind proxy `<parent>`" link when the host is a satellite. Sourced by filtering the same
+`fleetHosts()` call client-side rather than adding a new per-host backend endpoint (the fleet is
+capped at this project's targeted ~100-host scale, so one bulk call is cheap enough for both the
+list and the detail page). The pre-existing Facts/Metrics/Services/Relationships/Runs tabs are
+unchanged.
+
+**Verification (real, not mocked):**
+- `npx ng build` clean.
+- **Real end-to-end run against the actual running compose stack** (the same real 3-tier hosts from
+  Blocks F1/F2): rebuilt and redeployed `bossman-ui`. In a real browser (Playwright): the Hosts page
+  shows exactly the CheckMK-style table described above with **real, distinct values** —
+  `selecta-ansible-runner`: CPU load 0.17, Memory 27.3%, Disk 33.5%, 12 OK services; its satellite
+  `↳ duppy-docker-test`: CPU load 0.00, Memory 18.6%, Disk 26.4%, 12 OK services — both green
+  Perf-O-Meter bars matching their real OK state. Clicking the satellite row opens its detail page
+  on the new Overview tab by default, showing the same four real values as tiles plus a working
+  "Behind proxy selecta-ansible-runner" link.
+- No backend changes in this block; the existing 276-test Python suite stays green as a smoke check
+  that nothing on the API side regressed.
+
+## Bossman-UI — Block F4: topology proxy→satellite edges (implemented)
+
+The audit's third finding: the topology graph only ever drew real eBPF `host_edges`, so a satellite
+behind a proxy — the exact host Block F2 just made visible everywhere else — still showed up as a
+disconnected dot with no line to its proxy, since no traffic had necessarily been *observed* between
+them yet (eBPF edges require actual connections, not just the relay relationship itself).
+
+`shared/components/topology-graph/topology-graph.component.ts` gained a second, independent edge
+source: a new `ParentEdge{parent, child}` input, derived in `topology.component.ts` straight from
+`agents.parent_agent_id` (added to the Angular `Agent` model, matching Block F2's `AgentOut`) —
+drawn unconditionally, unlike a real `HostEdge`. Styled distinctly (dashed gold, labeled "relays")
+so it reads as "this host relays that one" rather than "observed traffic" (the existing solid grey
+eBPF edges). Node coloring was also upgraded from enrollment-state-only (`agentHealthStatus`) to the
+real per-host service-state rollup (`MonitoringService.fleetHosts()`, Block F2's endpoint) when
+available, falling back to the enrollment-based status for a host with no metric snapshot yet — a
+node's color now reflects "is this host actually healthy", not just "is it enrolled".
+
+**Deliberately out of scope** (an honest scope reduction, not an oversight): host-**group**
+clustering (visually grouping nodes by `agents.groups`, the check_rule-scoping concept) was in the
+original ergänzung's wording but is a materially larger feature (compound/cluster nodes, a
+multi-membership layout) unrelated to the proxy/satellite visibility bug that motivated this block;
+deferred to its own later block if wanted. Multi-hop topology (a satellite that is itself a proxy)
+remains out of scope project-wide, as already documented in this file's Selecta section.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui`; in a real
+browser (Playwright) against the live 3-tier stack, `/topology` now renders both real hosts —
+`selecta-ansible-runner` and `duppy-docker-test` — connected by a dashed gold "relays" edge (instead
+of two disconnected dots), both nodes green (their real `OK` state rollup from `fleet_hosts`).
+
+## Bossman-UI — Block F6: deliberate Rastafari identity (implemented)
+
+The audit's honest verdict: "calling it a Rastafari theme is generous — it is default Material dark
+with a green primary and three status accent variables. No ThemeService, no red/gold/green surface
+styling ... the topology graph even hardcodes its own hex colours rather than using the vars." The
+underlying dark-surface-with-Rasta-accent *structure* (`--bm-green/gold/red/black/unknown`, the
+tricolor top stripe already on the sidebar, the login page's large logo) was already sound per the
+original Bossman design section above — what was missing was making it look *deliberate* rather than
+coincidental, and a full `ThemeService` was judged disproportionate scope: this project explicitly
+committed to a **single, non-switchable** look ("kein Scherz-Theme-Umschalter"), so a switching
+service with no second theme to switch to would be speculative infrastructure, not a real fix.
+
+**What actually changed:**
+- **`shared/bm-colors.ts`** (new): the single source of truth for the four accent hex values, in
+  literal form — needed because cytoscape and ngx-echarts render to canvas and don't resolve CSS
+  custom properties at style-application time, unlike every plain DOM element (which reads `--bm-*`
+  directly). `topology-graph.component.ts` and `metric-chart.component.ts` now import these
+  constants instead of each hardcoding its own copy of the same hex — the literal fix for the
+  audit's "topology hardcodes its own hex rather than using the vars" finding, in the only way
+  actually possible given canvas rendering (CSS variables genuinely cannot reach into a
+  cytoscape/echarts style object; a shared TS constant is the correct level of indirection, not a
+  workaround).
+- **`styles.scss`**: `--mat-sys-primary`/`--mat-sys-tertiary`/`--mat-sys-error` now pinned to the
+  exact same hex as `--bm-green`/`--bm-gold`/`--bm-red` (previously `mat.$green-palette` generated
+  its own independent green, visibly different from the status-dot green sitting right next to it —
+  looked accidental, not branded). Every other M3 token (surfaces, elevation, typography) is
+  untouched, still supplied by `mat.theme()`.
+- **The Bossman penguin logo now appears in the sidebar header** (`app.html`/`app.scss`, 40px,
+  rounded), not just on the login page — brand presence throughout the app instead of a single
+  first-impression moment that's immediately gone after signing in.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui`; in a real
+browser (Playwright) against the live stack: Fleet Overview's "Run a plan" button, active nav
+highlight, and every link now render in the exact same green as the status dots and the Perf-O-Meter
+bars (previously two subtly different greens); the sidebar shows the logo on every page, not just
+login. `/login`'s existing large-logo layout is unaffected.
+
+## Bossman — Block F5 (backend): per-operator GridStack dashboard (implemented)
+
+Modeled directly on `~/Dev/code/CentralStation`'s own dashboard-widget architecture, per the
+original F5 decision (AskUserQuestion: "GridStack + Persistenz (empfohlen)") — one polymorphic,
+server-persisted data record per widget rather than a bespoke fixed-card layout, so an operator can
+freely arrange/resize/hide widgets and have that layout survive a reload.
+
+**Schema** (`alembic/versions/fd4f41b40434_dashboard_widgets.py`, `db/models.py`'s new
+`DashboardWidget`): `id, username, widget_type, title, gs_x/y/w/h, config (JSONB), pinned, hidden,
+created_at`. `widget_type` is constrained at the DB level (`CheckConstraint`) to the six types this
+project actually has a real data source for — `top_hosts, problems, gauge, timeseries, donut,
+stat` — deliberately a smaller set than CentralStation's own type union (no `grafana_panel`,
+`war_room`, `ai_summary`, … nothing in Bossman produces that data). `username` is indexed and is
+the ownership boundary: every service function takes it as an explicit parameter and every route
+derives it from `get_current_identity`, never from a request body field — a caller cannot address
+another operator's widget by ID (`update_widget`/`delete_widget` return `None`/`False` for a
+mismatched owner, which the route layer turns into a 404, not a 403 — deliberately not
+distinguishing "not yours" from "doesn't exist" to avoid an existence-leak side channel).
+
+**Service layer** (`services/dashboard.py`, framework-free like every other `services/*.py` module):
+`list_widgets`/`create_widget`/`update_widget`/`delete_widget` (plain CRUD, `DEFAULT_SIZE` per
+`widget_type` applied when a caller omits `gs_w`/`gs_h`, mirroring CentralStation's own
+add-widget-dialog defaults) plus `widget_data(session, widget)`, which dispatches on
+`widget.widget_type` and computes each widget's current payload by calling straight into the
+existing `services/monitoring.py` functions (`fleet_hosts`, `fleet_summary`, `query_problems`) —
+no duplicated aggregation logic, the dashboard widgets are thin views over data Block E2/F2 already
+produce. `gauge`/`timeseries` read `Metric` rows directly (`config.agent_id`/`config.metric`
+required, since those two types are the only ones needing a caller-chosen series).
+
+**REST** (`api/dashboard.py`, mounted in `main.py`): `GET/POST /api/v1/dashboard-widgets`,
+`PATCH/DELETE /api/v1/dashboard-widgets/{id}`, `GET /api/v1/dashboard-widgets/{id}/data` — five
+routes, all behind `get_current_identity` like the rest of Block B7's surface. `widget_type` is
+validated against `WIDGET_TYPES` at the API layer too (422, not just a DB constraint violation) so a
+bad request fails with a clear message instead of an opaque 500.
+
+**Tests** (`tests/test_dashboard_api.py`, new, 6 tests, real Postgres via `bossman-dev-db`, no
+mocking): auth-required (401 without a token); full CRUD round-trip including the `DEFAULT_SIZE`
+default-geometry path; `widget_type` rejection (422 on an unknown type); ownership isolation (a
+second identity's widget is absent from another caller's list, and PATCH/DELETE on it 404s rather
+than leaking whether it exists); `/data` for `stat` (real `open_problems` count against a real CRIT
+service row) and `top_hosts` (real host row returned by `fleet_hosts`) — the two widget types
+needing no extra `config`.
+
+**Verification (real, not mocked):** `uv run ruff check .` clean; `uv run pytest -q` → 282 passed (276
+pre-existing + 6 new dashboard tests), no regressions. Verified against `bossman-dev-db`
+(`postgresql+asyncpg://bossman:bossman@localhost:55432/bossman`) — confirmed via direct `psql`
+inspection that no test rows (`dash-agent-*` Agents, `dashboard_widgets` rows, `dash-*` API tokens)
+were left behind after the run.
+
+**Not yet done, remainder of Block F5**: the frontend half — GridStack container component
+(`afterNextRender` grid init, drag/resize gated by an edit-mode signal, `saveLayout()` PATCHing
+geometry back), a polymorphic `dashboard-widget` renderer (`@switch` on `widget_type`, ECharts
+option builders for `donut`/`timeseries`/`gauge`, a table for `top_hosts`/`problems`, a plain number
+for `stat`), an add-widget catalog dialog, wiring Fleet Overview to use this dashboard, and live
+Playwright verification against the running docker-compose stack.
+
+## Bossman-UI — Block F5 (frontend): GridStack widget dashboard (implemented)
+
+Completes Block F5. Modeled directly on `~/Dev/code/CentralStation/frontend`'s own
+`dashboard.component.ts`/`dashboard-widget.component.ts` pattern (`gridstack` was already an unused
+dependency in `package.json`, v12.6.0, wired up here for the first time), trimmed to what
+CentralStation's version doesn't need for Bossman: no generative/AI mode, no multi-dashboard
+picker, no i18n — a single per-operator dashboard matching the six widget types the backend
+actually serves.
+
+**New files:**
+- `core/models/dashboard.model.ts` — `DashboardWidget`/`WidgetType`/`CreateDashboardWidget`/
+  `UpdateDashboardWidget` plus one payload interface per widget type (`TopHostsWidgetData`,
+  `ProblemsWidgetData`, `DonutWidgetData`, `StatWidgetData`, `GaugeWidgetData`,
+  `TimeseriesWidgetData`), matching `bossman/services/dashboard.py`'s `widget_data()` shapes
+  exactly. `WIDGET_CATALOG` mirrors the backend's `DEFAULT_SIZE` for the add-widget dialog's
+  preview only — the server's own copy is authoritative when `gs_w`/`gs_h` are omitted.
+- `core/services/dashboard.service.ts` — thin REST wrapper (`list`/`create`/`update`/`delete`/
+  `data`), same shape as `MonitoringService`.
+- `shared/components/dashboard-widget/dashboard-widget.component.ts` — the polymorphic renderer,
+  `@switch`-dispatched on `widget_type`: `top_hosts`/`problems` as dense tables (reusing
+  `PerfOMeterComponent`/`HostStatusBadgeComponent` for the host rows, so a dashboard widget looks
+  identical to the Block F3 host-overview table it's summarizing), `donut`/`gauge`/`timeseries` as
+  `ngx-echarts` options built from `bm-colors.ts`'s literal hex constants (same canvas-can't-read-
+  CSS-vars constraint documented in Block F6), `stat` as a plain number + label.
+- `features/fleet-overview/add-widget-dialog.component.ts` — a type-tile catalog (six tiles, not
+  CentralStation's larger type union) + per-type config fields: `limit` for `top_hosts`/`problems`,
+  a `stat_source` select for `stat`, an agent + metric-name field for `gauge`/`timeseries` (plus
+  optional warn/crit for `gauge`). Returns a `CreateDashboardWidget` on save.
+- `features/fleet-overview/dashboard-grid.component.ts` — the GridStack container itself, following
+  CentralStation's `rebuildGrid()`/`saveLayout()` pattern precisely: `GridStack.init()` runs inside
+  `afterNextRender` (guarantees the `@for`-rendered `grid-stack-item` elements exist before
+  GridStack measures them), `disableDrag`/`disableResize` toggle off an `editMode` signal, and
+  "Save layout" reads `grid.getGridItems()` back and issues one `PATCH` per widget with its actual
+  post-drag `gs_x/y/w/h`. An empty dashboard shows an explicit "Add your first widget" empty state
+  (consistent with Block E1's empty-state convention) rather than a blank grid.
+
+**Wiring:** `features/fleet-overview/fleet-overview.component.ts` gained `<app-dashboard-grid>` as
+a new section between the fixed "Unhandled problems" panel and the existing "Recent Plan
+Runs/Quick actions" grid. The top summary cards and problems panel stay fixed — they're
+always-relevant fleet-health KPIs an operator wouldn't want to rearrange — while the GridStack
+section is the actually-customizable part the ergänzung asked for.
+
+**Verification (real, not mocked):** `npx ng build` clean (one harmless NG8102 nullish-coalescing
+warning fixed by widening `widgetData`'s signal type). Rebuilt and redeployed `bossman`, `migrate`,
+and `bossman-ui` docker-compose images against the real running stack; `alembic upgrade head` ran
+the `dashboard_widgets` migration against the compose stack's own Postgres (previously only
+verified against the separate `bossman-dev-db`). In a real browser (Playwright) against the live
+3-tier stack (`duppy-docker-test` + `selecta-ansible-runner`, both still enrolled from the earlier
+runbook): logged in as `admin`; added a `top_hosts` widget — rendered a real table with both real
+hosts' actual CPU/mem/disk percentages via `PerfOMeterComponent`; added a `donut` widget — rendered
+a real ECharts donut (all-green, matching the fleet's real all-OK service state); dragged the donut
+widget with a raw `page.mouse` sequence, confirmed via direct `psql` against
+`agentic-mcp-db-1` that its new `gs_x/gs_y` were persisted (`2, 4`, not `0, 0`); reloaded the page
+and confirmed the dragged layout survived (widget still at `gs_x=2`, edit mode reset to
+"Customize", and both widgets re-fetched fresh live metric values on reload — `19.5%`/`27.9%` vs.
+the pre-reload `18.8%`/`27.7%`, proving `/data` is polled live, not cached client-side). Both demo
+widgets were left in place as the actual live dashboard content rather than cleaned up as test
+data, since this was a real acceptance pass against the product's own running instance.
+
+This completes Blocks F1 through F6 — the entire monitoring-cockpit rework approved in this
+ergänzung.
+
+## Bossman + Bossman-UI — Block F7: host-detail Metrics tab as a Zabbix/CheckMK "Latest data" list (implemented)
+
+Direct follow-up to explicit user feedback on the F-series cockpit: the host-detail **Metrics** tab
+still forced the operator to pick *one* metric from a `mat-select` dropdown ("Listbox") before
+seeing anything — the exact anti-pattern neither Zabbix nor CheckMK use. Both instead show *all* of
+a host's latest data as a scannable list. This block replaces the listbox with that list.
+
+Grounded in the real tools (Zabbix "Latest data" docs + CheckMK service-view conventions): Zabbix's
+latest-data table is `Name · Last check · Last value` (unit-converted) with a graph one click away;
+CheckMK's service list leads with a colored `State` column and lets you filter by state. The rework
+merges both.
+
+**Backend — `GET /api/v1/agents/{id}/metrics/latest`** (`bossman/api/agents.py`, new
+`LatestMetricOut`): the whole latest-data snapshot in one call — the newest sample of every metric
+the agent has reported, via Postgres `DISTINCT ON (metric) … ORDER BY metric, time DESC`. One row
+per metric *name* (multi-series metrics like `disk_used_pct` per mount collapse to their single
+newest point; full per-label history is still one click away via the existing per-metric series
+endpoint). Avoids the frontend fanning out one series request per metric just to show current
+values. New test `test_agent_metrics_latest_returns_newest_per_metric` (real Postgres) asserts one
+row per name and that it's the *newest* sample, not an older one. Route is a distinct path segment,
+no collision with the existing `…/metrics` catalog/series endpoint.
+
+**Frontend — Metrics tab rewritten** (`features/hosts/host-detail.component.ts`, `LatestMetric`
+model + `AgentService.metricsLatest`):
+- A **"Latest data" table**: `State · Metric · Last value · Last check`, one row per metric — no
+  dropdown. Values are unit-converted like a real monitoring tool (`_bytes`→KiB/MiB/GiB, `_pct`→%,
+  `uptime_seconds`→`13d 21h`, `cpu_load*`→two decimals); "Last check" is a Zabbix-style relative
+  `1m ago`.
+- Row click **expands inline** into the full history chart (reusing `MetricChartComponent` +
+  `TimeRangePickerComponent`), one row at a time — replacing the old single global chart. The
+  drill-down is now attached to each metric instead of gated behind a select.
+- A **`mat-button-toggle-group` filter: All / Critical / Warnings** (default **All**, matching the
+  "Default alle Metriken" requirement, and consistent with the existing `TimeRangePickerComponent`'s
+  toggle idiom rather than introducing a new control). Each metric's state is joined from `services`
+  whose CheckRule targets that metric by name (`stateByMetric` computed); agent-reported checks carry
+  an empty `metric` and stay stateless here (they live in the Services tab). The Critical/Warnings
+  toggles are disabled + count-labeled when empty (`Critical (0)`), and an all-healthy fleet shows a
+  friendly "everything healthy" empty state instead of a blank table.
+
+**Verification (real, not mocked):** `ruff` clean; `test_agents_api.py` 6/6 green against real
+Postgres. Rebuilt/redeployed `bossman` + `bossman-ui` into the live `agentic-mcp` stack. In a real
+browser (Playwright) against the real `selecta-ansible-runner`: the Metrics tab shows all **26**
+metrics as a list with real unit-converted values (`mem_total_bytes` 1.9 GiB, `mem_used_pct` 30.2 %,
+`net_tx_bytes` 1.6 GiB, `uptime_seconds` 13d 21h); clicking `mem_used_pct` expanded it into the live
+history chart + range picker. To prove the state filter end-to-end (the fleet is otherwise all-OK),
+a temporary global CheckRule `mem_used_pct > 20` was created, the poller's evaluator materialized a
+real **WARN** service within one cycle, and the tab then showed `Warnings (1)` with `mem_used_pct`
+badged WARN and the Warnings view filtering to exactly that one row — then the demo rule, its
+services (selecta + duppy) and state-history were deleted, returning the fleet to 12 OK / 0 rules
+(unlike Block F5's dashboard demo, this test data *was* cleaned up since it was a synthetic threshold,
+not real dashboard content).
+
+## Bossman-UI — Block F8: Metrics-tab polish to CheckMK/Zabbix parity, reusing CentralStation visuals (implemented)
+
+Follow-up to a live visual review of F7: the list *worked* but didn't yet *look* like the
+Platzhirsche. Three honest gaps, all visible in one screenshot: (1) alphabetical sort put ~13
+internal `check_*_state`/`*_start` bookkeeping counters at the very top, pushing real telemetry
+(CPU/RAM/disk/net) below the fold — counters neither CheckMK nor Zabbix ever surface; (2) the State
+column was a wall of grey em-dashes because states only joined from Bossman CheckRules (none existed)
+— the opposite of CheckMK's signature coloured state column; (3) plain right-aligned numbers where
+CheckMK shows inline Perf-O-Meter bars. Per the user's steer, the fix **reuses CentralStation's own
+chart/gauge implementation** (`~/Dev/code/CentralStation/frontend`'s `dashboard-widget.component.ts`
+`timeseriesOptions()`/`gaugeOptions()`) rather than reinventing it.
+
+**Four changes:**
+1. **Hide internal counters, group the rest.** New `classifyMetric()` buckets every metric into
+   CPU / Memory / Disk / Network / System / Internal; the list renders grouped section headers in
+   that order (Zabbix "application"-style grouping). Internal counters are dropped by default behind
+   a `Show internal (N)` toggle. Result: the first screen is now CPU/RAM/disk, not `check_*_state`
+   noise (13 shown, 13 internal hidden on the real host).
+2. **Colour the State column from the agent's own checks.** `stateByMetric` now merges two sources
+   worst-wins: Bossman CheckRule services *and* the Go agent's built-in `check_<x>_state` metrics
+   (value = a Nagios code) mapped onto the metric they grade (`CHECK_STATE_TARGET` + a
+   `check_disk_*_state → disk_used_pct` special case). So CPU/Memory/Disk/Uptime rows and their group
+   headers show real green OK badges with no custom rule defined. `stateFromCode()` does 0/1/2 →
+   OK/WARN/CRIT.
+3. **Inline Perf-O-Meter for percentages.** `*_pct` rows render the existing `PerfOMeterComponent`
+   bar (warn 80 / crit 90) in the value column instead of a bare number — CheckMK's look, via a
+   component the host-overview table already uses.
+4. **CentralStation gauge + green area chart on expand.** New `shared/components/metric-gauge`
+   (`app-metric-gauge`) is a near-verbatim port of CentralStation's `gaugeOptions()` (ECharts
+   `type: 'gauge'` with warn/crit arc zones), recoloured to Bossman's green/gold/red (`bm-colors.ts`).
+   Expanding a `%`-row now shows that gauge beside the history chart; `MetricChartComponent` was
+   upgraded to CentralStation's `timeseriesOptions()` styling (smooth line, `width: 2`, translucent
+   green `areaStyle`, muted axis/grid) so both read as the same visual system as the CentralStation
+   widgets the user liked.
+
+**Verification (real, not mocked):** `npx ng build` clean. Rebuilt/redeployed `bossman-ui` into the
+live `agentic-mcp` stack; in a real browser (Playwright) against the real `selecta-ansible-runner`:
+the Metrics tab now lists **13** real metrics under CPU / MEMORY / DISK / NETWORK / SYSTEM group
+headers (all badged OK, derived from the agent's `check_*_state` metrics — no rule defined), with
+`Show internal (13)` collapsing the counters; `mem_used_pct` and `disk_used_pct` render inline
+Perf-O-Meter bars (31.3 % / 0.0 %); expanding `mem_used_pct` shows the green CentralStation-style
+gauge (31.3 %, green arc) beside the green smooth-area history chart. No test data created; nothing
+to clean up.
+
+## Bossman + Bossman-UI — Block F9: CheckMK combined graphs + fix Services "no data" (implemented)
+
+Two issues from a second live review: (1) CheckMK overlays related metrics in one combined graph
+(e.g. CPU load 1/5/15) — Bossman only ever plotted one series; (2) every service on the Services tab
+showed "no data" in its detail chart. Per the user's steer, the overlay reuses CentralStation's own
+multi-series line pattern (`dashboard-widget.component.ts`'s `series_list` timeseries) rather than a
+new charting approach.
+
+**`MetricChartComponent` gained a combined-graph mode** (`shared/components/metric-chart`): a new
+`series: ChartSeries[]` input renders several named lines overlaid — smooth, symbol-less, a distinct
+colour each from a Bossman-green-first palette (mirroring CentralStation's), with a legend and no
+area fill (overlapping fills muddy a multi-line graph, which CentralStation also drops). The single
+`points` green-area mode is unchanged, so every existing caller keeps working.
+
+**Two combined graphs wired up** (`host-detail.component.ts`, `COMBINED_GRAPHS`): `cpu_load1/5/15`
+and `net_rx_bytes/net_tx_bytes`. Expanding *any* member metric in the Metrics tab now loads the
+whole family (`forkJoin` over `metricSeries`) and overlays them; single metrics still show one green
+line + the gauge for percentages.
+
+**Services "no data" — root cause and fix.** Agent-reported checks (CPU load, Memory, Disk /usr, …)
+carry an empty `Service.metric` (their state arrives pre-computed from the Go agent), so the service
+detail chart was fetching `metricSeries(agent, "")` → nothing. `serviceMetricSpec()` now maps a check
+by name onto the real telemetry metric(s) it grades — "CPU load" → the cpu_load combined graph,
+"Memory" → `mem_used_pct`, "Uptime" → `uptime_seconds`, "Disk /X" → `disk_used_pct` filtered to mount
+`/X` (all mounts share one series, distinguished by a `mount` label). A CheckRule-derived service with
+a real `metric` still uses it directly.
+
+**Also fixed: service-history 404 for slash names.** `GET /agents/{id}/services/{service_name}/history`
+used a plain path param, so "Disk /usr" (URL-encoded `%2F`) 404'd — visible as console errors and an
+empty history list. Changed to the `{service_name:path}` converter; new test
+`test_get_service_history_name_with_slash` covers it (real Postgres, 2/2 history tests green).
+
+**Verification (real, not mocked):** `ruff` clean; monitoring history tests green; `npx ng build`
+clean. Rebuilt/redeployed `bossman` + `bossman-ui` into the live `agentic-mcp` stack. In a real
+browser (Playwright) against the real `selecta-ansible-runner`: the Services tab's "CPU load" detail
+now renders a **real combined graph** — cpu_load1 (green) / cpu_load5 (gold) / cpu_load15 (blue)
+overlaid with a legend — plus its state history (no more 404); "Disk /usr" and the other checks all
+render real history charts instead of "no data". In the Metrics tab, expanding `cpu_load5` shows the
+same three-line combined graph. No test data created.
+
+## Vision v2 — Easy to Learn, Easy to Work, Easy to Play (planned, G-series)
+
+A sharpening of this document's original "Context & Vision" (top of this file), prompted by the
+user stepping back from a feature request to restate the product's purpose: *"Die Vision ist ein
+Full Managed MCP Server der Easy to Learn, Easy to Work, Easy to Play ist. Indem man ohne
+Programmierkenntnisse Checks schreiben kann und Kommandos definieren kann. Wir suchen ein
+Alleinstellungsmerkmal mit dem wir uns von den etablierten Produkten abheben. Ein einfaches Tool
+für DevOps."* Operating model (user decision): **self-hosted** — the product fully manages the
+customer's fleet; no SaaS block.
+
+This is not a new direction — it is the original vision stated sharper. The mapping onto what this
+plan already built:
+
+- **Easy to Learn** = the north-star UX "describe the machine in prose" (see "Context & Vision")
+  plus `tools.d/` — "the user has nothing new to learn — it *is* Ansible syntax".
+- **Easy to Work** = every module automatically becomes an MCP tool *and* a REST endpoint (see
+  "Module system"); one system instead of CheckMK + Coroot + Ansible.
+- **Easy to Play** = the safety architecture *is* the playground: `check_mode`/dry-run everywhere,
+  write gate default-off, ACL, audit — "reliable and safe, not a blind shell flight".
+- **The USP** was already named in "Differentiation / market gap": *"Nobody combines: eBPF
+  observability + a typed management API (read and write) + zero-dependency agent + fleet
+  orchestration, all AI-native via MCP."*
+
+The mechanics exist; the G-blocks give the system the **vocabulary** (the full Ansible module
+dictionary, Blocks G1–G4, G7–G8) and the **reflexes** (auto-remediation G5, drift detection G6).
+
+**Orchestrator research (web, 2026) — pros/cons of the four incumbents and the compromise we
+implement.** Sources: Red Hat's tool comparison, TechTarget, AutoMQ's 2026 alternatives survey,
+Just After Midnight, UpGuard's Ansible pros/cons.
+
+| Tool | Strength | Weakness |
+|---|---|---|
+| Ansible | agentless, simple YAML, biggest ecosystem (thousands of modules), largest mindshare | SSH fan-out doesn't scale (connection churn, controller bottleneck), push-only, **requires Python on every target**, no drift correction, not event-driven |
+| Puppet | convergence loop (pull, drift correction), mature compliance reporting | its own DSL (learning curve), agent + master maintenance |
+| Chef | pull architecture (client computes locally), strong test/compliance tooling | Ruby DSL, complex, dev-centric |
+| Salt | ZeroMQ event bus (thousands of nodes in seconds), event-driven remediation (beacons/reactor), YAML | operational complexity that overwhelms small teams |
+
+**The compromise ("best of four, none of their weaknesses"):** the persistent Go agent already
+exists, so yolo-man can take each incumbent's best idea without its cost — (1) **Ansible's
+language** (YAML modules everyone knows) without Ansible's weaknesses: a persistent mTLS agent
+instead of SSH fan-out, and native Go modules instead of Python on every target — better than
+Ansible itself on Ansible's home turf; (2) **Salt's event model** without Salt's complexity: a
+monitoring check going CRIT fires a plan (Block G5); (3) **Puppet's convergence** as detection
+only (Block G6, user decision: no auto-fix); (4) **AI-native via MCP** — which none of the four
+have. Positioning against the monitoring incumbents stays as before: CheckMK/Zabbix extend via
+plugin *code* and only ever alert; AWX/Rundeck automate but are heavyweight and blind. Here, one
+YAML file in Ansible syntax is simultaneously a REST endpoint + MCP tool + (for `check:` tasks) a
+monitoring service — and the AI writes that file for you if you can't.
+
+**Chef/Puppet/Salt compatibility is preserved and strengthened.** The two existing anchors stay
+valid: per-module "Cross-tool equivalents" descriptions (see "Module system") and the Roadmap's
+tiered translation strategy (parser for Ansible/Salt, vocabulary mapping for Puppet/Chef). The
+translation direction is *foreign format → this system's modules*: with ~738 target modules
+instead of 52, a Chef resource / Puppet type / Salt state far more often has a direct equivalent,
+and the module-catalog RAG search (Block G2) **is** the promised "lightweight mapping reference" —
+scalable instead of hand-maintained.
+
+The user's concrete request driving the G-series: adopt the missing Ansible collections —
+`ansible.builtin` (71) + `ansible.posix` (14) + `community.general` (593) + `community.docker`
+(28) + `community.crypto` (32) = **738 modules** ("ca. 734") — *"aber nicht hard-gecoded in den
+Agenten sondern als yaml Dateien"*. Today the module vocabulary is hard-coded in three
+disconnected places: the Go registry (`internal/server/modules.go`'s `NewDefaultModuleRegistry`,
+52 modules), the translator's hand-maintained `KNOWN_MODULES` list
+(`bossman/services/translator.py`), and the plan parser's `ANSIBLE_PREFIX = "ansible.builtin."`
+literal (`bossman/services/plan_loader.py`) which actively rejects any other collection. No
+YAML/DB module catalog exists anywhere — that is the gap the G-blocks close.
+
+## Block G1 — Module catalog: YAML schema + generator (`modules.d/`) (planned)
+
+**One YAML per module** in `modules.d/<collection>/<name>.yaml` (e.g.
+`modules.d/community.docker/docker_container.yaml`). Schema: `name`, `fqcn`, `collection`,
+`short_description`, `description`, `options` (the argspec: per-option type/required/default/
+choices/aliases/description), `writes` (write-gate relevance), `examples`, optional `equivalents`
+(chef/puppet/salt/terraform — carrying the existing `Description()` cross-tool convention into
+the catalog), `runtime: native | starlark | script | ansible` (see Block G7), and
+`source: generated | custom` (custom files survive regeneration).
+
+**Generated, not hand-written** (738 files): `bossman/scripts/generate_module_catalog.py` reads
+`ansible-doc -l -j` (module list per collection) + `ansible-doc -j <fqcn>` (argspec) from the
+locally installed collections and emits deterministic, git-diffable YAML. `writes` heuristic:
+`*_info`/`*_facts` → read-only, everything else `writes: true`, plus a manual override map.
+Shipping: generated into the repo (`configs/modules.d/`, package path
+`/usr/share/agentic-mcp/modules.d/`); `/etc/agentic-mcp/modules.d/` is the custom/override
+directory — drop your own module YAML = the system is extended, the literal user requirement.
+
+## Block G2 — Bossman: catalog service, FQCN plans, catalog-driven translator (planned)
+
+- A catalog service analogous to `CatalogCache` (`bossman/services/catalog.py`) loads
+  `modules.d/` at startup; a new `modules` table + pgvector embeddings (bge-m3, like
+  `PlanEmbedding`) power RAG search; REST `GET /api/v1/modules` + `GET /api/v1/modules/{fqcn}`;
+  MCP tool `search_modules`.
+- Parser opening (`plan_loader.py`): any step key that exists as an FQCN in the catalog is
+  accepted (`ansible.builtin.` short form stays compatible); catalog-driven validation
+  (required options, choices).
+- Translator (`translator.py`): the `KNOWN_MODULES` hardcode goes away → RAG retrieval of the
+  top-k relevant modules (including argspec) into the prompt — 738 modules do not fit as a
+  grammar enum, retrieval is the only scalable path and reuses the existing pgvector/bge-m3
+  stack. The same retrieval path serves foreign-format translation (Chef/Puppet/Salt source →
+  the matching target module) with no hand-maintained mapping.
+
+## Block G3 — Agent: `modules.d` loading + Ansible delegation fallback (planned)
+
+- The agent loads `modules.d/` (like `tasks.LoadDir`) → registers every catalog module as a REST
+  tool (`POST /api/v1/tools/<fqcn>`, InputSchema + `writes` from the YAML) — *the modules live in
+  the agent as YAML, not hard-coded*, the literal user requirement.
+- **Hybrid execution:** the 52 native Go modules keep running natively (the USP: "Ansible without
+  Python on the targets"); everything else is delegated by a generic executor to real Ansible
+  **locally on the agent** (`ansible localhost -m <fqcn> -a <json>`, `--check` for dry-run, JSON
+  output → `{changed, msg, data}`) — no central SSH fan-out, so Ansible's scaling weakness stays
+  out. Prerequisite on the agent host: ansible-core + collections (+ module-specific Python deps);
+  enabled by config flag, capability reported in `GET /api/v1/tools`; agents without Python stay
+  fully functional with the native set. Delegation is a fallback: the most-used delegated modules
+  (usage statistics from `PlanRunStep.module`) become candidates for native Go implementation.
+- Avoiding MCP tool explosion: MCP does *not* register 738 individual tools — it keeps tools.d
+  tasks + native modules + a generic `run_module` + `search_modules`; REST gets them all.
+- **Distribution model (user decisions, during Block G8):** *"der Bossman muss die Collection
+  halten und on demand an die Duppys verteilen können"* and *"am besten wäre es wenn der Duppy
+  bei einem Run checkt welche Module ihm fehlen und dann bei Bossman sucht und sich die
+  fehlenden Module zieht."* So: **Bossman is the single library master** (the `modules.d/`
+  library Block G8 fills), and agents **pull lazily** — when a plan step references a module
+  the agent doesn't have, it fetches the `.star` + metadata pair from Bossman (a
+  `GET /api/v1/modules/{fqcn}/content` endpoint over the existing mTLS channel), verifies and
+  caches it locally (`/var/lib/agentic-mcp/modules.d/`, content-hash-keyed so an updated
+  library entry re-fetches), then executes it in the Starlark runtime. Like Ansible pushing
+  module code per task — but cached, hash-verified, and without SSH. Agents never need the
+  full 738-module set shipped; a fresh agent starts empty and grows exactly the vocabulary its
+  plans actually use.
+
+## Block G4 — Bossman-UI: module browser (planned)
+
+Browse/search the catalog (RAG-backed), view argspec + examples, and a "adopt as tools.d task"
+button that generates the task YAML with pre-filled parameters — the "Easy to Learn / Easy to
+Play" surface of the vision.
+
+## Block G5 — Auto-remediation: check → plan (Salt-reactor equivalent) (planned)
+
+Wires together two things this plan already built: a monitoring service going CRIT/WARN (Blocks
+E2–E4) fires a designated plan on the affected host (Block B5's plan engine). New table
+`remediation_rules` (service_name/scope → plan + params); execution is a normal `PlanRun` with
+full audit. **Guardrails** (user decision "ja, mit Leitplanken"): only explicitly approved plans
+can be bound; cooldown/rate limit per host+service; never fires during a downtime or on an
+acknowledged problem; optional dry-run-first mode; everything lands in the audit log. UI: rule
+management in Settings + a remediation history on the host detail page. The vision sentence:
+CheckMK alerts — yolo-man repairs.
+
+## Block G6 — Drift detection, not correction (Puppet convergence, detection-only) (planned)
+
+A plan can be **assigned to a host as its desired state**; the poller runs it periodically in
+`check_mode` (the plan engine already supports check_mode per step). Any step reporting
+`changed: true` is a deviation → surfaced as a monitoring problem (a new service
+`Drift: <plan>` in the existing Service/State/Problem model from Blocks E2–E4). **Deliberately no
+auto-fix** (user decision): the operator sees the drift problem and triggers the re-apply, or
+explicitly binds it to a G5 remediation rule later. "Describe the machine in prose" thereby
+becomes a *monitored desired state* instead of a one-shot action.
+
+## Block G7 — Custom module authoring: the extension ladder (LLM-writable modules) (planned)
+
+Answers the user's design question: *"Nehmen wir an das LLM schreibt neue Module um den Go-Agenten
+zu erweitern. Welche Sprache nehmen wir dann? Ansible hat den Vorteil, dass es in Python
+geschrieben ist und man ganz einfach eine Erweiterung schreiben kann. Das ist der absolute
+Pluspunkt für Ansible."* The finding: **Ansible's plus point is a contract, not a language** — the
+official Ansible module contract is "JSON in, JSON on stdout, any language" (binary/want-JSON
+modules; Python's advantage is only the bundled `AnsibleModule` boilerplate). We adopt that
+contract twice:
+
+- **Rung 0 (exists):** tools.d YAML — parameterize existing modules, no code.
+- **Rung 1 — script modules (any language, Ansible's JSON contract):** an executable
+  (Python/Bash/…) at `/etc/agentic-mcp/modules.d/<name>/module` + a metadata YAML (G1 schema,
+  `source: custom`, `runtime: script`); the agent invokes it directly with the Ansible contract
+  (JSON args, `_ansible_check_mode` for dry-run, JSON stdout → `{changed, msg, …}`) — **without
+  an Ansible installation**. An LLM-written Python script thus works exactly like an Ansible
+  module, minus the Ansible runtime. Timeout + output cap as for pipelines; write gate via the
+  metadata's `writes` flag.
+- **Rung 2 — Starlark modules (the sweet spot, `runtime: starlark`):** a Python dialect
+  (google/starlark-go — natively embeddable in Go, sandboxed, deterministic; Bazel's
+  configuration language). One `.star` file + metadata YAML; runs **inside the Go agent itself**
+  — no Python on the target, no deploy, no compilation. **Capability-based builtins instead of
+  ambient authority:** a module can only do what the agent exposes as builtins (`run(argv)`
+  checked against the commands.yaml policy, `file_read`, `file_write`, `facts()`, …); the write
+  gate, dry-run (`ctx.check_mode`) and timeouts are **enforced inside the builtins**, not left to
+  the module author — the LLM *cannot* write an unsafe module. Safer than Ansible itself (where a
+  Python module can do anything), and the architectural fulfilment of "Easy to Play".
+- **Rung 3 (exists):** native Go modules — the quality bar for hot/important modules (candidates
+  picked by usage statistics from G3).
+- **LLM authoring flow:** UI/MCP "create module" → the LLM generates metadata YAML +
+  `.star`/script → dropped into `/etc/agentic-mcp/modules.d/` → the agent registers it like any
+  catalog module (G3 loader) → instantly an MCP tool + REST endpoint. Dry-run-first testing in
+  the UI (G4).
+
+## Block G8 — MCP translation pipeline: model benchmark + collection translation (implemented; full run resumable)
+
+The concrete first implementation of the G-series, commissioned directly by the user: two local
+LLMs (`https://llm.example.internal/qwen35b` and `…/qwen79b` — the latter already Bossman's
+configured `chat_base_url`) are benchmarked on **Starlark module authoring quality**, then the
+better one translates the four non-builtin collections — ansible.posix (14) + community.general
+(593) + community.docker (28) + community.crypto (32) = **667 modules** (the 71 `ansible.builtin`
+stay native Go) — into Rung-2 Starlark modules. *"Das ganze soll über MCP laufen und die
+Bibliothek soll per MCP erweitert werden. Diese Endpunkte mit ausführlicher Beschreibung (der
+Kontrakt) sollen es den LLM ermöglichen sauberen Code abzuliefern."*
+
+Planned parts (details refined as implemented, verification numbers appended when real):
+
+1. **Starlark contract v1 + Go validator** — `internal/starmod` + `cmd/starlark-check`
+   (go.starlark.net): a module defines `main(ctx, params)` → dict `{changed, msg, data?}`;
+   capability builtins (`ctx.run`, `ctx.file_read`, `ctx.file_write`, `ctx.facts`,
+   `ctx.check_mode`); the validator parses, lints the contract, and stub-executes with mocked
+   builtins.
+2. **Bossman module library via MCP** — `bossman/services/module_library.py` + MCP tools whose
+   descriptions embed the full contract (the "skill, not a one-liner" convention):
+   `module_contract`, `get_module_source(fqcn)` (argspec + original Python source from the
+   locally installed collections), `validate_module`, `submit_module` (validates + writes
+   `configs/modules.d/<collection>/<name>.{yaml,star}` — the library grows via MCP),
+   `list_module_status` (progress/resume).
+3. **Benchmark** — `bossman/scripts/benchmark_starlark_models.py`, a real MCP client against the
+   running stack: ~8 representative modules across the four collections, both models, identical
+   prompts, ≤2 validator-feedback retries; scored on parse rate / contract-lint rate /
+   stub-run rate / retries needed.
+4. **Translation** — `bossman/scripts/translate_modules.py`, resumable, winner model, order
+   posix → crypto → docker → general; per module: fetch source → translate → validate (retry
+   with diagnostics) → submit. Pilot: ansible.posix (14) live; the full 667 run continues as a
+   resumable background job.
+
+### Block G8 — implemented + real results
+
+Implemented and run live against the two real local endpoints (both OpenAI-compatible, both 256K
+context, confirmed HTTP 200). Delivered as committed code:
+`internal/starmod` + `cmd/starlark-check` (Go validator, 11 tests), `bossman/services/module_library.py`
+(the five MCP tools, 15 tests), `bossman/services/starlark_translation.py` (prompts + `is`/`is not`
+normalization + retry hints, 9 tests), `bossman/services/chat_client.py::complete_text`, and the
+`scripts/` pipeline (`_mcp_pipeline`, `benchmark_starlark_models`, `translate_modules`,
+`dump_module_sources`, `diagnose_translation`). 690 module sources were dumped from the locally
+installed collections; the library is mounted into the Bossman container and grows via the
+`submit_module` MCP tool straight into the repo working tree.
+
+**Two design corrections came out of running it, both real findings:**
+- **Raw text, not a JSON envelope.** The pipeline first inherited the translator's
+  `complete_json` (json-schema-constrained). For a single code payload that is the wrong fit — it
+  forces the model to escape a whole module into one JSON string — and it broke `qwen35b` entirely:
+  a *reasoning* model, it spends its budget in `reasoning_content` and leaves `content` empty
+  (confirmed by a direct probe → empty completion). Switched to `complete_text` (raw Starlark, an
+  optional fence stripped) plus `chat_template_kwargs.enable_thinking=false` to disable reasoning.
+- **Context beats model selection (the awx-ng thesis, confirmed).** Diagnosis on the weaker model
+  showed every failure was the *same* context gap: `if x is None:` — Starlark has no `is` operator,
+  a hard parse error that aborts before anything else. Enriching the contract (a prominent "Starlark
+  is NOT Python" forbidden-list with replacements, a second worked example for the config-file-editor
+  module class, `isinstance → type(x)=="…"`), adding targeted retry hints, and a deterministic
+  `is`/`is not → ==`/`!=` normalization lifted the weaker model measurably.
+
+**Benchmark (6 representative modules across all four collections, ≤3 validator-feedback attempts):**
+
+| Round | qwen35b hard-gate | qwen79b hard-gate |
+|---|---|---|
+| v1 — JSON envelope | 1/6 (5× empty-content: reasoning model) | (aborted; struggled with code-in-JSON escaping) |
+| v2 — raw text + no-think | 2/6 | strong |
+| **v3 — + enriched context + normalization** | **4/6** (`timezone`/`sysctl`/`ini_file` all flipped fail→pass) | **6/6** |
+
+Winner: **qwen79b** (6/6, and already Bossman's configured `chat_model`). Also fixed a real loop
+bug the benchmark exposed — the retry loop stopped only on `ok AND stub_ok`, but `stub_ok` is a soft
+signal (mocked builtins feed canned empty output, which legitimately breaks output-parsing modules),
+so every module ran to max attempts; now it stops on `ok` (parse+lint, the real acceptance gate),
+cutting ~2/3 of the LLM calls on the full run.
+
+**Pilot (ansible.posix, qwen79b, live over MCP): 13/14 translated, validated, and committed** to
+`configs/modules.d/ansible.posix/` (real `.star` + `.yaml` pairs). Only `mount` (a 267-line
+try/except-heavy module) failed after 3 attempts and is resumable. Spot-check of `sysctl.star`: a
+faithful translation — state present/absent, `check_mode`, dedup file rewrite, distro-specific
+reload, value normalization, nested `def` helpers, all via `ctx.*` with `== None`/`fail()`. The
+full 667-module run (crypto → docker → general) proceeds as the resumable background job driven by
+`list_module_status`'s `missing` queue.
+
+## Blocks H1–H4 — full HW/SW inventory, module management, CheckMK-parity host page + dashboard (implemented)
+
+Prompted by the user's audit against real CheckMK screenshots (the problems dashboard and a host's
+services view): *"Die Facts sind unvollständig, es fehlt CPU-Typ, Mainboard und Seriennummer ...
+Ausserdem fehlt noch eine Modul-Verwaltung. Und was soll der Unterschied zwischen Metrics und
+Services sein ... Behalte/überarbeite das bestehende Design um ein Rastafari-Style zu erhalten."*
+Web research confirmed the inventory sources (no dmidecode needed: `/sys/class/dmi/id/*` for
+board/product/BIOS/serials, `/proc/cpuinfo` "model name", `/sys/block`, `/sys/class/net`) and the
+CheckMK HW/SW-inventory model (near-static data, tree view, separate from 1-minute checks; Zabbix:
+inventory auto-populated from items).
+
+**H1 — Agent (`internal/inventory`, new):** one `Inventory` JSON document — System (manufacturer,
+product name/serial/UUID, SMBIOS chassis type, virtualization heuristic), Board, BIOS, CPU (model/
+vendor/sockets/cores/threads/MHz/cache — `ParseCPUInfo` always carried "model name", nothing ever
+consumed it), memory, OS (full os-release + kernel + hostname), Disks (size/model/serial/
+rotational, loop/ram/dm/md filtered), NICs (MAC/state/MTU/speed, lo + veth filtered). Missing or
+root-only sources are omitted, never errors. Attached to `GET /api/v1/hosts/overview` per host:
+typed + 1h-cached for the agent itself, raw-JSON pass-through for satellites. 3 tests against a
+fake /proc+/sys tree.
+
+**H2 — Bossman:** migration `a3c1e9f04711` adds `agents.facts` JSONB + `facts_updated_at`; the
+poller persists the document for self + satellites, skipping writes when only `collected_at`
+changed (near-static data must not churn per poll tick); `AgentOut` serves it. Real-Postgres test
+incl. the no-churn rule (suite: 310).
+
+**H3 — UI:** (1) the 5-scalar Facts tab became a real **Inventory** tab
+(`host-inventory.component`): System / Processor / Mainboard & BIOS / OS cards + Disks/NICs tables
+— CPU-Typ, Mainboard, Seriennummer, the exact gaps named. (2) **Metrics + Services merged**: the
+two tabs genuinely overlapped (the metric list's state column was computed *from* the services),
+so the host page now has ONE CheckMK-style Services view — `State | Service | Summary | Age |
+Checked | Perf-O-Meter` + Ack/Downtime, row-expand into history chart — with the former metrics
+list as a collapsed "Show latest data (N metrics)" section beneath (Zabbix's split: services
+grade, latest data is telemetry). (3) The dashboard's six flat KPI cards became CheckMK's
+statistics layout: **Host statistics** (Up/Unreachable/Down/Pending via the shared
+`agentHealthStatus`) and **Service statistics** (OK/Warning/Critical/Unknown) as colored-count
+panels + an Open-problems card ("everything irie" at zero) — Rastafari kept as the accent system
+(tricolor top borders, green/gold/red squares).
+
+**H4 — Modul-Verwaltung:** `GET /api/v1/modules` (+ `/{fqcn}`) — read-only by design, writes go
+exclusively through the validated `submit_module` MCP pipeline — and a new `/modules` page +
+"Modules" nav item: per-collection progress cards (ansible.builtin = 52 native Go at 100%, the
+four Starlark collections with live translated/total Perf-O-Meters), search, All/Translated/
+Pending filter, row-expand detail with the full argspec table and the stored Starlark source.
+
+**Verification (real, not mocked):** `go test ./...`, bossman suite 310, `ruff`, `ng build` all
+clean. Live in a real browser against the running stack: the fleet dashboard renders the
+CheckMK-style statistic panels with real counts (2 hosts Up, 24 services OK, "0 — everything
+irie"); `/modules` shows the real library live-growing under the still-running translation job
+(251/690 translated at screenshot time, ansible.posix 13/14 = 92.9%), with `authorized_key`
+expanding to its real 10-option argspec + stored Starlark source; the merged Services view shows
+the real selecta host exactly like the CheckMK reference (disk rows with Perf-O-Meters, CPU load
+as plain value, real summaries/ages). Inventory tab correctly shows its empty state — the new
+agent binary was built and copied to both real test hosts, but the restart (a deploy to shared
+hosts) awaits explicit user approval; once restarted, the next poll fills `agents.facts` and the
+tab renders the full document.
+
+## Monitoring parity — CheckMK gap analysis (research, 2026-07-07) + Blocks H5–H9 roadmap
+
+After the H1–H4 rework the user asked for a full read of the CheckMK documentation (monitoring core,
+UI/views/BI, config/automation, Event Console, REST — read via three research agents) and a gap
+analysis of what yolo-man still lacks versus CheckMK, deciding together what to build.
+
+**Already at parity:** services + states (OK/WARN/CRIT/UNKNOWN), check rules with host>group>global
+precedence, problems view, acknowledge, downtimes (fixed, host/service), latest-data + combined
+graphs + gauges + Perf-O-Meters, HW/SW inventory, host/service statistics dashboard, topology,
+module library + plan engine.
+
+**Gaps identified (value-ranked):** (1) notifications + rule engine — the biggest functional gap,
+yolo-man can alert nobody; (2) soft/hard states + max-check-attempts + flapping — we flip on one
+sample, so alert noise; (3) time periods; (4) availability/SLA reporting (state-history already
+exists); (5) recurring/flexible downtimes + child propagation; (6) host tags/labels for rule
+targeting; (7) service-discovery lifecycle (different model, low fit); (8) Event Console (syslog/
+SNMP); (9) BI aggregations.
+
+**User decisions:** implement **notifications (SMTP + webhook, channel per rule)**, **soft/hard
+states + flapping**, **availability/SLA report**, and — explicitly flagged — **configurable
+warn/crit thresholds as rules with per-host override for individual services, including the agent's
+built-in checks** (today the built-in Memory/Disk/CPU thresholds are hardcoded in
+`internal/collect/checks.go` and can't be reconfigured per host). Event Console is of interest and
+is planned as its own large block (below), not now. BI deferred.
+
+Block plan (each block tested + committed like the rest) — **the H-series alerting core is now
+complete and live-verified against the running agentic-mcp stack + real duppy/selecta agents:**
+
+- **H5 timed acknowledgement (done).** `acknowledge_service(expires_at=)` + lazy `expire_acknowledgements()`
+  applied on read paths; `POST /services/{id}/acknowledge` takes `expire_after_minutes`. CheckMK's
+  "acknowledge for a limited time" — the problem resurfaces when the ack lapses.
+- **H6 configurable thresholds with host override (done).** `CheckRule` gained `label_value`,
+  `is_default`, and the host>group>global precedence in `resolve_effective_rule()`; disk rules fan out
+  per mount with a default rule plus per-mount override; the agent's own built-in checks yield to an
+  owning rule. Full CRUD at `/check-rules`, seeded defaults (`seed_default_check_rules`, gated by
+  `seed_default_checks`). Deleting a rule now removes its materialized services first (FK-safe).
+- **H7 soft/hard states + flapping (done).** `next_transition()` state machine (soft→hard after
+  `max_attempts`, per-rule configurable), `update_flapping()` (30-min window, ≥5 changes),
+  `service_state_history` records **only hard transitions**; `query_problems()` filters to hard state.
+- **H8 notifications + rule engine (done, SMTP + webhook).** `services/notification.py`:
+  `NotifyEvent`, `rule_matches()`, `render()`, `send_email()`/`send_webhook()`, `dispatch()` +
+  `collect_and_dispatch()` (suppresses flapping/acknowledged/in-downtime). Wired into the poller
+  (auto-fires on hard problem/recovery, live-verified webhook "sent"). CRUD `/notification-rules` +
+  `GET /notifications` log; `NotificationRule`/`Notification` models; SMTP config in `config.py`.
+- **H9 availability/SLA report (done).** `compute_availability()` reconstructs time-in-state from the
+  hard-state timeline (soft blips never count against an SLA — matching CheckMK); carry-in from the
+  last hard state before the window; percentages over *monitored* time. `GET /agents/{id}/services/
+  {name}/availability?hours=`. UI: the expanded service row shows a 24h/7d/30d SLA bar (Rastafari
+  OK/WARN/CRIT/UNKNOWN), per-state percentages and a state-change count.
+
+Alembic migrations for the series: `a3c1e9f04711` (agent facts) · `b7d2f4a19c33` (ack_expires_at) ·
+`c4e8a1d5f6b2` (check_rule label_value+is_default) · `d5f9b2c7a801` (soft/hard/flapping +
+check_rules.max_attempts) · `e6a3c9d02f14` (notifications tables).
+
+## Block I (future) — Event Console: syslog / SNMP-trap processing (planned, own block)
+
+The user is interested in an Event Console (CheckMK's `ec.html`): turn asynchronous message streams
+into monitorable events. Scope when taken up: a syslog listener (UDP/TCP 514) + SNMP-trap receiver
+(UDP 162) feeding a rule-pack engine (first-match, regex on message/host/facility/priority,
+rewriting, host binding), event lifecycle (open→ack→closed, counting/dedup, cancelling on a matching
+OK, expected-message heartbeat), events surfaced as normal services + a dedicated events view, with
+actions (notify/script). A large standalone subsystem — deliberately deferred to its own block after
+the H-series alerting core lands.
+
+## Blocks J1–J3 (planned) — process & service monitoring (discussed + decided 2026-07-07)
+
+The user raised process/service monitoring and we discussed it before coding. Current building
+blocks: `/proc` parses system-wide files but has NO per-PID enumeration; process/service *control*
+already exists as write-gated modules (`systemd`, `systemd_service`, `service_facts`, `command`,
+`shell`); eBPF already yields `exec_events` + `top_talkers`; no app-specific metric collectors, but
+`check:` tools.d tasks + the freshly translated community.docker Starlark modules exist. Decisions:
+
+- **J1 — Prozessliste, eBPF-angereichert (done, 2026-07-07).** `internal/proc/proc_pid.go` parses
+  `/proc/<pid>/{stat,status,cmdline}` (the "(Web Content)"-style comm edge case handled by first-'('/
+  last-')' splitting) plus the `/proc/stat` aggregate; `internal/proc/processes.go`'s
+  `SampleProcesses()` takes a two-sample CPU-tick delta over a 200ms window → CPU% (100% == one core,
+  top-style), RSS, owner, threads, state, command, sorted hungriest-first. `GET /api/v1/processes` +
+  the `process_list` MCP tool (`internal/server/processes.go`) enrich each process by PID/comm join
+  against the eBPF collector — container id (from exec events) and deduped outbound ESTABLISHED
+  connections (from the same tracking as `net_connections`) — gracefully omitted when eBPF is
+  unavailable. Bossman proxies on demand (`GET /agents/{id}/processes`, never stored — a live
+  snapshot, not polled data); UI: a new host-detail "Processes" tab (filter by command/user/pid,
+  CPU/Memory/PID sort, a green/gold/red Perf-O-Meter bar per row, container/connection badges,
+  expandable eBPF "talks to" detail). Deployed + live-verified on both real test hosts (`selecta-
+  ansible-runner`: 195 real processes rendering in the UI incl. dockerd/containerd/sssd/receptor;
+  `duppy-docker-test`: new binary confirmed listening, reachable only via SSH since Bossman doesn't
+  proxy on-demand endpoints through a satellite's parent — a pre-existing architecture gap, not a J1
+  bug). Full Go suite green (parsers, enumerator, HTTP+MCP wiring via httptest) + Bossman proxy tests
+  (404/422/502 paths) green.
+
+- **J2 — Dienst-Steuerung (sicher zuerst).** A UI "restart/stop" button on a service, executed
+  through the existing `systemd` module — idempotent, PID-reuse-safe, write-gated + ACL + audit.
+  **No raw PID-kill for now** (user decision); SIGTERM/SIGKILL-per-PID and any AI/MCP exposure are
+  deliberately deferred.
+
+- **J3 — App-Monitoring: Docker zuerst, via Metrik-Kollektor.** The agent collects Docker container
+  stats (running/CPU/RAM/health) as real metrics that flow into the existing services/graphs/check-
+  rules pipeline (so Docker health becomes threshold-ruleable + graphable like everything else),
+  fitting the community.docker work. nginx / MariaDB / PostgreSQL follow later (likely a mix of
+  collectors for depth + `check:` plugins for breadth).
+
+Sequenced after the alerting core (H7 soft/hard+flapping · H8 notifications · H9 availability) —
+**the H-series is now done (2026-07-07), so J1–J3 are the next work** unless reprioritised.
+
+---
+
+## L-series — Policy & Orchestration layer (a shared OU-tree policy + orchestration engine)
+
+**Context / user vision (2026-07-08).** The user's idea: grow Bossman from a monitoring tool
+into a unified **Policy- and Orchestration system** organised around an **OU tree** (Active-
+Directory-style). OUs, host groups, monitoring/notification/threshold rules **and**
+orchestration plans (roles like `docker_host`, clusters like `postgres_cluster`) are all managed
+over the same tree with the same inheritance. A **compiler** resolves inheritance into a
+per-host **compiled desired state** (with a monotonic `generation` + `config_hash`); a controller
+later pushes it to agents, which run idempotent steps; drift is detected. "What is orchestrated is
+automatically monitored" (`generated_monitoring`). The guiding principle (user's own words): the
+AI/MCP layer *proposes, analyses, links and starts controlled workflows* — the productive truth
+lives in the policy system, and the controller only pushes vetted, versioned, audited state.
+
+**Four confirmed foundation decisions (2026-07-08, via plan-mode Q&A):**
+1. **Additive, not a rebuild.** `agents` stays `agents`, `check_rules` stays. No generic `rules`
+   table, no `rule_links` refactor, no `agents→hosts` rename. The existing plan engine
+   (`services/plan_engine.py`) + Go modules (`internal/modules/*.go` behind `POST /api/v1/tools/{name}`)
+   *are* the orchestration step executor. New concepts are added as new tables/services and the
+   proposal design is realised 1:1 on Bossman's existing building blocks.
+2. **Multi-tenant from day one.** Every new table carries `tenant_id`; a fixed default tenant is
+   seeded and `agents` is backfilled onto it (additive, existing queries untouched).
+3. **AD model for OU/groups.** A host lives at exactly **one** OU node; multi-membership is
+   exclusively via **groups** (many-to-many); group objects themselves live inside an OU; rules/plans
+   link to an OU (inherits the subtree) or a group.
+4. **Data model + compiler first**, backend only, no agent changes.
+
+**Rule the user set:** ask before *any* change to existing logic. Accordingly the L-series does not
+touch `services/monitoring.resolve_effective_rule` or the flat `agents.groups` list — those stay
+exactly as they are; the OU/orchestration layer is purely additive. Rerouting the existing
+monitoring rule resolution through the OU tree would be a separate, explicitly-asked decision.
+
+Planned staging (L1/L2 implemented; L3–L7 sketched, each later stage that touches existing logic is
+asked first): **L1** data model + compiler → `compiled_host_state`. **L2** MCP read-only tools +
+dry-run/approval gate. **L3** push delivery (controller pushes the compiled desired state to the
+agent, reusing `agent_client` + the plan engine; ACK/NACK; a multi-host execution model replacing
+today's single-host `PlanRun`). **L4** first real plan `docker_host` end-to-end
+(compile→push→apply→generated_monitoring→rollback). **L5** cluster model (`orchestration_clusters` +
+members, locks, rolling execution) + `postgres_cluster`. **L6** drift detection (Go agent
+`GET /api/v1/state`, controller compare, remediation rules). **L7** UI (OU-tree navigation,
+orchestration view, desired-state/execution status, cluster detail).
+
+### Block L1 — OU tree, host groups, orchestration plans + compiler (implemented, 2026-07-08)
+
+Migration `alembic/versions/b3f1a2c9d740_orchestration_l1.py` (additive only; verified
+downgrade→upgrade against the live TimescaleDB, default-tenant seed + 86-agent backfill confirmed
+via psql). New tables + `db/models.py` models:
+
+- `tenants` — multi-tenant spine; a fixed default tenant (`00000000-…-0001`) is seeded, and
+  `agents.tenant_id` gets a **DB-level `server_default`** of it so every future INSERT (enroll.go,
+  tests) is tenant-scoped without any app-code change; existing rows are backfilled.
+- `ou_nodes` — the OU tree. `path` is the materialised slash-path (e.g. `/Germany/Munich/Prod`),
+  unique per tenant, matching the slash convention `agents.groups` already used. `parent_id` NULL =
+  a tenant root. `agents.ou_id` places a host at exactly one node.
+- `host_groups` + `host_group_members` — first-class group objects (each living inside an OU) with
+  many-to-many host membership; **distinct from** the legacy flat `agents.groups` string list, which
+  L1 leaves untouched (bridging the two is a deliberately-deferred, separate decision).
+- `orchestration_plans` / `_versions` / `_links` — a named, versioned, reusable bundle (role/cluster/
+  deployment/…): the version holds `steps` + `default_parameters` + `requirements` +
+  `generated_monitoring` + `generated_notifications`; a link attaches a plan to an OU / host / group /
+  global with priority/link_order/parameters.
+- `compiled_host_state` — the compiler's output per host: the full desired-state document
+  (`monitoring{checks,thresholds,notifications}` + `orchestration{roles,plans}`), a monotonic
+  `generation`, a sha256 `config_hash`, and `is_current` (a partial unique index enforces at most one
+  current row per host).
+
+`services/compiler.py` (framework-free, explicit `select()` throughout — no lazy-relationship
+traversal, avoiding the K11 `MissingGreenlet` class of bug): `resolve_ou_ancestry` (root→node,
+cycle-safe), `resolve_host_group_ids`, `resolve_orchestration_assignments` (collects every link
+reaching a host — global + each OU on its ancestry path + each group it's in + host-direct —
+deduplicated per plan by priority→specificity→link_order, parameters merged over the version's
+defaults), `derive_generated_monitoring` (union of the assigned plans' `generated_monitoring` —
+"what is orchestrated is monitored"), `compile_host_desired_state` (builds + canonical-JSON-hashes
+the document, writing a new generation **only when the hash changed**), `compile_tenant` (bulk
+recompile). REST: `api/ou.py` (OU tree CRUD + host-placement), `api/host_groups.py` (group CRUD +
+membership), `api/orchestration.py` (plans/versions/links) + `GET /api/v1/agents/{id}/desired-state`.
+
+**Deliberately NOT in L1:** no push, no agent endpoint, no cluster/drift; `resolve_effective_rule`
+and `agents.groups` untouched; the monitoring section of the compiled state comes only from the
+orchestration plans' `generated_monitoring`, not from rerouting the existing CheckRule resolution.
+
+Verified: `tests/test_compiler.py` (15 tests — OU inheritance, group membership, link
+precedence/param merge, hash stability vs generation bump, cycle safety) + `tests/test_orchestration_api.py`
+(REST CRUD end-to-end via TestClient — the same OU→link→desired-state path a manual `curl` run would
+exercise). Full suite green, ruff clean. Commit `994fe6b`.
+
+### Block L2 — MCP read-only tools + approval gate + global YOLO-MAN switch (implemented, 2026-07-08)
+
+The project's name is its safety model: **YOLO-MAN = "You Only Look Once"**, an **auto mode** and a
+**manual mode** like Claude Code's own. L2 wires up the `require_approval`/`auto_apply` columns L1
+had added to `orchestration_plan_links` but never enforced. Migration
+`alembic/versions/c7e4d81a9f52_orchestration_l2_approval.py` (verified down/up; the singleton
+`system_settings` row seeded with `yolo_mode=false`; pre-existing links backfilled to `active` so L2
+changes no existing behaviour):
+
+- **Per-link gate.** A link now carries `status ∈ {pending_approval, active, rejected}`. It is created
+  `active` only if the link opts in (`auto_apply=true` / `require_approval=false`) **or** the global
+  switch is on; otherwise it starts `pending_approval`. `services/compiler.py` only resolves `active`
+  links — a pending link has zero effect on any host until a human approves it via
+  `POST /api/v1/orchestration/plans/{id}/links/{id}/approve` (or `/reject`).
+  `GET /api/v1/orchestration/pending-links` is the review queue.
+- **Global switch (auto vs manual mode).** `system_settings.yolo_mode` — a DB-backed runtime toggle
+  (`GET`/`PUT /api/v1/system/yolo-mode`, `api/system_settings.py`) that flips instantly without a
+  restart, like Claude Code's mode toggle. When ON, every new link is created `active` immediately,
+  bypassing its own require_approval/auto_apply. OFF is the seeded, safe default. Deliberately
+  **human-only** to set — no MCP tool exposes a write for it.
+- **MCP tools (Block L2 section in `mcp/server.py`).** Read-only: `list_orchestration_plans`,
+  `get_orchestration_plan`, `list_host_groups`, `get_ou_tree`, `get_host_desired_state`,
+  `list_pending_orchestration_links`. Safe dry-run: `preview_orchestration_plan_link` (blast radius +
+  a sample before/after monitoring diff for one affected host, persists nothing — backed by
+  `compiler.preview_plan_link`, which resolves a not-yet-persisted candidate link in-memory). Exactly
+  **one gated write**: `propose_orchestration_plan_link`, which can **never** set `auto_apply=true`
+  itself — so an MCP/AI-proposed link always starts `pending_approval` (unless a human has already
+  turned YOLO-MAN on). "The AI proposes, a human confirms" is enforced by what the tool *cannot* pass,
+  not by instruction alone.
+
+Verified: `tests/test_mcp_orchestration.py` (8), `tests/test_compiler_l2.py` (status filter,
+`is_yolo_mode`, `affected_agent_ids`, `preview_plan_link` — all no-persist paths asserted),
+`tests/test_orchestration_api.py` (approval gate, reject, YOLO-mode bypass, preview-persists-nothing).
+Full suite **442/442** green, ruff clean. Commit `9dfaa50`. Note: YOLO-MAN activation itself is left
+to the user (human-only, per design); the switch currently lives only in the dev DB — the running
+`agentic-mcp-bossman-1` container runs pre-L1/L2 code and needs a redeploy before the switch exists
+there.
+
+### Block L3 — GPO/OU console: ltree + full inheritance + tree UI (implemented, 2026-07-08)
+
+The user rejected the first flat card-list UI and asked for a real Windows-GPMC-style console.
+L3 delivers it, split into a backend foundation (L3a) and the tree UI (L3b). The authoritative
+design is `docs/policy-orchestration-architecture.md` (the user's full brief, integrated).
+
+**L3a — backend (migration `d4c8e1f9a3b7`, commit `5775aca`):** real Postgres `ltree` for the OU
+path (`ou_nodes.ltree_path`, GiST-indexed, backfilled from the varchar `path`) alongside the
+existing `parent_id`; `ou_nodes.block_inheritance` (GPO container property); OU scope + GPO
+precedence fields (`scope_ou_id`/`ou_id` + `enforced` + `link_order`) added additively to
+`check_rules` and `notification_rules`. `services/gpo.py` is the single, pure precedence resolver
+shared by monitoring and the orchestration compiler, implementing the exact GPO semantics verified
+against Microsoft Learn: top-down LSDOU-analogue (closest level wins), `enforced` (highest level
+wins, can't be overridden, pierces block inheritance), `block_inheritance` (drops inherited
+non-enforced rules from above), link_order/created tiebreaks. `compiler.resolve_ou_ancestry` uses an
+ltree ancestor query (`@>`); `affected_agent_ids` uses `<@` (fixing a prefix-LIKE bug where
+`/Germany2` matched under `/Germany`); `monitoring.resolve_effective_rule` gained the OU axis with a
+held regression (identical to before when no OU rules exist). REST: `PATCH /ou/{id}`
+(block_inheritance), `GET /ou/{id}/objects` (the tree's per-OU child list), OU scope + `PATCH`
+enforced/enabled toggles on check-rules and notification-rules. `tests/test_gpo.py` covers the full
+precedence matrix (closest-wins, enforced-beats-lower, multiple-enforced-highest-wins,
+block-drops-inherited, enforced-pierces-block, link_order/created tiebreaks).
+
+**L3b — the GPO/LDAP tree console (`bossman-ui/src/app/features/ou-policy/`):** replaces the flat
+card page entirely. A real expandable OU tree (each OU's policy objects nested beneath it) using
+`@angular/cdk/menu` for right-click context menus. Right-click an OU → New OU / New Threshold
+("Criticality" = a check rule's warn/crit) / New Notification / New Host Group / Block Inheritance
+(✓ toggle) / Delete; right-click an object → Enforced (✓ toggle) / Link Enabled (✓ toggle) / Delete
+— 1:1 with GPMC's menu logic. Enforced/blocked/disabled shown as badges/icons; a right-hand
+scope/detail panel per node; the global YOLO-MAN switch in the header. New dialogs: threshold-dialog,
+notification-ou-dialog (the ou-node/host-group ones are reused). Verified end-to-end via Playwright
+against the live stack (login admin/admin123): right-click Munich → New Threshold (enforced) → the
+rule appears nested under the OU with an "enforced" badge → right-click it → toggle Enforced off
+(badge clears) → delete. Full backend suite 461 passing, ruff clean, migration down/up verified,
+Angular build clean. Orchestration-plan-link creation from the tree (needs plan selection) is the one
+deferred piece — links are shown read-only in the tree for now; everything else (OU / threshold /
+notification / host-group) is fully create/toggle/delete from the console.
+
+### Block L4 — desired-state delivery pipeline, PUSH (controller half, implemented, 2026-07-08)
+
+The Kubernetes-style reconcile + delivery half (docs/policy-orchestration-architecture.md §6–§8).
+**Decisive design point (user-set):** delivery is controller-initiated **PUSH**, not agent pull —
+Bossman POSTs each new generation to the agent over the existing mTLS channel, so the firewall needs
+a **single rule (Bossman → agent)** and the agent never dials out. There is deliberately **no
+agent-facing ingress on Bossman**. Migration `e7a2b6c04d19` adds `policy_events`, `controller_outbox`,
+`agent_config_delivery`, `agent_acks`.
+
+`services/reconciler.py`: `enqueue_policy_event(session, tenant, kind, agent_ids=|scope=)` writes a
+PolicyEvent + a pending ControllerOutbox row in the caller's transaction (transactional outbox — a
+change and its event commit atomically). `process_outbox_once(session, settings, client_factory=)`
+drains ready rows with `FOR UPDATE SKIP LOCKED`, recompiles each event's affected hosts
+(`compile_host_desired_state`), and for every host whose generation changed **pushes** the new
+desired state to that agent's `POST /api/v1/config/apply` via `agent_client.apply_config`. The
+agent's JSON response is the ack: the `agent_config_delivery` row flips to `acked` + an
+`agent_acks('ack')` row is written; a transport/HTTP failure flips it to `nacked` (or `failed` after
+5 attempts) + an `agent_acks('nack')` and never stalls the queue. `client_factory` defaults to
+`agent_client.client_for` and is injected as a fake in tests. `reconciler_loop` runs it on a timer
+(mirrors poller/housekeeping; gated by `settings.reconcile_enabled`, disabled in tests). Check-rule
+create/update/patch/delete enqueue a `rule_changed` event (scope='tenant' for now).
+
+Verified: `tests/test_reconciler.py` (enqueue→process→**push**→ack with a `FakeAgentClient`,
+idempotent no-second-push on an unchanged generation, push-failure records nack). Full suite 466
+passing, ruff clean, migration down/up verified.
+
+### Block L4-agent — Go agent desired-state applier, PUSH receiver (code, NOT yet deployed, 2026-07-08)
+
+The agent-side half of L4: the node agent **receives** its compiled config pushed by Bossman, stores
+it locally with rollback, and replies with the ack in the HTTP response. Built **non-destructive**:
+it accepts/stores/acks but does NOT yet re-apply which checks run (that behavioral step, plus
+orchestration-step execution, is a separate block). The agent has **no outbound connection** for
+this — it only listens.
+
+`internal/desiredstate/applier.go`: an `Applier` with `Apply(generation, configHash, doc) (applied,
+err)` that **rejects a stale/replayed generation** (`<=` current → `applied=false`, `unchanged`),
+keeps the previous generation for `Rollback()`, persists atomically to a JSON file (temp + rename,
+survives restart), and exposes `Status()`. No HTTP client — it never calls out.
+`internal/server/configapply.go`: `POST /api/v1/config/apply` (`handleConfigApply`), **write-gated**
+(a read-only agent returns 403), decodes `{generation, config_hash, state}`, calls `Applier.Apply`,
+returns `{status: "applied"|"unchanged", generation}`. Wired in `internal/server/rest.go`
+(`RESTConfig.DesiredState *desiredstate.Applier` + the route) and `cmd/agentic-mcpd/main.go` (the
+applier is always instantiated over `<db-dir>/desired-state.json`; no loop, no dial-out). The
+`bossman:` config block was removed from `internal/config/config.go` (the agent no longer dials
+Bossman). Read-only `GET /api/v1/state` reports the applied generation/hash (drift/status view; nil
+applier → `{"desired_state":"unconfigured"}`).
+
+Tests: `internal/desiredstate/applier_test.go` (stores new generation, rejects stale generation,
+newer rolls previous + rollback, persistence-survives-restart, thresholds parsed from applied doc /
+empty when no state) and `internal/server/state_test.go` (unconfigured/never-pushed reporting, push
+stores + state reflects, read-only agent returns 403). Full Go suite + build green.
+
+### Block L4-behavioral — pushed thresholds change real check behavior (first cut, 2026-07-08)
+
+The first behavioral cut: a pushed threshold change actually flips the built-in checks, with **no
+restart** (the collect loop re-reads the applied state each tick). User-confirmed scope: (1) fold the
+**GPO-resolved check_rules** into the compiled desired state so the OU/GPO console's human-set
+thresholds reach the host; (2) first cut overrides **built-in check thresholds only** (enabling/
+disabling which check loops run is a later step).
+
+Bossman compiler: `resolve_host_thresholds(session, agent, ancestry)` resolves, per metric with an
+enabled check_rule, the single governing rule via the shared `resolve_effective_rule` (full GPO
+precedence — host > OU(deep→shallow) > group > global, enforced/block_inheritance) and emits
+`{metric: {warn, crit, comparison, service_name}}`. `_build_desired_state` folds it into
+`monitoring.thresholds`; a check_rule **wins over** a plan-authored key of the same name (deliberate
+host config over role default). Resolution is label-agnostic (a per-mount disk rule folds to one
+whole-metric override). Verified in `tests/test_compiler.py` (OU rule reaches host, host overrides
+OU, enforced higher level wins, check_rule beats plan, absent when no rules).
+
+Agent: `desiredstate.Applier.Thresholds()` parses `monitoring.thresholds` from the applied doc
+(warn/crit as pointers so JSON null ≠ 0). `collect.builtinChecks` takes a
+`map[string]ThresholdOverride` and honors the metric keys the agent actually emits: `mem_used_pct`
+(Memory), `disk_used_pct` (every Disk mount), `cpu_load5` (CPU load — compared as **absolute** 5-min
+load when overridden, vs. the per-core default otherwise). `cmd/agentic-mcpd/main.go`'s collect loop
+reads `desiredStateOverrides(dsApplier)` each tick (keeps `collect` decoupled from `desiredstate`).
+Verified in `internal/collect/collect_test.go` (override flips Memory to CRIT, absolute cpu_load5
+override flips CPU load to CRIT).
+
+**Not done (deliberately, needs its own authorization):** deploying this agent build to the real
+hosts (`duppy-docker-test`, `selecta-ansible-runner`) via SSH, and enabling/disabling which check
+loops run from the pushed `checks[]` set (restartable loops). Those touch real machines / add
+concurrency.

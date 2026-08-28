@@ -1,0 +1,49 @@
+# =============================================================================
+# lsof Configuration Template
+# =============================================================================
+# This file configures global defaults for the `lsof` (List Open Files) utility.
+# While `lsof` is primarily a command-line tool, these settings allow automation
+# scripts or wrappers to enforce consistent behavior without passing flags every time.
+#
+# See `man lsof` for details on the corresponding command-line options.
+# =============================================================================
+
+# [lsof.timeout]
+# Timeout in seconds for kernel functions (stat, lstat, readlink) that might block.
+# Corresponds to the `-S` option. Minimum is 2, default is 15.
+# If the kernel hangs responding to these syscalls, lsof waits this long before timing out.
+LSOF_TIMEOUT={{ (lsof | default({})).timeout | default(15) }}
+
+# [lsof.avoid_kernel_blocks]
+# If true, lsof avoids kernel functions that might block (see `-b`).
+# This requires alternate device numbers in the mount table (e.g., /proc/mounts with device numbers).
+# Use this to prevent lsof from hanging indefinitely on unresponsive filesystems.
+LSOF_AVOID_KERNEL_BLOCKS={{ ((lsof | default({})).avoid_kernel_blocks | default(false)) | lower }}
+
+# [lsof.device_cache_func]
+# Device cache file function.
+# Options:
+#   'b' - Build the cache file from the current mount table.
+#   'r' - Read from the cache file only (do not check mount table).
+#   'i' - Ignore the cache file (check mount table every time).
+#   'u' - Read from cache if valid, otherwise build/update it (default).
+# Corresponds to the `-D` option.
+LSOF_DEVICE_CACHE_FUNC={{ (lsof | default({})).device_cache_func | default('u') }}
+
+# [lsof.suppress_warnings]
+# If true, suppress warning messages.
+# Corresponds to the `-w` option.
+# Warnings often occur when lsof cannot resolve hostnames or device numbers.
+LSOF_SUPPRESS_WARNINGS={{ ((lsof | default({})).suppress_warnings | default(true)) | lower }}
+
+# [lsof.inhibit_host_name_lookup]
+# If true, inhibits conversion of network numbers to host names.
+# Corresponds to the `-n` option.
+# Speeds up execution significantly in environments with slow or broken DNS.
+LSOF_INHIBIT_HOST_NAME_LOOKUP={{ ((lsof | default({})).inhibit_host_name_lookup | default(false)) | lower }}
+
+# [lsof.inhibit_port_name_lookup]
+# If true, inhibits conversion of port numbers to port names.
+# Corresponds to the `-P` option.
+# Speeds up execution by skipping /etc/services lookups or DNS queries for port names.
+LSOF_INHIBIT_PORT_NAME_LOOKUP={{ ((lsof | default({})).inhibit_port_name_lookup | default(false)) | lower }}

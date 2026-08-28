@@ -1,0 +1,140 @@
+# ==============================================================================
+# pahole CLI execution parameters
+# ==============================================================================
+# This template generates a command-line argument list for `pahole`, a tool that
+# inspects DWARF debugging information in ELF binaries and kernel modules.
+# It is NOT a daemon configuration file; it is a static set of flags and inputs.
+# See `pahole(1)` for full documentation of each option.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# class_names: List of class names to filter output.
+# Description: Corresponds to --class_name.
+# -----------------------------------------------------------------------------
+{% if class_names | default([]) | length > 0 -%}
+# Filter output to show only these classes.
+# Corresponds to: -C, --class_name=CLASS_NAMES
+--class_name={{ class_names | default([]) | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# cacheline_size: Cacheline size in bytes.
+# Description: Corresponds to --cacheline_size.
+# -----------------------------------------------------------------------------
+{% if cacheline_size | default(64) is not none -%}
+# Set the cacheline size for layout analysis.
+# Corresponds to: -c, --cacheline_size=SIZE
+--cacheline_size={{ cacheline_size | default(64) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# sort_output: Sort output by type name.
+# Description: Corresponds to --sort.
+# -----------------------------------------------------------------------------
+{% if sort_output | default(False) -%}
+# Sort output by type name for deterministic ordering.
+# Corresponds to: --sort
+--sort
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# compile_code: Generate compileable C code.
+# Description: Corresponds to --compile.
+# -----------------------------------------------------------------------------
+{% if compile_code | default(False) -%}
+# Generate compileable C header code from debugging info.
+# Corresponds to: --compile
+--compile
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# skip_atomic_typedefs: Skip emitting atomic typedefs.
+# Description: Corresponds to --skip_emitting_atomic_typedefs.
+# -----------------------------------------------------------------------------
+{% if skip_atomic_typedefs | default(False) -%}
+# Skip emitting atomic typedefs (e.g. typedef _Atomic int atomic_int).
+# Corresponds to: --skip_emitting_atomic_typedefs
+--skip_emitting_atomic_typedefs
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# format_path: List of debugging formats to try in order.
+# Description: Corresponds to --format_path.
+# -----------------------------------------------------------------------------
+{% if format_path | default(['dwarf', 'btf', 'ctf']) | length > 0 -%}
+# Specify order of debugging formats to try (btf, ctf, dwarf).
+# Corresponds to: -F, --format_path
+--format_path={{ format_path | default(['dwarf', 'btf', 'ctf']) | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# hex_output: Print offsets/sizes in hex.
+# Description: Corresponds to --hex.
+# -----------------------------------------------------------------------------
+{% if hex_output | default(False) -%}
+# Print offsets and sizes in hexadecimal.
+# Corresponds to: --hex
+--hex
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# show_decl_info: Show source file/line info.
+# Description: Corresponds to --show_decl_info.
+# -----------------------------------------------------------------------------
+{% if show_decl_info | default(False) -%}
+# Show file and line number where tags were defined.
+# Corresponds to: -I, --show_decl_info
+--show_decl_info
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# jobs: Number of parallel jobs.
+# Description: Corresponds to -j/--jobs.
+# -----------------------------------------------------------------------------
+{% if jobs | default(1) is not none -%}
+# Run N jobs in parallel.
+# Corresponds to: -j, --jobs=N
+-j {{ jobs | default(1) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# btf_encode: Encode BTF from DWARF.
+# Description: Corresponds to -J/--btf_encode.
+# -----------------------------------------------------------------------------
+{% if btf_encode | default(False) -%}
+# Encode BTF information from DWARF.
+# Corresponds to: -J, --btf_encode
+--btf_encode
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# btf_features: List of BTF features (e.g. var, enum64).
+# Description: Corresponds to --btf_features.
+# -----------------------------------------------------------------------------
+{% if btf_features | default([]) | length > 0 -%}
+# Comma-separated list of BTF features to enable.
+# Corresponds to: --btf_features=FEATURE_LIST
+--btf_features={{ btf_features | default([]) | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# target_type: Primary type/class name to analyze.
+# Description: Corresponds to specific type filtering context.
+# -----------------------------------------------------------------------------
+{% if target_type | default('') != '' -%}
+# The primary type/class to analyze or pretty-print.
+# Contextual argument.
+{{ target_type | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# files: Input ELF/kernel files to process.
+# Description: Corresponds to positional file arguments.
+# -----------------------------------------------------------------------------
+{% if files | default([]) | length > 0 -%}
+# Input files containing debugging information.
+# These are the positional arguments passed to pahole.
+{% for f in files | default([]) %}
+{{ f }}
+{% endfor %}
+{% endif %}

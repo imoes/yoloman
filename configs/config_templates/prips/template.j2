@@ -1,0 +1,59 @@
+{# prips configuration template #}
+
+{#
+  Determines the input specification for prips.
+  If cidr_block is provided, it takes precedence and start_ip/end_ip are ignored.
+  Otherwise, start_ip and end_ip are concatenated to form the range.
+#}
+{%- if cidr_block | default('') %}
+{%-   set input_spec = cidr_block %}
+{%- else %}
+{%-   set input_spec = (start_ip | default('192.168.1.1')) ~ " " ~ (end_ip | default('192.168.1.10')) %}
+{%- endif %}
+
+{#
+  Command: prips [options] <input>
+  Options mapping:
+  -e : exclude_ranges (list of IPs or ranges)
+  -d : delimiter (custom output separator)
+  -i : increment (step size)
+  -f : format (dot, hex, dec)
+  -c : cidr_output (boolean flag)
+#}
+
+# Exclude ranges to skip from the generated list
+{%- if exclude_ranges | default([]) %}
+#   -e "{{ exclude_ranges | default([]) | join('","') }}"
+{%- endif %}
+
+# Custom delimiter character
+{%- if delimiter | default('') != '' %}
+#   -d {{ delimiter | default('') }}
+{%- endif %}
+
+# Increment step for IP addresses
+{%- if increment | default(1) != 1 %}
+#   -i {{ increment | default(1) }}
+{%- endif %}
+
+# Output format for IP addresses (dot, hex, dec)
+{%- if format | default('dot') != 'dot' %}
+#   -f {{ format | default('dot') }}
+{%- endif %}
+
+# Output as CIDR block notation if true
+{%- if cidr_output | default(False) %}
+#   -c
+{%- endif %}
+
+{#
+  Construct the final prips command line dynamically.
+  Order: -c -f -i -d -e <input>
+#}
+prips \
+{%- if cidr_output | default(False) %} -c {%- endif %} \
+{%- if format | default('dot') != 'dot' %} -f {{ format | default('dot') }} {%- endif %} \
+{%- if increment | default(1) != 1 %} -i {{ increment | default(1) }} {%- endif %} \
+{%- if delimiter | default('') != '' %} -d {{ delimiter | default('') }} {%- endif %} \
+{%- if exclude_ranges | default([]) %} -e "{{ exclude_ranges | default([]) | join('","') }}" {%- endif %} \
+{{ input_spec }}

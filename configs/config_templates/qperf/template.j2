@@ -1,0 +1,135 @@
+#!/bin/bash
+# Auto-generated qperf execution script
+# Generated from Ansible Jinja2 template.
+# This script runs qperf with the specified parameters.
+# qperf is primarily a CLI tool with no persistent daemon config file,
+# so this template generates a bash script that runs qperf with the specified parameters.
+
+# --- Configuration Defaults ---
+# These variables hold the effective values used for the qperf execution.
+
+# 'If true, run qperf as a server listener. If false, run as a client.'
+# Default: True
+SERVER_MODE={{ server_mode | default(True) | bool | lower }}
+
+# 'The TCP port qperf listens on (server) or connects to (client). Default 19765.'
+# Default: 19765
+LISTEN_PORT={{ listen_port | default(19765) }}
+
+# 'Timeout in seconds for various operations. Default 5.'
+# Default: 5
+TIMEOUT={{ timeout | default(5) }}
+
+# 'Test duration in seconds. Default 1.'
+# Default: 1
+DURATION={{ test_duration | default(1) }}
+
+# "Message size for tests. Use numeric bytes or suffixes like '1K', '1M'. Default varies by test."
+# Default: ''
+MSG_SIZE={{ msg_size | default('') }}
+
+# 'Hostname or IP of the qperf server to connect to (client mode only).'
+# Default: ''
+SERVER_HOST={{ server_host | default('') }}
+
+# "CPU affinity setting. Can be a CPU number (e.g., '0') or 'any'. Default empty."
+# Default: 'any'
+CPU_AFFINITY={{ cpu_affinity | default('any') }}
+
+# 'Enable verbose output.'
+# Default: False
+VERBOSE={{ verbose | default(False) | bool | lower }}
+
+# 'List of qperf tests to run (e.g., tcp_bw, udp_lat, rc_lat). See man page TESTS section for valid names.'
+# Default: ['tcp_bw', 'tcp_lat']
+# Note: In bash, we handle the list iteration below.
+
+# --- Execution Mode ---
+
+{% if server_mode | default(True) | bool %}
+# Server Mode
+# Start qperf in server mode listening on the specified port.
+# Variables:
+#   LISTEN_PORT : TCP port to listen on.
+#   TIMEOUT     : Connection timeout.
+#   DURATION    : Duration for the test.
+
+# Set defaults for empty values in server mode if necessary
+{% if not listen_port | default(19765) %}
+LISTEN_PORT=19765
+{% endif %}
+{% if not timeout | default(5) %}
+TIMEOUT=5
+{% endif %}
+{% if not test_duration | default(1) %}
+DURATION=1
+{% endif %}
+
+exec qperf --listen_port ${LISTEN_PORT} --timeout ${TIMEOUT} --time ${DURATION}
+
+{% else %}
+# Client Mode
+# Run tests against the specified server.
+# Variables:
+#   SERVER_HOST : The target qperf server hostname/IP.
+#   LISTEN_PORT : The port on the target server.
+#   TIMEOUT     : Timeout for operations.
+#   DURATION    : Duration of each test.
+#   MSG_SIZE    : Message size for bandwidth/latency tests.
+#   CPU_AFFINITY: CPU affinity setting ('any' or specific CPU number).
+#   VERBOSE     : Enable verbose output.
+#   TESTS       : List of tests to run (e.g., tcp_bw, udp_lat).
+
+CMD="qperf"
+
+# Add target server
+{% if server_host | default('') %}
+CMD="${CMD} {{ server_host | default('') }}"
+{% else %}
+# Warning: In client mode, a server host is required.
+# Using localhost as fallback if not specified.
+CMD="${CMD} localhost"
+{% endif %}
+
+# Add common options
+{% if listen_port | default(19765) != 19765 %}
+CMD="${CMD} --listen_port {{ listen_port | default(19765) }}"
+{% endif %}
+
+{% if timeout | default(5) != 5 %}
+CMD="${CMD} --timeout {{ timeout | default(5) }}"
+{% endif %}
+
+{% if test_duration | default(1) != 1 %}
+CMD="${CMD} --time {{ test_duration | default(1) }}"
+{% endif %}
+
+{% if msg_size | default('') %}
+CMD="${CMD} --msg_size {{ msg_size | default('') }}"
+{% endif %}
+
+{% if cpu_affinity | default('any') != 'any' %}
+CMD="${CMD} --cpu_affinity {{ cpu_affinity | default('any') }}"
+{% endif %}
+
+{% if verbose | default(False) | bool %}
+CMD="${CMD} --verbose"
+{% endif %}
+
+# Add tests to run
+# Tests default to tcp_bw and tcp_lat
+{% for test in (tests | default(['tcp_bw', 'tcp_lat'])) %}
+{% if test is string %}
+CMD="${CMD} {{ test }}"
+{% else %}
+# If test is a complex object (mapping), use its name or identifier.
+# Fallback to 'unknown' if no name is found.
+{% set test_name = test.name if test is mapping and test.name is defined else 'unknown' %}
+{% if test_name != 'unknown' %}
+CMD="${CMD} {{ test_name }}"
+{% endif %}
+{% endif %}
+{% endfor %}
+
+exec ${CMD}
+{% endif %}

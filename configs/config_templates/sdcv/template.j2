@@ -1,0 +1,47 @@
+# =============================================================================
+# SDCV (StarDict Console Viewer) Environment Configuration Template
+# =============================================================================
+# This template generates an environment script for the sdcv utility.
+# It sets environment variables that control dictionary location, history,
+# paging, and search result ordering.
+# =============================================================================
+
+# --- Stardict Data Directory ---
+# Specifies the root directory where sdcv expects to find dictionary files.
+# sdcv searches for dictionaries in $STARDICT_DATA_DIR/dic
+# Schema: stardict_data_dir (string)
+export STARDICT_DATA_DIR="{{ stardict_data_dir | default('/usr/share/stardict/dic') }}"
+
+# --- History Size ---
+# Maximum number of recent lookups to save in the history file.
+# Schema: sdcv_histsize (integer)
+export SDCV_HISTSIZE="{{ sdcv_histsize | default(2000) }}"
+
+# --- History File Path ---
+# Custom path for the history file storing lookup records.
+# If left empty, sdcv uses the default XDG_DATA_HOME/sdcv_history.
+# Schema: sdcv_histfile (string)
+{% if sdcv_histfile | default('') %}
+export SDCV_HISTFILE="{{ sdcv_histfile | default('') }}"
+{% endif %}
+
+# --- Pager Command ---
+# Command used to display long dictionary articles.
+# If left empty, output is sent directly to the terminal.
+# Schema: sdcv_pager (string)
+{% if sdcv_pager | default('') %}
+export SDCV_PAGER="{{ sdcv_pager | default('') }}"
+{% endif %}
+
+# --- Dictionary Ordering ---
+# Specifies the order in which search results are shown by listing
+# dictionary booknames. Each entry appears on a new line.
+# If the list is empty, sdcv uses its default ordering.
+# Schema: dictionary_ordering (list)
+{% if dictionary_ordering | default([]) %}
+# --- Dictionary Ordering Configuration ---
+{% for dict_bookname in dictionary_ordering | default([]) %}
+{{ dict_bookname }}
+{% endfor %}
+# -----------------------------------------
+{% endif %}

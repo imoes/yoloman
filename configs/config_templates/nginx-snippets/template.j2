@@ -1,0 +1,94 @@
+# Nginx Snippets: Standard Reverse Proxy Headers and WebSocket Support
+# This file provides a reusable set of proxy headers commonly used when Nginx acts
+# as a reverse proxy. It forwards client identity and connection details to backend
+# applications, and enables WebSocket upgrades.
+
+# =============================================================================
+# Standard Reverse Proxy Headers
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# proxy_set_header Host $host;
+# Description: Forwards the original "Host" header from the client request to the
+# backend server. This is essential for virtual hosting and backends that rely on
+# the Host header to determine which site/application to serve.
+# -----------------------------------------------------------------------------
+proxy_set_header Host         $host;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header X-Real-IP $remote_addr;
+# Description: Sets the X-Real-IP header to the IP address of the client making
+# the request ($remote_addr). This allows backend servers to see the true client
+# IP instead of the Nginx proxy's IP.
+# -----------------------------------------------------------------------------
+proxy_set_header X-Real-IP    $remote_addr;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+# Description: Appends the client IP ($remote_addr) to the X-Forwarded-For header.
+# If the header already exists, it appends to the list; otherwise, it creates it.
+# This preserves the chain of proxies the request has passed through.
+# -----------------------------------------------------------------------------
+proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header X-Forwarded-Proto $scheme;
+# Description: Forwards the protocol used by the client (http or https) via the
+# X-Forwarded-Proto header. This helps backends generate correct URLs (e.g., for
+# redirects or secure cookies).
+# -----------------------------------------------------------------------------
+proxy_set_header X-Forwarded-Proto  $scheme;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header X-Forwarded-Host $host;
+# Description: Forwards the original Host header via the X-Forwarded-Host header.
+# Useful for backends that need to know the original domain name requested by the
+# client, distinct from the internal hostname.
+# -----------------------------------------------------------------------------
+proxy_set_header X-Forwarded-Host   $host;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header X-Forwarded-Port $server_port;
+# Description: Forwards the port number on which the client connected to Nginx
+# via the X-Forwarded-Port header. This allows backends to distinguish between
+# standard (80/443) and custom ports.
+# -----------------------------------------------------------------------------
+proxy_set_header X-Forwarded-Port   $server_port;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header Forwarded "by=hidden;for=$remote_addr;host=$host;proto=$scheme";
+# Description: Sets the RFC 7239 compliant "Forwarded" header. This is a modern
+# alternative to X-Forwarded-*. It includes the client IP (for), the original
+# Host (host), and the protocol (proto). The "by=hidden" token is a placeholder
+# indicating the proxy's identity; update this string if you wish to reveal the
+# proxy's name or IP.
+# -----------------------------------------------------------------------------
+proxy_set_header Forwarded          "by=hidden;for=$remote_addr;host=$host;proto=$scheme";
+
+# =============================================================================
+# WebSocket Support Headers
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# proxy_set_header Upgrade $http_upgrade;
+# Description: Forwards the "Upgrade" header from the client. This is critical
+# for establishing WebSocket connections. If the client does not request an
+# upgrade, this variable is typically empty, which is safe.
+# -----------------------------------------------------------------------------
+proxy_set_header Upgrade            $http_upgrade;
+
+# -----------------------------------------------------------------------------
+# proxy_set_header Connection $req_connection;
+# Description: Sets the "Connection" header based on the value of $req_connection.
+# Note: $req_connection is expected to be defined elsewhere (e.g., in a map
+# block in conf.d/http-upgrade_req-connection_map.conf) to determine whether to
+# send "upgrade" or "close" based on the presence of an Upgrade header.
+# -----------------------------------------------------------------------------
+proxy_set_header Connection         $req_connection;
+
+# -----------------------------------------------------------------------------
+# proxy_http_version 1.1;
+# Description: Forces HTTP/1.1 protocol for proxy communication. WebSocket
+# upgrades require HTTP/1.1; HTTP/1.0 does not support the Upgrade mechanism.
+# -----------------------------------------------------------------------------
+proxy_http_version                  1.1;

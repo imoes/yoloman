@@ -1,0 +1,113 @@
+# Ansible-managed kubectl configuration file (kubeconfig)
+# This template generates a valid kubeconfig YAML file.
+# It is SELF-DOCUMENTING: every section is preceded by a description of its purpose
+# and the expected input variables.
+
+apiVersion: v1
+kind: Config
+
+# Current context name to use by default when no other context is active.
+current-context: {{ current_context | default('default-context') }}
+
+# ============================================================================
+# CLUSTER DEFINITIONS
+# Defines the Kubernetes cluster endpoints and authentication details.
+# Input variable: clusters (list of dicts)
+# Expected keys per dict: name, server, certificate-authority-data,
+#                         insecure-skip-tls-verify
+# ============================================================================
+clusters:
+{% if clusters is defined and clusters %}
+{% for cluster in clusters %}
+# Cluster configuration object
+# Description: The name of the cluster to associate with this context.
+- name: {{ cluster.name | default('unnamed-cluster') }}
+  cluster:
+    # Cluster connection details
+    # Description: The Server API endpoint URL for the cluster.
+    server: {{ cluster.server | default('') }}
+    # Certificate authority data (base64 encoded)
+    # Description: Base64-encoded CA certificate to verify the server's identity.
+    #              Omit or use empty string if using insecure-skip-tls-verify.
+    certificate-authority-data: {{ cluster.certificate_authority_data | default('') }}
+    # Disable server name verification if true
+    # Description: If true, skip TLS certificate verification. Use only for
+    #              development or trusted internal networks.
+    insecure-skip-tls-verify: {{ cluster.insecure_skip_tls_verify | default(false) | lower }}
+{% endfor %}
+{% else %}
+# No clusters defined in the 'clusters' variable. Add cluster objects to
+# populate this section.
+{% endif %}
+
+# ============================================================================
+# USER DEFINITIONS
+# Defines the identities and credentials used to authenticate to clusters.
+# Input variable: users (list of dicts)
+# Expected keys per dict: name, client_certificate_data, client_key_data,
+#                         token, username, password
+# ============================================================================
+users:
+{% if users is defined and users %}
+{% for user in users %}
+# User configuration object
+# Description: The name of the user to associate with this context.
+- name: {{ user.name | default('unnamed-user') }}
+  user:
+    # User authentication details
+{% if user.client_certificate_data is defined and user.client_certificate_data %}
+    # Client certificate data (base64 encoded)
+    # Description: Base64-encoded client certificate for mutual TLS auth.
+    client-certificate-data: {{ user.client_certificate_data }}
+{% endif %}
+{% if user.client_key_data is defined and user.client_key_data %}
+    # Client key data (base64 encoded)
+    # Description: Base64-encoded private key corresponding to the client cert.
+    client-key-data: {{ user.client_key_data }}
+{% endif %}
+{% if user.token is defined and user.token %}
+    # Auth token string
+    # Description: Bearer token for authentication. Replaces cert/key if present.
+    token: {{ user.token }}
+{% endif %}
+{% if user.username is defined and user.username and user.password is defined and user.password %}
+    # Basic auth username
+    # Description: Username for basic authentication.
+    username: {{ user.username }}
+    # Basic auth password
+    # Description: Password for basic authentication.
+    password: {{ user.password }}
+{% endif %}
+{% endfor %}
+{% else %}
+# No users defined in the 'users' variable. Add user objects to
+# populate this section.
+{% endif %}
+
+# ============================================================================
+# CONTEXT DEFINITIONS
+# Defines the association between a cluster, a user, and a namespace.
+# Input variable: contexts (list of dicts)
+# Expected keys per dict: name, cluster, user, namespace
+# ============================================================================
+contexts:
+{% if contexts is defined and contexts %}
+{% for context in contexts %}
+# Context configuration object
+# Description: The namespace associated with this context.
+- name: {{ context.name | default('unnamed-context') }}
+  context:
+    # Cluster identifier for this context
+    # Description: The name of the cluster to associate with this context.
+    cluster: {{ context.cluster | default('') }}
+    # User identifier for this context
+    # Description: The name of the user to associate with this context.
+    user: {{ context.user | default('') }}
+    # Namespace to use in this context
+    # Description: The default namespace for kubectl commands in this context.
+    namespace: {{ context.namespace | default('default') }}
+{% endfor %}
+{% else %}
+# No contexts defined in the 'contexts' variable. Add context objects to
+# populate this section.
+{% endif %}

@@ -1,0 +1,30 @@
+# ofdns configuration template
+# This template generates configuration for the `ofdns` tool, which performs DNS queries.
+# It supports querying specific domains with defined record types, classes, and servers.
+
+# DNS class to query (defaults to IN)
+# The Internet class (IN) is the standard class for DNS.
+# Variable: class
+class = {{ (config | default({})).class | default('IN') }}
+
+# DNS server to query (optional, defaults to system resolver)
+# If empty or omitted, the system's configured DNS resolvers are used.
+# Variable: server
+{% if (config | default({})).server is defined and config.server %}server = {{ (config | default({})).server }}{% endif %}
+
+# DNS record types to query (defaults to AAAA and A)
+# Specifies which record types to request from the DNS server.
+# Variable: types
+types = {{ (config | default({})).types | default(['AAAA', 'A']) | join(' ') }}
+
+# Force using TCP for the query
+# DNS typically uses UDP. Setting this enables TCP if required (e.g. for large responses).
+# Variable: use_tcp
+{% if (config | default({})).use_tcp is defined and config.use_tcp %}tcp{% endif %}
+
+# Domains to query (required, list of domain names)
+# List of domain names to resolve. Each domain is listed on its own line.
+# Variable: domains
+{% for domain in (config | default({})).domains | default([]) %}
+{{ domain }}
+{% endfor %}

@@ -1,0 +1,63 @@
+# ~/.lsmboxrc
+# Personal configuration file for lsmbox
+# This template is self-documenting. Each directive is preceded by its
+# schema description. All variables use safe defaults derived from the schema.
+
+# Default directory for mailboxes. Used for expanding relative paths or '+' prefix.
+# Schema: maildir (string, default: '~/Mail')
+# Corresponds to the $HOME/Mail/ default search path or explicit setting.
+# See lsmboxrc(5) for details on path expansion.
+maildir={{ maildir | default('~/Mail') }}
+
+# List of mailboxes to check. Use '!' for inbox, absolute paths, or paths relative to maildir.
+# Schema: mailboxes (list, default: ['!'])
+# Can include absolute paths, paths relative to maildir, or special symbols:
+#   ! = inbox (usually $MAIL or /var/spool/mail/USER)
+#   + = prefix for maildir expansion
+#   = = prefix for inbox expansion
+# If empty, defaults to checking defined mailboxes.
+# Example: ['!', '~/Mail/Work', '+Archives']
+# Output format: Each mailbox on a new line.
+mailboxes={{ mailboxes | default(['!']) | join("\n") }}
+
+# If true, only show mailboxes with new messages.
+# Schema: new_only (boolean, default: false)
+# Corresponds to the --new-only command-line option.
+new_only={{ new_only | default(false) | ternary('yes', 'no') }}
+
+# If true, do not show old (read) message counts.
+# Schema: no_old (boolean, default: false)
+# Corresponds to the --no-old command-line option.
+no_old={{ no_old | default(false) | ternary('yes', 'no') }}
+
+# If true, do not show total message counts.
+# Schema: no_total (boolean, default: false)
+# Corresponds to the --no-total command-line option.
+no_total={{ no_total | default(false) | ternary('yes', 'no') }}
+
+# If true, do not show the summary line.
+# Schema: no_summary (boolean, default: false)
+# Corresponds to the --no-summary command-line option.
+no_summary={{ no_summary | default(false) | ternary('yes', 'no') }}
+
+# If true, show short mailbox names instead of full paths.
+# Schema: short_names (boolean, default: false)
+# Corresponds to the --short-names command-line option.
+short_names={{ short_names | default(false) | ternary('yes', 'no') }}
+
+# Width of the mailbox column. Empty string means auto-size.
+# Schema: padding (string, default: '')
+# Corresponds to the --padding command-line option.
+padding={{ padding | default('') }}
+
+# If true, run in continuous update mode (-c).
+# Schema: continuous (boolean, default: false)
+# Corresponds to the -c / --continuous command-line option.
+# Note: Requires curses support.
+continuous={{ continuous | default(false) | ternary('yes', 'no') }}
+
+# Check interval in seconds for continuous mode.
+# Schema: check_interval (integer, default: 60)
+# Overrides the MAILCHECK environment variable.
+# Corresponds to the -i / --check-interval command-line option.
+check_interval={{ check_interval | default(60) }}

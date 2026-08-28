@@ -181,7 +181,25 @@ class Agent(Base):
 class HostEdge(Base):
     """Aggregated (process, destination) connection relationship — the
     durable, queried-by-dashboard/MCP view. See ConnectionEvent for the raw
-    history this is derived from."""
+    history this is derived from.
+
+    `dst_port` 0 is the CLIENT-PORT FOLD, not a port: a peer's randomly chosen
+    high ports carry no identity, so services/edge_identity.py collapses them
+    into one edge per (comm, addr) before the upsert. Without it this table
+    earned a permanent row per short-lived connection — measured at 73 235 rows
+    and 84 MB, 96.7% of them seen exactly once. The API reports the fold as
+    `client_ports: true` with a null port.
+
+    `event_count` is WHAT THE SOURCE CURRENTLY REPORTS, not a lifetime total,
+    and the upsert overwrites it for that reason. The agent prunes its own
+    connection_edges at its raw-retention cutoff (24h by default), so a counter
+    restarts whenever the agent forgets the edge — which is uniform across every
+    row here, folded or not. Reading the old, ever-growing sum as a lifetime
+    figure was an artifact of never forgetting anything.
+
+    And it now has retention of its own (settings.host_edges_retention_days,
+    enforced in services/housekeeping): a view that outlives its source states a
+    relationship nothing can still observe."""
 
     __tablename__ = "host_edges"
 
@@ -468,7 +486,19 @@ class AccessGrant(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     subject_kind: Mapped[str] = mapped_column(String, nullable=False)  # user | api_token
-    subject_ref: Mapped[str] = mapped_column(String, nullable=False)  # username or token name
+    #: The human-readable subject: a username, or a token's name. For a USER this is still the
+    #: reference (a username is the identity; bossman_users has no separate uid to point at). For
+    #: an api_token it is only a label — the reference is `subject_token_id` below.
+    subject_ref: Mapped[str] = mapped_column(String, nullable=False)
+    #: The subject's UID for api_token grants. Names are not identities: `api_tokens.name` has no
+    #: unique constraint, and one grant on "mon-caller" was measured authorising 28 different
+    #: tokens, so a token recreated under an old name inherited rights nobody issued. Modelled on
+    #: LDAP, where an entry has both a hierarchical name (its DN) and an immutable entryUUID:
+    #: this is the uid, and ON DELETE CASCADE is the referential-integrity half — a grant cannot
+    #: outlive its subject, therefore it cannot be inherited.
+    subject_token_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("api_tokens.id", ondelete="CASCADE")
+    )
     scope: Mapped[str] = mapped_column(String, nullable=False)  # all | host | host_group
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -568,6 +598,42 @@ class PlanEmbedding(Base):
     embedding: Mapped[list[float]] = mapped_column(Vector(CHUNK_EMBEDDING_DIM), nullable=False)
     model: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class KnowledgeEmbedding(Base):
+    """One natural-language "knowledge card" about the LIVE infrastructure,
+    embedded — the substrate for infra-grounded RAG (services/knowledge_index.py
+    builds the cards, services/knowledge_search.py retrieves them, api/knowledge.py
+    answers questions from them). Unlike PlanEmbedding (static catalog) this indexes
+    the running fleet: a host summary, its current problems, its network edges, etc.
+
+    `doc_id` is the natural primary key and is STABLE per source entity (e.g.
+    `host:{agent_id}`, `problems:{agent_id}`, `topology:{agent_id}`), so re-indexing
+    upserts in place; `content_hash` lets the indexer re-embed only what changed."""
+
+    __tablename__ = "knowledge_embeddings"
+
+    doc_id: Mapped[str] = mapped_column(String, primary_key=True)
+    # What this card is about — host | problems | topology | config | event | doc …
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    # The entity it derives from (agent id, event id, …) — free-form, for provenance.
+    ref_id: Mapped[str | None] = mapped_column(String)
+    # The host this card concerns (for host-scoped retrieval); NULL for fleet/doc cards.
+    host_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    # sha256 of `text` — the "only re-embed what changed" short-circuit.
+    content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    # NULLABLE on purpose: a card is stored even when no embedding model is
+    # available, so lexical/structured retrieval still grounds the AI. The vector
+    # is an optimisation (semantic recall), not a hard requirement — the feature
+    # must not hard-depend on a vector DB / embed endpoint being present.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(CHUNK_EMBEDDING_DIM))
+    # Which embedding model produced the vector ("" when stored without one) — a
+    # model switch makes old rows incomparable, so retrieval filters by the model.
+    model: Mapped[str] = mapped_column(String, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class SeverityLabel(Base):
@@ -801,17 +867,33 @@ class OUNode(Base):
 
 
 class HostGroup(Base):
-    """A first-class host group (Block L1) — the AD "group" object: it
-    lives inside an OU (ou_id) but has many-to-many host membership via
-    HostGroupMember, which is how a host gets assignments beyond its single
-    OU placement. Distinct from the legacy flat agents.groups string list,
-    which stays untouched in L1."""
+    """A first-class host group — a SECURITY/SET unit, deliberately PLACELESS.
+
+    A host has exactly one location (agents.ou_id) and arbitrarily many properties. The OU tree
+    carries the location, its inheritance and its precedence (depth along ONE path); a group carries
+    a property and is orthogonal to the tree — which is what lets it say "all webservers, wherever
+    they stand", something a single hierarchy cannot express without duplicating itself.
+
+    It USED to carry an `ou_id` too, "the AD group object lives inside an OU". That was removed: no
+    resolver ever read it (resolve_ou_ancestry, resolve_host_group_ids, affected_agent_ids and the
+    scope/notification contexts all take the OU from agents.ou_id alone), 0 of 5 groups used it, and
+    a second placement axis let two unorderable claims about one host exist at once — GPO's
+    precedence is depth along one chain, and two chains have no relative depth.
+
+    Windows works the same way where it counts: a GPO links to Site/Domain/OU and NEVER to a group;
+    group membership acts only as Security Filtering on a GPO linked to an OU. The AD group object
+    does sit somewhere in the tree, but purely for delegation — and only because every LDAP object
+    needs a DN. Our groups are rows with a UUID, so that reason does not apply.
+
+    The group's two legitimate ways to influence policy both survive: as a rule SCOPE
+    (scope_type='group', gpo.LEVEL_GROUP) and as a rule FILTER
+    (rule_conditions' host_groups condition = Security Filtering). Membership stays many-to-many
+    via HostGroupMember."""
 
     __tablename__ = "host_groups"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
@@ -1249,7 +1331,9 @@ class SystemSettings(Base):
     helm_http_proxy: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     helm_no_proxy: Mapped[str] = mapped_column(
         String, nullable=False, default="",
-        server_default=".example.com,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local",
+        # No company's own domain in a shipped default: an operator adds theirs in Admin Settings, and the
+        # RFC1918 ranges plus the cluster suffixes are the part that is true everywhere.
+        server_default="localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local",
     )
     # PXE netboot gate, DB-backed so the operator sets/rotates the shared secret and turns netboot on/off
     # from the WebUI without redeploying. `netboot_enabled` off → /netboot/* refuse regardless of the
@@ -1591,6 +1675,10 @@ class ConfigPolicySet(Base):
 
     __tablename__ = "config_policy_sets"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -1798,6 +1886,9 @@ class Blueprint(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     status: Mapped[str] = mapped_column(String, nullable=False, default="draft")   # draft | ready
+    # Folder path for the blueprint tree (e.g. "web/wordpress"); "" = root. The UI
+    # groups blueprints into a tree by splitting this on "/", instead of a flat list.
+    path: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     services: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
@@ -2039,6 +2130,17 @@ class NotificationRule(Base):
     # (name-only tags stored as "" match a same-name tag of any value).
     # NULL = no tag condition (matches regardless of the host's tags).
     tag_filter: Mapped[dict | None] = mapped_column(JSONB)
+    # The shared rule-conditions object (services/rule_conditions), same shape and same matcher as
+    # CheckRule/ConfigPolicy/CheckAssignment carry — so "notify only for these host groups" is said
+    # the same way here as everywhere else, including the "Applies to" control in the UI.
+    #
+    # Kept ALONGSIDE tag_filter rather than replacing it: tag_filter predates this and is a narrower,
+    # cheaper subset match that existing rules rely on. Folding it in would be a migration of live
+    # notification behaviour, which is its own change. Both are ANDed, which is what a reader expects
+    # of two filters on one rule.
+    #
+    # Empty {} = no condition, so every pre-existing rule keeps behaving exactly as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     # Block L3a: OU binding + GPO precedence, mirroring CheckRule. ou_id NULL
     # = global (today's behavior); a value scopes the rule to that OU's
     # ltree subtree. enforced/link_order as in CheckRule.
@@ -2133,6 +2235,82 @@ class Rollout(Base):
     )
 
 
+class EventHandler(Base):
+    """A named, reusable ACTION for an event rule — a runbook or a script.
+
+    Before this, the action was two fields on RemediationPolicy (`runbook_name` + `params`):
+    not reusable across rules and not extensible to scripts. It is its own object now, so the
+    same handler can serve several rules and so a script is a first-class body.
+
+    Two axes, and they are independent:
+
+      body      runbook | script   WHAT runs
+      location  managed | local    WHERE the body comes from (scripts only)
+
+    `managed` scripts live here (`source`) and are copied to the host before every run — if
+    they were copied once, a host could hold an older body than the one Bossman displays,
+    which is two truths for one thing. `local` scripts live in the agent's own directory
+    (/etc/agentic-mcp/event-handlers/) and are run in place.
+
+    **`local` takes no parameters, and that is a consequence rather than a restriction:**
+    Bossman does not know a locally-placed script's contents, so it cannot say which
+    parameters it accepts, of what type, or whether they are required. A form asking for
+    values it cannot describe would promise an effect nobody can check. The event CONTEXT is
+    still passed (see services/event_handlers): that is not a parameter, it is the fact that
+    caused the run, and Bossman always knows it.
+
+    A runbook is a document in Bossman's database and therefore cannot be `local`; the
+    constraint below makes that combination impossible rather than leaving the UI to catch it.
+
+    See docs/event-handling.md.
+    """
+
+    __tablename__ = "event_handlers"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    body: Mapped[str] = mapped_column(String, nullable=False)  # runbook | script
+    location: Mapped[str] = mapped_column(String, nullable=False, default="managed")  # managed | local
+    #: body=runbook — the Runbook.name to execute (same resolution remediation already uses).
+    runbook_name: Mapped[str | None] = mapped_column(String)
+    #: body=script — the interpreter the shebang would name (bash, sh, python3, …).
+    interpreter: Mapped[str | None] = mapped_column(String)
+    #: body=script + location=managed — the script text, authored in Bossman.
+    source: Mapped[str | None] = mapped_column(Text)
+    #: body=script + location=local — the file name inside the agent's handler directory.
+    local_name: Mapped[str | None] = mapped_column(String)
+    #: [{name, type, default, description, required}] — declared HERE and nowhere else, which
+    #: is what "parameters can only be configured in Bossman" means concretely.
+    parameters: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    timeout_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="300", default=300)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_event_handlers_tenant_name"),
+        CheckConstraint("body IN ('runbook', 'script')", name="ck_event_handlers_body"),
+        CheckConstraint("location IN ('managed', 'local')", name="ck_event_handlers_location"),
+        # The forbidden combinations, made impossible in the TYPE rather than checked in the UI:
+        #  * a runbook cannot be local (it is a row in this database)
+        #  * a runbook needs a runbook_name; a script needs an interpreter
+        #  * a managed script needs its source; a local one needs its file name
+        #  * a local handler cannot declare parameters — Bossman cannot know them
+        CheckConstraint(
+            "(body = 'runbook' AND location = 'managed' AND runbook_name IS NOT NULL "
+            " AND source IS NULL AND local_name IS NULL) OR "
+            "(body = 'script' AND location = 'managed' AND interpreter IS NOT NULL "
+            " AND source IS NOT NULL AND local_name IS NULL AND runbook_name IS NULL) OR "
+            "(body = 'script' AND location = 'local' AND local_name IS NOT NULL "
+            " AND source IS NULL AND runbook_name IS NULL AND parameters = '[]'::jsonb)",
+            name="ck_event_handlers_body_shape",
+        ),
+    )
+
+
 class RemediationPolicy(Base):
     """Event-driven self-healing: when a check (service) enters a hard problem
     state on a host this policy reaches, run a parameter-driven remediation
@@ -2157,13 +2335,43 @@ class RemediationPolicy(Base):
     params: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     max_per_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     mode: Mapped[str] = mapped_column(String, nullable=False, default="auto")  # auto | propose
+    # Closed-loop verify knobs (Phase 1): after an applied remediation, re-check the
+    # trigger and escalate if it didn't recover. `verify_after_s` is the settle time.
+    verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    verify_after_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="60", default=60)
+    # ── autonomy (Phase 2) — opt-in, guardrailed ────────────────────────────
+    # propose = human applies (default); auto_verify = auto-apply when the
+    # guardrails pass, then verify + escalate/rollback. A global kill-switch
+    # (settings.remediation_autonomy_enabled) must also be on.
+    autonomy: Mapped[str] = mapped_column(String, nullable=False, server_default="propose", default="propose")
+    # Guardrails for auto_verify:
+    allow_prod: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
+    max_blast_radius: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1", default=1)
+    # Optional compensating runbook to run if verify fails (best-effort undo).
+    rollback_runbook: Mapped[str | None] = mapped_column(String)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    #: The action, as a reusable EventHandler — the alternative to the inline `runbook_name`.
+    #: Exactly one of the two is set (constraint below): `runbook_name` stays valid so every
+    #: existing policy keeps working unchanged, and new ones point at a handler that may also
+    #: be a script. Everything else about this row — trigger, scope, rate limit, autonomy,
+    #: verify, rollback, audit — is unchanged, which is what "event handling absorbs
+    #: remediation" means: one trigger machine, a richer action. See docs/event-handling.md.
+    event_handler_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("event_handlers.id", ondelete="RESTRICT")
+    )
 
     __table_args__ = (
         CheckConstraint("scope_type IN ('global', 'ou', 'group', 'host')", name="ck_remediation_scope"),
         CheckConstraint("mode IN ('auto', 'propose')", name="ck_remediation_mode"),
+        # Exactly one action. Both would be two answers to "what runs?"; neither would be a
+        # rule that fires and does nothing.
+        CheckConstraint(
+            "(runbook_name <> '' AND event_handler_id IS NULL) OR "
+            "(runbook_name = '' AND event_handler_id IS NOT NULL)",
+            name="ck_remediation_one_action",
+        ),
         Index("idx_remediation_service", "match_service_name"),
     )
 
@@ -2180,11 +2388,33 @@ class RemediationRun(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
     service_name: Mapped[str] = mapped_column(String, nullable=False, default="")
     runbook_name: Mapped[str] = mapped_column(String, nullable=False, default="")
-    status: Mapped[str] = mapped_column(String, nullable=False)  # ran|proposed|rate_limited|failed
+    status: Mapped[str] = mapped_column(String, nullable=False)  # pending|ran|rate_limited|failed
+    #: WHAT ran, as "kind:name" — "runbook:restart-nginx" or "handler:clean-logs". Stored, not
+    #: derived: policy_id is ON DELETE SET NULL, so a deleted rule would otherwise take the
+    #: answer with it and leave a history that lists events it cannot explain. `runbook_name`
+    #: stays for the rows and callers that predate event handlers (it is empty for a
+    #: handler-backed rule, which is what made this column necessary).
+    action: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     detail: Mapped[str | None] = mapped_column(Text)
     at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # ── closed-loop lifecycle (docs/closed-loop-remediation.md) ──────────────
+    # The run is a tracked VORGANG now, not just an attempt: after a fix is
+    # applied it is VERIFIED (was the triggering check actually restored?), and
+    # on failure it ESCALATES. `phase` drives that state machine; `status` stays
+    # the coarse apply outcome for backward compatibility.
+    phase: Mapped[str] = mapped_column(String, nullable=False, server_default="proposed", default="proposed")
+    # proposed | verifying | resolved | failed | escalated
+    applied_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    verify_due_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)   # when the poller should verify
+    verified_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    verify_state: Mapped[str | None] = mapped_column(String)             # the trigger check's state at verify
+    verify_ok: Mapped[bool | None] = mapped_column(Boolean)              # did it recover?
+    outcome: Mapped[str | None] = mapped_column(Text)                    # recovered | no_recovery | apply_failed | …
 
-    __table_args__ = (Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),)
+    __table_args__ = (
+        Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),
+        Index("idx_remediation_runs_verify", "phase", "verify_due_at"),
+    )
 
 
 class ChangeProposal(Base):
@@ -2300,6 +2530,10 @@ class ComplianceRule(Base):
 
     __tablename__ = "compliance_rules"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2386,6 +2620,10 @@ class BusinessService(Base):
 
     __tablename__ = "business_services"
 
+    # The shared rule-conditions object (services/rule_conditions) — same shape and matcher as every
+    # other rule kind, so "only these host groups" reads identically here. {} = no condition, which
+    # matches everywhere, so a row created before this column behaves exactly as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2416,6 +2654,10 @@ class ScheduledJob(Base):
 
     __tablename__ = "scheduled_jobs"
 
+    # The shared rule-conditions object (services/rule_conditions) — the same shape and matcher every
+    # other rule kind uses, so "only these host groups" is written and read identically here. {} = no
+    # condition, which matches everywhere, so a rule created before this column behaves as before.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -2686,3 +2928,53 @@ class ResourceGeneration(Base):
     applied_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (UniqueConstraint("resource_key", "generation", name="uq_resource_generation"),)
+
+
+class OperationLog(Base):
+    """WHAT WAS DONE TO A HOST — the fleet-wide, durable copy of every agent's operation log.
+
+    The agent keeps a ring buffer and answers for itself (GET /api/v1/audit); this table is what makes a
+    fleet-wide question one query instead of N host calls, and what survives an agent restart. Collected by
+    the poller with a per-boot cursor.
+
+    WHY IT IS NOT THE AUDIT TRAIL WE ALREADY HAVE, said once here so the two never merge: the audit trail
+    records what somebody ASKED THIS SERVER to do (an API call, an operator, a policy change). This records
+    what A HOST ACTUALLY DID and what came back — the exit code, the plan, the target's own refusal text.
+    A request and its effect are two facts, and the interesting questions ("did that install work", "which
+    hosts refused") can only be answered by the second one.
+
+    `seq` is the agent's own sequence number, monotonic WITHIN ONE AGENT PROCESS; `boot_id` names that
+    process. The pair is unique per agent, which is exactly the constraint that makes re-collection
+    idempotent and a restart unambiguous.
+    """
+
+    __tablename__ = "operation_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    boot_id: Mapped[str] = mapped_column(String, nullable=False)
+    seq: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # The agent's own record id — a stable handle an analysis can point at ("call 9f3c…"), which a row id
+    # minted here could not be, since the host is where the record was made.
+    record_id: Mapped[str | None] = mapped_column(String)
+    module: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # changed | unchanged | planned | refused | error | timed-out | unknown-module | gap
+    # `gap` is OURS, not the agent's: a marker row written when the ring dropped records before we collected
+    # them, so a missing range appears in the log as a named fact instead of as an absence nobody notices.
+    outcome: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    params: Mapped[dict | None] = mapped_column(JSONB)      # secrets redacted on the host, before we see them
+    identity: Mapped[str | None] = mapped_column(String)    # who asked, as the agent saw it
+    started_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME, index=True)
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    changed: Mapped[bool | None] = mapped_column(Boolean)
+    message: Mapped[str | None] = mapped_column(String)
+    evidence: Mapped[dict | None] = mapped_column(JSONB)    # the module's own data block, verbatim
+    error: Mapped[str | None] = mapped_column(String)
+    collected_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "boot_id", "seq", name="uq_operation_log_agent_boot_seq"),
+    )

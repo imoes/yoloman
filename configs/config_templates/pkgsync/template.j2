@@ -1,0 +1,21 @@
+{#
+  pkgsync wrapper script (SysV-style init).
+  Runs the pkgsync daemon, directing all output (stdout+stderr) to the configured log file.
+  If pkgsync exits with a non-zero status, the entire log file is cat'd to stdout so cron
+  can notify the administrator.
+  Log rotation is handled externally; this script assumes a fresh or rotated log each night.
+#}
+#! /bin/sh
+
+{# Path to the log file for pkgsync output and errors. #}
+export PKG_LOG_FILE="{{ log_file | default('/var/log/pkgsync.log') }}"
+
+export PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+
+{# Ensure the pkgsync binary exists and is executable before attempting to run it. #}
+if [ -x /usr/sbin/pkgsync ]; then
+    {# Run pkgsync, logging to the configured log file. If there is an error, we cat
+       the entire file to stdout, so cron will complain to the admin. We don't
+       rotate the log file here but it will be overwritten every night. #}
+    ( pkgsync >"{{ log_file | default('/var/log/pkgsync.log') }}" 2>&1 ) || cat "{{ log_file | default('/var/log/pkgsync.log') }}"
+fi

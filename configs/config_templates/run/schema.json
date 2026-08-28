@@ -1,51 +1,56 @@
 {
-  "run_dir": {
-    "type": "string",
-    "default": "/run/dqcache",
-    "description": "Directory where dqcache stores runtime files (e.g., PID file, sockets). Must be writable by the service user."
-  },
   "bind": {
-    "type": "string",
     "default": "127.0.0.1",
-    "description": "IP address or hostname to bind the service to. Use 0.0.0.0 for all interfaces."
-  },
-  "port": {
-    "type": "number",
-    "default": 2379,
-    "description": "TCP port on which the dqcache service listens for incoming connections."
-  },
-  "user": {
-    "type": "string",
-    "default": "dqcache",
-    "description": "System user account under which the dqcache process should run (for security isolation)."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of logging: one of 'debug', 'info', 'warn', 'error'. Lower levels produce more verbose logs."
+    "description": "IP address or hostname to bind the service to. Use 0.0.0.0 for all interfaces.",
+    "type": "string"
   },
   "cache_max_size": {
-    "type": "string",
     "default": "1GiB",
-    "description": "Maximum size of the in-memory cache. Accepts unit suffixes like KiB, MiB, GiB, or raw bytes (e.g., '512MiB')."
-  },
-  "worker_count": {
-    "type": "number",
-    "default": 4,
-    "description": "Number of worker goroutines to handle requests concurrently. Adjust based on CPU cores and load."
+    "description": "Maximum size of the in-memory cache. Accepts unit suffixes like KiB, MiB, GiB, or raw bytes (e.g., '512MiB').",
+    "type": "string"
   },
   "config_path": {
-    "type": "string",
     "default": "/etc/dqcache/dqcache.yaml",
-    "description": "Absolute path to the main dqcache configuration file (YAML or JSON)."
+    "description": "Absolute path to the main dqcache configuration file (YAML or JSON).",
+    "type": "string"
   },
   "extra_flags": {
-    "type": "object",
-    "default": {},
     "description": "Additional command-line flags to pass to dqcache. Each key is a flag name (without leading -), value can be a string, number, or boolean (true = flag present, false = omitted).",
     "items": {
-      "type": "string or number or boolean",
-      "description": "Value for the flag. Boolean true includes the flag (e.g., -insecure); false omits it."
-    }
+      "description": "Value for the flag. Boolean true includes the flag (e.g., -insecure); false omits it.",
+      "type": "string or number or boolean"
+    },
+    "type": "object"
+  },
+  "log_level": {
+    "default": "info",
+    "description": "Verbosity of logging: one of 'debug', 'info', 'warn', 'error'. Lower levels produce more verbose logs.",
+    "type": "string",
+    "enum": [
+      "debug",
+      "info",
+      "warn",
+      "error"
+    ]
+  },
+  "port": {
+    "default": 2379,
+    "description": "TCP port on which the dqcache service listens for incoming connections.",
+    "type": "number"
+  },
+  "run_dir": {
+    "default": "/run/dqcache",
+    "description": "Directory where dqcache stores runtime files (e.g., PID file, sockets). Must be writable by the service user.",
+    "type": "string"
+  },
+  "user": {
+    "default": "dqcache",
+    "description": "System user account under which the dqcache process should run (for security isolation).",
+    "type": "string"
+  },
+  "worker_count": {
+    "default": 4,
+    "description": "Number of worker goroutines to handle requests concurrently. Adjust based on CPU cores and load.",
+    "type": "number"
   }
 }

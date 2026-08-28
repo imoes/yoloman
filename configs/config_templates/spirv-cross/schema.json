@@ -1,0 +1,410 @@
+{
+  "input_file": {
+    "type": "string",
+    "default": "/usr/share/shaders/spirv/input.spv",
+    "description": "Path to the input SPIR-V binary file. Use '-' for stdin."
+  },
+  "output_file": {
+    "type": "string",
+    "default": "/usr/share/shaders/spirv/output.glsl",
+    "description": "Path to the output file. If omitted, output goes to stdout."
+  },
+  "vulkan_semantics": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit Vulkan GLSL instead of plain GLSL."
+  },
+  "msl_backend": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit Metal Shading Language (MSL)."
+  },
+  "hlsl_backend": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit HLSL."
+  },
+  "reflect_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit JSON reflection instead of shader code."
+  },
+  "entry_point": {
+    "type": "string",
+    "default": "main",
+    "description": "Name of the specific entry point to use."
+  },
+  "stage": {
+    "type": "string",
+    "default": "frag",
+    "description": "Force a specific shader stage (vert, frag, geom, tesc, tese, comp).",
+    "enum": [
+      "vert",
+      "frag",
+      "geom",
+      "tesc",
+      "tese",
+      "comp"
+    ]
+  },
+  "emit_line_directives": {
+    "type": "bool",
+    "default": false,
+    "description": "Aim to emit OpLine directives accurately in output code."
+  },
+  "force_zero_initialized": {
+    "type": "bool",
+    "default": false,
+    "description": "Force temporary variables to be initialized to zero."
+  },
+  "fixup_clipspace": {
+    "type": "bool",
+    "default": false,
+    "description": "Fixup Z clip-space at the end of a vertex shader."
+  },
+  "flip_vert_y": {
+    "type": "bool",
+    "default": false,
+    "description": "Invert gl_Position.y (or equivalent) at the end of a vertex shader."
+  },
+  "force_essl": {
+    "type": "bool",
+    "default": false,
+    "description": "Force ESSL output."
+  },
+  "force_desktop_glsl": {
+    "type": "bool",
+    "default": false,
+    "description": "Force desktop GLSL output."
+  },
+  "glsl_version": {
+    "type": "number",
+    "default": 450,
+    "description": "GLSL version to emit (e.g. 450)."
+  },
+  "flatten_ubo": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit UBOs as plain uniform arrays."
+  },
+  "extensions": {
+    "type": "list",
+    "default": [],
+    "description": "List of extension strings to add to GLSL output."
+  },
+  "remove_unused_variables": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not emit interface variables which are not statically accessed."
+  },
+  "separate_shader_objects": {
+    "type": "bool",
+    "default": false,
+    "description": "Redeclare gl_PerVertex blocks for desktop GL separate shader objects."
+  },
+  "emit_push_constant_as_ubo": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit push constants as a UBO block."
+  },
+  "emit_ubo_as_plain_uniforms": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit UBOs as plain uniform structs."
+  },
+  "disable_ext_samplerless": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable GL_EXT_samperless_texture_functions in Vulkan GLSL."
+  },
+  "combined_samplers_inherit": {
+    "type": "bool",
+    "default": false,
+    "description": "Inherit binding info from textures for combined image samplers."
+  },
+  "no_nonzero_baseinstance": {
+    "type": "bool",
+    "default": false,
+    "description": "Assume base instance is always 0 for desktop GL."
+  },
+  "pls_in_inputs": {
+    "type": "list",
+    "default": [],
+    "description": "List of PLS input remaps. Items: {format: string, name: string}. Requires ESSL."
+  },
+  "pls_out_outputs": {
+    "type": "list",
+    "default": [],
+    "description": "List of PLS output remaps. Items: {format: string, name: string}. Requires ESSL."
+  },
+  "remaps": {
+    "type": "list",
+    "default": [],
+    "description": "List of variable remaps. Items: {source: string, target: string, components: number}."
+  },
+  "no_420pack_extension": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not use GL_ARB_shading_language_420pack in older GL targets."
+  },
+  "remap_variable_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of variable type remaps. Items: {variable_name: string, new_type: string}."
+  },
+  "force_flattened_io": {
+    "type": "bool",
+    "default": false,
+    "description": "Always flatten I/O blocks and structs."
+  },
+  "msl_version": {
+    "type": "number",
+    "default": 20000,
+    "description": "MSL version (e.g. 20100 for MSL 2.1)."
+  },
+  "msl_capture_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Write geometry varyings to a buffer instead of stage-outputs."
+  },
+  "msl_swizzle": {
+    "type": "bool",
+    "default": false,
+    "description": "Work around lack of support for VkImageView component swizzles."
+  },
+  "msl_ios": {
+    "type": "bool",
+    "default": false,
+    "description": "Target iOS Metal instead of macOS Metal."
+  },
+  "msl_pad_fragment": {
+    "type": "bool",
+    "default": false,
+    "description": "Always emit color outputs as 4-component variables."
+  },
+  "msl_domain_lower_left": {
+    "type": "bool",
+    "default": false,
+    "description": "Use a lower-left tessellation domain."
+  },
+  "msl_argument_buffers": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit Indirect Argument buffers instead of plain bindings."
+  },
+  "msl_texbuf_native": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable native support for texel buffers."
+  },
+  "msl_framebuffer_fetch": {
+    "type": "bool",
+    "default": false,
+    "description": "Implement subpass inputs with frame buffer fetch."
+  },
+  "msl_emulate_cube": {
+    "type": "bool",
+    "default": false,
+    "description": "Emulate cube arrays with 2D array and manual math."
+  },
+  "msl_discrete_descriptor_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of descriptor set indices to implement without argument buffers."
+  },
+  "msl_device_arg_buffers": {
+    "type": "list",
+    "default": [],
+    "description": "List of descriptor set indices to use device address space for arg buffers."
+  },
+  "msl_multiview": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SPV_KHR_multiview emulation."
+  },
+  "msl_multiview_no_layered": {
+    "type": "bool",
+    "default": false,
+    "description": "Don't set [[render_target_array_index]] in multiview shaders."
+  },
+  "msl_view_from_device": {
+    "type": "bool",
+    "default": false,
+    "description": "Treat the view index as the device index."
+  },
+  "msl_dispatch_base": {
+    "type": "bool",
+    "default": false,
+    "description": "Add support for vkCmdDispatchBase() offsets."
+  },
+  "msl_dynamic_buffers": {
+    "type": "list",
+    "default": [],
+    "description": "List of dynamic buffers. Items: {set_index: number, binding: number}."
+  },
+  "msl_inline_uniform_blocks": {
+    "type": "list",
+    "default": [],
+    "description": "List of inline uniform blocks. Items: {set_index: number, binding: number}."
+  },
+  "msl_decoration_binding": {
+    "type": "bool",
+    "default": false,
+    "description": "Use SPIR-V bindings directly as MSL bindings."
+  },
+  "msl_force_active_argbuf": {
+    "type": "bool",
+    "default": false,
+    "description": "Always emit resources which are part of argument buffers."
+  },
+  "msl_force_native_arrays": {
+    "type": "bool",
+    "default": false,
+    "description": "Use plain native arrays instead of std::array."
+  },
+  "msl_disable_frag_depth": {
+    "type": "bool",
+    "default": false,
+    "description": "Disables FragDepth output."
+  },
+  "msl_disable_frag_stencil": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable FragStencilRef output."
+  },
+  "msl_frag_output_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Mask to selectively enable fragment outputs."
+  },
+  "msl_no_clip_dist_user_var": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not emit user varyings to emulate gl_ClipDistance in fragment shaders."
+  },
+  "msl_shader_inputs": {
+    "type": "list",
+    "default": [],
+    "description": "List of shader input formats. Items: {index: number, format: string, size: number}."
+  },
+  "msl_multi_patch_workgroup": {
+    "type": "bool",
+    "default": false,
+    "description": "Use new style tessellation control processing."
+  },
+  "msl_vertex_for_tess": {
+    "type": "bool",
+    "default": false,
+    "description": "Mark vertex shader as one used with new-style tessellation."
+  },
+  "msl_add_sample_mask": {
+    "type": "number",
+    "default": 0,
+    "description": "Additional fixed sample mask."
+  },
+  "msl_arrayed_subpass": {
+    "type": "bool",
+    "default": false,
+    "description": "Assume images of dimension SubpassData have multiple layers."
+  },
+  "msl_r32ui_align": {
+    "type": "number",
+    "default": 4,
+    "description": "Required alignment of linear textures of format MTLPixelFormatR32Uint."
+  },
+  "msl_r32ui_align_const_id": {
+    "type": "number",
+    "default": 0,
+    "description": "Function constant ID for linear texture alignment."
+  },
+  "msl_tex_1d_as_2d": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit Image variables of dimension Dim1D as texture2d."
+  },
+  "msl_ios_simdgroup": {
+    "type": "bool",
+    "default": false,
+    "description": "Use simd_*() functions for subgroup ops."
+  },
+  "msl_emulate_subgroups": {
+    "type": "bool",
+    "default": false,
+    "description": "Assume subgroups of size 1."
+  },
+  "msl_fixed_subgroup_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Assign a constant size to the SubgroupSize builtin."
+  },
+  "msl_force_sample_rate": {
+    "type": "bool",
+    "default": false,
+    "description": "Force fragment shaders to run per sample."
+  },
+  "hlsl_shader_model": {
+    "type": "number",
+    "default": 50,
+    "description": "Shader model version (e.g. 50 for SM 5.0)."
+  },
+  "hlsl_enable_compat": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow point size and point coord to be used in HLSL."
+  },
+  "hlsl_support_basevertex": {
+    "type": "bool",
+    "default": false,
+    "description": "Support base vertex and base instance in HLSL."
+  },
+  "hlsl_auto_bindings": {
+    "type": "list",
+    "default": [],
+    "description": "List of resource types to auto-bind in HLSL (push, cbv, srv, uav, sampler, all)."
+  },
+  "hlsl_force_storage_as_uav": {
+    "type": "bool",
+    "default": false,
+    "description": "Always emit SSBOs as UAVs in HLSL."
+  },
+  "hlsl_nonwritable_as_srv": {
+    "type": "bool",
+    "default": false,
+    "description": "Emit NonWritable storage images as SRV textures in HLSL."
+  },
+  "hlsl_vertex_semantics": {
+    "type": "list",
+    "default": [],
+    "description": "List of vertex input semantic overrides. Items: {location: number, semantic: string}."
+  },
+  "hlsl_enable_16bit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enables native use of half/int16_t/uint16_t in HLSL."
+  },
+  "hlsl_flatten_matrix_semantics": {
+    "type": "bool",
+    "default": false,
+    "description": "Emits matrix vertex inputs with input semantics as independent vectors."
+  },
+  "force_temporary": {
+    "type": "bool",
+    "default": false,
+    "description": "Aggressively emit temporary expressions."
+  },
+  "disable_storage_qualifier_deduction": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not analyze usage for storage images without qualifiers."
+  },
+  "flatten_multidim_arrays": {
+    "type": "bool",
+    "default": false,
+    "description": "Flatten multi-dimensional arrays to one dimension."
+  },
+  "cpp_interface_name": {
+    "type": "string",
+    "default": "SPIRV_Cross",
+    "description": "Class name to emit in C++ codegen."
+  }
+}

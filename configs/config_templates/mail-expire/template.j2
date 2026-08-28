@@ -1,0 +1,123 @@
+# =============================================================================
+# Mail-expire Configuration Template
+# =============================================================================
+# This configuration file manages the expiration of mailbox files.
+# It supports both mbox and Maildir formats.
+#
+# Variables are sourced from Ansible variables or defaults.
+# All boolean values must be lowercase (true/false).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# archive_dir: Target directory for storing expired mailbox files.
+# Default: The current directory (.).
+# Path to the destination where expired messages will be archived.
+# -----------------------------------------------------------------------------
+archive_dir: {{ archive_dir | default('.') }}
+
+# -----------------------------------------------------------------------------
+# age_in_days: Age threshold in days.
+# Default: 30 days.
+# Messages older than this number of days are considered expired and moved.
+# -----------------------------------------------------------------------------
+age_in_days: {{ age_in_days | default(30) }}
+
+# -----------------------------------------------------------------------------
+# mailboxes: List of mailbox files or directories to process.
+# Default: Empty list ([]).
+# Supports mbox and Maildir formats.
+# -----------------------------------------------------------------------------
+mailboxes:
+{% for mbox in mailboxes | default([], true) %}
+  - {{ mbox }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# unique_output: Ensure unique archive filenames.
+# Default: False.
+# If true, and an existing archive file with the expected filename is found,
+# another filename is chosen by appending a suffix to avoid collisions.
+# -----------------------------------------------------------------------------
+unique_output: {{ unique_output | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# target_filebase: Explicit output target file name base.
+# Default: Empty string (auto-generated).
+# If provided, all expired mails are merged into the same target mbox
+# using this base name. Disables automated name generation for individual files.
+# -----------------------------------------------------------------------------
+target_filebase: {{ target_filebase | default('') }}
+
+# -----------------------------------------------------------------------------
+# sfx_fmt: Format string for date suffix in output filenames.
+# Default: '%Y_%m'.
+# Compatible with strftime. Used to generate unique suffixes in archive names.
+# -----------------------------------------------------------------------------
+sfx_fmt: {{ sfx_fmt | default('%Y_%m') }}
+
+# -----------------------------------------------------------------------------
+# dry_run: Dry run mode.
+# Default: False.
+# If true, only examine input files and directories. No mail data is moved.
+# Useful for testing configuration without side effects.
+# -----------------------------------------------------------------------------
+dry_run: {{ dry_run | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# delete_after_expire: Delete old messages after archiving.
+# Default: False.
+# If true, drop the old messages from the input after archiving.
+# No backup will be made if this is combined with archive_dir being empty/unset.
+# -----------------------------------------------------------------------------
+delete_after_expire: {{ delete_after_expire | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# keep_expired: Keep copies in input after archiving.
+# Default: False.
+# If true, copy the expired messages to output files but keep them in the
+# input file as well. Useful for double-checking archives before deletion.
+# -----------------------------------------------------------------------------
+keep_expired: {{ keep_expired | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# purge_level: Cleanup level for empty input sources.
+# Default: 1.
+# Controls how to remove input files or folders after they become empty:
+#   0: Never remove empty files or directories.
+#   1: Remove empty files (default).
+#   2: Remove empty files and empty Maildir directories.
+#   3: Like 2, but also remove the parent directory if the input was empty.
+# -----------------------------------------------------------------------------
+purge_level: {{ purge_level | default(1) }}
+
+# -----------------------------------------------------------------------------
+# verbosity: Output verbosity level.
+# Default: 1.
+#   0: No output except errors.
+#   1: Some progress messages (default).
+#   2+: Verbose output.
+# -----------------------------------------------------------------------------
+verbosity: {{ verbosity | default(1) }}
+
+# -----------------------------------------------------------------------------
+# compression: Compression method for output archives.
+# Default: 'gzip'.
+# Options: 'gzip', 'xz', 'zstd', 'none'.
+# -----------------------------------------------------------------------------
+compression: {{ compression | default('gzip') }}
+
+# -----------------------------------------------------------------------------
+# lockless: Lockless operation mode.
+# Default: False.
+# If true, lockless operation is enabled. Input Mailboxes are assumed to be
+# not touched by other tools (no file locking will be attempted).
+# -----------------------------------------------------------------------------
+lockless: {{ lockless | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# shell_archive_cmd: Custom shell script fragment for archiving.
+# Default: Empty string.
+# A shell script fragment run to archive the data.
+# If provided, it overrides the default compression behavior.
+# -----------------------------------------------------------------------------
+shell_archive_cmd: {{ shell_archive_cmd | default('') }}

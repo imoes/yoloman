@@ -1,0 +1,65 @@
+#!/usr/bin/install-menu
+# xdg menu spec - menu generation
+# http://www.freedesktop.org/Standards/menu-spec
+# Also used as /etc/menu-methods/menu-xdg
+# Copyright 2004 - Chris Cheney <ccheney@debian.org>
+# Licensed under the GNU General Public License, version 2.
+
+!include menu.h
+
+# compat="menu-2" is a static directive required by the spec.
+compat="menu-2"
+
+# outputencoding: The character encoding for the generated menu files.
+# Default: 'UTF-8'
+outputencoding="{{ outputencoding | default('UTF-8') }}";
+
+# outputlanguage: The locale/language setting for the generated menu files.
+# Default: 'C'
+outputlanguage="{{ outputlanguage | default('C') }}";
+
+function Dirs() =
+	ifempty($section,ifroot(
+	"<AppDir>/var/lib/menu-xdg/applications</AppDir>\n"
+	"<DirectoryDir>/var/lib/menu-xdg/desktop-directories/menu-xdg</DirectoryDir>\n",
+	"<DirectoryDir>"
+	parent(parent(prefix()))
+	"/.local/share/desktop-directories/menu-xdg</DirectoryDir>\n"));
+
+function DirEntry() =
+	Dirs()
+	"<Name>" title() "</Name>\n"
+	"<Directory>" "debian" replacewith(tolower($section),"/ ","--") ".directory" "</Directory>\n"
+	"<Include>\n"
+	"<Category>" "X-Debian" replacewith($section,"/ ","--") "</Category>\n"
+	"</Include>\n";
+
+
+supported;
+ x11 = ;
+ text = ;
+endsupported;
+
+startmenu = "<Menu>\n" DirEntry();
+endmenu = "</Menu>\n";
+submenutitle = "";
+
+treewalk = "(M)";
+
+# genmenu: The name of the generated main menu file.
+# Default: 'debian-menu.menu'
+genmenu="{{ genmenu | default('debian-menu.menu') }}";
+
+prerun = "rm -rf " prefix() "/debian-menu.menu";
+
+rootsection = "";
+
+preoutput = "<!DOCTYPE Menu PUBLIC \"-//freedesktop//DTD Menu 0.8//EN\"\n \"http://www.freedesktop.org/standards/menu-spec/menu-0.8.dtd\">\n<!-- Automatically generated do not edit -->\n";
+
+# rootprefix: The root prefix path for system-wide menu storage.
+# Default: '/var/lib/menu-xdg/menus'
+rootprefix="{{ rootprefix | default('/var/lib/menu-xdg/menus') }}";
+
+# userprefix: The relative user home directory path for user-specific menu storage.
+# Default: '.config/menus'
+userprefix="{{ userprefix | default('.config/menus') }}";

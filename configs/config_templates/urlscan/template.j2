@@ -1,0 +1,39 @@
+# Configuration file for urlscan
+# This file is managed by Ansible; do not edit manually.
+# All values are derived from role variables with safe defaults to prevent render errors.
+
+{
+    # Display width. 0 means auto-detect or terminal width.
+    # If the nested 'width' is missing, defaults to 0.
+    "width": {{ (config | default({})).width | default(0) }},
+
+    # List of color palettes available in urlscan.
+    # Each palette defines a 'name' and a list of 'colors' (urwid display attributes).
+    "palettes": [
+        {%- for palette in (config | default({})).palettes | default([]) %}
+        {
+            # Name of the palette (e.g., 'default', 'dark').
+            "name": "{{ (palette.name | default('default')) | string }}",
+
+            # List of color strings for the palette.
+            "colors": [
+                {%- for color in (palette.colors | default([])) %}
+                "{{ (color | default('')) | string }}"
+                {%- if not loop.last %},{% endif -%}
+                {%- endfor %}
+            ]
+        }
+        {%- if not loop.last %},{% endif -%}
+        {%- endfor %}
+    ],
+
+    # Keybinding overrides. Maps a key (or combination) to an action string.
+    # If no keybindings are defined, the object remains empty `{}`.
+    "keybindings": {
+        {%- for keybinding in (config | default({})).keybindings | default([]) %}
+        # Key character or combination (e.g., 'q', 'Ctrl-l').
+        "{{ (keybinding.key | default('')) | string }}": "{{ (keybinding.action | default('open_url')) | string }}"
+        {%- if not loop.last %},{% endif -%}
+        {%- endfor %}
+    }
+}

@@ -1,0 +1,28 @@
+# iptables-converter configuration
+# ============================================================
+# Self-documenting template for iptables-converter.
+# Variables are sourced from Ansible variables, with schema defaults applied inline.
+# ============================================================
+
+# source_file: The input file containing iptables commands.
+# If omitted, defaults to 'rules'.
+# Output: --source-file=<path>
+--source-file={{ source_file | default('rules') }}
+
+# dest_file: The output file for the converted format.
+# If empty, output goes to stdout (no --dest-file flag emitted).
+{% if dest_file | default('') | length > 0 %}
+# Output destination specified.
+--dest-file={{ dest_file }}
+{% else %}
+# Output destination not specified; converter will write to stdout.
+{% endif %}
+
+# sloppy: If true, indicates that '-N UserChain' is not required prior to mentioning any UserChain input or append.
+# This relaxes validation to allow dynamic chain creation.
+{% if sloppy | default(False) | bool %}
+# Sloppy mode enabled: chains do not need prior definition.
+--sloppy
+{% else %}
+# Sloppy mode disabled: strict chain definition required.
+{% endif %}

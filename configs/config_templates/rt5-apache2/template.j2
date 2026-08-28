@@ -1,0 +1,76 @@
+# ==============================================================================
+# Apache configuration for Request Tracker 5 (RT) via mod_fastcgi
+# ==============================================================================
+#
+# This file configures Apache to serve RT5 using the FastCGI interface.
+# It assumes the package 'libapache2-mod-fastcgi' is installed and that
+# the necessary Apache modules (fastcgi) are enabled.
+#
+# Include this file in your Apache configuration:
+#   Include /etc/request-tracker5/apache2-fastcgi.conf
+#
+# Variables:
+#   rt_server_path    : Path to the RT FastCGI server script (fcgi).
+#   rt_site_config_path : Path to the RT Perl SiteConfig file.
+#   rt_mount_point    : The URL path where RT will be accessible.
+
+# ==============================================================================
+# FastCGI Server Definition
+# ==============================================================================
+# Configures the external FastCGI process manager to spawn and manage the
+# RT server script. The -initial-env argument passes the path to RT's
+# configuration file into the RT process environment.
+#
+# Schema:
+#   rt_server_path    : default='/usr/share/request-tracker5/libexec/rt-server.fcgi'
+#   rt_site_config_path: default='/etc/request-tracker5/RT_SiteConfig.pm'
+
+FastCgiServer {{ rt_server_path | default('/usr/share/request-tracker5/libexec/rt-server.fcgi') }} -initial-env RT_SITE_CONFIG={{ rt_site_config_path | default('/etc/request-tracker5/RT_SiteConfig.pm') }}
+
+# ==============================================================================
+# URL Mount Point Alias
+# ==============================================================================
+# Maps a URL path to the FastCGI server script.
+# If you want RT to serve from the root of the site, use:
+#   ScriptAlias / {{ rt_server_path | default('/usr/share/request-tracker5/libexec/rt-server.fcgi') }}/
+#
+# Schema:
+#   rt_mount_point    : default='/rt'
+
+ScriptAlias {{ rt_mount_point | default('/rt') }} {{ rt_server_path | default('/usr/share/request-tracker5/libexec/rt-server.fcgi') }}
+
+# ==============================================================================
+# Directory Index Configuration
+# ==============================================================================
+# Defines the default file to serve when a directory is requested.
+# Ensures that requests to the mount point itself are handled correctly.
+#
+# Schema:
+#   rt_mount_point    : default='/rt'
+
+<Location {{ rt_mount_point | default('/rt') }}/>
+    DirectoryIndex index.html
+</Location>
+
+# ==============================================================================
+# Security: Mail Gateway REST Endpoint
+# ==============================================================================
+# Restricts access to the unauthenticated REST API endpoint used for
+# creating tickets via email. By default, this is limited to localhost
+# to prevent unauthorized external ticket creation.
+#
+# For Apache 2.3 and newer: Use 'Require local' or 'Require ip 127.0.0.1'
+# For Apache 2.2 and older: Use 'Order' and 'Allow' directives.
+#
+# Schema:
+#   rt_mount_point    : default='/rt'
+
+<Location {{ rt_mount_point | default('/rt') }}/REST/1.0/NoAuth>
+    <IfVersion >= 2.3>
+        Require local
+    </IfVersion>
+    <IfVersion < 2.3>
+        Order Allow,Deny
+        Allow from 127.0.0.1
+    </IfVersion>
+</Location>

@@ -1,0 +1,32 @@
+# Open Infrastructure: compute-tools
+# This section configures logrotate for the container log file.
+# It ensures logs are compressed, rotated monthly, and retained for a specified count.
+
+{{ log_file_path | default('/var/log/compute-tools/container.log') }} {
+	# Compress rotated log files to save disk space.
+	compress
+
+	# Create new log files with permissions 0640, owned by root:adm.
+	create 0640 root adm
+
+	# Use date extension for rotated files instead of numeric suffixes.
+	dateext
+
+	# Format for the date extension: -YYYYMM.
+	dateformat -%Y%m
+
+	# Use yesterday's date for the filename to avoid race conditions during rotation.
+	dateyesterday
+
+	# Do not produce an error if the log file is missing.
+	missingok
+
+	# Rotate logs monthly.
+	monthly
+
+	# notifempty: Do not rotate the log if it is empty.
+	notifempty
+
+	# Number of rotated log files to keep before removing the oldest.
+	rotate {{ log_rotate_count | default(12) }}
+}

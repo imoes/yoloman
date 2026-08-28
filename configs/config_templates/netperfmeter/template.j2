@@ -1,0 +1,143 @@
+#!/bin/sh
+# netperfmeter startup script
+# Executes netperperfeter with parameters driven by Ansible variables.
+
+# --- Operational Mode & Endpoint ---
+
+# Operational mode: 'passive' (listen) or 'active' (connect).
+# If 'passive', the tool listens on passive_port.
+# If 'active', the tool connects to active_destination.
+{% if (mode | default('passive')) == 'active' %}
+  {{ active_destination | default('') | string }}
+{% else %}
+  {{ passive_port | default(9000) }}
+{% endif %}
+
+# --- Connection & Transport ---
+
+# Use TCP instead of SCTP for the control connection.
+{% if control_over_tcp | default(false) | bool %}
+  -control-over-tcp
+{% endif %}
+
+# Use SCTP for the data/control association.
+{% if use_sctp | default(false) | bool %}
+  -sctp
+{% endif %}
+
+# Establish a new TCP or MPTCP connection.
+{% if use_tcp | default(true) | bool %}
+  -tcp
+{% endif %}
+
+# Establish a new UDP connection.
+{% if use_udp | default(false) | bool %}
+  -udp
+{% endif %}
+
+# Establish a new DCCP connection.
+{% if use_dccp | default(false) | bool %}
+  -dccp
+{% endif %}
+
+# --- Network Bindings ---
+
+# List of local data endpoint addresses to bind to.
+{% if local_data_addresses | default([]) | length > 0 %}
+  -local={{ local_data_addresses | default([]) | join(',') }}
+{% endif %}
+
+# List of local control endpoint addresses to bind to.
+{% if local_control_addresses | default([]) | length > 0 %}
+  -controllocal={{ local_control_addresses | default([]) | join(',') }}
+{% endif %}
+
+# Use sockets with IPv6 only.
+{% if ipv6_only | default(false) | bool %}
+  -v6only
+{% endif %}
+
+# --- Performance Tuning ---
+
+# Sender buffer size in bytes on the listening socket.
+# 0 means use OS default.
+{% if sndbuf | default(0) | int > 0 %}
+  -sndbuf={{ sndbuf | default(0) }}
+{% endif %}
+
+# Receiver buffer size in bytes on the listening socket.
+# 0 means use OS default.
+{% if rcvbuf | default(0) | int > 0 %}
+  -rcvbuf={{ rcvbuf | default(0) }}
+{% endif %}
+
+# MPTCP path manager name.
+{% if path_manager | default('') | trim %}
+  -pathmgr={{ path_manager | default('') | trim }}
+{% endif %}
+
+# MPTCP scheduler name.
+{% if scheduler | default('') | trim %}
+  -scheduler={{ scheduler | default('') | trim }}
+{% endif %}
+
+# --- Runtime Configuration ---
+
+# Measurement runtime in seconds.
+  -runtime={{ runtime | default(300) }}
+
+# Name pattern for vector files.
+{% if vector_file | default('vector.vec.bz2') | trim %}
+  -vector={{ vector_file | default('vector.vec.bz2') | trim }}
+{% endif %}
+
+# Name pattern for scalar files.
+{% if scalar_file | default('scalar.vec.bz2') | trim %}
+  -scalar={{ scalar_file | default('scalar.vec.bz2') | trim }}
+{% endif %}
+
+# --- Node Identification ---
+
+# Textual description of the active node.
+{% if active_node_name | default('Client') | trim %}
+  -activenodename={{ active_node_name | default('Client') | trim }}
+{% endif %}
+
+# Textual description of the passive node.
+{% if passive_node_name | default('Server') | trim %}
+  -passivenodename={{ passive_node_name | default('Server') | trim }}
+{% endif %}
+
+# --- Verbosity ---
+
+# Increase verbosity of log output (flag).
+{% if verbose | default(false) | bool %}
+  -verbose
+{% endif %}
+
+# Reduce verbosity of log output (flag).
+{% if quiet | default(false) | bool %}
+  -quiet
+{% endif %}
+
+# Verbosity level from 0 (lowest) to 6 (highest).
+{% if verbosity | default(0) | int > 0 %}
+  -verbosity={{ verbosity | default(0) }}
+{% endif %}
+
+# --- Flow Specifications ---
+
+# List of flow specifications.
+# Each flow defines rates and sizes for outgoing/incoming traffic.
+{% for flow in (flows | default([])) %}
+  # Flow Specification
+  # Outgoing frame rate and size: {{ flow.outgoing_frame_rate | default('const0') }} : {{ flow.outgoing_frame_size | default('const0') }}
+  # Incoming frame rate and size: {{ flow.incoming_frame_rate | default('const0') }} : {{ flow.incoming_frame_size | default('const0') }}
+  {{ flow.outgoing_frame_rate | default('const0') }}:{{ flow.outgoing_frame_size | default('const0') }}:{{ flow.incoming_frame_rate | default('const0') }}:{{ flow.incoming_frame_size | default('const0') }}
+  {% if flow.options | default([]) | length > 0 %}
+    # Flow Options:
+    {% for opt in flow.options | default([]) %}
+      :{{ opt.key | default('') }}={{ opt.value | default('') }}
+    {% endfor %}
+  {% endif %}
+{% endfor %}

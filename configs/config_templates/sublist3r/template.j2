@@ -1,0 +1,131 @@
+{# ============================================================================
+   # sublist3r configuration template
+   # ============================================================================
+   # This template generates a bash script to execute sublist3r, a tool for
+   # enumerating subdomains of a given domain. It is self-documenting: every
+   # configuration variable is described and defaults to the schema values.
+   # ============================================================================ #}
+
+#!/bin/bash
+
+# ===========================================================================
+# Tool: sublist3r - Subdomain enumeration tool
+# Target: Domain name to enumerate its subdomains
+# Description: Domain name to enumerate its subdomains
+# Default: example.com
+# ===========================================================================
+# If empty, the variable resolves to the schema default 'example.com'.
+# Uses 'values' as the root mapping to match the variable name provided by Ansible.
+DOMAIN="{{ (values | default({})).domain | default('example.com') | string | trim }}"
+
+# ===========================================================================
+# Option: Enable subbrute bruteforce module
+# Description: Enable the subbrute bruteforce module
+# Default: false
+# ===========================================================================
+# Renders 'true' or 'false' (lowercase).
+BRUTEFORCE="{{ (values | default({})).bruteforce | default(false) | bool | ternary('true', 'false') }}"
+
+# ===========================================================================
+# Option: Scan ports
+# Description: List of TCP ports to scan the found subdomains against
+# Default: [80, 443]
+# ===========================================================================
+# If the list is empty, this variable will be an empty string.
+# Uses 'values' as the root mapping to match the variable name provided by Ansible.
+{% set ports_list = (values | default({})).ports | default([80, 443]) %}
+{% if ports_list | length > 0 %}
+PORTS="{{ ports_list | join(',') }}"
+{% else %}
+PORTS=""
+{% endif %}
+
+# ===========================================================================
+# Option: Enable verbosity
+# Description: Enable verbosity and display results in realtime
+# Default: false
+# ===========================================================================
+VERBOSE="{{ (values | default({})).verbose | default(false) | bool | ternary('true', 'false') }}"
+
+# ===========================================================================
+# Option: Number of threads
+# Description: Number of threads to use for subbrute bruteforce
+# Default: 40
+# ===========================================================================
+THREADS="{{ (values | default({})).threads | default(40) | int }}"
+
+# ===========================================================================
+# Option: Specify engines
+# Description: Specify a comma-separated list of search engines (google, yahoo, bing, baidu, ask, netcraft, virustotal, threatcrowd, dnsdumpster, reversedn
+# Default: [] (empty list)
+# ===========================================================================
+{% set engines_list = (values | default({})).engines | default([]) %}
+{% if engines_list | length > 0 %}
+ENGINES="{{ engines_list | join(',') }}"
+{% else %}
+ENGINES=""
+{% endif %}
+
+# ===========================================================================
+# Option: Output file
+# Description: Save the results to this text file
+# Default: '' (empty string)
+# ===========================================================================
+OUTPUT="{{ (values | default({})).output | default('') | string | trim }}"
+
+# ===========================================================================
+# Option: No color
+# Description: Output without color
+# Default: false
+# ===========================================================================
+NO_COLOR="{{ (values | default({})).no_color | default(false) | bool | ternary('true', 'false') }}"
+
+# ===========================================================================
+# Construct the command arguments
+# ===========================================================================
+ARGS=""
+
+# Domain is mandatory for the tool, but we check -n for safety.
+if [ -n "$DOMAIN" ]; then
+    ARGS="${ARGS} -d $DOMAIN"
+fi
+
+# Enable bruteforce if set to 'true'.
+if [ "$BRUTEFORCE" = "true" ]; then
+    ARGS="${ARGS} -b"
+fi
+
+# Append ports if the list was non-empty.
+if [ -n "$PORTS" ]; then
+    ARGS="${ARGS} -p $PORTS"
+fi
+
+# Enable verbosity if set to 'true'.
+if [ "$VERBOSE" = "true" ]; then
+    ARGS="${ARGS} -v"
+fi
+
+# Append threads if greater than 0.
+if [ $THREADS -gt 0 ]; then
+    ARGS="${ARGS} -t $THREADS"
+fi
+
+# Append engines if the list was non-empty.
+if [ -n "$ENGINES" ]; then
+    ARGS="${ARGS} -e $ENGINES"
+fi
+
+# Append output file if specified.
+if [ -n "$OUTPUT" ]; then
+    ARGS="${ARGS} -o $OUTPUT"
+fi
+
+# Disable color output if set to 'true'.
+if [ "$NO_COLOR" = "true" ]; then
+    ARGS="${ARGS} --no-color"
+fi
+
+# ===========================================================================
+# Execute sublist3r with the constructed arguments
+# ===========================================================================
+sublist3r $ARGS

@@ -1,0 +1,74 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable seccomp filtering for this service."
+  },
+  "no_new_privs": {
+    "type": "bool",
+    "default": true,
+    "description": "Set PR_SET_NO_NEW_PRIVS before installing filter, required for SECCOMP_SET_MODE_FILTER."
+  },
+  "flags": {
+    "type": "list",
+    "default": [],
+    "description": "Seccomp flags such as SECCOMP_FILTER_FLAG_LOG or SECCOMP_FILTER_FLAG_TSYNC. Corresponds to man page 'FLAGS' section."
+  },
+  "architectures": {
+    "type": "list",
+    "default": [
+      "AUDIT_ARCH_X86_64",
+      "AUDIT_ARCH_I386"
+    ],
+    "description": "List of AUDIT_ARCH_* identifiers allowed by the filter. Corresponds to man page 'struct seccomp_data' arch field."
+  },
+  "allowed_syscalls": {
+    "type": "list",
+    "default": [
+      "SYS_read",
+      "SYS_write",
+      "SYS_openat",
+      "SYS_close",
+      "SYS_fstat",
+      "SYS_mmap",
+      "SYS_mprotect",
+      "SYS_munmap",
+      "SYS_brk",
+      "SYS_rt_sigaction",
+      "SYS_rt_sigprocmask",
+      "SYS_rt_sigreturn",
+      "SYS_exit_group",
+      "SYS_exit",
+      "SYS_clock_gettime",
+      "SYS_arch_prctl",
+      "SYS_set_tid_address",
+      "SYS_set_robust_list",
+      "SYS_prlimit64",
+      "SYS_futex",
+      "SYS_getrandom",
+      "SYS_statfs",
+      "SYS_getpid",
+      "SYS_access",
+      "SYS_newfstatat",
+      "SYS_readlinkat",
+      "SYS_dup",
+      "SYS_ioctl",
+      "SYS_writev",
+      "SYS_pipe",
+      "SYS_dup2",
+      "SYS_mkdir",
+      "SYS_execve",
+      "SYS_fchdir",
+      "SYS_getcwd"
+    ],
+    "description": "List of system call names (SYS_*) allowed by the BPF filter. Denies all others. Corresponds to man page 'ALLOW' action."
+  },
+  "log_actions": {
+    "type": "list",
+    "default": [
+      "SECCOMP_RET_KILL_PROCESS",
+      "SECCOMP_RET_KILL_THREAD"
+    ],
+    "description": "List of seccomp return actions to log via actions_logged. Corresponds to man page '/proc interfaces' actions_logged."
+  }
+}

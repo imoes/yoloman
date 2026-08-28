@@ -1,0 +1,67 @@
+# Configuration for the `socat` utility.
+# See `man socat` for detailed documentation of options.
+
+# Target host and port (or unix socket path) to connect to or bind on.
+# Required. Examples: 'localhost 80', 'example.com 443', '/var/run/socket'
+{% set target_val = target | default('localhost 80') %}
+# Target: {{ target_val }}
+{% if target_val %}{{ target_val }}{% endif %}
+
+# -B local_bind_address: Local address to bind to when making a connection.
+# Leave empty to let the system choose.
+{% set local_bind_address_val = local_bind_address | default('') %}
+{% if local_bind_address_val %}
+# Local Bind Address: {{ local_bind_address_val }}
+-B {{ local_bind_address_val }}{% endif %}
+
+# -c: Convert LF to CRLF on write and CRLF to LF on read.
+{% if crlf is boolean and crlf %}
+# CRLF Translation: Enabled
+-c{% endif %}
+
+# -f: Fork a separate process for each accepted server connection.
+{% if fork is boolean and fork %}
+# Fork Mode: Enabled
+-f{% endif %}
+
+# -q: Close connection on EOF on standard input.
+{% if quit is boolean and quit %}
+# Quit on EOF: Enabled
+-q{% endif %}
+
+# -r: No data read from stdin, only written to socket.
+{% if read_only is boolean and read_only %}
+# Read-Only Mode: Enabled
+-r{% endif %}
+
+# -v: Issue messages about connections to stderr.
+{% if verbose is boolean and verbose %}
+# Verbose Output: Enabled
+-v{% endif %}
+
+# -w: No data read from socket, only written to stdout.
+{% if write_only is boolean and write_only %}
+# Write-Only Mode: Enabled
+-w{% endif %}
+
+# -b: Fork into background, detach from tty, change cwd to root.
+{% if background is boolean and background %}
+# Background Mode: Enabled
+-b{% endif %}
+
+# -p program: Command to execute for each connection.
+# Stdin/stdout/stderr connected to socket.
+{% set program_val = program | default('') %}
+{% if program_val %}
+# Program to Execute: {{ program_val }}
+-p {{ program_val }}{% endif %}
+
+# -s: Create a server socket (listen mode).
+{% if server is boolean and server %}
+# Server Mode: Enabled
+-s{% endif %}
+
+# -l: Accept new connection after one closes (only valid with -s).
+{% if loop is boolean and loop %}
+# Loop Connections: Enabled
+-l{% endif %}

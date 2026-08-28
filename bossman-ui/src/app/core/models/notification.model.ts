@@ -65,4 +65,34 @@ export interface TimePeriod {
   /** WHICH clock the window is read in. Shown because a window read in the wrong zone is
    * off by the local offset and that is invisible from the definition alone. */
   timezone: string;
+  /** Send back as If-Match on PUT: a concurrent edit is then a 412 instead of a silent
+   * overwrite. `active_now`/`timezone` are excluded from it server-side because they move
+   * with the clock (api/etag.py). */
+  version: string;
+}
+
+/** What a client may write — the server owns id, is_builtin, created_at, active_now and the
+ * version. */
+export interface TimePeriodInput {
+  name: string;
+  alias: string;
+  /** weekday -> [["08:00", "17:00"], ...]. No overnight spans: the validator refuses an
+   * end at or before the start, because 22:00-02:00 would be a window that never matches
+   * (split it into 22:00-24:00 and 00:00-02:00). */
+  ranges: Record<string, string[][]>;
+  /** "YYYY-MM-DD" -> spans; an EMPTY list means closed all day. */
+  exceptions: Record<string, string[][]>;
+  /** Names (not ids) of periods that deactivate this one while they are active. */
+  excludes: string[];
+}
+
+/** api/time_periods.py's /usage — what a change to this window would affect, asked BEFORE
+ * editing rather than discovered after. */
+export interface TimePeriodUsage {
+  id: string;
+  name: string;
+  active_now: boolean;
+  timezone: string;
+  notification_rules: { id: string; name: string; enabled: boolean }[];
+  excluded_by: string[];
 }

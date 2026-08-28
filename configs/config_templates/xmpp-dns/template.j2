@@ -1,0 +1,78 @@
+# xmpp-dns configuration template
+# This template generates a configuration file for xmpp-dns, a utility to check XMPP DNS SRV records.
+# All options map 1:1 to command-line flags.
+# Variables use schema defaults to ensure the template is safe to reuse without external context.
+
+# Resolve only IPv4 addresses (equivalent to -4)
+# If true, restricts resolution to IPv4 addresses (-4).
+{% if resolve_ipv4 | default(False) %}
+--ipv4
+{% endif %}
+
+# Resolve only IPv6 addresses (equivalent to -6)
+# If true, restricts resolution to IPv6 addresses (-6).
+{% if resolve_ipv6 | default(False) %}
+--ipv6
+{% endif %}
+
+# Show client SRV records (equivalent to -c)
+# If true, shows client SRV records (-c).
+{% if show_client | default(False) %}
+--client
+{% endif %}
+
+# Show server SRV records (equivalent to -s)
+# If true, shows server SRV records (-s).
+{% if show_server | default(True) %}
+--server
+{% endif %}
+
+# Check fallback on A/AAAA records if no SRV records are found (equivalent to -f)
+# If true, checks fallback ports on A/AAAA records if no SRV records are provided (-f).
+{% if check_fallback | default(False) %}
+--fallback
+{% endif %}
+
+# Test connection and certificates (equivalent to -t)
+# If true, tests the connection and certificates (-t).
+{% if test_connection | default(False) %}
+--test
+{% endif %}
+
+# Resolve IPs in output (equivalent to -v)
+# If true, resolves and displays IP addresses (-v).
+{% if resolve_ips | default(False) %}
+--resolve-ips
+{% endif %}
+
+# Disable colorized output (equivalent to --no-color)
+# If true, disables colorized output (--no-color).
+{% if no_color | default(False) %}
+--no-color
+{% endif %}
+
+# Use DNS-over-TLS (equivalent to --dot)
+# If true, uses DNS-over-TLS (--dot).
+{% if use_dot | default(False) %}
+--dot
+{% endif %}
+
+# Custom DNS resolver address
+# Custom DNS resolver address (e.g., '1.1.1.1' or '5.66.255#dot.ffmuc.net').
+{% if resolver | default('') %}
+--resolver {{ resolver | default('') }}
+{% endif %}
+
+# Connection timeout in seconds
+# Connection timeout in seconds (--timeout).
+--timeout {{ timeout | default(60) }}
+
+# Minimal TLS version to require
+# Minimal TLS version to require. 10=TLSv1.0, 11=TLSv1.1, 12=TLSv1.2, 13=TLSv1.3 (--tls-version).
+--tls-version {{ tls_version | default(12) }}
+
+# Domains to check for XMPP SRV records
+# List of XMPP domain names to check for SRV records. These are positional arguments passed to the CLI.
+{% for domain in domains | default([]) %}
+{{ domain }}
+{% endfor %}

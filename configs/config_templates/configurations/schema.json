@@ -1,235 +1,239 @@
 {
-  "enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether to start the input-remapper daemon automatically at boot."
-  },
-  "uinput_path": {
-    "type": "string",
-    "default": "/dev/uinput",
-    "description": "Path to the virtual uinput device used to inject remapped events."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of logging output (debug, info, warning, error, critical)."
-  },
-  "default_grab_exclusive": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether devices should be exclusively grabbed by default (prevents other programs from seeing the original events)."
-  },
-  "devices": {
-    "type": "list",
-    "default": [],
-    "description": "List of device-specific remapping configurations.",
-    "items": {
-      "type": "object",
+ "default_grab_exclusive": {
+  "default": true,
+  "description": "Whether devices should be exclusively grabbed by default (prevents other programs from seeing the original events).",
+  "type": "boolean"
+ },
+ "devices": {
+  "default": [],
+  "description": "List of device-specific remapping configurations.",
+  "items": {
+   "fields": {
+    "enabled": {
+     "default": true,
+     "description": "Enable this device's remappings. If false, device is ignored.",
+     "type": "boolean"
+    },
+    "grab_exclusive": {
+     "default": true,
+     "description": "Grab device exclusively for this mapping (overrides global default).",
+     "type": "boolean"
+    },
+    "mappings": {
+     "default": [],
+     "description": "List of input-to-output remapping rules for this device.",
+     "items": {
       "fields": {
-        "name": {
-          "type": "string",
+       "comment": {
+        "default": "",
+        "description": "Optional human-readable note about this mapping.",
+        "type": "string"
+       },
+       "from": {
+        "fields": {
+         "axis": {
           "default": "",
-          "description": "Human-readable device name (e.g., 'Logitech Gaming Mouse G502'). Required."
-        },
-        "phys": {
-          "type": "string",
+          "description": "Relative/absolute axis (e.g., 'REL_X', 'ABS_X').",
+          "type": "string"
+         },
+         "button": {
           "default": "",
-          "description": "Physical path (e.g., 'usb-0000:00:14.0-5/input1'). Optional, for disambiguation."
-        },
-        "unique": {
-          "type": "string",
+          "description": "Button event (e.g., 'BTN_LEFT').",
+          "type": "string"
+         },
+         "code": {
+          "default": null,
+          "description": "Raw event code (fallback if key/button/axis/gesture not specified).",
+          "type": "integer"
+         },
+         "gesture": {
           "default": "",
-          "description": "Unique ID (e.g., serial number). Optional."
+          "description": "Touchpad gesture (e.g., 'GESTURE_SWIPE_3').",
+          "type": "string"
+         },
+         "key": {
+          "default": "",
+          "description": "Key event to remap (e.g., 'KEY_A').",
+          "type": "string"
+         },
+         "value": {
+          "default": null,
+          "description": "Event value (e.g., 1 for press, 0 for release).",
+          "type": "integer"
+         }
         },
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable this device's remappings. If false, device is ignored."
-        },
-        "grab_exclusive": {
-          "type": "boolean",
-          "default": true,
-          "description": "Grab device exclusively for this mapping (overrides global default)."
-        },
-        "mappings": {
-          "type": "list",
+        "type": "object"
+       },
+       "to": {
+        "fields": {
+         "axis": {
+          "default": "",
+          "description": "Target axis (e.g., 'ABS_X').",
+          "type": "string"
+         },
+         "button": {
+          "default": "",
+          "description": "Target button (e.g., 'BTN_RIGHT').",
+          "type": "string"
+         },
+         "combination": {
           "default": [],
-          "description": "List of input-to-output remapping rules for this device.",
+          "description": "Multiple keys to press together (e.g., ['KEY_LEFTCTRL', 'KEY_C']).",
           "items": {
-            "type": "object",
-            "fields": {
-              "comment": {
-                "type": "string",
-                "default": "",
-                "description": "Optional human-readable note about this mapping."
-              },
-              "from": {
-                "type": "object",
-                "fields": {
-                  "key": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Key event to remap (e.g., 'KEY_A')."
-                  },
-                  "button": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Button event (e.g., 'BTN_LEFT')."
-                  },
-                  "axis": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Relative/absolute axis (e.g., 'REL_X', 'ABS_X')."
-                  },
-                  "gesture": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Touchpad gesture (e.g., 'GESTURE_SWIPE_3')."
-                  },
-                  "code": {
-                    "type": "integer",
-                    "default": null,
-                    "description": "Raw event code (fallback if key/button/axis/gesture not specified)."
-                  },
-                  "value": {
-                    "type": "integer",
-                    "default": null,
-                    "description": "Event value (e.g., 1 for press, 0 for release)."
-                  }
-                }
-              },
-              "to": {
-                "type": "object",
-                "fields": {
-                  "key": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Target key (e.g., 'KEY_B')."
-                  },
-                  "button": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Target button (e.g., 'BTN_RIGHT')."
-                  },
-                  "axis": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Target axis (e.g., 'ABS_X')."
-                  },
-                  "gesture": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Target gesture."
-                  },
-                  "combination": {
-                    "type": "list",
-                    "default": [],
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Multiple keys to press together (e.g., ['KEY_LEFTCTRL', 'KEY_C'])."
-                  },
-                  "command": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Shell command to execute (e.g., 'pactl set-sink-mute @DEFAULT_SINK@ toggle')."
-                  },
-                  "mouse": {
-                    "type": "object",
-                    "fields": {
-                      "x": {
-                        "type": "number",
-                        "default": 0
-                      },
-                      "y": {
-                        "type": "number",
-                        "default": 0
-                      }
-                    },
-                    "description": "Mouse movement delta."
-                  },
-                  "wheel": {
-                    "type": "object",
-                    "fields": {
-                      "direction": {
-                        "type": "string",
-                        "default": "vertical",
-                        "enum": [
-                          "vertical",
-                          "horizontal"
-                        ]
-                      },
-                      "steps": {
-                        "type": "integer",
-                        "default": 1
-                      }
-                    },
-                    "description": "Scroll wheel emulation."
-                  },
-                  "value": {
-                    "type": "integer",
-                    "default": null,
-                    "description": "Target axis or button value (e.g., 255)."
-                  },
-                  "repeat": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Allow auto-repeat of this mapping."
-                  },
-                  "delay_ms": {
-                    "type": "integer",
-                    "default": 0,
-                    "description": "Delay (ms) before applying this remap."
-                  },
-                  "timeout_ms": {
-                    "type": "integer",
-                    "default": 0,
-                    "description": "Timeout (ms) after which to cancel pending remaps."
-                  },
-                  "modifiers": {
-                    "type": "list",
-                    "default": [],
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Required modifier keys (e.g., ['KEY_LEFTSHIFT'])."
-                  },
-                  "invert": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Invert axis direction or button state."
-                  },
-                  "threshold": {
-                    "type": "number",
-                    "default": null,
-                    "description": "Axis threshold (0\u20131) for triggering remap."
-                  },
-                  "release_timeout_ms": {
-                    "type": "integer",
-                    "default": 0,
-                    "description": "Timeout to force release (ms)."
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+           "type": "string"
+          },
+          "type": "list"
+         },
+         "command": {
+          "default": "",
+          "description": "Shell command to execute (e.g., 'pactl set-sink-mute @DEFAULT_SINK@ toggle').",
+          "type": "string"
+         },
+         "delay_ms": {
+          "default": 0,
+          "description": "Delay (ms) before applying this remap.",
+          "type": "integer"
+         },
+         "gesture": {
+          "default": "",
+          "description": "Target gesture.",
+          "type": "string"
+         },
+         "invert": {
+          "default": false,
+          "description": "Invert axis direction or button state.",
+          "type": "boolean"
+         },
+         "key": {
+          "default": "",
+          "description": "Target key (e.g., 'KEY_B').",
+          "type": "string"
+         },
+         "modifiers": {
+          "default": [],
+          "description": "Required modifier keys (e.g., ['KEY_LEFTSHIFT']).",
+          "items": {
+           "type": "string"
+          },
+          "type": "list"
+         },
+         "mouse": {
+          "description": "Mouse movement delta.",
+          "fields": {
+           "x": {
+            "default": 0,
+            "type": "number"
+           },
+           "y": {
+            "default": 0,
+            "type": "number"
+           }
+          },
+          "type": "object"
+         },
+         "release_timeout_ms": {
+          "default": 0,
+          "description": "Timeout to force release (ms).",
+          "type": "integer"
+         },
+         "repeat": {
+          "default": false,
+          "description": "Allow auto-repeat of this mapping.",
+          "type": "boolean"
+         },
+         "threshold": {
+          "default": null,
+          "description": "Axis threshold (0–1) for triggering remap.",
+          "type": "number"
+         },
+         "timeout_ms": {
+          "default": 0,
+          "description": "Timeout (ms) after which to cancel pending remaps.",
+          "type": "integer"
+         },
+         "value": {
+          "default": null,
+          "description": "Target axis or button value (e.g., 255).",
+          "type": "integer"
+         },
+         "wheel": {
+          "description": "Scroll wheel emulation.",
+          "fields": {
+           "direction": {
+            "default": "vertical",
+            "enum": [
+             "vertical",
+             "horizontal"
+            ],
+            "type": "string"
+           },
+           "steps": {
+            "default": 1,
+            "type": "integer"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "type": "object"
+     },
+     "type": "list"
+    },
+    "name": {
+     "default": "",
+     "description": "Human-readable device name (e.g., 'Logitech Gaming Mouse G502'). Required.",
+     "type": "string"
+    },
+    "phys": {
+     "default": "",
+     "description": "Physical path (e.g., 'usb-0000:00:14.0-5/input1'). Optional, for disambiguation.",
+     "type": "string"
+    },
+    "unique": {
+     "default": "",
+     "description": "Unique ID (e.g., serial number). Optional.",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "pre_remap_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Shell command to run before applying any remappings (e.g., for setup)."
-  },
-  "post_remap_hook": {
-    "type": "string",
-    "default": "",
-    "description": "Shell command to run after applying remappings (e.g., for logging)."
-  },
-  "stop_on_exit": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether to destroy the uinput device when the daemon stops."
-  }
+  "type": "list"
+ },
+ "enabled": {
+  "default": true,
+  "description": "Whether to start the input-remapper daemon automatically at boot.",
+  "type": "boolean"
+ },
+ "enabled_comment": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "info",
+  "description": "Verbosity of logging output (debug, info, warning, error, critical).",
+  "type": "string"
+ },
+ "post_remap_hook": {
+  "default": "",
+  "description": "Shell command to run after applying remappings (e.g., for logging).",
+  "type": "string"
+ },
+ "pre_remap_hook": {
+  "default": "",
+  "description": "Shell command to run before applying any remappings (e.g., for setup).",
+  "type": "string"
+ },
+ "stop_on_exit": {
+  "default": true,
+  "description": "Whether to destroy the uinput device when the daemon stops.",
+  "type": "boolean"
+ },
+ "uinput_path": {
+  "default": "/dev/uinput",
+  "description": "Path to the virtual uinput device used to inject remapped events.",
+  "type": "string"
+ }
 }

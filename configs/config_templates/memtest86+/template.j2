@@ -1,0 +1,101 @@
+#!/bin/sh
+set -e
+
+# We can't cope with loop-mounted devices here.
+case ${GRUB_DEVICE_BOOT} in
+	/dev/loop/*|/dev/loop[0-9]) exit 0 ;;
+esac
+
+if [ -f /usr/lib/grub/grub-mkconfig_lib ]; then
+	. /usr/lib/grub/grub-mkconfig_lib
+else
+	# no grub file, so we notify and exit gracefully
+	echo "Cannot find grub config file, exiting." >&2
+	exit 0
+fi
+
+# read value from /etc/default/grub and /etc/default/grub.d/*.cfg
+# (borrowed from grub postinst script)
+config_item()
+{
+	for x in /etc/default/grub /etc/default/grub.d/*.cfg; do
+		if [ -f "$x" ]; then
+			# Lose any output here so we don't confuse our caller
+			. "$x" > /dev/null
+		fi
+	done
+	eval echo "\$$1"
+}
+
+# If set to true, memtest entries are not added to the GRUB menu.
+# default: false
+if [ "x$(config_item GRUB_DISABLE_MEMTEST)" = "x{{ GRUB_DISABLE_MEMTEST | default('false') }}" ] ; then
+	exit 0
+fi
+
+# If set to true, serial console entries for memtest are not added.
+# default: false
+GRUB_MEMTEST_DISABLE_SERIAL="$(config_item GRUB_MEMTEST_DISABLE_SERIAL)"
+
+# With GRUB_MEMTEST_DISABLE_SERIAL={{ GRUB_MEMTEST_DISABLE_SERIAL | default('false') }} don't add serial console entries
+if [ "x${GRUB_MEMTEST_DISABLE_SERIAL}" != "x{{ GRUB_MEMTEST_DISABLE_SERIAL | default('false') }}" ]; then
+	# Serial console parameters for memtest (e.g., ttyS0,115200).
+	# default: ttyS0,115200
+	GRUB_MEMTEST_SERIAL_PARAMS="$(config_item GRUB_MEMTEST_SERIAL_PARAMS)"
+
+	if [ "x${GRUB_MEMTEST_SERIAL_PARAMS}" = "x" ] ; then
+		GRUB_MEMTEST_SERIAL_PARAMS="{{ GRUB_MEMTEST_SERIAL_PARAMS | default('ttyS0,115200') }}"
+	fi
+fi
+
+# All memtest images are expected to be in /boot
+prepare_boot_cache="$(prepare_grub_to_access_device ${GRUB_DEVICE_BOOT} | sed -e "s/^/\t\t/")"
+
+create_menu_entry() {
+	local label id relpath options
+	label="$1"
+	id="$2"
+	relpath="$3"
+	options="$4"
+	printf '\tmenuentry "Memory test (%s)" --class memtest $menuentry_id_option "%s" {\n' "$label" "$id"
+	printf '%s\n' "${prepare_boot_cache}"
+	printf '\t\tlinux %s %s\n\t}\n' "$relpath" "$options"
+}
+
+menu_entries_for_image() {
+	local file filepath relpath variant test_begin test_end
+	file="$1"
+	filepath="/boot/$file"
+	if [ -f "$filepath" ]; then
+		relpath=$(make_system_path_relative_to_its_root "$filepath")
+		variant="$2"
+		test_begin="$3"
+		test_end="$4"
+		echo "Found memtest86+ $variant image: $filepath" >&2
+		printf '%s\n' "$test_begin"
+		create_menu_entry "$file" 'memtest86+' "$relpath"
+		# With GRUB_MEMTEST_DISABLE_SERIAL={{ GRUB_MEMTEST_DISABLE_SERIAL | default('false') }} don't add serial console entries
+		if [ "x${GRUB_MEMTEST_DISABLE_SERIAL}" != "x{{ GRUB_MEMTEST_DISABLE_SERIAL | default('false') }}" ]; then
+			# Serial console parameters for memtest (e.g., ttyS0,115200).
+			# default: ttyS0,115200
+			create_menu_entry "$file, serial console" 'memtest86+-serial' "$relpath" "console=${GRUB_MEMTEST_SERIAL_PARAMS | default('ttyS0,115200')}"
+		fi
+		printf '%s\n' "$test_end"
+	fi
+}
+
+menu_entries_for_image memtest86+x64.efi "64bit EFI" \
+	'if [ "$grub_platform" = efi -a "$grub_cpu" = x86_64 ]; then' \
+	'fi'
+
+menu_entries_for_image memtest86+ia32.efi "32bit EFI" \
+	'if [ "$grub_platform" = efi -a "$grub_cpu" = i386 ]; then' \
+	'fi'
+
+menu_entries_for_image memtest86+x64.bin "64bit" \
+	'if [ "$grub_platform" = pc ]; then if cpuid -l ; then' \
+	'fi ; fi'
+
+menu_entries_for_image memtest86+ia32.bin "32bit" \
+	'if [ "$grub_platform" = pc ]; then if ! cpuid -l ; then' \
+	'fi ; fi'

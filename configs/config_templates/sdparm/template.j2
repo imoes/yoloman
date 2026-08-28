@@ -1,0 +1,152 @@
+{#
+  ============================================================================
+  Ansible Jinja2 Template: sdparm Configuration
+  ============================================================================
+  This template generates configuration directives for the `sdparm` utility,
+  which is used to query and set SCSI device parameters.
+
+  Self-documenting: Every directive is preceded by a comment explaining
+  its purpose, corresponding sdparm flag, and default value source.
+
+  Variable Safety: All variables use `default()` with schema-derived defaults
+  to prevent rendering errors when variables are undefined.
+  ============================================================================
+#}
+
+# ===========================================================================
+# Target Device Configuration
+# ===========================================================================
+
+# The block device path to target (e.g., /dev/sda, /dev/sdb)
+# Corresponds to the positional DEVICE argument in sdparm synopsis.
+# Default: '/dev/sda'
+DEFAULT_DEVICE: {{ device | default('/dev/sda') }}
+
+# ===========================================================================
+# General Output & Inspection Flags
+# ===========================================================================
+
+# Output all recognized fields for the device type
+# Corresponds to the --all flag.
+# Default: False
+SHOW_ALL: {{ show_all | default(false) | lower }}
+
+# Disable block descriptors in MODE SENSE output
+# Corresponds to the --dbd flag.
+# Default: False
+DISABLE_BLOCK_DESCRIPTORS: {{ disable_block_descriptors | default(false) | lower }}
+
+# Use 6-byte SCSI Command Descriptors (CDB) instead of 10-byte
+# Corresponds to the --six flag. Useful for older devices.
+# Default: False
+USE_SIX_BYTE_CDB: {{ use_six_byte_cdb | default(false) | lower }}
+
+# Increase verbosity/debug output
+# Corresponds to the --verbose flag.
+# Default: False
+VERBOSE: {{ verbose | default(false) | lower }}
+
+# Suppress device identification header and saveable values in output
+# Corresponds to the --quiet flag.
+# Default: False
+QUIET: {{ quiet | default(false) | lower }}
+
+# Display mode pages in hexadecimal format
+# Corresponds to the --hex flag.
+# Default: False
+HEX_OUTPUT: {{ hex_output | default(false) | lower }}
+
+# Include descriptions for fields in output
+# Corresponds to the --long flag.
+# Default: False
+LONG_OUTPUT: {{ long_output | default(false) | lower }}
+
+# Probe all pages including vendor-specific or unlisted ones
+# Corresponds to the --examine flag.
+# Default: False
+EXAMINE_ALL: {{ examine_all | default(false) | lower }}
+
+# ===========================================================================
+# Device Identification Filters
+# ===========================================================================
+
+# Transport protocol identifier (e.g., 'fcp', 'sas', 'spi') or numeric ID
+# Corresponds to the --transport=TN flag.
+# Default: 'fcp'
+TRANSPORT: {{ transport | default('fcp') }}
+
+# Vendor identifier (e.g., 'sea' for Seagate) or numeric ID
+# Corresponds to the --vendor=VN flag.
+# Default: '' (empty)
+VENDOR: {{ vendor | default('') }}
+
+# Mode page number, hex code, or abbreviation (e.g., 'ca' for caching)
+# Corresponds to the --page=PG flag.
+# Default: '' (empty)
+MODE_PAGE: {{ mode_page | default('') }}
+
+# ===========================================================================
+# Device Access Mode
+# ===========================================================================
+
+# Open the device in read-only mode
+# Corresponds to the --readonly flag.
+# Default: False
+READONLY: {{ readonly | default(false) | lower }}
+
+# ===========================================================================
+# Persistence
+# ===========================================================================
+
+# Save changes to the persistent (power-cycle) mode page as well as current
+# Corresponds to the --save flag.
+# Default: False
+SAVE_TO_PERSISTENT: {{ save_to_persistent | default(false) | lower }}
+
+# ===========================================================================
+# Field Manipulation: Set
+# ===========================================================================
+
+# List of fields to set. Items should be strings in format 'ACRONYM=VALUE'
+# or 'ACRONYM'.
+# Corresponds to the --set=STR flag.
+# Note: In the generated output, this is stored as a list. When passed
+# to sdparm, join them with commas.
+# Default: [] (empty list)
+SET_FIELDS: {{ set_fields | default([]) }}
+
+# ===========================================================================
+# Field Manipulation: Clear
+# ===========================================================================
+
+# List of fields to clear. Items are strings 'ACRONYM=VALUE' or 'ACRONYM'.
+# Corresponds to the --clear=STR flag.
+# Default: [] (empty list)
+CLEAR_FIELDS: {{ clear_fields | default([]) }}
+
+# ===========================================================================
+# Field Manipulation: Get
+# ===========================================================================
+
+# Field acronym to get, optionally with value like 'WCE' or 'WCE=1'
+# Corresponds to the --get=STR flag.
+# Default: '' (empty)
+GET_FIELD: {{ get_field | default('') }}
+
+# ===========================================================================
+# SCSI Command Execution
+# ===========================================================================
+
+# SCSI command to execute (e.g., 'stop', 'start', 'eject', 'sync', 'ready')
+# Corresponds to the --command=CMD flag.
+# Default: 'capacity'
+SCSI_COMMAND: {{ scsi_command | default('capacity') }}
+
+# ===========================================================================
+# Defaults Reset
+# ===========================================================================
+
+# Reset mode page to manufacturer defaults
+# Corresponds to the --defaults flag.
+# Default: False
+RESTORE_DEFAULTS: {{ restore_defaults | default(false) | lower }}

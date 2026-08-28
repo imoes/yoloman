@@ -1,0 +1,112 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          smcroute
+# Required-Start:    $syslog $local_fs $network $remote_fs
+# Required-Stop:     $syslog $local_fs $network $remote_fs
+# Should-Start:      
+# Should-Stop:       
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Static multicast router daemon
+# Description:       SMCRoute is a daemon and command line tool to manipulate
+#                    the multicast routing table of a UNIX kernel.  It can be
+#                    used as an alternative to dynamic multicast routers like
+#                    pimd or mrouted in situations where static routes should
+#                    be maintained and/or no proper IGMP signaling exists.
+### END INIT INFO
+
+# Set the system path to ensure commands are found
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Path to the SMCRoute daemon executable
+DAEMON=/usr/sbin/smcrouted
+
+# Path to the SMCRoute control utility
+DAEMONCTL=/usr/sbin/smcroutectl
+
+# Additional command-line options passed to the smcrouted daemon.
+# Defaults to an empty string if not specified.
+DAEMON_OPTS={{ daemon_opts | default('', true) | string | trim }}
+
+# The name used for identification in logs and status messages
+NAME=smcrouted
+
+# A descriptive name for the service
+DESC="static multicast router daemon"
+
+# Check if the daemon binary exists and is executable; exit if not
+test -x $DAEMON || exit 0
+
+# Include smcroute defaults if available
+if [ -f /etc/default/smcroute ] ; then
+	. /etc/default/smcroute
+fi
+
+# Load LSB init functions
+. /lib/lsb/init-functions
+
+# Function to start the service
+start() {
+	local error
+	local result
+	log_begin_msg "Starting $DESC: $NAME"
+	
+	# Start the daemon with the configured options and capture any error output
+	error=$(start-stop-daemon --start --quiet \
+		--exec $DAEMON -- $DAEMON_OPTS 2>&1)
+	result=$?
+	
+	# If the daemon started successfully and a startup script exists, run it
+	if [ "$result" = "0" -a -x /etc/smcroute/startup.sh ]; then
+		/etc/smcroute/startup.sh
+	else
+		# Log any error message (stripping "ERRO: " prefix if present)
+		log_progress_msg ${error#ERRO: }
+	fi
+	log_end_msg $result
+}
+
+# Function to stop the service
+stop() {
+	local error
+	local result
+	log_begin_msg "Stopping $DESC: $NAME"
+	
+	# Kill the daemon using the control utility
+	error=$($DAEMONCTL kill 2>&1)
+	result=$?
+	
+	# Log the result
+	log_progress_msg ${error#ERRO: }
+	log_end_msg $result
+}
+
+# Handle command line arguments
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|force-reload)
+	#
+	#   If the "reload" option is implemented, move the "force-reload"
+	#   option to the "reload" entry above. If not, "force-reload" is
+	#   just the same as "restart".
+	#
+	stop
+	start
+	;;
+  status)
+	status_of_proc "$DAEMON" "$DESC" && exit 0 || exit $?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

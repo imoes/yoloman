@@ -1,0 +1,38 @@
+# hxtools configuration file
+# This is a pseudo-configuration file structure for hxtools(7)
+# as hxtools is primarily a collection of standalone CLI utilities
+# (bin2c, bsvplay, checkbrack, etc.) that do not share a single
+# daemon configuration file. However, to satisfy the request for
+# a Class-B configuration template, we provide a schema for
+# potential global environment variables or runtime options
+# that could be passed via an init script or environment file
+# if a service wrapper were created.
+
+# Default language for tools that support localization
+# Schema field: lang (string)
+# Description: Default locale environment variable for text-processing tools in hxtools.
+LANG: {{ lang | default('en_US.UTF-8') }}
+
+# Default shell for tools that invoke subshells
+# Schema field: shell (string)
+# Description: Default shell used by hxtools utilities that spawn subshells.
+SHELL: {{ shell | default('/bin/bash') }}
+
+# List of hxtools utilities to enable or register
+# Schema field: tools (list)
+# Description: List of hxtools utility names to include in the configuration context.
+enabled_tools:
+{% for tool in tools | default(['bin2c', 'bsvplay', 'checkbrack', 'diff2php', 'mod2opus']) %}
+- {{ tool }}
+{% endfor %}
+
+# Path to user data or temporary files for tools like
+# mod2opus or extract_* utilities
+# Schema field: tmpdir (string)
+# Description: Directory used by hxtools for temporary file storage.
+TMPDIR: {{ tmpdir | default('/tmp') }}
+
+# Log level for tools that support verbose logging
+# Schema field: log_level (string)
+# Description: Verbosity level for logging in hxtools wrapper scripts.
+LOG_LEVEL: {{ log_level | default('info') }}

@@ -1,0 +1,14 @@
+# Systemd service override for lomiri-docviewer-app
+# This snippet configures the application to start with a specific document.
+# lomiri-docviewer-app is a QML/Qt application that does not use traditional
+# INI or YAML config files for runtime settings. Instead, configuration
+# is passed via command-line arguments at launch.
+#
+# To use this: create a drop-in file at
+# /etc/systemd/system/lomiri-docviewer-app.service.d/override.conf
+# and paste the ExecStart line below into it.
+
+# StartupFile: Path to the document file to open automatically.
+# If empty, the application will prompt the user to select a file.
+# Maps to the command-line argument: lomiri-docviewer-app [file]
+ExecStart=%{=d}%E %E /usr/bin/lomiri-docviewer-app {{ start_file | default('', true) }}

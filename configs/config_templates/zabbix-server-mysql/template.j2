@@ -1,0 +1,32 @@
+# Zabbix Server Log Rotation Configuration
+# Managed by Ansible — do not edit manually.
+# This file configures logrotate for the Zabbix server logs.
+
+/var/log/{{ zabbix_log_dir | default('zabbix-server') }}/ {{ zabbix_server_log_file | default('zabbix_server.log') }} {
+    # Rotate log files weekly.
+    weekly
+
+    # Number of rotated log files to keep.
+    rotate {{ zabbix_log_rotate_count | default(7) }}
+
+    # Compress old log files using gzip to save disk space.
+    compress
+
+    # Delay compression until the next rotation cycle to avoid blocking
+    # the Zabbix server while it is still writing to the compressed file.
+    delaycompress
+
+    # Do not error if the log file is missing (e.g., before the first rotation).
+    missingok
+
+    # Do not rotate an empty log file.
+    notifempty
+
+    # Create new log files with the specified permissions and ownership.
+    # The permissions are octal (e.g., 0640).
+    # The user and group ensure proper access control.
+    create {{ zabbix_log_file_permissions | default('0640') }} {{ zabbix_log_user | default('zabbix') }} {{ zabbix_log_group | default('zabbix') }}
+
+    # Run the postrotate script only once for all logs in this block (if multiple).
+    sharedscripts
+}

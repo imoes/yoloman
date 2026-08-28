@@ -1,0 +1,103 @@
+# liquidctl configuration file
+# Man page: liquidctl(8)
+#
+# This template generates a list of liquidctl commands to be executed, typically via
+# systemd timers or cron. It iterates over the `devices` list provided in the role variables.
+# Global settings apply to all devices if defined.
+#
+# Global non-volatile flag: if true, append --non-volatile to set commands (default: false)
+# Global verbose flag: if true, append --verbose to liquidctl commands (default: false)
+# Global match string: used as default --match value for devices without a specific match_string (default: '')
+
+{% for device in devices | default([]) %}
+# ==============================================================================
+# Device: {{ (device.description | default('Unknown Device')) | default('Unknown Device') }}
+# ==============================================================================
+
+# Match string for this specific device. Overrides global_match_string if present.
+{% set current_match = (device.match_string | default(global_match_string | default(''))) | default('') %}
+{% if current_match %}
+# Match: {{ current_match }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# 1. Initialize device on boot/startup
+# --------------------------------------------------------------------------
+# If device.initialize is true, run liquidctl initialize all.
+# Global settings (verbose/non-volatile) do not typically apply to 'initialize',
+# but are included here for consistency if the user expects them.
+{% if (device.initialize | default(False)) | bool %}
+# Initialize: {{ current_match | default('all') }}
+liquidctl{% if (global_verbose | default(False)) | bool %} --verbose{% endif %} initialize all
+{% endif %}
+
+# --------------------------------------------------------------------------
+# 2. Fan/Pump Speed Configuration
+# --------------------------------------------------------------------------
+# Target channel (e.g., 'fan1', 'pump', 'cpu_fan'). Defaults to 'fan1' if unspecified.
+{% set fan_ch = (device.fan_channel | default('fan1')) | default('fan1') %}
+
+# Fixed fan speed (0-100 percentage).
+# If defined, sets the fan channel to the specified speed.
+{% if device.fan_speed is defined and device.fan_speed is not none %}
+# Set fan channel: {{ fan_ch }} speed: {{ device.fan_speed }}
+liquidctl --match '{{ current_match }}' set {{ fan_ch }} speed {{ device.fan_speed }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# Fixed pump speed (0-100 percentage).
+# If defined, sets the pump channel to the specified speed.
+# Default pump channel name is 'pump'.
+{% set pump_ch = (device.pump_channel | default('pump')) | default('pump') %}
+{% if device.pump_speed is defined and device.pump_speed is not none %}
+# Set pump channel: {{ pump_ch }} speed: {{ device.pump_speed }}
+liquidctl --match '{{ current_match }}' set {{ pump_ch }} speed {{ device.pump_speed }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# 3. Lighting / LED Effects
+# --------------------------------------------------------------------------
+# LED channel name (e.g., 'led1', 'sync'). Defaults to 'sync' if unspecified.
+{% set led_ch = (device.led_channel | default('sync')) | default('sync') %}
+
+# LED Mode / Color effect (e.g., 'fixed', 'rainbow', 'color_shift').
+# Sets the lighting channel to the specified mode.
+{% if device.led_mode is defined and device.led_mode is not none %}
+# Set LED channel: {{ led_ch }} color: {{ device.led_mode }}
+liquidctl --match '{{ current_match }}' set {{ led_ch }} color {{ device.led_mode }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# Animation Speed (optional parameter for some LED modes).
+# If defined, appends --speed=<value> to the last LED command context.
+{% if device.animation_speed is defined and device.animation_speed is not none %}
+# Animation Speed: {{ device.animation_speed }}
+liquidctl --match '{{ current_match }}' set {{ led_ch }} color {{ (device.led_mode | default('fixed')) | default('fixed') }} --speed={{ device.animation_speed }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# 4. Alerts and Thresholds
+# --------------------------------------------------------------------------
+# Temperature Alert Threshold (degrees Celsius).
+# Triggers an alert if temperature exceeds this value.
+{% if device.alert_threshold is defined and device.alert_threshold is not none %}
+# Alert Threshold: {{ device.alert_threshold }}
+liquidctl --match '{{ current_match }}' set {{ led_ch }} color {{ (device.led_mode | default('fixed')) | default('fixed') }} --alert-threshold={{ device.alert_threshold }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# Alert Color.
+# The color/LED state to use when an alert is triggered.
+{% if device.alert_color is defined and device.alert_color is not none %}
+# Alert Color: {{ device.alert_color }}
+liquidctl --match '{{ current_match }}' set {{ led_ch }} color {{ (device.led_mode | default('fixed')) | default('fixed') }} --alert-color={{ device.alert_color }}{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# 5. Non-Volatile Storage
+# --------------------------------------------------------------------------
+# If device.non_volatile is true, store current settings in device's non-volatile memory.
+# Warning: limited write cycles.
+{% if (device.non_volatile | default(False)) | bool %}
+# Store settings to non-volatile memory for fan channel: {{ fan_ch | default('pump') }}
+liquidctl --match '{{ current_match }}' set {{ fan_ch | default('pump') }} speed {{ (device.pump_speed | default(50)) | default(50) }} --non-volatile{% if (global_verbose | default(False)) | bool %} --verbose{% endif %}
+{% endif %}
+
+{% endfor %}

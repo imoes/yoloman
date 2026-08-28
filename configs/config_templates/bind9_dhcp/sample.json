@@ -1,123 +1,123 @@
 {
-  "options": {
-    "directory": "/var/cache/bind",
-    "pid_file": "/run/named/named.pid",
-    "allow_query": [
-      "localhost",
-      "192.168.1.0/24"
-    ],
-    "forwarders": [
-      "8.8.8.8",
-      "2001:4860:4860::8888"
-    ],
-    "port": 53,
-    "listen_addresses": [
-      "127.0.0.1",
-      "192.168.1.1"
-    ],
-    "listen_addresses_v6": [
-      "::1"
-    ],
-    "max_queries_per_connection": 1000,
-    "recursion": true,
-    "allow_recursion": [
-      "localhost",
-      "192.168.1.0/24"
-    ],
-    "version_string": "hidden"
-  },
-  "logging": {
+ "dhcp_key_algorithm": "hmac-sha256",
+ "dhcp_key_name": "dhcp-updater",
+ "dhcp_key_secret": "dWJ1bnR1c2VyKzM0NTY3ODkwYWJjZGVm",
+ "dlz": {
+  "backend_module": "postgres",
+  "params": [
+   "host=localhost",
+   "dbname=dhcp_dns",
+   "user=dns",
+   "password=supersecret"
+  ]
+ },
+ "include_extra": false,
+ "include_extra_path": "/etc/bind/named.conf.extra",
+ "logging": {
+  "categories": [
+   {
     "channels": [
-      {
-        "name": "default_channel",
-        "file": "/var/log/bind/query.log",
-        "versions": 5,
-        "size": "10m",
-        "severity": "info",
-        "print_time": true,
-        "print_severity": true,
-        "print_category": true
-      },
-      {
-        "name": "security_channel",
-        "file": "/var/log/bind/security.log",
-        "versions": 3,
-        "size": "5m",
-        "severity": "info",
-        "print_time": true
-      }
+     "default_channel"
     ],
-    "categories": [
-      {
-        "name": "default",
-        "channels": [
-          "default_channel"
-        ]
-      },
-      {
-        "name": "security",
-        "channels": [
-          "security_channel"
-        ]
-      }
-    ]
-  },
-  "dlz": {
-    "backend_module": "postgres",
-    "params": [
-      "host=localhost",
-      "dbname=dhcp_dns",
-      "user=dns",
-      "password=supersecret"
-    ]
-  },
-  "tsig": {
-    "key_name": "dhcp-update",
-    "algorithm": "hmac-sha256",
-    "secret": "W9qKfFJxG3k+YdP0JqYV5g=="
-  },
-  "zones": [
-    {
-      "name": "example.com",
-      "type": "master",
-      "file": "db.example.com",
-      "update_policy": [
-        "grant dhcp-update subdomain example.com A AAAA;"
-      ],
-      "allow_query": [
-        "any"
-      ],
-      "allow_transfer": [
-        "192.168.1.2"
-      ],
-      "notify": "yes"
-    },
-    {
-      "name": "internal.lan",
-      "type": "master",
-      "file": "db.internal.lan",
-      "allow_query": [
-        "localhost",
-        "10.0.0.0/8"
-      ]
-    }
+    "name": "default"
+   },
+   {
+    "channels": [
+     "security_channel"
+    ],
+    "name": "security"
+   }
   ],
-  "reverse_zones": [
-    {
-      "zone_name": "1.168.192.in-addr.arpa",
-      "type": "master",
-      "file": "db.192.168.1",
-      "update_policy": [
-        "grant dhcp-update wildcard PTR;"
-      ],
-      "allow_query": [
-        "any"
-      ]
-    }
+  "channels": [
+   {
+    "file": "/var/log/bind/query.log",
+    "name": "default_channel",
+    "print_category": true,
+    "print_severity": true,
+    "print_time": true,
+    "severity": "info",
+    "size": "10m",
+    "versions": 5
+   },
+   {
+    "file": "/var/log/bind/security.log",
+    "name": "security_channel",
+    "print_time": true,
+    "severity": "info",
+    "size": "5m",
+    "versions": 3
+   }
+  ]
+ },
+ "options": {
+  "allow_query": [
+   "localhost",
+   "192.168.1.0/24"
   ],
-  "dhcp_key_name": "dhcp-updater",
-  "dhcp_key_algorithm": "hmac-sha256",
-  "dhcp_key_secret": "dWJ1bnR1c2VyKzM0NTY3ODkwYWJjZGVm",
-  "include_extra": false,
-  "include_extra_path": "/etc/bind/named.conf.extra"
+  "allow_recursion": [
+   "localhost",
+   "192.168.1.0/24"
+  ],
+  "directory": "/var/cache/bind",
+  "forwarders": [
+   "8.8.8.8",
+   "2001:4860:4860::8888"
+  ],
+  "listen_addresses": [
+   "127.0.0.1",
+   "192.168.1.1"
+  ],
+  "listen_addresses_v6": [
+   "::1"
+  ],
+  "max_queries_per_connection": 1000,
+  "pid_file": "/run/named/named.pid",
+  "port": 53,
+  "recursion": true,
+  "version_string": "hidden"
+ },
+ "reverse_zones": [
+  {
+   "allow_query": [
+    "any"
+   ],
+   "file": "db.192.168.1",
+   "type": "master",
+   "update_policy": [
+    "grant dhcp-update wildcard PTR;"
+   ],
+   "zone_name": "1.168.192.in-addr.arpa"
+  }
+ ],
+ "tsig": {
+  "algorithm": "hmac-sha256",
+  "key_name": "dhcp-update",
+  "secret": "W9qKfFJxG3k+YdP0JqYV5g=="
+ },
+ "zones": [
+  {
+   "allow_query": [
+    "any"
+   ],
+   "allow_transfer": [
+    "192.168.1.2"
+   ],
+   "file": "db.example.com",
+   "name": "example.com",
+   "notify": "yes",
+   "type": "master",
+   "update_policy": [
+    "grant dhcp-update subdomain example.com A AAAA;"
+   ]
+  },
+  {
+   "allow_query": [
+    "localhost",
+    "10.0.0.0/8"
+   ],
+   "file": "db.internal.lan",
+   "name": "internal.lan",
+   "type": "master"
+  }
+ ]
 }

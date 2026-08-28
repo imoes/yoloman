@@ -1,0 +1,37 @@
+# ============================================================================
+# Meterbridge Configuration
+# ============================================================================
+# This template configures meterbridge, a JACK Audio Connection Kit utility
+# for visualizing audio signal levels.
+# ============================================================================
+
+# Reverence level for 0dB on the meter (in dBu or similar, depending on calibration).
+# This sets the reference level that the meter considers as "0".
+# See man page for meterbridge(1), option -r
+REVERENCE_LEVEL={{ reverence_level|default(0) }}
+
+# Number of columns to use when displaying several meters in the UI.
+# Useful for horizontal arrangement of multiple meter displays.
+# See man page for meterbridge(1), option -c
+COLUMNS={{ columns|default(1) }}
+
+# Unique identifier name to register with the JACK system.
+# This name is used by the JACK server to identify the client application.
+# See man page for meterbridge(1), option -n
+JACK_NAME={{ jack_name|default('meterbridge') }}
+
+# Type of meter visualization.
+# Allowed values: 'vu', 'ppm', 'dpm', 'jf', 'sco'
+# - vu: Volume Units (VU meter style)
+# - ppm: Peak Program Meter
+# - dpm: Digital Peak Meter
+# - jf: J-Fet style (historical)
+# - sco: Sound Control Office style
+# See man page for meterbridge(1), option -t
+METER_TYPE={{ meter_type|default('vu') }}
+
+# List of JACK port names to monitor.
+# Use placeholder 'x' for unconnected meters if no real ports are available.
+# Multiple ports are space-separated.
+# See man page for meterbridge(1), portname arguments
+PORTS={% for port in (ports | default([])) %}{{ port }}{% if not loop.last %} {% endif %}{% endfor %}

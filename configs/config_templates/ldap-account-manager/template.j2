@@ -1,0 +1,115 @@
+Alias /lam /usr/share/ldap-account-manager
+
+# HSTS header to enforce HTTPS connections (requires active mod_headers in Apache)
+# The max-age controls how long browsers remember to only use HTTPS.
+Header always set Strict-Transport-Security "max-age={{ lam_hsts_max_age | default(31536000) }}"
+
+<Directory /usr/share/ldap-account-manager>
+  Options +FollowSymLinks
+  AllowOverride None
+  Require all granted
+  DirectoryIndex index.html
+</Directory>
+
+<Directory /var/lib/ldap-account-manager>
+  AllowOverride None
+</Directory>
+
+<Directory /var/lib/ldap-account-manager/tmp>
+  Options -Indexes
+  <IfModule mod_cgi.c>
+      Options -ExecCGI
+  </IfModule>
+  <IfModule mod_php.c>
+      php_admin_flag engine off
+  </IfModule>
+  # Deny direct access to PHP source files
+  Files ~ "\.[pP][hH][^.]*$"
+      Require all denied
+  </Files>
+  # Deny access to INC files (often used for configuration or includes)
+  Files ~ "\.[iI][nN][cC]$"
+      Require all denied
+  </Files>
+  # Deny access to SQL dump files to prevent data leakage
+  Files ~ "\.[sS][hH][tT][mM][lL]$"
+      Require all denied
+  </Files>
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/tmp>
+  Options -Indexes
+  <IfModule mod_cgi.c>
+      Options -ExecCGI
+  </IfModule>
+  <IfModule mod_php.c>
+      php_admin_flag engine off
+  </IfModule>
+  # Deny direct access to PHP source files
+  Files ~ "\.[pP][hH][^.]*$"
+      Require all denied
+  </Files>
+  # Deny access to INC files
+  Files ~ "\.[iI][nN][cC]$"
+      Require all denied
+  </Files>
+  # Deny access to SQL dump files
+  Files ~ "\.[sS][hH][tT][mM][lL]$"
+      Require all denied
+  </Files>
+</Directory>
+
+<Directory /var/lib/ldap-account-manager/tmp/internal>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/tmp/internal>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /var/lib/ldap-account-manager/sess>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/sess>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /var/lib/ldap-account-manager/config>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/config>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/docs/devel>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/docs/schema>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/lib>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/help>
+  Options -Indexes
+  Require all denied
+</Directory>
+
+<Directory /usr/share/ldap-account-manager/locale>
+  Options -Indexes
+  Require all denied
+</Directory>

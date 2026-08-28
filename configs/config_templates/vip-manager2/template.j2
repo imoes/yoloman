@@ -1,0 +1,51 @@
+# vip-manager2 configuration template
+# This file configures vip-manager to manage a Virtual IP (VIP) based on
+# coordination with a Distributed Configuration Store (DCS) like etcd or Consul.
+
+# The virtual IP address that will be managed
+VIP_IP="{{ VIP_IP | default('10.0.0.1') }}"
+
+# The netmask that is associated with the subnet that the virtual IP vip is
+# part of.
+VIP_MASK="{{ VIP_MASK | default('255.255.255.0') }}"
+
+# The netmask alias
+VIP_NETMASK="{{ VIP_NETMASK | default('255.255.255.0') }}"
+
+# A local network interface on the machine that runs vip-manager. Required when
+# using manager-type=basic. The vip will be added to and removed from this
+# interface.
+VIP_IFACE="{{ VIP_IFACE | default('eth0') }}"
+
+# The key in the DCS that will be monitored by vip-manager. Must match
+# <namespace>/<scope>/leader from Patroni config. When the value returned by
+# the DCS equals trigger-value, vip-manager will make sure that the virtual IP
+# is registered to this machine. If it does not match, vip-manager makes sure
+# that the virtual IP is not registered to this machine.
+VIP_KEY="{{ VIP_KEY | default('/service/cluster/leader') }}"
+
+# The trigger key alias
+VIP_TRIGGER_KEY="{{ VIP_TRIGGER_KEY | default('/service/cluster/leader') }}"
+
+# The value that the DCS' answer for trigger-key will be matched to. Must match
+# <name> from Patroni config. This is usually set to the name of the patroni
+# cluster member that this vip-manager instance is associated with. Defaults to
+# the machine's hostname.
+VIP_HOST="{{ VIP_HOST | default('vip-manager-node1') }}"
+
+# The trigger value alias
+VIP_TRIGGER_VALUE="{{ VIP_TRIGGER_VALUE | default('vip-manager-node1') }}"
+
+# The type of DCS that vip-manager will use to monitor the trigger-key.
+# Defaults to etcd.
+VIP_TYPE="{{ VIP_TYPE | default('etcd') }}"
+
+# A url that defines where to reach the DCS. Multiple endpoints can be passed
+# to the flag or env variable using a comma-separated-list. In the config file,
+# a list can be specified, see the sample config for an example. Defaults to
+# http://127.0.0.1:2379 for dcs-type=etcd and http://127.0.0.1:8500 for
+# dcs-type=consul.
+VIP_DCS_ENDPOINTS="{{ VIP_DCS_ENDPOINTS | default('http://127.0.0.1:2379') }}"
+
+# The DCS endpoint alias
+VIP_ENDPOINT="{{ VIP_ENDPOINT | default('http://127.0.0.1:2379') }}"

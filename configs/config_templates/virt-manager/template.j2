@@ -1,0 +1,22 @@
+# Virtual Machine Manager (virt-manager) configuration
+# This template configures the default environment and CLI behavior
+# as described in virt-manager(1).
+
+# Hypervisor connection URI to use by default.
+# Corresponds to the --connect option.
+VIRT_MANAGER_CONNECT={{ (connect_uri | default('qemu:///system')) }}
+
+# Force virt-manager to fork into the background.
+# Corresponds to --fork. If false, it runs in foreground (default).
+# Use 'yes' to enable forking, 'no' to disable.
+VIRT_MANAGER_DEFAULT_FORK={{ 'yes' if default_fork | default(false) else 'no' }}
+
+# Enable debugging output to console.
+# Corresponds to --debug. Implies --no-fork.
+DEBUG_MODE={{ 'yes' if debug_mode | default(false) else 'no' }}
+
+# List of specific VMs or actions to show on startup.
+# Each item is a map with 'type' (domain-creator, domain-editor, etc.)
+# and 'identifier' (Name, ID, or UUID for editors/console/perf).
+# Corresponds to --show-* options.
+STARTUP_VIEW={{ startup_view | default([]) | tojson }}

@@ -1,0 +1,81 @@
+# WMND User Configuration File (~/.wmndrc)
+# This file configures the network monitor daemon `wmnd`.
+# See wmnd(1) man page for full documentation of options.
+
+# Initial interface to monitor (e.g., eth0, wlan0).
+# Set to empty or 'auto' to let wmnd detect the best interface.
+# The 'values' variable is expected to be a mapping containing wmnd settings.
+# If 'values' is undefined, empty defaults are used.
+interface = {{ (values | default({})).interface | default('') }}
+
+# Driver to use for data collection.
+# Options include: linux_proc, generic_snmp, testing_dummy, auto.
+# 'auto' attempts to select the best available driver.
+driver = {{ (values | default({})).driver | default('auto') }}
+
+# Use long device names instead of short (4-char) names in the display.
+# When true, interface names are displayed in full.
+long_names = {{ (values | default({})).long_names | default(false) | lower }}
+
+# Hide maximal values (history/screen max) on start.
+# When true, the graph does not retain historical peaks from previous runs.
+max_values_hidden = {{ (values | default({})).max_values_hidden | default(false) | lower }}
+
+# Do not display connection time of ppp links.
+# Useful for avoiding clutter on dial-up or PPPoE connections.
+offline_ppp_time = {{ (values | default({})).offline_ppp_time | default(false) | lower }}
+
+# Display mode to start with.
+# Options: byte, packet, speed.
+# Users can cycle through these modes by left-clicking the graph.
+display_mode = {{ (values | default({})).display_mode | default('byte') }}
+
+# Refresh rate in microseconds.
+# Controls how often the graph updates. Lower values mean smoother but more CPU-intensive updates.
+refresh_rate = {{ (values | default({})).refresh_rate | default(100000) }}
+
+# Scroll rate in tenths of seconds.
+# Controls how fast the graph moves horizontally. Higher values mean faster scrolling.
+scroll_rate = {{ (values | default({})).scroll_rate | default(1) }}
+
+# Number of scroll steps to wait before updating the speed rate indicator.
+# This helps stabilize the display of the current bandwidth rate.
+steps = {{ (values | default({})).steps | default(5) }}
+
+# Scale values using binary (base 2) factors (1K=1024) instead of decimal (1K=1000).
+# When true, units like KB, MB, GB are based on 1024.
+binary_scaling = {{ (values | default({})).binary_scaling | default(false) | lower }}
+
+# Color for transmitted (tx) data.
+# Format: r,g,b (0-255) or a color name if supported by the X11 backend.
+tx_color = {{ (values | default({})).tx_color | default('255,0,0') }}
+
+# Color for received (rx) data.
+# Format: r,g,b (0-255) or a color name if supported by the X11 backend.
+rx_color = {{ (values | default({})).rx_color | default('0,0,255') }}
+
+# Color for the middle line (zero line) of the graph.
+# Format: r,g,b (0-255) or a color name if supported by the X11 backend.
+middle_line_color = {{ (values | default({})).middle_line_color | default('128,128,128') }}
+
+# X11 display to draw onto.
+# Specifies the X server display string (e.g., :0, :1, host:0).
+x_display = {{ (values | default({})).x_display | default(':0') }}
+
+# WMND class/title name used by the Window Maker window manager.
+# Used for window grouping and decoration in window managers that support it.
+class_name = {{ (values | default({})).class_name | default('wmnd') }}
+
+# Smoothing factor for the graph (0 to 1).
+# Higher values smooth out spikes in the graph, making trends clearer.
+# 0 disables smoothing; 1 is maximum smoothing.
+smoothing_factor = {{ (values | default({})).smoothing_factor | default(0.5) }}
+
+# Fixed scale for bytes mode in bytes per second.
+# Leave empty for automatic scaling based on current traffic.
+fixed_scale_bytes = {{ (values | default({})).fixed_scale_bytes | default('') }}
+
+# SNMP Community string if using generic_snmp driver.
+# Format: community@host[:interface]
+# This is primarily used via command-line arguments (-I), but can be configured here for consistency.
+snmp_community = {{ (values | default({})).snmp_community | default('') }}

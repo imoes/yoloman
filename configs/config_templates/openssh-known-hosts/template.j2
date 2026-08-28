@@ -1,0 +1,13 @@
+#
+# Periodic cron job to update the SSH known_hosts file.
+# The job runs on a schedule defined by 'cron_schedule' (default: every hour at minute 0)
+# and executes as 'cron_user' (default: root).
+#
+# The script checks if /usr/sbin/update-openssh-known-hosts exists and is executable.
+# If so, it sleeps for a random duration (0-255 seconds) to jitter execution across nodes,
+# then runs the updater.
+#
+
+# Cron schedule expression for when the known_hosts update should run.
+# Default: '0 *' (every hour at minute 0).
+{{ cron_schedule | default('0 *') }}		* * * {{ cron_user | default('root') }}	[ -x /usr/sbin/update-openssh-known-hosts ] && { sleep `od -An -N1 -tu1 /dev/urandom`; /usr/sbin/update-openssh-known-hosts; }

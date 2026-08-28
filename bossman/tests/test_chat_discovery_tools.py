@@ -2,6 +2,7 @@
 assign_host_check). Real DB via db_session; fake agent client."""
 
 import uuid
+from tests.naming import owned_name
 
 from bossman.db.models import Agent, CheckAssignment
 from bossman.services.chat_tools import TOOL_NAMES, execute_tool
@@ -10,7 +11,7 @@ TENANT = "00000000-0000-0000-0000-000000000001"
 
 
 async def _agent(db_session, address="10.0.0.9:8010"):
-    a = Agent(id=uuid.uuid4(), name=f"cd-{uuid.uuid4().hex[:8]}", token="t", tenant_id=TENANT,
+    a = Agent(id=uuid.uuid4(), name=owned_name("cd"), token="t", tenant_id=TENANT,
               mode="standalone", enrollment_state="enrolled", address=address)
     db_session.add(a)
     await db_session.flush()

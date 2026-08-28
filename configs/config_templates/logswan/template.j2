@@ -1,0 +1,58 @@
+# Logswan Analysis Wrapper Script
+#
+# This script wraps the Logswan CLI tool to analyze web server access logs
+# and produce JSON reports. It handles argument construction, GeoIP lookup
+# configuration, and output directory management.
+#
+# Variables used:
+#   - input_log_file: Path to the input log file to analyze.
+#   - enable_geoip:   Boolean to enable GeoIP lookups (-g flag).
+#   - geoip_db:       Path to the MaxMind GeoIP database file.
+#   - output_dir:     Directory where the resulting JSON analysis files are saved.
+
+#!/bin/bash
+
+# Path to the input log file to analyze.
+# Default: /var/log/nginx/access.log
+INPUT_LOG_FILE="{{ input_log_file | default('/var/log/nginx/access.log') }}"
+
+# Enable GeoIP lookups using the -g flag.
+# Default: false (0)
+ENABLE_GEOIP="{{ enable_geoip | default(false) | lower }}"
+
+# Path to the MaxMind GeoIP database file.
+# Required if enable_geoip is true.
+# Default: '' (empty)
+GEOIP_DB="{{ geoip_db | default('') }}"
+
+# Directory where the resulting JSON analysis files will be saved.
+# Default: /var/lib/logswan/output
+OUTPUT_DIR="{{ output_dir | default('/var/lib/logswan/output') }}"
+
+# Construct the base logswan command
+cmd="logswan $INPUT_LOG_FILE"
+
+# Conditional logic for GeoIP support
+{% if enable_geoip | default(false) %}
+  # GeoIP is enabled. Check if the database path is provided.
+  {% if geoip_db | default('') %}
+    # Append GeoIP database path (-d) and enable flag (-g)
+    cmd="$cmd -d {{ geoip_db | default('') }} -g"
+  {% else %}
+    # Error: GeoIP enabled but no database path specified
+    echo "Error: GeoIP is enabled but geoip_db is not set." >&2
+    exit 1
+  {% endif %}
+{% endif %}
+
+# Ensure the output directory exists
+# Default path creation if output_dir is set
+mkdir -p "$OUTPUT_DIR"
+
+# Determine output filename based on input log filename
+# Logswan outputs to stdout, so we redirect it to a file
+basename_file=$(basename "$INPUT_LOG_FILE")
+output_file="$OUTPUT_DIR/${basename_file}.json"
+
+# Execute logswan and redirect output to JSON file
+eval $cmd > "$output_file"

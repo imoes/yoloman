@@ -65,7 +65,8 @@ from bossman.services.monitoring import (
     to_view,
 )
 from bossman.services.plan_engine import run_plan as engine_run_plan
-from bossman.services.plan_loader import PlanError, load_host_vars
+from bossman.services.plan_loader import PlanError
+from bossman.services.scope_vars import resolve_scope_vars
 from bossman.services.plan_search import index_plan_catalog, search_plans as search_plans_service
 
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -248,6 +249,40 @@ def build_mcp_server(
             )
 
     @mcp.tool()
+    async def operation_log(host: str = "", module: str = "", outcome: str = "", since_minutes: int = 0,
+                            changed_only: bool = False, limit: int = 100) -> dict[str, Any]:
+        """WHAT THE FLEET ACTUALLY DID, and what came back — the record, not a summary of it.
+
+        Answers the questions a reply to whoever was waiting cannot: did that install work, what did the
+        host say when it refused, which hosts changed in the last hour, what was the plan before it ran.
+        Every collected module call carries the EVIDENCE verbatim (exit code, the -WhatIf plan, the
+        detection rule before/after, the target's own error text), so an analysis reads the same thing an
+        operator does.
+
+        OUTCOMES, exhaustive and each meaning something different — read them before concluding anything:
+        `changed` (the host is different now), `unchanged` (it was already as asked — the idempotence
+        claim), `planned` (a DRY RUN: a preview, nothing was done), `refused` (the TARGET said no; its
+        words are in `error`), `error` (the agent broke — a fact about us, not the host), `timed-out` (the
+        caller stopped waiting — THE OPERATION MAY HAVE COMPLETED, so never report it as a failure without
+        re-reading the state), `unknown-module`, and `gap` (records fell out of an agent's ring buffer
+        before collection: that range is gone, and this row says so rather than leaving a hole that reads
+        like quiet).
+
+        Filters are ANDed; every argument is optional (empty string / 0 = no filter). Read-only.
+        """
+        from bossman.api.management import OPERATION_OUTCOMES, list_operations
+
+        if outcome and outcome not in OPERATION_OUTCOMES:
+            raise ValueError(f"unknown outcome {outcome!r}; it is one of {', '.join(OPERATION_OUTCOMES)}")
+        since = (datetime.now(timezone.utc) - timedelta(minutes=since_minutes)) if since_minutes else None
+        async with session_factory() as session:
+            return await list_operations(
+                host=host or None, agent_id=None, module=module or None, outcome=outcome or None,
+                since=since, changed_only=changed_only, limit=max(1, min(limit, 2000)),
+                session=session, _identity=None,
+            )
+
+    @mcp.tool()
     async def propose_config_policy(instruction: str) -> dict[str, Any]:
         """Turn a plain-language request ("set the NTP server to 10.0.0.1 on all
         Debian web servers in Munich") into a STRUCTURED, reviewable config-policy
@@ -336,10 +371,21 @@ def build_mcp_server(
     @mcp.tool()
     async def list_agent_tools(host: str) -> list[dict[str, Any]]:
         """Router: list the tools one managed agent currently exposes
-        ([{name, kind, writes}]), by host name. Bossman is a gateway — use
-        list_hosts to see the fleet of managed servers, this to discover a
-        given server's tools, then call_agent_tool to invoke one. Write tools
-        appear only when that agent's write gate is open."""
+        ([{name, kind, writes, supported, unsupported_reason}]), by host name.
+        Bossman is a gateway — use list_hosts to see the fleet of managed
+        servers, this to discover a given server's tools, then call_agent_tool
+        to invoke one.
+
+        CHECK `supported`. An entry with supported=false is a NAMED refusal, not
+        a callable tool: `unsupported_reason` says why this host cannot do it,
+        and often which module does the job here instead (a Windows agent lists
+        apt as unsupported and points at winget). It is listed rather than
+        omitted because a missing entry cannot be told apart from an agent too
+        old to have the module — so do not call it, and do not read its absence
+        of a schema as "no parameters". On the Go agent every listed tool is
+        supported and the field may be absent.
+
+        Write tools appear only when that agent's write gate is open."""
         async with session_factory() as session:
             agent = await _addressed_agent_or_raise(session, host)
             client = client_factory(agent, settings)
@@ -368,6 +414,76 @@ def build_mcp_server(
             return await client.call_tool(tool, body)
         except AgentClientError as exc:
             raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def disk_layout(host: str) -> dict[str, Any]:
+        """Read a host's disks + partitions (the gparted-style Disks view),
+        read-only: {devices:[{path,size_bytes,table,sector_size,partitions:[…],
+        free:[…]}], vgs:[…]}. Each partition carries fstype/label/mountpoint/
+        used/avail/busy and start_s/end_s sectors. This is the SCAN step — call
+        it first to see the layout, then disk_plan_preview / disk_plan_apply to
+        change it. Live read over the agent (lsblk + parted)."""
+        from bossman.services import disk_layout as _dl
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        return await _dl.read_disk_layout(agent, client_factory, settings)
+
+    @mcp.tool()
+    async def disk_plan_preview(host: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        """Compile a gparted-style op queue to the exact host commands + a safety
+        verdict, WITHOUT running anything. Always preview before disk_plan_apply.
+        `ops` is an ordered list; each op is a dict with an `op` field:
+          mklabel   {op,device,table}                  new partition table (gpt|msdos)
+          mkpart    {op,device,fstype,start,end,ptype}  create a partition
+          mkfs      {op,device,target,fstype}           format (ext4/xfs/btrfs/vfat/swap)
+          label     {op,device,target,fstype,label}     set a filesystem label
+          mount     {op,device,target,mountpoint}       mkdir + mount
+          umount    {op,device,target}                  unmount (frees a fs for editing)
+          delete    {op,device,num}                     delete a partition
+          resize    {op,device,target,num,fstype,start_mib,size_mib,grow}
+                    resize an unmounted ext* partition + its fs (grow=true grows,
+                    false shrinks; size_mib is the new size, start_mib its start)
+          lvextend  {op,device,target,size}             grow an LV online (size like +5G)
+          lvreduce  {op,device,target,size}             shrink an LV (fs shrunk first; needs
+                    unmount; absolute size like 8G, not a +grow)
+          -- ZFS (pools/datasets; sizing is a property, not geometry) --
+          zfs_create   {op,name,mountpoint?}            create a dataset
+          zfs_set      {op,name,property,size}          the ZFS "resize": property is
+                       quota|refquota (logical cap) or reservation|refreservation (guaranteed);
+                       online, non-destructive
+          zfs_snapshot {op,name,snap,recursive?}        snapshot name@snap
+          zfs_rollback {op,name}                        roll back to a name@snap (destroys newer)
+          zfs_destroy  {op,name,recursive?}             destroy a dataset (guarded off critical mounts)
+          zpool_create {op,name,raid?,vdevs[]}          raid: ''(stripe)|mirror|raidz|raidz2; vdevs guarded
+          zpool_add    {op,name,raid?,vdevs[]}          grow a pool with more vdevs
+          zpool_destroy{op,name}                        destroy a pool (guarded off critical mounts)
+        Returns {steps, problems, ok}. `ok=false` means a safety error blocks apply
+        (e.g. target mounted, or a non-loop disk with mounted filesystems)."""
+        from bossman.services import disk_layout as _dl, disk_ops as _do
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        layout = await _dl.read_disk_layout(agent, client_factory, settings)
+        steps = _do.compile({"ops": ops})
+        problems = _do.safety_check(steps, layout, allow_nonloop=True)
+        return {"steps": steps, "problems": problems,
+                "ok": not any(p["severity"] == "error" for p in problems)}
+
+    @mcp.tool()
+    async def disk_plan_apply(host: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run a gparted-style op queue on a host (DESTRUCTIVE). Same `ops` shape as
+        disk_plan_preview — preview first. The safety gate always runs and refuses:
+        any disk carrying a mounted filesystem (protects the system/root disk), a
+        format/label/delete/resize whose target is mounted (unmount it first), and a
+        non-online lvextend. Before a partition-table change the table is dumped
+        (sfdisk -d) as a rollback point; missing tools (parted/e2fsprogs/…) are
+        installed best-effort. Stops at the first failed step. Returns {ok, refused,
+        problems, steps:[{desc,ok,output}], table_backup}."""
+        from bossman.services import disk_layout as _dl, disk_ops as _do
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        layout = await _dl.read_disk_layout(agent, client_factory, settings)
+        return await _do.apply(agent, client_factory, settings, {"ops": ops}, layout,
+                               allow_nonloop=True)
 
     @mcp.tool()
     async def host_status(host: str) -> dict[str, Any]:
@@ -548,6 +664,78 @@ def build_mcp_server(
         if s is None:
             raise ValueError(f"no such system: {name!r} (use system_list)")
         return s
+
+    @mcp.tool()
+    async def windows_event_log(
+        host: str,
+        levels: str = "critical,error,warning",
+        logs: str = "System,Application",
+        since: str = "24h",
+        provider: str = "",
+        contains: str = "",
+        max_events: int = 200,
+    ) -> dict[str, Any]:
+        """Read a Windows host's event log, filtered ON THE HOST — the first place to look when a Windows
+        machine misbehaves.
+
+        `levels` are CANONICAL ENGLISH NAMES: critical, error, warning, information, verbose, log_always.
+        Use them, not the host's own words: LevelDisplayName is LOCALISED (a German host says "Fehler",
+        "Warnung") and measurably sometimes EMPTY, so filtering on what the host calls a level finds nothing
+        on half the fleet. Every event comes back with all three — `level` (Windows' number, authoritative),
+        `level_name` (canonical, what you should read and filter on) and `level_display` (the host's word).
+
+        The default "critical,error,warning" is what "show me the problems" means, and it deliberately
+        includes ERROR — the commonest of the three by far, and the one a "warnings and critical" filter
+        would silently drop.
+
+        `logs` selects the categories. A Server 2022 has 406 channels of which ~83 hold anything, so start
+        from windows_event_log_channels(host) rather than guessing: the fullest channel on a fresh install is
+        a diagnostic one with 22 000 records nobody asked for.
+
+        `since` takes a duration ("24h", "7d", "30m") or an ISO timestamp. The reply carries `by_level` and
+        `by_provider` counts (so "who is producing these" needs no second call) and `capped` — READ IT: a
+        capped answer is a floor, not a total, and concluding "only 200 errors" from a cap is worse than
+        being told the number is incomplete.
+
+        Read-only, and available even when the host's write gate is closed."""
+        params: dict[str, Any] = {
+            "levels": levels, "logs": logs, "since": since, "max_events": max_events,
+        }
+        if provider:
+            params["provider"] = provider
+        if contains:
+            params["contains"] = contains
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        # The log service answers a filtered query in milliseconds, but a wide window over a large channel is
+        # a real read — give it more than the 30-second default rather than reporting a timeout as a failure.
+        client._timeout = 180.0  # noqa: SLF001 — one construction path, see agent_client.client_for
+        try:
+            return await client.call_tool("windows_eventlog", params)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
+    async def windows_event_log_channels(host: str, only_with_records: bool = True,
+                                        name_like: str = "") -> dict[str, Any]:
+        """List a Windows host's event log CATEGORIES with their record counts, size and retention — what to
+        pick from before reading anything.
+
+        406 channels exist on a Server 2022 and about 83 hold records, so `only_with_records` defaults to
+        true and the list is sorted by count. `retention` (Circular | AutoBackup | Retain) is the field that
+        says whether "the event is not there" means "it never happened" or "it has already rotated away"."""
+        params: dict[str, Any] = {"only_with_records": only_with_records}
+        if name_like:
+            params["name_like"] = name_like
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+        client._timeout = 180.0  # noqa: SLF001
+        try:
+            return await client.call_tool("windows_eventlog_channels", params)
+        except AgentClientError as exc:
+            raise ValueError(str(exc)) from exc
 
     @mcp.tool()
     async def system_propose(host: str, name: str = "") -> dict[str, Any]:
@@ -742,7 +930,9 @@ def build_mcp_server(
             if not agent.address:
                 raise ValueError(f"host {host!r} has no reachable address")
 
-            host_vars = load_host_vars(settings.plans_dir, agent.name)
+            # From the DATABASE, GPO-merged (see services/scope_vars) — the filesystem host_vars layer is
+            # gone; it was a second source for the same fact.
+            host_vars = await resolve_scope_vars(session, agent)
             client = client_factory(agent, settings)
             try:
                 plan_run = await engine_run_plan(
@@ -1445,20 +1635,26 @@ def build_mcp_server(
         return out
 
     @mcp.tool()
-    async def qualify_package(name: str) -> dict[str, Any]:
+    async def qualify_package(name: str, force: bool = False) -> dict[str, Any]:
         """Create ALL config artifacts for a package — codec classification,
         per-directive value catalog, the Jinja2 template + values schema, and enum
         enrichment — then categorize it into the package catalog (einsortiert).
 
-        Runs the SAME qualify pipeline the host batch uses (scripts/qualify_packages.py
-        + build_package_catalog.py), against the RW-mounted configs and Bossman's
+        Runs the SAME pipeline the host batch uses (bossman.tools.qualify_packages +
+        build_package_catalog), against the RW-mounted configs and Bossman's
         CONFIGURED AI endpoint. Use this to onboard a new package/service so it shows
-        up in the wizard, Roles & Features and the gpedit config editor. Returns
-        whether the template was created, the assigned category, the codec, and a
-        log tail. Takes a couple of minutes."""
+        up in the wizard, Roles & Features and the gpedit config editor. Takes a
+        couple of minutes.
+
+        Returns what the run DID: `already_current` (every marker was up to date, so
+        nothing ran — pass force=True to rebuild anyway), the codec it classified, how
+        many enums and directives it mined, whether the Lego enrich gates passed, the
+        assigned category, and `detail` — the reason behind a skip, a failure or a
+        gate that stopped the enrich step. The pipeline's progress output goes to
+        Bossman's log rather than into this reply."""
         from bossman.api.package_qualify import run_qualify
 
-        res = await run_qualify(name)
+        res = await run_qualify(name, force=force)
         return res.model_dump()
 
     @mcp.tool()

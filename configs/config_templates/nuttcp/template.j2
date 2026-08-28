@@ -1,0 +1,113 @@
+# nuttcp server configuration file
+# This template configures nuttcp (network TCP/UDP performance tool) parameters.
+# Each setting corresponds to a command-line option, documented below.
+# All variables use 'default()' to ensure safe rendering even if the variable is undefined.
+
+# -----------------------------------------------------------------------------
+# Control port used for client-server communication.
+# Corresponds to: nuttcp -P <port>
+# -----------------------------------------------------------------------------
+control_port={{ (control_port | default(5000)) | int }}
+
+# -----------------------------------------------------------------------------
+# Data port used for actual transfer streams.
+# Corresponds to: nuttcp -p <port>
+# -----------------------------------------------------------------------------
+data_port={{ (data_port | default(5001)) | int }}
+
+# -----------------------------------------------------------------------------
+# Number of parallel data streams to use.
+# Corresponds to: nuttcp -N <num>
+# -----------------------------------------------------------------------------
+num_streams={{ (num_streams | default(1)) | int }}
+
+# -----------------------------------------------------------------------------
+# Buffer length in bytes for transfers.
+# Corresponds to: nuttcp -l <bytes>
+# -----------------------------------------------------------------------------
+buffer_len={{ (buffer_len | default(65536)) | int }}
+
+# -----------------------------------------------------------------------------
+# TCP window size in KB for sender/receiver.
+# 0 means use system default.
+# Corresponds to: nuttcp -w <size_in_kb>
+# -----------------------------------------------------------------------------
+window_size={{ (window_size | default(0)) | int }}
+
+# -----------------------------------------------------------------------------
+# Server-specific window size in KB.
+# 0 means same as window_size.
+# Corresponds to: nuttcp -ws <size_in_kb>
+# -----------------------------------------------------------------------------
+server_window={{ (server_window | default(0)) | int }}
+
+# -----------------------------------------------------------------------------
+# Use UDP instead of TCP for transfers.
+# Corresponds to: nuttcp -u
+# -----------------------------------------------------------------------------
+use_udp={{ use_udp | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Disable Nagle algorithm for lower latency.
+# Corresponds to: nuttcp -D
+# -----------------------------------------------------------------------------
+tcp_no_delay={{ tcp_no_delay | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Limit transfer duration in seconds.
+# Corresponds to: nuttcp -T <seconds>
+# -----------------------------------------------------------------------------
+transmit_time_limit={{ (transmit_time_limit | default(10)) | int }}
+
+# -----------------------------------------------------------------------------
+# Rate limit for transmitter.
+# Formats: '1000' (Kbps), '1000m' (Mbps), '1000g' (Gbps).
+# Empty string means unlimited.
+# Corresponds to: nuttcp -R <rate>
+# -----------------------------------------------------------------------------
+transmit_rate_limit={{ transmit_rate_limit | default('') | string | trim }}
+
+# -----------------------------------------------------------------------------
+# Number of buffers to transfer.
+# 0 means unlimited (limited only by time/rate).
+# Corresponds to: nuttcp -n <num>
+# -----------------------------------------------------------------------------
+num_buffers={{ (num_buffers | default(0)) | int }}
+
+# -----------------------------------------------------------------------------
+# Enable brief one-line output.
+# Corresponds to: nuttcp -b
+# -----------------------------------------------------------------------------
+brief_output={{ brief_output | default(True) | lower }}
+
+# -----------------------------------------------------------------------------
+# Enable verbose output.
+# Corresponds to: nuttcp -v
+# -----------------------------------------------------------------------------
+verbose_output={{ verbose_output | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Set DSCP/TOS value for packet marking.
+# Empty string means no marking.
+# Corresponds to: nuttcp -c <value>
+# -----------------------------------------------------------------------------
+dscp_value={{ dscp_value | default('') | string | trim }}
+
+# -----------------------------------------------------------------------------
+# Set both send and receive buffer sizes.
+# Corresponds to: nuttcp -wb
+# -----------------------------------------------------------------------------
+both_buffers={{ both_buffers | default(False) | lower }}
+
+# -----------------------------------------------------------------------------
+# Server mode type.
+# 'S' for persistent server, '1' for one-shot server.
+# Corresponds to: nuttcp -S or nuttcp -1
+# -----------------------------------------------------------------------------
+server_mode={{ server_mode | default('S') | string | trim }}
+
+# -----------------------------------------------------------------------------
+# Flip connect mode for NAT traversal.
+# Corresponds to: nuttcp -F
+# -----------------------------------------------------------------------------
+flip_connect={{ flip_connect | default(False) | lower }}

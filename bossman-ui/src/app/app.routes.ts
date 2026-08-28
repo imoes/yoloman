@@ -103,6 +103,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/checks/checks-catalog.component').then((m) => m.ChecksCatalogComponent),
   },
   {
+    // Bundles of check rules linked to host groups (api/templates.py). Named
+    // 'check-templates', not 'templates': config-templates and disk-templates already
+    // exist, so the bare word would be ambiguous in the URL as well as in the UI.
+    path: 'check-templates',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/check-templates/check-templates.component').then((m) => m.CheckTemplatesComponent),
+  },
+  {
     path: 'config-templates',
     canActivate: [authGuard],
     loadComponent: () => import('./features/config-templates/config-templates.component').then((m) => m.ConfigTemplatesComponent),
@@ -126,6 +134,20 @@ export const routes: Routes = [
     path: 'events',
     canActivate: [authGuard],
     loadComponent: () => import('./features/events/events.component').then((m) => m.EventsComponent),
+  },
+  {
+    // The binding trigger -> action. Under Monitor rather than Library because a rule REACTS:
+    // it is judged next to the events it answers, and its run history is monitoring history.
+    path: 'event-rules',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/events/event-rules.component').then((m) => m.EventRulesComponent),
+  },
+  {
+    // The reusable ACTION an event rule performs. In Library because it is authored, like a
+    // runbook or a check — the rules that trigger it live with the monitoring side.
+    path: 'event-handlers',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/events/event-handlers.component').then((m) => m.EventHandlersComponent),
   },
   {
     path: 'event-browser',
@@ -161,6 +183,21 @@ export const routes: Routes = [
     path: 'capacity',
     canActivate: [authGuard],
     loadComponent: () => import('./features/capacity/capacity.component').then((m) => m.CapacityComponent),
+  },
+  {
+    // The MANAGEMENT CONSOLE: MMC's snap-in tree over any managed host. Not `console` — that path is the
+    // interactive web shell, and one word for two things is the equivocation that costs the most.
+    path: 'mmc',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/mmc/mmc-page.component').then((m) => m.MmcPageComponent),
+  },
+  {
+    // The RESULT LOG (what hosts did) next to the AUDIT LOG (what was asked of this server): two facts, two
+    // pages, adjacent so nobody hunts for the other one. Not admin-only — an operator who may call a module
+    // must be able to read what it did.
+    path: 'operations',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/operations/operations.component').then((m) => m.OperationsComponent),
   },
   {
     path: 'audit',
@@ -203,6 +240,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/ou-policy/ou-policy.component').then((m) => m.OuPolicyComponent),
   },
   {
+    // Host clusters: a cluster IS a host (agents row, mode="cluster"), so it belongs with
+    // the fleet, not in a monitoring-config corner.
+    path: 'clusters',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/clusters/clusters.component').then((m) => m.ClustersComponent),
+  },
+  {
     path: 'host-placement',
     canActivate: [authGuard],
     loadComponent: () => import('./features/host-placement/host-placement.component').then((m) => m.HostPlacementComponent),
@@ -231,6 +275,11 @@ export const routes: Routes = [
     path: 'settings',
     canActivate: [authGuard],
     loadComponent: () => import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+  },
+  {
+    path: 'vault',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/vault/vault.component').then((m) => m.VaultComponent),
   },
   {
     path: 'help',

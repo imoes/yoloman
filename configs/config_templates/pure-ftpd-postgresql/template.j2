@@ -1,0 +1,206 @@
+#!/bin/sh
+#
+# pure-ftpd Postfix Authentication Init Script
+#
+# This script manages the pure-ftpd daemon with PostgreSQL authentication.
+# It is a System V LSB init script, responsible for:
+# 1. Detecting the specific daemon binary (e.g., pure-ftpd-standalone).
+# 2. Reading common defaults from /etc/default/pure-ftpd-common.
+# 3. Managing the pure-ftpd wrapper and the upload script daemon.
+# 4. Providing standard start/stop/restart/status actions.
+#
+# Configuration is primarily handled in:
+# - /etc/default/pure-ftpd-common (environment variables)
+# - /etc/pure-ftpd/conf/ (configuration snippets)
+#
+# This script is auto-generated/enriched to be self-documenting.
+
+### BEGIN INIT INFO
+# Provides:          pure-ftpd-postgresql
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      slapd mysql postgresql-8.3 postgresql-8.4
+# Should-Stop:       slapd mysql postgresql-8.3 postgresql-8.4
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts the pure-ftpd FTP server (PostgreSQL auth)
+# Description:       Starts and stops the pure-ftpd ftp daemon,
+#                    including the optional pure-uploadscript handler.
+#                    Supports virtual chroot and upload scripting.
+### END INIT INFO
+
+#
+# Copyright 2002-2011 by Stefan Hornburg (Racke) <racke@linuxia.de>
+#
+
+# --- Path Configuration ---
+# Ensure standard binary paths are available for LSB functions
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# NAME: The base name of the service for logging and status checks.
+NAME={{ name | default('pure-ftpd') }}
+DESC="{{ desc | default('ftp server') }}"
+
+# --- Daemon Defaults ---
+# SSDAEMONLOGOPTS: Options passed to start-stop-daemon for logging.
+# Default: quiet logging to reduce output noise.
+: ${SSDAEMONLOGOPTS:="{{ ssdaemonlogopts | default('--quiet') }}" }
+
+# UPLOADDAEMON: The binary for the upload script handler.
+UPLOADDAEMON={{ uploaddaemon | default('/usr/sbin/pure-uploadscript') }}
+
+# UDNAME: Short name for the upload script daemon.
+UDNAME={{ udname | default('pure-uploadscript') }}
+
+# UDDESC: Description for the upload script daemon.
+UDDESC="{{ uddesc | default('ftp upload handler') }}"
+
+# WRAPPER: The wrapper script that launches the actual FTP daemon.
+WRAPPER={{ wrapper | default('/usr/sbin/pure-ftpd-wrapper') }}
+
+# PIDFILE: Location of the PID file for the main FTP daemon.
+# Ensures proper process tracking and signal handling.
+PIDFILE={{ pidfile | default('/var/run/pure-ftpd/pure-ftpd.pid') }}
+
+# --- Script Introspection ---
+# Determine the specific suffix of this script (e.g., "postgresql", "standalone").
+# This allows a single init script to manage multiple pure-ftpd configurations.
+if [ -h $0 ]; then
+	ME=`/bin/readlink $0`
+else 
+	ME=$0
+fi
+
+# Extract suffix from basename: pure-ftpd-<SUFFIX>
+SUFFIX=`basename $ME | sed -ne 's/^pure-ftpd-\(.*\)/\1/p'`
+
+# Set the actual daemon binary based on the suffix.
+# If suffix is "postgresql", DAEMON becomes /usr/sbin/pure-ftpd-postgresql.
+if [ "$SUFFIX" ] ; then
+	DAEMON=/usr/sbin/pure-ftpd-$SUFFIX
+else
+	DAEMON=/usr/sbin/pure-ftpd
+fi
+
+# --- Environment Loading ---
+# Load common configuration variables from the defaults file.
+# Key variables expected here:
+# - STANDALONE_OR_INETD: 'standalone' or 'inetd' (default: inetd)
+# - VIRTUALCHROOT: 'true' or 'false' (default: empty/false)
+# - UPLOADSCRIPT: Path to the upload script (default: empty)
+# - UPLOADUID: User ID for the upload script process
+# - UPLOADGID: Group ID for the upload script process
+
+# STANDALONE_OR_INETD: Mode of operation. 'standalone' for background daemon, 'inetd' for xinetd/systemd socket activation.
+export STANDALONE_OR_INETD={{ standalone_or_inetd | default('inetd') }}
+
+# VIRTUALCHROOT: Enable virtual chroot mode.
+export VIRTUALCHROOT={{ virtualchroot | default('') }}
+
+# Source the defaults file if it exists.
+test -r /etc/default/pure-ftpd-common && . /etc/default/pure-ftpd-common
+
+# Adjust suffix for Virtual Chroot mode.
+if [ "$VIRTUALCHROOT" = "true" ]; then
+	if [ "$SUFFIX" ]; then
+		SUFFIX="$SUFFIX-virtualchroot"
+	else
+		SUFFIX="virtualchroot"
+	fi
+fi
+
+# Verify executability of the main daemon and wrapper.
+# Exit if the binary is missing or not executable.
+test -x $DAEMON || exit 0
+test -x $WRAPPER || exit 0
+
+set -e
+
+# --- PID Directory Creation ---
+# Ensure the directory for the PID file exists.
+# This is critical for start-stop-daemon to track the process.
+if [ ! -e `dirname $PIDFILE` ];then
+    mkdir `dirname $PIDFILE`
+
+    # Label directory correctly on SE Linux systems to prevent permission denied.
+    [ -x /sbin/restorecon ] && /sbin/restorecon `dirname $PIDFILE`
+fi
+
+# --- Upload Script Handler ---
+# start_uploadscript: Starts the pure-uploadscript daemon if configured.
+# This daemon listens for FTP PUT events and executes a script for each upload.
+start_uploadscript() {
+	# Check if upload scripting is enabled:
+	# 1. UPLOADSCRIPT variable is set.
+	# 2. Running in standalone mode (inetd doesn't support persistent background daemons well).
+	# 3. The CallUploadScript config file explicitly enables it.
+	if [ "$UPLOADSCRIPT" -a "$STANDALONE_OR_INETD" != inetd ] && \
+		egrep -i '^[ \t]*(yes|1|on)[ \t]*' /etc/pure-ftpd/conf/CallUploadScript > /dev/null 2>&1
+	then
+		UOPTS=""
+		# Add UID/GID options if defined in defaults.
+		test "$UPLOADUID" && UOPTS="$UOPTS -u $UPLOADUID"
+		test "$UPLOADGID" && UOPTS="$UOPTS -g $UPLOADGID"
+		
+		echo -n "$1 $UDDESC: "
+		start-stop-daemon --start $SSDAEMONLOGOPTS --oknodo \
+			--exec $UPLOADDAEMON -- -r "$UPLOADSCRIPT" -B $UOPTS
+		echo "$UDNAME."
+	fi
+}
+
+# --- Service Control Actions ---
+case "$1" in
+  start)
+	# Only start if in standalone mode.
+	test "$STANDALONE_OR_INETD" = standalone || exit 0
+	echo -n "Starting $DESC: "
+	
+	# Start the pure-ftpd wrapper with the specific suffix.
+	start-stop-daemon --start $SSDAEMONLOGOPTS --pidfile "$PIDFILE" \
+		--exec $WRAPPER -- $SUFFIX
+	
+	# Start the upload script handler if configured.
+	start_uploadscript Starting
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	
+	# Stop the main FTP daemon using the PID file.
+	start-stop-daemon --stop $SSDAEMONLOGOPTS --oknodo \
+		--pidfile "$PIDFILE"
+	
+	# Stop the upload script daemon.
+	start-stop-daemon --stop $SSDAEMONLOGOPTS --oknodo --exec $UPLOADDAEMON
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	# Only restart if in standalone mode.
+	test "$STANDALONE_OR_INETD" = standalone || exit 0
+	echo -n "Restarting $DESC: "
+	
+	# Stop both daemons first.
+	start-stop-daemon --stop $SSDAEMONLOGOPTS --oknodo \
+		--pidfile "$PIDFILE"
+	start-stop-daemon --stop $SSDAEMONLOGOPTS --oknodo --exec $UPLOADDAEMON
+	
+	# Brief pause to ensure ports are released.
+	sleep 1
+	
+	# Start both daemons again.
+	start-stop-daemon --start $SSDAEMONLOGOPTS --pidfile "$PIDFILE" \
+		--exec $WRAPPER -- $SUFFIX
+	start_uploadscript Restarting
+	;;
+  status)
+	# Check the status of the daemon using LSB helper.
+	status_of_proc -p /var/run/pure-ftpd/pure-ftpd.pid $DAEMON $NAME && exit 0 || exit $?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

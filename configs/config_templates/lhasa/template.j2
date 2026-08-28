@@ -1,0 +1,87 @@
+# Lhasa compression tool configuration
+# This template generates the configuration for the `lhasa` command-line utility.
+# It supports setting global defaults (format, destination, verbosity, flags)
+# and defining specific operations (list, extract, test, etc.) to perform on archives.
+
+# archive_format: Default compression format identifier (e.g., lh1, lh4, lzs, pm1).
+# Refer to COMPRESSION FORMATS in man page.
+# Format: lh1, lh4, lzs, pm1, etc.
+# Default: lh1
+{% set _archive_format = archive_format | default('lh1') %}
+# Archive Format: {{ _archive_format }}
+
+# extraction_dest: Destination directory for extraction operations.
+# Corresponds to the 'w=<dir>' option. Overrides current working directory.
+# Default: /tmp/lhasa_extract
+{% set _extraction_dest = extraction_dest | default('/tmp/lhasa_extract') %}
+# Extraction Destination: {{ _extraction_dest }}
+
+# quiet_level: Quiet mode suppression level.
+# 0 = normal (verbose), 1 = medium, 2 = full suppression (silent).
+# Corresponds to the 'q[num]' option.
+# Default: 2
+{% set _quiet_level = quiet_level | default(2) %}
+# Quiet Mode Level: {{ _quiet_level }}
+
+# force_overwrite: If true, enables the 'f' (force overwrite) option.
+# Allows overwriting existing files without prompting.
+# Default: True
+{% set _force_overwrite = force_overwrite | default(True) %}
+{% if _force_overwrite %}
+# Force Overwrite: Enabled
+{% endif %}
+
+# ignore_paths: If true, enables the 'i' (ignore paths) option.
+# Extracts all files to the destination directory, ignoring original paths in archive.
+# Default: False
+{% set _ignore_paths = ignore_paths | default(False) %}
+{% if _ignore_paths %}
+# Ignore Paths: Enabled
+{% endif %}
+
+# dry_run: If true, enables the 'n' (dry run) option.
+# Performs operations without modifying the filesystem.
+# Default: False
+{% set _dry_run = dry_run | default(False) %}
+{% if _dry_run %}
+# Dry Run: Enabled
+{% endif %}
+
+# verbose: If true, enables the 'v' (verbose) option.
+# Provides extra output information about the operation.
+# Default: False
+{% set _verbose = verbose | default(False) %}
+{% if _verbose %}
+# Verbose Mode: Enabled
+{% endif %}
+
+# operations: List of archive operations to configure.
+# Each item defines a single `lhasa` command invocation.
+# Fields per item:
+#   command: The command character (l, v, t, e, x, p)
+#             l: List archive contents
+#             v: Verbose list
+#             t: Test archive integrity
+#             e: Extract (respecting paths)
+#             x: Extract (ignoring paths, like 'i')
+#             p: Extract to stdout
+#   archive: Path to the archive file to operate on.
+#   files: Optional list of wildcard patterns for files within the archive.
+#          If empty, operates on the entire archive.
+#   options: Additional options string appended to the command (e.g., 'w=/tmp', 'q2', 'f', 'i', 'n', 'v').
+#            Global defaults (format, dest, quiet, etc.) are assumed unless overridden here.
+# Default: [] (empty list, no operations)
+{% set _operations = operations | default([]) %}
+{% if _operations %}
+# --- Operations Configuration ---
+{% for op in _operations %}
+# Operation Command: {{ op.command | default('') }} {{ op.archive | default('') }}
+# Archive Path: {{ op.archive | default('') }}
+{% if op.files %}
+# File Patterns: {{ op.files | join(' ') }}
+{% endif %}
+{% if op.options %}
+# Additional Options: {{ op.options | default('') }}
+{% endif %}
+{% endfor %}
+{% endif %}

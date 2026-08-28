@@ -1,0 +1,153 @@
+# ==============================================================================
+# Safecopy Configuration Template
+# ==============================================================================
+# This template generates a configuration file for `safecopy`, a disk imaging tool
+# designed to rescue data from failing storage media by handling bad blocks gracefully.
+#
+# Usage: Include this template in an Ansible playbook/task using `template:` module.
+# Ensure all required variables (source_path, dest_path) are defined in your inventory
+# or group_vars, or rely on the provided defaults below.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Source and Destination Paths
+# --------------------------------------------------------------------------
+
+# Path to the source device or file to rescue data from.
+# Corresponds to the positional argument SOURCE.
+# Example: '/dev/sdb', '/path/to/image.iso'
+SOURCE = {{ source_path | default('/dev/sdb') }}
+
+# Path to the destination file or device for the rescued data.
+# Corresponds to the positional argument DEST.
+# Example: '/mnt/recovery/image.img', '/dev/sdc'
+DEST = {{ dest_path | default('/mnt/recovery/image.img') }}
+
+# --------------------------------------------------------------------------
+# Read Parameters
+# --------------------------------------------------------------------------
+
+# Blocksize for default read operations in bytes.
+# Corresponds to the -b flag.
+# A larger blocksize may improve throughput on healthy media, but smaller is safer for bad blocks.
+BLOCK_SIZE = {{ block_size | default(4096) }}
+
+# Blocksize in bytes when skipping over badblocks.
+# Corresponds to the -f flag.
+# This setting determines how many bytes to skip when a bad block is encountered to avoid
+# re-triggering the error. Accepts integer, percentage, or multiplier (e.g., 16*BLOCK_SIZE).
+# Higher settings put less strain on failing hardware but might skip more data.
+SKIP_BLOCK_SIZE = {{ skip_block_size | default('16*BLOCK_SIZE') }}
+
+# Resolution in bytes when searching for bad area edges.
+# Corresponds to the -r flag.
+# Determines the granularity for finding the exact beginning and end of a damaged area.
+# Accepts integer, percentage, or multiplier. Default is 1*BLOCK_SIZE.
+RESOLUTION = {{ resolution | default('1*BLOCK_SIZE') }}
+
+# Minimum read attempts on the first bad block of a damaged area.
+# Corresponds to the -R flag.
+# Safecopy will retry reading the first bad block this many times before giving up or skipping.
+RETRY_COUNT = {{ retry_count | default(3) }}
+
+# Number of times to force seek read head from start to end on error.
+# Corresponds to the -Z flag.
+# Useful for magnetic media where a seek might reset the head position to allow reading.
+SEEK_ON_ERROR = {{ seek_on_error | default(1) }}
+
+# Low level device call mode.
+# Corresponds to the -L flag.
+# 0 = No low-level calls (standard POSIX IO).
+# 1 = Error recovery only (use low-level calls when errors occur).
+# 2 = Always use low-level calls.
+LOW_LEVEL_MODE = {{ low_level_mode | default(1) }}
+
+# If true, use synchronized read calls (O_SYNC/O_DIRECT).
+# Corresponds to the --sync flag.
+# Disables OS caching/buffering for reads, ensuring data is read directly from the device.
+# Can be slower but more reliable for detecting actual media errors.
+SYNCHRONIZED_READ = {{ synchronized_read | default(False) | lower }}
+
+# If true, keep trying to reopen the source after a read error.
+# Corresponds to the --forceopen flag.
+# WARNING: Can cause hangs on some devices if the device disappears or fails completely.
+# Useful for USB drives that might disconnect temporarily.
+FORCE_REOPEN = {{ force_reopen | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# Position and Length Limits
+# --------------------------------------------------------------------------
+
+# Start position in blocks to read from.
+# Corresponds to the -s flag.
+# Allows copying a specific segment of a disk or file.
+START_BLOCK = {{ start_block | default(0) }}
+
+# Maximum length in blocks to read.
+# Corresponds to the -l flag.
+# Empty string or 0 means read the entire input from START_BLOCK.
+MAX_LENGTH_BLOCKS = {{ max_length_blocks | default('') }}
+
+# --------------------------------------------------------------------------
+# Bad Block Handling and Incremental Mode
+# --------------------------------------------------------------------------
+
+# Path to a file containing badblock entries for incremental mode (-I).
+# If specified, safecopy assumes the target already exists and will only copy blocks
+# that are NOT listed in this file (or that come after the last listed block).
+# Empty string disables incremental mode.
+INCREMENTAL_BADBLOCK_FILE = {{ incremental_badblock_file | default('') }}
+
+# Blocksize to interpret the incremental badblock file.
+# Corresponds to the -i flag.
+# Empty string implies the current BLOCK_SIZE.
+INCREMENTAL_BADBLOCK_BLOCK_SIZE = {{ incremental_badblock_block_size | default('') }}
+
+# Block position to continue copying at.
+# Corresponds to the -c flag.
+# Often used with a target of /dev/null to scan and build a badblock map without copying.
+# Empty string implies no specific continue position (defaults to 0 if not incremental).
+CONTINUE_AT_BLOCK = {{ continue_at_block | default('') }}
+
+# Path to a file containing badblock entries for exclusion mode (-X).
+# If used with incremental mode (-I), blocks listed here are EXCLUDED from copying,
+# overriding blocks that might otherwise be included.
+# Empty string disables exclusion mode.
+EXCLUDE_BADBLOCK_FILE = {{ exclude_badblock_file | default('') }}
+
+# Blocksize to interpret the exclude badblock file.
+# Corresponds to the -x flag.
+# Empty string implies the current BLOCK_SIZE.
+EXCLUDE_BADBLOCK_BLOCK_SIZE = {{ exclude_badblock_block_size | default('') }}
+
+# Path to write a badblocks/e2fsck compatible bad block file.
+# Corresponds to the -o flag.
+# Empty string disables writing the bad block list.
+BADBLOCK_OUTPUT_FILE = {{ badblock_output_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Device Specific and Debugging
+# --------------------------------------------------------------------------
+
+# Path to an external script for seeking in input files (e.g., tapes).
+# Corresponds to the -S flag.
+# Empty string disables external seek. The script should handle seeking logic
+# for devices that do not support standard POSIX lseek.
+SEEK_SCRIPT = {{ seek_script | default('') }}
+
+# String to mark unrecovered data.
+# Corresponds to the -M flag.
+# Instead of skipping bad blocks or padding with zeros, write this string.
+# Empty string disables marking (default behavior is to skip or zero-pad).
+MARK_STRING = {{ mark_string | default('') }}
+
+# Debug output level (bit field).
+# Corresponds to the --debug flag.
+# Bits: 1=flow, 2=IO, 4=badblock, 8=seeking, 16=incremental, 32=exclude.
+# Default: 0 (no debug output).
+DEBUG_LEVEL = {{ debug_level | default(0) }}
+
+# Path to write sector read timing information.
+# Corresponds to the -T flag.
+# Useful for profiling drive health. Empty string disables timing file.
+TIMING_FILE = {{ timing_file | default('') }}

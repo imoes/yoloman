@@ -1,0 +1,20 @@
+# sitesummary configuration template
+# This file is typically included in an Apache/Nginx virtual host configuration.
+# It exposes the sitesummary statistics listing page and sets the web root.
+
+# site_path: The URL path segment for accessing the sitesummary listing page.
+# Default: 'sitesummary'
+Alias /{{ site_path | default('sitesummary') }} {{ www_directory | default('/var/lib/sitesummary/www') }}
+
+<Directory {{ www_directory | default('/var/lib/sitesummary/www') }}>
+    # AllowOverride None: Prevent .htaccess files from overriding these settings.
+    AllowOverride None
+
+    # Options: +SymLinksIfOwnerMatch allows following symbolic links if the owner matches;
+    # -MultiViews disables content negotiation which is generally undesirable for static listing pages.
+    Options +SymLinksIfOwnerMatch -MultiViews
+
+    # Require all granted: Allows unrestricted access to the directory.
+    # In production, consider tightening this with authentication.
+    Require all granted
+</Directory>

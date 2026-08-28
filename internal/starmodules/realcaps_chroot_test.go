@@ -48,8 +48,8 @@ func TestChrootPathsResolveUnderTheTargetAndCannotEscape(t *testing.T) {
 	// these are not escapes but ordinary paths inside the target, and asserting an error here (my
 	// first version of this test did) would have been asserting the wrong semantics.
 	for path, want := range map[string]string{
-		"/../etc/shadow":                        "/etc/shadow",
-		"/etc/../../root/.ssh/authorized_keys":  "/root/.ssh/authorized_keys",
+		"/../etc/shadow":                       "/etc/shadow",
+		"/etc/../../root/.ssh/authorized_keys": "/root/.ssh/authorized_keys",
 	} {
 		got, err := c.resolve(path)
 		if err != nil {

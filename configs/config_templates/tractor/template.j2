@@ -1,0 +1,33 @@
+# ==============================================================================
+# Tractor Configuration Template
+# ==============================================================================
+# Tractor is a CLI wrapper/tool for managing Tor onion routing sessions.
+# This configuration file defines local behavior for the tractor client.
+# It does NOT configure the Tor daemon itself (that is typically /etc/tor/torrc).
+# ==============================================================================
+
+# Enable verbose output in tractor CLI commands.
+# When true, tractor will print detailed logs to stderr/stdout.
+# Type: boolean
+verbose: {{ verbose | default(false) | lower }}
+
+# The local port where the Tor SOCKS proxy listens for the user session.
+# Tractor typically connects to a local Tor instance (like privoxy or tor's SOCKS port).
+# Ensure this port matches the SOCKS proxy configuration you are using.
+# Type: integer
+proxy_port: {{ proxy_port | default(9050) }}
+
+# List of tractor commands to execute on startup.
+# Items should be strings like 'set', 'unset', or specific tractor subcommands.
+# Note: Tractor itself is stateless per session, so these actions apply per-invocation.
+# Type: list of strings
+startup_actions: >-
+    {% for action in startup_actions | default([]) %}
+    - {{ action | string }}
+    {% endfor %}
+
+# Automatic identity rotation interval in seconds.
+# If greater than 0, tractor will periodically rotate the Tor identity (NEWNYM)
+# to change the exit node/circuit. Set to 0 to disable automatic rotation.
+# Type: integer
+identity_rotation_interval: {{ identity_rotation_interval | default(0) }}

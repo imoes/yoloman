@@ -1,0 +1,151 @@
+# ==============================================================================
+# mmdebstrap Configuration Template
+# ==============================================================================
+# This template generates the YAML configuration file for `mmdebstrap`, a tool
+# to create Debian chroots (rootfs).
+#
+# Self-Documenting Principle:
+# - Every directive is preceded by a comment describing its purpose, valid values,
+#   and the source schema description.
+# - All variables use the `default()` filter with the schema-provided default to
+#   prevent render errors if the variable is undefined in the Ansible play.
+# - Lists are rendered as YAML lists; strings are quoted if they contain special
+#   characters or are empty (handled by Jinja's string rendering).
+# ==============================================================================
+
+# The Debian suite codename or symbolic name (e.g., trixie, bookworm, sid).
+# Default: 'trixie'
+suite: {{ suite | default('trixie') }}
+
+# The output target path (directory, tarball, image) or '-' for stdout.
+# Default: '/var/lib/mmdebstrap/rootfs'
+target: {{ target | default('/var/lib/mmdebstrap/rootfs') }}
+
+# List of mirror URIs or apt source lines. If empty, uses default Debian mirror.
+# Supports URI formats (e.g., deb http://deb.debian.org/debian trixie main)
+# or standard mirror URLs.
+# Default: [] (empty list)
+mirrors:
+{% if mirrors | default([]) | length > 0 %}
+{% for mirror in mirrors | default([]) %}
+- {{ mirror }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# The package set variant to install (e.g., debootstrap, essential, buildd, custom).
+# Valid options: debootstrap, essential, buildd, apt, extract, custom, important, -, minbase, required, standard.
+# Default: 'debootstrap'
+variant: {{ variant | default('debootstrap') }}
+
+# The execution mode (e.g., auto, sudo, unshare, chrootless).
+# Valid options: auto, sudo, root, unshare, fakeroot, fakechroot, chrootless.
+# Default: 'auto'
+mode: {{ mode | default('auto') }}
+
+# The output format (e.g., auto, directory, tar, squashfs, ext4).
+# Valid options: auto, directory, tar, squashfs, ext2, ext4, null.
+# Default: 'auto'
+format: {{ format | default('auto') }}
+
+# List of apt configuration options to append to 99mmdebstrap.conf in the chroot.
+# Can include Acquire settings, Proxy configs, etc.
+# Default: [] (empty list)
+aptopt:
+{% if aptopt | default([]) | length > 0 %}
+{% for opt in aptopt | default([]) %}
+- {{ opt }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# List of dpkg configuration options to append to 99mmdebstrap.cfg in the chroot.
+# Can include path-exclude, path-include, etc.
+# Default: [] (empty list)
+dpkgopt:
+{% if dpkgopt | default([]) | length > 0 %}
+{% for opt in dpkgopt | default([]) %}
+- {{ opt }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# List of additional packages or apt patterns to install.
+# Supports apt patterns, version pins, and .deb file paths.
+# Default: [] (empty list)
+include:
+{% if include | default([]) | length > 0 %}
+{% for pkg in include | default([]) %}
+- {{ pkg }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# List of repository components (e.g., main, contrib, non-free) to enable.
+# Applied to all URI-only mirror arguments.
+# Default: ['main']
+components:
+{% for comp in components | default(['main']) %}
+- {{ comp }}
+{% endfor %}
+
+# List of architectures to enable (first is native).
+# Example: amd64, arm64.
+# Default: [] (empty list, implies native)
+architectures:
+{% if architectures | default([]) | length > 0 %}
+{% for arch in architectures | default([]) %}
+- {{ arch }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# Path to a keyring file or directory for apt key verification.
+# Useful for non-standard or older archives.
+# Default: '' (empty string)
+keyring: {{ keyring | default('') }}
+
+# Hook commands for different stages of the chroot creation.
+# Keys: setup, extract, essential, customize.
+# Commands run in the chroot with $1 being the target path.
+# Default: None (no hooks)
+hooks:
+{% if hooks is mapping %}
+{% for stage, cmds in hooks | dict2items %}
+  {{ stage }}:
+  {% if cmds | length > 0 %}
+  {% for cmd in cmds %}
+  - {{ cmd }}
+  {% endfor %}
+  {% else %}
+  []
+  {% endif %}
+{% endfor %}
+{% else %}
+  {}
+{% endif %}
+
+# List of stages or checks to skip.
+# Examples: check/empty, cleanup/apt/lists, chroot/mount/proc.
+# Default: [] (empty list)
+skip:
+{% if skip | default([]) | length > 0 %}
+{% for stage in skip | default([]) %}
+- {{ stage }}
+{% endfor %}
+{% else %}
+[]
+{% endif %}
+
+# Verbosity level: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug).
+# Default: 1
+verbosity: {{ verbosity | default(1) }}
+
+# Path to a log file. Empty string means output to stderr.
+# Default: '' (empty string)
+logfile: {{ logfile | default('') }}

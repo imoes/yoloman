@@ -1,0 +1,20 @@
+# policy-rcd configuration
+#
+# This file configures the `policy-rcd` wrapper script (or similar init-system hook)
+# to control which services are allowed to start automatically during package
+# installation or upgrade.
+#
+# The format consists of three tab-separated fields per line:
+# 1. PACKAGE_REGEX: A regular expression matching the package name(s) to apply the rule to.
+# 2. SERVICE_REGEX: A regular expression matching the service name(s) within those packages.
+# 3. ACTION:       The action to take: 'allow', 'deny', or 'force-reload'.
+#
+# If multiple lines match, the last one typically wins, or the most specific rule applies.
+# This default template sets a deny-all policy by default, which is useful for
+# container images or servers where automatic service starts during updates are undesirable.
+
+# Policy Rule:
+# - Applies to any package matching: {{ policy_regex | default('.*') }}
+# - Applies to any service matching:  {{ sub_regex | default('.*') }}
+# - Action to take:                  {{ action | default('deny') }}
+{{ policy_regex | default('.*') }}	{{ sub_regex | default('.*') }}	{{ action | default('deny') }}

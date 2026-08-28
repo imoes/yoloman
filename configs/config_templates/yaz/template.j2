@@ -1,0 +1,43 @@
+# YAZ Configuration File
+# See yaz-config(8) for details.
+#
+# This file configures the YAZ library (Z39.50/SRU).
+# It is self-documenting: every directive is preceded by its
+# schema description and default value.
+
+# debug_level: Integer debug level for general library operations (0-3).
+# Controls the verbosity of internal debug messages.
+# default: 0
+debug_level = {{ debug_level | default(0) }}
+
+# debug_oid: Enable OID debugging (true/false).
+# Dumps Object Identifier information for protocol analysis.
+# default: false
+debug_oid = {{ debug_oid | default(false) | ternary(1, 0) }}
+
+# debug_asn1: Enable ASN.1 debugging (true/false).
+# Dumps Abstract Syntax Notation One encoding/decoding details.
+# default: false
+debug_asn1 = {{ debug_asn1 | default(false) | ternary(1, 0) }}
+
+# debug_pdu: Enable Z39.50 PDU debugging (true/false).
+# Dumps Z39.50 Protocol Data Units (request/response structures).
+# default: false
+debug_pdu = {{ debug_pdu | default(false) | ternary(1, 0) }}
+
+# log_file: Path to the log file. Empty string means stderr.
+# Specifies where YAZ library messages should be written.
+# default: ""
+log_file = {{ log_file | default('') }}
+
+# max_sessions: Maximum number of concurrent Z39.50 sessions.
+# Limits the number of simultaneous client connections the library handles.
+# default: 10
+max_sessions = {{ max_sessions | default(10) }}
+
+# allow_hosts: List of allowed hostnames or IP addresses.
+# If empty, all hosts are allowed to connect.
+# Otherwise, only hosts in this list are permitted.
+# default: []
+allow_hosts = {% for host in allow_hosts | default([]) %}
+  {{ host }}{% endfor %}

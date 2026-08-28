@@ -1,0 +1,119 @@
+# osmcoastline configuration template
+# Note: osmcoastline is primarily a command-line tool with no traditional config file.
+# This template generates the recommended command-line invocation script.
+
+# Input OSM data file path
+# --input-file is the positional argument, typically the first parameter
+INPUT_FILE={{ input_file }}
+
+# Output Spatialite database file path
+# --output-database=FILE
+OUTPUT_DB={{ output_db | default('/var/lib/osmcoastline/coastline.db') }}
+
+# Spatial Reference System / Projection code
+# --srs=EPSGCODE. Use 4326 for WGS84, 3857 for Web Mercator
+# Default is 4326
+SRS={{ srs | default(4326) }}
+
+# GDAL Driver selection
+# --gdal-driver=DRIVER. Options: SQLite, GPKG, ESRI Shapefile
+# Default is SQLite
+GDAL_DRIVER={{ gdal_driver | default('SQLite') }}
+
+# Polygon output type
+# --output-polygons=land|water|both|none
+# Default is land
+OUTPUT_POLYGONS={{ output_polygons | default('land') }}
+
+# Output coastlines as lines instead of just polygons
+# --output-lines
+# Default is false
+OUTPUT_LINES={{ output_lines | default(false) }}
+
+# Output rings for debugging
+# --output-rings
+# Default is false
+OUTPUT_RINGS={{ output_rings | default(false) }}
+
+# Overlap distance for splitting large polygons
+# --bbox-overlap=OVERLAP. In projection units (degrees for 4326, meters for 3857)
+# Default is 0.0001 for WGS84, 10 for Mercator
+BBOX_OVERLAP={{ bbox_overlap | default(0.0001 if srs == 4326 else 10) }}
+
+# Distance to close gaps in coastline data
+# --close-distance=DISTANCE. Use 0 to disable
+# Default is implied non-zero based on context, but explicitly setting 0 disables
+CLOSE_DISTANCE={{ close_distance | default(0.00001) }}
+
+# Maximum points per polygon/linestring before splitting
+# --max-points=NUM. Set to 0 to prevent splitting
+# Default is 1000
+MAX_POINTS={{ max_points | default(1000) }}
+
+# Do not create spatial indexes
+# --no-index
+# Default is false (indexes are created)
+NO_INDEX={{ no_index | default(false) }}
+
+# Overwrite output file if it exists
+# --overwrite
+# Default is false
+OVERWRITE={{ overwrite | default(false) }}
+
+# Exit with 0 even if there are warnings
+# --exit-ignore-warnings
+# Default is false
+EXIT_IGNORE_WARNINGS={{ exit_ignore_warnings | default(false) }}
+
+# Enable debugging output
+# --debug
+# Default is false
+DEBUG={{ debug | default(false) }}
+
+# Verbose output
+# --verbose
+# Default is false
+VERBOSE={{ verbose | default(false) }}
+
+# Write segments file for osmcoastline_segments
+# --write-segments=FILENAME
+WRITE_SEGMENTS={{ write_segments | default('') }}
+
+# Command to execute
+cmd="osmcoastline \
+  -o {{ OUTPUT_DB }} \
+  -s {{ SRS }} \
+  -g {{ GDAL_DRIVER }} \
+  -p {{ OUTPUT_POLYGONS }} \
+{% if OUTPUT_LINES %}
+  -l \
+{% endif %}
+{% if OUTPUT_RINGS %}
+  -r \
+{% endif %}
+{% if NO_INDEX %}
+  -i \
+{% endif %}
+{% if OVERWRITE %}
+  -f \
+{% endif %}
+{% if EXIT_IGNORE_WARNINGS %}
+  -e \
+{% endif %}
+{% if DEBUG %}
+  -d \
+{% endif %}
+{% if VERBOSE %}
+  -v \
+{% endif %}
+{% if WRITE_SEGMENTS != '' %}
+  -S {{ WRITE_SEGMENTS }} \
+{% endif %}
+  -b {{ BBOX_OVERLAP }} \
+  -c {{ CLOSE_DISTANCE }} \
+  -m {{ MAX_POINTS }} \
+  {{ INPUT_FILE }}"
+
+echo "Running osmcoastline..."
+echo $cmd
+# $cmd

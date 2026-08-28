@@ -1,0 +1,93 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          mysqmail-dovecot-logger
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      mysql
+# Should-Stop:       mysql
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: MySQL accounting for courier-imap and courier-pop
+# Description:       This is a (very small) traffic logger for the Courier-imap,
+#                    Courier-imaps, Courier-pop and Courier-pops daemons to SQL,
+#                    splitting the information by domains and users, so it's then very
+#                    easy to count all the pop and imap traffic for a given
+#                    domain name.
+### END INIT INFO
+
+# Shell path setup
+PATH=$PATH:/bin:/usr/bin:/usr/sbin
+
+# Description of this service for logging/daemon management
+DESC="MySQMail dovecot logger"
+
+# Base name of the daemon
+NAME=mysqmail-dovecot-logger
+
+# Path to the daemon executable
+DAEMON=/usr/sbin/${NAME}
+
+# Path to the PID file to track the running process
+PID_FILE=/var/run/${NAME}.pid
+
+# Path to the configuration file
+# Uses the schema field 'path_conf_file' to locate the config in /etc/
+# Default value is 'mysqmail.conf'
+PATH_CONF_FILE=/etc/{{ path_conf_file | default('mysqmail.conf') }}
+
+# If the configuration file does not exist, exit silently as the daemon is disabled
+if ! [ -f "${PATH_CONF_FILE}" ] ; then
+	echo "${PATH_CONF_FILE} not present: exiting silently"
+	exit 0
+fi
+
+# Verify the daemon binary exists and is executable
+if [ ! -x ${DAEMON} ] ; then
+	echo "${DAEMON} not executable or not present!"
+	exit 1
+fi
+
+# Source LSB init functions for standardized logging
+. /lib/lsb/init-functions
+
+RET=0
+case "$1" in
+start)
+	# Check if PID file already exists to prevent duplicate starts
+	if [ ! -f ${PID_FILE} ] ; then
+		log_daemon_msg "Starting ${DESC}" "${NAME}"
+		# Start the daemon quietly, using the specified PID file
+		start-stop-daemon -S --quiet -p ${PID_FILE} --exec ${DAEMON}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} already exists: not starting ${DAEMON}"
+	fi
+	exit ${RET}
+;;
+stop)
+	# Check if PID file exists before attempting to stop
+	if [ -f ${PID_FILE} ] ; then
+		log_daemon_msg "Stopping ${DESC}" "${NAME}"
+		# Kill the daemon using the PID file
+		start-stop-daemon -K --quiet -p ${PID_FILE}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} doesn't exist: not stopping ${DAEMON}"
+	fi
+;;
+restart|reload|force-reload)
+	# Restart logic: stop then start
+	$0 stop
+	$0 start
+;;
+*)
+	# Usage help for invalid commands
+	echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

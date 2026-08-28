@@ -1,0 +1,73 @@
+# Configuration for mp4h (Macro Processor for HTML Documents)
+# This template generates an mp4h command-line invocation configuration.
+# mp4h is a macro-processor, not a daemon, so it runs per-file. This config
+# represents the default invocation arguments for processing a batch of HTML files.
+
+# Safety level to disable risky functions (0=none, 1=no execute, 2=no filesystem)
+# Option: --safety-level="NUMBER"
+safety_level = {{ (values | default({})).safety_level | default(0) }}
+
+# Include directories for searching packages and includes
+# Option: -I "DIRECTORY"
+include_dirs = [
+{% for dir in (values | default({})).include_dirs | default([]) %}
+    "{{ dir }}",
+{% endfor %}
+]
+
+# Define variables to set at startup (NAME=VALUE)
+# Option: -D "NAME"[=VALUE]
+defines = [
+{% for define in (values | default({})).defines | default([]) %}
+    "{{ define }}",
+{% endfor %}
+]
+
+# Parser case sensitivity bits (0=case sensitive, bits: 0=tags, 1=vars, 2=entities)
+# Option: -c "NUMBER"
+caseless = {{ (values | default({})).caseless | default(3) }}
+
+# Document encoding (8bit or utf8)
+# Option: -e "NAME"
+encoding = "{{ (values | default({})).encoding | default('8bit') }}"
+
+# Parser expansion flags (bit sum of 1, 2, 4, 8, 16, 32, 64, 128, 256, 1024, 2048)
+# Option: -X "NUMBER"
+expansion = {{ (values | default({})).expansion | default(3114) }}
+
+# Hash table size for symbol lookup (prime number)
+# Option: -H "PRIME"
+hashsize = {{ (values | default({})).hashsize | default(509) }}
+
+# Nesting limit for macro expansion
+# Option: -L "NUMBER"
+nesting_limit = {{ (values | default({})).nesting_limit | default(250) }}
+
+# Debug flags (any of: t, a, e, c, x, f, l, p, m, i, V)
+# Option: -d "FLAGS"
+debug_flags = "{{ (values | default({})).debug_flags | default('aeq') }}"
+
+# Error output file for debug and trace output
+# Option: -o "FILE"
+error_output = "{{ (values | default({})).error_output | default('-') }}"
+
+# Enable sync lines (#line NO "FILE") for debugging
+# Option: -s
+synclines = {{ (values | default({})).synclines | default(false) | bool | lower }}
+
+# Fatal warnings (stop execution after first warning)
+# Option: -E
+fatal_warnings = {{ (values | default({})).fatal_warnings | default(false) | bool | lower }}
+
+# Quiet mode (suppress some warnings for builtins)
+# Option: -Q
+quiet = {{ (values | default({})).quiet | default(false) | bool | lower }}
+
+# Input files to process
+# If empty, reads from stdin
+# Option: FILE...
+input_files = [
+{% for file in (values | default({})).input_files | default(['index.html']) %}
+    "{{ file }}",
+{% endfor %}
+]

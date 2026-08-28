@@ -1,0 +1,46 @@
+# Nanoc static site generator configuration
+# This file controls the behavior of the Nanoc compilation process.
+# See http://nanoc.ws/ for documentation.
+
+# The root directory of the Nanoc site.
+# This is the directory where Nanoc looks for items (content) and rules.
+SITE_ROOT = '{{ site_root | default("/home/user/my_site") }}'
+
+# The directory where the compiled site is placed.
+# Compiled output files (HTML, etc.) will be written here.
+OUTPUT_DIR = '{{ output_dir | default("public") }}'
+
+# The environment used during compilation.
+# Common values are 'development' and 'production'.
+# Allows environment-specific rules and filtering.
+ENV = '{{ env | default("development") }}'
+
+# Enable debugging mode.
+# When true, Nanoc outputs detailed internal information useful for troubleshooting.
+DEBUG = {{ debug | default(false) | lower }}
+
+# Enable verbose output.
+# When true, Nanoc prints more information about what it is doing to stdout.
+VERBOSE = {{ verbose | default(false) | lower }}
+
+# Enable color in output.
+# When true, terminal output uses ANSI color codes for better readability.
+COLOR = {{ color | default(true) | lower }}
+
+# Enable warnings.
+# When true, Nanoc prints warnings for potential issues or deprecated features.
+WARN = {{ warn | default(true) | lower }}
+
+# Disable color in output.
+# If set to true, this overrides the COLOR setting and forces no color output.
+# Useful for logging to files or CI pipelines.
+NO_COLOR = {{ no_color | default(false) | lower }}
+
+# List of items to compile.
+# If empty, Nanoc compiles all items found in the site.
+# Items can be specified as path patterns or specific item identifiers.
+ITEMS = {% if items | default([]) | length > 0 %}{% for item in items | default([]) %}'{{ item }}'{% if not loop.last %}, {% endif %}{% endfor %}{% else %}[]{% endif %}
+
+# List of plugins to load.
+# Plugins extend Nanoc's functionality. They must be installed separately.
+PLUGINS = {% if plugins | default([]) | length > 0 %}{% for plugin in plugins | default([]) %}'{{ plugin }}'{% if not loop.last %}, {% endif %}{% endfor %}{% else %}[]{% endif %}

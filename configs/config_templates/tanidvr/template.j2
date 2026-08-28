@@ -1,0 +1,65 @@
+# ==============================================================================
+# Configuration file for tanidvr DVR/IP camera dumping service
+#
+# This template generates a flat key-value configuration file defining target
+# DVR/IP camera devices to monitor and dump video from.
+#
+# Each device is rendered as a block of directives. The list of devices is
+# driven by the Ansible variable `devices`, which is expected to be a list of
+# dictionaries.
+#
+# If `devices` is undefined or empty, no device blocks are rendered.
+# ==============================================================================
+
+{% if devices is defined and devices | length > 0 %}
+{% for device in devices %}
+# ------------------------------------------------------------------------------
+# Device: {{ device.name | default('unnamed') }}
+# IP/Hostname: {{ device.address | default('192.168.0.12') }}
+# Port: {{ device.port | default(37777) }}
+# ------------------------------------------------------------------------------
+
+# DVR/Target IP or hostname
+TARGET_ADDRESS={{ device.address | default('192.168.0.12') }}
+
+# Network port used by the DVR-IP protocol
+TARGET_PORT={{ device.port | default(37777) }}
+
+# Username for authenticating with the DVR
+TARGET_USER={{ device.user | default('admin') }}
+
+# Password for authenticating with the DVR
+TARGET_PASSWORD={{ device.password | default('secret') }}
+
+# Channel index (0-255) to dump video from
+CHANNEL={{ device.channel | default(0) }}
+
+# Sub-channel selection: 0 for main, 1 for secondary
+SUB_CHANNEL={{ device.sub_channel | default(0) }}
+
+# Operation mode: 0 to display info, 1 to dump video
+OPERATION_MODE={{ device.operation_mode | default(1) }}
+
+# Media container format: 0 for native DHAV/RAW, 1 for Matroska (MKV)
+MEDIA_CONTAINER={{ device.media_container | default(1) }}
+
+# Output file path for video dump. Empty string for stdout.
+OUT_FILE={{ device.out_file | default('', true) }}
+
+# Keep-alive interval in milliseconds. 0 to disable.
+KEEP_ALIVE={{ device.keep_alive | default(100) }}
+
+# Inactivity timeout in milliseconds. 0 to disable.
+TIMEOUT={{ device.timeout | default(5000) }}
+
+# Enable NTSC 60Hz field frequency emulation (true/false)
+NTSC_60HZ={{ device.ntsc_60hz | default(false) | lower }}
+
+# Timestamp correction for DHAV stream: 0 to skip, 1 to perform correction
+TS_PROC={{ device.ts_proc | default(1) }}
+
+# Network protocol dialect: 0 for common, 1 to emulate OEM client
+NET_PROTOCOL_DIALECT={{ device.net_protocol_dialect | default(0) }}
+
+{% endfor %}
+{% endif %}

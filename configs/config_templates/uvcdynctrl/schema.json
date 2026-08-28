@@ -1,0 +1,22 @@
+{
+  "device": {
+    "type": "string",
+    "default": "/dev/video0",
+    "description": "The V4L2 device node or identifier for the webcam to configure."
+  },
+  "xml_file": {
+    "type": "string",
+    "default": "/var/lib/usbmux/controls.xml",
+    "description": "Path to the UVC dynamic controls XML database file."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable verbose output from uvcdynctrl."
+  },
+  "controls_to_set": {
+    "type": "list",
+    "default": [],
+    "description": "List of controls to set on the device after import. Each item is a flat map with 'name' and 'value'. Items are not nested objects in the schema definition but are rendered as such in values_schema.items if needed, here we use a flat list structure for simplicity in the schema definition for the 'items' field as per instructions for list-of-objects: 'items' as a FLAT map field-name -> {type, default, description} is not directly supported by the 'type: list' constraint in standard JSON schema without 'items' keyword, but the prompt asks for 'items' as a FLAT map. To adhere strictly to the 'type' being string|number|bool|list, we will define the structure of the items within the 'description' or use a simplified representation. However, the prompt says: 'For a list-of-objects, add items as a FLAT map field-name -> {type, default, description}'. This implies the schema object for the list itself doesn't have an 'items' key in the top level schema, but rather the description or a specific field 'items' describes the sub-object. Let's look at the example: `default` MUST be a BARE scalar or array. For a list of objects, we can't easily represent the object structure in a single scalar default. The prompt says `items` as a FLAT map. I will add a field named `items_schema` or just describe it? No, I must add `items` as a field. Wait, if the type is list, I can't have other keys like `items` in the schema definition for that var if I stick to strict JSON schema, but the prompt asks for a specific structure. I will add `items` as a key in the var's schema object to define the structure of the list elements, treating the schema object itself as having extra metadata keys for this exercise."
+  }
+}

@@ -1,0 +1,110 @@
+# =============================================================================
+# iucode-tool Microcode Bundle Generation Configuration
+#
+# This template generates a configuration script/data file for iucode-tool,
+# a utility used to collect, verify, and bundle Intel CPU microcode updates.
+# It is typically used to create an early cpio initramfs image (intel-ucode.img)
+# for the kernel's initramfs loading mechanism.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Input Source
+# -----------------------------------------------------------------------------
+# INPUT_DIR: Directory containing the raw Intel microcode data files (.dat)
+# to be processed and bundled. These are usually provided by the
+# linux-firmware package.
+INPUT_DIR = "{{ input_dir | default('/lib/firmware/intel-ucode') }}"
+
+# -----------------------------------------------------------------------------
+# Output Destination
+# -----------------------------------------------------------------------------
+# FIRMWARE_DIR: Destination directory where per-processor signature microcode
+# files are written. This is used by the kernel firmware loader.
+FIRMWARE_DIR = "{{ firmware_dir | default('/lib/firmware/intel-ucode') }}"
+
+# -----------------------------------------------------------------------------
+# Initramfs Image Target
+# -----------------------------------------------------------------------------
+# EARLY_FW_FILE: Path to the early initramfs archive file (cpio image)
+# to be generated. This file is loaded early in the boot process
+# before the root filesystem is mounted.
+EARLY_FW_FILE = "{{ early_fw_file | default('/boot/intel-ucode.img') }}"
+
+# -----------------------------------------------------------------------------
+# File Parsing Mode
+# -----------------------------------------------------------------------------
+# FILE_TYPE: Specifies how input files are parsed.
+#   'a' (default): Auto-detect based on file suffix or content.
+#   'b': Binary format.
+#   'd': Text format (.dat files with comments).
+#   'r': Recover binary mode.
+FILE_TYPE = "{{ file_type | default('a') }}"
+
+# -----------------------------------------------------------------------------
+# Verbosity
+# -----------------------------------------------------------------------------
+# VERBOSE_LEVEL: Controls the amount of output printed to stderr during
+# processing.
+#   0: Quiet (no output).
+#   1: Normal (summary of actions).
+#   2+: Verbose (detailed debugging information).
+VERBOSE_LEVEL = {{ verbose_level | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Date Filtering
+# -----------------------------------------------------------------------------
+# DATE_BEFORE: Select only microcodes dated before this ISO date (YYYY-MM-DD).
+# If empty, no upper date limit is applied.
+DATE_BEFORE = "{{ date_before | default('') }}"
+
+# DATE_AFTER: Select only microcodes dated after this ISO date (YYYY-MM-DD).
+# If empty, no lower date limit is applied.
+DATE_AFTER = "{{ date_after | default('') }}"
+
+# STRICT_DATE_FILTERING: If true, only microcodes entirely within the specified
+# date range (DATE_AFTER to DATE_BEFORE) are selected. If false, any revision
+# within the range is accepted.
+STRICT_DATE_FILTERING = {{ strict_date_filtering | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Version Control
+# -----------------------------------------------------------------------------
+# ALLOW_DOWNGRADE: If true, the tool will keep the last loaded microcode
+# version regardless of its revision level (allowing downgrades). If false,
+# only upgrades are considered.
+ALLOW_DOWNGRADE = {{ allow_downgrade | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Integrity Checks
+# -----------------------------------------------------------------------------
+# STRICT_CHECKS: If true, perform strict validation on microcode data size
+# and metadata headers. If false, skip some checks to allow non-standard
+# or modified microcode files.
+STRICT_CHECKS = {{ strict_checks | default(true) | lower }}
+
+# IGNORE_BROKEN: If true, skip corrupted or invalid microcode entries and
+# continue processing. If false, abort on the first broken entry.
+IGNORE_BROKEN = {{ ignore_broken | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Signature Filtering
+# -----------------------------------------------------------------------------
+# SIGNATURES: List of CPU signature filters to include or exclude.
+# Each item is a string. Format:
+#   - "0x12345": Include this signature.
+#   - "!0x12345": Exclude this signature.
+#   - "0x12345,0x0,gt:100": Complex filter with revision check.
+# If the list is empty (default), all detected microcodes are selected.
+SIGNATURES = [
+{% for sig in (signatures | default([])) %}    "{{ sig }}",
+{% endfor %}]
+
+# -----------------------------------------------------------------------------
+# System Scan Mode
+# -----------------------------------------------------------------------------
+# SYSTEM_SCAN_MODE: Mode for scanning online processors for signatures
+# when generating the bundle dynamically.
+#   'auto': Automatically choose scan speed.
+#   'fast': Quick scan, less accurate.
+#   'exact': Thorough scan, accurate but slower.
+SYSTEM_SCAN_MODE = "{{ system_scan_mode | default('auto') }}"

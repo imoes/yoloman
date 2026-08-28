@@ -1,0 +1,14 @@
+# planetfilter cron job configuration
+# This template generates the crontab entries for the planetfilter service.
+
+# MAILTO: Email address for cron job output notifications.
+# Default: root
+MAILTO={{ mailto | default('root') }}
+
+# Cron job entry for planetfilter update-feeds script.
+# - cron_minute: Minute (0-59) when the cron job should run.
+# - cron_hour: Hour (0-23 or *) when the cron job should run.
+# - cron_user: User account under which the cron job executes.
+# The command checks if the update-feeds script is executable before running it
+# using the `chronic` wrapper to suppress output unless errors occur.
+{{ cron_minute | default(51) }} {{ cron_hour | default('*') }}	* * *	{{ cron_user | default('planetfilter') }}	[ -x /usr/share/planetfilter/update-feeds ] && chronic /usr/share/planetfilter/update-feeds

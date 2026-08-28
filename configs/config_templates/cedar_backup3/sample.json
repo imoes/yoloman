@@ -1,59 +1,59 @@
 {
-  "system": {
-    "log_dir": "/var/log/cedar-backup3",
-    "state_dir": "/var/lib/cedar-backup3",
-    "debug": false
+ "backup_sets": [
+  {
+   "compression": {
+    "algorithm": "gzip",
+    "enabled": true
+   },
+   "destination": {
+    "device": "/dev/sr0",
+    "fs_type": "UDF",
+    "label": "cedar-backup-etc-home-2023-10-01",
+    "speed": "4x",
+    "type": "cdvd"
+   },
+   "name": "etc-home",
+   "schedule": {
+    "timeout_minutes": 240,
+    "when": "0 1 * * 0"
+   },
+   "sources": [
+    "/etc",
+    "/home",
+    "/root"
+   ]
   },
-  "backup_sets": [
-    {
-      "name": "etc-home",
-      "sources": [
-        "/etc",
-        "/home",
-        "/root"
-      ],
-      "destination": {
-        "type": "cdvd",
-        "device": "/dev/sr0",
-        "fs_type": "UDF",
-        "label": "cedar-backup-etc-home-2023-10-01",
-        "speed": "4x"
-      },
-      "schedule": {
-        "when": "0 1 * * 0",
-        "timeout_minutes": 240
-      },
-      "compression": {
-        "enabled": true,
-        "algorithm": "gzip"
-      }
-    },
-    {
-      "name": "db-backups",
-      "sources": [
-        "/var/backups/postgresql",
-        "/var/backups/mysql"
-      ],
-      "destination": {
-        "type": "s3",
-        "bucket": "mycompany-db-backups",
-        "storage_class": "STANDARD_IA",
-        "region": "eu-west-1"
-      },
-      "schedule": {
-        "when": "30 3 * * *",
-        "timeout_minutes": 120
-      },
-      "compression": {
-        "enabled": true,
-        "algorithm": "bzip2"
-      }
-    }
-  ],
-  "global_options": {
-    "pre_backup_cmd": "sync",
-    "post_backup_cmd": "eject /dev/sr0",
-    "skip_media_verify": false,
-    "strict_sources": true
+  {
+   "compression": {
+    "algorithm": "bzip2",
+    "enabled": true
+   },
+   "destination": {
+    "bucket": "mycompany-db-backups",
+    "region": "eu-west-1",
+    "storage_class": "STANDARD_IA",
+    "type": "s3"
+   },
+   "name": "db-backups",
+   "schedule": {
+    "timeout_minutes": 120,
+    "when": "30 3 * * *"
+   },
+   "sources": [
+    "/var/backups/postgresql",
+    "/var/backups/mysql"
+   ]
   }
+ ],
+ "global_options": {
+  "post_backup_cmd": "eject /dev/sr0",
+  "pre_backup_cmd": "sync",
+  "skip_media_verify": false,
+  "strict_sources": true
+ },
+ "system": {
+  "debug": false,
+  "log_dir": "/var/log/cedar-backup3",
+  "state_dir": "/var/lib/cedar-backup3"
+ }
 }

@@ -1,0 +1,1923 @@
+{
+  "_comment": [
+    "THE CONSOLE'S SNAP-INS — an MMC/RSAT-shaped view of the fleet, declared as data.",
+    "",
+    "WHAT MMC ACTUALLY IS, and therefore what this file models: a shell with a console TREE (scope pane), a",
+    "RESULT list per node with columns, and ACTIONS per selected row. Snap-ins plug into that shell. Nothing",
+    "about that needs Windows — what needs Windows is the DATA behind each node, and that already comes from",
+    "the agent.",
+    "",
+    "WHY IT IS DATA AND NOT COMPONENTS: a snap-in here is a tree node plus columns plus actions, and every one",
+    "of those is a description of something the API can already do. Written as code, each new snap-in would be",
+    "a component with its own fetching, its own table and its own drift; written as data, adding 'Shares' is a",
+    "block in this file. Same reason the config templates are data.",
+    "",
+    "NO SECOND DATA PATH — the rule that keeps this from becoming a parallel product. Every `source` points at",
+    "an endpoint or a module that ALREADY serves the per-host management screens, and every `action` goes",
+    "through the one tool-call endpoint. The console is a PRESENTATION, so a fix in service_facts shows up in",
+    "both places or in neither. What the console adds over the per-host tabs is what MMC adds over a single",
+    "computer's control panels: one tree, many hosts, uniform nodes and actions.",
+    "",
+    "AVAILABILITY IS THREE-VALUED, never two. A snap-in is `available`, `unavailable` WITH A REASON (the host",
+    "is Linux, the role is not installed, the module is missing), or `unknown` because the host could not be",
+    "asked. Hiding the unavailable ones would leave an operator wondering whether Yoloman can manage DHCP at",
+    "all; showing them as broken would be a different lie.",
+    "",
+    "FIELDS:",
+    "  requires[]        all must hold: {os_family} | {module} | {feature} (a Windows role/feature name)\n                    | {endpoint} — the node's own route must answer (for nodes served from Bossman's\n                      database rather than from the host, where no module exists to ask about)",
+    "  source.kind       'endpoint' (an existing Bossman route) or 'tool' (a module call, params fixed here)",
+    "  source.rows       dotted path to the row array in the response; '' means the response IS the array",
+    "  columns[].badge   render the value as a state pill rather than text",
+    "  actions[].tool    the module to call; {row.<field>} placeholders are filled from the selected row",
+    "  actions[].confirm ask before running — for anything that changes a host",
+    "  node_actions[]    actions that belong to the NODE, not to a row (\"New user…\"). The form is GENERATED\n                    from the module's own input_schema, which every agent publishes in GET /api/v1/tools —\n                    so a create dialog needs no markup here and cannot drift from what the module accepts.\n                    `prefill` sets initial values; `dry_run_first: true` makes the form open with the\n                    module's own preview switched on, so the first click shows a plan instead of a change.\n  actions[].hide_when  {field, equals}: an action that cannot apply to this row is not offered at all",
+    "                       (greying out is the logical answer to an impossible action, not an error after)"
+  ],
+  "version": 1,
+  "snapins": [
+    {
+      "id": "services",
+      "title": "Services",
+      "mmc_equivalent": "services.msc",
+      "icon": "settings_applications",
+      "description": "Every service registered on the host, with its state and start type.",
+      "requires": [
+        {
+          "module": "service_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "Services (local)",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/service-units",
+            "rows": "services"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 230
+            },
+            {
+              "key": "display_name",
+              "title": "Description",
+              "grow": true,
+              "fallback": "description"
+            },
+            {
+              "key": "active",
+              "title": "Status",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "enabled",
+              "title": "Startup type",
+              "width": 130
+            },
+            {
+              "key": "pid",
+              "title": "PID",
+              "numeric": true,
+              "width": 80
+            },
+            {
+              "key": "start_name",
+              "title": "Log on as",
+              "width": 190
+            }
+          ],
+          "actions": [
+            {
+              "id": "start",
+              "title": "Start",
+              "icon": "play_arrow",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "running"
+              }
+            },
+            {
+              "id": "stop",
+              "title": "Stop",
+              "icon": "stop",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "restart",
+              "title": "Restart",
+              "icon": "restart_alt",
+              "tool": "service",
+              "params": {
+                "name": "{row.name}",
+                "state": "restarted"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "active",
+                "equals": "stopped"
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "set-service",
+              "title": "Set a service state…",
+              "icon": "tune",
+              "tool": "service",
+              "prefill": {},
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "taskschd",
+      "title": "Task Scheduler",
+      "mmc_equivalent": "taskschd.msc",
+      "icon": "schedule",
+      "description": "Every scheduled task on the host — including the several hundred Windows ships itself, because \"which tasks exist here\" has to be answerable in full. The last result is Windows' own code, explained in words rather than reduced to ok/failed.",
+      "requires": [
+        {
+          "module": "scheduled_task"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "All tasks",
+          "source": {
+            "kind": "tool",
+            "tool": "scheduled_task",
+            "params": {},
+            "rows": "tasks"
+          },
+          "sort": "full_name",
+          "columns": [
+            {
+              "key": "full_name",
+              "title": "Task",
+              "width": 330
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "triggers",
+              "title": "Triggers",
+              "join": ", ",
+              "width": 150
+            },
+            {
+              "key": "run_as",
+              "title": "Runs as",
+              "width": 150
+            },
+            {
+              "key": "next_run",
+              "title": "Next run",
+              "kind": "time",
+              "width": 170
+            },
+            {
+              "key": "last_result_meaning",
+              "title": "Last result",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable",
+              "icon": "block",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "enabled": false
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "disabled"
+              }
+            },
+            {
+              "id": "enable",
+              "title": "Enable",
+              "icon": "check_circle",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "enabled": true
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "ready"
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete task",
+              "icon": "delete",
+              "tool": "scheduled_task",
+              "params": {
+                "name": "{row.full_name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-task",
+              "title": "New task…",
+              "icon": "add_alarm",
+              "tool": "scheduled_task",
+              "prefill": {
+                "state": "present",
+                "schedule": "daily",
+                "run_as": "SYSTEM"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "local-users",
+      "title": "Local Users and Groups",
+      "mmc_equivalent": "lusrmgr.msc",
+      "icon": "group",
+      "description": "The host's local accounts and groups — the local SAM on Windows, passwd/group on Linux.",
+      "requires": [
+        {
+          "module": "getent"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "users",
+          "title": "Users",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/accounts",
+            "rows": "users"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 200
+            },
+            {
+              "key": "gecos",
+              "title": "Full name",
+              "grow": true
+            },
+            {
+              "key": "uid",
+              "title": "UID / RID",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "system",
+              "title": "Built-in",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "home",
+              "title": "Profile / home",
+              "width": 240
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable account",
+              "icon": "block",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "enabled": false
+              },
+              "confirm": true
+            },
+            {
+              "id": "enable",
+              "title": "Enable account",
+              "icon": "check_circle",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "enabled": true
+              },
+              "confirm": true
+            },
+            {
+              "id": "delete",
+              "title": "Delete account",
+              "icon": "delete",
+              "tool": "user",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "system",
+                "equals": true
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-user",
+              "title": "New user…",
+              "icon": "person_add",
+              "tool": "user",
+              "prefill": {
+                "state": "present",
+                "enabled": true
+              },
+              "dry_run_first": true
+            }
+          ]
+        },
+        {
+          "id": "groups",
+          "title": "Groups",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/accounts",
+            "rows": "groups"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 220
+            },
+            {
+              "key": "gid",
+              "title": "GID / RID",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "members",
+              "title": "Members",
+              "grow": true,
+              "join": ", "
+            }
+          ],
+          "actions": [
+            {
+              "id": "delete",
+              "title": "Delete group",
+              "icon": "delete",
+              "tool": "group",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "system",
+                "equals": true
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-group",
+              "title": "New group…",
+              "icon": "group_add",
+              "tool": "group",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ],
+      "titles": {
+        "windows": "Local Users and Groups",
+        "default": "Users and Groups"
+      }
+    },
+    {
+      "id": "eventvwr",
+      "title": "Event Viewer",
+      "mmc_equivalent": "eventvwr.msc",
+      "icon": "inbox",
+      "description": "Warnings and errors from the host's own log: the Windows event log, or journald on Linux.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "problems",
+          "title": "Warnings and errors",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/logs?lines=300&priority=warning",
+            "rows": "entries"
+          },
+          "columns": [
+            {
+              "key": "time",
+              "title": "When",
+              "width": 170,
+              "kind": "time"
+            },
+            {
+              "key": "priority",
+              "title": "Level",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "unit",
+              "title": "Source",
+              "width": 220
+            },
+            {
+              "key": "event_id",
+              "title": "Event ID",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "message",
+              "title": "Message",
+              "grow": true
+            }
+          ],
+          "actions": [],
+          "titles": {
+            "windows": "Warnings and errors",
+            "default": "Warnings and errors (journald)"
+          }
+        },
+        {
+          "id": "channels",
+          "title": "Channels with records",
+          "requires": [
+            {
+              "module": "windows_eventlog_channels"
+            }
+          ],
+          "source": {
+            "kind": "tool",
+            "tool": "windows_eventlog_channels",
+            "params": {
+              "only_with_records": true
+            },
+            "rows": "channels"
+          },
+          "sort": "-record_count",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Channel",
+              "grow": true
+            },
+            {
+              "key": "record_count",
+              "title": "Records",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "enabled",
+              "title": "Enabled",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "log_mode",
+              "title": "Retention",
+              "width": 130
+            }
+          ],
+          "actions": []
+        }
+      ],
+      "titles": {
+        "windows": "Event Viewer",
+        "default": "System log"
+      }
+    },
+    {
+      "id": "diskmgmt",
+      "title": "Disk Management",
+      "mmc_equivalent": "diskmgmt.msc",
+      "icon": "storage",
+      "description": "Disks, partitions and volumes. Read-only here — changing a partition table is the Disks screen, which stages operations and applies them together.",
+      "requires": [
+        {
+          "module": "storage_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "disks",
+          "title": "Disks and volumes",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/storage",
+            "rows": "block_devices.devices",
+            "flatten_children": "children"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Device",
+              "width": 200,
+              "indent_key": "_depth"
+            },
+            {
+              "key": "type",
+              "title": "Type",
+              "width": 90
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "fstype",
+              "title": "File system",
+              "width": 120
+            },
+            {
+              "key": "mountpoint",
+              "title": "Mounted at",
+              "width": 200
+            },
+            {
+              "key": "health",
+              "title": "Health",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "model",
+              "title": "Model",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ],
+      "titles": {
+        "windows": "Disk Management",
+        "default": "Disks and volumes"
+      }
+    },
+    {
+      "id": "shares",
+      "title": "Shared Folders",
+      "mmc_equivalent": "fsmgmt.msc",
+      "icon": "folder_shared",
+      "description": "What this host shares over SMB and with which SHARE-level rights. The folder's NTFS permissions are a separate access list and the stricter of the two wins — every row says which list it is showing, because a \"permission denied\" is usually debugged in the wrong one.",
+      "requires": [
+        {
+          "module": "share"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "all",
+          "title": "Shares",
+          "source": {
+            "kind": "tool",
+            "tool": "share",
+            "params": {},
+            "rows": "shares"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Share",
+              "width": 170
+            },
+            {
+              "key": "path",
+              "title": "Path",
+              "width": 230
+            },
+            {
+              "key": "special",
+              "title": "Built-in",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "encrypted",
+              "title": "Encrypted",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "access_summary",
+              "title": "Share permissions",
+              "grow": true
+            },
+            {
+              "key": "description",
+              "title": "Description",
+              "width": 200
+            }
+          ],
+          "actions": [
+            {
+              "id": "unshare",
+              "title": "Stop sharing",
+              "icon": "delete",
+              "tool": "share",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "special",
+                "equals": true
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-share",
+              "title": "New share…",
+              "icon": "create_new_folder",
+              "tool": "share",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "firewall",
+      "title": "Windows Firewall",
+      "mmc_equivalent": "wf.msc",
+      "icon": "security",
+      "description": "The host's firewall rules with their ports joined in. A rule's effect is its action AND its enabled state AND its profiles together — a disabled Allow blocks just as an enabled Block does, and a rule enabled only in the Domain profile does nothing on a host whose network is classified Public.",
+      "requires": [
+        {
+          "module": "windows_firewall_rule"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "inbound",
+          "title": "Inbound rules",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_firewall_rule",
+            "params": {},
+            "rows": "rules"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Rule",
+              "width": 300
+            },
+            {
+              "key": "direction",
+              "title": "Direction",
+              "width": 110
+            },
+            {
+              "key": "effect",
+              "title": "Effect",
+              "badge": true,
+              "width": 150
+            },
+            {
+              "key": "protocol",
+              "title": "Protocol",
+              "width": 100
+            },
+            {
+              "key": "local_port",
+              "title": "Local port",
+              "width": 130
+            },
+            {
+              "key": "remote_address",
+              "title": "Remote address",
+              "width": 180
+            },
+            {
+              "key": "profile",
+              "title": "Profiles",
+              "width": 130
+            },
+            {
+              "key": "program",
+              "title": "Program",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "disable",
+              "title": "Disable rule",
+              "icon": "block",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "enabled": false
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "enabled",
+                "equals": false
+              }
+            },
+            {
+              "id": "enable",
+              "title": "Enable rule",
+              "icon": "check_circle",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "enabled": true
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "enabled",
+                "equals": true
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete rule",
+              "icon": "delete",
+              "tool": "windows_firewall_rule",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-rule",
+              "title": "New rule…",
+              "icon": "add_moderator",
+              "tool": "windows_firewall_rule",
+              "prefill": {
+                "state": "present",
+                "direction": "inbound",
+                "action": "allow",
+                "protocol": "TCP",
+                "profile": "Any"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iis",
+      "title": "Internet Information Services",
+      "mmc_equivalent": "inetmgr.exe",
+      "icon": "language",
+      "description": "IIS sites with their bindings and the pools behind them. Whether a site SERVES is not its own state alone — a started site with a stopped pool answers 503, and one with no binding answers nothing — so every row states the combined answer.",
+      "requires": [
+        {
+          "module": "windows_iis"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sites",
+          "title": "Sites",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_iis",
+            "params": {},
+            "rows": "sites"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Site",
+              "width": 220
+            },
+            {
+              "key": "serving",
+              "title": "Serving",
+              "badge": true,
+              "width": 150
+            },
+            {
+              "key": "state",
+              "title": "Site state",
+              "width": 110
+            },
+            {
+              "key": "app_pool",
+              "title": "Pool",
+              "width": 160
+            },
+            {
+              "key": "app_pool_state",
+              "title": "Pool state",
+              "width": 110
+            },
+            {
+              "key": "bindings_summary",
+              "title": "Bindings",
+              "width": 220
+            },
+            {
+              "key": "physical_path",
+              "title": "Content folder",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "stop",
+              "title": "Stop site",
+              "icon": "stop",
+              "tool": "windows_iis",
+              "params": {
+                "object": "site",
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "start",
+              "title": "Start site",
+              "icon": "play_arrow",
+              "tool": "windows_iis",
+              "params": {
+                "object": "site",
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "started"
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-site",
+              "title": "New site…",
+              "icon": "add_link",
+              "tool": "windows_iis",
+              "prefill": {
+                "object": "site",
+                "state": "started"
+              },
+              "dry_run_first": true
+            }
+          ]
+        },
+        {
+          "id": "pools",
+          "title": "Application pools",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_iis",
+            "params": {},
+            "rows": "app_pools"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Pool",
+              "width": 240
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "managed_runtime",
+              "title": ".NET runtime",
+              "width": 150
+            },
+            {
+              "key": "pipeline",
+              "title": "Pipeline",
+              "width": 130
+            },
+            {
+              "key": "identity",
+              "title": "Runs as",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "stop",
+              "title": "Stop pool",
+              "icon": "stop",
+              "tool": "windows_iis",
+              "params": {
+                "object": "app_pool",
+                "name": "{row.name}",
+                "state": "stopped"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "stopped"
+              }
+            },
+            {
+              "id": "start",
+              "title": "Start pool",
+              "icon": "play_arrow",
+              "tool": "windows_iis",
+              "params": {
+                "object": "app_pool",
+                "name": "{row.name}",
+                "state": "started"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "started"
+              }
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-pool",
+              "title": "New application pool…",
+              "icon": "add_box",
+              "tool": "windows_iis",
+              "prefill": {
+                "object": "app_pool",
+                "state": "started"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns",
+      "title": "DNS",
+      "mmc_equivalent": "dnsmgmt.msc",
+      "icon": "dns",
+      "description": "The DNS SERVER's own zones — not what this host resolves, which is a different question. Each zone says who may change it: a secondary zone's data is transferred from its master and cannot be edited here.",
+      "requires": [
+        {
+          "module": "windows_dns"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "zones",
+          "title": "Forward and reverse zones",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_dns",
+            "params": {},
+            "rows": "zones"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Zone",
+              "width": 250
+            },
+            {
+              "key": "zone_type",
+              "title": "Type",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "record_count",
+              "title": "Records",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "ad_integrated",
+              "title": "AD-integrated",
+              "badge": true,
+              "width": 130
+            },
+            {
+              "key": "dynamic_update",
+              "title": "Dynamic update",
+              "width": 150
+            },
+            {
+              "key": "writable_reason",
+              "title": "Who may change it",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "delete",
+              "title": "Delete zone (with every record)",
+              "icon": "delete",
+              "tool": "windows_dns",
+              "params": {
+                "object": "zone",
+                "zone": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-zone",
+              "title": "New primary zone…",
+              "icon": "add",
+              "tool": "windows_dns",
+              "prefill": {
+                "object": "zone",
+                "state": "present"
+              },
+              "dry_run_first": true
+            },
+            {
+              "id": "new-record",
+              "title": "New record…",
+              "icon": "add_link",
+              "tool": "windows_dns",
+              "prefill": {
+                "object": "record",
+                "state": "present",
+                "type": "A",
+                "ttl_seconds": 3600
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dhcp",
+      "title": "DHCP",
+      "mmc_equivalent": "dhcpmgmt.msc",
+      "icon": "router",
+      "description": "The DHCP server's scopes. This is the one snap-in whose writes affect machines other than this host, so a new scope is created INACTIVE unless activation is stated, and every scope row says plainly whether it answers clients and how many addresses are left.",
+      "requires": [
+        {
+          "module": "windows_dhcp"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "scopes",
+          "title": "Scopes",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_dhcp",
+            "params": {},
+            "rows": "scopes"
+          },
+          "sort": "id",
+          "columns": [
+            {
+              "key": "id",
+              "title": "Scope",
+              "width": 150
+            },
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 180
+            },
+            {
+              "key": "answers",
+              "title": "Answers clients",
+              "badge": true,
+              "width": 170
+            },
+            {
+              "key": "start_range",
+              "title": "From",
+              "width": 140
+            },
+            {
+              "key": "end_range",
+              "title": "To",
+              "width": 140
+            },
+            {
+              "key": "subnet_mask",
+              "title": "Mask",
+              "width": 140
+            },
+            {
+              "key": "lease_hours",
+              "title": "Lease (h)",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "capacity_note",
+              "title": "Addresses",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "deactivate",
+              "title": "Deactivate scope",
+              "icon": "pause",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "inactive"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "inactive"
+              }
+            },
+            {
+              "id": "activate",
+              "title": "Activate scope",
+              "icon": "play_arrow",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "active"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "active"
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete scope (with its leases)",
+              "icon": "delete",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-scope",
+              "title": "New scope…",
+              "icon": "add",
+              "tool": "windows_dhcp",
+              "prefill": {
+                "object": "scope",
+                "state": "present",
+                "lease_duration_hours": 8
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "features",
+      "title": "Roles and Features",
+      "mmc_equivalent": "ServerManager.exe",
+      "icon": "widgets",
+      "description": "Windows Server roles, role services and features, with the install state Windows itself reports.",
+      "requires": [
+        {
+          "os_family": "windows"
+        },
+        {
+          "module": "windows_feature"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "installed",
+          "title": "Installed",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_feature",
+            "params": {
+              "state": "query",
+              "installed_only": true
+            },
+            "rows": "features"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 240
+            },
+            {
+              "key": "display_name",
+              "title": "Display name",
+              "grow": true
+            },
+            {
+              "key": "feature_type",
+              "title": "Kind",
+              "width": 130
+            },
+            {
+              "key": "install_state",
+              "title": "State",
+              "badge": true,
+              "width": 150
+            }
+          ],
+          "actions": [
+            {
+              "id": "plan-remove",
+              "title": "Plan removal (-WhatIf)",
+              "icon": "science",
+              "tool": "windows_feature",
+              "params": {
+                "name": "{row.name}",
+                "state": "absent",
+                "dry_run": true
+              },
+              "confirm": false
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "install-feature",
+              "title": "Install a role or feature…",
+              "icon": "add_box",
+              "tool": "windows_feature",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        },
+        {
+          "id": "available",
+          "title": "Available to install",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_feature",
+            "params": {
+              "state": "query",
+              "installed_only": false
+            },
+            "rows": "features"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 240
+            },
+            {
+              "key": "display_name",
+              "title": "Display name",
+              "grow": true
+            },
+            {
+              "key": "feature_type",
+              "title": "Kind",
+              "width": 130
+            },
+            {
+              "key": "install_state",
+              "title": "State",
+              "badge": true,
+              "width": 150
+            }
+          ],
+          "actions": [
+            {
+              "id": "plan-install",
+              "title": "Plan install (-WhatIf)",
+              "icon": "science",
+              "tool": "windows_feature",
+              "params": {
+                "name": "{row.name}",
+                "state": "present",
+                "dry_run": true
+              },
+              "confirm": false
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "install-feature",
+              "title": "Install a role or feature…",
+              "icon": "add_box",
+              "tool": "windows_feature",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "programs",
+      "title": "Programs and Features",
+      "mmc_equivalent": "appwiz.cpl",
+      "icon": "apps",
+      "description": "What is installed on the host, as its own package database reports it.",
+      "requires": [
+        {
+          "module": "package_facts"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "installed",
+          "title": "Installed programs",
+          "source": {
+            "kind": "tool",
+            "tool": "package_facts",
+            "params": {},
+            "rows": ""
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Name",
+              "grow": true
+            },
+            {
+              "key": "version",
+              "title": "Version",
+              "width": 160
+            },
+            {
+              "key": "publisher",
+              "title": "Publisher",
+              "width": 220
+            },
+            {
+              "key": "arch",
+              "title": "Arch",
+              "width": 90
+            },
+            {
+              "key": "install_date",
+              "title": "Installed",
+              "width": 120
+            }
+          ],
+          "actions": [],
+          "titles": {
+            "windows": "Installed programs",
+            "default": "Installed packages"
+          },
+          "node_actions": [
+            {
+              "id": "install-package",
+              "title": "Install a package…",
+              "icon": "download",
+              "tool": "package",
+              "prefill": {
+                "state": "present"
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ],
+      "titles": {
+        "windows": "Programs and Features",
+        "default": "Installed packages"
+      }
+    },
+    {
+      "id": "rsop",
+      "title": "Resultant Set of Policy",
+      "mmc_equivalent": "rsop.msc",
+      "icon": "policy",
+      "description": "Which Group Policy objects apply to this host, which were denied and why — Windows' own declaration, not this system's.",
+      "requires": [
+        {
+          "os_family": "windows"
+        },
+        {
+          "module": "windows_gpresult"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "applied",
+          "title": "Applied policies",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_gpresult",
+            "params": {
+              "scope": "both"
+            },
+            "rows": "applied"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Policy",
+              "grow": true
+            },
+            {
+              "key": "scope",
+              "title": "Scope",
+              "width": 120
+            },
+            {
+              "key": "som",
+              "title": "Linked at",
+              "width": 260
+            },
+            {
+              "key": "version",
+              "title": "Version",
+              "width": 100
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "denied",
+          "title": "Denied policies",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_gpresult",
+            "params": {
+              "scope": "both"
+            },
+            "rows": "denied"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Policy",
+              "grow": true
+            },
+            {
+              "key": "reason",
+              "title": "Why it did not apply",
+              "width": 300
+            },
+            {
+              "key": "scope",
+              "title": "Scope",
+              "width": 120
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "conflicts",
+          "title": "Conflicts with our declarations",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/policy-conflicts",
+            "rows": "overridden"
+          },
+          "columns": [
+            {
+              "key": "name",
+              "title": "Value",
+              "width": 200
+            },
+            {
+              "key": "path",
+              "title": "Key",
+              "grow": true
+            },
+            {
+              "key": "value",
+              "title": "We declare",
+              "width": 140
+            },
+            {
+              "key": "gp_value",
+              "title": "The host holds",
+              "width": 140
+            },
+            {
+              "key": "source",
+              "title": "From scope",
+              "width": 120
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": "Monitoring",
+      "mmc_equivalent": "perfmon.msc",
+      "icon": "monitor_heart",
+      "description": "What this system CHECKS on the host and what each check currently says. Served from Bossman's own database, so it answers even while the host is unreachable — which is exactly when it is asked.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "checks",
+          "title": "Service checks",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/services",
+            "rows": ""
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Check",
+              "width": 260
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "value",
+              "title": "Value",
+              "numeric": true,
+              "width": 120
+            },
+            {
+              "key": "metric",
+              "title": "Metric",
+              "width": 200
+            },
+            {
+              "key": "output",
+              "title": "What it says",
+              "grow": true
+            }
+          ],
+          "actions": []
+        },
+        {
+          "id": "discovered",
+          "title": "Discovered services",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/discovered-services",
+            "rows": "services"
+          },
+          "sort": "check_name",
+          "columns": [
+            {
+              "key": "check_name",
+              "title": "Check",
+              "width": 240
+            },
+            {
+              "key": "item",
+              "title": "Item",
+              "width": 200
+            },
+            {
+              "key": "state",
+              "title": "State",
+              "badge": true,
+              "width": 120
+            },
+            {
+              "key": "first_seen_at",
+              "title": "First seen",
+              "kind": "time",
+              "width": 170
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "processes",
+      "title": "Processes",
+      "mmc_equivalent": "taskmgr.exe",
+      "icon": "memory",
+      "description": "The host's live process table, sampled on demand — never stored, so this is what is running now and not what was running when somebody last looked.",
+      "requires": [
+        {
+          "endpoint": "/api/v1/agents/{agent_id}/processes"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "live",
+          "title": "Running processes",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/processes?limit=300",
+            "rows": "processes"
+          },
+          "sort": "-cpu_percent",
+          "columns": [
+            {
+              "key": "comm",
+              "title": "Process",
+              "width": 200
+            },
+            {
+              "key": "pid",
+              "title": "PID",
+              "numeric": true,
+              "width": 90
+            },
+            {
+              "key": "user",
+              "title": "User",
+              "width": 140
+            },
+            {
+              "key": "cpu_percent",
+              "title": "CPU %",
+              "numeric": true,
+              "width": 90
+            },
+            {
+              "key": "rss_bytes",
+              "title": "Memory",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "command",
+              "title": "Command line",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Software updates",
+      "icon": "system_update",
+      "description": "Pending package updates as the host's own package manager reports them, with the security ones marked.",
+      "requires": [
+        {
+          "module": "yoloman.package_updates"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "pending",
+          "title": "Pending updates",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/updates",
+            "rows": "updates"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Package",
+              "width": 260
+            },
+            {
+              "key": "current",
+              "title": "Installed",
+              "width": 180
+            },
+            {
+              "key": "candidate",
+              "title": "Available",
+              "width": 180
+            },
+            {
+              "key": "security",
+              "title": "Security",
+              "badge": true,
+              "width": 100
+            },
+            {
+              "key": "source",
+              "title": "From",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "configuration",
+      "title": "Configuration files",
+      "icon": "description",
+      "description": "Every config file this system reads on the host, with the codec that parses it. Read-only here — editing values is the Configuration view, which owns generations and rollback.",
+      "requires": [
+        {
+          "endpoint": "/api/v1/agents/{agent_id}/state/observed"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "files",
+          "title": "Managed and observed files",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/state/observed",
+            "rows": "observed.config"
+          },
+          "sort": "path",
+          "columns": [
+            {
+              "key": "path",
+              "title": "Path",
+              "grow": true
+            },
+            {
+              "key": "type",
+              "title": "Kind",
+              "width": 110
+            },
+            {
+              "key": "format",
+              "title": "Codec",
+              "width": 140
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "logfiles",
+      "title": "Log files",
+      "icon": "folder_open",
+      "description": "Text logs under the host's log roots — the ones no journal or event log holds.",
+      "requires": [
+        {
+          "module": "logfiles"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "files",
+          "title": "Files",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/logs/files",
+            "rows": "files"
+          },
+          "sort": "-modified",
+          "columns": [
+            {
+              "key": "path",
+              "title": "Path",
+              "grow": true
+            },
+            {
+              "key": "size",
+              "title": "Size",
+              "kind": "bytes",
+              "numeric": true,
+              "width": 110
+            },
+            {
+              "key": "modified",
+              "title": "Modified",
+              "kind": "time",
+              "width": 180
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "title": "Result log",
+      "icon": "fact_check",
+      "description": "What was done TO this host and what came back — the same records the Result log page and the AI read.",
+      "requires": [],
+      "nodes": [
+        {
+          "id": "operations",
+          "title": "Operations",
+          "source": {
+            "kind": "endpoint",
+            "path": "/api/v1/agents/{agent_id}/operations?limit=300",
+            "rows": "operations"
+          },
+          "columns": [
+            {
+              "key": "started_at",
+              "title": "When",
+              "kind": "time",
+              "width": 170
+            },
+            {
+              "key": "module",
+              "title": "Module",
+              "width": 180
+            },
+            {
+              "key": "outcome",
+              "title": "Outcome",
+              "badge": true,
+              "width": 130
+            },
+            {
+              "key": "identity",
+              "title": "Asked by",
+              "width": 160
+            },
+            {
+              "key": "message",
+              "title": "What it said",
+              "grow": true
+            }
+          ],
+          "actions": []
+        }
+      ]
+    }
+  ]
+}

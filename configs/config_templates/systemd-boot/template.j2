@@ -1,0 +1,32 @@
+#!/bin/sh
+
+set -eu
+
+# Ensure bootctl is available; if not, this script is a no-op.
+test -x /usr/bin/bootctl || exit 0
+
+# Ensure systemd-boot is actually installed for this boot directory;
+# if not, there is nothing to update, so exit gracefully.
+bootctl is-installed --quiet || exit 0
+
+# Locate the kernel image for the given version ($1).
+# Priority: vmlinuz-<version> over vmlinux-<version>.
+# The base directory for kernel images is configurable via boot_directory.
+if [ -f "{{ boot_directory | default('/boot') }}/vmlinuz-$1" ]; then
+    k="{{ boot_directory | default('/boot') }}/vmlinuz-$1"
+elif [ -f "{{ boot_directory | default('/boot') }}/vmlinux-$1" ]; then
+    k="{{ boot_directory | default('/boot') }}/vmlinux-$1"
+else
+    # Kernel version not found in the configured boot directory.
+    echo "Kernel version $1 not found in {{ boot_directory | default('/boot') }}."
+    exit 0
+fi
+
+echo "Updating kernel version $1 in systemd-boot..."
+
+# Register the kernel with systemd-boot using kernel-install.
+# Arguments:
+#   $1 = kernel version string
+#   $k = path to the kernel image
+#   $2 = additional options/arguments passed by the caller
+kernel-install add "$1" "$k" "$2"

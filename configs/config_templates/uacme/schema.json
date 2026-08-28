@@ -1,0 +1,81 @@
+{
+  "confdir": {
+    "type": "string",
+    "default": "/etc/ssl/uacme",
+    "description": "Configuration directory for keys and certificates."
+  },
+  "ca_url": {
+    "type": "string",
+    "default": "",
+    "description": "ACMEv2 server directory object URL. Leave empty to use default based on staging_mode."
+  },
+  "staging_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Use Let's Encrypt staging URL for testing."
+  },
+  "acme_account_email": {
+    "type": "string",
+    "default": "admin@example.com",
+    "description": "Email contact for the ACME account."
+  },
+  "key_type": {
+    "type": "string",
+    "default": "RSA",
+    "description": "Key type for newly generated keys: RSA or EC.",
+    "enum": [
+      "RSA",
+      "EC"
+    ]
+  },
+  "key_bits": {
+    "type": "number",
+    "default": 2048,
+    "description": "Key bit length. 2048-8192 for RSA, 256 or 384 for EC."
+  },
+  "external_account_binding": {
+    "type": "string",
+    "default": "",
+    "description": "RFC8555 External Account Binding credentials in KEYID:KEY format."
+  },
+  "days_until_reissue": {
+    "type": "number",
+    "default": 30,
+    "description": "Do not reissue certificates valid for longer than this many days."
+  },
+  "disable_ari": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not query or use the server's certificate renewal information window."
+  },
+  "disable_ocsp": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable OCSP checking before reissuance."
+  },
+  "must_staple": {
+    "type": "bool",
+    "default": false,
+    "description": "Request certificates with the OCSP Must-Staple extension."
+  },
+  "hook_program": {
+    "type": "string",
+    "default": "",
+    "description": "Challenge hook program path. Empty string disables hook."
+  },
+  "identifiers": {
+    "type": "list",
+    "default": [],
+    "description": "List of identifiers to issue certificates for. Each item is a map with 'name' and optional 'altnames'. If 'name' is a wildcard, it is automatically adjusted in storage paths by uacme logic, but here we define the logical name. Note: uacme uses command line args for these, so this is a logical grouping for the template to generate a config file that might be used by a wrapper script. Since uacme doesn't have a single monolithic config file for identifiers (it takes them as args), this template generates a config file that *could* be parsed by a wrapper, OR we interpret 'config template' as generating the arguments file or a specific uacme.conf if one existed. However, uacme(1) says it uses command line options. It does NOT mention a config file for these flags except confdir. Wait, uacme does not have a config file for these. The prompt asks for a 'Class-B configuration template'. If the package has no config file, we must create a 'meta-config' or assume the user wants a script generator? No, 'return a canonical... configuration template'. If uacme has no config file, this is tricky. Let's look closer. uacme uses ENV vars and CLI args. It does NOT use a config file like nginx.conf. However, the prompt asks for a 'configuration template'. I will generate a template that represents a 'uacme.conf' file which is a common pattern for such tools to allow a wrapper script to read settings, OR I will assume the prompt implies generating the *arguments* to a script. But the output is a 'configuration template'. Let's stick to the variables documented. I will create a simple ini-style config that a hypothetical wrapper or uacme itself (if it supported it in future or via a different mechanism not explicitly stated but implied by 'configuration template') might use. Actually, looking at the man page, there is NO config file. The prompt says 'Base every variable on a real documented setting'. If there is no config file, I should probably output a template that generates the *command line arguments* or a *wrapper script*. But the instruction says 'config template'. Let's assume a 'uacme.conf' is created by the user to drive the automation, as is common in infrastructure-as-code contexts for CLI tools. I will format it as a simple key-value store that matches the CLI options."
+  },
+  "dns_servers": {
+    "type": "string",
+    "default": "",
+    "description": "Comma separated list of DNS servers (UACME_DNS_SERVERS)."
+  },
+  "proxy_url": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy URL (UACME_PROXY)."
+  }
+}

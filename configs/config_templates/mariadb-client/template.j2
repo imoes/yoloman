@@ -1,0 +1,41 @@
+# ==============================================================================
+# Mariadb Client Configuration Template
+# ==============================================================================
+#
+# This template configures the MySQL/MariaDB client library options.
+# It targets the [client] and [client-mariadb] sections.
+#
+# The [client] section is read by both MySQL and MariaDB client libraries.
+# The [client-mariadb] section is MariaDB-specific and ignored by Oracle MySQL clients.
+#
+# SSL/TLS options are included to allow secure connections to the database server.
+# ==============================================================================
+
+# [client] Section
+# ----------------
+# Options here affect all MySQL/MariaDB command-line clients and libraries.
+
+[client]
+
+# Path to the client SSL certificate file.
+# Used for mutual TLS authentication where the client presents a certificate.
+ssl-cert = {{ ssl_cert_client | default('/etc/mysql/client-cert.pem') }}
+
+# Path to the client SSL private key file.
+# Paired with ssl-cert to prove client identity to the server.
+ssl-key = {{ ssl_key_client | default('/etc/mysql/client-key.pem') }}
+
+# If set to on, the client verifies the server's certificate CN matches the hostname.
+# This prevents man-in-the-middle attacks by ensuring the server is who it claims to be.
+# Accepts values like 'on', 'off', 'true', 'false', '1', '0'.
+ssl-verify-server-cert = {{ ssl_verify_server_cert | default(False) | lower }}
+
+
+# [client-mariadb] Section
+# ------------------------
+# MariaDB-specific client options.
+# Note: This section is NOT read by Oracle MySQL clients.
+# It is safe to use if you are exclusively using MariaDB clients.
+
+[client-mariadb]
+# Add any MariaDB-specific client options here if needed.

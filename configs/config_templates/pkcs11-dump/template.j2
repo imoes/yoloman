@@ -1,0 +1,40 @@
+# =============================================================================
+# pkcs11-dump configuration template
+#
+# This file configures pkcs11-dump, a utility to inspect PKCS#11 tokens.
+# PKCS#11 is a standard API for cryptographic tokens (HSMs, smartcards, software tokens).
+#
+# Fields:
+#   mode         - Operation mode: 'info' (token info), 'slotlist' (list slots), 'dump' (dump objects)
+#   module_path  - Absolute path to the PKCS#11 provider shared library (.so)
+#   slot_number  - Numeric index of the slot to operate on (used when mode is 'dump')
+#   user_pin     - User PIN for the token. Use '-' if no PIN is required or if using SO PIN.
+# =============================================================================
+
+# --- Operation Mode ---
+# Determines what pkcs11-dump will do:
+#   info      - Display general information about the token
+#   slotlist  - List available slots
+#   dump      - Dump the objects stored on the token
+# See pkcs11-dump(1) for details.
+MODE={{ mode | default('info') }}
+
+# --- PKCS#11 Provider Module Path ---
+# Absolute filesystem path to the PKCS#11 provider shared library file.
+# This is the engine that implements the PKCS#11 interface (e.g., SoftHSM2).
+# Example: /usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so
+MODULE_PATH={{ module_path | default('/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so') }}
+
+# --- Slot Number ---
+# The numeric index of the slot to operate on.
+# This is primarily used when mode is 'dump' to target a specific slot.
+# Set to 0 if the token is the only slot or if you want the first slot.
+SLOT_NUMBER={{ slot_number | default(0) }}
+
+# --- User PIN ---
+# The User PIN required to authenticate and access the token's objects.
+# If the token does not require a PIN, or if using the Security Officer (SO) PIN,
+# set this to '-' (hyphen).
+# WARNING: In production environments, consider securing this value via Ansible vault
+# or external secrets management rather than hardcoding it here.
+USER_PIN={{ user_pin | default('-') }}

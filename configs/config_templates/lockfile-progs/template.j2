@@ -1,0 +1,47 @@
+{#
+  lockfile-progs Configuration Template
+  =====================================
+  This template generates a shell command line for interacting with lockfiles using the
+  lockfile-progs suite (e.g., `lockfile-create`, `lockfile-check`, `lockfile-remove`).
+  
+  It is designed to be idempotent in execution (the command itself must handle logic)
+  but explicit in its parameters via Jinja2 defaults.
+#}
+
+{#
+  Output Verbosity
+  ----------------
+  Controls the verbosity of the lockfile command output.
+  Allowed values: 'quiet', 'verbose'.
+  Default: '' (empty, meaning standard/none).
+#}
+{% if output_verbosity | default('') %}
+{%- if output_verbosity | default('') == 'quiet' %}
+-q
+{%- elif output_verbosity | default('') == 'verbose' %}
+-v
+{%- endif %}
+{%- endif %}
+{# Ensure leading space if verbosity was emitted but command follows, or just newline #}
+{% if output_verbosity | default('') %}
+{% endif %}
+
+{#
+  Command Execution
+  -----------------
+  The primary lockfile-progs command to execute.
+  Common commands: lockfile-create, lockfile-check, lockfile-remove, lockfile-touch.
+  Default: 'lockfile-create'
+#}
+{{ command | default('lockfile-create') }}
+
+{#
+  Command Arguments
+  -----------------
+  Additional arguments or flags to pass to the command.
+  Typically a list of strings (e.g., file paths like '/var/lock/myapp.lock').
+  Default: ['/tmp/example.lock']
+#}
+{% if args | default(['/tmp/example.lock']) | length > 0 %}
+{{ args | default(['/tmp/example.lock']) | join(' ') }}
+{% endif %}

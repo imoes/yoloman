@@ -1,0 +1,14 @@
+# Whatmaps configuration template
+# Manages the whatmaps service, which scans for open network services
+# that are not handled by any known service manager.
+
+# Set to 1 or true to enable service restarts on security updates
+Whatmaps::Enable-Restart "{{ enable_restart | default('0') }}";
+
+# Define which distribution repositories are considered sources for security updates.
+# The configuration dynamically includes the distribution identifier and codename
+# to ensure the correct security repositories are monitored.
+Whatmaps::Security-Update-Origins {
+   "{{ distro_id | default('${distro_id}') }} stable";
+   "{{ distro_id | default('${distro_id}') }} {{ distro_codename | default('${distro_codename}') }}-security";
+};

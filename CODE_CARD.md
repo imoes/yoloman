@@ -65,8 +65,44 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
 
 - **config-templates** — `configs/config_templates/<name>/` = `template.j2` (gonja/Jinja2) + `schema.json`
   (typed fields) + `sample.json` + `capabilities.json`. DB-bound to hosts, edited as VALUES in the WebUI.
+  `GET /api/v1/config-templates` LISTS them (name + `target_path`, no bodies); `…/{name}` returns the one.
+  Bossman serves the whole tree; the AGENT PACKAGE ships only what a request can name — 1050 of 5474, staged
+  by `scripts/stage-agent-templates.py`, which asserts closure and records the rest in
+  `configs/config_templates_manifest.json` so the listing can say what it withheld. The managed write path
+  needs none of it: a template resource carries its body inline (`internal/state/state.go:43`).
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
+- **who owns it** — `configs/config_unowned_paths.json`, from `find_unowned_base_files.py` run in a base
+  image: the files `dpkg -S` / `rpm -qf` disclaim, i.e. created by the installer or the base system. The
+  guard that keeps `/etc/hostname` editable; container-only artifacts are recorded but earn no exemption.
+- **does the file exist** — `configs/config_path_verdicts.json` (per path: file|directory|dangling-symlink|
+  absent + whether a maintainer script creates it), measured by `bossman/scripts/verify_registry_paths.py`
+  in a container against the real `.deb` and recorded by `record_path_verdicts.py`. Driver:
+  `scripts/verify-registry-paths.sh` (resumable, one process, flock). Separate from the codec registry on
+  purpose: that answers how a file is written, this whether there is a file, and the qualify batch rewrites
+  the former knowing nothing about the latter.
+- **was the grammar tested** — `configs/codec_probe_verdicts.json` (per path: verdict + active_lines + keys),
+  written by `decide_codecs.py --record`. Separates "nobody has looked" from "probed, and the file could not
+  decide": all 81 unmeasured claims whose real file is in the corpus came back `no-evidence`, because the
+  shipped `/etc/security/limits.conf`, `/etc/sysctl.conf` and 79 others are entirely comments. First is a
+  task, second is a dead end for this method — and `/config-fields`'s provenance note now says which.
+- **the qualify pipeline** — `bossman/bossman/tools/` (in the package, shipped): `qualify_packages` (codec →
+  directives → template → enum, per-package, resumable), `build_package_catalog` (which calls
+  `curate_catalog` itself — a rebuild without the curation strips the checked RedHat facts from 24 entries),
+  `enrich_gates`, `mine_directive_values`, `classify_config_codecs`, `batch_verify`. Run the batch with
+  `python -u -m bossman.tools.<name>`; ONE package on demand goes through `qualify_one()`, which
+  `POST /api/v1/packages/{name}/qualify` (+ the MCP tool) calls IN PROCESS and reports from its return —
+  `already_current`, the codec, enums/directives mined, and `detail` for a skip or an unreachable LLM.
+  `?force=true` clears that package's markers first. Paths come from `tools/_paths.py`, which FINDS the repo
+  root rather than counting `parents[2]` — that constant differed between the container and a checkout, which
+  is why a patched duplicate of every tool used to live in the untracked `bossman/scripts/`.
+- **one field spec, two servers** — `GET /api/v1/config-fields?path=` is the single describe() for a config
+  file (`write: codec|template|freeform|unknown` + typed `fields`). Bossman computes it from the rules
+  (`bossman/bossman/api/config_fields.py`); a STANDALONE agent serves the same answer from recorded
+  projections (`internal/server/management_config_fields.go`) so no rule exists twice. The projections are
+  written by `bossman/scripts/export_agent_config_projection.py --write` — rerun it after mining, or the host
+  serves yesterday's catalog — and agreement is MEASURED by `scripts/diff-agent-config-fields.sh` (91/121
+  paths, both families, every key equal). Same for `/config-generated` and `/config-templates/index`.
 
 ## Authoring format: Ansible task syntax, and only that
 
@@ -132,7 +168,7 @@ per-framework coverage measurements and the remaining parser gaps.
 ## Deploy / run
 
 - Stack: `docker compose --profile pxe up -d --build` (project `agentic-mcp`). Host-specifics in
-  `docker-compose.override.yml` (gitignored). Bossman published on `hal.example.com:8123`, UI on `:4201`.
+  `docker-compose.override.yml` (gitignored). Bossman published on `host4.example.internal:8123`, UI on `:4201`.
 - Agent build: `scripts/build-agent-deb.sh` → `deploy-artifacts/agentic-mcpd` + `agent.deb`/`.rpm` (the pxe
   Dockerfile + the offline installer copy these in).
 - Plans live in `docs/` (one file per project). This card is the architecture map; keep it current.

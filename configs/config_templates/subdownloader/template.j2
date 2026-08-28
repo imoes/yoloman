@@ -1,0 +1,91 @@
+# ============================================================================
+# SubDownloader Configuration Template
+#
+# This template generates the configuration file for SubDownloader, a
+# subtitle management tool. It is self-documenting: every directive is
+# preceded by a comment describing its purpose and default value.
+#
+# Variables are sourced from Ansible inventory/vars and must follow the
+# schema defined in the role. Missing variables fall back to safe defaults.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# video_dir
+# Full path to your video(s) directory.
+# Default: './videos'
+# ---------------------------------------------------------------------------
+video_dir: {{ video_dir | default('./videos') }}
+
+# ---------------------------------------------------------------------------
+# preferred_languages
+# List of preferred subtitle languages for download and upload.
+# These are ISO 639-1 or 639-2 language codes (e.g., 'en', 'fr', 'de').
+# Default: ['en']
+# ---------------------------------------------------------------------------
+preferred_languages: {{ preferred_languages | default(['en']) | join(', ') }}
+
+# ---------------------------------------------------------------------------
+# cli_mode
+# Run application in CLI mode instead of GUI.
+# If true, the application will run in the terminal without a graphical interface.
+# Default: False
+# ---------------------------------------------------------------------------
+cli_mode: {{ cli_mode | default(False) | lower }}
+
+# ---------------------------------------------------------------------------
+# log_level
+# Logging severity level: debug, warning, error, or quiet.
+# Controls the verbosity of the application's output.
+# Default: 'warning'
+# ---------------------------------------------------------------------------
+log_level: {{ log_level | default('warning') }}
+
+# ---------------------------------------------------------------------------
+# log_file
+# Path name of the log file; empty to disable file logging.
+# The directory must exist and be writable by the user running SubDownloader.
+# Default: '/var/log/subdownloader/subdownloader.log'
+# ---------------------------------------------------------------------------
+log_file: {{ log_file | default('/var/log/subdownloader/subdownloader.log') }}
+
+# ---------------------------------------------------------------------------
+# recursive
+# Search for subtitles recursively in subdirectories.
+# If true, SubDownloader will scan video directories for nested folders.
+# Default: False
+# ---------------------------------------------------------------------------
+recursive: {{ recursive | default(False) | lower }}
+
+# ---------------------------------------------------------------------------
+# proxy
+# Proxy server URL to use for internet connections.
+# Example: 'http://user:pass@proxy.example.com:8080'
+# Empty string disables proxy usage.
+# Default: ''
+# ---------------------------------------------------------------------------
+proxy: {{ proxy | default('') }}
+
+# ---------------------------------------------------------------------------
+# naming_strategy
+# Naming convention for downloaded subtitles: online, video, lang, or uploader.
+# Determines how the downloaded subtitle filename is generated.
+# - online: based on online source naming
+# - video: based on the video filename
+# - lang: includes the language code
+# - uploader: includes the uploader's username
+# Default: 'lang'
+# ---------------------------------------------------------------------------
+naming_strategy: {{ naming_strategy | default('lang') }}
+
+# ---------------------------------------------------------------------------
+# providers
+# List of provider configurations with name and parameters.
+# Each provider block defines a subtitle source and its connection settings.
+# ---------------------------------------------------------------------------
+{% for provider in providers | default([], true) %}
+[provider:{{ provider.name | default('unnamed') }}]
+enabled: {{ provider.enabled | default(True) | lower }}
+{% for key, value in provider.parameters | default({}) | dict2items %}
+{{ key }}={{ value }}
+{% endfor %}
+{% endfor %}

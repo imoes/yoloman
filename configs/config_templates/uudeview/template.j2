@@ -1,0 +1,82 @@
+# uudeview configuration file
+# See man page uudeview(1) or https://github.com/jmicko/uudeview for details.
+# This template is self-documenting: every directive is preceded by its schema description.
+
+# output_dir: The directory where decoded files will be written.
+# Default: /tmp
+OUTPUT_DIR: {{ output_dir|default('/tmp') }}
+
+# interactive: Disables interactivity for batch processing.
+# When true, the tool runs non-interactively.
+# Default: false
+INTERACTIVE: {{ interactive|default(false) | lower }}
+
+# autorename: Appends a dot and unique sequence number to filenames if they already exist.
+# This prevents overwriting files with the same name in the output directory.
+# Default: false
+AUTORENAME: {{ autorename|default(false) | lower }}
+
+# overwrite: Overwrites existing files without prompting.
+# Takes precedence over autorename; if set, existing files are replaced silently.
+# Default: false
+OVERWRITE: {{ overwrite|default(false) | lower }}
+
+# autoclear: Removes input files that were successfully decoded.
+# Useful for batch processing to clean up processed attachments.
+# Default: false
+AUTOCLEAR: {{ autoclear|default(false) | lower }}
+
+# ignore_mode: Ignores original file permissions, resetting to 0666.
+# Instead of restoring the permissions from the encoded file header, files are created with 0666.
+# Default: false
+IGNORE_MODE: {{ ignore_mode|default(false) | lower }}
+
+# strict_mime: Enforces stricter MIME compliance.
+# More rigorous parsing of MIME structures; may fail on malformed messages that looser modes accept.
+# Default: false
+STRICT_MIME: {{ strict_mime|default(false) | lower }}
+
+# fast_mode: Fast mode for file scanning, assuming single part per file.
+# Optimizes performance by skipping complex multi-part detection logic.
+# Default: false
+FAST_MODE: {{ fast_mode|default(false) | lower }}
+
+# ignore_replies: Ignores reply messages (subjects starting with Re:).
+# Skips processing of email replies to reduce noise in batch modes.
+# Default: false
+IGNORE_REPLIES: {{ ignore_replies|default(false) | lower }}
+
+# use_plaintext: Uses plaintext messages, offering unnamed text parts.
+# Enables decoding of text parts that lack proper MIME naming.
+# Default: false
+USE_PLAINTEXT: {{ use_plaintext|default(false) | lower }}
+
+# desperate_mode: Desperate mode to attempt decoding incomplete files.
+# Tries harder to extract data from malformed or truncated input files.
+# Default: false
+DESPERATE_MODE: {{ desperate_mode|default(false) | lower }}
+
+# bracket_policy: Prefers numbers in brackets [] over parentheses () for part numbers.
+# Resolves ambiguity when part numbers are embedded in filenames or headers.
+# Default: false
+BRACKET_POLICY: {{ bracket_policy|default(false) | lower }}
+
+# minus_smartness: Turns off automatic part number detection from the subject line.
+# Disables heuristic parsing of Re:/Fw: subject prefixes for part ordering.
+# Default: false
+MINUS_SMARTNESS: {{ minus_smartness|default(false) | lower }}
+
+# quiet: Disables verbosity and progress bars.
+# Reduces output to errors only; useful for logging or scripting.
+# Default: false
+QUIET: {{ quiet|default(false) | lower }}
+
+# no_progress_bars: Disables ASCII progress bars.
+# Specifically targets visual progress indicators in interactive mode.
+# Default: false
+NO_PROGRESS_BARS: {{ no_progress_bars|default(false) | lower }}
+
+# extensions_to_decode: List of file extensions to include for decoding (e.g., ['gif', 'jpg']).
+# If empty or omitted, all detected file types are considered for decoding.
+# Rendered as space-separated list for uudeview config format.
+EXTENSIONS_TO_DECODE: {{ extensions_to_decode|default([])|join(' ') }}

@@ -129,3 +129,29 @@ async def test_complete_json_raises_on_non_json_content():
     client = _client(handler)
     with pytest.raises(ChatClientError, match="not valid JSON"):
         await client.complete_json([], SIMPLE_SCHEMA, "s")
+
+
+async def test_json_inside_prose_is_extracted():
+    """`response_format: json_schema` is a GRAMMAR on llama.cpp and a REQUEST on OpenRouter, and
+    poolside/laguna-s-2.1 sometimes wraps the object in a sentence. The whole reply then fails to decode
+    while the object in it is perfectly good — measured on the directive mining, where the caller retried
+    eight times and gave up on a model that had answered correctly."""
+    body = {"choices": [{"message": {"content":
+            'Here is the catalog you asked for:\n{"directives": [{"name": "Port"}]}\nHope that helps.'}}]}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=body)
+
+    client = ChatClient("http://x", "m", transport=httpx.MockTransport(handler))
+    got = await client.complete_json([{"role": "user", "content": "x"}], {"type": "object"}, "s")
+    assert got == {"directives": [{"name": "Port"}]}
+
+
+async def test_a_reply_with_no_json_at_all_still_raises():
+    """The tolerance must not swallow a real failure: no object, no array, an error."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "I cannot do that."}}]})
+
+    client = ChatClient("http://x", "m", transport=httpx.MockTransport(handler))
+    with pytest.raises(ChatClientError):
+        await client.complete_json([{"role": "user", "content": "x"}], {"type": "object"}, "s")

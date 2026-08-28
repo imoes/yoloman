@@ -1,0 +1,19 @@
+#!/bin/sh
+# $Id: rwhod.cron.monthly,V 1.1 2001-10-06 02:09:28Z herbert $
+
+# rwhod spool data cleanup script
+#
+# This script is intended to be executed via cron (e.g., monthly) to remove
+# stale rwho/rwhod spool data. It cleans /var/spool/rwho, keeping only
+# entries newer than {{ retention_days | default(30) }} days.
+#
+# No external dependencies or network services are required.
+# This package does not provide or require any capability from the
+# vocabulary (no database, cache, queue, etc.).
+
+# Clean up old rwho spool files:
+# - find /var/spool/rwho: target the spool directory.
+# - -mindepth 1: avoid removing the directory itself.
+# - -mtime +{{ retention_days | default(30) }}: select files older than the configured retention period.
+# - -print0 | xargs -r0 rm: safely delete matching files (handles spaces/names with special chars).
+find /var/spool/rwho -mindepth 1 -mtime +{{ retention_days | default(30) }} -print0 | xargs -r0 rm

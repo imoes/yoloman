@@ -1,0 +1,49 @@
+# smistrip configuration script
+# This script invokes smistrip to extract MIB/PIB modules from input files.
+# Note: smistrip is primarily a CLI tool (man page 1), not a daemon with a config file.
+# This template represents a wrapper script or configuration of execution parameters.
+
+# Directory to write extracted module files
+# Corresponds to: -d dir
+output_dir: {{ output_dir }}
+
+# Specific module name to extract (if empty, extracts all modules found)
+# Corresponds to: -m module
+module_name: {{ module_name | default('', true) }}
+
+# Input file(s) to process. If empty, reads from stdin.
+# Corresponds to: file(s)
+input_files:
+{% for f in input_files %}
+- {{ f }}
+{% endfor %}
+
+# Dry-run mode: print extracted content to stdout without writing files
+# Corresponds to: -n
+dry_run: {{ dry_run | default(false, true) | lower }}
+
+# Command execution line generation
+command: smistrip
+{% if dry_run %}
+flags: -n
+{% endif %}
+{% if module_name %}
+flags: {{ flags | default('', true) }} -m {{ module_name }}
+{% endif %}
+{% if output_dir %}
+flags: {{ flags | default('', true) }} -d {{ output_dir }}
+{% endif %}
+{% for f in input_files %}
+args: {{ f }}
+{% endfor %}
+{% if not input_files %}
+args: /dev/stdin
+{% endif %}
+
+# Final constructed command for execution
+exec_cmd: >-
+  smistrip
+  {% if dry_run %}-n {% endif %}
+  {% if module_name %}-m {{ module_name }} {% endif %}
+  {% if output_dir %}-d {{ output_dir }} {% endif %}
+  {% for f in input_files %}{{ f }} {% endfor %}

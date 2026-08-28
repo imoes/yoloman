@@ -1,0 +1,156 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          switchconf
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Switchconf at boot time based on kernel options
+# Description:       This file should be used to construct scripts to be
+#                    placed in /etc/init.d.
+### END INIT INFO
+
+# Author: Eric Lavarde <{{ email | default('deb@zorglub.s.bawue.de') }}>
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# Description of the service
+DESC="{{ desc | default('switching configuration using kernel option') }}"
+
+# Name of the service/daemon
+NAME={{ name | default('switchconf') }}
+
+# Path to the daemon binary
+DAEMON=/usr/sbin/{{ name | default('switchconf') }}
+
+# Arguments passed to the daemon
+DAEMON_ARGS="{{ daemon_args | default('--options args') }}"
+
+# Path to the PID file
+PIDFILE=/var/run/{{ name | default('switchconf') }}.pid
+
+# Path to this script
+SCRIPTNAME=/etc/init.d/{{ name | default('switchconf') }}
+
+# Path to the kernel command line file
+CMDLINE="/proc/cmdline"
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/{{ name | default('switchconf') }} ] && . /etc/default/{{ name | default('switchconf') }}
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+[ -r /lib/lsb/init-functions ] && . /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
+
+    if [ ! -f $CMDLINE ] ; then
+	log_failure_msg "File '$CMDLINE' does not exist."
+	return 2;
+    fi
+    if [ ! -r $CMDLINE ] ; then
+	log_failure_msg "File '$CMDLINE' not readable."
+	return 2;
+    fi
+
+    # Extract the switchconf value from the kernel command line
+    conf="$(sed -rne 's/(.*[[:space:]]|^)switchconf=([^[:space:]]+).*/\2/p' "$CMDLINE" | tr -d \\n)"
+
+    if [ -z "${conf}" ] ; then
+	[ "$VERBOSE" != no ] && log_action_msg " No switchconf kernel option"
+	return 0;
+    else
+	log_action_msg " Switching to config '${conf}'"
+	$DAEMON "${conf}" >/dev/null || log_end_msg 2
+	return 0
+    fi
+
+    # Add code here, if necessary, that waits for the process to be ready
+    # to handle requests from services started subsequently which depend
+    # on this one.  As a last resort, sleep for some time.
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon was already stopped
+    #   2 if daemon could not be stopped
+    #   other if a failure occurred
+    : Nothing to be done...
+    # Wait for children to finish too if this is a daemon that forks
+    # and if the daemon is only ever run from this initscript.
+    # If the above conditions are not satisfied then add some other code
+    # that waits for the process to drop all resources that could be
+    # needed by services started subsequently.  A last resort is to
+    # sleep for some time.
+
+    # Many daemons don't delete their pidfiles when they exit.
+
+    return 0
+}
+
+case "$1" in
+    start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+	    0)   log_end_msg 0 ;;
+	    1|2) log_end_msg 1 ;;
+	esac
+	;;
+    stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	    0|1) log_end_msg 0 ;;
+	    2)   log_end_msg 1 ;;
+	esac
+	;;
+    restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	    0|1)
+		do_start
+		case "$?" in
+		    0) log_end_msg 0 ;;
+		    1) log_end_msg 1 ;; # Old process is still running
+		    *) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	    *)
+	   	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+    *)
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}"
+	exit 3
+	;;
+esac

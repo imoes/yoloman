@@ -1,0 +1,35 @@
+# TigerVNC Standalone Server startup script
+# This script configures the X session and keyboard layout for the VNC server.
+
+# Set the default shell for the VNC session.
+test x"$SHELL" = x"" && SHELL=/bin/bash
+
+# Set default arguments for the tigervncserver command if none provided.
+# The 'default_display_mode' variable controls the initial display geometry and options.
+test x"$1"     = x"" && set -- {{ default_display_mode | default('default') }}
+
+# Configure keyboard layout from system defaults if available.
+if test -r /etc/default/keyboard &&
+   test -x /usr/bin/setxkbmap; then
+  . /etc/default/keyboard
+  /usr/bin/setxkbmap \\
+    -model   "${XKBMODEL}" \\
+    -layout  "${XKBLAYOUT}" \\
+    -variant "${XKBVARIANT}" \\
+    "${XKBOPTIONS}"
+fi
+
+# Launch the TigerVNC configuration tool in the background (iconic/minimized).
+tigervncconfig -iconic &
+
+# Start the X session shell.
+# This executes the Xsession script which initializes the desktop environment.
+"$SHELL" -l <<EOF
+exec /etc/X11/Xsession "$@"
+EOF
+
+# Note: The original template included a kill command here which is likely
+# a copy-paste error for a startup script. In a persistent VNC server context,
+# killing the server immediately after starting it would defeat the purpose.
+# This line is commented out to preserve the service functionality.
+# tigervncserver -kill $DISPLAY

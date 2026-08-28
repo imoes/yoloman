@@ -1,0 +1,91 @@
+# mb2md conversion script generator
+# This Jinja2 template produces a shell command line for `mb2md`, a utility that converts
+# Mbox-format mailboxes to Maildir format.
+# The script is intended to be executed as the target user or with appropriate permissions.
+
+# Start the mb2md command invocation
+mb2md \
+{% set sp = source_path | default('') %}
+{% set sf = source_file | default(False) %}
+{% set sd = source_dir | default('') %}
+{% set dd = dest_dir | default('Maildir') %}
+{% set ucl = use_content_length | default(False) %}
+{% set imfu = is_mailbox_for_user | default(False) %}
+{% set se = strip_extension | default('') %}
+{% set ml = mailbox_list_file | default('') %}
+{% set rec = recursive | default(False) %}
+{% set fn = folder_name | default('') %}
+
+# [source_path]
+# Source directory or file path for Mbox data. Relative to home unless absolute.
+# Set source_file or source_dir alongside this to define the path.
+# Uses the -s flag to specify the source.
+{% if sp | length > 0 %}
+    -s {{ sp }} \
+{% elif sd | length > 0 %}
+# If no source_path but source_dir is set, use source_dir as source
+    -s {{ sd }} \
+{% endif %}
+
+# [source_file]
+# If true, source_path points to a single mbox file. If false, it points to a directory.
+# mb2md usually infers this from whether source_path is a file or dir, but setting this boolean
+# helps logic. Note: mb2md does not have a specific flag for this; the -s argument handles both.
+
+# [source_dir]
+# Specific source directory name relative to home if source_path is used as a base.
+# Often used with source_file=false.
+# If source_path is empty, source_dir is used as the primary source argument (-s).
+
+# [dest_dir]
+# Destination directory for Maildir format. Relative to home unless absolute.
+# Maps to the -d flag.
+{% if dd | length > 0 %}
+    -d {{ dd }} \
+{% endif %}
+
+# [use_content_length]
+# Use Content-Length: headers to find message boundaries. Use with caution.
+# Maps to the -c flag.
+{% if ucl %}
+    -c \
+{% endif %}
+
+# [is_mailbox_for_user]
+# Use -m flag. Source is /var/spool/mail/username. Destination is destdir.
+# This flag changes the source interpretation to the system mailbox spool.
+{% if imfu %}
+    -m \
+{% endif %}
+
+# [strip_extension]
+# Extension to strip from original mbox filename (without leading dot).
+# Note: mb2md standard does not have a -r flag for stripping extensions (it is -R for recursive).
+# This flag is included to preserve the template's structure as requested, assuming a patched
+# or specific variant of mb2md or wrapper script that supports it.
+{% if se | length > 0 %}
+    -r {{ se }} \
+{% endif %}
+
+# [mailbox_list_file]
+# UW-IMAP .mailboxlist file path for -l flag.
+# Uses the -l flag to specify the mailbox list file.
+{% if ml | length > 0 %}
+    -l {{ ml }} \
+{% endif %}
+
+# [recursive]
+# Run recursively into directories (-R flag). Incompatible with -f.
+{% if rec %}
+    -R \
+{% endif %}
+
+# [folder_name]
+# Specific subdirectory name in sourcedir to convert (-f flag). Incompatible with -R.
+{% if fn | length > 0 %}
+    -f {{ fn }} \
+{% endif %}
+
+# End of command flags
+# Placeholder for actual execution context; remove --help to run.
+--help # Placeholder for actual execution context; remove --help to run.

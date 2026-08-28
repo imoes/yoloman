@@ -1,0 +1,57 @@
+{# PLY (Polygon File Format) configuration template.
+   PLY is a simple text/binary format for storing polygon meshes.
+   This template generates a valid ASCII PLY file header and data sections.
+   It is designed to be self-documenting: every section has a comment explaining its purpose. #}
+
+{# The PLY format variant: ascii, binary_little_endian, or binary_big_endian. #}
+ply
+format {{ format_type | default('ascii') }} 1.0
+
+{# A list of comment strings to include in the header. #}
+{% for comment in comments | default([]) %}
+comment {{ comment }}
+{% endfor %}
+
+{# Configuration for vertex elements in the PLY file.
+   Each item defines a batch of vertices with common properties and their data.
+   Expected structure per item: map with 'count', 'has_normals', 'has_colors', 'data'. #}
+{% for vertex in vertices | default([]) %}
+element vertex {{ vertex.count | default(0) }}
+property float x
+property float y
+property float z
+{% if vertex.has_normals | default(false) %}
+property float nx
+property float ny
+property float nz
+{% endif %}
+{% if vertex.has_colors | default(false) %}
+property uchar red
+property uchar green
+property uchar blue
+{% endif %}
+{% endfor %}
+
+{# Configuration for face elements in the PLY file.
+   Each item defines a batch of faces with their vertex indices.
+   Expected structure per item: map with 'count' and 'data'. #}
+{% for face in faces | default([]) %}
+element face {{ face.count | default(0) }}
+property list uchar int vertex_indices
+{% endfor %}
+end_header
+
+{# Vertex data section: emits the actual coordinate/normal/color values. #}
+{% for vertex in vertices | default([]) %}
+{% for v in vertex.data | default([]) %}
+{{ v.x }} {{ v.y }} {{ v.z }}{% if vertex.has_normals | default(false) %} {{ v.nx }} {{ v.ny }} {{ v.nz }}{% endif %}{% if vertex.has_colors | default(false) %} {{ v.red }} {{ v.green }} {{ v.blue }}{% endif %}
+{% endfor %}
+{% endfor %}
+
+{# Face data section: emits vertex index lists for each face.
+   Each face entry starts with the number of vertices, followed by their indices. #}
+{% for face in faces | default([]) %}
+{% for f in face.data | default([]) %}
+{{ f.num_verts }} {% for idx in f.indices | default([]) %}{{ idx }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endfor %}
+{% endfor %}

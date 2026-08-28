@@ -1,0 +1,112 @@
+#!/usr/bin/env sh
+# This script generates a shisa configuration command based on provided variables.
+# shisa is a command-line tool for manipulating the Shishi database, not a long-running daemon with a static config file.
+# Therefore, this "configuration" represents the default execution parameters for the `shisa` command.
+
+{% if realm %}
+# Realm to operate on
+REALM="{{ realm }}"
+{% else %}
+REALM="EXAMPLE.COM"
+{% endif %}
+
+{% if principal %}
+# Principal to target
+PRINCIPAL="{{ principal }}"
+{% else %}
+PRINCIPAL="admin"
+{% endif %}
+
+{% if operation %}
+# Operation to perform: list, add, modify, remove, dump
+OPERATION="{{ operation }}"
+{% else %}
+OPERATION="list"
+{% endif %}
+
+{% if encryption_type %}
+# Encryption type for keys: aes128, aes256, 3des, etc.
+ENC_TYPE="-E {{ encryption_type }}"
+{% else %}
+ENC_TYPE=""
+{% endif %}
+
+{% if force %}
+# Force removal of non-empty realms
+FORCE="-f"
+{% else %}
+FORCE=""
+{% endif %}
+
+{% if verbose %}
+# Verbose output
+VERBOSE="-v"
+{% else %}
+VERBOSE=""
+{% endif %}
+
+{% if quiet %}
+# Quiet mode (suppress diagnostics)
+QUIET="-q"
+{% else %}
+QUIET=""
+{% endif %}
+
+{% if enabled_only %}
+# Only dump/list enabled principals
+ENABLED_FLAG="--enabled"
+{% else %}
+ENABLED_FLAG=""
+{% endif %}
+
+{% if disabled_only %}
+# Only dump/list disabled principals
+DISABLED_FLAG="--disabled"
+{% else %}
+DISABLED_FLAG=""
+{% endif %}
+
+{% if show_keys %}
+# Print cryptographic keys
+KEYS_FLAG="--keys"
+{% else %}
+KEYS_FLAG=""
+{% endif %}
+
+{% if password %}
+# Password for key derivation
+PASSWORD_FLAG="--password={{ password }}"
+{% else %}
+PASSWORD_FLAG=""
+{% endif %}
+
+{% if key_version %}
+# Key version
+KV_FLAG="--key-version={{ key_version }}"
+{% else %}
+KV_FLAG=""
+{% endif %}
+
+{% if priority %}
+# Key priority
+PRIORITY_FLAG="--priority={{ priority }}"
+{% else %}
+PRIORITY_FLAG=""
+{% endif %}
+
+{% if salt %}
+# Salt for key derivation
+SALT_FLAG="--salt={{ salt }}"
+{% else %}
+SALT_FLAG=""
+{% endif %}
+
+{% if random_key %}
+# Use random key
+RANDOM_FLAG="--random"
+{% else %}
+RANDOM_FLAG=""
+{% endif %}
+
+# Construct the command
+echo "shisa {{ FORCE }} {{ VERBOSE }} {{ QUIET }} {{ ENABLED_FLAG }} {{ DISABLED_FLAG }} {{ KEYS_FLAG }} {{ ENC_TYPE }} {{ KV_FLAG }} {{ PRIORITY_FLAG }} {{ RANDOM_FLAG }} {{ SALT_FLAG }} {{ PASSWORD_FLAG }} {{ REALM }} {{ PRINCIPAL }} {{ OPERATION }}"

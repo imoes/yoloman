@@ -7,11 +7,11 @@ log_date_format = %Y-%m-%d %H:%M:%S
 
 # Debug mode toggle
 # Enable debug logging and verbose output
-debug = {{ debug }}
+debug = {{ debug | lower }}
 
 # Verbose logging level
 # Increase log verbosity (implies debug if enabled)
-verbose = {{ verbose }}
+verbose = {{ verbose | lower }}
 
 [auth]
 # Authentication backend configuration
@@ -42,7 +42,7 @@ retry_delay = {{ storage.retry_delay }}
 
 [prometheus]
 # Prometheus collector configuration
-enabled = {{ prometheus.enabled }}
+enabled = {{ prometheus.enabled | lower }}
 endpoint = {{ prometheus.endpoint }}
 query_path = {{ prometheus.query_path }}
 
@@ -78,31 +78,31 @@ ssl_key = {{ api.ssl_key }}
 workers = {{ api.workers }}
 
 # Enable CORS
-enable_cors = {{ api.enable_cors }}
+enable_cors = {{ api.enable_cors | lower }}
 
 [cinder]
 # Cinder integration (for volume-based rating)
-enabled = {{ cinder.enabled }}
+enabled = {{ cinder.enabled | lower }}
 endpoint_type = {{ cinder.endpoint_type }}
 
 [glance]
 # Glance integration (for image-based rating)
-enabled = {{ glance.enabled }}
+enabled = {{ glance.enabled | lower }}
 endpoint_type = {{ glance.endpoint_type }}
 
 [keystone]
 # Keystone integration for identity and auth (if not using [auth] block)
-enabled = {{ keystone.enabled }}
+enabled = {{ keystone.enabled | lower }}
 endpoint_type = {{ keystone.endpoint_type }}
 
 [neutron]
 # Neutron integration (for network-based rating)
-enabled = {{ neutron.enabled }}
+enabled = {{ neutron.enabled | lower }}
 endpoint_type = {{ neutron.endpoint_type }}
 
 [nova]
 # Nova integration (for compute-based rating)
-enabled = {{ nova.enabled }}
+enabled = {{ nova.enabled | lower }}
 endpoint_type = {{ nova.endpoint_type }}
 
 # Rate-modifying modules (e.g., rating by usage tier, region, etc.)
@@ -116,7 +116,7 @@ enabled_modules = [{% for mod in modules.enabled_modules %}
 # Collector-specific config (e.g., for custom collectors)
 {% for name, config in collectors.items() %}[collectors.{{ name }}]
 # Collector: {{ name }}
-enabled = {{ config.enabled }}
+enabled = {{ config.enabled | lower }}
 interval = {{ config.interval }}
 endpoint = {{ config.endpoint }}
 {% endfor %}

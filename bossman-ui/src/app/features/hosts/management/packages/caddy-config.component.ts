@@ -88,11 +88,11 @@ export class CaddyConfigComponent {
   reload(): void {
     this.loading.set(true); this.msg.set(''); this.err.set(''); this.rendered.set('');
     forkJoin({
-      tpls: this.agentService.configTemplates(),
+      tpl: this.agentService.configTemplate('caddy'),
       side: this.agentService.callTool(this.agentId(), 'config', { path: SIDECAR, format: 'json' }),
     }).subscribe({
-      next: ({ tpls, side }) => {
-        const tpl = tpls.templates.find((t) => t.name === 'caddy');
+      next: ({ tpl: { tpl, missing }, side }) => {
+        if (missing) this.err.set(missing);
         this.tplBody = tpl?.template || '';
         if (tpl?.schema) this.schema.set(tpl.schema as ParamSchema);
         this.sample = (tpl?.sample as Record<string, unknown>) || {};

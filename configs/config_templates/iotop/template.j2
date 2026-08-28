@@ -1,0 +1,196 @@
+# ==============================================================================
+# iotop configuration file
+# Path: ~/.config/iotop/iotoprc
+#
+# This template is self-documenting. Each directive is preceded by a comment
+# explaining its purpose, valid values, and the default behavior if omitted.
+#
+# Variable naming convention:
+#   - Variables are accessed from the Ansible inventory/vars.
+#   - All variables use the | default() filter to ensure the config renders
+#     correctly even if a specific variable is not defined in the current run.
+#     This makes the role idempotent and safe to reuse without defining every
+#     single flag.
+# ==============================================================================
+
+# Set the type of interactive help shown (none, win, inline).
+# 'none': No help displayed.
+# 'win':  Standard windowed help.
+# 'inline': Inline help within the interface.
+# Default: win
+help_type = {{ help_type | default('win') }}
+
+# Only show processes or threads actually doing I/O.
+# If true, iotop filters the view to only active I/O consumers.
+# Default: false
+only = {{ only | default(False) | lower }}
+
+# Number of iterations before quitting.
+# Set to 0 to run indefinitely (interactive mode).
+# Set to a positive integer for batch processing (e.g., 5).
+# Default: 0
+iter = {{ iter | default(0) }}
+
+# Delay between iterations in seconds.
+# Controls the refresh rate of the display.
+# Default: 1.0
+delay = {{ delay | default(1.0) }}
+
+# A list of process/thread IDs to monitor.
+# If empty, all processes are monitored.
+# Note: iotop's config format typically expects a comma-separated list or
+# specific PID handling via CLI, but this allows generating a flat config.
+# Default: [] (all)
+# The join filter creates a space or comma separated string suitable for parsing.
+pids = {{ pids | default([]) | join(', ') }}
+
+# A list of user IDs (or names) to monitor.
+# If empty, processes for all users are shown.
+# Default: [] (all)
+users = {{ users | default([]) | join(', ') }}
+
+# Only show processes, hide threads.
+# If true, the output aggregates thread I/O into their parent process.
+# Default: false
+processes = {{ processes | default(False) | lower }}
+
+# Show accumulated I/O instead of bandwidth.
+# Displays total bytes read/written since start rather than rate.
+# Default: false
+accumulated = {{ accumulated | default(False) | lower }}
+
+# Show accumulated I/O as bandwidth.
+# Converts the accumulated total into a rate (e.g., KB/s) over the sampling period.
+# Default: false
+accum_bw = {{ accum_bw | default(False) | lower }}
+
+# Use kilobytes (1024 bytes) instead of human-friendly units (KB, MB, GB).
+# This forces output to raw KB values.
+# Default: false
+kilobytes = {{ kilobytes | default(False) | lower }}
+
+# Add a timestamp on each line.
+# Implies batch mode if not already set.
+# Default: false
+time = {{ time | default(False) | lower }}
+
+# Show processes' full file path and parameters.
+# Provides detailed command lines including arguments.
+# Default: false
+fullcmdline = {{ fullcmdline | default(False) | lower }}
+
+# Hide PID/TID column.
+# Reduces column width if process IDs are not needed for identification.
+# Default: false
+hide_pid = {{ hide_pid | default(False) | lower }}
+
+# Hide PRIO column.
+# Hides the process priority information.
+# Default: false
+hide_prio = {{ hide_prio | default(False) | lower }}
+
+# Hide USER column.
+# Hides the username associated with the process.
+# Default: false
+hide_user = {{ hide_user | default(False) | lower }}
+
+# Hide DISK READ column.
+# Removes the read throughput column from the display.
+# Default: false
+hide_read = {{ hide_read | default(False) | lower }}
+
+# Hide DISK WRITE column.
+# Removes the write throughput column from the display.
+# Default: false
+hide_write = {{ hide_write | default(False) | lower }}
+
+# Hide SWAPIN column.
+# Hides the percentage of time the process was blocked waiting for swap I/O.
+# Default: false
+hide_swapin = {{ hide_swapin | default(False) | lower }}
+
+# Hide IO column.
+# Hides the aggregate I/O column (if present in the specific version).
+# Default: false
+hide_io = {{ hide_io | default(False) | lower }}
+
+# Hide GRAPH column.
+# Removes the graphical representation of I/O from the display.
+# Default: false
+hide_graph = {{ hide_graph | default(False) | lower }}
+
+# Hide COMMAND column.
+# Removes the command/program name column.
+# Default: false
+hide_command = {{ hide_command | default(False) | lower }}
+
+# Set GRAPH column data source.
+# Defines what metric the graph column represents:
+#   io: Total I/O (Read + Write)
+#   r:  Read I/O only
+#   w:  Write I/O only
+#   rw: Read + Write
+#   sw: Swap I/O
+# Default: io
+grtype = {{ grtype | default('io') }}
+
+# Reverse GRAPH direction.
+# Inverts the visual direction of the graph bars.
+# Default: false
+reverse_graph = {{ reverse_graph | default(False) | lower }}
+
+# Suppress headers before each run.
+# Levels:
+#   0: No suppression (show headers always).
+#   1: Suppress column names after the first iteration.
+#   2: Suppress all headers.
+#   3: Suppress summary headers.
+# Default: 0
+quiet = {{ quiet | default(0) }}
+
+# Show exited processes/threads with letter 'x' instead of inverse background.
+# Helps distinguish between currently blocked and previously exited processes.
+# Default: false
+dead_x = {{ dead_x | default(False) | lower }}
+
+# Hide exited processes.
+# Removes processes that have already terminated from the display.
+# Default: false
+hide_exited = {{ hide_exited | default(False) | lower }}
+
+# Do not colorize values.
+# If true, forces monochrome output (useful for logs or non-ansi terminals).
+# Default: false
+no_color = {{ no_color | default(False) | lower }}
+
+# Do not show time clock in upper right corner.
+# If false, the current time is displayed in the top right.
+# Default: false
+hide_time = {{ hide_time | default(False) | lower }}
+
+# Use SI units (1000) instead of binary (1024) when printing values.
+# Changes KB from 1024 bytes to 1000 bytes.
+# Default: false
+si = {{ si | default(False) | lower }}
+
+# Set the threshold to switch to next unit.
+# Determines when the display switches from KB to MB, etc.
+# Range: 1-10.
+# Default: 2
+threshold = {{ threshold | default(2) }}
+
+# Disable using Unicode.
+# If true, uses ASCII characters for graphics/lines.
+# Default: false
+ascii = {{ ascii | default(False) | lower }}
+
+# Use inverse interface.
+# Renders the interface as black text on a white background.
+# Default: false
+inverse = {{ inverse | default(False) | lower }}
+
+# Filter processes by TID and COMMAND using a regex.
+# Only processes matching this regular expression will be shown.
+# Empty string means no filtering.
+# Default: ""
+filter = "{{ filter | default('') }}"

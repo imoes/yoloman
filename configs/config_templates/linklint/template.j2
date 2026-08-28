@@ -1,0 +1,201 @@
+# ==============================================================================
+# linklint Configuration Template
+# ==============================================================================
+# This file configures the linklint static site link checker.
+# It maps schema fields to linklint command-line-like settings.
+#
+# Variable Defaults: All variables use schema defaults via | default() filter.
+# Booleans: Rendered as 'true' or 'false' (linklint convention).
+# Lists: Rendered as space-separated strings where appropriate.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Source Configuration
+# ------------------------------------------------------------------------------
+
+# The root directory path to check. Uses @ for recursive and # for single-level wildcards.
+root_directory: {{ root_directory | default('/') }}
+
+# Hostname to treat local HTTP links as local files.
+# This allows absolute links (e.g., http://localhost/path) to be resolved to
+# local files instead of being checked remotely.
+hostname: {{ hostname | default('localhost') }}
+
+# Port to use for HTTP site checking when combined with hostname.
+# Used if use_http is true or when resolving local HTTP links.
+http_port: {{ http_port | default(80) }}
+
+# If true, checks files via HTTP protocol instead of local filesystem.
+# This is useful for testing sites that require HTTP headers or authentication.
+use_http: {{ use_http | default(false) | lower }}
+
+# Timeout in seconds for HTTP requests.
+# Applies to remote link checking and HTTP mode.
+http_timeout: {{ http_timeout | default(15) }}
+
+# Delay in seconds between requests to the same host.
+# Used to avoid overwhelming the target server.
+request_delay: {{ request_delay | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Output Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the output directory for documentation.
+# If empty, no doc directory is created.
+doc_directory: {{ doc_directory | default('') }}
+
+# Path to the single output file for errors/warnings.
+# If doc_directory is set, this is ignored for main output.
+output_file: {{ output_file | default('') }}
+
+# Limit the number of HTML files checked.
+# Useful for preventing excessive run times or disk usage.
+file_limit: {{ file_limit | default(500) }}
+
+# Output index filename override.
+# Name for the output index files (index.txt/index.html).
+output_index_name: {{ output_index_name | default('index') }}
+
+# Default index file name (-index).
+# Default index file name to use instead of the default list.
+index_file: {{ index_file | default('index.html') }}
+
+# URL document prefix for remote output files (-url_doc_prefix).
+# Prefix for remote URL output files.
+url_doc_prefix: {{ url_doc_prefix | default('url') }}
+
+# Base expression for directing a browser to resources in HTML output files.
+# Used to generate clickable links in the generated documentation.
+doc_base_url: {{ doc_base_url | default('') }}
+
+# Suppress specific output files (-dont_output).
+# List of patterns for files not to create.
+suppress_output_files: {{ suppress_output_files | default([]) | join(' ') }}
+
+# ------------------------------------------------------------------------------
+# Filtering & Patterns
+# ------------------------------------------------------------------------------
+
+# List of patterns to ignore files matching them.
+# Uses @ and # wildcards.
+ignore_patterns: {{ ignore_patterns | default([]) | join(' ') }}
+
+# List of patterns to skip files matching them.
+# Files exist but links are not checked.
+skip_patterns: {{ skip_patterns | default([]) | join(' ') }}
+
+# ------------------------------------------------------------------------------
+# Filesystem & Case Sensitivity
+# ------------------------------------------------------------------------------
+
+# If true, ensures filename case in links matches filesystem case.
+# Useful for porting sites from case-insensitive (Windows) to case-sensitive (Linux) systems.
+case_sensitive: {{ case_sensitive | default(false) | lower }}
+
+# If true, checks for unused (orphan) files in directories.
+check_orphans: {{ check_orphans | default(false) | lower }}
+
+# Substitution maps for server-side image maps or redirects (-map).
+# Format: "/a=/b" (one per line).
+# Used to rewrite URLs in the source before checking.
+substitution_maps:
+{% for map_entry in substitution_maps | default([]) %}{{ map_entry }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# HTTP & Proxy Settings
+# ------------------------------------------------------------------------------
+
+# List of HTTP headers to add.
+# Format: "Name: Value" (one per line).
+http_headers:
+{% for header in http_headers | default([]) %}{{ header }}
+{% endfor %}
+
+# Language code for Accept-Language header.
+accept_language: {{ accept_language | default('en') }}
+
+# Proxy server hostname[:port] for remote HTTP requests.
+proxy_server: {{ proxy_server | default('') }}
+
+# Authentication credentials for protected realms.
+# Format: "realm user:password".
+auth_credentials: {{ auth_credentials | default('') }}
+
+# ------------------------------------------------------------------------------
+# Remote Link Checking
+# ------------------------------------------------------------------------------
+
+# If true, checks all remote links after doing a site check.
+# Enables -net functionality.
+check_remote_links: {{ check_remote_links | default(false) | lower }}
+
+# If true, uses status cache for remote checking (-netmod/-netset).
+use_status_cache: {{ use_status_cache | default(false) | lower }}
+
+# If true, removes all URLs from the cache not currently being checked.
+cache_flush: {{ cache_flush | default(false) | lower }}
+
+# Directory to read/write the linklint.url cache file.
+cache_directory: {{ cache_directory | default('') }}
+
+# If true, tells Linklint to ignore named anchors.
+ignore_anchors: {{ ignore_anchors | default(false) | lower }}
+
+# If true, removes query strings before making HTTP requests.
+ignore_query_strings: {{ ignore_query_strings | default(false) | lower }}
+
+# If true, checks for <meta> redirects in remote URLs.
+follow_redirects: {{ follow_redirects | default(false) | lower }}
+
+# If true, turns off printing successful URLs to STDOUT during remote link checking.
+concise_remote_output: {{ concise_remote_output | default(false) | lower }}
+
+# If true, only checks URLs that have a host fail status in the cache.
+retry_failed_hosts: {{ retry_failed_hosts | default(false) | lower }}
+
+# If true, ensures every modified URL is reported via checksum.
+use_checksum: {{ use_checksum | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Output Formatting & Reporting
+# ------------------------------------------------------------------------------
+
+# If true, HTML data files are opened in a new frame.
+html_frames: {{ html_frames | default(false) | lower }}
+
+# If true, prevents any HTML files from being created in the doc directory.
+text_only: {{ text_only | default(false) | lower }}
+
+# If true, erases redundant text files in the doc directory after HTML creation.
+html_only: {{ html_only | default(false) | lower }}
+
+# If true, adds cross references to the lists.
+add_xrefs: {{ add_xrefs | default(false) | lower }}
+
+# If true, sorts lists by referring file.
+sort_by_referrer: {{ sort_by_referrer | default(false) | lower }}
+
+# If true, lists all found files, links, directories.
+list_files: {{ list_files | default(false) | lower }}
+
+# If true, lists all warnings.
+list_warnings: {{ list_warnings | default(false) | lower }}
+
+# If true, lists missing files and other errors.
+list_errors: {{ list_errors | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Debug & Verbosity
+# ------------------------------------------------------------------------------
+
+# Debug level (-db1 to -db9). 0 disables debug.
+# 1: command line, 2: files, 3: parser, 4: socket, 7: remote url, 8: headers
+debug_level: {{ debug_level | default(0) }}
+
+# If true, disables printing progress to the screen.
+quiet_mode: {{ quiet_mode | default(false) | lower }}
+
+# If true, disables printing summarys to the screen.
+silent_mode: {{ silent_mode | default(false) | lower }}

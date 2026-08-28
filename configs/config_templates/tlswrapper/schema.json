@@ -1,0 +1,130 @@
+{
+  "prog": {
+    "type": "string",
+    "default": "/usr/bin/sslh",
+    "description": "The local program to run behind the TLS wrapper."
+  },
+  "verbose": {
+    "type": "string",
+    "default": "",
+    "description": "Verbosity flag: empty for default (-Q), 'q' for quiet (-q), 'v' for verbose (-v), 'vv' for debug (-vv), 'vvv' for trace (-vvv)."
+  },
+  "cert_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of file paths containing PEM certificates and keys (-f). SNI-based lookup uses cert_dirs instead or in addition."
+  },
+  "cert_dirs": {
+    "type": "list",
+    "default": null,
+    "description": "List of directories containing SNI-based certificate files (-d). If null, no SNI-based directory lookup is used."
+  },
+  "client_auth_anchor": {
+    "type": "string",
+    "default": null,
+    "description": "Path to the CA trust anchor file for client certificate authentication (-a). If null, client auth is disabled."
+  },
+  "extract_user_from_cert": {
+    "type": "string",
+    "default": "commonName",
+    "description": "ASN.1 object name to extract user from client cert (-U). Either 'commonName' or 'emailAddress'. If null, no extraction.",
+    "enum": [
+      "commonName",
+      "emailAddress"
+    ]
+  },
+  "ciphers": {
+    "type": "list",
+    "default": [
+      "CHACHA20_POLY1305_SHA256",
+      "AES_256_GCM_SHA384",
+      "AES_128_GCM_SHA256"
+    ],
+    "description": "List of symmetric encryption ciphers to enable (-c), in preference order."
+  },
+  "ephemeral_algorithms": {
+    "type": "list",
+    "default": [
+      "x25519",
+      "secp256r1"
+    ],
+    "description": "List of ephemeral key exchange algorithms to enable (-e)."
+  },
+  "min_tls_version": {
+    "type": "string",
+    "default": "tls12",
+    "description": "Minimum TLS version to allow (-m). One of tls10, tls11, tls12, tls13.",
+    "enum": [
+      "tls10",
+      "tls11",
+      "tls12",
+      "tls13"
+    ]
+  },
+  "max_tls_version": {
+    "type": "string",
+    "default": "tls12",
+    "description": "Maximum TLS version to allow (-M). One of tls10, tls11, tls12, tls13.",
+    "enum": [
+      "tls10",
+      "tls11",
+      "tls12",
+      "tls13"
+    ]
+  },
+  "network_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Network timeout in seconds (-t)."
+  },
+  "tls_handshake_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "TLS handshake timeout in seconds (-T)."
+  },
+  "run_user": {
+    "type": "string",
+    "default": null,
+    "description": "Username to run the target program under (-u). If null, runs as the invoking user."
+  },
+  "jail_directory": {
+    "type": "string",
+    "default": "/var/lib/tlswrapper/empty",
+    "description": "Chroot jail directory (-J)."
+  },
+  "jail_user": {
+    "type": "string",
+    "default": null,
+    "description": "Username to run network/key processes under inside the jail (-j). If null, uses random uid/gid."
+  },
+  "enforce_server_preferences": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enforces TLS server cipher preference (-s). If false, uses client preference (-S)."
+  },
+  "don_t_enforce_server_preferences": {
+    "type": "bool",
+    "default": false,
+    "description": "Explicitly set to true to disable server preference enforcement (-S). Conflicts with enforce_server_preferences in practice."
+  },
+  "enable_delayed_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable delayed encryption for STARTTLS-like protocols (-n). Requires child process to write to fd 5."
+  },
+  "don_t_disable_delayed_encryption": {
+    "type": "bool",
+    "default": true,
+    "description": "Explicitly set to false to disable delayed encryption (-N). Conflicts with enable_delayed_encryption in practice."
+  },
+  "proxy_protocol_version": {
+    "type": "string",
+    "default": "1",
+    "description": "Enable proxy-protocol version string (-p). e.g., '1', '2'. If null, proxy protocol is disabled.",
+    "enum": [
+      "1",
+      "2"
+    ],
+    "enum_open": true
+  }
+}

@@ -1,0 +1,72 @@
+# SendEmail Configuration Template
+# Self-documenting Jinja2 template for sendemail(1)
+# Each variable reference uses | default(D) to ensure safe rendering even if the role variable is undefined.
+
+# Sender email address (-f)
+# The sender's email address (-f)
+from_address: {{ from_address | default('sender@example.com') }}
+
+# Recipient email address(es) (-t)
+# List of recipient email addresses (-t). Must have at least one if no cc/bcc provided.
+# Supports multiple addresses via list join
+recipients: {{ recipients | default([]) | join(',') }}
+
+# CC email address(es) (-cc)
+# List of CC email addresses (-cc)
+# Supports multiple addresses via list join
+cc_addresses: {{ cc_addresses | default([]) | join(',') }}
+
+# BCC email address(es) (-bcc)
+# List of BCC email addresses (-bcc)
+# Supports multiple addresses via list join
+bcc_addresses: {{ bcc_addresses | default([]) | join(',') }}
+
+# Message subject (-u)
+# Message subject line (-u)
+subject: {{ subject | default('Test Message') }}
+
+# Message body (-m)
+# Message body text (-m). Ignored if message_file is set.
+body: {{ body | default('This is a test email sent via sendemail.') }}
+
+# SMTP mail relay server and port (-s)
+# SMTP server host and port (-s). Format: host:port
+smtp_server: {{ smtp_server | default('localhost:25') }}
+
+# SMTP Authentication Username (-xu)
+# SMTP authentication username (-xu). Leave empty if not used.
+smtp_user: {{ smtp_user | default('') }}
+
+# SMTP Authentication Password (-xp)
+# SMTP authentication password (-xp). Leave empty if not used.
+smtp_pass: {{ smtp_pass | default('') }}
+
+# Verbosity level (-v)
+# Verbosity level: 0=quiet, 1=normal, 2=debug, 3=trace (-v)
+verbosity_level: {{ verbosity_level | default(0) }}
+
+# Log file path (-l)
+# Log file path (-l)
+log_file: {{ log_file | default('/var/log/sendemail.log') }}
+
+# Attachments (-a)
+# List of file paths to attach (-a)
+# Supports multiple files via list join
+attachments: {{ attachments | default([]) | join(',') }}
+
+# Optional: Use local sendmail utility instead of network MTA (-S)
+# Use local sendmail utility instead of network MTA (-S)
+use_local_sendmail: {{ use_local_sendmail | default(false) | lower }}
+
+# Optional: Local sendmail path if use_local_sendmail is true (-S path)
+# Path to local sendmail utility if use_local_sendmail is true (-S path)
+local_sendmail_path: {{ local_sendmail_path | default('/usr/bin/sendmail') }}
+
+# Optional: Message file instead of body (-o message-file)
+# If provided, body is ignored
+# Path to message file to use as body instead of inline body (-o message-file). If set, body is ignored.
+message_file: {{ message_file | default('') }}
+
+# Optional: Auto TLS (-o tls=auto)
+# Automatically start TLS if supported by server. (-o tls=auto)
+auto_tls: {{ auto_tls | default(false) | lower }}

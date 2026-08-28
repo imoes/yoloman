@@ -1,63 +1,45 @@
-# wput.conf — configuration file for wput, a lightweight FTP upload tool.
-# This file provides default connection parameters for the wput utility.
-#
-# SECURITY WARNING: Storing plaintext passwords in configuration files is insecure.
-# It is strongly recommended to use interactive authentication or a system keyring
-# for production environments.
+# wput.conf — configuration file for wput, a lightweight FTP upload tool
+# Default server to upload to (host or IP)
+server = {{ server }}
 
-# Default FTP server hostname or IP address to upload files to.
-server = {{ server | default('') }}
+# Default FTP port (21 is standard; use 22 for FTPS/SFTP only if wput supports it via flags, but wput uses plain FTP)
+port = {{ port }}
 
-# Default FTP server port. Standard FTP uses 21.
-# Note: wput uses plain FTP. Use 22 only if your server supports SFTP and wput is
-# configured to support it via flags (rare).
-port = {{ port | default(21) }}
+# Default username for authentication
+user = {{ user }}
 
-# Username for FTP authentication.
-# If empty, wput will prompt interactively for a username.
-user = {{ user | default('') }}
+# Default password (note: storing plaintext passwords is insecure; prefer keyring or interactive input in production)
+password = {{ password }}
 
-# Password for FTP authentication.
-# For security, prefer interactive entry or keyring; never commit secrets to config in production.
-password = {{ password | default('') }}
+# Default remote directory (absolute path on server)
+remote_dir = {{ remote_dir }}
 
-# Absolute path of the remote directory where files will be uploaded by default.
-remote_dir = {{ remote_dir | default('/') }}
+# Upload timeout in seconds
+connect_timeout = {{ connect_timeout }}
 
-# Connection timeout in seconds before aborting the FTP connection.
-connect_timeout = {{ connect_timeout | default(30) }}
+# Enable passive mode (recommended for NAT/firewall compatibility)
+passive = {{ passive | lower }}
 
-# Enable passive mode FTP.
-# Required in most NAT/firewall environments to allow data connections initiated by the server.
-passive = {{ passive | default(True) | lower }}
+# Enable verbose output (0=quiet, 1=normal, 2=debug)
+# Override with -v CLI flag; here is default fallback
+verbosity = {{ verbosity }}
 
-# Verbosity level: 0 (quiet), 1 (normal), 2 (debug).
-# Can be overridden with the -v flag on the command line.
-verbosity = {{ verbosity | default(1) }}
+# Whether to resume partial uploads (on = true, off = false)
+resume = {{ resume | lower }}
 
-# If true, resume partial uploads instead of restarting them.
-# Useful for large files over unreliable network links.
-resume = {{ resume | default(False) | lower }}
+# Whether to skip existing files on server (on = true, off = false)
+skip_existing = {{ skip_existing | lower }}
 
-# If true, skip uploading files that already exist on the server.
-# Existing files are identified based on size and/or modified time.
-skip_existing = {{ skip_existing | default(True) | lower }}
+# Whether to use FTPS (explicit FTP over TLS); note: wput has limited/optional TLS support depending on build
+ftps = {{ ftps | lower }}
 
-# Enable FTPS (explicit FTP over TLS).
-# Note: wput’s TLS support is optional and depends on compile-time options.
-# Not supported by all builds of wput.
-ftps = {{ ftps | default(False) | lower }}
-
-# List of glob patterns or filenames to exclude from upload.
-# Each pattern generates an 'exclude' directive.
-# Example: '*.tmp', '.git/*', 'temp.dat'
-{% for pattern in exclude_patterns | default([]) %}
+# List of files/directories to exclude (by glob pattern or exact name)
+{% for pattern in exclude_patterns %}
 exclude = {{ pattern | tojson }}
 {% endfor %}
 
-# List of additional wput CLI arguments to apply to every invocation.
-# Each item is appended literally to the wput command.
-# Example: '--retry=3', '--reconnect=5'
-{% for option in extra_args | default([]) %}
+# List of extra command-line options to apply *every* time (e.g., --retry=3)
+# (Each item is appended literally to the wput command)
+{% for option in extra_args %}
 extra_arg = {{ option | tojson }}
 {% endfor %}

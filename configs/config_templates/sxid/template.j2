@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# /etc/default/sxid — Environment defaults for the sxid service wrapper.
+# This file is managed by Ansible; do not edit manually.
+
+# Source the system defaults if they exist, allowing override.
+. /etc/default/sxid
+
+# enable: Controls whether the sxid service is started.
+# Set to 'yes' to start the service, 'no' to disable it.
+ENABLE={{ enable | default('no') }}
+
+# Exit early if the service is not enabled.
+[ ! "$ENABLE" = "yes" ] && exit 0
+
+# Execute sxid if the binary is available.
+if [ -x /usr/bin/sxid ]; then
+	# sxid_opts: Additional command-line options passed to the sxid binary.
+	# Default is an empty variable expansion, allowing runtime overrides.
+	/usr/bin/sxid {{ sxid_opts | default('${SXID_OPTS}') }}
+fi

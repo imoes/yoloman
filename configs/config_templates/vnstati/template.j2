@@ -1,0 +1,331 @@
+# ============================================================================
+# vnstati Configuration Template
+# ============================================================================
+# This template generates a configuration block for vnstati, a statistics
+# tool for vnStat. It captures command-line arguments and configuration
+# file parameters.
+#
+# Self-documenting: every field below includes its description and
+# corresponding vnstati flag/variable name.
+# ============================================================================
+
+# --- Command-Line / Runtime Arguments ---
+
+# Interface to monitor (e.g., eth0, eth0+eth1)
+# Flag: -i, --iface
+iface: "{{ iface | default('eth0') }}"
+
+# Path to the vnStat database file
+# Flag: --db
+db_file: "{{ db_file | default('/var/lib/vnstat/vnstat.db') }}"
+
+# Output image file path (extension determines format like .png, .jpg)
+# Flag: -o, --output
+output_file: "{{ output_file | default('/var/www/html/vnstat.png') }}"
+
+# Primary graph view type
+# Values: summary, hours, fiveminutes, days, months, years, top, 95th
+# Flag: -s, --hours, --5min, -d, -m, -y, -t, --95th (mapped via logic)
+graph_type: "{{ graph_type | default('summary') }}"
+
+# Cache update interval in minutes (0 for no cache)
+# Flag: -c, --cache
+cache_minutes: "{{ cache_minutes | default(0) }}"
+
+# Max entries for list outputs (0 for all)
+# Flag: --limit
+entry_limit: "{{ entry_limit | default(0) }}"
+
+# Rate unit display mode
+# Values: 0=Bytes, 1=Bits
+# Flag: --rateunit
+rate_unit_mode: "{{ rate_unit_mode | default(0) }}"
+
+# Graph style/visualization mode
+# Values: 0=Bars, 3=Average Rate
+# Flag: --style
+style_number: "{{ style_number | default(0) }}"
+
+# Enable transparent background
+# Values: true/false
+# Flag: --transparent
+transparent_bg: "{{ transparent_bg | default(false) | lower }}"
+
+# Remove header section
+# Values: true/false
+# Flag: -nh, --noheader
+no_header: "{{ no_header | default(false) | lower }}"
+
+# Remove edges around the image
+# Values: true/false
+# Flag: -ne, --noedge
+no_edge: "{{ no_edge | default(false) | lower }}"
+
+# Remove legend
+# Values: true/false
+# Flag: -nl, --nolegend
+no_legend: "{{ no_legend | default(false) | lower }}"
+
+# Use large fonts
+# Values: true/false
+# Flag: -L, --large
+font_large: "{{ font_large | default(false) | lower }}"
+
+# Use small fonts
+# Values: true/false
+# Flag: -S, --small
+font_small: "{{ font_small | default(false) | lower }}"
+
+# Custom header text
+# Flag: --headertext
+headertext: "{{ headertext | default('') }}"
+
+# Locale for dates
+# Flag: --locale
+locale: "{{ locale | default('') }}"
+
+# Start date for lists
+# Flag: -b, --begin
+begin_date: "{{ begin_date | default('') }}"
+
+# End date for lists
+# Flag: -e, --end
+end_date: "{{ end_date | default('') }}"
+
+# Invert colors mode
+# Values: 0=None, 1=Except Rx/Tx, 2=All
+# Flag: -ic, --invert-colors
+invert_colors_mode: "{{ invert_colors_mode | default(0) }}"
+
+# Scale percentage
+# Flag: --scale
+scale_percent: "{{ scale_percent | default(100) }}"
+
+# Hours graph mode
+# Values: 0=Sliding, 1=Midnight
+# Flag: --hoursgraph
+hours_graph_mode: "{{ hours_graph_mode | default(0) }}"
+
+# Summary graph type
+# Values: 0=Hours, 1=5min
+# Flag: --hs/--vs logic
+summary_graph_type: "{{ summary_graph_type | default(0) }}"
+
+# 95th percentile mode
+# Values: 0=Rx, 1=Tx, 2=Total
+# Flag: --95th
+percentile_mode: "{{ percentile_mode | default(0) }}"
+
+# Alternate date location
+# Values: true/false
+# Flag: --altdate
+alt_date: "{{ alt_date | default(false) | lower }}"
+
+# 5-min graph entry limit
+# Flag: -5g
+five_graph_limit: "{{ five_graph_limit | default(0) }}"
+
+# 5-min graph height
+# Flag: -5g
+five_graph_height: "{{ five_graph_height | default(0) }}"
+
+# 5-min list limit
+# Flag: -5
+five_minutes_limit: "{{ five_minutes_limit | default(0) }}"
+
+# Days list limit
+# Flag: -d
+days_limit: "{{ days_limit | default(0) }}"
+
+# Hours list limit
+# Flag: -h
+hours_limit: "{{ hours_limit | default(0) }}"
+
+# Months list limit
+# Flag: -m
+months_limit: "{{ months_limit | default(0) }}"
+
+# Years list limit
+# Flag: -y
+years_limit: "{{ years_limit | default(0) }}"
+
+# Top list limit
+# Flag: -t
+top_limit: "{{ top_limit | default(0) }}"
+
+# Database directory
+# Flag: --dbdir
+db_dir: "{{ db_dir | default('') }}"
+
+# Configuration file path
+# Flag: --config
+config_file: "{{ config_file | default('') }}"
+
+# Enable debug output
+# Values: true/false
+# Flag: -D, --debug
+debug: "{{ debug | default(false) | lower }}"
+
+# Interface list mode
+# Values: 0=Verbose, 1=Line, 2=Count
+# Flag: --dbiflist
+iface_list_mode: "{{ iface_list_mode | default(0) }}"
+
+# Interface match method
+# Flag: InterfaceMatchMethod
+iface_match_method: "{{ iface_match_method | default(0) }}"
+
+# --- Configuration File Parameters (vnstat.conf mapping) ---
+
+# Rate unit setting
+# Values: 0=Bytes, 1=Bits
+# ConfVar: RateUnit
+rate_unit: "{{ rate_unit | default(0) }}"
+
+# Transparent background setting
+# Values: true/false
+# ConfVar: TransparentBg
+transparent_bg_config: "{{ transparent_bg_config | default(false) | lower }}"
+
+# Summary graph setting
+# Values: 0=Hours, 1=5min
+# ConfVar: SummaryGraph
+summary_graph_config: "{{ summary_graph_config | default(0) }}"
+
+# Scale setting
+# ConfVar: Scale
+scale_config: "{{ scale_config | default(100) }}"
+
+# Locale setting
+# ConfVar: Locale
+locale_config: "{{ locale_config | default('') }}"
+
+# Headertext setting
+# ConfVar: Headertext
+headertext_config: "{{ headertext_config | default('') }}"
+
+# 95th Percentile Mode setting
+# Values: 0=Rx, 1=Tx, 2=Total
+# ConfVar: 95thPercentileMode
+percentile_mode_config: "{{ percentile_mode_config | default(0) }}"
+
+# Invert Colors Mode setting
+# Values: 0=None, 1=Except Rx/Tx, 2=All
+# ConfVar: InvertColorsMode
+invert_colors_mode_config: "{{ invert_colors_mode_config | default(0) }}"
+
+# Style setting
+# Values: 0=Bars, 3=Average Rate
+# ConfVar: Style
+style_config: "{{ style_config | default(0) }}"
+
+# Font size setting
+# Values: 0=None, 1=Small, 2=Large
+# ConfVar: FontSize
+font_size_config: "{{ font_size_config | default(0) }}"
+
+# Hours Graph Mode setting
+# Values: 0=Sliding, 1=Midnight
+# ConfVar: HoursGraphMode
+hours_graph_mode_config: "{{ hours_graph_mode_config | default(0) }}"
+
+# Cache time setting
+# ConfVar: CacheTime
+cache_time_config: "{{ cache_time_config | default(0) }}"
+
+# Database directory setting
+# ConfVar: DatabaseDir
+db_dir_config: "{{ db_dir_config | default('/var/lib/vnstat') }}"
+
+# Database file setting
+# ConfVar: DatabaseFile
+db_file_config: "{{ db_file_config | default('') }}"
+
+# Interface setting
+# ConfVar: Interface
+iface_config: "{{ iface_config | default('eth0') }}"
+
+# List entry limit setting
+# ConfVar: ListEntryLimit
+list_entry_limit_config: "{{ list_entry_limit_config | default(0) }}"
+
+# Interface list mode setting
+# Values: 0=Verbose, 1=Line, 2=Count
+# ConfVar: IfaceListMode
+iface_list_mode_config: "{{ iface_list_mode_config | default(0) }}"
+
+# Interface match method setting
+# ConfVar: InterfaceMatchMethod
+iface_match_method_config: "{{ iface_match_method_config | default(0) }}"
+
+# Rate unit config value
+# ConfVar: RateUnit
+rate_unit_config: "{{ rate_unit_config | default(0) }}"
+
+# Transparent background config value
+# ConfVar: TransparentBg
+transparent_bg_config_val: "{{ transparent_bg_config_val | default(false) | lower }}"
+
+# Summary graph config value
+# ConfVar: SummaryGraph
+summary_graph_config_val: "{{ summary_graph_config_val | default(0) }}"
+
+# Scale config value
+# ConfVar: Scale
+scale_config_val: "{{ scale_config_val | default(100) }}"
+
+# Locale config value
+# ConfVar: Locale
+locale_config_val: "{{ locale_config_val | default('') }}"
+
+# Headertext config value
+# ConfVar: Headertext
+headertext_config_val: "{{ headertext_config_val | default('') }}"
+
+# 95th Percentile Mode config value
+# ConfVar: 95thPercentileMode
+percentile_mode_config_val: "{{ percentile_mode_config_val | default(0) }}"
+
+# Invert Colors Mode config value
+# ConfVar: InvertColorsMode
+invert_colors_mode_config_val: "{{ invert_colors_mode_config_val | default(0) }}"
+
+# Style config value
+# ConfVar: Style
+style_config_val: "{{ style_config_val | default(0) }}"
+
+# Font size config value
+# ConfVar: FontSize
+font_size_config_val: "{{ font_size_config_val | default(0) }}"
+
+# Hours Graph Mode config value
+# ConfVar: HoursGraphMode
+hours_graph_mode_config_val: "{{ hours_graph_mode_config_val | default(0) }}"
+
+# Cache time config value
+# ConfVar: CacheTime
+cache_time_config_val: "{{ cache_time_config_val | default(0) }}"
+
+# Database directory config value
+# ConfVar: DatabaseDir
+db_dir_config_val: "{{ db_dir_config_val | default('/var/lib/vnstat') }}"
+
+# Database file config value
+# ConfVar: DatabaseFile
+db_file_config_val: "{{ db_file_config_val | default('') }}"
+
+# Interface config value
+# ConfVar: Interface
+iface_config_val: "{{ iface_config_val | default('eth0') }}"
+
+# List entry limit config value
+# ConfVar: ListEntryLimit
+list_entry_limit_config_val: "{{ list_entry_limit_config_val | default(0) }}"
+
+# Interface list mode config value
+# ConfVar: IfaceListMode
+iface_list_mode_config_val: "{{ iface_list_mode_config_val | default(0) }}"
+
+# Interface match method config value
+# ConfVar: InterfaceMatchMethod
+iface_match_method_config_val: "{{ iface_match_method_config_val | default(0) }}"

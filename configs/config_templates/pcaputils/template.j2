@@ -1,0 +1,22 @@
+# ==============================================================================
+# pcaputils Configuration
+# ==============================================================================
+# This template configures the 'pcapdump' utility, which captures network traffic
+# on specified network interfaces.
+#
+# NOTE: This configuration is primarily for non-systemd environments.
+# On systemd systems, use: systemctl enable pcapdump@<instance>.service
+# The systemd service unit typically handles the `enabled` state.
+
+# ------------------------------------------------------------------------------
+# enabled_default: Whether pcapdump is enabled by default (0 or 1).
+# Not used on systemd systems.
+# 0 = disabled, 1 = enabled
+# ------------------------------------------------------------------------------
+ENABLED={{ (enabled_default | default(0)) | int }}
+
+# ------------------------------------------------------------------------------
+# instance_names: List of network interfaces for pcapdump instances.
+# Examples: 'eth0', 'eth1', 'wlan0'
+# ------------------------------------------------------------------------------
+INSTANCES="{{ instance_names | default(['eth0']) | join(' ') }}"

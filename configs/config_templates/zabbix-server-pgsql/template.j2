@@ -1,0 +1,31 @@
+# Logrotate configuration for Zabbix Server log files.
+# This file defines how /var/log/zabbix-server/zabbix_server.log is rotated,
+# compressed, and managed by logrotate.
+
+/var/log/zabbix-server/zabbix_server.log {
+    # Rotate log files weekly.
+    weekly
+
+    # Number of rotated log files to keep.
+    rotate {{ logrotate_rotate_count | default(7) }}
+
+    # Compress old log files to save disk space.
+    compress
+
+    # Delay compression of the most recent rotated file to allow applications
+    # to continue writing to it without interruption.
+    delaycompress
+
+    # Do not produce an error if the log file is missing.
+    missingok
+
+    # Do not rotate the log if it is empty.
+    notifempty
+
+    # Create new log files with this octal permission mode, owned by the
+    # specified user and group.
+    create {{ logrotate_create_mode | default('0640') }} {{ logrotate_create_owner | default('zabbix') }} {{ logrotate_create_group | default('zabbix') }}
+
+    # Run the postrotate/endscript scripts once for the whole group of logs.
+    sharedscripts
+}

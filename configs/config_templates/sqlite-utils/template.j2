@@ -1,0 +1,38 @@
+# sqlite-utils configuration
+# Controls whether the CLI shell completions are generated.
+# Schema field: generate_completions (default=False)
+{% if (generate_completions | default(false)) is sameas true %}
+# Shell completions for sqlite-utils
+# Add this to ~/.bashrc or ~/.zshrc to enable tab completion.
+# eval "$_SQLITE_UTILS_COMPLETE=bash_source sqlite-utils"  # for bash
+# eval "$_SQLITE_UTILS_COMPLETE=zsh_source sqlite-utils" # for zsh
+{% endif %}
+
+# Default output format for queries if not specified on command line.
+# Valid options: json, nl, csv, tsv, table, html, etc.
+# Schema field: default_output_format (default='json')
+default_output_format: {{ default_output_format | default('json') }}
+
+# Enable WAL (Write-Ahead Logging) mode for new databases by default.
+# See: sqlite-utils create-database --enable-wal
+# Schema field: enable_wal_by_default (default=False)
+{% if (enable_wal_by_default | default(false)) is sameas true %}
+enable_wal_default: true
+{% endif %}
+
+# Automatically detect column types when inserting CSV/TSV data.
+# Equivalent to setting the SQLITE_UTILS_DETECT_TYPES environment variable.
+# See: Inserting CSV or TSV data --detect-types
+# Schema field: detect_types_default (default=False)
+{% if (detect_types_default | default(false)) is sameas true %}
+detect_types_default: true
+{% endif %}
+
+# List of SQLite extensions to load by default for all commands.
+# Each item is a path to an extension library (e.g., spatialite).
+# See: Loading SQLite extensions --load-extension
+# Schema field: extension_paths (default=[])
+extension_paths:
+{% for path in (extension_paths | default([])) %}
+  - {{ path }}
+{% endfor %}

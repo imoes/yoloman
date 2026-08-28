@@ -1,0 +1,62 @@
+{
+  "help": {
+    "type": "bool",
+    "default": false,
+    "description": "Print help message and quit."
+  },
+  "version": {
+    "type": "bool",
+    "default": false,
+    "description": "Print version and copyright info and quit."
+  },
+  "warnings": {
+    "type": "bool",
+    "default": false,
+    "description": "Print warnings about missing modules and include files."
+  },
+  "warn_confused": {
+    "type": "bool",
+    "default": false,
+    "description": "Print warnings when confused by source files or bugs."
+  },
+  "format_string": {
+    "type": "string",
+    "default": "%f.o",
+    "description": "Format for mod-file names (e.g. '%f.o', '%m.mod'). Default is '%f.o'.",
+    "enum": [
+      "%f.o",
+      "%m.mod",
+      "%M.MOD"
+    ],
+    "enum_open": true
+  },
+  "ignore_modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of module names to ignore all dependencies for."
+  },
+  "depend_on_file": {
+    "type": "string",
+    "default": null,
+    "description": "Make all targets dependent on this specific file."
+  },
+  "default_rule": {
+    "type": "string",
+    "default": "%f",
+    "description": "Add this indented rule to all dependency lines (except those with -R).",
+    "enum": [
+      "%f",
+      "%%"
+    ]
+  },
+  "special_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of special rules for specific file patterns."
+  },
+  "special_rules.items": {
+    "type": "object",
+    "default": null,
+    "description": "A special rule entry. Note: This uses a flat map structure via 'items' field in schema definition context, but in values it's a list of objects. To adhere to strict schema, we treat special_rules as a list of simple strings or expandable objects. Given the constraint 'items as a FLAT map', we will simplify special_rules to a list of strings 'pattern:rule' or similar if needed, but the man page implies complex args. Let's use a simple list of strings formatted as 'pattern rule'.\nRe-evaluating: The prompt asks for `items` as a FLAT map field-name -> {type, default, description}. This usually implies the value is a list of objects where each object has those fields. However, Jinja2 in the template handles iteration. I will define `special_rules` as a list of objects with `pattern` and `rule` keys in the value, but the schema `items` description will define the structure of those objects.\nActually, the prompt says: `default` MUST be a BARE scalar... For a list-of-objects, add `items` as a FLAT map... This is slightly contradictory if the object has multiple fields. I will interpret `items` as the schema for the elements of the list.\nLet's stick to the prompt's likely intent: `special_rules` is a list. Each element is an object with `pattern` and `rule`. The `items` key in `values_schema` for `special_rules` will define the schema for these objects.\nWait, the prompt says: `items` as a FLAT map field-name -> {type, default, description}. It does NOT say the `items` value in the schema should be an object with properties. It says the `items` key IN THE SCHEMA for the list field should map field names to their types.\nExample:\n\"special_rules\": {\n  \"type\": \"list\",\n  \"items\": {\n    \"pattern\": {\"type\": \"string\", \"default\": \"\", \"description\": \"Shell pattern\"},\n    \"rule\": {\"type\": \"string\", \"default\": \"\", \"description\": "
+  }
+}

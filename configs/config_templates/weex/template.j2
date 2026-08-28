@@ -1,0 +1,201 @@
+# Global default settings
+[default]
+{% if default_asciifile is defined and default_asciifile|length > 0 %}AsciiFile = {
+{% for f in default_asciifile %}
+{{ f }}
+{% endfor %}
+}
+{% endif %}
+
+{% if default_ignorelocalfile is defined and default_ignorelocalfile|length > 0 %}IgnoreLocalFile = {
+{% for f in default_ignorelocalfile %}
+{{ f }}
+{% endfor %}
+}
+{% endif %}
+
+{% if default_ignorelocaldir is defined and default_ignorelocaldir|length > 0 %}
+{% for d in default_ignorelocaldir %}
+IgnoreLocalDir = {{ d }}
+{% endfor %}
+{% endif %}
+
+{% for host in hosts %}
+[{{ host.hostid }}]
+
+# Hostname to connect to
+HostName = {{ host.hostname }}
+
+# Login name of the account on the FTP server
+LoginName = {{ host.loginname }}
+
+# Plaintext password granting access to the account
+Password = "{{ host.password }}"
+
+# Top of the source directory tree
+SrcDir = {{ host.srcdir }}
+
+# Destination directory on the remote FTP server
+DestDir = {{ host.destdir }}
+
+# Use FTPS instead of FTP
+{% if host.usessl is defined and host.usessl %}UseSSL = true
+{% else %}UseSSL = false
+{% endif %}
+
+# Verify the server certificate
+{% if host.usessslverify is defined and host.usessslverify %}UseSSLVerify = true
+{% else %}UseSSLVerify = false
+{% endif %}
+
+# CA file for SSL verification
+{% if host.usessslcafile is defined %}UseSSLcafile = {{ host.usessslcafile }}
+{% endif %}
+
+# Use passive mode
+{% if host.ftppassive is defined and host.ftppassive %}FtpPassive = true
+{% else %}FtpPassive = false
+{% endif %}
+
+# Force transfer despite cache
+{% if host.force is defined and host.force %}Force = true
+{% else %}Force = false
+{% endif %}
+
+# Change permissions on specific remote directories
+{% if host.changetopermissiondir is defined and host.changetopermissiondir|length > 0 %}
+{% for d in host.changetopermissiondir %}
+ChangePermissionDir = {{ d }}
+{% endfor %}
+{% endif %}
+{% if host.changetopermission is defined %}
+ChangePermission = {{ host.changetopermission }}
+{% endif %}
+
+# Preserve local directory permissions on remote
+{% if host.preservepermissiondir is defined and host.preservepermissiondir|length > 0 %}
+{% for d in host.preservepermissiondir %}
+PreservePermissionDir = {{ d }}
+{% endfor %}
+{% endif %}
+
+# ASCII mode file patterns
+{% if host.asciifile is defined and host.asciifile|length > 0 %}
+{% for f in host.asciifile %}
+AsciiFile = {{ f }}
+{% endfor %}
+{% endif %}
+
+# Ignore local directories
+{% if host.ignorelocaldir is defined and host.ignorelocaldir|length > 0 %}
+{% for d in host.ignorelocaldir %}
+IgnoreLocalDir = {{ d }}
+{% endfor %}
+{% endif %}
+
+# Ignore local files
+{% if host.ignorelocalfile is defined and host.ignorelocalfile|length > 0 %}
+{% for f in host.ignorelocalfile %}
+IgnoreLocalFile = {{ f }}
+{% endfor %}
+{% endif %}
+
+# Ignore remote directories
+{% if host.ignoreremotedir is defined and host.ignoreremotedir|length > 0 %}
+{% for d in host.ignoreremotedir %}
+IgnoreRemoteDir = {{ d }}
+{% endfor %}
+{% endif %}
+
+# Ignore remote files
+{% if host.ignoreremotefile is defined and host.ignoreremotefile|length > 0 %}
+{% for f in host.ignoreremotefile %}
+IgnoreRemoteFile = {{ f }}
+{% endfor %}
+{% endif %}
+
+# Chdir at connection
+{% if host.chdiratconnection is defined %}
+{% if host.chdiratconnection %}ChdirAtConnection = true
+{% else %}ChdirAtConnection = false
+{% endif %}
+{% endif %}
+
+# Follow symlinks
+{% if host.followsymlinks is defined %}
+{% if host.followsymlinks %}FollowSymlinks = true
+{% else %}FollowSymlinks = false
+{% endif %}
+{% endif %}
+
+# Log detail level
+{% if host.logdetaillevel is defined %}
+LogDetailLevel = {{ host.logdetaillevel }}
+{% endif %}
+
+# Max retries
+{% if host.maxretrytosen is defined %}
+MaxRetryToSend = {{ host.maxretrytosen }}
+{% endif %}
+
+# Monochrome output
+{% if host.monochrome is defined %}
+{% if host.monochrome %}Monochrome = true
+{% else %}Monochrome = false
+{% endif %}
+{% endif %}
+
+# Overwrite OK
+{% if host.overwriteok is defined %}
+{% if host.overwriteok %}OverwriteOK = true
+{% else %}OverwriteOK = false
+{% endif %}
+{% endif %}
+
+# Record log
+{% if host.recordlog is defined %}
+{% if host.recordlog %}RecordLog = true
+{% else %}RecordLog = false
+{% endif %}
+{% endif %}
+
+# Rename OK
+{% if host.renameok is defined %}
+{% if host.renameok %}RenameOK = true
+{% else %}RenameOK = false
+{% endif %}
+{% endif %}
+
+# Show hidden files
+{% if host.showhiddenfile is defined %}
+{% if host.showhiddenfile %}ShowHiddenFile = true
+{% else %}ShowHiddenFile = false
+{% endif %}
+{% endif %}
+
+# Silent mode
+{% if host.silent is defined %}
+{% if host.silent %}Silent = true
+{% else %}Silent = false
+{% endif %}
+{% endif %}
+
+# ConvToLower
+{% if host.convtolower is defined %}
+{% if host.convtolower %}ConvToLower = true
+{% else %}ConvToLower = false
+{% endif %}
+{% endif %}
+
+# KeepRemoteDir
+{% if host.keeperemotedir is defined %}
+{% if host.keeperemotedir %}KeepRemoteDir = true
+{% else %}KeepRemoteDir = false
+{% endif %}
+{% endif %}
+
+{% if host.challenge is defined or host.authorizename is defined %}
+{% if host.authorizename is defined %}AuthorizationName = {{ host.authorizename }}
+{% endif %}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+VERSION="$1"
+# bootdir: The directory where the generated initramfs images are stored.
+BOOTDIR="{{ bootdir | default('/boot') }}"
+
+# Make sure tiny-initramfs (not only tiny-initramfs-core)
+# is still installed (might be removed but not purged).
+[ -x "/usr/sbin/update-tirfs" ] || exit 0
+
+[ -z "$VERSION" ] && exit 0
+
+# exit if kernel does not need an initramfs
+[ "$INITRD" = 'No' ] && exit 0
+
+if [ -n "$2" ] ; then
+  BOOTDIR="$(dirname "$2")"
+fi
+
+echo "tiny-initramfs: Generating ${BOOTDIR}/initrd.img-${VERSION}"
+mktirfs -o "${BOOTDIR}/initrd.img-${VERSION}" "${VERSION}" >&2

@@ -1,0 +1,141 @@
+# ==============================================================================
+# Nam Network Animator Configuration / Wrapper Script
+# ==============================================================================
+# This script configures the Nam network animator (Tcl/Tk application) by
+# assembling a command line with specific runtime parameters.
+#
+# Nam does not use a single INI-style config file for all GUI parameters
+# (geometry, layout, update interval, etc); instead, these are passed as
+# command-line arguments to the nam binary.
+#
+# Self-Documentation:
+# - Each variable below maps directly to a schema field.
+# - Defaults are enforced inline via Jinja2 `default` filters to ensure
+#   safe rendering even if the variable is undefined in the Ansible context.
+# - The final `COMMAND` variable is constructed conditionally based on
+#   whether optional arguments should be included.
+# ==============================================================================
+
+# The path to the nam executable.
+# Schema: trace_file (Note: schema misnamed; this is the binary path, not the trace)
+# Description: Path to the nam binary.
+BINARY="/usr/bin/nam"
+
+# --------------------------------------------------------------------------
+# Variable Definitions
+# --------------------------------------------------------------------------
+
+# The path to the nam trace file to be animated.
+# Schema: trace_file
+# Description: The path to the nam trace file to be animated.
+# Corresponds to: <tracefile> (positional argument)
+TRACE_FILE="{{ trace_file | default('simulation.log') }}"
+
+# Window geometry specification for the nam GUI.
+# Schema: geometry
+# Description: Window geometry specification for the nam GUI. Format: WxH+X+Y.
+# Corresponds to: -g <geometry>
+GEOMETRY="{{ geometry | default('800x600+10+10') }}"
+
+# Screen update rate in milliseconds.
+# Schema: update_interval
+# Description: Screen update rate in milliseconds. Default is 50ms.
+# Corresponds to: -i <interval>
+UPDATE_INTERVAL="{{ update_interval | default(50) }}"
+
+# Application name for peer synchronization (peer sync).
+# Schema: app_name
+# Description: Application name for peer synchronization (peer sync).
+# Corresponds to: -N <appName>
+APP_NAME="{{ app_name | default('nam_master') }}"
+
+# Application name of the peer nam instance to synchronize with.
+# Schema: peer_name
+# Description: Application name of the peer nam instance to synchronize with. Empty if standalone.
+# Corresponds to: -P <peerName>
+PEER_NAME="{{ peer_name | default('') }}"
+
+# Maximum size of the cache used for backward animation.
+# Schema: cache_size
+# Description: Maximum size of the cache used for backward animation.
+# Corresponds to: -c <cacheSize>
+CACHE_SIZE="{{ cache_size | default('') }}"
+
+# Name of an initialization file to load during startup.
+# Schema: init_file
+# Description: Name of an initialization file to load during startup.
+# Corresponds to: -f <configfile>
+INIT_FILE="{{ init_file | default('') }}"
+
+# Enable synchronous X behavior for graphics debugging.
+# Schema: sync_x
+# Description: Enable synchronous X behavior for graphics debugging.
+# Corresponds to: -S
+SYNC_X="{{ sync_x | default(false) | lower }}"
+
+# Attractive force constant for automatic layout algorithm.
+# Schema: layout_attractive
+# Description: Attractive force constant for automatic layout algorithm.
+# Note: Usually applied via init file or UI, but defined here for completeness.
+LAYOUT_ATTRACTIVE="{{ layout_attractive | default(0.15) }}"
+
+# Repulsive force constant for automatic layout algorithm.
+# Schema: layout_repulsive
+# Description: Repulsive force constant for automatic layout algorithm.
+# Note: Usually applied via init file or UI, but defined here for completeness.
+LAYOUT_REPULSIVE="{{ layout_repulsive | default(0.15) }}"
+
+# Number of iterations for automatic layout algorithm.
+# Schema: layout_iterations
+# Description: Number of iterations for automatic layout algorithm.
+# Note: Usually applied via init file or UI, but defined here for completeness.
+LAYOUT_ITERATIONS="{{ layout_iterations | default(10) }}"
+
+# --------------------------------------------------------------------------
+# Command Line Construction
+# --------------------------------------------------------------------------
+
+# Initialize the command string with the binary path
+COMMAND="${BINARY}"
+
+# Add window geometry if provided
+{% if geometry | default('800x600+10+10') %}
+COMMAND="${COMMAND} -g {{ geometry | default('800x600+10+10') }}"
+{% endif %}
+
+# Add screen update interval if provided
+{% if update_interval | default(50) %}
+COMMAND="${COMMAND} -i {{ update_interval | default(50) }}"
+{% endif %}
+
+# Add application name for peer sync if provided
+{% if app_name | default('nam_master') %}
+COMMAND="${COMMAND} -N {{ app_name | default('nam_master') }}"
+{% endif %}
+
+# Add peer application name if provided
+{% if peer_name | default('') %}
+COMMAND="${COMMAND} -P {{ peer_name | default('') }}"
+{% endif %}
+
+# Add cache size if provided
+{% if cache_size | default('') %}
+COMMAND="${COMMAND} -c {{ cache_size | default('') }}"
+{% endif %}
+
+# Add initialization file if provided
+{% if init_file | default('') %}
+COMMAND="${COMMAND} -f {{ init_file | default('') }}"
+{% endif %}
+
+# Add synchronous X flag if true
+{% if sync_x | default(false) is true %}
+COMMAND="${COMMAND} -S"
+{% endif %}
+
+# Append the trace file (required argument)
+COMMAND="${COMMAND} {{ trace_file | default('simulation.log') }}"
+
+# Output the constructed command for logging or execution
+echo "Executing: ${COMMAND}"
+# ${COMMAND}

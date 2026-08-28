@@ -1,0 +1,127 @@
+#!/bin/sh
+
+#
+# ifenslave - Manage bond interface slaves
+#
+# This script is intended to be called by the system's init scripts (e.g.,
+# /etc/network/if-pre-up.d/ifenslave or similar) with environment variables
+# set by the interface configuration system (e.g., ifupdown).
+#
+# Environment Variables:
+#   IFACE        - The name of the bond interface (e.g., bond0).
+#   IF_BOND_PRIMARY - Space-separated list of candidate primary slaves.
+#   VERBOSITY    - If 1, enables shell debugging (set -x).
+#   ADDRFAM      - Address family; if 'meta', the script exits immediately.
+#
+
+# Enable debugging if requested via VERBOSITY.
+# Default to empty string (disabled) if not set.
+[ "${VERBOSITY:-0}" = "1" ] && set -x
+
+# Exit early if the address family is 'meta', as this is not a real network interface.
+# Default to 'inet' if not set, ensuring standard IPv4 handling.
+[ "${ADDRFAM:-inet}" = "meta" ] && exit 0
+
+#
+# Helper: Write a value to the kernel's bonding sysfs entry.
+#
+# Args:
+#   $1 - The basename of the bonding parameter file (e.g., 'mode', 'miimon').
+#   $2 - The value to write.
+#
+# Behavior:
+#   Writes $2 to /sys/class/net/${IFACE}/master/bonding/$1 only if $2 is non-empty.
+#   Returns 0 on success or if $2 is empty.
+#
+sysfs()
+{
+    if [ "${2:-}" ] ; then
+        echo "${2}" > "/sys/class/net/${IFACE}/master/bonding/${1}"
+        return $?
+    fi
+    return 0
+}
+
+#
+# Helper: Remove all current slaves/entries from a multi-value sysfs bonding file.
+#
+# Args:
+#   $1 - The basename of the bonding parameter file (e.g., 'slaves', 'arp_ip_target').
+#
+# Behavior:
+#   Reads the current content, then prepends a '-' to each entry to remove it from the kernel.
+#
+sysfs_remove_all()
+{
+    local values=""
+    # Read current values from sysfs. Default to empty if file is missing/empty to avoid errors.
+    read -r values < "/sys/class/net/${IFACE}/bonding/${1}" 2>/dev/null || true
+    
+    for value in ${values:-} ; do
+        echo "-${value}" > "/sys/class/net/${IFACE}/bonding/${1}"
+    done
+}
+
+# Define the base path for bonding parameters in sysfs.
+BOND_PARAMS="/sys/class/net/${IFACE}/bonding"
+
+#
+# Cleanup: If IFACE is currently a slave of another bond, detach it.
+#
+# We check for the existence of the 'master/bonding/slaves' file to determine
+# if IFACE is enslaved. If so, we remove it from the parent bond's slave list.
+# Then, we attempt to set the primary slave based on IF_BOND_PRIMARY candidates.
+#
+if [ -f "/sys/class/net/${IFACE}/master/bonding/slaves" ] ; then
+    # Detach IFACE from its current master bond.
+    echo "-${IFACE}" > "/sys/class/net/${IFACE}/master/bonding/slaves"
+
+    # Determine if any of the candidate primary slaves are currently part of the bond.
+    # If found, set that slave as the primary. If none found, the primary remains unchanged.
+    for slave in ${IF_BOND_PRIMARY:-} ; do
+        slaves_file="/sys/class/net/${IFACE}/master/bonding/slaves"
+        # Check if the candidate slave is listed in the bond's slaves.
+        if grep -sq "\\<${slave}\\>" "${slaves_file}" 2>/dev/null ; then
+            sysfs primary "${slave}"
+            break
+        fi
+    done
+fi
+
+#
+# Termination: If IFACE is not a bond master (no 'slaves' file in bonding dir), exit.
+#
+if [ ! -f "${BOND_PARAMS}/slaves" ] ; then
+    exit
+fi
+
+#
+# Cleanup: Unset multivalue sysfs entries to prepare for re-enabling or deletion.
+#
+sysfs_remove_all arp_ip_target
+
+#
+# Cleanup: Remove all slaves associated with IFACE.
+#
+# This ensures the bond interface is empty before deletion.
+# If VERBOSITY is 1, we pass -v to ifdown for detailed output.
+#
+[ "${VERBOSITY:-0}" = "1" ] && v=-v
+
+# Read the current list of slaves. Default to empty if file is empty/missing.
+read -r slaves < "${BOND_PARAMS}/slaves" 2>/dev/null || true
+
+for slave in ${slaves:-} ; do
+    # If the slave interface is currently up, bring it down.
+    ifquery --state "${slave}" >/dev/null 2>&1 && ifdown ${v:-} "${slave}"
+
+    # Ensure the slave is detached from any other bonding master it might be part of.
+    if [ -f "/sys/class/net/${slave}/master/bonding/slaves" ] ; then
+        echo "-${slave}" > "${BOND_PARAMS}/slaves" 2>/dev/null
+    fi
+done
+
+#
+# Final Step: Delete the bond interface itself.
+#
+ip link del dev "${IFACE:-}"

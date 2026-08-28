@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Command-line arguments for lfm (Last File Manager)
+# See lfm(1) man page for details
+
+# Enable debug logging
+DEBUG={{ debug | lower }}
+
+# Enable wide character support
+USE_WIDE_CHARS={{ use_wide_chars | lower }}
+
+# Default path for the left pane
+LEFT_PANE_PATH={{ left_pane_path }}
+
+# Default path for the right pane
+RIGHT_PANE_PATH={{ right_pane_path }}
+
+# Construct the lfm command line
+CMD="lfm"
+{% if debug %}
+CMD="{{CMD}} -d"
+{% endif %}
+{% if use_wide_chars %}
+CMD="{{CMD}} --use-wide-chars"
+{% endif %}
+CMD="{{CMD}} {{left_pane_path}}"
+{% if right_pane_path is defined and right_pane_path != left_pane_path %}
+CMD="{{CMD}} {{right_pane_path}}"
+{% endif %}
+
+exec {{CMD}}

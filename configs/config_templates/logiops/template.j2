@@ -1,0 +1,109 @@
+# ==============================================================================
+# logiops Configuration Template
+# ==============================================================================
+# This template generates the configuration file for logiops, a Linux daemon
+# for configuring Logitech gaming peripherals.
+# ==============================================================================
+
+# devices:
+# {
+#     Configuration block for a single mouse/device.
+#     Each device block must contain a unique name and specific feature settings.
+    name: "{{ device_name | default('Wireless Mouse MX Master') }}";
+
+    # SmartShift: An automatic DPI adjustment feature that increases DPI based on scroll speed.
+    smartshift:
+    {
+        # Enable or disable the SmartShift functionality.
+        on: {{ smartshift_on | default(true) | lower }};
+
+        # The scroll speed threshold (in arbitrary units) at which SmartShift engages.
+        threshold: {{ smartshift_threshold | default(30) }};
+
+        # The torque/force required to trigger the SmartShift activation.
+        torque: {{ smartshift_torque | default(50) }};
+    };
+
+    # HiResScroll: High-resolution scrolling configuration.
+    hiresscroll:
+    {
+        # Enable high-resolution scrolling mode.
+        hires: {{ hiresscroll_hires | default(true) | lower }};
+
+        # Invert the direction of the scrolling.
+        invert: {{ hiresscroll_invert | default(false) | lower }};
+
+        # Target a specific window for scrolling instead of the whole screen.
+        target: {{ hiresscroll_target | default(false) | lower }};
+    };
+
+    # DPI: The default Dots Per Inch setting for the mouse cursor.
+    dpi: {{ dpi | default(1000) }};
+
+    # Buttons: Configuration for the mouse buttons and their actions.
+    buttons: (
+        {
+            cid: 0xc3;
+            action =
+            {
+                # Type of action: Gestures allow mapping swipe directions to actions.
+                type: "Gestures";
+                gestures: (
+                    {
+                        direction: "Up";
+                        mode: "OnRelease";
+                        action =
+                        {
+                            type: "Keypress";
+                            keys: ["KEY_UP"];
+                        };
+                    },
+                    {
+                        direction: "Down";
+                        mode: "OnRelease";
+                        action =
+                        {
+                            type: "Keypress";
+                            keys: ["KEY_DOWN"];
+                        };
+                    },
+                    {
+                        direction: "Left";
+                        mode: "OnRelease";
+                        action =
+                        {
+                            # CycleDPI allows switching between preset DPI values.
+                            type: "CycleDPI";
+                            # List of DPI values to cycle through. Rendered as a comma-separated list.
+                            dpis: [{{ cycle_dpis | default([400, 600, 800, 1000, 1200, 1400, 1600]) | join(', ') }}];
+                        };
+                    },
+                    {
+                        direction: "Right";
+                        mode: "OnRelease";
+                        action =
+                        {
+                            # ToggleSmartshift toggles the SmartShift state on/off.
+                            type = "ToggleSmartshift";
+                        }
+                    },
+                    {
+                        # NoPress mode means no action is taken when the gesture is not pressed.
+                        direction: "None"
+                        mode: "NoPress"
+                    }
+                );
+            };
+        },
+        {
+            cid: 0xc4;
+            action =
+            {
+                type: "Keypress";
+                # Key mapped to the button with CID 0xc4 (often a side button).
+                keys: ["{{ button_c4_key | default('KEY_A') }}"];
+            };
+        }
+    );
+# }
+# );

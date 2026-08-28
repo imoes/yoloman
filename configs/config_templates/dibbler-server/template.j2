@@ -1,97 +1,81 @@
-#!/bin/sh
 #
-# Starts/stops dibbler-server
+# Example server configuration file
 #
-### BEGIN INIT INFO
-# Provides:          dibbler-server
-# Required-Start:    $network $remote_fs
-# Required-Stop:     $network $remote_fs
-# Should-Start:      $local_fs
-# Should-Stop:       $local_fs
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Starts DHCPv6 server
-# Description:       By starting dibbler-server, this host
-#                    will provide IPv6 addresses and other
-#                    configuration parameters to DHCPv6 clients.
-### END INIT INFO
-#
-#		Based on a script written by Miquel van Smoorenburg <miquels@cistron.nl>.
-#		Modified for Debian by Ian Murdock <imurdock@gnu.ai.mit.edu>.
-#
-# Version:	2007-06-12 Tomasz Mrugalski <thomson@klub.com.pl>
-#
+# This config. file is considered all-purpose as it instructs server
+# to provide almost every configuratio
+# 
 
-. /lib/lsb/init-functions
+# Logging level range: 1(Emergency)-8(Debug)
+log-level {{ log_level }}
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# Don't log full date
+log-mode short
 
-# DAEMON: Path to the dibbler-server executable
-DAEMON={{ DAEMON | default('/usr/sbin/dibbler-server') }}
+# Uncomment this line to call script every time a response is sent
+#script "/var/lib/dibbler/server-notify.sh"
 
-# NAME: Service name (matches init script filename)
-NAME={{ NAME | default('dibbler-server') }}
+# set preference of this server to 0 (higher = more prefered)
+preference {{ preference }}
 
-# DESC: Service description
-DESC="{{ DESC | default('DHCPv6 server') }}"
+iface "{{ interface_name }}" {
 
-# DAEMON_OPTS: Options passed to the dibbler-server daemon
-DAEMON_OPTS={{ DAEMON_OPTS | default('run') }}
+ // also ranges can be defines, instead of exact values
+ t1 {{ t1_low }}-{{ t1_high }}
+ t2 {{ t2_low }}-{{ t2_high }}
+ prefered-lifetime {{ preferred_lifetime }}
+ valid-lifetime {{ valid_lifetime }}
+ 
+# assign addresses from this pool
+ class {
+   pool {{ pool_v6_64 }}
+ }
 
-test -x $DAEMON || exit 0
+# assign temporary addresses from this pool
 
-# Include dibbler defaults if available
-if [ -f /etc/default/dibbler ] ; then
-	. /etc/default/dibbler
-fi
+ ta-class {
+    pool {{ pool_ta_96 }}
+ }
+ 
+#assign /96 prefixes from this pool
+ pd-class {
+     pd-pool {{ pool_pd_80 }}
+     #pd-poll 2001:db8:4444::/80
+     pd-length {{ pd_length }}
+ }
 
-set -e
+# provide DNS server location to the clients
+ option dns-server {{ dns_servers }}
+ 
+# provide their domain name
+ option domain {{ domain_name }}
 
-case "$1" in
-  start)
-	echo -n "Starting $DESC: "
-	$DAEMON start 2>&1 > /dev/null
-	echo "$NAME."
-	;;
-  stop)
-	echo -n "Stopping $DESC: "
-	($DAEMON stop 2>&1 > /dev/null; true)
-	echo "$NAME."
-	;;
-  status)
-	echo "Status $DESC: $NAME"
-	$DAEMON status
-	;;
-  #reload)
-	#
-	#	If the daemon can reload its config files on the fly
-	#	for example by sending it SIGHUP, do it here.
-	#
-	#	If the daemon responds to changes in its config file
-	#	directly anyway, make this a do-nothing entry.
-	#
-	# echo "Reloading $DESC configuration files."
-	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
-	#	/var/run/$NAME.pid --exec $DAEMON
-  #;;
-  restart|force-reload)
-	#
-	#	If the "reload" option is implemented, move the "force-reload"
-	#	option to the "reload" entry above. If not, "force-reload" is
-	#	just the same as "restart".
-	#
-	echo -n "Restarting $DESC: "
-	($DAEMON stop 2>&1 > /dev/null; true)
-	sleep 1
-	$DAEMON start 2>&1 > /dev/null
-	echo "$NAME."
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $N {start|stop|restart|force-reload}" >&2
-	exit 1
-	;;
-esac
+# provide vendor-specific info (vendor id=5678 will get first value,
+# while vendor=1556 will get second value)
+ option vendor-spec {{ vendor_spec }}
 
-exit 0
+# provide ntp-server information
+ option ntp-server {{ ntp_servers }}
+
+# provide timezone information
+ option time-zone {{ timezone }}
+
+# provide VoIP parameter (SIP protocol servers and domain names)
+ option sip-server {{ sip_servers }}
+ option sip-domain {{ sip_domains }}
+
+# provide NIS information (server addresses and domain name)
+ option nis-server {{ nis_servers }}
+ option nis-domain {{ nis_domain }}
+
+# provide NIS+ information (server addresses and domain name)
+ option nis+-server {{ nisplus_servers }}
+ option nis+-domain {{ nisplus_domain }}
+
+# provide AFTR information for DS-Lite clients (B4)
+ option aftr {{ aftr_host }}
+
+# provide fully qualified domain names for clients
+# note that first, second and third entry is reserved
+# for a specific address or a DUID
+ option fqdn {{ fqdn_entries }}
+}

@@ -49,7 +49,7 @@ func TestResourcesToHosts(t *testing.T) {
 	rs := []proxmoxResource{
 		{Type: "qemu", Name: "web01", Status: "running", CPU: 0.25, MaxCPU: 4, Mem: 2 << 30, MaxMem: 8 << 30, Uptime: 3600},
 		{Type: "lxc", Name: "db-ct", Status: "stopped", CPU: 0, MaxCPU: 2, Mem: 0, MaxMem: 4 << 30},
-		{Type: "node", Name: "pve1"}, // ignored
+		{Type: "node", Name: "pve1"},     // ignored
 		{Type: "storage", Name: "local"}, // ignored
 	}
 	hosts := resourcesToHosts(rs)

@@ -1,0 +1,34 @@
+# Pcalendar Configuration
+# This file defines the default settings for the pcalendar utility.
+# Note: pcalendar is primarily a GUI application and stores user data in a single .pcal file.
+# These settings allow for initial configuration or integration into a launcher/profile.
+
+# [General]
+# The display name for the user account managing the calendar data.
+# Directive: User Identity
+{{ (user_name | default('User')) | string }}
+
+# [Data]
+# The absolute or relative path to the .pcal data file. If null, defaults to ~/.pcal/default.pcal.
+# Directive: Input Data File
+{% set _data_file = data_file | default(None) %}
+{% if _data_file is not none and _data_file | trim | length > 0 %}
+{{ _data_file | trim }}
+{% else %}
+~/.pcal/default.pcal
+{% endif %}
+
+# [Preferences]
+# The integer representing the first day of the week (0 for Sunday, 1 for Monday).
+# Directive: First Day of Week
+{{ (first_day_of_week | default(1)) | int }}
+
+# [Display]
+# Boolean flag to enable or disable the Basal Body Temperature graph visualization by default.
+# Directive: Show BBT Graph
+{{ (show_bbt_graph | default(True)) | lower }}
+
+# [Notifications]
+# Boolean flag to enable system notifications for fertility predictions.
+# Directive: Enable Notifications
+{{ (enable_notifications | default(False)) | lower }}

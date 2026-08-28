@@ -1,0 +1,58 @@
+# =============================================================================
+# potool Configuration Template
+# =============================================================================
+# This template generates a command-line invocation for `potool`, a tool that
+# filters, counts, and manipulates GNU gettext PO (Portable Object) files.
+#
+# The output is NOT a standard config file (like .conf or .ini), but rather
+# a series of command-line flags and arguments passed to the potool binary.
+# Each variable below maps to a specific CLI option or positional argument.
+# =============================================================================
+
+# --- Filters ---
+# List of filters to determine which po file entries should be retained.
+# Valid values: t (translated), nt (untranslated), nth (untranslated + header),
+#               f (fuzzy), nf (not fuzzy), o (obsolete), no (non-obsolete).
+# Multiple filters can be stacked by repeating this block.
+# Default: ['t']
+{% for filter_item in filters | default(['t']) %}-f {{ filter_item }}
+{% endfor %}
+
+# --- Excluded Parts ---
+# List of parts to exclude from output.
+# Valid values: ctxt (context), id (id), str (string), tr (translation),
+#               ucmt (untranslated comment), pcmt (prev comment), scmt (source comment),
+#               dcmt (derived comment), cmt (comment), linf (line info).
+# Default: []
+{% for part_item in excluded_parts | default([]) %}-n {{ part_item }}
+{% endfor %}
+
+# --- Count Mode ---
+# If true, display only the count of entries instead of the entries themselves (-s).
+# Default: False
+{% if show_count | default(False) %}-s
+{% endif %}
+
+# --- Preserve Formatting ---
+# If true, keep the formatting of the file intact and do not re-wrap strings (-p).
+# Default: False
+{% if preserve_formatting | default(False) %}-p
+{% endif %}
+
+# --- Overwrite Translations ---
+# If true, overwrite all msgstrs with their msgids (-c).
+# Default: False
+{% if overwrite_translations | default(False) %}-c
+{% endif %}
+
+# --- Base File ---
+# The input PO file (FILENAME1). This is a required positional argument.
+# Default: '/var/lib/potool/base.po'
+{{ base_file | default('/var/lib/potool/base.po') }}
+
+# --- Working Copy ---
+# The working copy PO file (FILENAME2) for replacement mode.
+# Leave empty for filter mode (where output goes to stdout).
+# Default: ''
+{% if working_copy | default('') %}{{ working_copy }}
+{% endif %}

@@ -1,0 +1,220 @@
+{# ============================================================================ #}
+{# osslsigncode Configuration Template                                          #}
+{#                                                                              #}
+{# This template generates a configuration snippet for 'osslsigncode'.          #}
+{# Note: ossslsigncode is a command-line utility that typically accepts arguments #}
+{# directly. This configuration file serves as a wrapper or argument-list file  #}
+{# for invocation. Each key corresponds to a command-line flag or option.       #}
+{#                                                                              #}
+{# Self-Documenting: All fields are described below their respective sections.  #}
+{# All variables use explicit defaults to ensure safe rendering when undefined. #}
+{# ============================================================================ #}
+
+{# --- Core Action --- #}
+
+# The subcommand to run: sign, extract-data, add, attach-signature, extract-signature, remove-signature, or verify.
+# Default: 'sign'
+action: {{ action | default('sign') }}
+
+{# --- Input/Output Paths --- #}
+
+# Path to the input file to process (e.g., an .exe or .msi).
+# Default: '/tmp/input.exe'
+input_file: {{ input_file | default('/tmp/input.exe') }}
+
+# Path to the output file. Empty for 'verify' command as it outputs to stdout.
+# Default: '/tmp/output.exe'
+output_file: {{ output_file | default('/tmp/output.exe') }}
+
+{# --- Signing Material --- #}
+
+# Path to the PKCS#12 file containing the signing certificate and key.
+# Default: '/etc/osslsigncode/signer.p12'
+pkcs12_file: {{ pkcs12_file | default('/etc/osslsigncode/signer.p12') }}
+
+# Password for the PKCS#12 or key file.
+# Security Warning: Prefer 'pass_file' for security. Avoid storing plain passwords in configs if possible.
+# Default: ''
+password: {{ password | default('') }}
+
+# Path to a file containing the password/PIN to read from.
+# Mutually exclusive with 'password' in some contexts, but here we pass if present.
+# Default: ''
+pass_file: {{ pass_file | default('') }}
+
+# Path to signing certificate chain file (PEM or SPC).
+# Default: ''
+certs_file: {{ certs_file | default('') }}
+
+# Path to private key file or PKCS#11 URI.
+# Default: ''
+key_file: {{ key_file | default('') }}
+
+# Path to a file with additional certificates to include in the signature (AC).
+# Default: ''
+ac_file: {{ ac_file | default('') }}
+
+{# --- PKCS#11 / Engine / Provider Configuration --- #}
+
+# Path to the PKCS#11 module (shared library).
+# Default: ''
+pkcs11_module: {{ pkcs11_module | default('') }}
+
+# PKCS#11 URI identifying the certificate object.
+# Default: ''
+pkcs11_cert: {{ pkcs11_cert | default('') }}
+
+# OpenSSL 3 provider to load.
+# Default: ''
+provider: {{ provider | default('') }}
+
+# OpenSSL engine identifier or path to dynamic engine module.
+# Default: ''
+engine: {{ engine | default('') }}
+
+# Force login to the token for engine-based PKCS#11 use.
+# Default: false
+pkcs11_login: {{ pkcs11_login | default(false) | lower }}
+
+# List of engine control commands in format 'command' or 'command:parameter'.
+# Rendered as space-separated list.
+# Default: []
+engine_ctrls: {% if engine_ctrls | default([]) %}{{ engine_ctrls | default([]) | join(' ') }}{% endif %}
+
+# Do not automatically load the legacy provider on OpenSSL 3.
+# Default: false
+nolegacy: {{ nolegacy | default(false) | lower }}
+
+{# --- Signature Content & Digest --- #}
+
+# Digest algorithm: md5, sha1, sha2, sha256, sha386, sha512.
+# Default: 'sha256'
+digest: {{ digest | default('sha256') }}
+
+# Description of the signed content.
+# Default: 'Signed Application'
+description: {{ description | default('Signed Application') }}
+
+# Informational URL associated with the signed content.
+# Default: 'https://example.com'
+info_url: {{ info_url | default('https://example.com') }}
+
+# Use Microsoft Commercial Code Signing purpose.
+# Default: false
+comm: {{ comm | default(false) | lower }}
+
+# Add Java CAB permission attribute (low).
+# Default: false
+jp_low: {{ jp_low | default(false) | lower }}
+
+# Generate page hashes for executable files.
+# Default: false
+ph: {{ ph | default(false) | lower }}
+
+# Enable MsiDigitalSignatureEx signing mode for MSI files.
+# Default: false
+add_msi_dse: {{ add_msi_dse | default(false) | lower }}
+
+# Write PKCS#7 output in PEM format (default is DER).
+# Default: false
+pem: {{ pem | default(false) | lower }}
+
+# Add an unauthenticated blob to the signature.
+# Default: false
+add_unauthenticated_blob: {{ add_unauthenticated_blob | default(false) | lower }}
+
+# Read unauthenticated blob contents from this file.
+# Default: ''
+blob_file: {{ blob_file | default('') }}
+
+{# --- Timestamping --- #}
+
+# List of Authenticode timestamp server URLs.
+# Rendered as space-separated list.
+# Default: []
+timestamp_auth_url: {% if timestamp_auth_url | default([]) %}{{ timestamp_auth_url | default([]) | join(' ') }}{% endif %}
+
+# List of RFC 3161 timestamp server URLs.
+# Rendered as space-separated list.
+# Default: []
+timestamp_rfc3161_url: {% if timestamp_rfc3161_url | default([]) %}{{ timestamp_rfc3161_url | default([]) | join(' ') }}{% endif %}
+
+# Proxy used for timestamp or CRL retrieval.
+# Default: ''
+proxy: {{ proxy | default('') }}
+
+# PEM bundle used to verify HTTPS peers (timestamp servers).
+# Default: ''
+https_ca_file: {{ https_ca_file | default('') }}
+
+# PEM CRL file used while verifying HTTPS peers.
+# Default: ''
+https_crl_file: {{ https_crl_file | default('') }}
+
+# PEM certificate chain for locally generated RFC 3161 timestamps.
+# Default: ''
+tsa_certs_file: {{ tsa_certs_file | default('') }}
+
+# Private key for locally generated RFC 3161 timestamps.
+# Default: ''
+tsa_key_file: {{ tsa_key_file | default('') }}
+
+# Timestamp time for locally generated RFC 3161 responses (unix-time).
+# Default: 0
+tsa_time: {{ tsa_time | default(0) }}
+
+{# --- Nested Signatures & Indexing --- #}
+
+# Add a nested signature instead of replacing the primary.
+# Default: false
+nest: {{ nest | default(false) | lower }}
+
+# Select a signature by index for add or verify.
+# Default: 0
+index: {{ index | default(0) }}
+
+{# --- Verification Options --- #}
+
+# Verify the input file against this catalog file.
+# Default: ''
+catalog_file: {{ catalog_file | default('') }}
+
+# PEM bundle of trusted CA certificates for signer validation.
+# Default: '/etc/ssl/certs/ca-certificates.crt'
+ca_file: {{ ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# PEM file containing CRLs for signer validation.
+# Default: ''
+crl_file: {{ crl_file | default('') }}
+
+# PEM bundle of trusted CA certificates for timestamp validation.
+# Default: ''
+tsa_ca_file: {{ tsa_ca_file | default('') }}
+
+# PEM file containing CRLs for timestamp validation.
+# Default: ''
+tsa_crl_file: {{ tsa_crl_file | default('') }}
+
+# Verification time (unix-time). Used to simulate time for verification.
+# Default: 0
+verification_time: {{ verification_time | default(0) }}
+
+# Skip verification of the timestamp signature.
+# Default: false
+ignore_timestamp: {{ ignore_timestamp | default(false) | lower }}
+
+# Do not fetch CRLs from CRL Distribution Points.
+# Default: false
+ignore_cdp: {{ ignore_cdp | default(false) | lower }}
+
+# Disable CRL retrieval and CRL validation.
+# Default: false
+ignore_crl: {{ ignore_crl | default(false) | lower }}
+
+# Require the signer's leaf certificate to hash to specified value (alg:hex).
+# Default: ''
+require_leaf_hash: {{ require_leaf_hash | default('') }}
+
+# Produce more detailed diagnostic output.
+# Default: false
+verbose: {{ verbose | default(false) | lower }}

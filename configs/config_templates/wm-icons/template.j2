@@ -1,0 +1,108 @@
+#!/usr/bin/install-menu
+# Configuration for wm-icons FVWM menu generation.
+# This template generates an FVWM-compatible menu configuration script.
+#
+# Variables are sourced from the Ansible role variables (schema fields).
+# All variables use defaults as defined in the schema to ensure idempotency
+# and prevent render errors if variables are omitted.
+
+# compat: Define the menu format version compatibility.
+compat="menu-1"
+
+# Includes required header files for language and menu functions.
+!include lang.h
+!include menu.h
+
+# IMPORTANT: You may/should edit/check the systemFindIcon function
+# in wm-icons.h to adjust how icons are resolved if necessary.
+!include wm-icons.h
+
+# ltitle: Helper function to translate the title based on the current language.
+function ltitle()=translate($lang,title())
+
+# Configuration Options:
+# -----------------------
+# 1. To use wm-icons ONLY for the icons (ignoring system icons):
+#    Replace "wmIconsFindIcon" with "wmIconsFindIconWmOnly"
+#
+# 2. To prioritize system icons for applications over wm-icons:
+#    Replace "wmIconsFindIcon" with "wmIconsSystemFindIcon"
+#
+# Note: Always check/edit the systemFindIcon function in wm-icons.h
+# for custom icon resolution logic.
+
+# supported: Defines how different menu item types are rendered.
+# The icon_path variable determines the subdirectory within the prefix
+# where icon files are stored.
+supported
+  # wm: Standard window manager menu item.
+  wm=  "+ \"" escfirst(ltitle(), $hotkey,"&") \
+	cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" Restart " $command "\n"
+
+  # fvwm2module: FVWM2 module menu item.
+  fvwm2module=  "+ \"" escfirst(ltitle(), $hotkey,"&") \
+    	cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" Module " $command "\n"
+
+  # fvwm: Standard FVWM menu item.
+  fvwm=  "+ \"" escfirst(ltitle() ,$hotkey,"&") \
+    	cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" " $command "\n"
+
+  # fvwm2: Standard FVWM2 menu item.
+  fvwm2=  "+ \"" escfirst(ltitle() ,$hotkey,"&") \
+    	cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" " $command "\n"
+
+  # x11: X11 application menu item.
+  x11= "+ \"" escfirst(ltitle() ,$hotkey,"&") \
+    	cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" Exec    " $command  "\n"
+
+  # text: Text-based menu item launching xterm.
+  text= "+ \"" escfirst(ltitle() ,$hotkey,"&") \
+    cond_surr(wmIconsFindIcon($icon,$package,$section,"{{ icon_path | default('menu') }}/"),"%","%") "\""  \
+    " Exec /usr/bin/X11/xterm -T \"" ltitle() "\" -e " $command "\n"
+endsupported
+
+# startmenu: Generates the FVWM commands to destroy the existing menu
+# and create a new one with the specified section name as the title.
+startmenu=   "DestroyMenu \"" replacewith($section, " ", "_") "\"" "\n" \
+             "AddToMenu \"" replacewith($section, " ", "_") "\"" \
+	     " \"" ltitle() "\" Title" "\n"
+
+# endmenu: Adds a blank line to separate menu sections.
+endmenu=     "\n"
+
+# Configuration for Submenu Titles:
+# ---------------------------------
+# If you want wm-icons ONLY:
+#   Replace "wmIconsFindSectionIcon" with "wmIconsFindSectionIconWmOnly"
+#
+# In both cases, wm-icons are used for standard sections.
+# Do not forget to edit/check the systemFindIcon function in wm-icons.h.
+#
+submenutitle= "+ \"" escfirst(ltitle() ,$hotkey,"&") \
+	cond_surr(wmIconsFindSectionIcon($section,$icon,"{{ icon_path | default('menu') }}/"),"%","%") \
+	"\" PopUp \"" replacewith($section, " ", "_") "\"\n"
+
+# rootprefix: The root directory prefix for wm-icons configuration and data.
+# Used by the FVWM module to locate icons and configuration files.
+rootprefix="{{ root_prefix | default('/etc/X11/fvwm/wm-icons') }}/"
+
+# userprefix: The user home directory prefix for wm-icons configuration and data.
+# Allows per-user overrides or personal icon sets.
+userprefix="{{ user_prefix | default('/.fvwm/wm-icons') }}/"
+
+# treewalk: The treewalk parameter used by the menu generation logic.
+# Controls how the menu tree is traversed (e.g., 'c(m)' might mean 'compact' and 'menu').
+treewalk="{{ treewalk | default('c(m)') }}"
+
+# genmenu: The hook file name used for generating the menu structure.
+# This file likely contains definitions or scripts invoked during menu build.
+genmenu="{{ genmenu | default('menudefs.hook') }}"
+
+# rootsection: The root section name for the generated FVWM menu.
+# This becomes the top-level entry or title in the FVWM menu.
+rootsection="{{ root_section | default('/DebianWmIcons') }}"

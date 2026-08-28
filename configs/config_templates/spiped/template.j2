@@ -1,0 +1,61 @@
+# /etc/default/spiped
+# Configuration file for spiped (spiped symmetric encryption daemon).
+# This file is sourced by the init system/service manager.
+# Each variable corresponds to a command-line flag for spiped.
+#
+# Self-documenting: every line is prefixed with its schema description.
+# Variables use defaults matching the schema to ensure safe rendering.
+
+# Operation mode: 'e' for encrypt (source unencrypted, target encrypted) or 'd' for decrypt.
+MODE="{{ mode | default('e') }}"
+
+# Unix socket path or host:port on which spiped listens for incoming connections.
+SOURCE_SOCKET="{{ source_socket | default('/run/spiped.sock') }}"
+
+# Unix socket path or host:port to which spiped connects.
+TARGET_SOCKET="{{ target_socket | default('127.0.0.1:6379') }}"
+
+# Path to the symmetric key file used for authentication and encryption.
+KEY_FILE="{{ key_file | default('/etc/spiped/key') }}"
+
+# Outbound bind address (IP or IP:port). Leave empty to let OS choose.
+{% if bind_address | default('') %}
+BIND_ADDRESS="{{ bind_address | default('') }}"
+{% endif %}
+
+# If true, run in foreground (-F). If false, daemonize.
+RUN_FOREGROUND={{ run_foreground | default(False) | lower }}
+
+# If true, disable Diffie-Hellman handshake for speed (-f). Loses perfect forward secrecy.
+FAST_HANDSHAKE={{ fast_handshake | default(False) | lower }}
+
+# If true, drop connections if peer uses fast handshake (-g). Requires perfect forward secrecy.
+PERFECT_FORWARD_SECRECY={{ perfect_forward_secrecy | default(False) | lower }}
+
+# If true, disable TCP keep-alives (-j).
+DISABLE_KEEP_ALIVE={{ disable_keep_alive | default(False) | lower }}
+
+# Max simultaneous connections (0 for unlimited).
+MAX_CONNECTIONS={{ max_connections | default(100) }}
+
+# Connection handshake timeout in seconds.
+CONNECTION_TIMEOUT={{ connection_timeout | default(5) }}
+
+# Path to write PID file. Leave empty if not needed or if running in foreground.
+PID_FILE="{{ pid_file | default('/run/spiped.pid') }}"
+
+# Interval in seconds to re-resolve target socket DNS. 0 to disable re-resolution.
+RESOLVE_INTERVAL={{ resolve_interval | default(60) }}
+
+# If true, send warnings to syslog after daemonizing (--syslog).
+USE_SYSLOG={{ use_syslog | default(True) | lower }}
+
+# Username to drop privileges to after binding socket.
+{% if user | default('') %}
+USER="{{ user | default('') }}"
+{% endif %}
+
+# Group name to drop privileges to after binding socket.
+{% if group | default('') %}
+GROUP="{{ group | default('') }}"
+{% endif %}

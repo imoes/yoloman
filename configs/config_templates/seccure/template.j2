@@ -1,0 +1,57 @@
+# seccure utility configuration
+# This file configures the default behaviors for the seccure cryptographic utility.
+# It controls elliptic curve selection, MAC integrity, file I/O, and prompt/verbose modes.
+
+# Default elliptic curve to use for key generation, encryption, and signing.
+# The elliptic curve to use. Examples: p160, p224, p256, brainpoolp256r1. The default is p160.
+# Values: secp112r1, secp128r1, secp160r1, secp192r1, secp224r1, secp256r1, secp384r1, secp521r1,
+# brainpoolp160r1, brainpoolp192r1, brainpoolp224r1, brainpoolp256r1, brainpoolp320r1, brainpoolp384r1, brainpoolp512r1.
+curve = {{ curve | default('p160') }}
+
+# Default MAC length in bits for encryption integrity protection.
+# Must be a multiple of 8, range 0-256. Default is 80.
+maclen = {{ maclen | default(80) }}
+
+# Path to a file containing the passphrase.
+# If empty, the utility prompts for the passphrase interactively.
+pwfile = {{ pwfile | default('') }}
+
+# Path to input file.
+# If empty, data is read from STDIN.
+infile = {{ infile | default('') }}
+
+# Path to output file.
+# If empty, data is written to STDOUT.
+outfile = {{ outfile | default('') }}
+
+# Path to signature file for sign/verify operations.
+# If empty, signature is written to STDERR (sign) or read from STDIN (verify).
+sigfile = {{ sigfile | default('') }}
+
+# The public key string (e.g., from seccure-key output) used for encryption or verification.
+# If empty, seccure may look for a default key or prompt.
+public_key = {{ public_key | default('') }}
+
+# Enable verbose output.
+# If true, prints extra diagnostic information.
+verbose = {{ verbose | default(false) | ternary('true', 'false') }}
+
+# Enable quiet mode.
+# If true, disables unnecessary output (overrides verbose if both are set, depending on implementation).
+quiet = {{ quiet | default(false) | ternary('true', 'false') }}
+
+# Prompt for passphrase twice to ensure correctness.
+# If true, the utility will ask for the passphrase two times to catch typos.
+double_prompt = {{ double_prompt | default(false) | ternary('true', 'false') }}
+
+# Copy data verbatim, attaching/detaching signatures if in append mode.
+# If true, enables filter mode processing.
+filter_mode = {{ filter_mode | default(false) | ternary('true', 'false') }}
+
+# Handle signatures as binary strings.
+# If true, signatures are treated as raw binary data rather than ASCII-armored.
+binary_mode = {{ binary_mode | default(false) | ternary('true', 'false') }}
+
+# Append signature to document or detach from end.
+# If true, in sign mode, appends the signature to the document; in verify mode, detaches it.
+append_mode = {{ append_mode | default(false) | ternary('true', 'false') }}

@@ -1,0 +1,49 @@
+# ==============================================================================
+# rwhod Daemon Configuration (/etc/default/rwhod)
+# ==============================================================================
+# This configuration file controls the rwhod daemon, which broadcasts
+# system status information to the network. The 'ruptime' client reads
+# this data from the spool directory (default: /var/spool/rwho/).
+#
+# Variables defined here are passed as arguments to the rwhod process.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Interface Binding
+# Field: rwhod_interface
+# Description: Network interface to bind rwhod to. Empty string or unset binds
+#              to all interfaces. If set to a specific interface name (e.g., eth0),
+#              rwhod will only send broadcasts on that interface.
+# ------------------------------------------------------------------------------
+# Default: All interfaces (empty string)
+{% if (rwhod_interface | default('')) is defined and rwhod_interface | default('') != '' %}
+RWHOD_ARGS="-i {{ rwhod_interface | default('') }}"
+{% else %}
+RWHOD_ARGS=""
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Broadcast Control
+# Field: rwhod_no_broadcast
+# Description: If true, disables broadcasting rwho status on the network.
+#              This is useful if the machine should only listen for remote
+#              status reports (via ruptime/rup) without announcing its own
+#              presence to the network.
+# ------------------------------------------------------------------------------
+# Default: False (Broadcasting is enabled)
+{% if rwhod_no_broadcast | default(False) %}
+RWHOD_ARGS="${RWHOD_ARGS} -n"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Spool Directory Override
+# Field: rwho_spool_dir
+# Description: Directory where rwhod stores status files for ruptime/rup to read.
+#              The default standard location is /var/spool/rwho. Changing this
+#              directory requires ensuring the daemon has write permissions
+#              to the new location.
+# ------------------------------------------------------------------------------
+# Default: /var/spool/rwho
+{% if rwho_spool_dir | default('/var/spool/rwho') is defined and rwho_spool_dir | default('/var/spool/rwho') != '' %}
+RWHOD_ARGS="${RWHOD_ARGS} -d {{ rwho_spool_dir | default('/var/spool/rwho') }}"
+{% endif %}

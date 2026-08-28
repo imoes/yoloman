@@ -1,0 +1,25 @@
+# uvcdynctrl configuration script
+# This script automates the import of UVC dynamic controls and sets device states.
+# Self-documenting: every variable is defaulted to its schema value, and every directive
+# is preceded by the schema description as a comment.
+
+# The V4L2 device node or identifier for the webcam to configure.
+# Default: /dev/video0
+DEVICE="{{ device | default('/dev/video0') }}"
+
+# Path to the XML file containing dynamic control definitions
+# Importing these allows uvcdynctrl to recognize custom controls
+# Default: /var/lib/usbmux/controls.xml
+XML_FILE="{{ xml_file | default('/var/lib/usbmux/controls.xml') }}"
+
+# Enable verbose output for debugging/importing
+# Default: false
+VERBOSE="{{ verbose | default(false) | ternary('true', 'false') }}"
+
+# List of controls to set on the device after import. Each item is a flat map with 'name' and 'value'.
+# Items are not nested objects in the schema.
+# Default: empty list (no specific controls set)
+{% for control in (controls_to_set | default([])) %}
+# Set control: {{ control.name }} to {{ control.value }}
+uvcdynctrl -d "{{ device | default('/dev/video0') }}" -s "{{ control.name }}" "{{ control.value }}" {% if verbose | default(false) %}-v{% endif %}
+{% endfor %}

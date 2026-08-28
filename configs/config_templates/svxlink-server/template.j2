@@ -1,0 +1,24 @@
+# SVXLink Log Rotation Configuration
+# Managed by Ansible. Do not edit manually.
+
+/var/log/svxlink {
+    # Rotate log files weekly to keep history manageable
+    weekly
+
+    # Do not error if the log file is missing
+    missingok
+
+    # Do not rotate if the log file is empty
+    notifempty
+
+    # Create new log files with the specified permission mode, owner, and group.
+    # log_file_mode: default='0644' — The permission mode for the log files created by logrotate.
+    # log_user: default='svxlink' — The user that owns the log files.
+    # log_group: default='adm' — The group that owns the log files.
+    create {{ log_file_mode | default('0644') }} {{ log_user | default('svxlink') }} {{ log_group | default('adm') }}
+
+    # Signal the svxlink process to reopen log files after rotation
+    postrotate
+        killall -HUP svxlink
+    endscript
+}

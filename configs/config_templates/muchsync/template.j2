@@ -1,0 +1,36 @@
+# muchsync configuration file
+#
+# This file configures notmuch parameters that influence muchsync behavior.
+# muchsync itself is primarily a command-line tool, but relies on notmuch config.
+#
+# Self-documenting: every directive below includes its source description
+# from the service schema, so operators can understand the intent without
+# external documentation.
+
+[database]
+# The path to the local maildir directory to be synchronized.
+# Default: /var/lib/maildir/inbox
+path = "{{ (values | default({})).maildir_path | default('/var/lib/maildir/inbox') }}"
+
+[muchsync]
+# List of tags that must appear on both replicas to be retained during sync.
+# If empty, falls back to new.tags logic or default behavior.
+# Default: [] (empty list)
+{% set _and_tags = (values | default({})).and_tags | default([]) %}
+{% if _and_tags | length > 0 %}
+and_tags = "{{ _and_tags | join(' ') }}"
+{% endif %}
+
+# Whether to enable maildir flag synchronization.
+# Recommended to be false for muchsync efficiency.
+# Default: false
+maildir.synchronize_flags = "{{ (values | default({})).synchronize_flags | default(false) | lower }}"
+
+[tags]
+# List of tags automatically applied to new messages.
+# Used as default for muchsync.and_tags if not explicitly set in muchsync section.
+# Default: ['inbox']
+{% set _new_tags = (values | default({})).new_tags | default(['inbox']) %}
+{% if _new_tags | length > 0 %}
+new = "{{ _new_tags | join(',') }}"
+{% endif %}

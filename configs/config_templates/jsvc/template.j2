@@ -1,0 +1,131 @@
+# =============================================================================
+# jsvc Wrapper Script Template
+# =============================================================================
+# This template generates a self-contained wrapper script that invokes the jsvc
+# daemon utility to run a Java application as a system service.
+#
+# jsvc (Java Service Wrapper) is a tool that allows Java applications to be
+# run as daemons on Unix-like systems, handling PID files, signal forwarding,
+# and privilege dropping (running as a non-root user).
+#
+# Generated variables use schema defaults to ensure safe rendering even if
+# optional Ansible variables are missing.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Configuration Parameters
+# These parameters control how jsvc launches the Java Virtual Machine (JVM)
+# and the specific Java class that implements the daemon interface.
+# ------------------------------------------------------------------------------
+
+# Path to the Java executable or JVM name.
+# If the full path is not provided, jsvc will search $PATH.
+JVM_PATH="{{ jvm_path | default('/usr/bin/java') }}"
+
+# User account under which the daemon will run.
+# The process will switch to this user after binding ports (if any) and
+# initializing the JVM. Typically a dedicated service user (e.g., www-data, appuser).
+DAEMON_USER="{{ user | default('www-data') }}"
+
+# Working directory for the daemon process.
+# The JVM will chdir to this directory upon startup.
+WORKING_DIR="{{ working_dir | default('/opt/app') }}"
+
+# Classpath for the Java service classes and resources.
+# Defines where Java can find the application classes and dependencies.
+# Supports wildcard expansion depending on the JVM implementation.
+CLASSPATH="{{ classpath | default('/opt/app/classes:/opt/app/lib/*.jar') }}"
+
+# The main class implementing the Daemon interface.
+# This class must implement `org.apache.commons.daemon.Daemon` and provide
+# the `init()`, `start()`, `stop()`, and `destroy()` lifecycle methods.
+MAIN_CLASS="{{ main_class | default('org.apache.commons.daemon.example.DaemonStarter') }}"
+
+# Path to the file containing the PID of jsvc.
+# jsvc writes its process ID here so service managers can track it.
+PID_FILE="{{ pidfile | default('/var/run/jsvc.pid') }}"
+
+# Location for output from stdout.
+# Can be a file path, `/dev/null`, or `SYSLOG`.
+# Useful for capturing application logs.
+OUT_FILE="{{ outfile | default('/var/log/jsvc.log') }}"
+
+# Location for output from stderr.
+# Can be a file path, `/dev/null`, or `SYSLOG`.
+# Useful for capturing JVM errors and startup diagnostics.
+ERR_FILE="{{ errfile | default('/var/log/jsvc.err') }}"
+
+# File mode creation mask for the daemon.
+# Restricts the permissions of newly created files by the daemon process.
+# Default '022' means files are created as 644, directories as 755.
+UMASK="{{ umask | default('022') }}"
+
+# Path to the JDK or JRE installation.
+# Tells jsvc where to find the JVM libraries and headers if not in standard locations.
+JAVA_HOME="{{ java_home | default('/usr/lib/jvm/java-11-openjdk-amd64') }}"
+
+# ------------------------------------------------------------------------------
+# JVM Specific Options
+# These options are passed directly to the Java Virtual Machine.
+# Use this for memory settings, garbage collection tuning, etc.
+# ------------------------------------------------------------------------------
+JVM_OPTIONS="{{ jvm_options | default([]) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# Java System Properties
+# These properties are set using the -D flag before the main class is invoked.
+# ------------------------------------------------------------------------------
+JAVA_SYSTEM_PROPS="{{ java_system_properties | default([]) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# Construct the jsvc Command Line
+# ------------------------------------------------------------------------------
+# jsvc syntax: jsvc [options] <main-class> [args...]
+# Options are prefixed with '-' for jsvc flags and '-D' for system properties.
+# We construct the command explicitly to ensure correct quoting and ordering.
+
+# Build the jsvc invocation command.
+# Note: jsvc expects specific flags. We use conditional logic to avoid empty
+# arguments if lists are empty.
+CMD="jsvc"
+
+# Add jsvc-specific flags
+CMD="$CMD -user $DAEMON_USER"
+CMD="$CMD -pidfile $PID_FILE"
+CMD="$CMD -outfile $OUT_FILE"
+CMD="$CMD -errfile $ERR_FILE"
+CMD="$CMD -cp $CLASSPATH"
+CMD="$CMD -java-home $JAVA_HOME"
+
+# Add umask if specified (jsvc uses -umask)
+# Note: jsvc accepts the octal value directly.
+CMD="$CMD -umask $UMASK"
+
+# Add the working directory if specified
+CMD="$CMD -cwd $WORKING_DIR"
+
+# Append JVM options (e.g., -Xmx512m, -server)
+# These are passed directly to the JVM, so no jsvc-specific prefix is needed
+# other than ensuring they are separate arguments.
+{% for opt in jvm_options | default([]) %}
+CMD="$CMD {{ opt }}"
+{% endfor %}
+
+# Append Java system properties (-Dkey=value)
+# These must be placed before the main class.
+{% for prop in java_system_properties | default([]) %}
+CMD="$CMD {{ prop }}"
+{% endfor %}
+
+# Append the main class name
+CMD="$CMD $MAIN_CLASS"
+
+# ------------------------------------------------------------------------------
+# Execution
+# ------------------------------------------------------------------------------
+# Log the command for debugging purposes
+echo "Executing: $CMD"
+
+# Execute the command
+# exec replaces the shell process with jsvc, ensuring signals are handled correctly
+exec $CMD

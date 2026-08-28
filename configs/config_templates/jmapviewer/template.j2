@@ -1,0 +1,58 @@
+# JMapViewer Configuration Template
+# JMapViewer is a Java-based tool for visualizing map data. It does not run as a persistent
+# Linux daemon or service. Consequently, there is no persistent configuration file (like
+# /etc/jmapviewer/jmapviewer.conf) that is managed by systemd.
+#
+# Configuration is typically passed at runtime via command-line arguments or environment variables
+# to the Java Virtual Machine (JVM) launching the tool.
+#
+# This template generates a wrapper script or environment file to standardize the launch parameters
+# for JMapViewer within an Ansible-managed environment.
+
+{% set jmapviewer_home = jmapviewer_home | default('/opt/jmapviewer') %}
+{% set jmapviewer_jar = jmapviewer_jar | default('jmapviewer.jar') %}
+{% set jmapviewer_opts = jmapviewer_opts | default('-Xmx512m') %}
+{% set map_source_url = map_source_url | default('http://localhost/osm') %}
+{% set map_source_type = map_source_type | default('osm') %}
+{% set launch_user = launch_user | default('jmapviewer') %}
+
+# -----------------------------------------------------------------------------
+# Environment / Wrapper Script for JMapViewer
+# -----------------------------------------------------------------------------
+# This script encapsulates the runtime configuration for JMapViewer.
+# It ensures that Java is available and passes the correct parameters.
+
+export JMAPVIEWER_HOME="{{ jmapviewer_home }}"
+export JMAPVIEWER_JAR="{{ jmapviewer_jar }}"
+export JMAPVIEWER_OPTS="{{ jmapviewer_opts }}"
+export MAP_SOURCE_URL="{{ map_source_url }}"
+export MAP_SOURCE_TYPE="{{ map_source_type }}"
+export JMAPVIEWER_USER="{{ launch_user }}"
+
+# Java Home Detection
+# If JAVA_HOME is not set, attempt to find the java executable
+{% if java_home is defined and java_home %}
+export JAVA_HOME="{{ java_home }}"
+{% else %}
+export JAVA_HOME="{{ '/usr/lib/jvm/java-11-openjdk' }}"
+{% endif %}
+
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# -----------------------------------------------------------------------------
+# Launch Command
+# -----------------------------------------------------------------------------
+# The following command is executed to start JMapViewer.
+# In a systemd service context, this would be the ExecStart directive.
+# -----------------------------------------------------------------------------
+
+{% if launch_user and launch_user != 'root' %}
+# Run as non-root user {{ launch_user }}
+sudo -u "{{ launch_user }}" java {{ jmapviewer_opts }} -jar "{{ jmapviewer_home }}/{{ jmapviewer_jar }}" \
+  --map-source "{{ map_source_url }}" \
+  --map-type "{{ map_source_type }}"
+{% else %}
+java {{ jmapviewer_opts }} -jar "{{ jmapviewer_home }}/{{ jmapviewer_jar }}" \
+  --map-source "{{ map_source_url }}" \
+  --map-type "{{ map_source_type }}"
+{% endif %}

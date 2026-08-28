@@ -1,0 +1,132 @@
+# =============================================================================
+# uaputl Configuration Template
+# =============================================================================
+# This template generates a configuration file for uaputl, a tool used to configure
+# Universal AP (Access Point) mode on wireless interfaces, typically on embedded
+# or Linux-based systems with specific wireless drivers (e.g., Ralink, MediaTek).
+#
+# The configuration defines the wireless interface parameters, security settings,
+# and performance tuning options for the Access Point.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Settings
+# -----------------------------------------------------------------------------
+
+# Debug output level: 0 (disable), 1 (basic), 2 (verbose).
+# Corresponds to the command-line flag: uaputl -d <level>
+debug_level {{ debug_level | default(0) }}
+
+# Interface selection: The wireless interface name to configure.
+# Corresponds to the command-line flag: uaputl -i <interface>
+interface {{ interface | default('uap0') }}
+
+# -----------------------------------------------------------------------------
+# Wireless Network Identity
+# -----------------------------------------------------------------------------
+
+# SSID (Service Set Identifier): The name of the wireless network.
+# Corresponds to the command: uaputl sys_cfg_ssid <ssid>
+sys_cfg_ssid {{ ssid | default('GuestNetwork') }}
+
+# MAC Address: The hardware address for the Access Point interface.
+# Corresponds to the command: uaputl sys_cfg_ap_mac_address <mac>
+sys_cfg_ap_mac_address {{ mac_address | default('00:00:00:00:00:00') }}
+
+# -----------------------------------------------------------------------------
+# Radio & Channel Settings
+# -----------------------------------------------------------------------------
+
+# Radio Channel: The frequency channel to operate on (1-14 for 2.4GHz).
+# Corresponds to the command: uaputl sys_cfg_channel <channel>
+sys_cfg_channel {{ channel | default(6) }}
+
+# Beacon Period: The interval between beacon frames in Time Units (TUs).
+# 1 TU = 1024 microseconds. Default 100 TUs = 102.4ms.
+# Corresponds to the command: uaputl sys_cfg_beacon_period <period>
+sys_cfg_beacon_period {{ beacon_period | default(100) }}
+
+# DTIM Period: Delivery Traffic Indication Message period.
+# Controls how often the AP sends broadcast/multicast buffer notifications.
+# Corresponds to the command: uaputl sys_cfg_dtim_period <period>
+sys_cfg_dtim_period {{ dtim_period | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Security & Authentication
+# -----------------------------------------------------------------------------
+
+# Authentication Mode: Determines how stations authenticate (open, sharedkey, wpa, wpa2).
+# Corresponds to the command: uaputl sys_cfg_auth <mode>
+sys_cfg_auth {{ auth_mode | default('open') }}
+
+# Security Protocol: The encryption protocol used (none, wpa, wpa2).
+# Corresponds to the command: uaputl sys_cfg_protocol <protocol>
+sys_cfg_protocol {{ protocol | default('wpa2') }}
+
+# WPA/WPA2 Passphrase: The Pre-Shared Key (PSK) for authentication.
+# Corresponds to the command: uaputl sys_cfg_wpa_passphrase <passphrase>
+sys_cfg_wpa_passphrase {{ wpa_passphrase | default('supersecretkey') }}
+
+# Cipher: The encryption algorithm used for data frames (tkip, ccmp).
+# ccmp (AES) is recommended for WPA2.
+# Corresponds to the command: uaputl sys_cfg_cipher <cipher>
+sys_cfg_cipher {{ cipher | default('ccmp') }}
+
+# Group Re-key Timer: How often group keys are rotated (in seconds).
+# Helps limit the impact of key compromise.
+# Corresponds to the command: uaputl sys_cfg_group_rekey_timer <timer>
+sys_cfg_group_rekey_timer {{ group_rekey_timer | default(3600) }}
+
+# -----------------------------------------------------------------------------
+# Station Limits & Timers
+# -----------------------------------------------------------------------------
+
+# Maximum Number of Stations: The cap on concurrent connected devices.
+# Corresponds to the command: uaputl sys_cfg_max_sta_num <max>
+sys_cfg_max_sta_num {{ max_sta_num | default(10) }}
+
+# Station Ageout Timer: Time in seconds before an idle station is disconnected.
+# Corresponds to the command: uaputl sys_cfg_sta_ageout_timer <timer>
+sys_cfg_sta_ageout_timer {{ sta_ageout_timer | default(600) }}
+
+# -----------------------------------------------------------------------------
+# Performance & Power Settings
+# -----------------------------------------------------------------------------
+
+# TX Power Level: Transmit power strength. Units depend on the driver (e.g., 0.5 dBm).
+# Corresponds to the command: uaputl sys_cfg_tx_power <power>
+sys_cfg_tx_power {{ tx_power | default(30) }}
+
+# RTS Threshold: Request-to-Send threshold in bytes. Packets larger than this use RTS/CTS.
+# Set to 2347 (max) to disable RTS/CTS if not needed for collision avoidance.
+# Corresponds to the command: uaputl sys_cfg_rts_threshold <threshold>
+sys_cfg_rts_threshold {{ rts_threshold | default(2347) }}
+
+# Fragmentation Threshold: Packet size in bytes above which fragmentation occurs.
+# Set to 2346 (max) to disable fragmentation.
+# Corresponds to the command: uaputl sys_cfg_frag_threshold <threshold>
+sys_cfg_frag_threshold {{ frag_threshold | default(2346) }}
+
+# Retry Limit: Number of transmission attempts before dropping a packet.
+# Corresponds to the command: uaputl sys_cfg_retry_limit <limit>
+sys_cfg_retry_limit {{ retry_limit | default(7) }}
+
+# -----------------------------------------------------------------------------
+# Operational Controls
+# -----------------------------------------------------------------------------
+
+# Preamble Control: Type of preamble used (short, long). Short is faster/modern.
+# Corresponds to the command: uaputl sys_cfg_preamble_ctl <ctl>
+sys_cfg_preamble_ctl {{ preamble_ctl | default('short') }}
+
+# Radio Control: Enables or disables the radio interface (on, off).
+# Corresponds to the command: uaputl sys_cfg_radio_ctl <ctl>
+sys_cfg_radio_ctl {{ radio_ctl | default('on') }}
+
+# Broadcast SSID Control: Whether to broadcast the SSID beacon (on, off).
+# Corresponds to the command: uaputl sys_cfg_bcast_ssid_ctl <ctl>
+sys_cfg_bcast_ssid_ctl {{ bcast_ssid_ctl | default('on') }}
+
+# Packet Forwarding Control: Whether to forward packets between interfaces (on, off).
+# Corresponds to the command: uaputl sys_cfg_pkt_fwd_ctl <ctl>
+sys_cfg_pkt_fwd_ctl {{ pkt_fwd_ctl | default('off') }}

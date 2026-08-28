@@ -3,6 +3,7 @@ dispatch with injected fake senders (no real SMTP/HTTP), and the
 ack/downtime/flapping suppression in collect_and_dispatch."""
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -113,7 +114,7 @@ async def test_collect_and_dispatch_suppression(db_session):
     settings = Settings(database_url="x", smtp_host="localhost")
     rule = _rule(channel="email")
     db_session.add(rule)
-    agent = Agent(name=f"notif-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("notif"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -176,7 +177,7 @@ async def test_collect_and_dispatch_suppresses_dependent_service(db_session):
     db_session.add(dependent_rule)
     notify_rule = _rule(channel="email")  # matches any service — proves the fake sender actually fires
     db_session.add(notify_rule)
-    agent = Agent(name=f"notif-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("notif"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -277,7 +278,7 @@ async def test_a_down_host_pages_once_not_once_per_service(db_session):
     settings = Settings(database_url="x", smtp_host="localhost")
     rule = _rule(channel="email")
     db_session.add(rule)
-    agent = Agent(name=f"down-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("down"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -322,7 +323,7 @@ async def test_a_healthy_host_still_pages_for_its_services(db_session):
     settings = Settings(database_url="x", smtp_host="localhost")
     rule = _rule(channel="email")
     db_session.add(rule)
-    agent = Agent(name=f"up-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("up"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -357,7 +358,7 @@ async def _period(db_session, name, ranges, excludes=None, exceptions=None):
     from bossman.db.models import TimePeriod
 
     tp = TimePeriod(
-        name=f"{name}-{uuid.uuid4().hex[:6]}", alias=name, ranges=ranges,
+        name=owned_name(name), alias=name, ranges=ranges,
         exceptions=exceptions or {}, excludes=excludes or [],
     )
     db_session.add(tp)
@@ -377,7 +378,7 @@ async def test_a_rule_outside_its_window_does_not_send_but_is_logged(db_session)
     rule = _rule(channel="email")
     rule.time_period_id = closed.id
     db_session.add(rule)
-    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("tp"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -410,7 +411,7 @@ async def test_a_rule_inside_its_window_sends_normally(db_session):
     rule = _rule(channel="email")
     rule.time_period_id = always.id
     db_session.add(rule)
-    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("tp"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -436,7 +437,7 @@ async def test_a_rule_without_a_window_is_unrestricted(db_session):
     rule = _rule(channel="email")
     assert rule.time_period_id is None
     db_session.add(rule)
-    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("tp"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 
@@ -466,7 +467,7 @@ async def test_an_unevaluable_window_does_not_silence_the_rule(db_session):
     rule = _rule(channel="email")
     rule.time_period_id = broken.id
     db_session.add(rule)
-    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("tp"), token="t", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
 

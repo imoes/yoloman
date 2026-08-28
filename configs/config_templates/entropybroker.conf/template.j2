@@ -35,7 +35,7 @@ workers: {{ workers | default(2) }}
 
 # Enable or disable Prometheus-compatible metrics collection.
 # metrics_enabled: default=False
-metrics_enabled: {{ metrics_enabled | default(false) }}
+metrics_enabled: {{ metrics_enabled | default(false) | lower }}
 
 # Prometheus metrics endpoint address and port.
 # Only active if metrics_enabled is true.
@@ -81,7 +81,7 @@ allowed_clients:
 # TLS configuration for secure entropy delivery.
 # tls: default={'enabled': False, 'cert_file': '/etc/entropybroker/tls/cert.pem', 'key_file': '/etc/entropybroker/tls/key.pem', 'ca_file': None}
 tls:
-  enabled: {{ (tls | default({'enabled': False})).enabled }}
+  enabled: {{ (tls | default({'enabled': False})).enabled | lower }}
 {% if (tls | default({'enabled': False})).enabled %}
   cert_file: {{ (tls | default({'cert_file': '/etc/entropybroker/tls/cert.pem'})).cert_file }}
   key_file: {{ (tls | default({'key_file': '/etc/entropybroker/tls/key.pem'})).key_file }}
@@ -101,7 +101,7 @@ rate_limit:
 {% if backends is defined and backends | length > 0 %}
 backends:
 {% for backend in backends %}  - name: {{ backend.name }}
-    enabled: {{ backend.enabled }}
+    enabled: {{ backend.enabled | lower }}
 {% if backend.enabled %}
 {% if backend.type == 'remote' %}
     url: {{ backend.url }}
@@ -134,7 +134,7 @@ refresh_interval: {{ refresh_interval | default(5) }}
 
 # Enable stirring (mixing entropy from multiple sources).
 # stirring_enabled: default=True
-stirring_enabled: {{ stirring_enabled | default(true) }}
+stirring_enabled: {{ stirring_enabled | default(true) | lower }}
 
 # Maximum memory (in bytes) for internal buffers. 0 = use system default.
 # buffer_memory_limit: default=0
@@ -142,4 +142,4 @@ buffer_memory_limit: {{ buffer_memory_limit | default(0) }}
 
 # Enable compression of entropy data before export (e.g., gzip).
 # compression_enabled: default=False
-compression_enabled: {{ compression_enabled | default(false) }}
+compression_enabled: {{ compression_enabled | default(false) | lower }}

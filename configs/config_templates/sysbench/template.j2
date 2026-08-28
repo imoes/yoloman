@@ -1,0 +1,226 @@
+{#
+    Sysbench Benchmark Configuration Template
+    ==========================================
+    This template generates a sysbench command-line style configuration file.
+    Each variable is sourced from the Ansible playbook variables (schema fields).
+    Defaults are applied inline to ensure idempotency and safety.
+
+    Usage:
+      sysbench --config-file=/etc/sysbench/benchmark.conf <test> <command>
+#}
+
+# General Options
+# ---------------
+# Number of threads to use for the benchmark.
+--threads={{ threads | default(4) }}
+
+# Limit for total number of events (0 for unlimited).
+--events={{ events | default(0) }}
+
+# Limit for total execution time in seconds.
+--time={{ time_limit | default(10) }}
+
+# Seconds to wait after --time limit before forcing shutdown, or 'off'.
+--forced-shutdown={{ forced_shutdown | default('off') }}
+
+# Size of stack per thread (e.g., 64K, 32K).
+--thread-stack-size={{ thread_stack_size | default('32K') }}
+
+# Average transactions rate. 0 for unlimited.
+--rate={{ rate_limit | default(0) }}
+
+# Interval in seconds for intermediate statistics reports (0 to disable).
+--report-interval={{ report_interval | default(0) }}
+
+# List of time points in seconds for full statistics dumps.
+--report-checkpoints={{ report_checkpoints | default([]) | join(',') }}
+
+# Print more debugging info (true/false).
+--debug={{ debug | default(False) | lower }}
+
+# Perform validation checks where possible (true/false).
+--validate={{ validate | default(False) | lower }}
+
+# Verbosity level (0-5).
+--verbosity={{ verbosity | default(3) }}
+
+# Percentile for latency statistics (1-100, 0 to disable).
+--percentile={{ percentile | default(95) }}
+
+# Print latency histogram in report (true/false).
+--histogram={{ histogram | default(False) | lower }}
+
+# Pseudo-Random Numbers Generator Options
+# ---------------------------------------
+# Random numbers distribution {uniform,gaussian,pareto}.
+--rand-type={{ rand_type | default('special') }}
+
+# Seed for random number generator (0 to use current time).
+--rand-seed={{ rand_seed | default(0) }}
+
+# Database Options
+# ----------------
+# Database driver to use ('mysql' or 'pgsql').
+--db-driver={{ db_driver | default('mysql') }}
+
+{% set _db = (db_driver | default('mysql')) %}
+{% if _db == 'mysql' %}
+# MySQL Database Options
+# ----------------------
+# MySQL server host(s). List of strings.
+--mysql-host={{ mysql_host | default(['localhost']) | join(',') }}
+
+# MySQL server port.
+--mysql-port={{ mysql_port | default(3306) }}
+
+# MySQL socket path (empty string to omit).
+{% if mysql_socket | default('') != '' %}
+--mysql-socket={{ mysql_socket | default('') }}
+{% endif %}
+
+# MySQL user.
+--mysql-user={{ mysql_user | default('sbtest') }}
+
+# MySQL password (empty string to omit).
+{% if mysql_password | default('') != '' %}
+--mysql-password={{ mysql_password | default('') }}
+{% endif %}
+
+# MySQL database name.
+--mysql-db={{ mysql_db | default('sbtest') }}
+
+# Use SSL connections if available (true/false).
+--mysql-ssl={{ mysql_ssl | default(False) | lower }}
+
+# Specific cipher for SSL connections (empty string to omit).
+{% if mysql_ssl_cipher | default('') != '' %}
+--mysql-ssl-cipher={{ mysql_ssl_cipher | default('') }}
+{% endif %}
+
+# Use compression if available (true/false).
+--mysql-compression={{ mysql_compression | default(False) | lower }}
+
+# List of error codes to ignore.
+--mysql-ignore-errors={{ mysql_ignore_errors | default(['1213', '1020', '1205']) | join(',') }}
+
+{% elif _db == 'pgsql' %}
+# PostgreSQL Database Options
+# ---------------------------
+# PostgreSQL server host.
+--pgsql-host={{ pgsql_host | default('localhost') }}
+
+# PostgreSQL server port.
+--pgsql-port={{ pgsql_port | default(5432) }}
+
+# PostgreSQL user.
+--pgsql-user={{ pgsql_user | default('sbtest') }}
+
+# PostgreSQL password (empty string to omit).
+{% if pgsql_password | default('') != '' %}
+--pgsql-password={{ pgsql_password | default('') }}
+{% endif %}
+
+# PostgreSQL database name.
+--pgsql-db={{ pgsql_db | default('sbtest') }}
+
+{% else %}
+# General Database Options (Non-DB Test or Generic)
+# -------------------------------------------------
+# Prepared statements usage mode {auto, disable}.
+--db-ps-mode={{ db_ps_mode | default('auto') }}
+{% endif %}
+
+# Test-Specific Options
+# ---------------------
+
+{% set _test = (test_type | default('cpu')) %}
+{% if _test == 'fileio' %}
+# FileIO Test Options
+# -------------------
+# Number of files to create for FileIO test.
+--file-num={{ file_num | default(128) }}
+
+# Block size for FileIO operations.
+--file-block-size={{ file_block_size | default(16384) }}
+
+# Total size of files to create for FileIO test.
+--file-total-size={{ file_total_size | default('2G') }}
+
+# FileIO test mode {seqwr, seqrewr, seqrd, rndrd, rndwr, rndrw}.
+--file-test-mode={{ file_test_mode | default('rndrw') }}
+
+# File operations mode {sync, async, mmap}.
+--file-io-mode={{ file_io_mode | default('sync') }}
+
+# Number of asynchronous operations to queue per thread.
+--file-async-backlog={{ file_async_backlog | default(128) }}
+
+# List of additional flags {sync, dsync, direct}.
+--file-extra-flags={{ file_extra_flags | default([]) | join(',') }}
+
+# Fsync frequency (0 to disable fsync).
+--file-fsync-freq={{ file_fsync_freq | default(100) }}
+
+# Fsync after each write operation (true/false).
+--file-fsync-all={{ file_fsync_all | default(False) | lower }}
+
+# Fsync at the end of test (true/false).
+--file-fsync-end={{ file_fsync_end | default(True) | lower }}
+
+# Synchronization method {fsync, fdatasync}.
+--file-fsync-mode={{ file_fsync_mode | default('fsync') }}
+
+# Merge at most this number of IO requests (0 to disable).
+--file-merged-requests={{ file_merged_requests | default(0) }}
+
+# Reads/writes ratio for combined test.
+--file-rw-ratio={{ file_rw_ratio | default(1.5) }}
+
+{% elif _test == 'cpu' %}
+# CPU Test Options
+# ----------------
+# Upper limit for primes generator in CPU test.
+--cpu-max-prime={{ cpu_max_prime | default(10000) }}
+
+{% elif _test == 'memory' %}
+# Memory Test Options
+# -------------------
+# Size of memory block for test.
+--memory-block-size={{ memory_block_size | default('1K') }}
+
+# Total size of data to transfer in memory test.
+--memory-total-size={{ memory_total_size | default('100G') }}
+
+# Memory access scope {global, local}.
+--memory-scope={{ memory_scope | default('global') }}
+
+# Allocate memory from HugeTLB pool (true/false).
+--memory-hugetlb={{ memory_hugetlb | default(False) | lower }}
+
+# Type of memory operations {read, write, none}.
+--memory-oper={{ memory_oper | default('write') }}
+
+# Memory access mode {seq, rnd}.
+--memory-access-mode={{ memory_access_mode | default('seq') }}
+
+{% elif _test == 'threads' %}
+# Threads Test Options
+# --------------------
+# Number of yields to do per request in threads test.
+--thread-yields={{ thread_yields | default(1000) }}
+
+# Number of locks per thread in threads test.
+--thread-locks={{ thread_locks | default(8) }}
+
+{% elif _test == 'mutex' %}
+# Mutex Test Options
+# ------------------
+# Total size of mutex array in mutex test.
+--mutex-num={{ mutex_num | default(4096) }}
+
+# Number of mutex locks to do per thread in mutex test.
+--mutex-locks={{ mutex_locks | default(50000) }}
+
+# Number of empty loops to do outside mutex lock in mutex test.
+--mutex-loops={{ mutex_loops | default(10000) }}
+{% endif %}

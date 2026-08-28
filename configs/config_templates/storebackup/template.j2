@@ -1,0 +1,34 @@
+#! /bin/sh -e
+
+# run storeBackup on all files in /etc/storebackup.d/ sequentially
+# file names must consist entirely of letters, digits, underscores, and hyphens
+
+# Written by Arthur Korn <arthur@korn.ch> for Debian (http://www.debian.org),
+# in the PUBLIC DOMAIN.
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+[ -x /usr/bin/storeBackup ] || exit 0
+
+configs=`run-parts --list /etc/storebackup.d/`
+delayed_error=''
+
+if [ "$configs" ]; then
+    tmplog=`mktemp -t storebackup.XXXXXXXXXX`
+
+    for file in $configs
+    do
+	if ! nice storeBackup -f "$file" > "$tmplog" 2>&1
+	then
+	    echo Error running backup for \"$file\" >&2
+	    cat "$tmplog" >&2
+	    delayed_error=1
+	fi
+    done
+
+    rm $tmplog || true
+
+    [ $delayed_error ] && exit 1;
+fi
+
+exit 0

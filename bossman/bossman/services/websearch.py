@@ -9,7 +9,7 @@ as the web_search / fetch_url MCP tools.
 Deliberately dependency-light: httpx (already a dep) + a regex HTML stripper, so
 it works inside the headless batch with no extra packages. SearXNG lives on the
 internal network, so requests must NOT go through the corporate proxy — callers
-run with no_proxy covering .example.com (the batch supervisor already does).
+run with no_proxy covering .example.internal (the batch supervisor already does).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class SearxngClient:
         params = {"q": query, "format": "json",
                   "engines": engines or self.DEFAULT_ENGINES}
         # trust_env=True: honour the environment's proxy config. SearXNG is
-        # internal, so no_proxy (which must cover .example.com) keeps this hit
+        # internal, so no_proxy (which must cover .example.internal) keeps this hit
         # direct; the fetched documentation pages below are EXTERNAL and do need
         # the corporate proxy — the same env serves both correctly.
         async with httpx.AsyncClient(timeout=self.timeout, trust_env=True,

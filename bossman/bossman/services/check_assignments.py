@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckAssignment, HostLabel
+from bossman.db.models import Agent, CheckAssignment, HostGroup, HostLabel
 from bossman.services import gpo, rule_conditions
 from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
 
@@ -49,6 +49,18 @@ async def build_match_context(
     from bossman.services.scope_vars import resolve_scope_vars
 
     host_vars = await resolve_scope_vars(session, agent)
+    # Group NAMES, so a condition can be written the way an operator says it ("webservers") rather
+    # than as a uuid. resolve_host_group_ids already expands group PATHS, so a host in
+    # "Europe/Latvia" also reports "Europe" — the same inheritance the group tree shows, and the
+    # reason a condition on a parent group reaches its children without being restated.
+    group_ids = await resolve_host_group_ids(session, agent.id)
+    group_names: list[str] = []
+    if group_ids:
+        group_names = [
+            n for n in (await session.scalars(
+                select(HostGroup.name).where(HostGroup.id.in_(list(group_ids)))
+            )).all() if n
+        ]
     return rule_conditions.MatchContext(
         host_name=agent.name or "",
         ou_paths=[n.path for n in ancestry if getattr(n, "path", None)],
@@ -58,7 +70,35 @@ async def build_match_context(
         service_labels=dict(service_labels or {}),
         host_facts=rule_conditions.flatten_facts(agent.facts or {}),
         host_vars={str(k): str(v) for k, v in host_vars.items()},
+        host_groups=group_names,
     )
+
+
+async def filter_agent_ids(
+    session: AsyncSession, agent_ids: list, conditions: dict | None,
+) -> list:
+    """Narrow a scope's host list by the shared rule-conditions object.
+
+    The batch counterpart to build_match_context: ComplianceRule, ScheduledJob and BusinessService all
+    resolve their hosts through affected_agent_ids and then iterate, so they need "and of those, the
+    ones the condition matches" rather than a per-event predicate. One helper, because three copies of
+    a matcher is how two of them end up disagreeing about what host_groups means.
+
+    Returns the list UNCHANGED when there is no condition — and does so without touching the database.
+    An empty condition matches everywhere (rule_conditions' contract), so a rule written before its
+    kind had the column behaves exactly as it did, and the common case costs nothing.
+    """
+    if not conditions:
+        return list(agent_ids)
+    out = []
+    for aid in agent_ids:
+        agent = await session.get(Agent, aid)
+        if agent is None:
+            continue  # a scope that names a host which no longer exists contributes nothing
+        ctx = await build_match_context(session, agent)
+        if rule_conditions.matches(conditions, ctx):
+            out.append(aid)
+    return out
 
 
 @dataclass

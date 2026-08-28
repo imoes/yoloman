@@ -1,0 +1,20 @@
+# Prometheus IPMI Exporter Configuration
+# This template generates the systemd exec start arguments for the prometheus-ipmi-exporter service.
+# It maps the Ansible role variables to the exporter's command-line flags.
+
+# Path to FreeIPMI executables.
+# Default: /usr/sbin
+ARGS="--config.file=/etc/prometheus/ipmi_remote.yml"
+ARGS="${ARGS} --freeipmi.path={{ freeipmi_path | default('/usr/sbin') }}"
+
+# Only log messages with the given severity or above. One of: [debug, info, warn, error]
+# Default: info
+ARGS="${ARGS} --log.level={{ log_level | default('info') }}"
+
+# Output format of log messages. One of: [logfmt, json]
+# Default: logfmt
+ARGS="${ARGS} --log.format={{ log_format | default('logfmt') }}"
+
+# Address to listen on for web interface and telemetry.
+# Default: :9290
+ARGS="${ARGS} --web.listen-address={{ web_listen_address | default(':9290') }}"

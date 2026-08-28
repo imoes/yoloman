@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -49,8 +50,8 @@ func (c *Config) Description() string {
 
 func (c *Config) InputSchema() map[string]any {
 	return objectSchema(map[string]any{
-		"path":      stringProp("Config file path, e.g. /etc/ssh/sshd_config."),
-		"format":    stringEnumProp("Config codec.", "keyvalue", "ini", "json", "yaml", "xml", "fstab", "zonefile", "exports", "dhcpd"),
+		"path":      stringProp("Config file path, e.g. /etc/ssh/sshd_config — or, for format=dirvalue, the directory, e.g. /etc/pure-ftpd/conf."),
+		"format":    stringEnumProp("Config codec. `dirvalue` treats `path` as a DIRECTORY holding one file per setting (filename = key, contents = value) — Debian pure-ftpd's /etc/pure-ftpd/conf.", "keyvalue", "ini", "json", "yaml", "xml", "fstab", "zonefile", "exports", "dhcpd", "dirvalue"),
 		"values":    map[string]any{"type": "object", "description": "Desired values. Omit to read (parse) only."},
 		"manage":    stringEnumProp("merge = set the given keys, keep the rest (default); exact = file holds exactly `values`.", "merge", "exact"),
 		"separator": stringProp("keyvalue key/value separator (default \" \"; use \"=\" for key=value files)."),
@@ -66,6 +67,14 @@ func (c *Config) Run(ctx context.Context, params map[string]any, dryRun bool) (R
 	if path == "" || format == "" {
 		return Result{}, fmt.Errorf("config: path and format are required")
 	}
+	// dirvalue is not a byte codec: `path` is a DIRECTORY and each file in it is one setting
+	// (filename = key, contents = value). It therefore cannot go through parse([]byte)/render([]byte)
+	// and is handled before the codec is chosen — the module's contract (path/format/values/manage)
+	// stays identical, which is what the server and the UI depend on.
+	if format == "dirvalue" {
+		return runDirValue(path, params, dryRun)
+	}
+
 	codec, err := newCodec(format, params)
 	if err != nil {
 		return Result{}, err
@@ -161,7 +170,7 @@ func newCodec(format string, params map[string]any) (configCodec, error) {
 	case "dhcpd":
 		return &dhcpdCodec{}, nil
 	default:
-		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile|exports|dhcpd)", format)
+		return nil, fmt.Errorf("config: unsupported format %q (want keyvalue|ini|json|yaml|xml|fstab|zonefile|exports|dhcpd|dirvalue)", format)
 	}
 }
 
@@ -471,7 +480,9 @@ func (z *zonefileCodec) render(existing []byte, values map[string]any, _ string)
 
 // exportsCodec handles an NFS /etc/exports table: each line is an exported
 // path followed by whitespace-separated client(options) specs, e.g.
-//   /srv/nfs  192.168.1.0/24(rw,sync,no_subtree_check)  10.0.0.5(ro)
+//
+//	/srv/nfs  192.168.1.0/24(rw,sync,no_subtree_check)  10.0.0.5(ro)
+//
 // Like fstab there is no unique scalar key, so it parses to a LIST under
 // "exports" of {path, clients} (clients = the raw client(options) spec text,
 // which the UI edits as one field). render() regenerates the table (leading
@@ -903,4 +914,161 @@ func deepMerge(a, b map[string]any) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+// ---- dirvalue: a directory where each file is one setting ----
+
+// runDirValue implements the "one file per setting" config style: `path` is a directory, each
+// regular file in it is a key whose contents are the value.
+//
+// Debian's pure-ftpd is the case that forced it. /etc/pure-ftpd/pure-ftpd.conf exists, but the
+// service never reads it — pure-ftpd-wrapper does `opendir('/etc/pure-ftpd/conf')` and turns each
+// file into a command-line flag. An editor pointed at pure-ftpd.conf would appear to work and
+// change nothing, which is worse than having no editor at all: the UI would assert a state the
+// host does not have.
+//
+// It is a third write strategy next to the byte codecs (merge inside one file) and
+// template_render (replace one file), and it is deliberately expressed as a `format` rather than a
+// new module, so a caller — the config editor, a policy, a runbook — addresses it exactly like any
+// other config: path, format, values.
+//
+// Conventions kept identical to the byte codecs so nothing has to be learned twice:
+//   - no `values`      → READ: returns {key: value} for every regular file
+//   - manage=merge     → set the given keys, leave every other file alone (default)
+//   - manage=exact     → additionally delete files not named in `values`
+//   - a null value     → delete that key's file (same as the ini codec's per-key delete)
+//   - dry_run          → report what would change, write nothing
+func runDirValue(dir string, params map[string]any, dryRun bool) (Result, error) {
+	current, err := readDirValues(dir)
+	if err != nil {
+		return Result{}, err
+	}
+
+	valuesRaw, hasValues := params["values"]
+	if !hasValues {
+		return Result{Changed: false, Msg: "read " + dir,
+			Data: map[string]any{"path": dir, "format": "dirvalue", "config": current}}, nil
+	}
+	values, ok := valuesRaw.(map[string]any)
+	if !ok {
+		return Result{}, fmt.Errorf("config: values must be an object")
+	}
+	manage, _ := params["manage"].(string)
+	if manage == "" {
+		manage = "merge"
+	}
+
+	// Plan first, act second: a half-applied directory is a state nobody asked for, and planning
+	// separately is also what makes dry_run report exactly what a real run would do.
+	type change struct {
+		key, value string
+		remove     bool
+	}
+	var plan []change
+	for key, raw := range values {
+		if err := validDirValueKey(key); err != nil {
+			return Result{}, err
+		}
+		if raw == nil {
+			if _, present := current[key]; present {
+				plan = append(plan, change{key: key, remove: true})
+			}
+			continue
+		}
+		val := strings.TrimSpace(fmt.Sprintf("%v", raw))
+		if cur, present := current[key]; !present || cur != val {
+			plan = append(plan, change{key: key, value: val})
+		}
+	}
+	if manage == "exact" {
+		for key := range current {
+			if _, wanted := values[key]; !wanted {
+				plan = append(plan, change{key: key, remove: true})
+			}
+		}
+	}
+	sort.Slice(plan, func(i, j int) bool { return plan[i].key < plan[j].key })
+
+	if len(plan) > 0 && !dryRun {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return Result{}, fmt.Errorf("config: create %s: %w", dir, err)
+		}
+		for _, ch := range plan {
+			target := filepath.Join(dir, ch.key)
+			if ch.remove {
+				if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+					return Result{}, fmt.Errorf("config: remove %s: %w", target, err)
+				}
+				continue
+			}
+			// Keep the file's own permissions when it already exists; these directories often hold
+			// credentials (pure-ftpd's PureDB path, TLS settings) and silently widening a mode
+			// would be a change nobody requested.
+			mode := os.FileMode(0o644)
+			if fi, e := os.Stat(target); e == nil {
+				mode = fi.Mode().Perm()
+			}
+			if err := os.WriteFile(target, []byte(ch.value+"\n"), mode); err != nil {
+				return Result{}, fmt.Errorf("config: write %s: %w", target, err)
+			}
+		}
+	}
+
+	after := current
+	if !dryRun {
+		if after, err = readDirValues(dir); err != nil {
+			return Result{}, err
+		}
+	}
+	msg := "unchanged"
+	if len(plan) > 0 {
+		touched := make([]string, 0, len(plan))
+		for _, ch := range plan {
+			touched = append(touched, ch.key)
+		}
+		verb := "updated"
+		if dryRun {
+			verb = "would update"
+		}
+		msg = fmt.Sprintf("%s %s (%s)", verb, dir, strings.Join(touched, ", "))
+	}
+	return Result{Changed: len(plan) > 0, Msg: msg,
+		Data: map[string]any{"path": dir, "format": "dirvalue", "config": after}}, nil
+}
+
+// readDirValues maps every regular file in dir to its trimmed contents. A missing directory reads
+// as EMPTY rather than as an error: "the package is not installed yet" is a legitimate state for a
+// desired-state run to start from, exactly as a missing file is for the byte codecs.
+func readDirValues(dir string) (map[string]any, error) {
+	out := map[string]any{}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return nil, fmt.Errorf("config: read %s: %w", dir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue // a nested directory is not a setting; pure-ftpd has conf/ next to auth/ and db/
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("config: read %s: %w", filepath.Join(dir, e.Name()), err)
+		}
+		out[e.Name()] = strings.TrimSpace(string(data))
+	}
+	return out, nil
+}
+
+// validDirValueKey refuses anything that is not a plain file name. The key becomes a path segment,
+// so "../../etc/shadow" would otherwise write outside the managed directory — the same escape the
+// event-handler runner guards against, and it must be refused rather than sanitised so the caller
+// learns the name was wrong instead of silently getting a different one.
+func validDirValueKey(key string) error {
+	if key == "" || key == "." || key == ".." ||
+		strings.ContainsAny(key, `/\`) || strings.ContainsRune(key, os.PathSeparator) {
+		return fmt.Errorf("config: %q is not a valid setting name (must be a plain file name)", key)
+	}
+	return nil
 }

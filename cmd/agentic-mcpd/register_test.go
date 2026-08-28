@@ -15,10 +15,10 @@ func TestAdvertisedAddress(t *testing.T) {
 			// Zero-touch, the vpp0221 case: no --address, default listen.
 			// Must produce a reachable address from the name, not empty.
 			name:          "no address flag, default listen",
-			agentName:     "vpp0221.example.com",
+			agentName:     "host.example.internal",
 			addressFlag:   "",
 			cfgListen:     "127.0.0.1:8010",
-			wantAdvertise: "vpp0221.example.com:8010",
+			wantAdvertise: "host.example.internal:8010",
 			wantListen:    "0.0.0.0:8010",
 		},
 		{

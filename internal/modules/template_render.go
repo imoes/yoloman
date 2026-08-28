@@ -80,9 +80,9 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: parse: %w", err)
 	}
-	// JSON decodes every number to float64, which renders as "4.000000";
-	// coerce integral floats back to ints so a config gets "workers 4".
-	ctxValues, _ := normalizeNumbers(values).(map[string]any)
+	// JSON decodes every number to float64, which renders as "4.000000", and gonja renders a bool
+	// Python-cased as "False" — coerce both, so a config gets "workers 4" and "debug false".
+	ctxValues, _ := normalizeValues(values).(map[string]any)
 	rendered, err := tpl.ExecuteToString(exec.NewContext(ctxValues))
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: render: %w", err)
@@ -121,9 +121,20 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 	return Result{Changed: changed, Msg: msg, Data: map[string]any{"dest": dest, "rendered": rendered}}, nil
 }
 
-// normalizeNumbers recursively coerces integral float64 values (JSON's only
-// number type) to int64, so templates render "4" not "4.000000".
-func normalizeNumbers(v any) any {
+// normalizeValues recursively coerces integral float64 values (JSON's only number type) to int64, so
+// templates render "4" not "4.000000".
+//
+// IT DOES NOT TOUCH BOOLEANS, and that was tried and reverted. gonja renders a bool Python-cased —
+// `debug={{ debug }}` with false writes "False" — which no config parser accepts, so coercing them to the
+// strings "true"/"false" here looked like the fix. It broke boolean SEMANTICS instead: `ternary`, `yes_no`
+// and every `{% if flag %}` then see a non-empty string, which is truthy, so `false | yes_no` rendered
+// "yes". Silently inverting a template's logic is far worse than a capitalised literal.
+//
+// gonja is being faithful to Jinja2 here, which really does render True/False. A correct Ansible template
+// writing a boolean into a config file says `{{ debug | lower }}` or `{{ debug | ternary('yes','no') }}`; a
+// bare `{{ debug }}` is the template's defect, not the engine's. So the fix belongs in the catalog — see
+// bossman/bossman/tools/bool_vocabulary.py, which gives a field the two words its file actually uses.
+func normalizeValues(v any) any {
 	switch t := v.(type) {
 	case float64:
 		if t == float64(int64(t)) {
@@ -133,13 +144,13 @@ func normalizeNumbers(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, vv := range t {
-			out[k] = normalizeNumbers(vv)
+			out[k] = normalizeValues(vv)
 		}
 		return out
 	case []any:
 		out := make([]any, len(t))
 		for i, vv := range t {
-			out[i] = normalizeNumbers(vv)
+			out[i] = normalizeValues(vv)
 		}
 		return out
 	default:

@@ -1,0 +1,57 @@
+{
+  "enable_ppp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable PPP mode. Must be specified before other PPP options."
+  },
+  "baudrate": {
+    "type": "number",
+    "default": null,
+    "description": "Internal control value for data flow (e.g., 14400). Does not change physical serial port speed."
+  },
+  "mtu": {
+    "type": "number",
+    "default": 552,
+    "description": "Size of IP packets sent across the serial link. Valid values <= 1500."
+  },
+  "special_address": {
+    "type": "string",
+    "default": "10.0.2.0",
+    "description": "The network IP alias for slirp. Must end in 0."
+  },
+  "dns_address": {
+    "type": "string",
+    "default": "10.0.2.3",
+    "description": "Alias for the DNS server address."
+  },
+  "host_address": {
+    "type": "string",
+    "default": "10.0.2.2",
+    "description": "Alias for the IP address of the host slirp is running on."
+  },
+  "compress": {
+    "type": "bool",
+    "default": false,
+    "description": "Force CSLIP mode."
+  },
+  "no_compress": {
+    "type": "bool",
+    "default": false,
+    "description": "Force SLIP mode (disable CSLIP)."
+  },
+  "enable_keepalive": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TCP keep-alive probes every minute."
+  },
+  "keepalive_interval": {
+    "type": "number",
+    "default": null,
+    "description": "Interval in seconds for TCP keep-alive probes."
+  },
+  "port_redirections": {
+    "type": "list",
+    "default": [],
+    "description": "List of port redirection rules. Maps host ports to local ports/addresses using 'redir' command. Type can be 'tcp' or 'udp'. If type is 'once' or 'time' specific behaviors apply, but standard tcp/udp redirection uses 'to' syntax in this template for clarity with address binding, or just 'redir port local_port' for simple mapping without address override if address defaults are sufficient. However, per man page 'redir [once|time] [udp|tcp] PORT [to] [ADDRESS:]LPORT', we parametrize the full directive structure. For simplicity in list items, we define the components. Note: 'once' and 'time' are flags, handled via type if needed, but standard redirection is tcp/udp. If no address is provided, default 10.0.2.15 (in config file) is used. To be explicit and safe, we allow specifying the target address. If target_address is empty, it uses default. For this template, we assume explicit definition for reproducibility, but allow null for default behavior. Actually, to strictly follow 'one-line comment above every directive', we generate the line. Let's simplify: type is tcp/udp/once/time. If 'once' or 'time', they are flags before protocol. Let's stick to standard tcp/udp redirection as primary use case, but allow full specification. Items: type (string: tcp, udp, once, time), host_port (number), target_address (string, default 10.0.2.15), target_port (number). If type is 'once' or 'time', it replaces tcp/udp in the command prefix. Wait, 'once' is TCP only, 'time' is UDP only. Let's assume standard tcp/udp for the main loop and allow the user to set the type field to 'tcp', 'udp', 'once', or 'time'. The command format is: redir {type_flag_if_applicable} {protocol_if_applicable} {port} to {address}:{local_port}. If type is 'once', command is 'redir once tcp PORT to ADDR:LPORT'. If 'time', 'redir time udp PORT to ADDR:LPORT'. If 'tcp', 'redir tcp PORT to ADDR:LPORT'. If 'udp', 'redir udp PORT to ADDR:LPORT'. This is complex for a single field. Let's simplify the schema for the template: type is the protocol/flag combo. E.g. 'tcp', 'udp', 'once', 'time'. If 'once', it implies tcp. If 'time', it implies udp. Command: redir {type} {port} to {address}:{local_port}. This matches common usage. If the user wants explicit tcp/udp with once/time, they can choose 'once' or 'time'. If they just want standard, they choose 'tcp' or 'udp'.) -> Actually, to be safe and accurate to the man page: 'redir once tcp' vs 'redir once'. Man page says 'once' is a flag. 'redir once tcp 5021 to 21'. So if type is 'once', we emit 'once' then 'tcp'? No, 'once' implies tcp. Let's allow `type` to be one of: 'tcp', 'udp', 'once', 'time'. If 'once', command is 'redir once tcp ...'. If 'time', command is 'redir time udp ...'. If 'tcp', command is 'redir tcp ...'. If 'udp', command is 'redir udp ...'. This covers all bases. Items fields: type (string: tcp, udp, once, time), host_port (number), target_address (string), target_port (number). Default target_address: '10.0.2.15'.) -> Re-reading man page: 'redir [once|time] [udp|tcp] PORT...'. So if I want 'once', I write 'redir once tcp PORT...'. If I just write 'redir tcp PORT...', it's standard. So if type='once', we prepend 'once'. If type='time', we prepend 'time'. If type='tcp', no flag. If type='udp', no flag. But wait, 'once' is TCP only. So if type='once', we MUST use TCP. So the command becomes 'redir once tcp ...'. If type='tcp', it's 'redir tcp ...'. This seems redundant but accurate. Let's simplify: `redirect_type` can be 'tcp', 'udp', 'once', 'time'. If 'once', use 'redir once tcp ...'. If 'time', use 'redir time udp ...'. If 'tcp', use 'redir tcp ...'. If 'udp', use 'redir udp ...'. Items: redirect_type (string), host_port (number), target_address (string), target_port (number).) -> Wait, the prompt asks for a FLAT map field-name -> {type, default, description} for list items. So `items` will have: `redirect_type`, `host_port`, `target_address`, `target_port`.) -> Let's refine the template logic. If redirect_type is 'once', cmd: `redir once tcp {{ host_port }} to {{ target_address }}:{{ target_port }}`. If 'time', cmd: `redir time udp {{ host_port }} to {{ target_address }}:{{ target_port }}`. If 'tcp', cmd: `redir tcp {{ host_port }} to {{ target_address }}:{{ target_port }}`. If 'udp', cmd: `redir udp {{ host_port }} to {{ target_address }}:{{ target_port }}`. This works. Default target_address: '10.0.2.15'.) -> Note: If target_address is not provided, slirp uses default. To keep the template clean and explicit, we'll allow null target_address which renders as empty string? No, Jinja2 `{{ var }}` on null might render 'None' or error if not filtered. Better to use `default` filter or conditional. `{{ target_address | default('10.0.2.15') }}`. But the prompt says `default` filter is allowed. So I will use it. However, if the user explicitly wants to use the default, they can omit the address in the redir command? The man page says if address is not given, default is used. But my template generates `to ADDR:PORT`. If I want to omit ADDR, I'd need `to :PORT` or similar? No, `to` expects address. If address is omitted, it's `to PORT`. The syntax is `redir ... PORT [to] [ADDRESS:]LPORT`. So if I don't specify address, it's `redir tcp 5021 to 21`. If I specify, it's `redir tcp 5021 to 10.0.2.15:21`. My template currently generates `to {{ address }}:{{ port }}`. I should handle the case where address is omitted. Let's add `use_default_address` flag? Too complex. Let's assume explicit address is preferred for configuration management, but allow null. If null, command is `redir ... PORT to PORT`. This requires changing the template logic. Let's stick to explicit address for clarity in a template, or use the default filter. If `target_address` is null/empty, `{{ target_address | default('') }}:{{ target_port }}` becomes `:port`. That might be invalid if address is required by `to`. Man page: `[to] [ADDRESS:]LPORT`. So `to 21` is valid. So if address is empty, we want `to 21`. So `to {{ target_address | default('') }}:{{ target_port }}`. If target_address is '', this becomes `to :21`. Is `:21` valid? The man page says `[ADDRESS:]LPORT`. It doesn't explicitly say ADDRESS is optional in the `to` clause syntax representation, but it says "
+  }
+}

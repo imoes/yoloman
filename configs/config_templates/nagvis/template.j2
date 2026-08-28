@@ -1,0 +1,33 @@
+/*
+ * NagVis Permissions Database Template (perms.db)
+ *
+ * This file is consumed by the CoreAuthorisationModGroups NagVis authorisation module.
+ * It maps Icinga/Nagios contact groups to NagVis permission levels.
+ *
+ * JSON structure mapping:
+ *   - "admin": 1              => Full administrative access to NagVis.
+ *   - "view": ["*"]           => Read-only access to all maps.
+ *   - "edit": ["*"]           => Read and write access to all maps.
+ *   - "view": ["map_name"]    => Read access to a specific map only.
+ *   - "edit": ["map_name"]    => Read/write access to a specific map only.
+ */
+{
+  /* Group with full admin access to NagVis (default: admins). */
+  "{{ admins_group | default('admins') }}": {
+    "admin": 1
+  },
+  /* Group with view-only access to all maps (default: first_level_support). */
+  "{{ first_level_support_group | default('first_level_support') }}": {
+    "view": [ "*" ]
+  },
+  /* Group with view and edit access to all maps (default: power_users). */
+  "{{ power_users_group | default('power_users') }}": {
+    "view": [ "*" ],
+    "edit": [ "*" ]
+  },
+  /* Group with view and edit access to a specific map (default: oracle_admins -> oracle_servers). */
+  "{{ oracle_admins_group | default('oracle_admins') }}": {
+    "view": [ "{{ oracle_map_name | default('oracle_servers') }}" ],
+    "edit": [ "{{ oracle_map_name | default('oracle_servers') }}" ]
+  }
+}

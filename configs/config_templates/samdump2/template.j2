@@ -1,0 +1,35 @@
+# samdump2 configuration template
+# This template generates invocation commands for samdump2 to extract Windows password hashes
+# from SYSTEM and SAM hives.
+# Each task in 'items' produces a separate execution line.
+#
+# Schema field: items (list)
+#   desc: List of samdump2 extraction tasks. Each item is a flat map of task-specific parameters:
+#         system_file (path to Windows SYSTEM hive), sam_file (path to Windows SAM hive).
+#         Optional fields include: output_file, description, debug.
+
+{# Safely iterate the list; default to empty list if undefined or not a list #}
+{% for task in (items | default([])) %}
+# ==============================================================================
+# Task: {{ loop.index }}
+# Description: {{ task.description | default('samdump2 extraction task') }}
+# System Hive Path: {{ task.system_file | default('undefined') }}
+# SAM File Path: {{ task.sam_file | default('undefined') }}
+# Output File Path: {{ task.output_file | default('undefined') }}
+# Debug Mode: {{ task.debug | default(false) | lower }}
+# ==============================================================================
+
+# Command to extract hashes:
+# samdump2 [OPTIONS] -o OUTPUT_FILE SYSTEM_FILE SAM_FILE
+
+{% if task.debug | default(false) %}
+samdump2 --d -o {{ task.output_file | default('output.hashes') }} {{ task.system_file | default('SYSTEM') }} {{ task.sam_file | default('SAM') }}
+{% else %}
+samdump2 -o {{ task.output_file | default('output.hashes') }} {{ task.system_file | default('SYSTEM') }} {{ task.sam_file | default('SAM') }}
+{% endif %}
+{% endfor %}
+
+{# If no tasks are configured, emit a placeholder comment #}
+{% if (items | default([])) | length == 0 %}
+# No tasks configured. Add items to the 'items' variable to generate commands.
+{% endif %}

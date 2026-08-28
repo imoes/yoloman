@@ -1,0 +1,214 @@
+#!/bin/bash
+# Wrapper script for sqlline
+# This script constructs and executes the sqlline JDBC client with the specified
+# connection parameters and display options. It is designed to be managed by
+# Ansible, which injects variables into this template.
+
+# JVM executable path
+# Schema: java_home (string) | Default: '/usr/lib/jvm/java-11-openjdk'
+# Description: Path to the Java Home directory
+JAVA_HOME="{{ java_home | default('/usr/lib/jvm/java-11-openjdk') }}"
+
+# JDBC URL to connect to the database
+# Schema: jdbc_url (string) | Default: 'jdbc:h2:mem:testdb'
+# Description: JDBC URL to connect to the database
+JDBC_URL="{{ jdbc_url | default('jdbc:h2:mem:testdb') }}"
+
+# Username for database authentication
+# Schema: username (string) | Default: 'sa'
+# Description: Username to connect as
+USERNAME="{{ username | default('sa') }}"
+
+# Password for database authentication
+# Schema: password (string) | Default: ''
+# Description: Password to connect as
+PASSWORD="{{ password | default('') }}"
+
+# JDBC Driver Class Name
+# Schema: driver_class (string) | Default: 'org.h2.Driver'
+# Description: The driver class to use
+DRIVER_CLASS="{{ driver_class | default('org.h2.Driver') }}"
+
+# Enable color output (true/false)
+# Schema: use_color (boolean) | Default: True
+# Description: Control whether color is used for display
+USE_COLOR="{{ use_color | default(true) | ternary('true', 'false') }}"
+
+# Show column headers (true/false)
+# Schema: show_headers (boolean) | Default: True
+# Description: Show column names in query results
+SHOW_HEADERS="{{ show_headers | default(true) | ternary('true', 'false') }}"
+
+# Interval (in rows) to repeat headers
+# Schema: header_interval (integer) | Default: 20
+# Description: The interval between which headers are displayed
+HEADER_INTERVAL="{{ header_interval | default(20) }}"
+
+# Skip building table/column list for tab-completion (true/false)
+# Schema: fast_connect (boolean) | Default: True
+# Description: Skip building table/column list for tab-completion
+FAST_CONNECT="{{ fast_connect | default(true) | ternary('true', 'false') }}"
+
+# Enable automatic transaction commit (true/false)
+# Schema: auto_commit (boolean) | Default: True
+# Description: Enable/disable automatic transaction commit
+AUTO_COMMIT="{{ auto_commit | default(true) | ternary('true', 'false') }}"
+
+# Show verbose error messages and debug info (true/false)
+# Schema: verbose (boolean) | Default: False
+# Description: Show verbose error messages and debug info
+VERBOSE="{{ verbose | default(false) | ternary('true', 'false') }}"
+
+# Display connection warnings (true/false)
+# Schema: show_warnings (boolean) | Default: False
+# Description: Display connection warnings
+SHOW_WARNINGS="{{ show_warnings | default(false) | ternary('true', 'false') }}"
+
+# Continue running script even after errors (true/false)
+# Schema: force (boolean) | Default: False
+# Description: Continue running script even after errors
+FORCE="{{ force | default(false) | ternary('true', 'false') }}"
+
+# Maximum width of the terminal
+# Schema: max_width (integer) | Default: 120
+# Description: The maximum width of the terminal
+MAX_WIDTH="{{ max_width | default(120) }}"
+
+# Maximum width to use when displaying columns
+# Schema: max_column_width (integer) | Default: 80
+# Description: The maximum width to use when displaying columns
+MAX_COLUMN_WIDTH="{{ max_column_width | default(80) }}"
+
+# Be more silent (true/false)
+# Schema: silent (boolean) | Default: False
+# Description: Be more silent
+SILENT="{{ silent | default(false) | ternary('true', 'false') }}"
+
+# Automatically save preferences (true/false)
+# Schema: autosave (boolean) | Default: True
+# Description: Automatically save preferences
+AUTOSAVE="{{ autosave | default(true) | ternary('true', 'false') }}"
+
+# Format mode for result display (table/vertical/csv/tsv)
+# Schema: output_format (string) | Default: 'table'
+# Description: Format mode for result display
+OUTPUT_FORMAT="{{ output_format | default('table') }}"
+
+# Set the transaction isolation level
+# Schema: isolation_level (string) | Default: 'read_committed'
+# Description: Set the transaction isolation level
+ISOLATION_LEVEL="{{ isolation_level | default('read_committed') }}"
+
+# Execute a command script file
+# Schema: script_file (string) | Default: ''
+# Description: Path to a command script file to execute
+SCRIPT_FILE="{{ script_file | default('') }}"
+
+# Construct the arguments list
+ARGS=""
+
+# JDBC URL is required for connection
+{% if (jdbc_url | default('')) %}
+ARGS="${ARGS} -u {{ jdbc_url | default('') }}"
+{% endif %}
+
+# Username for authentication
+{% if (username | default('')) %}
+ARGS="${ARGS} -n {{ username | default('') }}"
+{% endif %}
+
+# Password for authentication (only if not empty)
+{% if (password | default('')) %}
+ARGS="${ARGS} -p {{ password | default('') }}"
+{% endif %}
+
+# Driver class to use for JDBC connection
+{% if (driver_class | default('')) %}
+ARGS="${ARGS} -d {{ driver_class | default('') }}"
+{% endif %}
+
+# Color output setting
+{% if (use_color | default(true)) %}
+ARGS="${ARGS} --color=true"
+{% else %}
+ARGS="${ARGS} --color=false"
+{% endif %}
+
+# Show/hide column headers
+{% if (show_headers | default(true)) %}
+ARGS="${ARGS} --showHeader=true"
+{% else %}
+ARGS="${ARGS} --showHeader=false"
+{% endif %}
+
+# Header interval
+ARGS="${ARGS} --headerInterval={{ header_interval | default(20) }}"
+
+# Fast connect mode
+{% if (fast_connect | default(true)) %}
+ARGS="${ARGS} --fastConnect=true"
+{% else %}
+ARGS="${ARGS} --fastConnect=false"
+{% endif %}
+
+# Auto commit mode
+{% if (auto_commit | default(true)) %}
+ARGS="${ARGS} --autoCommit=true"
+{% else %}
+ARGS="${ARGS} --autoCommit=false"
+{% endif %}
+
+# Verbose output
+{% if (verbose | default(false)) %}
+ARGS="${ARGS} --verbose=true"
+{% else %}
+ARGS="${ARGS} --verbose=false"
+{% endif %}
+
+# Show warnings
+{% if (show_warnings | default(false)) %}
+ARGS="${ARGS} --showWarnings=true"
+{% else %}
+ARGS="${ARGS} --showWarnings=false"
+{% endif %}
+
+# Force mode
+{% if (force | default(false)) %}
+ARGS="${ARGS} --force=true"
+{% else %}
+ARGS="${ARGS} --force=false"
+{% endif %}
+
+# Terminal max width
+ARGS="${ARGS} --maxWidth={{ max_width | default(120) }}"
+
+# Column max width
+ARGS="${ARGS} --maxColumnWidth={{ max_column_width | default(80) }}"
+
+# Silent mode
+{% if (silent | default(false)) %}
+ARGS="${ARGS} --silent=true"
+{% else %}
+ARGS="${ARGS} --silent=false"
+{% endif %}
+
+# Autosave preferences
+{% if (autosave | default(true)) %}
+ARGS="${ARGS} --autosave=true"
+{% else %}
+ARGS="${ARGS} --autosave=false"
+{% endif %}
+
+# Output format
+ARGS="${ARGS} --outputformat={{ output_format | default('table') }}"
+
+# Isolation level
+ARGS="${ARGS} --isolation={{ isolation_level | default('read_committed') }}"
+
+# Script file to run
+{% if (script_file | default('')) %}
+ARGS="${ARGS} --run {{ script_file | default('') }}"
+{% endif %}
+
+# Execute sqlline with the constructed arguments
+java -jar {{ sqlline_jar | default('/usr/share/java/sqlline.jar') }} ${ARGS}

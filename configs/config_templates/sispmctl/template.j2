@@ -1,0 +1,30 @@
+# Configuration file for sispmctl web interface
+# This file defines the runtime parameters for the sispmctl HTTP daemon.
+# Although sispmctl primarily accepts these as command-line arguments,
+# this configuration file serves as the canonical source for Ansible-driven
+# deployments, allowing environment-specific overrides without touching
+# systemd units or init scripts.
+
+# IP address for the web interface to listen on.
+# Default is '0.0.0.0' (all interfaces). Use '127.0.0.1' for localhost-only access.
+# -i <ip>
+listen_address = {{ (listen_address | default('0.0.0.0')) | string }}
+
+# IP network port for the web interface.
+# Default is 2638. Ensure this port is not blocked by local firewalls (ufw/iptables).
+# -p <port>
+listen_port = {{ (listen_port | default(2638)) | int }}
+
+# Directory path where web pages (skin) are located.
+# This directory must contain the HTML/CSS/JS assets for the web UI.
+# Ensure the web server process has read access to this directory and its contents.
+# -u <path>
+skin_path = {{ (skin_path | default('/usr/local/share/doc/sispmctl/skin')) | string }}
+
+# Path to the file containing the web-user and password.
+# The file format is typically `username:password_hash` or `username:password`.
+# If the file does not exist or is empty, password protection might be disabled
+# depending on sispmctl version, but it is highly recommended to secure this service.
+# The directory containing this file (/etc/sispmctl/) should be restricted.
+# -f <path> (implied context)
+password_file = {{ (password_file | default('/etc/sispmctl/password')) | string }}

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Wrapper script to launch Virtualjaguar with specified configuration options.
+#
+# This script generates the command line for Virtualjaguar based on role variables.
+# It is self-documenting: every variable reference corresponds to a field in the
+# virtualjaguar schema, with its default value and purpose described below or inline.
+
+# Path to the Atari Jaguar ROM image file to load.
+# Default: '/opt/games/jaguar/roms/example.j64'
+VIRTUALJAGUAR_CMD="virtualjaguar"
+ROM_PATH="{{ rom_path | default('/opt/games/jaguar/roms/example.j64') }}"
+
+# Enable Alpine emulation mode (-a, --alpine).
+# Default: False
+{% if alpine_mode | default(False) %}
+ALPINE_FLAG="-a"
+{% else %}
+ALPINE_FLAG=""
+{% endif %}
+
+# Boot using Jaguar BIOS (-b, --bios).
+# Default: True
+{% if use_bios | default(True) %}
+BIOS_FLAG="-b"
+{% else %}
+BIOS_FLAG="--no-bios"
+{% endif %}
+
+# Enable GPU emulation (-g, --gpu).
+# Default: True
+{% if enable_gpu | default(True) %}
+GPU_FLAG="-g"
+{% else %}
+GPU_FLAG="--no-gpu"
+{% endif %}
+
+# Create and use a log file (-l, --log).
+# Only written if enabled.
+# Default: False
+{% if enable_logging | default(False) %}
+LOG_FLAG="-l"
+{% else %}
+LOG_FLAG="--no-log"
+{% endif %}
+
+# Enable DSP emulation for audio output (-d, --no-dsp).
+# Default: True
+{% if enable_dsp | default(True) %}
+DSP_FLAG="-d"
+{% else %}
+DSP_FLAG="--no-dsp"
+{% endif %}
+
+# Start in full screen mode (-f, --fullscreen).
+# Default: False
+{% if fullscreen | default(False) %}
+FULLSCREEN_FLAG="-f"
+{% else %}
+FULLSCREEN_FLAG=""
+{% endif %}
+
+# Video output mode. Either 'NTSC' (-n) or 'PAL' (-p).
+# Default: 'NTSC'
+{% set vm = video_mode | default('NTSC') | upper %}
+{% if vm == "PAL" %}
+VIDEO_FLAG="-p"
+{% elif vm == "NTSC" %}
+VIDEO_FLAG="-n"
+{% else %}
+VIDEO_FLAG=""
+{% endif %}
+
+# Enable GL bilinear filter (-B, --no-blur).
+# Default: False
+{% if enable_blur | default(False) %}
+BLUR_FLAG="-B"
+{% else %}
+BLUR_FLAG="--no-blur"
+{% endif %}
+
+# Do not show emulation of tv static for performance (--please-dont-kill-my-computer).
+# Default: False
+{% if disable_tv_static | default(False) %}
+STATIC_FLAG="--please-dont-kill-my-computer"
+{% else %}
+STATIC_FLAG=""
+{% endif %}
+
+# Construct and execute the command.
+# This line combines all flags and the ROM path into the final execution string.
+# Variables are expanded by Bash; no Jinja processing occurs here.
+EXEC_CMD="${VIRTUALJAGUAR_CMD} ${ALPINE_FLAG} ${BIOS_FLAG} ${GPU_FLAG} ${LOG_FLAG} ${DSP_FLAG} ${FULLSCREEN_FLAG} ${VIDEO_FLAG} ${BLUR_FLAG} ${STATIC_FLAG} ${ROM_PATH}"
+
+exec ${EXEC_CMD}

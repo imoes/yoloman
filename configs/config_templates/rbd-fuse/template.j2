@@ -1,0 +1,31 @@
+# RBD-FUSE Configuration
+# This file defines the parameters for mounting RBD images via rbd-fuse.
+#
+# This template is self-documenting. Each directive is preceded by its
+# schema description. Variables use inline defaults to ensure safe rendering
+# even when the variable is undefined.
+
+# [pool]
+# The RADOS pool containing the RBD images.
+# Default: 'rbd'
+pool = {{ pool | default('rbd') }}
+
+# [conffile]
+# Path to the Ceph configuration file used to determine monitor addresses.
+# Default: '/etc/ceph/ceph.conf'
+conffile = {{ conffile | default('/etc/ceph/ceph.conf') }}
+
+# [mountpoint]
+# The local directory path where the FUSE filesystem is mounted.
+# Default: '/mnt/rbd'
+mountpoint = {{ mountpoint | default('/mnt/rbd') }}
+
+# [fuse_options]
+# List of additional options to pass to libfuse.
+# Default: [] (empty list, resulting in no extra options)
+fuse_options = {{ fuse_options | default([]) | join(' ') }}
+
+# [image]
+# Specific RBD image name to mount. Empty string implies default behavior or pool-wide exposure.
+# Default: '' (empty)
+image = {{ image | default('') }}

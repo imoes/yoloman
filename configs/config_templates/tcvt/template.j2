@@ -1,0 +1,34 @@
+#!/{{ (env | default({})).SHELL | default('/bin/bash') }}
+# The system shell path, used for the shebang line.
+# Defaults to /bin/bash if not specified.
+{% set shell = (env | default({})).SHELL | default('/bin/bash') %}
+#!{{ shell }}
+
+# The program and its arguments to execute within tcvt.
+# This sets the command that runs inside the virtual terminal environment.
+# Defaults to /bin/sh if not specified.
+{% set cmd = (env | default({})).CMD | default('/bin/sh') %}
+CMD="{{ cmd }}"
+
+# The number of columns for the virtual terminal.
+# Must be a positive integer representing the width of the split view.
+# Defaults to 2 if not specified.
+{% set columns = (env | default({})).COLUMNS | default(2) | int %}
+COLUMNS="{{ columns }}"
+
+# Whether to reverse the column order (last column left-most).
+# If true, the layout is flipped so the last column appears on the left.
+# Defaults to False if not specified.
+{% set reverse = (env | default({})).REVERSE | default(false) | bool %}
+REVERSE="{{ reverse | lower }}"
+
+# Exec tcvt with the configured options.
+# Flags:
+#   -c <columns> : Sets the number of columns to emulate.
+#   -r           : Reverses the column order if enabled.
+#   -- <cmd>     : Specifies the command to execute.
+{% if reverse %}
+exec tcvt -c "{{ columns }}" -r -- "{{ cmd }}"
+{% else %}
+exec tcvt -c "{{ columns }}" -- "{{ cmd }}"
+{% endif %}

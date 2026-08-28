@@ -1,95 +1,103 @@
-#!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-# Note: This script sources /lib/init/init-d-script to get standard LSB helper functions.
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
-### BEGIN INIT INFO
-# Provides:          {{ service_name | default('courier-authdaemon') }}
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Courier authentication services
-# Description:       Starts and stops the Courier authentication daemon (courier-authdaemon).
-### END INIT INFO
+##VERSION: $Id:$
+#
+# Copyright 2000-2005 Double Precision, Inc.  See COPYING for
+# distribution information.
+#
+# authdaemonrc created from authdaemonrc.dist by sysconftool
+#
+# Do not alter lines that begin with ##, they are used when upgrading
+# this configuration.
+#
+# This file configures authdaemond, the resident authentication daemon.
+#
+# Comments in this file are ignored.  Although this file is intended to
+# be sourced as a shell script, authdaemond parses it manually, so
+# the acceptable syntax is a bit limited.  Multiline variable contents,
+# with the \ continuation character, are not allowed.  Everything must
+# fit on one line.  Do not use any additional whitespace for indentation,
+# or anything else.
 
-# Author: Ondřej Surý <ondrej@debian.org>
+##NAME: authmodulelist:3
+#
+# The authentication modules that are linked into authdaemond.  The
+# default list is installed.  You may selectively disable modules simply
+# by removing them from the following list.  The available modules you
+# can use are: authuserdb authpam authpgsql authldap authmysql authsqlite authcustom authpipe
 
-# Path to the authdaemond daemon executable.
-# See: https://www.courier-mta.org/
-# service_name: Service name provided by this init script.
-DAEMON="{{ daemon_path | default('/usr/sbin/authdaemond') }}"
+authmodulelist="{{ auth_module_list }}"
 
-# Human-readable description of the service.
-# service_description: Human-readable description of the service.
-DESC="{{ service_description | default('Courier authentication services') }}"
+##NAME: authmodulelistorig:4
+#
+# This setting is used by Courier's webadmin module, and should be left
+# alone
 
-# Path to the PID file for the daemon.
-# pidfile_path: Path to the PID file for the daemon.
-PIDFILE="{{ pidfile_path | default('/run/courier/authdaemon/pid') }}"
+authmodulelistorig="{{ auth_module_list_orig }}"
 
-# Function to prepare the environment using systemd-tmpfiles (or tmpfiles.d).
-# This ensures that required directories (e.g. for authdaemon) exist with correct permissions.
-# tmpfiles_name: Name of the tmpfiles.d configuration (used to derive /usr/lib/tmpfiles.d/<name>.conf).
-do_start_prepare() {
-    # Uses the tmpfiles_name to locate /usr/lib/tmpfiles.d/<tmpfiles_name>.conf
-    do_tmpfiles {{ tmpfiles_name | default('courier-authdaemon') }}
-}
+##NAME: daemons:0
+#
+# The number of daemon processes that are started.  authdaemon is typically
+# installed where authentication modules are relatively expensive: such
+# as authldap, or authmysql, so it's better to have a number of them running.
+# PLEASE NOTE:  Some platforms may experience a problem if there's more than
+# one daemon.  Specifically, SystemV derived platforms that use TLI with
+# socket emulation.  I'm suspicious of TLI's ability to handle multiple
+# processes accepting connections on the same filesystem domain socket.
+#
+# You may need to increase daemons if as your system load increases.  Symptoms
+# include sporadic authentication failures.  If you start getting
+# authentication failures, increase daemons.  However, the default of 5
+# SHOULD be sufficient.  Bumping up daemon count is only a short-term
+# solution.  The permanent solution is to add more resources: RAM, faster
+# disks, faster CPUs...
 
-# Helper function to process tmpfiles.d configuration entries.
-# It iterates over lines in the tmpfiles config and creates directories as specified.
-do_tmpfiles() {
-    local type path mode user group
+daemons={{ daemons }}
 
-    TMPFILES=/usr/lib/tmpfiles.d/$1.conf
+##NAME: authdaemonvar:2
+#
+# authdaemonvar is here, but is not used directly by authdaemond.  It's
+# used by various configuration and build scripts, so don't touch it!
 
-    if [ -r "$TMPFILES" ]; then
-	while read type path mode user group age argument; do
-	    # Only handle directory creation entries ('d')
-	    if [ "$type" = "d" ]; then
-		mkdir -p "$path"
-		chmod "$mode" "$path"
-		chown "$user:$group" "$path"
-		# Restore SELinux contexts if available
-		[ -x /sbin/restorecon ] && /sbin/restorecon $path
-	    fi
-	done < "$TMPFILES"
-    fi
-}
+authdaemonvar={{ auth_daemon_var }}
 
-# Override the standard do_start behavior.
-do_start_cmd_override() {
-    # Check if the daemon is already running using pidofproc.
-    # If it is, return success (0) to avoid errors on subsequent start calls.
-    if pidofproc ${PIDFILE:+-p ${PIDFILE}} "$DAEMON" >/dev/null; then
-        # A subsequent call to start the service must not return an error,
-        # if it is already running.
-        return 0
-    fi
+##NAME: DEBUG_LOGIN:0
+#
+# Dump additional diagnostics to syslog
+#
+# DEBUG_LOGIN=0   - turn off debugging
+# DEBUG_LOGIN=1   - turn on debugging
+# DEBUG_LOGIN=2   - turn on debugging + log passwords too
+#
+# ** YES ** - DEBUG_LOGIN=2 places passwords into syslog.
+#
+# Note that most information is sent to syslog at level 'debug', so
+# you may need to modify your /etc/syslog.conf to be able to see it.
 
-    # Start the daemon
-    $DAEMON start
-}
+DEBUG_LOGIN={{ debug_login }}
 
-# Override the standard do_stop behavior.
-do_stop_cmd_override() {
-    # Check if the daemon is NOT running.
-    # If it is not, return success (0) to avoid errors on subsequent stop calls.
-    if ! pidofproc ${PIDFILE:+-p ${PIDFILE}} "$DAEMON" >/dev/null; then
-        # If the service is not currently running, a call to stop should
-        # indicate success.
-        return 0
-    fi
+##NAME: DEFAULTOPTIONS:0
+#
+# A comma-separated list of option=value pairs. Each option is applied
+# to an account if the account does not have its own specific value for
+# that option. So for example, you can set
+#   DEFAULTOPTIONS="disablewebmail=1,disableimap=1"
+# and then enable webmail and/or imap on individual accounts by setting
+# disablewebmail=0 and/or disableimap=0 on the account.
 
-    # Stop the daemon
-    $DAEMON stop
-}
+DEFAULTOPTIONS="{{ default_options }}"
 
-# Override the standard do_status behavior.
-do_status_override() {
-    # Check the status of the courier-authlib authdaemond process.
-    # Note: The actual binary might be at /usr/lib/courier/courier-authlib/authdaemond
-    # even if DAEMON points to /usr/sbin/authdaemond.
-    status_of_proc "/usr/lib/courier/courier-authlib/authdaemond" "$NAME" && return 0 || return $?
-}
+##NAME: LOGGEROPTS:0
+#
+# courierlogger(1) options, e.g. to set syslog facility
+#
+
+LOGGEROPTS="{{ logger_opts }}"
+
+##NAME: LDAP_TLS_OPTIONS:0
+#
+# Options documented in ldap.conf(5) can be set here, prefixed with 'LDAP'.
+# Examples:
+#
+#LDAPTLS_CACERT=/path/to/cacert.pem
+#LDAPTLS_REQCERT=demand
+#LDAPTLS_CERT=/path/to/clientcert.pem
+#LDAPTLS_KEY=/path/to/clientkey.pem

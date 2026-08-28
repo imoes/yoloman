@@ -1,0 +1,36 @@
+# wtype configuration
+# wtype is a command-line utility for simulating input events on Wayland and X11.
+# This template generates a configuration file that specifies text input,
+# key sequences, modifiers, and timing delays for automated typing tasks.
+
+# stdin_key: If true, read text to type from stdin. Default is false (empty string implies command line text or keys).
+# Note: In wtype's actual CLI, this is a boolean flag (`--stdin`), not a string value.
+# An empty string here implies "false" (do not read from stdin).
+stdin_key: {{ stdin_key | default('') }}
+
+# text: The literal text string to type using -k internally or passed as argument.
+# This is the primary payload to be injected into the active window.
+text: {{ text | default('') }}
+
+# sleep_before: Sleep for TIME milliseconds before interpreting the following options.
+# Use this to ensure the target application is ready to receive input.
+sleep_before: {{ sleep_before | default(0) }}
+
+# modifiers_press: List of modifier keys to press. Valid: shift, capslock, ctrl, logo, win, alt, altgr.
+# These modifiers will be held down while the subsequent typed_keys or text are sent.
+# Generated as a comma-separated list of -M flags.
+modifiers_press: {% for mod in modifiers_press | default([]) %}{% if loop.first %}-M {{ mod }}{% else %}, -M {{ mod }}{% endif %}{% endfor %}
+
+# typed_keys: List of named keys to type (press and release). Valid: Left, Home, etc.
+# These keys are sent after any pressed modifiers.
+# Generated as a comma-separated list of -k flags.
+typed_keys: {% for key in typed_keys | default([]) %}{% if loop.first %}-k {{ key }}{% else %}, -k {{ key }}{% endif %}{% endfor %}
+
+# modifiers_release: List of modifier keys to release.
+# Ensures clean state by releasing modifiers after input is complete.
+# Generated as a comma-separated list of -m flags.
+modifiers_release: {% for mod in modifiers_release | default([]) %}{% if loop.first %}-m {{ mod }}{% else %}, -m {{ mod }}{% endif %}{% endfor %}
+
+# sleep_between: Sleep for TIME milliseconds between keystrokes.
+# Use this to slow down typing to match human speed or avoid buffer overflows in the target app.
+sleep_between: {{ sleep_between | default(0) }}

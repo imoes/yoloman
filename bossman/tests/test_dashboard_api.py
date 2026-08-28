@@ -4,6 +4,7 @@
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 
@@ -126,7 +127,7 @@ async def test_widgets_are_scoped_to_the_calling_identity(db_session):
 
 async def test_widget_data_stat_reports_real_open_problems_count(db_session):
     api_token, raw = await _make_api_token(db_session)
-    agent = Agent(name=f"dash-agent-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled", agent_metadata={})
+    agent = Agent(name=owned_name("dash-agent"), token="tok", mode="standalone", enrollment_state="enrolled", agent_metadata={})
     db_session.add(agent)
     await db_session.flush()
     service = Service(agent_id=agent.id, name="Disk /", metric="disk_used_pct", state="CRIT", output="95% used")
@@ -163,7 +164,7 @@ async def test_widget_data_top_hosts_reports_real_host(db_session):
     without depending on how many hosts happen to exist.
     """
     api_token, raw = await _make_api_token(db_session)
-    agent = Agent(name=f"dash-agent-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled", agent_metadata={})
+    agent = Agent(name=owned_name("dash-agent"), token="tok", mode="standalone", enrollment_state="enrolled", agent_metadata={})
     db_session.add(agent)
     await db_session.commit()
 

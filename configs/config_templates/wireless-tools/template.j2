@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# =============================================================================
+# wireless-tools: IF_WIRELESS
+# =============================================================================
+# Description:
+#   The name of the wireless network interface (e.g., 'wlan0', 'wlan1') that
+#   this script should manage. If left undefined, the script will not perform
+#   any actions unless explicitly called with the IF_WIRELESS environment
+#   variable.
+# =============================================================================
+
+IWCONFIG=/usr/sbin/iwconfig
+
+if [ ! -x "$IWCONFIG" ]; then
+	exit 0
+fi
+
+# check if this is a 802.11 device we're supposed to be effecting
+# If IF_WIRELESS is not provided via environment or template variable, default to empty string
+# to ensure the 'case' statement does not match unintended interfaces.
+case "${IF_WIRELESS:-{{ if_wireless | default('') }}}

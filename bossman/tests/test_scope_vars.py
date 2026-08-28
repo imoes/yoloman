@@ -1,6 +1,7 @@
 """Block G11 — GPO variable resolution (group < OU root→leaf < host)."""
 
 from uuid import uuid4
+from tests.naming import run_suffix
 
 from bossman.db.models import Agent, HostGroup, HostGroupMember, OUNode, ScopeVars
 from bossman.services.scope_vars import resolve_scope_vars
@@ -9,7 +10,7 @@ TENANT = "00000000-0000-0000-0000-000000000001"
 
 
 def _sfx():
-    return uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _ou(db_session, name, parent=None):

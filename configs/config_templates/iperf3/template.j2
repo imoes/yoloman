@@ -1,0 +1,79 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          iperf3
+# Required-Start:    $local_fs $remote_fs $network $syslog $named
+# Required-Stop:     $local_fs $remote_fs $network $syslog $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Iperf3 server
+# Description:       Debian init script for iperf3
+### END INIT INFO
+
+# Verify that the iperf3 daemon binary exists and is executable before proceeding.
+test -x $DAEMON || exit 0
+
+# Path to the default configuration file for iperf3 service overrides.
+DEFAULT_FILE=/etc/default/iperf3
+
+# Standard system path for executables.
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Path to the PID file for the iperf3 daemon.
+# Schema: pidfile (string, default='/run/iperf3.pid')
+PIDFILE={{ pidfile | default('/run/iperf3.pid') }}
+
+# Path to the iperf3 executable binary.
+# Schema: daemon_path (string, default='/usr/bin/iperf3')
+DAEMON={{ daemon_path | default('/usr/bin/iperf3') }}
+
+# Arguments passed to the iperf3 daemon.
+# Includes the '--server' mode flag and the '--interval' reporting interval.
+# Schema: interval (string/number, default='0') -> 0 means continuous reporting.
+DAEMON_ARGS="--server --interval {{ interval | default('0') }}"
+
+# Default value for the START_DAEMON variable used to enable/disable the daemon.
+# Set to 'yes' in /etc/default/iperf3 to enable starting iperf3 as a daemon.
+# Schema: start_daemon_default (string, default='no')
+START_DAEMON="{{ start_daemon_default | default('no') }}"
+
+# Source the default configuration file if it exists, allowing administrator overrides.
+if [ -r $DEFAULT_FILE ]; then
+  . $DEFAULT_FILE
+fi
+
+# Load LSB init functions for standardized logging and status reporting.
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+    # Start the daemon only if START_DAEMON is explicitly set to "yes".
+    if [ "$START_DAEMON" = "yes" ]; then
+      log_daemon_msg "Starting iperf3 daemon" "iperf3"
+      start-stop-daemon --start --quiet --pidfile $PIDFILE --chuid iperf3 \
+        --make-pidfile --background --exec $DAEMON -- $DAEMON_ARGS || log_end_msg 1
+      log_end_msg 0
+    fi
+    ;;
+  stop)
+    # Stop the iperf3 daemon using its PID file.
+    log_daemon_msg "Stopping iperf3 daemon" "iperf3"
+    killproc -p $PIDFILE $DAEMON
+    log_end_msg $?
+    ;;
+  force-reload|restart)
+    # Restart by stopping then starting.
+    $0 stop
+    $0 start
+    ;;
+  status)
+    # Report the status of the iperf3 daemon.
+    status_of_proc -p $PIDFILE $DAEMON iperf3 && exit 0 || exit $?
+    ;;
+  *)
+    # Show usage instructions for unrecognized commands.
+    echo "Usage: /etc/init.d/iperf3 {start|stop|restart|force-reload|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

@@ -1,0 +1,34 @@
+# ==============================================================================
+# rustfilt - Rust Name Demangler Configuration
+# ==============================================================================
+# This configuration file controls how rustfilt processes Rust binary output
+# to produce human-readable demangled symbol names.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# input_file
+# Description: The input file to replace the mangled names in, or '-' for stdin.
+# Default: '-'
+# ------------------------------------------------------------------------------
+# Specifies the source from which rustfilt reads the mangled Rust symbols.
+# Use '-' to read from standard input, or provide a path to a binary file.
+input: {{ (input_file | default('-', true)) | string }}
+
+# ------------------------------------------------------------------------------
+# output_file
+# Description: The output file to emit the demangled names to, or '-' for stdout.
+# Default: '-'
+# ------------------------------------------------------------------------------
+# Specifies the destination where rustfilt writes the demangled symbols.
+# Use '-' to write to standard output, or provide a path to a text file.
+output: {{ (output_file | default('-', true)) | string }}
+
+# ------------------------------------------------------------------------------
+# include_hashes
+# Description: Include the hashes in the demangled names (--hash flag).
+# Default: False
+# ------------------------------------------------------------------------------
+# When enabled, rustfilt appends the original hash suffix to the demangled name.
+# This is useful for debugging when multiple symbols demangle to the same name
+# but differ only by their unique hash identifiers.
+hash_enabled: {{ include_hashes | default(false, true) | ternary('true', 'false') }}

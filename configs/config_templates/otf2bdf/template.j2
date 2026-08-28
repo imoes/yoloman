@@ -1,0 +1,115 @@
+# ============================================================================
+# otf2bdf: OpenType/TrueType to BDF Bitmap Font Converter Configuration
+# ============================================================================
+# This template generates a command-line invocation for the `otf2bdf` utility,
+# converting a vector font (.otf/.ttf) into a legacy bitmap font format (.bdf).
+# All options are derived from the Ansible role variables, with safe defaults
+# applied to ensure the command renders even if variables are unset.
+# ============================================================================
+
+# --- Input & Output ---
+
+# Path to the source OpenType/TrueType font file to be converted.
+# Default: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+otf2bdf {{ font_path | default('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf') }} \
+
+# Desired point size for the resulting bitmap font.
+# This scales the glyphs from the source font's em-square to the desired height.
+# Default: 12
+  -p {{ point_size | default(12) }} \
+
+# Horizontal resolution in Dots Per Inch (DPI).
+# Determines the width of glyphs relative to their height.
+# Range: 10-1200. Default: 75
+  -rh {{ horizontal_resolution | default(75) }} \
+
+# Vertical resolution in Dots Per Inch (DPI).
+# Determines the height of glyphs.
+# Range: 10-1200. Default: 75
+  -rv {{ vertical_resolution | default(75) }} \
+
+# Path to the output BDF font file.
+# If set to stdout (or omitted), the BDF data is printed to the terminal.
+# Default: /tmp/output.bdf
+  -o {{ output_file | default('/tmp/output.bdf') }} \
+
+# --- Character Map Selection ---
+
+# Platform ID for selecting the character map (cmap) within the font file.
+# 3 = Microsoft, 0 = Apple Unicode. Used to resolve glyph indices.
+# Default: 3
+  -pid {{ platform_id | default(3) }} \
+
+# Encoding ID for selecting the specific character map.
+# 1 = ISO10646/Unicode. Combined with platform_id to find the correct cmap.
+# Default: 1
+  -eid {{ encoding_id | default(1) }} \
+
+# --- Font Metrics & Naming (XLFD) ---
+
+# Character spacing type for the generated bitmap.
+# P = Proportional, M = Monospace, C = Character Cell.
+# Default: M
+  -c {{ character_spacing | default('M') }} \
+
+# Foundry name used in the X Logical Font Description (XLFD) header.
+# Identifies the creator/distributor of the font.
+# Default: Freetype
+  -f {{ foundry_name | default('Freetype') }} \
+
+# Typeface name used in the XLFD header.
+# The primary name of the font family/style.
+# Default: DejaVu Sans
+  -t {{ typeface_name | default('DejaVu Sans') }} \
+
+# Weight name used in the XLFD header.
+# Describes the boldness of the typeface (e.g., Medium, Bold).
+# Default: Medium
+  -w {{ weight_name | default('Medium') }} \
+
+# Slant name used in the XLFD header.
+# R = Roman (upright), I = Italic, O = Oblique.
+# Default: R
+  -s {{ slant_name | default('R') }} \
+
+# Width name used in the XLFD header.
+# Describes the width relative to the average character width.
+# Default: Normal
+  -k {{ width_name | default('Normal') }} \
+
+# Additional style name used in the XLFD header.
+# Allows for extra descriptive text in the font name.
+# Default: (empty)
+  -d {{ additional_style_name | default('') }} \
+
+# --- Glyph Customization ---
+
+# Character used to replace dashes and spaces in the generated font name.
+# BDF font names cannot contain spaces or dashes; this normalizes them.
+# Default: ' ' (space)
+  -u {{ replace_char | default(' ') }} \
+
+# Subset of glyphs to generate.
+# A space-separated list of hex codes or ranges (e.g., '60 70 80_90').
+# Leave empty to include all glyphs from the selected cmap.
+# Default: (empty)
+  -l {{ subset | default('') }} \
+
+# --- Reencoding ---
+
+# Path to a mapping file for reencoding the BDF font.
+# Allows remapping glyph codes to a different charset.
+# Leave empty to use the font's original encoding.
+# Default: (empty)
+  -m {{ mapfile | default('') }} \
+
+# --- Runtime Flags ---
+
+# Enable verbose warning messages during conversion.
+# Helps diagnose issues with missing glyphs or malformed data.
+  -v \
+
+# Disable glyph hinting.
+# Prevents the tool from trying to adjust glyphs for low-resolution screens.
+# Useful for general-purpose bitmap font generation.
+  -n

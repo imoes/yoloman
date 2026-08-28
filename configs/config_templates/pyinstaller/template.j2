@@ -1,0 +1,147 @@
+{# ============================================================================
+   PyInstaller .spec Configuration Template
+   ============================================================================
+   This Jinja2 template generates a PyInstaller .spec file.
+   It is self-documenting: every configuration directive is preceded by
+   a comment derived from the Ansible role schema description.
+
+   Variable Safety:
+   - All variables use `| default(...)` to prevent rendering errors when
+     an optional parameter is omitted.
+   - Lists (add_data, add_binaries, etc.) default to empty lists `[]`
+     so the for-loops render nothing, leaving an empty list `[]` in the
+     output.
+   - Strings default to `''` or sensible placeholders.
+   - Booleans render as Python literals `True`/`False`.
+   ============================================================================ #}
+
+{# The main Python script file to bundle #}
+script = "{{ script_name | default('main.py') }}"
+
+{# Directory where the final bundle will be placed #}
+distpath = "{{ dist_path | default('./dist') }}"
+
+{# Directory for temporary build files #}
+workpath = "{{ work_path | default('./build') }}"
+
+{# Name of the generated executable and spec file #}
+name = "{{ app_name | default('my_app') }}"
+
+{# Directory to store the generated .spec file #}
+specpath = "{{ spec_path | default('.') }}"
+
+{# Logging verbosity level (TRACE, DEBUG, INFO, WARN, ERROR) #}
+log_level = "{{ log_level | default('INFO') }}"
+
+{# True to create a single executable file, False for a directory bundle #}
+onefile = {{ onefile_mode | default(False) | lower }}
+
+{# Path to UPX executable directory (empty to search PATH) #}
+upx_dir = "{{ upx_dir | default('') }}"
+
+{# True to clean cache and temp files before building #}
+clean = {{ clean_build | default(False) | lower }}
+
+{# List of data files/dirs to add. Each item is a map with 'src' and 'dest'. Format: 'source:dest_dir'. Use FLAT map in schema for items. #}
+data_files = [
+{% for item in (add_data | default([])) %}    "{{ item.src }}:{{ item.dest }}",
+{% endfor %}]
+
+{# List of binary files to add. See add_data. #}
+binary_files = [
+{% for item in (add_binaries | default([])) %}    "{{ item.src }}:{{ item.dest }}",
+{% endfor %}]
+
+{# Additional paths to search for Python modules #}
+import_paths = [
+{% for path in (import_paths | default([])) %}    "{{ path }}",
+{% endfor %}]
+
+{# Modules to import even if not found statically #}
+hidden_imports = [
+{% for mod in (hidden_imports | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Packages to collect all submodules for #}
+collect_submodules = [
+{% for mod in (collect_submodules | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Packages to collect all data files for #}
+collect_data = [
+{% for mod in (collect_data | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Packages to collect all binaries for #}
+collect_binaries = [
+{% for mod in (collect_binaries | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Packages to collect submodules, data, and binaries for #}
+collect_all = [
+{% for mod in (collect_all | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Packages to copy metadata for #}
+copy_metadata = [
+{% for pkg in (copy_metadata | default([])) %}    "{{ pkg }}",
+{% endfor %}]
+
+{# Packages to recursively copy metadata for #}
+recursive_copy_metadata = [
+{% for pkg in (recursive_copy_metadata | default([])) %}    "{{ pkg }}",
+{% endfor %}]
+
+{# Additional directories containing custom hooks #}
+hooks_dirs = [
+{% for dir in (hooks_dirs | default([])) %}    "{{ dir }}",
+{% endfor %}]
+
+{# Paths to custom runtime hook files #}
+runtime_hooks = [
+{% for hook in (runtime_hooks | default([])) %}    "{{ hook }}",
+{% endfor %}]
+
+{# Modules to exclude from the bundle #}
+excludes = [
+{% for mod in (excludes | default([])) %}    "{{ mod }}",
+{% endfor %}]
+
+{# Bytecode optimization level (0, 1, 2) #}
+optimize = {{ optimize_level | default(0) }}
+
+{# Options to pass to the Python interpreter at runtime #}
+python_options = [
+{% for opt in (python_options | default([])) %}    "{{ opt }}",
+{% endfor %}]
+
+{# Strip symbols from executable and shared libs #}
+strip = {{ strip_symbols | default(False) | lower }}
+
+{# Do not use UPX for compression #}
+no_upx = {{ no_upx | default(False) | lower }}
+
+{# Binaries to exclude from UPX compression #}
+upx_excludes = [
+{% for file in (upx_excludes | default([])) %}    "{{ file }}",
+{% endfor %}]
+
+{# Run without a console window (on Windows/macOS) #}
+windowed = {{ windowed_mode | default(False) | lower }}
+
+{# Path to icon file (.ico for Windows, .icns for macOS) #}
+icon = "{{ icon_path | default('') }}"
+
+{# Debug modes to enable (all, imports, bootloader, noarchive) #}
+debug = [
+{% for opt in (debug_options | default([])) %}    "{{ opt }}",
+{% endfor %}]
+
+{# Path to splash screen image file #}
+splash = "{{ splash_file | default('') }}"
+
+{# Bundle identifier for macOS apps (e.g., com.mycompany.app) #}
+osx_bundle_identifier = "{{ osx_bundle_identifier | default('') }}"
+
+{# Code signing identity for macOS apps #}
+codesign_identity = "{{ codesign_identity | default('') }}"

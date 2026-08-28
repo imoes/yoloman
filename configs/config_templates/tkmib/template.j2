@@ -1,0 +1,103 @@
+# ==============================================================================
+# tkmib (Trivial MIB Browser) Configuration Template
+# ==============================================================================
+#
+# tkmib is a simple MIB browser used for SNMP (Simple Network Management Protocol)
+# management. It allows operators to query and set MIB variables on SNMP agents.
+#
+# This template generates the user-specific configuration file for tkmib.
+# As tkmib is a lightweight, primarily GUI-based or single-purpose utility,
+# it does not have a complex daemon configuration like a web server or database.
+# Most settings are handled via the application state or command-line arguments.
+#
+# The generated file serves as a self-documenting baseline for any persistent
+# configuration needs (e.g., default MIB directories, saved queries).
+
+# ==============================================================================
+# General Settings
+# ==============================================================================
+
+# Default directory for MIB files.
+# tkmib uses these directories to resolve MIB names to OIDs.
+# Standard system paths are often automatically detected, but you can
+# explicitly list additional directories here if you have custom MIBs.
+# If undefined, tkmib typically relies on environment variables or defaults.
+{# Schema default: None/Empty #}
+{% set mib_dirs = mib_directories | default([]) %}
+{% if mib_dirs | length > 0 %}
+# Custom MIB directories (one per line or colon-separated, depending on tkmib version)
+MIBDIRS = {{ mib_dirs | join(':') }}
+
+{% endif %}
+
+# Default SNMP version to use for queries.
+# Options: 1, 2c, 3.
+# '2c' is the most common for community-string based monitoring.
+# '3' provides authentication and encryption.
+# If undefined, defaults to SNMPv2c for compatibility.
+# {# Schema default: '2c' #}
+DEFAULT_SNMP_VERSION = {{ snmp_version | default('2c') | string }}
+
+# Default community string (used for SNMPv1/v2c).
+# This is effectively a plaintext password. Keep it secret.
+# If using SNMPv3, this field is ignored in favor of securityLevel/securityName.
+# If undefined, 'public' is the de-facto standard read-only community.
+# {# Schema default: 'public' #}
+COMMUNITY_STRING = {{ snmp_community | default('public') }}
+
+# Default SNMPv3 Security Settings (if SNMPv3 is used)
+# These fields are only relevant if DEFAULT_SNMP_VERSION is set to '3'.
+
+# Security Level: noAuthNoPriv, authNoPriv, authPriv
+# {# Schema default: 'noAuthNoPriv' #}
+SNMPv3_SECURITY_LEVEL = {{ snmp_v3_security_level | default('noAuthNoPriv') }}
+
+# Security Name (equivalent to username for SNMPv3)
+# {# Schema default: 'admin' #}
+SNMPv3_SECURITY_NAME = {{ snmp_v3_security_name | default('admin') }}
+
+# Authentication Protocol: MD5, SHA, etc.
+# Only used if security level is authNoPriv or authPriv.
+# {# Schema default: 'MD5' #}
+SNMPv3_AUTH_PROTOCOL = {{ snmp_v3_auth_protocol | default('MD5') }}
+
+# Authentication Passphrase
+# {# Schema default: None #}
+{% if snmp_v3_auth_passphrase is defined %}
+SNMPv3_AUTH_PASSPHRASE = {{ snmp_v3_auth_passphrase }}
+{% endif %}
+
+# Privacy Protocol: DES, 3DES, AES, etc.
+# Only used if security level is authPriv.
+# {# Schema default: 'DES' #}
+SNMPv3_PRIV_PROTOCOL = {{ snmp_v3_priv_protocol | default('DES') }}
+
+# Privacy Passphrase
+# {# Schema default: None #}
+{% if snmp_v3_priv_passphrase is defined %}
+SNMPv3_PRIV_PASSPHRASE = {{ snmp_v3_priv_passphrase }}
+{% endif %}
+
+# ==============================================================================
+# Network/Connection Defaults
+# ==============================================================================
+
+# Default port for SNMP traps/agent communication.
+# Standard SNMP agent port.
+# {# Schema default: 161 #}
+DEFAULT_AGENT_PORT = {{ snmp_agent_port | default(161) }}
+
+# Default timeout for SNMP queries (in milliseconds).
+# If the agent does not respond within this time, a timeout error occurs.
+# {# Schema default: 1000 #}
+TIMEOUT_MS = {{ snmp_timeout | default(1000) }}
+
+# Default retries if a timeout occurs.
+# {# Schema default: 3 #}
+RETRIES = {{ snmp_retries | default(3) }}
+
+# ==============================================================================
+# End of Configuration
+# ==============================================================================
+# This configuration file is managed by Ansible. Do not edit manually.
+# Changes will be overwritten on next playbook run.

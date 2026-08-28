@@ -1,0 +1,350 @@
+# ==============================================================================
+# pchar Configuration Template
+# ==============================================================================
+# This template generates the configuration file for 'pchar', a network path
+# characterization tool. It supports two modes: 'pchar' (full bandwidth/latency
+# analysis) and 'trout' (tiny traceroute).
+#
+# The configuration is split into declarative fields (top-level key: value pairs)
+# and a generated command-line interface section.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Operational Mode
+# --------------------------------------------------------------------------
+# Operates in 'pchar' mode for full path characterization (bandwidth/latency)
+# or 'trout' mode for tiny traceroute functionality.
+mode: {{ mode | default('pchar') }}
+
+# --------------------------------------------------------------------------
+# Target Host
+# --------------------------------------------------------------------------
+# Target hostname or IP address to measure path characteristics against.
+target: {{ target | default('example.com') }}
+
+# --------------------------------------------------------------------------
+# Hop Limits
+# --------------------------------------------------------------------------
+# Maximum number of hops to probe. Prevents infinite loops in traceroute
+# and limits the scope of the measurement.
+max_hops: {{ max_hops | default(30) }}
+
+# --------------------------------------------------------------------------
+# Protocol Selection
+# --------------------------------------------------------------------------
+# Protocol to use for probes. Options determine the packet type sent.
+# Supported: ipv4udp, ipv4raw, ipv4icmp, ipv4tcp, ipv6icmp, ipv6udp.
+protocol: {{ protocol | default('ipv4udp') }}
+
+# --------------------------------------------------------------------------
+# Network Interface
+# --------------------------------------------------------------------------
+# Specific network interface to listen on or bind to for pcap captures.
+# Leave empty to use the default interface.
+interface: {{ interface | default('') }}
+
+# --------------------------------------------------------------------------
+# Port Configuration
+# --------------------------------------------------------------------------
+# Starting UDP port number for probes. Used in conjunction with burst_size
+# to generate a range of destination ports.
+start_port: {{ start_port | default(32768) }}
+
+# --------------------------------------------------------------------------
+# Packet Size Configuration
+# --------------------------------------------------------------------------
+# Maximum probe packet size in bytes. Determines the largest packet sent
+# to test bandwidth saturation or fragmentation issues.
+max_packet_size: {{ max_packet_size | default(1500) }}
+
+# --------------------------------------------------------------------------
+# Packet Size Increment
+# --------------------------------------------------------------------------
+# Increment size in bytes for probe packet sizes. The tool will send probes
+# of size: start_size, start_size+increment, ..., max_size.
+packet_size_increment: {{ packet_size_increment | default(32) }}
+
+# --------------------------------------------------------------------------
+# Repetitions
+# --------------------------------------------------------------------------
+# Number of repetitions to send per packet size. Higher values improve
+# statistical accuracy of latency/jitter measurements.
+repetitions: {{ repetitions | default(32) }}
+
+# --------------------------------------------------------------------------
+# Burst Size
+# --------------------------------------------------------------------------
+# Burst size for inducing queueing in network buffers. Set to 0 or 1 to
+# disable bursting and send probes spaced by gap_seconds.
+burst_size: {{ burst_size | default(0) }}
+
+# --------------------------------------------------------------------------
+# Inter-Probe Gap
+# --------------------------------------------------------------------------
+# Mean inter-probe gap in seconds. Controls the pacing of probes.
+gap_seconds: {{ gap_seconds | default(0.25) }}
+
+# --------------------------------------------------------------------------
+# Gap Distribution
+# --------------------------------------------------------------------------
+# Gap time distribution type. 'fixed' sends probes at regular intervals.
+# 'exp' uses an exponential distribution (Poisson process).
+gap_distribution: {{ gap_distribution | default('fixed') }}
+
+# --------------------------------------------------------------------------
+# Analysis Type
+# --------------------------------------------------------------------------
+# Analysis algorithm to estimate bandwidth.
+# Options: lsq (Least Squares), kendall, lms (Least Median of Squares),
+# lmsint (LMS with intercept).
+analysis_type: {{ analysis_type | default('lsq') }}
+
+# --------------------------------------------------------------------------
+# Timeout
+# --------------------------------------------------------------------------
+# Timeout in seconds to wait for ICMP error messages or probe responses.
+timeout_seconds: {{ timeout_seconds | default(3) }}
+
+# --------------------------------------------------------------------------
+# Start Hop
+# --------------------------------------------------------------------------
+# Starting hop number to begin probing. Useful for resuming or measuring
+# specific segments of the path.
+start_hop: {{ start_hop | default(1) }}
+
+# --------------------------------------------------------------------------
+# Type of Service (ToS)
+# --------------------------------------------------------------------------
+# IP Type Of Service (ToS) / Traffic Class value. Used for QoS testing.
+# 0 disables special ToS markings.
+tos_value: {{ tos_value | default(0) }}
+
+# --------------------------------------------------------------------------
+# Custom Source Address
+# --------------------------------------------------------------------------
+# Local source IP address to use for probes. Empty string uses the default
+# source IP of the system.
+custom_source: {{ custom_source | default('') }}
+
+# --------------------------------------------------------------------------
+# Output File
+# --------------------------------------------------------------------------
+# File path to write statistics results to. Empty means output to stdout.
+output_file: {{ output_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Input File
+# --------------------------------------------------------------------------
+# File to read measurements from for post-processing or simulation.
+# Empty means perform live probing.
+input_file: {{ input_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Debug Level
+# --------------------------------------------------------------------------
+# Debugging output level. Higher values produce more verbose stderr output.
+debug_level: {{ debug_level | default(0) }}
+
+# --------------------------------------------------------------------------
+# Quiet Mode
+# --------------------------------------------------------------------------
+# Suppress standard output during execution. Useful for scripting.
+quiet_mode: {{ quiet_mode | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# Verbose Mode
+# --------------------------------------------------------------------------
+# Print hop/repetition synopsis to stderr for progress tracking.
+verbose_mode: {{ verbose_mode | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# Routing Changes
+# --------------------------------------------------------------------------
+# Ignore routing changes/load-balancing fluctuations during measurement.
+# Helps stabilize measurements in dynamic networks.
+ignore_routing_changes: {{ ignore_routing_changes | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# PCAP Library
+# --------------------------------------------------------------------------
+# Use the pcap library for packet capture. Required for some protocols
+# like TCP probing or precise timestamping.
+use_pcap: {{ use_pcap | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# SNMP Queries
+# --------------------------------------------------------------------------
+# Enable SNMP queries at each hop to retrieve interface statistics.
+# Requires the UCD SNMP library and appropriate permissions.
+snmp_queries: {{ snmp_queries | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# DNS Resolution
+# --------------------------------------------------------------------------
+# Do not resolve hostnames to IPs. Speeds up execution and avoids
+# DNS latency affecting measurements, but targets must be IP addresses.
+no_resolve: {{ no_resolve | default(False) | lower }}
+
+# ==============================================================================
+# Command Line Generation
+# ==============================================================================
+# This section dynamically constructs the command line flags based on the
+# configuration above. Flags are only included if they deviate from defaults
+# or are boolean switches enabled by the user.
+# ==============================================================================
+command_line:
+  base_cmd: pchar
+  flags:
+    # Mode Flag
+    # Sets the operational mode (-M).
+{% if mode | default('pchar') == 'trout' %}
+    - -M trout
+{% else %}
+    - -M pchar
+{% endif %}
+
+    # Protocol Flag
+    # Sets the protocol type (-p) if explicitly defined.
+{% if protocol | default('ipv4udp') %}
+    - -p {{ protocol | default('ipv4udp') }}
+{% endif %}
+
+    # Max Hops Flag
+    # Overrides the default max hops (-H).
+{% if max_hops | default(30) != 30 %}
+    - -H {{ max_hops | default(30) }}
+{% endif %}
+
+    # Start Port Flag
+    # Sets the starting UDP port (-P).
+{% if start_port | default(32768) != 32768 %}
+    - -P {{ start_port | default(32768) }}
+{% endif %}
+
+    # Max Packet Size Flag
+    # Sets the maximum packet size (-m).
+{% if max_packet_size | default(1500) != 1500 %}
+    - -m {{ max_packet_size | default(1500) }}
+{% endif %}
+
+    # Packet Size Increment Flag
+    # Sets the increment step (-I).
+{% if packet_size_increment | default(32) != 32 %}
+    - -I {{ packet_size_increment | default(32) }}
+{% endif %}
+
+    # Repetitions Flag
+    # Sets the number of repeats (-R).
+{% if repetitions | default(32) != 32 %}
+    - -R {{ repetitions | default(32) }}
+{% endif %}
+
+    # Burst Size Flag
+    # Enables bursting (-b) if size is greater than 0.
+{% if burst_size | default(0) > 0 %}
+    - -b {{ burst_size | default(0) }}
+{% endif %}
+
+    # Gap Seconds Flag
+    # Sets the inter-probe gap (-g).
+{% if gap_seconds | default(0.25) != 0.25 %}
+    - -g {{ gap_seconds | default(0.25) }}
+{% endif %}
+
+    # Gap Distribution Flag
+    # Sets the gap distribution type (-G).
+{% if gap_distribution | default('fixed') != 'fixed' %}
+    - -G {{ gap_distribution | default('fixed') }}
+{% endif %}
+
+    # Analysis Type Flag
+    # Sets the analysis algorithm (-a).
+{% if analysis_type | default('lsq') != 'lsq' %}
+    - -a {{ analysis_type | default('lsq') }}
+{% endif %}
+
+    # Timeout Flag
+    # Sets the ICMP timeout (-t).
+{% if timeout_seconds | default(3) != 3 %}
+    - -t {{ timeout_seconds | default(3) }}
+{% endif %}
+
+    # Start Hop Flag
+    # Sets the starting hop (-s).
+{% if start_hop | default(1) != 1 %}
+    - -s {{ start_hop | default(1) }}
+{% endif %}
+
+    # ToS Flag
+    # Sets the IP ToS value (-T).
+{% if tos_value | default(0) != 0 %}
+    - -T {{ tos_value | default(0) }}
+{% endif %}
+
+    # Custom Source Flag
+    # Sets the source IP (-l).
+{% if custom_source | default('') %}
+    - -l {{ custom_source | default('') }}
+{% endif %}
+
+    # Output File Flag
+    # Redirects output to a file (-w).
+{% if output_file | default('') %}
+    - -w {{ output_file | default('') }}
+{% endif %}
+
+    # Input File Flag
+    # Reads from a file for simulation (-r).
+{% if input_file | default('') %}
+    - -r {{ input_file | default('') }}
+{% endif %}
+
+    # Debug Flag
+    # Enables debug output (-d).
+{% if debug_level | default(0) > 0 %}
+    - -d {{ debug_level | default(0) }}
+{% endif %}
+
+    # Quiet Mode Flag
+    # Suppresses stdout (-q).
+{% if quiet_mode | default(False) %}
+    - -q
+{% endif %}
+
+    # Verbose Mode Flag
+    # Prints synopsis (-v).
+{% if verbose_mode | default(False) %}
+    - -v
+{% endif %}
+
+    # Ignore Routing Changes Flag
+    # Tolerates load-balancing (-c).
+{% if ignore_routing_changes | default(False) %}
+    - -c
+{% endif %}
+
+    # PCAP Flag
+    # Enables pcap library (-C).
+{% if use_pcap | default(False) %}
+    - -C
+{% endif %}
+
+    # Interface Flag
+    # Specifies the interface (-i).
+{% if interface | default('') %}
+    - -i {{ interface | default('') }}
+{% endif %}
+
+    # SNMP Queries Flag
+    # Enables SNMP (-S).
+{% if snmp_queries | default(False) %}
+    - -S
+{% endif %}
+
+    # No Resolve Flag
+    # Disables DNS resolution (-n).
+{% if no_resolve | default(False) %}
+    - -n
+{% endif %}
+
+  target_arg: {{ target | default('example.com') }}

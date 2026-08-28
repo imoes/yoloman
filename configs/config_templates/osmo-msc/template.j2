@@ -1,0 +1,59 @@
+# ============================================================================
+# OsmoMSC Configuration Template
+# ============================================================================
+# This file configures the Mobile Switching Center (MSC) for the OsmoMSC software.
+# It defines network identity (MCC/MNC), billing/network names, and connectivity
+# to the Media Gateway (osmo-mgw).
+#
+# Variables are sourced from the Ansible role's defaults/vars. All variables
+# use `| default(...)` to ensure safe rendering even if a variable is undefined.
+# ============================================================================
+
+network
+  # --------------------------------------------------------------------------
+  # Mobile Country Code (MCC)
+  # desc: Mobile Country Code (MCC) for the network.
+  # ref: https://en.wikipedia.org/wiki/Mobile_country_code
+  # --------------------------------------------------------------------------
+  country code {{ network_country_code | default('1') }}
+
+  # --------------------------------------------------------------------------
+  # Mobile Network Code (MNC)
+  # desc: Mobile Network Code (MNC) for the network.
+  # ref: https://en.wikipedia.org/wiki/Mobile_country_code
+  # --------------------------------------------------------------------------
+  mobile network code {{ mobile_network_code | default('1') }}
+
+  # --------------------------------------------------------------------------
+  # Short Name
+  # desc: Short name of the network (e.g., displayed on handsets for PLMN selection).
+  # --------------------------------------------------------------------------
+  short name {{ network_short_name | default('OsmoMSC') }}
+
+  # --------------------------------------------------------------------------
+  # Long Name
+  # desc: Long name of the network (e.g., displayed on handsets for PLMN selection).
+  # --------------------------------------------------------------------------
+  long name {{ network_long_name | default('OsmoMSC') }}
+
+# --------------------------------------------------------------------------
+# Encryption Settings
+# --------------------------------------------------------------------------
+encryption
+  # --------------------------------------------------------------------------
+  # A5 Algorithm ID
+  # desc: Encryption algorithm ID (A5/0 is no encryption).
+  #       Valid values typically: 0 (A5/0), 1 (A5/1), 2 (A5/2), 3 (A5/3).
+  # --------------------------------------------------------------------------
+  a5 {{ encryption_a5 | default('0') }}
+
+# --------------------------------------------------------------------------
+# MSC Global Settings
+# --------------------------------------------------------------------------
+msc
+  # --------------------------------------------------------------------------
+  # Media Gateway Remote IP
+  # desc: IP address of the remote Media Gateway (osmo-mgw).
+  #       osmo-mgw provides the media gateway between osmo-bsc and osmo-msc.
+  # --------------------------------------------------------------------------
+  mgw remote-ip {{ mgw_remote_ip | default('127.0.0.1') }}

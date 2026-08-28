@@ -1,54 +1,24 @@
-# ZooKeeper Configuration Template
-#
-# This template generates a zookeeper.cfg file.
-# It is self-documenting: every directive is preceded by a comment
-# describing its source field, default value, and purpose.
-
-# tick_time: Time in milliseconds for each tick — used as the base unit for timeouts and heartbeats.
-tick_time={{ tick_time | default(2000) }}
-
-# init_limit: Number of ticks that followers are allowed to connect and sync to a leader during initial startup.
-init_limit={{ init_limit | default(10) }}
-
-# sync_limit: Number of ticks that followers are allowed to respond to heartbeats from the leader before being considered out-of-sync.
-sync_limit={{ sync_limit | default(5) }}
-
-# data_log_dir: Path to the directory storing transaction logs. Using a dedicated disk improves performance.
-dataLogDir={{ data_log_dir | default('/var/lib/zookeeper/log') }}
-
-# data_dir: Path to the directory storing snapshot data files. Should be on persistent, reliable storage.
-dataDir={{ data_dir | default('/var/lib/zookeeper') }}
-
-# client_port: Port on which ZooKeeper accepts client connections (e.g., from applications).
-clientPort={{ client_port | default(2181) }}
-
-# client_bind_address: IP address or hostname to bind the client port to. Use 'localhost' for local-only access or a specific interface in production.
-clientPortAddress={{ client_bind_address | default('0.0.0.0') }}
-
-# max_client_cnxns: Maximum number of concurrent client connections per IP address. Increase for high-client-count deployments.
-maxClientCnxns={{ max_client_cnxns | default(60) }}
-
-# four_letter_words_whitelist: Comma-separated list of allowed four-letter commands (e.g., 'stat,ruok,conf'). Use '' or 'none' to disable for security.
-4lw.commands.whitelist={{ four_letter_words_whitelist | default('*') }}
-
-# group_digest_enabled: Enable DigestAuthenticationProvider (prevents anonymous access). Enable only with proper SASL/Simple auth setup.
-{% if group_digest_enabled | default(false) | bool %}
-authProvider.1=org.apache.zookeeper.server.auth.DigestAuthenticationProvider
-{% endif %}
-
-# secure_client_port: Port for TLS-encrypted client connections (e.g., 2281). Requires certificate configuration; set >0 to enable.
-{% if secure_client_port | default(0) | int > 0 %}
-secureClientPort={{ secure_client_port | default(0) }}
-{% endif %}
-
-# servers: List of voting ensemble members. Each element must have `id`, `hostname`, `peer_port`, `leader_port`, and optionally `role`.
-# Format: server.id=hostname:peer_port:leader_port:participantType
-{% for server in servers | default([]) %}
-server.{{ server.id }}={{ server.hostname }}:{{ server.peer_port }}:{{ server.leader_port }}
-{% endfor %}
-
-# observers: List of observer servers (non-voting members). Same structure as `servers`, but `role` must be 'observer'.
-# Format: observer.id=hostname:peer_port:leader_port:observer
-{% for observer in observers | default([]) %}
-observer.{{ observer.id }}={{ observer.hostname }}:{{ observer.peer_port }}:{{ observer.leader_port }}:observer
-{% endfor %}
+<?xml version="1.0"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+<xsl:output method="html"/>
+<xsl:template match="configuration">
+<html>
+<body>
+<table border="1">
+<tr>
+ <td>name</td>
+ <td>value</td>
+ <td>description</td>
+</tr>
+<xsl:for-each select="property">
+<tr>
+  <td><a name="{name}"><xsl:value-of select="name"/></a></td>
+  <td><xsl:value-of select="value"/></td>
+  <td><xsl:value-of select="description"/></td>
+</tr>
+</xsl:for-each>
+</table>
+</body>
+</html>
+</xsl:template>
+</xsl:stylesheet>

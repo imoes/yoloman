@@ -1,0 +1,91 @@
+# Trace-summary configuration file
+# This file controls the behavior of the trace-summary utility for network traffic analysis.
+# All variables use default values defined in the schema to ensure safe rendering even if the
+# variable is not provided by the Ansible playbook.
+
+# Input file format:
+# 0 = pcap (libpcap/tcpdump format)
+# 1 = bro-conn (Zeek/Bro connection log)
+# 2 = bro-conn-v1 (older Zeek connection log)
+# 3 = bro-conn-v2 (newer Zeek connection log)
+# 4 = auto-guess (attempt to detect format automatically)
+input_type={{ input_type | default(0) }}
+
+# Path to the input pcap or Bro connection log file.
+# Set to an empty string to read from standard input (stdin).
+input_file={{ input_file | default('') }}
+
+# Output format:
+# 0 = human-readable text
+# 1 = R script output (for statistical analysis in R)
+output_type={{ output_type | default(0) }}
+
+# Number of top items to display for hosts, protocols, ports, etc.
+# Limits the output to the most frequent N entries.
+top_n={{ top_n | default(10) }}
+
+# Count fractions in terms of bytes (1) rather than packets/connections (0).
+# When enabled, traffic volume is measured in bytes instead of packet count.
+count_bytes={{ count_bytes | default(0) }}
+
+# Include only TCP traffic (1) or all protocols (0).
+# Filters the analysis to TCP packets/connections only.
+tcp_only={{ tcp_only | default(0) }}
+
+# Include only UDP traffic (1) or all protocols (0).
+# Filters the analysis to UDP packets/connections only.
+udp_only={{ udp_only | default(0) }}
+
+# Ignore strictly internal traffic (1) or include it (0).
+# When enabled, traffic between local networks defined in local_nets_file is excluded.
+external_only={{ external_only | default(0) }}
+
+# Resolve host names (1) or display IP addresses (0).
+# When enabled, performs DNS lookups to resolve IPs to hostnames.
+resolve_names={{ resolve_names | default(0) }}
+
+# Sample factor of input (integer > 1).
+# Processes every Nth record. 0 means no sampling is performed (process all records).
+sample_factor={{ sample_factor | default(0) }}
+
+# Sample input with probability (0.0 < prob < 1.0).
+# Randomly includes each record with the given probability. 0.0 means no probabilistic sampling.
+do_sample={{ do_sample | default(0.0) }}
+
+# Do not make memory-expensive statistics (1) or enable full statistics (0).
+# When enabled, reduces memory usage by skipping some complex aggregation calculations.
+save_mem={{ save_mem | default(0) }}
+
+# Path to a file containing CIDRs for local networks.
+# Used to differentiate in/out traffic when external_only is enabled.
+# Empty string if not used.
+local_nets_file={{ local_nets_file | default('') }}
+
+# Path to a file containing CIDRs to exclude from analysis.
+# Records matching these networks are ignored entirely.
+# Empty string if not used.
+exclude_nets_file={{ exclude_nets_file | default('') }}
+
+# Path to a file containing ports to include in analysis.
+# Limits the analysis to traffic involving these specific ports.
+# Empty string if not used.
+ports_file={{ ports_file | default('') }}
+
+# Prefix for writing top total/incoming/outgoing ports into files.
+# If set, trace-summary will write port statistics to files with this prefix.
+# Empty string if not used.
+write_ports_file={{ write_ports_file | default('') }}
+
+# Minimum time in ISO format (e.g. 2005-12-31-23-59-00) to filter input.
+# Only records with timestamps >= this value are processed.
+# Empty string if not used.
+min_time={{ min_time | default('') }}
+
+# Maximum time in ISO format (e.g. 2005-12-31-23-59-00) to filter input.
+# Only records with timestamps <= this value are processed.
+# Empty string if not used.
+max_time={{ max_time | default('') }}
+
+# Create summaries for time intervals of given length in seconds.
+# Splits the output into time-based buckets. 0 means no time interval splitting.
+interval_length={{ interval_length | default(0) }}

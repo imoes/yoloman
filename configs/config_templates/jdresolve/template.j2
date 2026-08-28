@@ -1,0 +1,131 @@
+# jdresolve configuration template
+# jdresolve is a utility to resolve IP addresses to hostnames and classes using DNS or a local database.
+# This template generates a set of command-line arguments for the jdresolve binary.
+
+# Path to the SQLite/database file holding resolved hosts and classes.
+# Default: /var/lib/jdresolve/hosts.db
+# --database=<path>
+{{ (database_path | default('/var/lib/jdresolve/hosts.db')) }}
+
+# Timeout in seconds for each DNS host resolution query.
+# Default: 30
+# --timeout=<seconds>
+{{ (timeout | default(30)) }}
+
+# Maximum number of concurrent sockets for parallel DNS queries.
+# Default: 64
+# --sockets=<count>
+{{ (sockets | default(64)) }}
+
+# Number of lines to keep cached in memory for performance.
+# Default: 10000
+# --linecache=<count>
+{{ (linecache | default(10000)) }}
+
+# Debug verbosity level. Range 1-3. 0 disables debug mode.
+# Default: 0
+# -d <level>
+{% set dl = debug_level | default(0) %}
+{% if dl > 0 %}
+-d {{ dl }}
+{% else %}
+# -d (disabled, debug_level=0)
+{% endif %}
+
+# If true, recurse into C, B and A classes when no PTR record exists.
+# Default: false
+# -r
+{% if recursive | default(false) %}
+-r
+{% else %}
+# -r (disabled)
+{% endif %}
+
+# If true, resolve IPs found anywhere on a line, not just at the start.
+# Default: false
+# -a
+{% if anywhere | default(false) %}
+-a
+{% else %}
+# -a (disabled)
+{% endif %}
+
+# Mask pattern for recursive hostnames. %i is IP, %c is class owner.
+# Default: '%i.%c'
+# -m <pattern>
+-m {{ (mask | default('%i.%c')) }}
+
+# Database operations: dbfirst, dbonly, dumpdb, mergedb
+# dbfirst: If true, check database for resolved entries before sending DNS queries.
+# Default: false
+{% if dbfirst | default(false) %}
+--dbfirst
+{% else %}
+# --dbfirst (disabled)
+{% endif %}
+
+# dbonly: If true, do not send DNS queries, use only database data.
+# Default: false
+{% if dbonly | default(false) %}
+--dbonly
+{% else %}
+# --dbonly (disabled)
+{% endif %}
+
+# dumpdb: If true, dump the database content to STDOUT.
+# Default: false
+{% if dumpdb | default(false) %}
+--dumpdb
+{% else %}
+# --dumpdb (disabled)
+{% endif %}
+
+# mergedb: If true, merge resolved IP/classes from file/STDIN with the database.
+# Default: false
+{% if mergedb | default(false) %}
+--mergedb
+{% else %}
+# --mergedb (disabled)
+{% endif %}
+
+# Hours after which database entries expire. 0 means no expiration.
+# Default: 0
+# --expiredb=<hours>
+{% set eeh = expiredb_hours | default(0) %}
+{% if eeh > 0 %}
+--expiredb={{ eeh }}
+{% else %}
+# --expiredb (disabled)
+{% endif %}
+
+# If true, do not attempt resolution, only list previously unresolved IPs.
+# Default: false
+# --unresolved
+{% if unresolved | default(false) %}
+--unresolved
+{% else %}
+# --unresolved (disabled)
+{% endif %}
+
+# If true, print a progress bar during execution.
+# Default: false
+# -p
+{% if progress | default(false) %}
+-p
+{% else %}
+# -p (disabled)
+{% endif %}
+
+# If true, suppress the statistics output after processing.
+# Default: true
+# -n
+{% if nostats | default(true) %}
+-n
+{% else %}
+# -n (disabled)
+{% endif %}
+
+# The log file to process, or '-' for STDIN.
+# Default: /var/log/nginx/access.log
+# <LOG FILE>
+{{ (log_file | default('/var/log/nginx/access.log')) }}

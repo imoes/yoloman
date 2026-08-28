@@ -1,0 +1,30 @@
+# ==============================================================================
+# podman-docker: Initialize DOCKER_HOST for rootless Podman compatibility
+# ==============================================================================
+#
+# This script configures the DOCKER_HOST environment variable so that the
+# `docker` CLI command communicates with Podman's socket instead of a
+# running Docker daemon.
+#
+# Logic:
+# 1. If DOCKER_HOST is already set, exit immediately to avoid overriding it.
+# 2. If running as root (euid == 0), point to the system-wide Podman socket.
+# 3. If running as a non-root user, point to the user-specific runtime socket.
+# ==============================================================================
+
+# Exit if DOCKER_HOST is already defined by the environment or previous scripts
+if ($?DOCKER_HOST) exit
+
+# Check effective user ID; setenv sets an environment variable in csh/tcsh
+if ( "$euid" == 0 ) then
+    # Root mode: Use the standard system-wide Podman socket.
+    # Schema field: podman_rootless_socket_path
+    # Description: The path to the Podman socket for rootless mode initialization in the csh/tcsh script.
+    setenv DOCKER_HOST unix:///{{ podman_rootless_socket_path | default('/run/podman/podman.sock') }}
+else
+    # Non-root mode: Use the user-specific XDG runtime directory.
+    # This path is standard for user-level services on Linux.
+    if ($?XDG_RUNTIME_DIR) then
+        setenv DOCKER_HOST unix://$XDG_RUNTIME_DIR/podman/podman.sock
+    endif
+endif

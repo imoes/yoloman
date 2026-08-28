@@ -1,0 +1,204 @@
+# Uvicorn ASGI Server Configuration
+# This file configures the command-line invocation of uvicorn.
+# The service runner (e.g., systemd, supervisord, docker entrypoint) should execute:
+# uvicorn {{ app_factory }} {{ command_options | join(' ') }}
+
+{% set flags = [] %}
+
+# Bind socket to this host.
+{% if host is defined and host %}
+  {% do flags.append('--host=' + host) %}
+{% endif %}
+
+# Bind socket to this port.
+{% if port is defined and port %}
+  {% do flags.append('--port=' + port) %}
+{% endif %}
+
+# Enable auto-reload.
+{% if reload is defined and reload %}
+  {% do flags.append('--reload') %}
+{% endif %}
+
+# Set reload directories explicitly.
+{% if reload_dir is defined and reload_dir %}
+  {% do flags.append('--reload-dir=' + reload_dir) %}
+{% endif %}
+
+# Number of worker processes.
+{% if workers is defined and workers %}
+  {% do flags.append('--workers=' + workers) %}
+{% endif %}
+
+# Event loop implementation.
+{% if loop is defined and loop %}
+  {% do flags.append('--loop=' + loop) %}
+{% endif %}
+
+# HTTP protocol implementation.
+{% if http is defined and http %}
+  {% do flags.append('--http=' + http) %}
+{% endif %}
+
+# WebSocket protocol implementation.
+{% if ws is defined and ws %}
+  {% do flags.append('--ws=' + ws) %}
+{% endif %}
+
+# WebSocket max size message in bytes.
+{% if ws_max_size is defined and ws_max_size %}
+  {% do flags.append('--ws-max-size=' + ws_max_size) %}
+{% endif %}
+
+# The maximum length of the WebSocket message queue.
+{% if ws_max_queue is defined and ws_max_queue %}
+  {% do flags.append('--ws-max-queue=' + ws_max_queue) %}
+{% endif %}
+
+# WebSocket ping interval in seconds.
+{% if ws_ping_interval is defined and ws_ping_interval %}
+  {% do flags.append('--ws-ping-interval=' + ws_ping_interval) %}
+{% endif %}
+
+# WebSocket ping timeout in seconds.
+{% if ws_ping_timeout is defined and ws_ping_timeout %}
+  {% do flags.append('--ws-ping-timeout=' + ws_ping_timeout) %}
+{% endif %}
+
+# WebSocket per-message-deflate compression.
+{% if ws_per_message_deflate is defined and ws_per_message_deflate %}
+  {% do flags.append('--ws-per-message-deflate') %}
+{% endif %}
+
+# Lifespan implementation.
+{% if lifespan is defined and lifespan %}
+  {% do flags.append('--lifespan=' + lifespan) %}
+{% endif %}
+
+# Select ASGI3, ASGI2, or WSGI as the application interface.
+{% if interface is defined and interface %}
+  {% do flags.append('--interface=' + interface) %}
+{% endif %}
+
+# Log level.
+{% if log_level is defined and log_level %}
+  {% do flags.append('--log-level=' + log_level) %}
+{% endif %}
+
+# Enable/Disable access log.
+{% if access_log is defined and access_log %}
+  {% do flags.append('--access-log') %}
+{% endif %}
+
+# Enable/Disable colorized logging.
+{% if use_colors is defined and use_colors %}
+  {% do flags.append('--use-colors') %}
+{% endif %}
+
+# Enable/Disable X-Forwarded-Proto, X-Forwarded-For, X-Forwarded-Port to populate remote address info.
+{% if proxy_headers is defined and proxy_headers %}
+  {% do flags.append('--proxy-headers') %}
+{% endif %}
+
+# Enable/Disable default Server header.
+{% if server_header is defined and server_header %}
+  {% do flags.append('--server-header') %}
+{% endif %}
+
+# Enable/Disable default Date header.
+{% if date_header is defined and date_header %}
+  {% do flags.append('--date-header') %}
+{% endif %}
+
+# Comma separated list of IP Addresses, IP Networks, or literals to trust with proxy headers.
+{% if forwarded_allow_ips is defined and forwarded_allow_ips %}
+  {% do flags.append('--forwarded-allow-ips=' + forwarded_allow_ips) %}
+{% endif %}
+
+# Set the ASGI 'root_path' for applications submounted below a given URL path.
+{% if root_path is defined and root_path %}
+  {% do flags.append('--root-path=' + root_path) %}
+{% endif %}
+
+# Maximum number of concurrent connections or tasks to allow.
+{% if limit_concurrency is defined and limit_concurrency %}
+  {% do flags.append('--limit-concurrency=' + limit_concurrency) %}
+{% endif %}
+
+# Maximum number of connections to hold in backlog.
+{% if backlog is defined and backlog %}
+  {% do flags.append('--backlog=' + backlog) %}
+{% endif %}
+
+# Maximum number of requests to service before terminating the process.
+{% if limit_max_requests is defined and limit_max_requests %}
+  {% do flags.append('--limit-max-requests=' + limit_max_requests) %}
+{% endif %}
+
+# Close Keep-Alive connections if no new data is received within this timeout.
+{% if timeout_keep_alive is defined and timeout_keep_alive %}
+  {% do flags.append('--timeout-keep-alive=' + timeout_keep_alive) %}
+{% endif %}
+
+# Maximum number of seconds to wait for graceful shutdown.
+{% if timeout_graceful_shutdown is defined and timeout_graceful_shutdown %}
+  {% do flags.append('--timeout-graceful-shutdown=' + timeout_graceful_shutdown) %}
+{% endif %}
+
+# SSL key file.
+{% if ssl_keyfile is defined and ssl_keyfile %}
+  {% do flags.append('--ssl-keyfile=' + ssl_keyfile) %}
+{% endif %}
+
+# SSL certificate file.
+{% if ssl_certfile is defined and ssl_certfile %}
+  {% do flags.append('--ssl-certfile=' + ssl_certfile) %}
+{% endif %}
+
+# SSL keyfile password.
+{% if ssl_keyfile_password is defined and ssl_keyfile_password %}
+  {% do flags.append('--ssl-keyfile-password=' + ssl_keyfile_password) %}
+{% endif %}
+
+# SSL version to use.
+{% if ssl_version is defined and ssl_version %}
+  {% do flags.append('--ssl-version=' + ssl_version) %}
+{% endif %}
+
+# Whether client certificate is required.
+{% if ssl_cert_reqs is defined and ssl_cert_reqs %}
+  {% do flags.append('--ssl-cert-reqs=' + ssl_cert_reqs) %}
+{% endif %}
+
+# CA certificates file.
+{% if ssl_ca_certs is defined and ssl_ca_certs %}
+  {% do flags.append('--ssl-ca-certs=' + ssl_ca_certs) %}
+{% endif %}
+
+# Ciphers to use.
+{% if ssl_ciphers is defined and ssl_ciphers %}
+  {% do flags.append('--ssl-ciphers=' + ssl_ciphers) %}
+{% endif %}
+
+# Look for APP in the specified directory, by adding this to the PYTHONPATH.
+{% if app_dir is defined and app_dir %}
+  {% do flags.append('--app-dir=' + app_dir) %}
+{% endif %}
+
+# Treat APP as an application factory.
+{% if factory is defined and factory %}
+  {% do flags.append('--factory') %}
+{% endif %}
+
+# Comma separated list of custom HTTP response headers as Name:Value pairs.
+{% if headers is defined and headers %}
+  {% for header in headers %}
+  {% do flags.append('--header=' + header) %}
+  {% endfor %}
+{% endif %}
+
+# App factory string (e.g., "app:app")
+APP_FACTORY = "{{ app_factory }}"
+
+# Generated command arguments
+COMMAND_ARGS = "{{ command_options | join(' ') }}"

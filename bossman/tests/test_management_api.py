@@ -5,6 +5,7 @@ same seam api/processes.py's tests use, so no real agent connection is made.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 
@@ -38,7 +39,7 @@ class CallToolFake:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"mgmt-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("mgmt-agent"),
         "token": "tok",
         "address": "10.0.0.9:8010",
         "mode": "standalone",
@@ -55,11 +56,12 @@ async def _make_agent(db_session, **overrides) -> Agent:
 async def _make_api_token(db_session):
     row, raw = new_api_token("mgmt-caller")
     db_session.add(row)
+    await db_session.flush()  # the grant references this token by uid — it must exist first
     # These tests exercise the proxy, not the Block-M host ACL — give the token
     # a wildcard grant so require_manage_agent lets it through.
     from bossman.db.models import AccessGrant
 
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref="mgmt-caller", scope="all"))
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref="mgmt-caller", subject_token_id=row.id, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw

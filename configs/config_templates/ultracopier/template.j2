@@ -1,0 +1,59 @@
+# UltraCopier Configuration
+# Note: UltraCopier is primarily a GUI application. This template represents a simplified
+# INI-style configuration often used by Qt/Java-based GUI apps for user preferences,
+# or a minimal service wrapper config if running in headless mode via a helper script.
+# Given the lack of a native daemon, this config targets a hypothetical headless
+# controller or a wrapper script configuration that manages UltraCopier processes.
+
+[general]
+# Default language code (e.g., en, fr)
+# Schema: lang (string, default 'en')
+lang = {{ lang | default('en') }}
+
+# Enable checksum verification for copied files
+# Schema: enable_checksum (boolean, default False)
+# When true, UltraCopier verifies file integrity after transfer.
+enable_checksum = {{ enable_checksum | default(false) | lower }}
+
+# Maximum transfer speed in KB/s (0 for unlimited)
+# Schema: speed_limit (integer, default 0)
+# Limits the bandwidth usage. Set to 0 to disable throttling.
+speed_limit = {{ speed_limit | default(0) }}
+
+# Buffer size in KB for internal copy thread
+# Schema: buffer_size (integer, default 64)
+# Adjusting this can improve performance on high-latency networks or slow storage.
+buffer_size = {{ buffer_size | default(64) }}
+
+[collision]
+# Default action for file collisions: overwrite, rename, skip, ask
+# Schema: default_collision_action (string, default 'ask')
+# Determines behavior when a file with the same name already exists at the destination.
+default_collision_action = {{ default_collision_action | default('ask') }}
+
+# Auto-rename pattern (e.g., _copy, _1)
+# Schema: auto_rename_suffix (string, default '_copy')
+# Suffix appended to filenames when 'rename' is chosen as the collision action.
+auto_rename_suffix = {{ auto_rename_suffix | default('_copy') }}
+
+[ui]
+# Enable the GUI interface
+# Schema: show_gui (boolean, default true)
+# If false, the application may run in a purely background/CLI mode.
+show_gui = {{ show_gui | default(true) | lower }}
+
+# Skin name to use
+# Schema: skin (string, default 'default')
+# Specifies the visual theme applied to the UltraCopier interface.
+skin = {{ skin | default('default') }}
+
+# Start minimized to system tray
+# Schema: start_minimized (boolean, default false)
+# If true, the application starts hidden in the system tray instead of showing a main window.
+start_minimized = {{ start_minimized | default(false) | lower }}
+
+[plugins]
+# List of enabled plugins to load
+# Schema: enabled_plugins (list, default ['core'])
+# Comma-separated list of plugin identifiers. 'core' is required for basic functionality.
+enabled_plugins = {{ enabled_plugins | default(['core']) | join(',') }}

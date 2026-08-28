@@ -1,0 +1,38 @@
+# OneDrive Client Log Rotation Configuration
+#
+# This template generates a logrotate configuration for the OneDrive client application.
+# It manages the rotation, compression, and retention of log files located in /var/log/onedrive/.
+# The configuration is parameterized using Ansible variables to ensure consistency and reusability.
+
+/var/log/onedrive/*log {
+    # Specify the user and group that logrotate should use when performing operations.
+    # This ensures that rotated log files have the correct ownership permissions.
+    # Requires logrotate 3.8.9 or greater; otherwise the 'su' directive is unsupported.
+    su {{ logrotate_user | default('root') }} {{ logrotate_group | default('users') }}
+
+    # Rotate log files weekly.
+    # This determines the frequency of log rotation cycles.
+    weekly
+
+    # Specify the number of weeks worth of log files to keep.
+    # Old log files beyond this count will be removed or compressed further depending on settings.
+    rotate {{ logrotate_count | default(4) }}
+
+    # Create new (empty) log files after rotating old ones.
+    # Syntax: create [mode] [owner] [group] [permissions]
+    # If no arguments are provided, default permissions are used.
+    # This directive allows fine-grained control over the new log file's attributes.
+    create{{ logrotate_create_mode | default('') }} {{ logrotate_create_owner | default('') }} {{ logrotate_create_group | default('') }} {{ logrotate_create_perms | default('') }}
+
+    # Use the current date as a suffix for rotated log files (e.g., file.log-20231025).
+    # This helps in identifying the date associated with each rotated log.
+    dateext
+
+    # Enable compression of rotated log files to save disk space.
+    # Compressed files are typically stored in gzip format.
+    compress
+
+    # Do not generate an error if the log file is missing.
+    # This prevents logrotate from failing if the application has not yet created a log file.
+    missingok
+}

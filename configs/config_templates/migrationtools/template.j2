@@ -1,0 +1,407 @@
+#!/usr/bin/perl
+#
+# $Id: migrate_common.ph,V 1.22 2003/04/15 03:09:33 lukeh Exp $
+#
+# Copyright (c) 1997-2003 Luke Howard.
+# Copyright (c) 2020 Tanya.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. All advertising materials mentioning features or use of this software
+#    must display the following acknowledgement:
+#        This product includes software developed by Luke Howard.
+# 4. The name of the other may not be used to endorse or promote products
+#    derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE LUKE HOWARD ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL LUKE HOWARD BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+
+#
+# Common defines for MigrationTools
+#
+
+# Naming contexts. Key is $PROGRAM with migrate_ and .pl 
+# stripped off. 
+use File::Which;
+
+# Detect if NetInfo bridge is available
+{% if NETINFOBRIDGE is defined %}
+$NETINFOBRIDGE = {{ NETINFOBRIDGE }};
+{% else %}
+$NETINFOBRIDGE = (-x "/usr/sbin/mkslapdconf");
+{% endif %}
+
+if ($NETINFOBRIDGE) {
+	$NAMINGCONTEXT{'aliases'}           = "cn=aliases";
+	$NAMINGCONTEXT{'fstab'}             = "cn=mounts";
+	$NAMINGCONTEXT{'passwd'}            = "cn=users";
+	$NAMINGCONTEXT{'netgroup_byuser'}   = "cn=netgroup.byuser";
+	$NAMINGCONTEXT{'netgroup_byhost'}   = "cn=netgroup.byhost";
+	$NAMINGCONTEXT{'group'}             = "cn=groups";
+	$NAMINGCONTEXT{'netgroup'}          = "cn=netgroup";
+	$NAMINGCONTEXT{'hosts'}             = "cn=machines";
+	$NAMINGCONTEXT{'networks'}          = "cn=networks";
+	$NAMINGCONTEXT{'protocols'}         = "cn=protocols";
+	$NAMINGCONTEXT{'rpc'}               = "cn=rpcs";
+	$NAMINGCONTEXT{'services'}          = "cn=services";
+} else {
+	# LDAP naming context for aliases when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'aliases'}           = "{{ NAMING_CONTEXT_ALIASES | default('ou=Aliases') }}";
+	
+	# LDAP naming context for fstab when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'fstab'}             = "{{ NAMING_CONTEXT_FSTAB | default('ou=Mounts') }}";
+	
+	# LDAP naming context for passwd when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'passwd'}            = "{{ NAMING_CONTEXT_PASSWD | default('ou=People') }}";
+	
+	# LDAP naming context for netgroup_byuser when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'netgroup_byuser'}   = "{{ NAMING_CONTEXT_NETGROUP_BYUSER | default('nisMapName=netgroup.byuser') }}";
+	
+	# LDAP naming context for netgroup_byhost when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'netgroup_byhost'}   = "{{ NAMING_CONTEXT_NETGROUP_BYHOST | default('nisMapName=netgroup.byhost') }}";
+	
+	# LDAP naming context for group when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'group'}             = "{{ NAMING_CONTEXT_GROUP | default('ou=Group') }}";
+	
+	# LDAP naming context for netgroup when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'netgroup'}          = "{{ NAMING_CONTEXT_NETGROUP | default('ou=Netgroup') }}";
+	
+	# LDAP naming context for hosts when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'hosts'}             = "{{ NAMING_CONTEXT_HOSTS | default('ou=Hosts') }}";
+	
+	# LDAP naming context for networks when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'networks'}          = "{{ NAMING_CONTEXT_NETWORKS | default('ou=Networks') }}";
+	
+	# LDAP naming context for protocols when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'protocols'}         = "{{ NAMING_CONTEXT_PROTOCOLS | default('ou=Protocols') }}";
+	
+	# LDAP naming context for rpc when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'rpc'}               = "{{ NAMING_CONTEXT_RPC | default('ou=Rpc') }}";
+	
+	# LDAP naming context for services when NETINFOBRIDGE is false.
+	$NAMINGCONTEXT{'services'}          = "{{ NAMING_CONTEXT_SERVICES | default('ou=Services') }}";
+}
+
+# Default DNS mail domain. Usually commented out in the file but parametrized here for potential uncommenting.
+#$DEFAULT_MAIL_DOMAIN = "{{ DEFAULT_MAIL_DOMAIN | default('padl.com') }}";
+
+# Default LDAP base DN.
+$DEFAULT_BASE = "{{ DEFAULT_BASE | default('dc=padl,dc=com') }}";
+
+# Turn this on for inetLocalMailReceipient
+# sendmail support; add the following to 
+# sendmail.mc (thanks to Petr@Kristof.CZ):
+##### CUT HERE #####
+#define(`confLDAP_DEFAULT_SPEC',`-h "ldap.padl.com"')dnl
+#LDAPROUTE_DOMAIN_FILE(`/etc/mail/ldapdomains')dnl
+#FEATURE(ldap_routing)dnl
+##### CUT HERE #####
+# where /etc/mail/ldapdomains contains names of ldap_routed
+# domains (similiar to MASQUERADE_DOMAIN_FILE).
+#$DEFAULT_MAIL_HOST = "{{ DEFAULT_MAIL_HOST | default('mail.padl.com') }}";
+
+# Turn this on to support more general object clases
+# such as person.
+$EXTENDED_SCHEMA = {{ EXTENDED_SCHEMA | default(0) }};
+
+# Comment this out if your ldap server does not support UTF8 encoding
+$USE_UTF8 = {{ USE_UTF8 | default(1) }};
+
+# Uncomment these to exclude system users and groups
+#$IGNORE_UID_BELOW = {{ IGNORE_UID_BELOW | default(1000) }};
+#$IGNORE_GID_BELOW = {{ IGNORE_GID_BELOW | default(100) }};
+
+# And here's the opposite for completeness
+#$IGNORE_UID_ABOVE = {{ IGNORE_UID_ABOVE | default(9999) }};
+#$IGNORE_GID_ABOVE = {{ IGNORE_GID_ABOVE | default(9999) }};
+
+# Try to get settings from /etc/ldap/ldap.conf
+if (-e '/etc/ldap/ldap.conf') {
+	open (FILE, '/etc/ldap/ldap.conf');
+	while (<FILE>) {
+		chomp;
+		next if ( $_ =~ /^\s*$/ );
+		next if ( $_ =~ /^#/ );
+		if ($_ =~ /\s/) {
+			($key, $value) = split;
+		} else {
+			($key, $value) = split("\t+");
+		}
+		if (length $key && length $value && $key eq 'BASE') {
+			$DEFAULT_BASE = $value;
+		}
+	}
+}
+
+#
+# allow environment variables to override predefines
+#
+if (defined($ENV{'LDAP_BASEDN'})) {
+	$DEFAULT_BASE = $ENV{'LDAP_BASEDN'};
+}
+
+if (defined($ENV{'LDAP_DEFAULT_MAIL_DOMAIN'})) {
+	$DEFAULT_MAIL_DOMAIN = $ENV{'LDAP_DEFAULT_MAIL_DOMAIN'};
+}
+
+# If we haven't set the default domain, guess it automagically.
+if (!defined($DEFAULT_MAIL_DOMAIN)) {
+	$DEFAULT_MAIL_DOMAIN = &basedn_expand($DEFAULT_BASE);
+}
+
+if (defined($ENV{'LDAP_DEFAULT_MAIL_HOST'})) {
+	$DEFAULT_MAIL_HOST = $ENV{'LDAP_DEFAULT_MAIL_HOST'};
+}
+
+if (defined($ENV{'LDAP_EXTENDED_SCHEMA'})) {
+	$EXTENDED_SCHEMA = $ENV{'LDAP_EXTENDED_SCHEMA'};
+}
+
+if (defined($ENV{'UID_ABOVE'})) {
+	$IGNORE_UID_BELOW = $ENV{'UID_ABOVE'};
+}
+
+if (defined($ENV{'UID_BELOW'})) {
+	$IGNORE_UID_ABOVE = $ENV{'UID_BELOW'};
+}
+
+if (defined($ENV{'GID_ABOVE'})) {
+	$IGNORE_GID_BELOW = $ENV{'GID_ABOVE'};
+}
+
+if (defined($ENV{'GID_BELOW'})) {
+	$IGNORE_GID_ABOVE = $ENV{'GID_BELOW'};
+}
+
+# Default Kerberos realm
+if ($EXTENDED_SCHEMA) {
+	$DEFAULT_REALM = $DEFAULT_MAIL_DOMAIN;
+	$DEFAULT_REALM =~ tr/a-z/A-Z/;
+}
+
+# Add SAMBA GID if present
+if ($EXTENDED_SCHEMA) {
+	if (defined($ENV{'SAMBA_DOMAIN_SID'})) {
+		$lsid = $ENV{'SAMBA_DOMAIN_SID'};
+	} elsif (which 'net') {
+		$lsid = `net getlocalsid`;
+		chomp $lsid;
+		$lsid =~ s/^[A-Za-z ]+: //;
+	}
+	if ($lsid =~ '^S[0-9\-]+$') {
+		$SAMBA_DOMAIN_SID = $lsid
+	}
+}
+
+if (-x "/usr/sbin/revnetgroup") {
+	$REVNETGROUP = "/usr/sbin/revnetgroup";
+} elsif (-x "/usr/lib/yp/revnetgroup") {
+	$REVNETGROUP = "/usr/lib/yp/revnetgroup";
+}
+
+$classmap{'o'} = 'organization';
+$classmap{'dc'} = 'domain';
+$classmap{'l'} = 'locality';
+$classmap{'ou'} = 'organizationalUnit';
+$classmap{'c'} = 'country';
+$classmap{'nismapname'} = 'nisMap';
+$classmap{'cn'} = 'container';
+
+sub parse_args
+{
+	if ($#ARGV < 0) {
+		print STDERR "Usage: $PROGRAM infile [outfile]\n";
+		exit 1;
+	}
+	
+	$INFILE = $ARGV[0];
+	
+	if ($#ARGV > 0) {
+		$OUTFILE = $ARGV[1];
+	}
+}
+
+sub open_files
+{
+	open(INFILE);
+	if ($OUTFILE) {
+		open(OUTFILE,">$OUTFILE");
+		$use_stdout = 0;
+	} else {
+		$use_stdout = 1;
+	}
+}
+
+# moved from migrate_hosts.pl
+# lukeh 10/30/97
+sub domain_expand
+{
+	local($first) = 1;
+	local($dn);
+	local(@namecomponents) = split(/\./, $_[0]);
+	foreach $_ (@namecomponents) {
+		$first = 0;
+		$dn .= "dc=$_,";
+	}
+	$dn .= $DEFAULT_BASE;
+	return $dn;
+}
+
+# Expand basedn
+sub basedn_expand
+{
+	local($first) = 1;
+	local($dn);
+	local(@namecomponents) = split(/,dc=/, $_[0]);
+	foreach $_ (@namecomponents) {
+		$first = 0;
+		if ($_ =~ /^dc=/) {
+			$dn .= $_ =~ s/^dc=//r
+		} else {
+			$dn .= "._$_";
+		}
+	}
+	return $dn;
+}
+
+# case insensitive unique
+sub uniq
+{
+	local($name) = shift(@_);
+	local(@vec) = sort {uc($a) cmp uc($b)} @_;
+	local(@ret);
+	local($next, $last);
+	foreach $next (@vec) {
+		if ((uc($next) ne uc($last)) &&
+			(uc($next) ne uc($name))) {
+			push (@ret, $next);
+		}
+		$last = $next;
+	}
+	return @ret;
+}
+
+# concatenate naming context and 
+# organizational base
+sub getsuffix
+{
+	local($program) = shift(@_);
+	local($nc);
+	$program =~ s/^migrate_(.*)\.pl$/$1/;
+	$nc = $NAMINGCONTEXT{$program};
+	if ($nc eq "") {
+		return $DEFAULT_BASE;
+	} else {
+		return $nc . ',' . $DEFAULT_BASE;
+	}
+}
+
+sub ldif_entry
+{
+# remove leading, trailing whitespace
+	local ($HANDLE, $lhs, $rhs) = @_;
+	local ($type, $val) = split(/\=/, $lhs);
+	local ($dn);
+
+	if ($rhs ne "") {
+		$dn = $lhs . ',' . $rhs;
+	} else {
+		$dn = $lhs;
+	}
+
+	$type =~ s/\s*$//o;
+	$type =~ s/^\s*//o;
+	$type =~ tr/A-Z/a-z/;
+	$val =~ s/\s*$//o;
+	$val =~ s/^\s*//o;
+
+	print $HANDLE "dn: $dn\n";
+	print $HANDLE "$type: $val\n";
+	print $HANDLE "objectClass: top\n";
+	print $HANDLE "objectClass: $classmap{$type}\n";
+	if ($EXTENDED_SCHEMA) {
+		if ($DEFAULT_MAIL_DOMAIN) {
+			print $HANDLE "objectClass: domainRelatedObject\n";
+			print $HANDLE "associatedDomain: $DEFAULT_MAIL_DOMAIN\n";
+		}
+	}
+
+	print $HANDLE "\n";
+}
+
+# Added Thu Jun 20 16:40:22 CDT 2002 by Bob Apthorpe
+# <apthorpe@cynistar.net> to solve problems with embedded plusses in
+# protocols and mail aliases.
+sub escape_metacharacters
+{
+	local($name) = @_;
+
+	# From Table 3.1 "Characters Requiring Quoting When Contained
+	# in Distinguished Names", p87 "Understanding and Deploying LDAP
+	# Directory Services", Howes, Smith, & Good.
+
+	# 1) Quote backslash
+	# Note: none of these are very elegant or robust and may cause
+	# more trouble than they're worth. That's why they're disabled.
+	# 1.a) naive (escape all backslashes)
+	# $name =~ s#\\#\\\\#og;
+	#
+	# 1.b) mostly naive (escape all backslashes not followed by
+	# a backslash)
+	# $name =~ s#\\(?!\\)#\\\\#og;
+	#
+	# 1.c) less naive and utterly gruesome (replace solitary
+	# backslashes)
+	# $name =~ s{      # Replace
+	#       (?<!\\) # negative lookbehind (no preceding backslash)
+	#       \\  # a single backslash
+	#       (?!\\) # negative lookahead (no following backslash)
+	# }
+	# {        # With
+	#       \\\\ # a pair of backslashes
+	# }gx;
+	# Ugh. Note that s#(?:[^\\])\\(?:[^\\])#////#g fails if $name
+	# starts or ends with a backslash. This expression won't work
+	# under perl4 because the /x flag and negative lookahead and
+	# lookbehind operations aren't supported. Sorry. Also note that
+	# s#(?:[^\\]*)\\(?:[^\\]*)#////#g won't work either.  Of course,
+	# this is all broken if $name is already escaped before we get
+	# to it. Best to throw a warning and make the user import these
+	# records by hand.
+
+	# 2) Quote leading and trailing spaces
+	local($leader, $body, $trailer) = ();
+	if (($leader, $body, $trailer) = ($name =~ m#^( *)(.*\S)( *)$#o)) {
+		$leader =~ s# #\\ #og;
+		$trailer =~ s# #\\ #og;
+		$name = $leader . $body . $trailer;
+	}
+
+	# 3) Quote leading octothorpe (#)
+	$name =~ s/^#/\\#/o;
+
+	# 4) Quote comma, plus, double-quote, less-than, greater-than,
+	# and semicolon
+	$name =~ s#([,+"<>;])#\\$1#g;
+
+	return $name;
+}
+
+1;

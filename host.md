@@ -79,7 +79,7 @@
   - generic [ref=f255e183]:
     - generic [ref=f255e205]:
       - generic [ref=f255e206]:
-        - heading "docker-test.test.example.com" [level=1] [ref=f255e207]
+        - heading "host1.example.internal" [level=1] [ref=f255e207]
         - generic [ref=f255e209]: enrolled
       - generic [ref=f255e210]:
         - tablist [ref=f255e213]:

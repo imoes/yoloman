@@ -1,0 +1,154 @@
+# =============================================================================
+# HTTPDirFS Configuration Template
+# =============================================================================
+# This configuration file defines the parameters for mounting a remote HTTP/HTTPS
+# directory as a local virtual filesystem using httpdirfs.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# The remote URL to mount as a virtual filesystem.
+# -----------------------------------------------------------------------------
+url={{ url | default('http://example.com/public/') }}
+
+# -----------------------------------------------------------------------------
+# The local directory where the virtual filesystem will be mounted.
+# -----------------------------------------------------------------------------
+mountpoint={{ mountpoint | default('/mnt/httpfs') }}
+
+# -----------------------------------------------------------------------------
+# HTTP authentication username for the source server.
+# Leave empty if no authentication is required.
+# -----------------------------------------------------------------------------
+username={{ username | default('') }}
+
+# -----------------------------------------------------------------------------
+# HTTP authentication password for the source server.
+# Leave empty if no authentication is required.
+# -----------------------------------------------------------------------------
+password={{ password | default('') }}
+
+# -----------------------------------------------------------------------------
+# Proxy URL for libcurl (e.g., http://proxy:port).
+# Leave empty to use direct connection.
+# -----------------------------------------------------------------------------
+proxy={{ proxy | default('') }}
+
+# -----------------------------------------------------------------------------
+# Username for the proxy.
+# Leave empty if proxy authentication is not required.
+# -----------------------------------------------------------------------------
+proxy_username={{ proxy_username | default('') }}
+
+# -----------------------------------------------------------------------------
+# Password for the proxy.
+# Leave empty if proxy authentication is not required.
+# -----------------------------------------------------------------------------
+proxy_password={{ proxy_password | default('') }}
+
+# -----------------------------------------------------------------------------
+# Certificate authority file for verifying the proxy's SSL certificate.
+# Leave empty to use system defaults or insecure mode.
+# -----------------------------------------------------------------------------
+proxy_cacert={{ proxy_cacert | default('') }}
+
+# -----------------------------------------------------------------------------
+# Enable caching of downloaded files. (true/false)
+# -----------------------------------------------------------------------------
+cache_enabled={{ cache_enabled | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Custom location for the cache directory.
+# If empty, uses default cache location.
+# -----------------------------------------------------------------------------
+cache_location={{ cache_location | default('') }}
+
+# -----------------------------------------------------------------------------
+# Certificate authority file for verifying the source server's SSL certificate.
+# Leave empty to use system defaults or insecure mode.
+# -----------------------------------------------------------------------------
+cacert={{ cacert | default('') }}
+
+# -----------------------------------------------------------------------------
+# Cache download segment size in MB.
+# -----------------------------------------------------------------------------
+dl_seg_size={{ dl_seg_size | default(8) }}
+
+# -----------------------------------------------------------------------------
+# HTTP headers to include in requests, formatted as "Key: Value".
+# Each item in the list becomes a separate header line.
+# -----------------------------------------------------------------------------
+{% if (http_headers | default([])) | length > 0 %}
+{% for header in http_headers | default([]) %}
+header={{ header }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Maximum number of download segments a file can have.
+# -----------------------------------------------------------------------------
+max_seg_count={{ max_seg_count | default(131072) }}
+
+# -----------------------------------------------------------------------------
+# Maximum number of network connections libcurl can make.
+# -----------------------------------------------------------------------------
+max_conns={{ max_conns | default(10) }}
+
+# -----------------------------------------------------------------------------
+# Time in seconds before directories are refreshed.
+# -----------------------------------------------------------------------------
+refresh_timeout={{ refresh_timeout | default(3600) }}
+
+# -----------------------------------------------------------------------------
+# Delay in seconds before retrying an HTTP request after error.
+# -----------------------------------------------------------------------------
+retry_wait={{ retry_wait | default(5) }}
+
+# -----------------------------------------------------------------------------
+# User agent string to send with requests.
+# -----------------------------------------------------------------------------
+user_agent={{ user_agent | default('HTTPDirFS') }}
+
+# -----------------------------------------------------------------------------
+# Disable the built-in check for server support of HTTP range requests. (true/false)
+# -----------------------------------------------------------------------------
+no_range_check={{ no_range_check | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Disable libcurl TLS certificate verification. (true/false)
+# WARNING: Disabling this reduces security. Use only for self-signed certs.
+# -----------------------------------------------------------------------------
+insecure_tls={{ insecure_tls | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Single file mode: present a single file instead of a whole directory. (true/false)
+# -----------------------------------------------------------------------------
+single_file_mode={{ single_file_mode | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# The specific file path within the remote directory to expose in single-file mode.
+# Only applied if single_file_mode is true.
+# -----------------------------------------------------------------------------
+{% if single_file_mode | default(false) %}
+single_file_path={{ single_file_path | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Sonosic/Airsonic specific mode settings.
+# Only applied if sonic_mode is true.
+# -----------------------------------------------------------------------------
+{% if sonic_mode | default(false) %}
+# Enable Sonosic/Airsonic specific mode.
+sonic_mode={{ sonic_mode | default(false) }}
+
+# Username for the Airsonic/Subsonic server.
+sonic_username={{ sonic_username | default('') }}
+
+# Password for the Airsonic/Subsonic server.
+sonic_password={{ sonic_password | default('') }}
+
+# Enable ID3 mode for Artist/Album/Song layout. (true/false)
+sonic_id3={{ sonic_id3 | default(false) }}
+
+# Use insecure authentication scheme for Airsonic/Subsonic. (true/false)
+sonic_insecure={{ sonic_insecure | default(false) }}
+{% endif %}

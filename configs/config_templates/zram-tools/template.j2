@@ -1,0 +1,34 @@
+# ==============================================================================
+# zram-tools Configuration Template
+# ==============================================================================
+# This configuration file defines parameters for the zram-tools service, which
+# creates compressed RAM-based block devices (zram) to be used as swap space.
+# It is compatible with Debian/Ubuntu's zram-tools package and similar init
+# scripts that read this specific key=value format.
+# ==============================================================================
+
+# --- Compression Algorithm ---
+# ALGO: Compression algorithm to use for zram (e.g., lz4, zstd).
+# Common options include 'lz4' (faster, less compression) and 'zstd' (slower,
+# better compression). Check /sys/block/zram0/comp_algorithm on the target
+# system to verify available algorithms for your kernel version.
+ALGO={{ ALGO | default('lz4') }}
+
+# --- RAM Percentage Mode ---
+# PERCENT: Percentage of total RAM to use for zram swap. Takes precedence over SIZE.
+# If set, this value overrides the static SIZE setting. It dynamically scales
+# with the total memory of the host. Valid range typically 0-100.
+PERCENT={{ PERCENT | default(50) }}
+
+# --- Static Size Mode ---
+# SIZE: Static amount of RAM (in MiB) to use for zram devices. Ignored if PERCENT is set.
+# Use this for fixed-size swap allocations regardless of total system RAM.
+# Note: If PERCENT is explicitly set to a non-zero value, this field is ignored.
+SIZE={{ SIZE | default(512) }}
+
+# --- Swap Priority ---
+# PRIORITY: Priority for the zram swap devices. Higher number means higher priority.
+# According to swapon(2), higher priority devices are used first.
+# ZRAM is generally faster than disk-based swap, so a high priority (e.g., 100)
+# is appropriate to ensure it is preferred over physical swap partitions/files.
+PRIORITY={{ PRIORITY | default(100) }}

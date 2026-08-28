@@ -1,0 +1,54 @@
+# MediaInfo-GUI Configuration Template
+# This template generates command-line arguments for MediaInfo's GUI or CLI mode.
+# It handles display language, output format selection, and logging.
+
+# ============================================================
+# Display Language
+# ============================================================
+# Description: Display language. 'raw' shows non-translated unique identifiers.
+#              Supported languages include English, French, German, Spanish, etc.
+#              Value: Language code string (e.g., 'en', 'fr', 'raw').
+#              Default: 'raw'
+--Language={{ language | default('raw') }}
+
+# ============================================================
+# Output Format and Custom Template
+# ============================================================
+# Description: The format of the information display.
+#              Options:
+#                - 'full': Default detailed text output.
+#                - 'html': HTML formatted output.
+#                - 'xml': XML formatted output.
+#                - 'custom': Uses the Inform template below.
+#              Default: 'full'
+
+{% set fmt = output_format | default('full') %}
+{% if fmt == 'custom' %}
+    # Custom output format enabled.
+    # Description: Template text for custom output format. Uses parameters surrounded by '%'.
+    #              Only used if output_format is 'custom'.
+    #              Default: 'General;%Title%'
+    --Inform={{ inform_template | default('General;%Title%') }}
+
+{% elif fmt == 'html' %}
+    # HTML output format selected.
+    --Output=HTML
+
+{% elif fmt == 'xml' %}
+    # XML output format selected.
+    --Output=XML
+
+{% else %}
+    # Default Full text output format.
+    --Full
+{% endif %}
+
+# ============================================================
+# Log File
+# ============================================================
+# Description: Path to save the output log. Empty string means no log file is created.
+#              Default: '' (empty string, no logging)
+{% set log_path = log_file | default('') %}
+{% if log_path is defined and log_path is not none and log_path != '' %}
+    --LogFile={{ log_path | default('/var/log/mediainfo.log') }}
+{% endif %}

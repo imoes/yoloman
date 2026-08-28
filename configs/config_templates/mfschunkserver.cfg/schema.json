@@ -1,93 +1,97 @@
 {
-  "master_host": {
-    "type": "string",
-    "default": "mfsmaster",
-    "description": "Hostname or IP address of the MooseFS Master server."
+ "bind_address": {
+  "default": "0.0.0.0",
+  "description": "IP address to bind the chunkserver’s network service to.",
+  "type": "string"
+ },
+ "chunks_fs_type": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "chunks_max_count": {
+  "default": 0,
+  "description": "Maximum number of chunks allowed per data directory. Set to 0 for no limit.",
+  "type": "number"
+ },
+ "chunks_password": {
+  "default": "",
+  "description": "Password used to authenticate the chunkserver to the Master. Must match the contents of /etc/mfs/mfschunkserver.passwd.",
+  "type": "string"
+ },
+ "chunks_size_limit": {
+  "default": 0,
+  "description": "Maximum size (in bytes) of a single chunk file. Set to 0 for system default (usually 64 MiB).",
+  "type": "number"
+ },
+ "data_path": {
+  "default": [
+   "/var/lib/mfs"
+  ],
+  "description": "List of directory paths where chunk data is stored. Must exist and be writable by the mfs user.",
+  "items": {
+   "description": "Absolute path to a chunk storage directory.",
+   "type": "string"
   },
-  "master_port": {
-    "type": "number",
-    "default": 9420,
-    "description": "TCP port on which the Master server listens for chunkserver connections."
-  },
-  "chunks_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password used to authenticate the chunkserver to the Master. Must match the contents of /etc/mfs/mfschunkserver.passwd."
-  },
-  "data_path": {
-    "type": "list",
-    "default": [
-      "/var/lib/mfs"
-    ],
-    "description": "List of directory paths where chunk data is stored. Must exist and be writable by the mfs user.",
-    "items": {
-      "type": "string",
-      "description": "Absolute path to a chunk storage directory."
+  "type": "list"
+ },
+ "delete_empty_dirs": {
+  "default": false,
+  "description": "If true, empty chunk directories are deleted automatically during cleanup.",
+  "type": "bool"
+ },
+ "io_schedulers": {
+  "default": [],
+  "description": "List of disk I/O scheduler mappings for data paths. Each item specifies a path and its I/O scheduler (e.g., 'none', 'deadline', 'cfq').",
+  "items": {
+   "fields": {
+    "path": {
+     "default": "",
+     "description": "Absolute path to a chunk data directory.",
+     "type": "string"
+    },
+    "scheduler": {
+     "default": "none",
+     "description": "I/O scheduler to apply (e.g., 'none', 'deadline', 'cfq'). 'none' uses the default.",
+     "type": "string"
     }
+   },
+   "type": "object"
   },
-  "worker_threads": {
-    "type": "number",
-    "default": 8,
-    "description": "Number of worker threads to handle chunk operations (I/O, verification, etc.)."
-  },
-  "max_open_files": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of open files (file descriptors). Set to 0 to use system limits."
-  },
-  "chunks_max_count": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum number of chunks allowed per data directory. Set to 0 for no limit."
-  },
-  "chunks_size_limit": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum size (in bytes) of a single chunk file. Set to 0 for system default (usually 64 MiB)."
-  },
-  "verify_chunks_on_read": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, chunkserver verifies checksums during disk reads to detect corruption."
-  },
-  "delete_empty_dirs": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, empty chunk directories are deleted automatically during cleanup."
-  },
-  "log_level": {
-    "type": "number",
-    "default": 2,
-    "description": "Verbosity of logging: 1=error, 2=warn, 3=info, 4=debug."
-  },
-  "bind_address": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "IP address to bind the chunkserver\u2019s network service to."
-  },
-  "io_schedulers": {
-    "type": "list",
-    "default": [],
-    "description": "List of disk I/O scheduler mappings for data paths. Each item specifies a path and its I/O scheduler (e.g., 'none', 'deadline', 'cfq').",
-    "items": {
-      "type": "object",
-      "fields": {
-        "path": {
-          "type": "string",
-          "default": "",
-          "description": "Absolute path to a chunk data directory."
-        },
-        "scheduler": {
-          "type": "string",
-          "default": "none",
-          "description": "I/O scheduler to apply (e.g., 'none', 'deadline', 'cfq'). 'none' uses the default."
-        }
-      }
-    }
-  },
-  "reserved_space": {
-    "type": "number",
-    "default": 0,
-    "description": "Bytes of free space reserved per data directory (chunks won\u2019t be stored if free space \u2264 reserved)."
-  }
+  "type": "list"
+ },
+ "log_level": {
+  "default": 2,
+  "description": "Verbosity of logging: 1=error, 2=warn, 3=info, 4=debug.",
+  "type": "number"
+ },
+ "master_host": {
+  "default": "mfsmaster",
+  "description": "Hostname or IP address of the MooseFS Master server.",
+  "type": "string"
+ },
+ "master_port": {
+  "default": 9420,
+  "description": "TCP port on which the Master server listens for chunkserver connections.",
+  "type": "number"
+ },
+ "max_open_files": {
+  "default": 0,
+  "description": "Maximum number of open files (file descriptors). Set to 0 to use system limits.",
+  "type": "number"
+ },
+ "reserved_space": {
+  "default": 0,
+  "description": "Bytes of free space reserved per data directory (chunks won’t be stored if free space ≤ reserved).",
+  "type": "number"
+ },
+ "verify_chunks_on_read": {
+  "default": true,
+  "description": "If true, chunkserver verifies checksums during disk reads to detect corruption.",
+  "type": "bool"
+ },
+ "worker_threads": {
+  "default": 8,
+  "description": "Number of worker threads to handle chunk operations (I/O, verification, etc.).",
+  "type": "number"
+ }
 }

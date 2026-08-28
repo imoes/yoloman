@@ -1,0 +1,57 @@
+# Ledger (ledgerrc) configuration file.
+# See ledgerrc(5) for full documentation of every directive below.
+# This template is self-documenting: every setting is preceded by its
+# schema description as a comment, and every variable is supplied with
+# its schema default to avoid undefined-variable errors.
+
+{% if price_db is defined and price_db %}
+# Path to the price database file used for commodity valuation.
+price-db {{ price_db }}
+{% endif %}
+
+{% if init_file is defined and init_file %}
+# Path to an alternative init file to load before the main journal.
+init-file {{ init_file }}
+{% endif %}
+
+{% if date_format is defined and date_format %}
+# Format string for displaying dates in reports (strftime syntax).
+--date-format "{{ date_format }}"
+{% endif %}
+
+{% if input_date_format is defined and input_date_format %}
+# Format string expected for dates in journal entries.
+--input-date-format "{{ input_date_format }}"
+{% endif %}
+
+{% if default_commodity is defined and default_commodity %}
+# Default commodity to assume if none is specified in postings.
+default-commodity {{ default_commodity }}
+{% endif %}
+
+{% if options is defined and options %}
+# List of command-line options to apply globally for all reports in this init file.
+# Each option is a dict with keys 'flag' and optionally 'arg'.
+{% for option in options %}
+{% if option.arg is defined and option.arg %}
+{{ option.flag }} {{ option.arg }}
+{% else %}
+{{ option.flag }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if unrealized_gains_account is defined and unrealized_gains_account %}
+# Account name used for unrealized gains in balance reports.
+unrealized-gains {{ unrealized_gains_account }}
+{% endif %}
+
+{% if unrealized_losses_account is defined and unrealized_losses_account %}
+# Account name used for unrealized losses in balance reports.
+unrealized-losses {{ unrealized_losses_account }}
+{% endif %}
+
+{% if journal_file is defined and journal_file %}
+# Primary journal data file to load. Can be overridden by -f flag.
+file {{ journal_file }}
+{% endif %}

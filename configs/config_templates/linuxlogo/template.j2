@@ -1,0 +1,94 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		linuxlogo
+# Required-Start:	$local_fs $remote_fs
+# Required-Stop:	$local_fs $remote_fs
+# Should-Start:
+# Should-Stop:
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description: Color ANSI System Logo
+# Description:		Debian init script for linuxlogo
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+DAEMON=/usr/bin/linux_logo
+NAME=linuxlogo
+DESC="system logo"
+
+test -x "${DAEMON}" || exit 0
+
+. /lib/lsb/init-functions
+
+set -e
+
+# Runtime directory where temporary logo files are stored before final placement.
+# Defaults to '/var/run/linuxlogo' if not specified in variables.
+LOGO_DIR="{{ var_run_path | default('/var/run/linuxlogo') }}"
+
+# Title passed to the linux_logo daemon. Usually contains the debian version.
+# Defaults to 'Debian Version $(cat /etc/debian_version)' if not specified.
+LOGO_TITLE="{{ debian_version_label | default('Debian Version $(cat /etc/debian_version)') }}"
+
+# Path to the output file for the ANSI colored logo.
+# Defaults to '/etc/issue.linuxlogo' if not specified.
+ISSUE_ANSI="{{ issue_file_ansi | default('/etc/issue.linuxlogo') }}"
+
+# Path to the output file for the ASCII-only logo.
+# Defaults to '/etc/issue.linuxlogo.ascii' if not specified.
+ISSUE_ASCII="{{ issue_file_ascii | default('/etc/issue.linuxlogo.ascii') }}"
+
+case "${1}" in
+	start|restart|reload|force-reload)
+		log_action_begin_msg "Updating the ${DESC}"
+
+		# Create the runtime directory for linuxlogo.
+		mkdir -p "${LOGO_DIR}"
+
+		# Generate the ANSI colored logo.
+		# The -t flag sets the title, -f forces output to stdout.
+		# Backslashes are escaped to prevent sed interpretation issues.
+		"${DAEMON}" -t "${LOGO_TITLE}" -f    | sed -e 's/\\/\\\\/g' > "${ISSUE_ANSI}"
+
+		# Generate the ASCII-only logo.
+		# The -a flag generates ASCII art, -f forces output to stdout.
+		"${DAEMON}" -t "${LOGO_TITLE}" -a -f | sed -e 's/\\/\\\\/g' > "${ISSUE_ASCII}"
+
+		# Append the current /etc/issue content to both generated logo files.
+		for FILE in "${ISSUE_ANSI}" "${ISSUE_ASCII}"
+		do
+			printf "\n\n" >> "${FILE}"
+			cat /etc/issue >> "${FILE}"
+		done
+
+		log_action_end_msg 0
+		;;
+
+	stop|force-stop)
+		# Stop action is a no-op for linuxlogo as it generates static files.
+		;;
+
+	display)
+		# Display the logo directly in the terminal.
+		"${DAEMON}" -t "${LOGO_TITLE}"
+
+		echo
+		echo "Press any key to exit..."
+
+		read ANYKEY
+		;;
+
+	status)
+		# Status check is a no-op.
+		exit 0
+		;;
+
+	*)
+		echo "Usage: ${NAME} {start|restart|reload|force-reload|stop|force-stop|display|status}"
+		exit 1
+		;;
+esac
+
+exit 0

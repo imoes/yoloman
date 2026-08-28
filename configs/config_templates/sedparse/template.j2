@@ -1,0 +1,20 @@
+# sedparse configuration script
+# List of sed commands/scripts to parse. Each item is a string representing a sed expression.
+{% for expr in (scripts | default([], true)) -%}
+-e {{ expr }}
+{% endfor -%}
+
+# Path to a file containing sed commands to parse.
+{% if script_file is defined %}
+-f {{ script_file }}
+{% endif %}
+
+# If true, show full JSON output including empty values.
+{% if full_output | default(false, true) %}
+--full
+{% endif %}
+
+# If true, turn on verbose mode.
+{% if verbose | default(false, true) %}
+-v
+{% endif %}

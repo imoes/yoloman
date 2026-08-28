@@ -1,0 +1,72 @@
+[{{ variable.service_suffix }}]
+# Usage: check_arcce_submit -O service_suffix=<suffix> ...
+# Appends <suffix> to all passive service names.
+#
+method = option
+default = {{ variable.service_suffix.default }}
+
+[{{ variable.local_hostname }}]
+# The host name of the Nagios server.
+method = pipe
+command = {{ variable.local_hostname.command }}
+
+
+# Software Tests for the Main Job Submission Probe
+# ================================================
+#
+# These tests for a few programs.  They use regular expressions, assuming
+# that the commands write out the version information in a certain form.
+# If the probe should file, you can find the output matched against under
+#
+#   /var/spool/nagios/plugins/arcce/$VO/$HOST/job_output/*
+#
+# and adjust the regular expressions.  Please also report the issue to
+# http://bugzilla.nordugrid.org
+
+[arcce.dist-sw-csh]
+# Usage: check_arcce_submit --test dist-sw-csh ...
+#
+jobplugin = scripted
+#required_programs = csh
+script_line = echo >csh-test.csh '#! /bin/csh'; echo >>csh-test.csh 'env >csh.out';   chmod +x csh-test.csh; ./csh-test.csh
+output_file = csh.out
+output_pattern = ^PATH=
+status_ok = Found working csh.
+status_critical = Could not find \$PATH in the csh environment
+service_description = org.nordugrid.ARC-CE-sw-csh%(service_suffix)s
+
+[arcce.dist-sw-gcc]
+# Usage: check_arcce_submit --test dist-sw-gcc ...
+#
+jobplugin = scripted
+#required_programs = gcc
+script_line = gcc --version >gcc.out 2>&1
+output_file = gcc.out
+output_pattern = gcc\s+(\(.*\)\s+)?(?P<version>\d+\.\S+)
+status_ok = Found GCC version %(version)s.
+status_critical = Could not match GCC version. See /etc/arc/nagios/20-dist.ini for debugging hints.
+service_description = org.nordugrid.ARC-CE-sw-gcc%(service_suffix)s
+
+[arcce.dist-sw-python]
+# Usage: check_arcce_submit --test dist-sw-python ...
+#
+jobplugin = scripted
+#required_programs = python
+script_line = PYTHON=`which python2 python python3 2>/dev/null| head -1`; $PYTHON -V >python.out 2>&1
+output_file = python.out
+output_pattern = Python\s+(?P<version>\S+)
+status_ok = Found Python version %(version)s.
+status_critical = Could not match GCC version. See /etc/arc/nagios/20-dist.ini for debugging hints.
+service_description = org.nordugrid.ARC-CE-sw-python%(service_suffix)s
+
+[arcce.dist-sw-perl]
+# Usage: check_arcce_submit --test dist-sw-perl ...
+#
+jobplugin = scripted
+#required_programs = perl
+script_line = perl -v >perl.out 2>&1
+output_file = perl.out
+output_pattern = This is [Pp]erl.*\bv(?P<version>[0-9A-Za-z.-]+)
+status_ok = Found Perl version %(version)s.
+status_critical = Could not match GCC version. See /etc/arc/nagios/20-dist.ini for debugging hints.
+service_description = org.nordugrid.ARC-CE-sw-perl%(service_suffix)s

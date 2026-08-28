@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Author: Petter Reinholdtsen
+#
+# This script initializes the sitesummary-client environment, sourcing
+# configuration files and introducing a randomized delay to prevent
+# thundering herd effects when multiple clients connect to the server
+# simultaneously.
+#
+# Self-documenting variables:
+# runsleep: Maximum sleep time in seconds before starting the client.
+#           Used to stagger client connections.
+
+if [ ! -x /usr/sbin/sitesummary-client ] || \
+    [ -d /run/systemd/system ]; then
+    exit 0
+fi
+
+# Read the package default.  Make sure this is identical to the code
+# in sitesummar-client
+[ -f /usr/share/sitesummary/sitesummary-client.conf ] && \
+  . /usr/share/sitesummary/sitesummary-client.conf
+for confdir in \
+    /usr/share/sitesummary/config.d \
+    /etc/sitesummary/config.d
+do
+    [ -d $confdir ] || continue
+    for config in $confdir/* ; do
+	[ -f $config ] && . $config
+    done
+done
+
+# Sleep a random number of seconds to avoid all clients connecting to
+# the server at the same time.  Based on code from the cron-apt
+# package.
+{% set runsleep_val = runsleep | default(60) %}
+{% if runsleep_val is defined and runsleep_val != "" %}
+if [ -n "$runsleep" ] ; then
+    {% if runsleep_val | int > 0 %}
+    if [ $runsleep -gt 0 ] ; then
+        if [ -z "$RANDOM" ] ; then
+            # A fix for shells that do not have this bash feature.
+            RANDOM=$(dd if=/dev/urandom count=1 2> /dev/null | cksum | cut -c"1-5")
+        fi
+        TIME=$(($RANDOM % $runsleep))
+        sleep $TIME
+    fi
+    {% endif %}
+fi
+{% endif %}
+
+# Run once a day to report the whereabouts of the machine
+nice /usr/sbin/sitesummary-client

@@ -1,41 +1,42 @@
 {
-  "hosts": [
-    "unix:///var/run/docker.sock",
-    "tcp://0.0.0.0:2376"
-  ],
-  "data_root": "/mnt/docker-data",
-  "storage_driver": "overlay2",
-  "log_driver": "json-file",
-  "log_opts": {
-    "max-size": "50m",
-    "max-file": "5"
+ "data_root": "/mnt/docker-data",
+ "default_runtime": "runc",
+ "dns": [
+  "10.0.0.2",
+  "10.0.0.3"
+ ],
+ "dns_search": [
+  "docker.internal",
+  "prod.local"
+ ],
+ "features_containerd_snapshotter": true,
+ "hosts": [
+  "unix:///var/run/docker.sock",
+  "tcp://0.0.0.0:2376"
+ ],
+ "insecure_registries": [
+  "registry.local:5000",
+  "192.168.1.10:5000"
+ ],
+ "live_restore": true,
+ "log_driver": "json-file",
+ "log_opts": {
+  "max-file": "5",
+  "max-size": "50m"
+ },
+ "omit": "",
+ "runtimes": {
+  "kata": {
+   "args": [
+    "--config",
+    "/etc/kata-containers/configuration.toml"
+   ],
+   "path": "/usr/bin/kata-runtime"
   },
-  "dns": [
-    "10.0.0.2",
-    "10.0.0.3"
-  ],
-  "dns_search": [
-    "docker.internal",
-    "prod.local"
-  ],
-  "insecure_registries": [
-    "registry.local:5000",
-    "192.168.1.10:5000"
-  ],
-  "default_runtime": "runc",
-  "runtimes": {
-    "kata": {
-      "path": "/usr/bin/kata-runtime",
-      "args": [
-        "--config",
-        "/etc/kata-containers/configuration.toml"
-      ]
-    },
-    "runsc": {
-      "path": "/usr/bin/runsc",
-      "args": []
-    }
-  },
-  "live_restore": true,
-  "features_containerd_snapshotter": true
+  "runsc": {
+   "args": [],
+   "path": "/usr/bin/runsc"
+  }
+ },
+ "storage_driver": "overlay2"
 }

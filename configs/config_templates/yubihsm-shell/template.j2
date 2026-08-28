@@ -1,0 +1,95 @@
+# =============================================================================
+# yubihsm-shell Configuration
+# =============================================================================
+# This file configures the YubiHSM Shell client.
+# It defines how to connect to the YubiHSM2 via a connector service
+# and sets default parameters for object interactions.
+#
+# Format: INI-style sections corresponding to logical groups.
+# =============================================================================
+
+[connector]
+# List of connector URLs to use (comma-separated string from --connector).
+# Default: ocm:https://localhost:8428
+list = {{ (connectors | default(['ocm:https://localhost:8428'])) | join(',') }}
+
+{% if (cacert | default('')) %}
+# Path to CA certificate for HTTPS connector authentication (--cacert).
+cacert = "{{ cacert | default('') }}"
+{% endif %}
+
+{% if (cert | default('')) %}
+# Path to HTTPS client certificate to authenticate with (--cert).
+cert = "{{ cert | default('') }}"
+{% endif %}
+
+{% if (key | default('')) %}
+# Path to HTTPS client certificate key (--key).
+key = "{{ key | default('') }}"
+{% endif %}
+
+{% if (proxy | default('')) %}
+# Proxy server URL for connector communication (--proxy).
+proxy = "{{ proxy | default('') }}"
+{% endif %}
+
+{% if (noproxy | default([])) | length %}
+# List of hosts to bypass proxy for (--noproxy).
+noproxy = {{ noproxy | default([]) | join(',') }}
+{% endif %}
+
+[auth]
+# Authentication password for the YubiHSM (--password).
+# Note: Passing passwords via config file may be less secure than using --password
+# or environment variables depending on your threat model.
+password = "{{ password | default('') }}"
+
+# Authentication key ID to use for connecting to the YubiHSM (--authkey).
+# This key ID must exist in the device and have auth-key capability.
+authkey = {{ authkey | default(1) }}
+
+[defaults]
+# Object ID for commands that operate on specific objects (--object-id).
+# If 0, most commands operate on the entire namespace or require explicit ID.
+object_id = {{ object_id | default(0) }}
+
+# Object label for identification (--label).
+label = "{{ label | default('') }}"
+
+# List of domains the object belongs to (--domains).
+# Default is all domains (1-16).
+domains = {{ (domains | default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])) | join(',') }}
+
+# Capabilities bitmask for the object (--capabilities).
+capabilities = {{ capabilities | default(0) }}
+
+# Type of object to interact with (--object-type).
+# Values: any, authkey, data, asymmetrickey, etc.
+object_type = "{{ object_type | default('any') }}"
+
+[device]
+# Credential label on YubiKey for YKHSMAuth mode (--ykhsmauth-label).
+# When set, enables YKHSMAuth mode instead of standard YubiHSM connector.
+ykhsmauth_label = "{{ ykhsmauth_label | default('') }}"
+
+# Filter YubiKey reader name for YKHSMAuth (--ykhsmauth-reader).
+ykhsmauth_reader = "{{ ykhsmauth_reader | default('') }}"
+
+[format]
+# Input data format for commands (--informat).
+# Values: default, hex, ascii, etc.
+informat = "{{ informat | default('default') }}"
+
+# Output data format for commands (--outformat).
+# Values: default, hex, ascii, etc.
+outformat = "{{ outformat | default('default') }}"
+
+[output]
+# Output file path (--out).
+# Use '-' for stdout.
+out = "{{ out | default('-') }}"
+
+[input]
+# Input file path (--in).
+# Use '-' for stdin.
+in = "{{ in | default('-') | lower }}"

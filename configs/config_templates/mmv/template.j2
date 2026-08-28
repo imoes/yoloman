@@ -1,0 +1,107 @@
+# ==============================================================================
+# Configuration for Memory Mapped Values (MMV) performance metrics source
+# ==============================================================================
+# This template configures a PCP (Performance Co-Pilot) MMV metrics source.
+# MMV allows exporting arbitrary metrics from external applications by writing
+# to a memory-mapped file in a designated directory.
+#
+# Schema Fields:
+#   pcp_tmp_dir  : The base PCP temporary directory (default: /var/tmp/pcp)
+#   service_name : The name of the application/source generating metrics
+#   pmda_domain  : PMDA domain number (-1 for dynamic assignment)
+#   cluster_id   : Cluster identifier hint for metric identification
+#   flags        : MMV flags (e.g., MMV_FLAG_PROCESS)
+#   metrics      : List of metric definitions
+#   indoms       : List of instance domain definitions
+#   instances    : List of instance definitions
+#   labels       : List of label definitions (v3 format)
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# pcp_tmp_dir (String): The PCP temporary directory where MMV files are generated.
+# Default: /var/tmp/pcp
+# --------------------------------------------------------------------------
+mmv_dir: {{ (pcp_tmp_dir | default('/var/tmp/pcp')) }}/mmv
+
+# --------------------------------------------------------------------------
+# service_name (String): The name of the application or source generating the metrics.
+# Default: myapp
+# --------------------------------------------------------------------------
+service_name: "{{ service_name | default('myapp') }}"
+
+# --------------------------------------------------------------------------
+# pmda_domain (Integer): The PMDA domain number. Use -1 for dynamic assignment
+# or a specific integer for static assignment.
+# Default: -1
+# --------------------------------------------------------------------------
+pmda_domain: {{ pmda_domain | default(-1) }}
+
+# --------------------------------------------------------------------------
+# cluster_id (Integer): Cluster identifier hint for metric identification.
+# Default: 0
+# --------------------------------------------------------------------------
+cluster_id: {{ cluster_id | default(0) }}
+
+# --------------------------------------------------------------------------
+# flags (Integer): MMV flags (e.g., MMV_FLAG_PROCESS).
+# See mmv_stats.h for flag definitions.
+# Default: 0
+# --------------------------------------------------------------------------
+flags: {{ flags | default(0) }}
+
+# --------------------------------------------------------------------------
+# metrics (List): List of metric definitions to export.
+# Each metric object may contain: name, item, type, semantics, dimensions,
+# instdom, short_help, long_help.
+# See mmv(5) FILE FORMAT Metrics sections.
+# --------------------------------------------------------------------------
+metrics:
+{% for m in (metrics | default([])) %}
+  - name: "{{ m.name | default('') }}"
+    item: {{ m.item | default(0) }}
+    type: {{ m.type | default(0) }}
+    semantics: {{ m.semantics | default(0) }}
+    dimensions: {{ m.dimensions | default(0) }}
+    instdom: {{ m.instdom | default(0) }}
+    short_help: "{{ m.short_help | default('') }}"
+    long_help: "{{ m.long_help | default('') }}"
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# indoms (List): List of instance domain definitions.
+# Each instance domain object may contain: serial, count, short_help, long_help.
+# See mmv(5) FILE FORMAT Indoms sections.
+# --------------------------------------------------------------------------
+indoms:
+{% for d in (indoms | default([])) %}
+  - serial: {{ d.serial | default(0) }}
+    count: {{ d.count | default(0) }}
+    short_help: "{{ d.short_help | default('') }}"
+    long_help: "{{ d.long_help | default('') }}"
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# instances (List): List of instance definitions.
+# Each instance object may contain: domain_ref, internal_id, external_id.
+# See mmv(5) FILE FORMAT Instances sections.
+# --------------------------------------------------------------------------
+instances:
+{% for i in (instances | default([])) %}
+  - domain_ref: {{ i.domain_ref | default(0) }}
+    internal_id: {{ i.internal_id | default(0) }}
+    external_id: "{{ i.external_id | default('') }}"
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# labels (List): List of label definitions for v3 MMV format.
+# Labels are name:value JSON pairs attached to metrics/instances.
+# Each label object may contain: flags, identifier, inst_id, payload.
+# See mmv(5) FILE FORMAT Labels sections.
+# --------------------------------------------------------------------------
+labels:
+{% for l in (labels | default([])) %}
+  - flags: {{ l.flags | default(0) }}
+    identifier: {{ l.identifier | default(0) }}
+    inst_id: {{ l.inst_id | default(0) }}
+    payload: "{{ l.payload | default('') }}"
+{% endfor %}

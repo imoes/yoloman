@@ -1,0 +1,59 @@
+# NextEPC PGW (Packet Gateway) Configuration Template
+# This template generates the YAML configuration file for the NextEPC PGW component.
+# It is self-documenting: every variable reference includes its schema description and default value.
+
+# Logger section: Configures logging behavior for the PGW.
+logger:
+    # pgw_log_file: Path to the PGW log file.
+    file: {{ pgw_log_file | default('/var/log/nextepc/pgw.log') }}
+    # Trace flags: Enable detailed tracing for specific protocols/modules.
+    trace: 
+        # Trace application logic
+        app: 1
+        # Trace Diameter protocol messages (FreeDiameter)
+        diameter: 1
+        # Trace GTPv2-C control plane messages
+        gtpv2: 1
+        # Trace GTP-U user plane messages
+        gtp: 1
+
+# Parameter section (reserved/empty in current schema)
+parameter:
+
+# PGW (Packet Gateway) specific settings
+pgw:
+    # pgw_freeDiameter_conf_path: Path to the FreeDiameter configuration file for PGW.
+    freeDiameter: {{ pgw_freeDiameter_conf_path | default('/etc/nextepc/freeDiameter/pgw.conf') }}
+    
+    # GTP-C (GTP Control Plane) interface addresses
+    gtpc:
+      addr:
+        # pgw_gtpc_addr_ipv4: IPv4 address for GTP-C interface.
+        - {{ pgw_gtpc_addr_ipv4 | default('127.0.0.3') }}
+        # pgw_gtpc_addr_ipv6: IPv6 address for GTP-C interface.
+        - {{ pgw_gtpc_addr_ipv6 | default('::1') }}
+    
+    # GTP-U (GTP User Plane) interface addresses
+    gtpu:
+      # First GTP-U address entry
+      - addr: {{ pgw_gtpu_addr_ipv4 | default('127.0.0.3') }}
+      # Second GTP-U address entry
+      - addr: {{ pgw_gtpu_addr_ipv6 | default('::1') }}
+    
+    # UE (User Equipment) IP address pools
+    ue_pool:
+      # First UE pool entry (IPv4)
+      - addr: {{ pgw_ue_pool_ipv4_cidr | default('45.45.0.1/16') }}
+      # Second UE pool entry (IPv6)
+      - addr: {{ pgw_ue_pool_ipv6_cidr | default('cafe::1/64') }}
+    
+    # DNS servers assigned to UE devices
+    dns:
+        # pgw_dns_primary_ipv4: Primary DNS server IPv4 address.
+        - {{ pgw_dns_primary_ipv4 | default('8.8.8.8') }}
+        # pgw_dns_secondary_ipv4: Secondary DNS server IPv4 address.
+        - {{ pgw_dns_secondary_ipv4 | default('8.8.4.4') }}
+        # pgw_dns_primary_ipv6: Primary DNS server IPv6 address.
+        - {{ pgw_dns_primary_ipv6 | default('2001:4860:4860::8888') }}
+        # pgw_dns_secondary_ipv6: Secondary DNS server IPv6 address.
+        - {{ pgw_dns_secondary_ipv6 | default('2001:4860:4860::8844') }}

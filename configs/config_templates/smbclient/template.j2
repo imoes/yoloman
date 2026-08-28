@@ -1,0 +1,55 @@
+# smbclient command-line invocation configuration
+# This template generates the arguments for a single smbclient invocation.
+# Each variable defaults to the schema default to ensure idempotent, safe rendering.
+
+# Connect to the specified service path (e.g., //localhost/share or //server/public)
+# The SMB/CIFS service path in the format //server/service
+smbclient \
+  {{ service_path | default('//localhost/share') }} \
+  \
+  # Suppress password prompt (-N)
+  # Suppress the password prompt if set to true; otherwise, the default behavior is interactive
+  {% if no_pass | default(False) | bool %}-N \
+  {% endif %}
+  \
+  # Enable Kerberos authentication
+  # Use Kerberos authentication if set to 'on' or 'required'; 'off' disables it
+  {% if use_kerberos | default('off') | lower != 'off' %}--use-kerberos={{ use_kerberos | default('off') }} \
+  {% endif %}
+  \
+  # Set the workgroup/domain
+  # The SMB domain/workgroup for authentication
+  -W {{ workgroup | default('WORKGROUP') }} \
+  \
+  # Set the username and optionally the password via command line
+  # The username for authentication (-U). Password is appended if provided, but -A file is preferred for security.
+  -U "{{ username | default('') }}{% if password | default('') %}{{ password | default('') }}{% endif %}" \
+  \
+  # Set the maximum SMB protocol version
+  # The highest SMB protocol version to use (e.g., SMB3, SMB2, NT1). Prevents fallback to insecure versions.
+  {% if max_protocol | default('SMB3') %}-m {{ max_protocol | default('SMB3') }} \
+  {% endif %}
+  \
+  # Set the timeout in seconds
+  # Timeout in seconds for each SMB request. Helps avoid hanging on unresponsive shares.
+  {% if timeout | default(20) %}-t {{ timeout | default(20) }} \
+  {% endif %}
+  \
+  # Set the debug level
+  # Debug level from 0 (errors only) to 10 (all debug info). Useful for troubleshooting connection issues.
+  {% if debug_level | default(1) %}-d {{ debug_level | default(1) }} \
+  {% endif %}
+  \
+  # Set the log file basename
+  # Base name for log files. The actual log path may be extended by the client or OS.
+  {% if log_basename | default('/var/log/smbclient') %}-l {{ log_basename | default('/var/log/smbclient') }} \
+  {% endif %}
+  \
+  # Specify the configuration file
+  # Path to the client configuration file (smb.conf) to use instead of the default.
+  {% if config_file | default('/etc/samba/smb.conf') %}-s {{ config_file | default('/etc/samba/smb.conf') }} \
+  {% endif %}
+  \
+  # Execute the command string if provided
+  # Semicolon-separated list of smbclient commands to execute instead of entering the interactive shell.
+  {% if command | default('') %}-c "{{ command | default('') }}"{% endif %}

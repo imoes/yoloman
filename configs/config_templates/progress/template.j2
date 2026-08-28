@@ -1,0 +1,84 @@
+# ==============================================================================
+# Progress CLI Configuration Template
+# ==============================================================================
+# This template generates environment variables for the `progress` command-line
+# tool (https://github.com/Xfennec/progress). The tool monitors the progress
+# of file copy/move/compile operations.
+#
+# Configuration is driven by boolean flags and list arguments which are
+# combined into the PROGRESS_ARGS_FINAL variable. Individual flags are also
+# exported for compatibility with tools that might inspect the environment
+# directly, though PROGRESS_ARGS_FINAL is the canonical source for the
+# `progress` invocation.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Boolean Flags
+# ------------------------------------------------------------------------------
+
+# Enable continuous monitoring mode (like 'watch').
+# Sets the -M flag.
+# Default: False
+PROGRESS_ARGS_MONITOCONTINUOUS={{ (progress_args_monitocontinuous | default(False)) | bool | lower }}
+
+# Enable monitor mode (loop while monitored processes are still running).
+# Sets the -m flag.
+# Default: False
+PROGRESS_ARGS_MONITOR={{ (progress_args_monitor | default(False)) | bool | lower }}
+
+# Quiet mode: hide all messages.
+# Sets the -q flag.
+# Default: False
+PROGRESS_ARGS_QUIET={{ (progress_args_quiet | default(False)) | bool | lower }}
+
+# Show debug/warning/error messages.
+# Sets the -d flag.
+# Default: False
+PROGRESS_ARGS_DEBUG={{ (progress_args_debug | default(False)) | bool | lower }}
+
+# Estimate I/O throughput and remaining time.
+# Sets the -w flag.
+# Default: False
+PROGRESS_ARGS_WAIT={{ (progress_args_wait | default(False)) | bool | lower }}
+
+# Wait delay in seconds for I/O estimation (implies -w).
+# Sets the -W argument value. Requires wait=true for this to be effective.
+# Default: 1
+PROGRESS_ARGS_WAIT_DELAY={{ (progress_args_wait_delay | default(1)) }}
+
+# ------------------------------------------------------------------------------
+# List/Array Arguments (Individual Exports for Inspection)
+# ------------------------------------------------------------------------------
+
+# Commands to monitor exclusively (supports multiple via list join).
+# Sets the -c flag.
+# Default: [] (empty list)
+PROGRESS_ARGS_COMMANDS={{ (progress_args_commands | default([])) | join(' ') }}
+
+# Additional commands to add to the default coreutils list.
+# Sets the -a flag.
+# Default: [] (empty list)
+PROGRESS_ARGS_ADDITIONAL_COMMANDS={{ (progress_args_additional_commands | default([])) | join(' ') }}
+
+# PIDs to monitor exclusively.
+# Sets the -p flag.
+# Default: [] (empty list)
+PROGRESS_ARGS_PIDS={{ (progress_args_pids | default([])) | join(' ') }}
+
+# Files to ignore in reports.
+# Sets the -i flag.
+# Default: [] (empty list)
+PROGRESS_ARGS_IGNORE_FILES={{ (progress_args_ignore_files | default([])) | join(' ') }}
+
+# Open mode for file reporting (r or w).
+# Sets the -o flag.
+# Default: 'r'
+PROGRESS_ARGS_OPEN_MODE={{ (progress_args_open_mode | default('r')) }}
+
+# ------------------------------------------------------------------------------
+# Final Arguments Construction
+# ------------------------------------------------------------------------------
+
+# This variable constructs the complete argument string for the 'progress' command.
+# It aggregates all boolean flags, list-based options, and specific settings.
+PROGRESS_ARGS_FINAL={% set args = [] %}{% if (progress_args_monitor | default(False)) %}{% set _ = args.append('-m') %}{% endif %}{% if (progress_args_monitocontinuous | default(False)) %}{% set _ = args.append('-M') %}{% endif %}{% if (progress_args_quiet | default(False)) %}{% set _ = args.append('-q') %}{% endif %}{% if (progress_args_debug | default(False)) %}{% set _ = args.append('-d') %}{% endif %}{% if (progress_args_wait | default(False)) %}{% set _ = args.append('-w') %}{% endif %}{% if (progress_args_wait_delay | default(1)) %}{% set _ = args.append('-W') %}{% set _ = args.append((progress_args_wait_delay | default(1))|string) %}{% endif %}{% for cmd in (progress_args_commands | default([])) %}{% set _ = args.append('-c') %}{% set _ = args.append(cmd) %}{% endfor %}{% for cmd in (progress_args_additional_commands | default([])) %}{% set _ = args.append('-a') %}{% set _ = args.append(cmd) %}{% endfor %}{% for pid in (progress_args_pids | default([])) %}{% set _ = args.append('-p') %}{% set _ = args.append(pid|string) %}{% endfor %}{% for f in (progress_args_ignore_files | default([])) %}{% set _ = args.append('-i') %}{% set _ = args.append(f) %}{% endfor %}{% if (progress_args_open_mode | default('r')) %}{% set _ = args.append('-o') %}{% set _ = args.append((progress_args_open_mode | default('r'))) %}{% endif %}{{ args | join(' ') }}

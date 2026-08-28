@@ -1,0 +1,35 @@
+# /etc/cron.d/lyskom-server: crontab entries for the lyskom-server package
+#
+# This file defines a scheduled task for updating the LysKOM server.
+# By default, the job is commented out to ensure the administrator
+# manually activates it after securing the server (e.g., changing
+# the default administrator password).
+
+# ==============================================================================
+# Cron Job Configuration
+# ==============================================================================
+
+# [Description]
+# Cron schedule expression for the lyskom-server update job.
+# Defaults to every 10 minutes if not specified.
+# [Variable] lyskom_server_cron_schedule
+# {{ lyskom_server_cron_schedule | default('0,10,20,30,40,50 * * * *') }}
+
+# [Description]
+# User account under which the cron job will execute.
+# Defaults to root. Ensure this user has permission to run the command.
+# [Variable] lyskom_server_cron_user
+{{ lyskom_server_cron_user | default('root') }}
+
+# [Description]
+# The command to execute. This line tests for executable permission
+# on the script before attempting to run it as the specified user.
+# Note: When systemd is in use, this cron job should typically be
+# disabled in favor of a systemd timer unit.
+# [Variable] lyskom_server_cron_command_path
+# {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }}
+
+# --- Active Configuration ---
+# To activate this cron job, uncomment the following line.
+# Syntax: <schedule> <user> <test command> && <execute command>
+# {{ lyskom_server_cron_schedule | default('0,10,20,30,40,50 * * * *') }} {{ lyskom_server_cron_user | default('root') }} test -x {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }} && su {{ lyskom_server_cron_user | default('root') }} -c {{ lyskom_server_cron_command_path | default('/usr/sbin/updateLysKOM') }}

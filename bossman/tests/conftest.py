@@ -39,13 +39,15 @@ _TEST_KEY_DIR = tempfile.mkdtemp(prefix="bossman-test-keys-")
 os.environ.setdefault("BOSSMAN_CLIENT_KEY_PATH", os.path.join(_TEST_KEY_DIR, "bossman-client.key"))
 os.environ.setdefault("BOSSMAN_CLIENT_CERT_PATH", os.path.join(_TEST_KEY_DIR, "bossman-client.crt"))
 
-from datetime import datetime, timezone  # noqa: E402
+import uuid  # noqa: E402
+from datetime import datetime, timedelta, timezone  # noqa: E402
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
 from bossman.config import get_settings  # noqa: E402
+from tests.naming import RUN_TAG  # noqa: E402
 
 
 @pytest_asyncio.fixture
@@ -102,6 +104,7 @@ async def _drop_test_residue():
         await _drop_leaked_check_rules(session, started)
         await _drop_leaked_agents(session, started)
         await _drop_leaked_netboot_rows(session, started)
+        await _drop_leaked_groups_and_grants(session, started)
     await engine.dispose()
 
 
@@ -148,6 +151,17 @@ async def _drop_leaked_check_rules(session, started):
 # that exists was minted by a test.
 _TEST_AGENT_NAME = r"^[a-z-]+-[0-9a-f]{8}$"
 
+#: The ownership marker and the naming helper live in tests/naming.py so a suite can import them
+#: without importing conftest (which pytest does not expose as a module). See that file for the
+#: measurement that made ownership necessary: two concurrent runs deleted each other's rows.
+#:
+#: A row is cleaned when it is OWNED (its name carries this run's tag) or ORPHANED (test-shaped and
+#: older than any plausible live run). A concurrent run's fresh rows are neither.
+#:
+#: Anything test-shaped and older than this belonged to a run that is long gone (a crash, a killed
+#: container). No live suite runs for hours, so sweeping these cannot touch a running process.
+_ORPHAN_AGE = timedelta(hours=2)
+
 # Copied from _AGENT_CHILD_DELETES in bossman/api/agents.py so teardown cannot fall behind the schema.
 _AGENT_CHILD_CLEANUP = (
     "DELETE FROM host_edges WHERE src_agent_id = ANY(:ids) OR dst_agent_id = ANY(:ids)",
@@ -180,11 +194,18 @@ async def _drop_leaked_agents(session, started):
     from sqlalchemy import text
 
     try:
+        # OWNED (name carries this process's RUN_TAG) or ORPHANED (test-shaped and too old to
+        # belong to any live run). `started` is no longer a criterion on its own: it could not tell
+        # this run's rows from a concurrent run's, and deleted both — see RUN_TAG above.
         ids = list(
             (
                 await session.scalars(
-                    text("SELECT id FROM agents WHERE name ~ :pat AND created_at >= :since").bindparams(
-                        pat=_TEST_AGENT_NAME, since=started
+                    text(
+                        "SELECT id FROM agents WHERE name LIKE :owned "
+                        "OR (name ~ :pat AND created_at < :orphan_before)"
+                    ).bindparams(
+                        owned=f"%{RUN_TAG}%", pat=_TEST_AGENT_NAME,
+                        orphan_before=datetime.now(timezone.utc) - _ORPHAN_AGE,
                     )
                 )
             ).all()
@@ -199,6 +220,68 @@ async def _drop_leaked_agents(session, started):
         for stmt in _AGENT_CHILD_CLEANUP:
             await session.execute(text(stmt), params)
         await session.execute(text("DELETE FROM agents WHERE id = ANY(:ids)"), params)
+        await session.commit()
+    except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
+        await session.rollback()
+
+
+async def _drop_leaked_groups_and_grants(session, started):
+    """Remove host groups and access grants this run created.
+
+    Both were missing from the guards and both were measured leaking into the shared database: 36
+    `grp-XXXXXX` groups with no members polluted every group picker in the UI (including the new
+    Check-templates link editor), and `access_grants` had grown to over a thousand rows. A leaked
+    GROUP is not cosmetic either — a rule scoped to a group that only a test knows about is a
+    policy nobody can explain.
+
+    Same rule as the agents guard: owned by this run, or an orphan older than any live run.
+    Groups cascade their memberships; a grant scoped to a deleted group goes with it.
+    """
+    from sqlalchemy import text
+
+    try:
+        params = {
+            "owned": f"%{RUN_TAG}%",
+            "grp": r"^grp-[0-9a-f]{6}$",
+            "orphan_before": datetime.now(timezone.utc) - _ORPHAN_AGE,
+        }
+        # The test tokens themselves leak too (147 were sitting in the shared database). Same two
+        # criteria: owned by this run, or an orphan whose name is unmistakably a suite's caller.
+        await session.execute(
+            text(
+                "DELETE FROM api_tokens WHERE name LIKE :owned "
+                "OR (name LIKE '%-caller%' AND created_at < :orphan_before)"
+            ),
+            params,
+        )
+        # TOKENS FIRST, then their grants — the order matters and the first version had it wrong.
+        # Deleting grants before the tokens left every grant of a token removed in the same pass
+        # behind, to be swept only on the NEXT run (measured: 1325 grants dropped to 971 instead of
+        # going away). Removing the token first makes its grant dangle, and the grant sweep below
+        # catches it immediately.
+        #
+        # The shape rule alone missed most of them, which measuring showed: 1325 grants existed and
+        # only THREE matched `<prefix>-<8 hex>`, because the suites' callers use fixed names
+        # (test-caller, mon-caller, mgmt-caller). So a grant is also swept when it DANGLES — no
+        # api_tokens row carries its subject_ref — and its name looks like a test caller. Dangling
+        # is not cosmetic: a grant references its subject by NAME, so a future token called
+        # test-caller would inherit `scope=all, permission=manage` from a run that ended weeks ago.
+        await session.execute(
+            text(
+                "DELETE FROM access_grants WHERE subject_ref LIKE :owned "
+                "OR (subject_ref ~ '^[a-z-]+-[0-9a-f]{8}$' AND created_at < :orphan_before) "
+                "OR (subject_kind = 'api_token' AND subject_ref LIKE '%-caller%' "
+                "    AND NOT EXISTS (SELECT 1 FROM api_tokens t WHERE t.name = subject_ref))"
+            ),
+            params,
+        )
+        await session.execute(
+            text(
+                "DELETE FROM host_groups WHERE name LIKE :owned "
+                "OR (name ~ :grp AND created_at < :orphan_before)"
+            ),
+            params,
+        )
         await session.commit()
     except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
         await session.rollback()

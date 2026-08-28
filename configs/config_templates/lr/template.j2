@@ -1,0 +1,62 @@
+# ==============================================================================
+# lr - A recursive directory listing tool configuration
+# ==============================================================================
+# This template configures the 'lr' utility. It is not a network service
+# and does not require peer connections. It is a local execution tool.
+
+# --- Paths to Scan ---
+# List of directories or files to scan.
+# If empty, lr defaults to the current directory.
+{% for path in paths | default([], true) %}
+{{ path }}
+{% endfor %}
+
+# --- Sorting ---
+# Sort order string using single letters defined in lr(1) SORT ORDER.
+# Examples: 'n' for name, 's' for size, 'a' for atime.
+--sort={{ sort_order | default('n') }}
+
+# --- Formatting ---
+# Custom format string for output.
+# If empty, default listing is used. See lr(1) FORMATTING.
+--format={{ format_string | default('') }}
+
+# --- Filtering ---
+# POSIX ERE regex to match filenames against (lr -e).
+# If empty, no regex filtering is applied.
+--regex={{ regex | default('') }}
+
+# Test expression to filter files (lr -t).
+# See lr(1) TESTS for complex expression syntax.
+--test={{ test | default('') }}
+
+# --- Traversal ---
+# Traverse subdirectories.
+# If true, lr enters and lists subdirectories.
+# If false, the --no-dir-entries flag is passed.
+{% if traverse_subdirs | default(true) %}
+{% else %}
+--no-dir-entries
+{% endif %}
+
+# --- Symbolic Links ---
+# Follow symbolic links.
+# If true, lr follows symlinks (-L).
+# If false, symlinks are not followed (default behavior).
+{% if follow_symlinks | default(false) %}
+--follow-symlinks
+{% endif %}
+
+# --- Color Output ---
+# Colorize output to TTY.
+# If true, enables colorized output (-G).
+{% if colorize | default(false) %}
+--color
+{% endif %}
+
+# --- Human Readable Sizes ---
+# Print file sizes in human-readable format.
+# If true, enables the -h flag.
+{% if human_readable_size | default(false) %}
+--human-readable
+{% endif %}

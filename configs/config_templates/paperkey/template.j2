@@ -1,0 +1,75 @@
+# paperkey configuration template
+# Generated for paperkey service automation
+# This template generates command-line arguments for the paperkey utility.
+# paperkey extracts secret key material from OpenPGP keys into a compact format
+# suitable for backup or secure storage.
+
+# --secret-key <file>
+# File to read the secret key from. If not given, reads from standard-input.
+{% if secret_key | default('') | trim %}
+--secret-key {{ secret_key | default('') | trim }}
+{% endif %}
+
+# --pubring <file>
+# File to read public key information from. Required when rebuilding private keys.
+{% if pubring | default('') | trim %}
+--pubring {{ pubring | default('') | trim }}
+{% endif %}
+
+# --secrets <file>
+# File to read the extracted secrets (paperkey) from. If not given, reads from standard-input.
+{% if secrets_file | default('') | trim %}
+--secrets {{ secrets_file | default('') | trim }}
+{% endif %}
+
+# --output <file>
+# Redirect output to the file given instead of printing to standard-output.
+{% if output_file | default('') | trim %}
+--output {{ output_file | default('') | trim }}
+{% endif %}
+
+# --output-type <type>
+# Select the output type. The base16 style encodes the information in hex-dump style.
+# Raw mode is for barcode generators.
+{% if output_type | default('base16') | trim %}
+--output-type {{ output_type | default('base16') | trim }}
+{% endif %}
+
+# --input-type <type>
+# Specify that the given input is either in base16 format, as produced by paperkey,
+# or in raw format. Default auto tries to automatically detect it.
+{% if input_type | default('auto') | trim %}
+--input-type {{ input_type | default('auto') | trim }}
+{% endif %}
+
+# --output-width <n>
+# Choose line width in the base16 output mode. The default is 78 characters.
+{% if output_width is defined %}
+--output-width {{ output_width | default(78) }}
+{% else %}
+--output-width {{ output_width | default(78) }}
+{% endif %}
+
+# --verbose
+# Print status and progress information to standard-error while processing the input.
+{% if verbose | default(false) | bool %}
+--verbose
+{% endif %}
+
+# --ignore-crc-error
+# Do not reject corrupt input and continue despite any CRC errors.
+{% if ignore_crc_error | default(false) | bool %}
+--ignore-crc-error
+{% endif %}
+
+# --comment "<text>"
+# Include the specified comment in the base16 output.
+{% if comment | default('') | trim %}
+--comment "{{ comment | default('') | trim }}"
+{% endif %}
+
+# --file-format
+# Simply prints out the file format and exits successfully.
+{% if file_format | default(false) | bool %}
+--file-format
+{% endif %}

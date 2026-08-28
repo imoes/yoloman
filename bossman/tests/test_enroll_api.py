@@ -10,6 +10,7 @@ route depends on via bossman.db.session.get_session.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -26,7 +27,7 @@ def _make_app(tmp_path, monkeypatch):
 
 async def test_enroll_creates_agent_and_returns_public_key(tmp_path, monkeypatch, db_session):
     app = _make_app(tmp_path, monkeypatch)
-    name = f"api-enroll-{uuid.uuid4().hex[:8]}"
+    name = owned_name("api-enroll")
 
     with TestClient(app) as client:
         resp = client.post(
@@ -51,8 +52,8 @@ async def test_enroll_creates_agent_and_returns_public_key(tmp_path, monkeypatch
 
 async def test_enroll_reuses_the_same_keypair_across_calls(tmp_path, monkeypatch, db_session):
     app = _make_app(tmp_path, monkeypatch)
-    name1 = f"api-enroll-{uuid.uuid4().hex[:8]}"
-    name2 = f"api-enroll-{uuid.uuid4().hex[:8]}"
+    name1 = owned_name("api-enroll")
+    name2 = owned_name("api-enroll")
 
     with TestClient(app) as client:
         resp1 = client.post("/api/v1/enroll", json={"name": name1, "token": "t1"})
@@ -71,7 +72,7 @@ async def test_enroll_is_open_no_secret_required(tmp_path, monkeypatch, db_sessi
     """Enrollment is open: the route is always mounted and accepts a caller
     with no secret, creating the agent."""
     app = _make_app(tmp_path, monkeypatch)
-    name = f"api-open-{uuid.uuid4().hex[:8]}"
+    name = owned_name("api-open")
 
     with TestClient(app) as client:
         resp = client.post("/api/v1/enroll", json={"name": name, "token": "tok"})

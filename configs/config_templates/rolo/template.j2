@@ -1,0 +1,44 @@
+# ==============================================================================
+# Configuration for rolo (text-based contact management tool)
+# ==============================================================================
+# This template configures the local settings for the 'rolo' application.
+# 'rolo' is a command-line utility for managing vCard contacts stored in
+# a simple text-based format.
+#
+# Configuration precedence:
+#   1. Command-line flags (highest priority)
+#   2. Environment variables (e.g., ROLO_EDITOR)
+#   3. This configuration file (lowest priority for overrides)
+#
+# Syntax is simple key-value pairs. Comments start with '#'.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Data File Location
+# --------------------------------------------------------------------------
+# The path to the vCard file where contacts are stored.
+# If the file does not exist, rolo may create it depending on the operation.
+# Corresponds to the command-line flag: -f <path>
+# Default: ~/.rolo/contacts.vcf
+# Note: The variable rolo_datafile must be defined in the Ansible context.
+rolo_datafile: {{ rolo_datafile | default('~/.rolo/contacts.vcf') }}
+
+# --------------------------------------------------------------------------
+# Preferred Editor
+# --------------------------------------------------------------------------
+# The command-line program to invoke when editing a contact entry.
+# This is used when a user chooses to edit a contact in detail.
+# Corresponds to the environment variable: $ROLO_EDITOR
+# Falls back to system default editor if not specified here.
+# Default: /usr/bin/editor
+rolo_editor: {{ rolo_editor | default('/usr/bin/editor') }}
+
+# --------------------------------------------------------------------------
+# Read-Only Mode
+# --------------------------------------------------------------------------
+# If set to 'true', rolo will start in read-only mode.
+# In this mode, no changes (add, edit, delete) can be made to the contact
+# database, ensuring data integrity against accidental modifications.
+# Corresponds to the command-line flag: -r
+# Default: false (write access is allowed)
+rolo_readonly: {{ rolo_readonly | default(false) | lower }}

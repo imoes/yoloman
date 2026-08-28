@@ -308,12 +308,12 @@ export class WebConfigTreeComponent {
     // Critical path ONLY: the vhost template (→ schema/tplBody) + the site list. Certificate discovery is
     // best-effort and runs separately, so a missing cert dir can never abort the whole load.
     forkJoin({
-      tpls: this.agentService.configTemplates(),
+      tpl: this.agentService.configTemplate(p.vhostTemplate),
       avail: this.agentService.callTool(this.agentId(), 'find',
         p.sitesPattern ? { paths: [p.sitesDir], file_type: 'file', pattern: p.sitesPattern } : { paths: [p.sitesDir], file_type: 'file' }),
     }).subscribe({
-      next: ({ tpls, avail }) => {
-        const tpl = tpls.templates.find((t) => t.name === p.vhostTemplate);
+      next: ({ tpl: { tpl, missing }, avail }) => {
+        if (missing) this.err.set(missing);
         this.tplBody = tpl?.template || '';
         if (tpl?.schema) this.schema.set(tpl.schema as ParamSchema);
         const availList = ((avail.result as { data?: { path: string }[] })?.data) || [];

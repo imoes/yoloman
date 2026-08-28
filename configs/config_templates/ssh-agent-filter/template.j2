@@ -1,0 +1,126 @@
+# =============================================================================
+# ssh-agent-filter Configuration Template
+# =============================================================================
+# This template generates the command-line arguments for ssh-agent-filter.
+# ssh-agent-filter is a helper that allows an SSH agent to ask the user for
+# confirmation before using a private key, based on fingerprints or comments.
+#
+# See ssh-agent-filter(1) for detailed documentation on each option.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Instance Name
+# -----------------------------------------------------------------------------
+# Corresponds to: -n [ --name ] arg
+# The name for this instance of ssh-agent-filter, displayed during confirmation
+# prompts to identify which service is requesting the key usage.
+INSTANCE_NAME: "{{ instance_name | default('ssh-agent-filter') }}"
+
+# -----------------------------------------------------------------------------
+# Debug Mode
+# -----------------------------------------------------------------------------
+# Corresponds to: -d [ --debug ]
+# If true, show debug info and do not fork into the background. Useful for
+# troubleshooting configuration issues.
+DEBUG_MODE: {{ debug_mode | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Global Confirmation Policy
+# -----------------------------------------------------------------------------
+# Corresponds to: -A [ --all-confirmed ]
+# If true, allow all other keys (those not explicitly listed in whitelist keys)
+# but require confirmation for each usage. This acts as a fallback policy.
+ALL_CONFIRMED: {{ all_confirmed | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Keys Requiring Confirmation
+# -----------------------------------------------------------------------------
+
+# Corresponds to: -C [ --comment-confirmed ] arg
+# List of key comments to allow with confirmation.
+# These are SSH public keys identified by their comment field (often an email
+# or hostname). The agent will ask the user for permission before using these keys.
+{% if comment_confirmed | default([]) | length > 0 %}
+COMMENT_CONFIRMED:
+{% for comment in comment_confirmed | default([]) %}
+  - {{ comment | default('') }}
+{% endfor %}
+{% else %}
+COMMENT_CONFIRMED: []
+{% endif %}
+
+# Corresponds to: -F [ --fingerprint-confirmed ] arg
+# List of key MD5 fingerprints (hex-encoded) to allow with confirmation.
+# Using fingerprints is more robust than comments, as comments can be changed
+# without altering the actual key material.
+{% if fingerprint_confirmed | default([]) | length > 0 %}
+FINGERPRINT_CONFIRMED:
+{% for fp in fingerprint_confirmed | default([]) %}
+  - {{ fp | default('') }}
+{% endfor %}
+{% else %}
+FINGERPRINT_CONFIRMED: []
+{% endif %}
+
+# Corresponds to: -K [ --key-confirmed ] arg
+# List of base64-encoded public keys to allow with confirmation.
+# This provides the most explicit identification of the key itself.
+{% if key_confirmed | default([]) | length > 0 %}
+KEY_CONFIRMED:
+{% for key in key_confirmed | default([]) %}
+  - {{ key | default('') }}
+{% endfor %}
+{% else %}
+KEY_CONFIRMED: []
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Keys Allowed Without Confirmation (Whitelist)
+# -----------------------------------------------------------------------------
+
+# Corresponds to: -c [ --comment ] arg
+# List of key comments to allow without confirmation.
+# Keys matching these comments will be used automatically without prompting the
+# user. Use with caution.
+{% if comment_keys | default([]) | length > 0 %}
+COMMENT_KEYS:
+{% for comment in comment_keys | default([]) %}
+  - {{ comment | default('') }}
+{% endfor %}
+{% else %}
+COMMENT_KEYS: []
+{% endif %}
+
+# Corresponds to: -f [ --fingerprint ] arg
+# List of key MD5 fingerprints (hex-encoded) to allow without confirmation.
+# These keys are trusted implicitly.
+{% if fingerprint_keys | default([]) | length > 0 %}
+FINGERPRINT_KEYS:
+{% for fp in fingerprint_keys | default([]) %}
+  - {{ fp | default('') }}
+{% endfor %}
+{% else %}
+FINGERPRINT_KEYS: []
+{% endif %}
+
+# Corresponds to: -k [ --key ] arg
+# List of base64-encoded public keys to allow without confirmation.
+# These keys are trusted implicitly.
+{% if key_keys | default([]) | length > 0 %}
+KEY_KEYS:
+{% for key in key_keys | default([]) %}
+  - {{ key | default('') }}
+{% endfor %}
+{% else %}
+KEY_KEYS: []
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Askpass Command
+# -----------------------------------------------------------------------------
+# Corresponds to: SSH_ASKPASS environment variable
+# Command to run for confirmation questions.
+# If SSH_ASKPASS is set, the ssh-agent (or ssh-agent-filter) will execute this
+# command to present a GUI or TUI prompt to the user instead of using the
+# terminal. Common values include 'xterm', 'ksshaskpass', or 'ssh-askpass'.
+SSH_ASKPASS_CMD: "{{ ssh_askpass_cmd | default('xterm') }}"

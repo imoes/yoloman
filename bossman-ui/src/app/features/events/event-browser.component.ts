@@ -47,7 +47,8 @@ interface RunDetail extends RunRow {
       <div class="eb-hd">
         <h1>Event Browser</h1>
         <div class="eb-tools">
-          <input class="eb-search" type="search" placeholder="Filter by runbook or who…" [(ngModel)]="q" (keyup.enter)="reload()" />
+          <input class="eb-search" type="search" placeholder="Live filter — runbook, host or who… (Enter = search full history)"
+                 [ngModel]="q()" (ngModelChange)="q.set($event)" (keyup.enter)="reload()" />
           <div class="eb-seg">
             @for (f of effects; track f.key) {
               <button class="eb-segbtn" [class.on]="effect() === f.key" (click)="setEffect(f.key)">{{ f.label }}</button>
@@ -71,7 +72,7 @@ interface RunDetail extends RunRow {
 
       <div class="eb-body">
         <div class="eb-list">
-          @for (r of runs(); track r.id) {
+          @for (r of visibleRuns(); track r.id) {
             <div class="eb-row" [class.sel]="selected()?.id === r.id" (click)="select(r)">
               <span class="eb-badge" [class]="'ef-' + r.effect">{{ r.effect }}</span>
               <div class="eb-main">
@@ -187,7 +188,17 @@ export class EventBrowserComponent {
   detail = signal<RunDetail | null>(null);
   open = signal<Set<number>>(new Set());
   effect = signal('');
-  q = '';
+  q = signal('');
+  /** Live client-side filter over the loaded runs (instant as you type); Enter
+   *  additionally reloads from the server to search the full history. */
+  visibleRuns = computed(() => {
+    const term = this.q().trim().toLowerCase();
+    if (!term) return this.runs();
+    return this.runs().filter((r) =>
+      (r.runbook_name || '').toLowerCase().includes(term)
+      || (r.host || '').toLowerCase().includes(term)
+      || (r.requested_by || '').toLowerCase().includes(term));
+  });
   retention = signal(0);
   busy = signal(false);
   msg = signal('');
@@ -199,7 +210,7 @@ export class EventBrowserComponent {
     this.busy.set(true);
     const params: string[] = ['limit=500'];
     if (this.effect()) params.push(`effect=${encodeURIComponent(this.effect())}`);
-    if (this.q.trim()) params.push(`q=${encodeURIComponent(this.q.trim())}`);
+    if (this.q().trim()) params.push(`q=${encodeURIComponent(this.q().trim())}`);
     this.http.get<{ runs: RunRow[] }>(`${environment.apiUrl}/runbook-runs?${params.join('&')}`).subscribe({
       next: (r) => { this.runs.set(r.runs); this.busy.set(false); },
       error: () => this.busy.set(false),

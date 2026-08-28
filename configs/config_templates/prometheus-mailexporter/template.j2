@@ -1,0 +1,46 @@
+# ============================================================
+# Prometheus Mail Exporter Configuration Template
+# ============================================================
+# This configuration file is in YAML format and is read by
+# mailexporter to send monitoring probes via SMTP and verify
+# their delivery by checking a Maildir.
+# ============================================================
+
+# Time interval between two monitoring attempts.
+# Supported units: s, m, h (e.g., "10m", "5s").
+# Default: 10m
+monitoringinterval: {{ monitoringinterval | default('10m') }}
+
+# Time until mail must have arrived after sending for a positive outcome.
+# If the mail is not detected in the Maildir within this window,
+# the probe is considered failed.
+# Supported units: s, m, h.
+# Default: 3m
+mailchecktimeout: {{ mailchecktimeout | default('3m') }}
+
+# List of SMTP servers to use for sending monitoring mail.
+# Each entry configures one SMTP relay and the corresponding
+# Maildir to check for delivery confirmation.
+servers:
+    # --- First SMTP Server (Default/Localhost) ---
+    # This is the primary server configuration used by default.
+    - name: localhost                     # Name for internal Prometheus metric identification
+      server: localhost                   # SMTP server hostname or IP address
+      port: {{ smtp_port_default | default(587) }}                   # Port to use for SMTP connection
+      login: {{ smtp_login_default | default('monitoring') }}                   # Login name for SMTP authentication (leave empty to disable auth)
+      passphrase: {{ smtp_passphrase_default | default('123password') }}             # Password for SMTP authentication (leave empty if login is empty)
+      from: {{ smtp_from_default | default('monitoring@helper1.com') }}        # "From" header address for the monitoring mail
+      to: {{ smtp_to_default | default('monitoring@example.com') }}          # "To" address where monitoring mail is delivered
+      detectiondir: {{ maildir_detection_dir_default | default('/home/me/Maildir/new') }}  # Maildir path to scan for the probing mail
+
+    # --- Second SMTP Server (Custom/Remote) ---
+    # This is a secondary server configuration, useful for redundancy
+    # or testing against a remote relay.
+    - name: {{ smtp_server_name_1 | default('helper1') }}
+      server: {{ smtp_server_host_1 | default('mail.helper1.org') }}
+      port: {{ smtp_port_1 | default(587) }}
+      login: {{ smtp_login_1 | default('monitoring@helper1.org') }}
+      passphrase: {{ smtp_passphrase_1 | default('password123') }}
+      from: {{ smtp_from_1 | default('monitoring@helper1.org') }}
+      to: {{ smtp_to_1 | default('monitoring@example.com') }}
+      detectiondir: {{ maildir_detection_dir_1 | default('/home/me/Maildir/new') }}

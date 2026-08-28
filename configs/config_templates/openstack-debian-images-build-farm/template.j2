@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# ==============================================================================
+# openstack-debian-images-build-farm: Daily Image Build Automation Script
+# ==============================================================================
+# This script orchestrates the daily building of OpenStack Debian images.
+# It is designed to run via cron. It checks for the presence of the build
+# tool and the configuration file before proceeding.
+# ==============================================================================
+
+# Exit immediately if any command in the pipeline fails.
+set -e
+
+# --------------------------------------------------------------------------
+# Pre-flight checks
+# --------------------------------------------------------------------------
+
+# Check if the daily image build utility is available on the system.
+if ! [ -x /usr/bin/daily-openstack-debian-image ] ; then
+	# If the executable is not found or not executable, exit silently.
+	# This prevents errors on systems where the package is not installed.
+	exit 0
+fi
+
+# Check for the existence of the main configuration file.
+if ! [ -e /etc/openstack-debian-images/openstack-debian-images.conf ] ; then
+	# If the configuration file is missing, print an error and exit.
+	echo "$0 Configuration file /etc/openstack-debian-images/openstack-debian-images.conf missing: exiting..."
+	exit 1
+fi
+
+# Source the configuration file to load variables like DAILY_IMAGE_UPDATES.
+. /etc/openstack-debian-images/openstack-debian-images.conf
+
+# --------------------------------------------------------------------------
+# Configuration check and execution
+# --------------------------------------------------------------------------
+
+# DAILY_IMAGE_UPDATES: Enable daily image updates. If not 'yes', the script exits without doing anything.
+# The default value is 'yes'.
+# We compare the sourced variable against the Jinja2 default to handle cases
+# where the variable might be undefined or explicitly set to something else.
+if [ "${DAILY_IMAGE_UPDATES}" != "{{ DAILY_IMAGE_UPDATES | default('yes') }}" ] ; then
+	# If DAILY_IMAGE_UPDATES is not 'yes', skip the build process.
+	exit 0
+else
+	# Create the log directory if it does not exist.
+	mkdir -p /var/log/openstack-debian-images
+	
+	# Execute the daily image build script and log the output.
+	# stdout and stderr are both captured in the daily-check.log file.
+	/usr/bin/daily-openstack-debian-image >/var/log/openstack-debian-images/daily-check.log 2>&1
+fi

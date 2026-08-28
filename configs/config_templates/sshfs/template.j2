@@ -1,0 +1,30 @@
+# SSHFS Mount Configuration for /etc/fstab
+# Format: remote_source mount_point fuse.sshfs options 0 0
+#
+# This file is managed by Ansible. Do not edit manually.
+# It generates a single line for /etc/fstab to mount a remote SSH directory locally.
+
+# The remote directory to mount.
+# Format: user@host:remote_path
+# remote_user: The username on the remote SSH server.
+# remote_host: The hostname or IP address of the remote SSH server.
+# remote_dir:  The remote directory path to mount. Defaults to user home.
+{{ (remote_user | default('root')) }}@{{ (remote_host | default('localhost')) }}:{{ (remote_dir | default('~')) }}
+
+# The local directory where the remote filesystem will be mounted.
+# local_mount_point: The local directory where the remote filesystem will be mounted.
+{{ (local_mount_point | default('/mnt/sshfs')) }}
+
+# Filesystem type.
+# Always fuse.sshfs for SSHFS mounts.
+fuse.sshfs
+
+# Mount options.
+# mount_options: List of SSHFS and FUSE mount options. Common options include allow_other,
+# default_permissions, reconnect, and SSH keep-alive settings.
+# _netdev is added to ensure the network is up before mounting.
+_netdev,{{ (mount_options | default(['allow_other', 'default_permissions', 'reconnect', 'ServerAliveInterval=15'])) | join(',') }}
+
+# Dump and pass fields for fstab.
+# 0 = no dump, 0 = no fsck check for this remote filesystem.
+0 0

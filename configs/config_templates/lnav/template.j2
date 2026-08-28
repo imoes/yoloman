@@ -1,0 +1,21 @@
+#!/usr/bin/env lnav
+# lnav configuration file
+# See lnav(1) for details on configuration modes and file formats.
+
+# The base directory for lnav user data, typically $HOME/.lnav
+# Defaults to /home/root if user is not changed.
+set lnav_home {{ ('/home/' + (user | default('root'))) }}
+
+# Specify the configuration directory for custom format files
+# Defaults to the user's home directory plus /.lnav.
+set config_dir {{ ('/home/' + (user | default('root')) + '/.lnav') }}
+
+# Add a custom log format directory to the search path
+# If extra_format_dirs is empty or undefined, nothing is added.
+{% for dir in (extra_format_dirs | default([])) %}
+set format_dirs += {{ dir }}
+{% endfor %}
+
+# Define the user for automatic home resolution if not explicitly set
+# This affects where lnav looks for data and config if not overridden.
+set user {{ user | default('root') }}

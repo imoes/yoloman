@@ -1,0 +1,135 @@
+# ==============================================================================
+# Tardy Configuration Template
+# ==============================================================================
+# This template generates a command-line configuration string for the 'tardy' tool.
+# Tardy is a wrapper around tar/cpio/ar that provides additional formatting and
+# naming conventions for archives.
+# ==============================================================================
+
+# Block size as a multiple of 512 bytes (default 20 for 10kB).
+tardy -Block_Size {{ block_size | default(20) }}
+
+{% if clean_meta | default(false) %}
+# Replace shell meta characters in filenames with hyphens.
+-Clean_Meta
+{% endif %}
+
+{% if clean_print | default(false) %}
+# Replace non-printable ASCII characters in filenames with hyphens.
+-Clean_Print
+{% endif %}
+
+{% if clean_space | default(false) %}
+# Replace white space characters in filenames with hyphens.
+-Clean_Space
+{% endif %}
+
+{% if clean | default(false) %}
+# Shortcut for clean_meta, clean_print, and clean_space.
+-Clean
+{% endif %}
+
+{% if down_case | default(false) %}
+# Force file names to be all lower case.
+-DownCase
+{% endif %}
+
+# List of shell filename patterns to exclude from the archive.
+{% for pattern in excludes | default([]) %}
+-EXclude {{ pattern }}
+{% endfor %}
+
+{% if extract | default(false) %}
+# Extract the contents of the archive.
+-eXtract
+{% endif %}
+
+{% if group_name | default('') %}
+# Set the group name field in headers.
+-Group_NAme {{ group_name | default('') }}
+{% endif %}
+
+{% if group_number | default(0) %}
+# Set the group number field in headers.
+-Group_NUmber {{ group_number | default(0) }}
+{% endif %}
+
+{% if input_format | default('tar') %}
+# Force input format (e.g., 'tar', 'cpio', 'ar').
+-Input_ForMaT {{ input_format | default('tar') }}
+{% endif %}
+
+{% if list | default(false) %}
+# List file headers to standard error.
+-List
+{% endif %}
+
+{% if mode_clear | default('') %}
+# Octal bits to clear in file modes (e.g., '0022').
+-Mode_Clear {{ mode_clear | default('') }}
+{% endif %}
+
+{% if mode_set | default('') %}
+# Octal bits to set in file modes (e.g., '0755').
+-Mode_Set {{ mode_set | default('') }}
+{% endif %}
+
+{% if no_directories | default(false) %}
+# Suppress directories from output.
+-No_Directories
+{% endif %}
+
+{% if now | default(false) %}
+# Set last-modified time to current time for all files.
+-Now
+{% endif %}
+
+{% if old_type | default(false) %}
+# Keep old normal file type indicators unaltered.
+-Old_Type
+{% endif %}
+
+{% if output_format | default('') %}
+# Force output format (e.g., 'tar', 'cpio', 'ar').
+-Output_ForMaT {{ output_format | default('') }}
+{% endif %}
+
+{% if prefix | default('') %}
+# Prefix to add to filenames.
+-Prefix {{ prefix | default('') }}
+{% endif %}
+
+{% if progress | default(false) %}
+# Show progress indicator (requires -ifmt=list).
+-PROgress
+{% endif %}
+
+# List of directory prefixes to remove from filenames.
+{% for remove_prefix in remove_prefixes | default([]) %}
+-Remove_Prefix {{ remove_prefix }}
+{% endfor %}
+
+{% if up_case | default(false) %}
+# Force file names to be all upper case.
+-UpCase
+{% endif %}
+
+{% if user_name | default('') %}
+# Set the user name field in headers.
+-User_NAme {{ user_name | default('') }}
+{% endif %}
+
+{% if user_number | default(0) %}
+# Set the user number field in headers.
+-User_NUmber {{ user_number | default(0) }}
+{% endif %}
+
+{% if infile | default('') %}
+# Input file path. Use '-' for stdin.
+{{ infile | default('') }}
+{% endif %}
+
+{% if outfile | default('') %}
+# Output file path. Use '-' for stdout.
+{{ outfile | default('') }}
+{% endif %}

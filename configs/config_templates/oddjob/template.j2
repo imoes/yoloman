@@ -1,58 +1,131 @@
 <?xml version="1.0"?>
 
-<!DOCTYPE busconfig PUBLIC
- "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
- "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!-- This configuration file controls the oddjob daemon.  It controls
+     which requests the daemon will recognize, and whether or not it
+     will attempt to fulfill them on the behalf of particular users.
 
-<busconfig>
+     Each <oddjobconfig> contains a mixture of <service> and <include> nodes.
+ 
+     Each <service> element corresponds to a well-known D-Bus address (given
+     in the "name" attribute) which the oddjobd daemon will answer to.  It
+     may contain one or more <object> elements which each describe an object
+     path.  Each <object>, in turn, is named by its "name" attribute.
 
-  <!-- This configuration file specifies the required security policies
-       for the oddjob service to work.  It controls which requests users
-       will be allowed to issue to oddjobd over the bus, which is quite
-       different from controlling whether or not oddjobd will attempt to
-       fulfill the request. -->
+     Each <object> element must also contain zero or more <interface>
+     elements, which are named by their "name" attributes and correspond to
+     names of interfaces which the object implements.
 
-  <!-- Only root can own the oddjob service -->
-  <policy user="root">
-    <allow own="com.redhat.oddjob"/>
-  </policy>
+     Each <interface> element must contain zero or more <method>
+     elements, which are named by their "name" attributes.  Each
+     <method> node corresponds to a D-Bus method implemented by the
+     object as part of the interface.
 
-  <!-- Allow anyone to try to call the quit method of the
-       com.redhat.oddjob interface implemented by the
-       /com/redhat/oddjob object provided by the
-       com.redhat.oddjob service -->
-  <policy context="default">
-    <allow send_destination="com.redhat.oddjob" send_path="/com/redhat/oddjob" send_interface="com.redhat.oddjob" send_member="quit"/>
-  </policy>
+     Each method must include an access-control list which contains at
+     least one rule, or the daemon will ignore any attempts to call the
+     method.
 
-  <!-- Allow anyone to try to call the list method of the
-       com.redhat.oddjob interface implemented by the
-       /com/redhat/oddjob object provided by the
-       com.redhat.oddjob service -->
-  <policy context="default">
-    <allow send_destination="com.redhat.oddjob" send_path="/com/redhat/oddjob" send_interface="com.redhat.oddjob" send_member="list"/>
-  </policy>
+     When checking if a client is allowed to use a method, all deny
+     rules are processed, then all allow rules.  The first rule which
+     matches the user decides whether access is allowed or denied.
 
-  <!-- Allow anyone to try to call the listall method of the
-       com.redhat.oddjob interface implemented by the
-       /com/redhat/oddjob object provided by the
-       com.redhat.oddjob service -->
-  <policy context="default">
-    <allow send_destination="com.redhat.oddjob" send_path="/com/redhat/oddjob" send_interface="com.redhat.oddjob" send_member="listall"/>
-  </policy>
+     Access rules can specify either a user (using the "user"
+     attribute), or a range of UIDs (using the "min_uid" and "max_uid"
+     attributes).
 
-  <!-- Allow anyone to try to call the reload method of the
-       com.redhat.oddjob interface implemented by the
-       /com/redhat/oddjob object provided by the
-       com.redhat.oddjob service -->
-  <policy context="default">
-    <allow send_destination="com.redhat.oddjob" send_path="/com/redhat/oddjob" send_interface="com.redhat.oddjob" send_member="reload"/>
-  </policy>
+     If SELinux support was compiled in, then a rule can also specify
+     whether or not it applies if the SELinux policy is being enforced
+     ("selinux_enforcing"), or what the caller's SELinux context
+     ("selinux_context"), user ("selinux_user"), role ("selinux_role"),
+     or type ("selinux_type") must be for that rule to apply.
 
-  <!-- Allow anyone to try to call the introspection methods of the
-       every object provided by the com.redhat.oddjob service -->
-  <policy context="default">
-    <allow send_destination="com.redhat.oddjob" send_interface="org.freedesktop.DBus.Introspectable"/>
-  </policy>
+     A method may, as part of its definition, specify an external
+     program which is to be run when the method is invoked, by including
+     a <helper> node.  The <helper> node should include an "exec"
+     attribute naming the external program which will be launched to
+     accomplish the given task.  Depending on the value of its
+     "argument_passing_method" attribute, it will receive its arguments
+     either over stdin, one argument per line, or on the command line.
+     Depending on the value of the "prepend_user_name" attribute, the
+     argument list may or may not begin with the calling user's name.
+     The helper will be run with superuser privileges.
+ 
+     Here's what an example /etc/oddjobd.conf.d/crontabs.conf might
+     look like, allowing either users with either UID=0 or the staff_r role to
+     run the regularly scheduled cron jobs at will:
 
-</busconfig>
+     <oddjobconfig>
+       <service name="com.redhat.periodic_cron">
+         <allow user="root"/>
+         <allow selinux_enforcing="yes" selinux_role="staff_r"/>
+         <object name="/cron/hourly">
+           <interface name="com.redhat.periodic_run">
+             <method name="run">
+               <helper exec="/usr/bin/run-parts /etc/cron.hourly"
+                       arguments="0"/>
+             </method>
+           </interface>
+         </object>
+         <object name="/cron/daily">
+           <interface name="com.redhat.periodic_run">
+             <method name="run">
+               <helper exec="/usr/bin/run-parts /etc/cron.daily"
+                       arguments="0"/>
+             </method>
+           </interface>
+         </object>
+         <object name="/cron/weekly">
+           <interface name="com.redhat.periodic_run">
+             <method name="run">
+               <helper exec="/usr/bin/run-parts /etc/cron.weekly"
+                       arguments="0"/>
+             </method>
+           </interface>
+         </object>
+         <object name="/cron/monthly">
+           <interface name="com.redhat.periodic_run">
+             <method name="run">
+               <helper exec="/usr/bin/run-parts /etc/cron.monthly"
+                       arguments="0"/>
+             </method>
+           </interface>
+         </object>
+       </service>
+     </oddjobconfig>
+
+  -->
+
+<oddjobconfig>
+
+  <service name="{{ dbus_name }}">
+    <object name="{{ dbus_path }}">
+      <interface name="{{ dbus_name }}">
+
+        <method name="listall">
+          <allow min_uid="0" max_uid="0"/>
+        </method>
+
+        <method name="list">
+          <allow/>
+        </method>
+
+        <method name="quit">
+          <allow user="root"/>
+        </method>
+
+        <method name="reload">
+          <allow user="root"/>
+        </method>
+
+      </interface>
+
+    </object>
+
+  </service>
+
+  <!-- Site-specific or other distributed additions. -->
+  <include ignore_missing="yes">/etc/oddjobd.conf.d/*.conf</include>
+
+  <!-- Local additions. -->
+  <include ignore_missing="yes">/etc/oddjobd-local.conf</include>
+
+</oddjobconfig>

@@ -1,0 +1,50 @@
+# ==============================================================================
+# Transmission CLI Configuration
+#
+# This template configures the Transmission BitTorrent client daemon.
+# It generates a key-value configuration file compatible with transmission-cli.
+#
+# Self-Documenting: Each directive is preceded by a comment derived from
+# the schema description to ensure maintainability without external docs.
+# ==============================================================================
+
+# Directory where transmission-cli keeps torrent information for future seeding and resume operations.
+config_dir: {{ config_dir | default('/var/lib/transmission-cli') }}
+
+# Where to save downloaded data.
+download_dir: {{ download_dir | default('/var/lib/transmission-cli/incomplete') }}
+
+# Port to listen for incoming peers.
+peer_port: {{ peer_port | default(51413) }}
+
+# Maximum download speed in KB/s. 0 means unlimited.
+max_download_speed_kbs: {{ max_download_speed_kbs | default(0) }}
+
+# Maximum upload speed in KB/s. 0 means unlimited.
+max_upload_speed_kbs: {{ max_upload_speed_kbs | default(0) }}
+
+# Encryption policy: 'required', 'preferred', or 'tolerated'.
+# required: Encrypt all peer connections
+# preferred: Prefer encrypted peer connections
+# tolerated: Prefer unencrypted peer connections
+encryption_mode: {{ encryption_mode | default('tolerated') }}
+
+# Enable peer blocklists.
+blocklist_enabled: {{ blocklist_enabled | default(true) | lower }}
+
+# Enable portmapping via NAT-PMP or UPnP.
+portmap_enabled: {{ portmap_enabled | default(false) | lower }}
+
+# ToS or DSCP name to set the peer socket service type.
+tos_setting: {{ tos_setting | default('cs0') }}
+
+# Script to run when the torrent finishes. Empty string disables it.
+finish_script: {{ finish_script | default('') }}
+
+# List of torrent file paths to load.
+{% if torrent_files | default([]) %}
+torrent_files:
+{% for torrent_path in torrent_files | default([]) %}
+- {{ torrent_path }}
+{% endfor %}
+{% endif %}

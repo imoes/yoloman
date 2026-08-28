@@ -1,0 +1,82 @@
+# =============================================================================
+# Plattenalbum Configuration Template
+# =============================================================================
+# Self-documenting Ansible/Jinja2 template for the `plattenalbum` package.
+# Plattenalbum is a lightweight MPD client/web interface for browsing and playing music.
+# It connects to a Music Player Daemon (MPD) instance and provides a web UI.
+#
+# Variables used here correspond directly to the plattenalbum configuration schema.
+# All variables are guarded with `default()` to ensure safe rendering even if
+# the caller does not define a specific variable.
+# =============================================================================
+
+# Path to the local music directory served by MPD.
+# This path should be accessible by the user running the web interface or
+# where MPD stores its music files.
+# Schema: music_directory
+music_directory: {{ music_directory | default('/var/lib/mpd/music') }}
+
+# -----------------------------------------------------------------------------
+# MPD Connection Settings
+# -----------------------------------------------------------------------------
+# The hostname or IP address of the MPD server to connect to.
+# If the web interface and MPD are on the same host, 'localhost' is typical.
+# Schema: mpd_host
+mpd_host: {{ mpd_host | default('localhost') }}
+
+# The port number for the MPD server connection.
+# The default MPD port is 6600.
+# Schema: mpd_port
+mpd_port: {{ mpd_port | default(6600) }}
+
+# Whether to enable connection to the MPD server.
+# Set to false to disable MPD functionality (e.g. if running in a mode with only web browsing of local files without MPD control, or if MPD is unavailable).
+# Schema: enable_mpdc
+enable_mpdc: {{ enable_mpdc | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Web Interface Settings
+# -----------------------------------------------------------------------------
+# The network interface address to bind the web server to.
+# '0.0.0.0' binds to all interfaces; '127.0.0.1' restricts to localhost.
+# Schema: web_interface_host
+web_interface_host: {{ web_interface_host | default('127.0.0.1') }}
+
+# The port number for the web server interface.
+# Users will access Plattenalbum via http://<web_interface_host>:<web_interface_port>.
+# Schema: web_interface_port
+web_interface_port: {{ web_interface_port | default(8080) }}
+
+# -----------------------------------------------------------------------------
+# Browsing and Playback Defaults
+# -----------------------------------------------------------------------------
+# Maximum depth for hierarchical browsing of artists and albums.
+# Prevents extremely deep directory trees from loading into memory.
+# Schema: max_browse_depth
+max_browse_depth: {{ max_browse_depth | default(10) }}
+
+# Enable shuffle mode by default when playing albums.
+# When true, playback starts in random order unless the user overrides it.
+# Schema: default_shuffle
+default_shuffle: {{ default_shuffle | default(false) | lower }}
+
+# Enable repeat mode by default when playing albums.
+# When true, playback loops the current playlist/album.
+# Schema: default_repeat
+default_repeat: {{ default_repeat | default(false) | lower }}
+
+# List of audio file extensions to include in the music library index.
+# Plattenalbum will only consider files with these extensions as playable music.
+# Schema: included_extensions
+included_extensions:
+{% for ext in (included_extensions | default(['mp3', 'flac', 'ogg', 'wav'])) %}
+  - {{ ext }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+# The logging level for plattenalbum operations.
+# Valid values typically include: debug, info, warn, error.
+# Schema: log_level
+log_level: {{ log_level | default('info') }}

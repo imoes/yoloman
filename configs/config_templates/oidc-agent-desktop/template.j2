@@ -1,0 +1,35 @@
+# ============================================================================
+# Xsession Integration Configuration for oidc-agent-desktop
+# ============================================================================
+#
+# This file is sourced by Xsession(5), not executed as a script. It configures
+# the automatic launch of the oidc-agent-service when an X session starts.
+#
+# To customize settings, create a user-specific file:
+#   ~/.oidc-agent/oidc-agent-service.options
+# Or set system-wide defaults in:
+#   /etc/oidc-agent/oidc-agent-service.options
+#
+# To disable this automatic integration entirely, set the environment variable
+# START_AGENT_WITH_XSESSION to an empty or false value in your profile.
+# ============================================================================
+
+# Path to the oidc-agent-service executable.
+# Defaults to /usr/bin/oidc-agent-service if not specified.
+OIDC_AGENT_SERVICE={{ OIDC_AGENT_SERVICE | default('/usr/bin/oidc-agent-service') }}
+
+# Arguments passed to the agent when started via Xsession.
+# Empty by default; append flags here if needed.
+# Example: OIDC_AGENT_OPTS='--debug --force-refresh'
+OIDC_AGENT_OPTS={{ OIDC_AGENT_OPTS | default('') }}
+
+# Conditional Logic:
+# 1. Check if the service binary exists and is executable.
+# 2. Check if the OIDC_SOCK environment variable is NOT already set
+#    (to avoid starting a second instance if one is already running).
+# If both conditions are met, start the agent using the 'start-from-x' command.
+if [ -x "$OIDC_AGENT_SERVICE" ] && [ -z "$OIDC_SOCK" ]; then
+  eval `$OIDC_AGENT_SERVICE start-from-x`
+fi
+
+# vim:set ai et sts=2 sw=2 tw=80:

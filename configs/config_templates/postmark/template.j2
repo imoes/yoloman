@@ -1,0 +1,77 @@
+# Postmark File System Benchmark Configuration
+# Generated configuration for the NetApp Postmark benchmark tool.
+# See postmark(1) man page for syntax details.
+#
+# This file defines the workload parameters for the Postmark benchmark.
+# Postmark is a standard file system benchmark that simulates mail server
+# or small-file workload patterns.
+#
+# Fields:
+#   nfiles           - Total files to create
+#   avgfilesize      - Average file size in bytes
+#   stddevfilesize   - Standard deviation of file sizes (0 = uniform)
+#   percentro        - Percentage of read-only files
+#   smallfiles       - Percentage of small (<1024B) appendable files
+#   directory        - Path to the benchmark working directory
+#   blocksize        - Block size for I/O operations
+#   percentdelete    - Percentage of operations that are deletes
+#   percentappend    - Percentage of operations that are appends
+#   percentread      - Percentage of operations that are reads
+#   percentcreate    - Percentage of operations that are creates
+#   tasks            - List of command strings to execute in the interactive shell
+
+# Specify the number of files to create in the directory.
+# Documentation: 'nfiles' argument in postmark(1).
+nfiles = {{ nfiles | default(1000) }}
+
+# Specify the size of each file in bytes.
+# Documentation: 'avgfilesize' argument in postmark(1).
+avgfilesize = {{ avgfilesize | default(256) }}
+
+# Specify the standard deviation of file sizes in bytes.
+# Documentation: 'stddevfilesize' argument in postmark(1).
+stddevfilesize = {{ stddevfilesize | default(0) }}
+
+# Specify the percentage of files that are read-only.
+# Documentation: 'percentro' argument in postmark(1).
+percentro = {{ percentro | default(0) }}
+
+# Specify the percentage of files that are small (< 1024 bytes) and appended to.
+# Documentation: 'smallfiles' argument in postmark(1).
+smallfiles = {{ smallfiles | default(0) }}
+
+# Specify the path to the directory where the benchmark will create its files.
+# Documentation: 'directory' argument (or default current directory) in postmark(1).
+# Note: Postmark does not have a global config file for paths in the traditional sense,
+# but this template allows specifying the target directory for the run.
+directory = {{ directory | default('./postmark_test') }}
+
+# Specify the block size for I/O operations in bytes.
+# Documentation: 'blocksize' argument in postmark(1).
+blocksize = {{ blocksize | default(256) }}
+
+# Specify the percentage of operations that are deletes.
+# Documentation: 'percentdelete' argument in postmark(1).
+percentdelete = {{ percentdelete | default(0) }}
+
+# Specify the percentage of operations that are appends.
+# Documentation: 'percentappend' argument in postmark(1).
+percentappend = {{ percentappend | default(0) }}
+
+# Specify the percentage of operations that are reads.
+# Documentation: 'percentread' argument in postmark(1).
+percentread = {{ percentread | default(0) }}
+
+# Specify the percentage of operations that are creates.
+# Documentation: 'percentcreate' argument in postmark(1).
+# Note: Creates + Deletes + Reads + Appends should ideally sum to 100 or be handled by
+# the tool's internal weighting if not all are specified. This template assumes explicit weighting.
+percentcreate = {{ percentcreate | default(0) }}
+
+# Command list to execute. Each item is a string command.
+# Documentation: Postmark accepts a command file or interactive commands.
+# This template allows defining a sequence of benchmark tasks.
+# Example: "1000 256 0 0 0 256" -> nfiles, avgfilesize, stddev, percentro, smallfiles, blocksize
+{% for task in (tasks | default(['1000 256 0 0 0 256'])) %}
+{{ task }}
+{% endfor %}

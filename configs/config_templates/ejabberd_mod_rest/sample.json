@@ -1,60 +1,60 @@
 {
-  "rest_base_url": "/rest",
-  "rest_endpoints": [
+ "rest_base_url": "/rest",
+ "rest_cors_headers": [
+  "Content-Type",
+  "Authorization",
+  "X-Ejabberd-Node"
+ ],
+ "rest_cors_origins": [
+  "https://admin.example.com",
+  "https://webapp.example.com"
+ ],
+ "rest_enable_cors": true,
+ "rest_endpoints": [
+  {
+   "acl": [
     {
-      "path": "/users",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "handler": "ejabberd_mod_rest_user",
-      "acl": [
-        {
-          "user": "admin@localhost",
-          "access": "allow"
-        },
-        {
-          "user": "*@localhost",
-          "access": "deny"
-        }
-      ]
+     "access": "allow",
+     "user": "admin@localhost"
     },
     {
-      "path": "/users/:user@:host",
-      "methods": [
-        "GET",
-        "PUT",
-        "DELETE"
-      ],
-      "handler": "ejabberd_mod_rest_user",
-      "acl": []
-    },
-    {
-      "path": "/rooms",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "handler": "ejabberd_mod_rest_muc",
-      "acl": [
-        {
-          "user": "*@localhost",
-          "access": "allow"
-        }
-      ]
+     "access": "deny",
+     "user": "*@localhost"
     }
-  ],
-  "rest_log_requests": false,
-  "rest_max_request_size": 5242880,
-  "rest_request_timeout": 60,
-  "rest_enable_cors": true,
-  "rest_cors_origins": [
-    "https://admin.example.com",
-    "https://webapp.example.com"
-  ],
-  "rest_cors_headers": [
-    "Content-Type",
-    "Authorization",
-    "X-Ejabberd-Node"
-  ]
+   ],
+   "handler": "ejabberd_mod_rest_user",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/users"
+  },
+  {
+   "acl": [],
+   "handler": "ejabberd_mod_rest_user",
+   "methods": [
+    "GET",
+    "PUT",
+    "DELETE"
+   ],
+   "path": "/users/:user@:host"
+  },
+  {
+   "acl": [
+    {
+     "access": "allow",
+     "user": "*@localhost"
+    }
+   ],
+   "handler": "ejabberd_mod_rest_muc",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "path": "/rooms"
+  }
+ ],
+ "rest_log_requests": false,
+ "rest_max_request_size": 5242880,
+ "rest_request_timeout": 60
 }

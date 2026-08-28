@@ -1,0 +1,32 @@
+# /etc/cron.d/shutdown-at-night
+#
+# This configuration file defines cron jobs for network-based shutdown and
+# wakeup of thin clients or similar devices. It sets the environment for
+# the cron daemon and schedules two main tasks: shutting down clients
+# at specific hours and waking them up on weekdays.
+
+# SHELL: The shell to use for cron jobs.
+# Default: /bin/sh
+SHELL={{ shell | default('/bin/sh') }}
+
+# PATH: The PATH environment variable for cron jobs.
+# Default: /sbin:/bin:/usr/sbin:/usr/bin
+PATH={{ path | default('/sbin:/bin:/usr/sbin:/usr/bin') }}
+
+# Shutdown clients schedule:
+# Runs at minute 0 of every hour listed in shutdown_cron_hours.
+# The command checks if the shutdown script exists and is executable
+# before running it.
+# shutdown_cron_hours: Comma-separated list of hours when shutdown clients should run.
+# Default: 16,17,18,19,20,21,22,23,0,1,2,3,4,5,6
+0 {{ shutdown_cron_hours | default('16,17,18,19,20,21,22,23,0,1,2,3,4,5,6') }} * * * root test -x /usr/lib/shutdown-at-night/shutdown-at-night && /usr/lib/shutdown-at-night/shutdown-at-night
+
+# Wakeup clients schedule:
+# Runs at minute specified by wakeup_cron_minute, on weekdays specified
+# by wakeup_cron_weekdays. The command checks if the wakeup script exists
+# and is executable before running it.
+# wakeup_cron_minute: The minute when wakeup clients should run.
+# Default: 6
+# wakeup_cron_weekdays: Comma-separated list of weekdays (0-7, where 0 and 7 are Sunday) when wakeup clients should run.
+# Default: 1,2,3,4,5
+30 {{ wakeup_cron_minute | default('6') }} * * {{ wakeup_cron_weekdays | default('1,2,3,4,5') }} root test -x /usr/lib/shutdown-at-night/wakeupclients && /usr/lib/shutdown-at-night/wakeupclients

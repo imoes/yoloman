@@ -1,0 +1,117 @@
+! ==============================================================================
+! Osmocom SGSN (Serving GPRS Support Node) Configuration Template
+!
+! This template generates the configuration file for osmo-sgsn, a component of
+! the Osmocom cellular network stack. It handles GPRS routing, authentication,
+! and network service binding for mobile devices.
+!
+! All variables are sourced from the Ansible playbook/role variables and MUST
+! have defaults defined to ensure idempotent and safe rendering.
+! ==============================================================================
+
+! ------------------------------------------------------------------------------
+! Logging Configuration
+! Controls the verbosity and format of the application log output.
+! ------------------------------------------------------------------------------
+log stderr
+
+# Enable colored output in logs (0=disable, 1=enable)
+logging color {{ LOGGING_COLOR | default(1) }}
+
+# Print category identifiers as hexadecimal values (0=disable, 1=enable)
+logging print category-hex {{ LOGGING_PRINT_CATEGORY_HEX | default(0) }}
+
+# Print category names in logs (0=disable, 1=enable)
+logging print category {{ LOGGING_PRINT_CATEGORY | default(1) }}
+
+# Print timestamps in log entries (0=disable, 1=enable)
+logging timestamp {{ LOGGING_TIMESTAMP | default(0) }}
+
+# Print the source file basename (implicit in this config structure)
+logging print file basename last
+
+# Print the log level (e.g., INFO, ERROR) in log entries (0=disable, 1=enable)
+logging print level {{ LOGGING_PRINT_LEVEL | default(1) }}
+
+! ------------------------------------------------------------------------------
+! VTY (Line Terminal) Configuration
+! Controls access to the command-line interface for administration.
+! ------------------------------------------------------------------------------
+line vty
+    # Disable login authentication for VTY access (common in containerized/embedded deployments)
+    no login
+!
+
+! ------------------------------------------------------------------------------
+! SGSN Core Configuration
+! Main settings for the SGSN service, including GTP endpoints and authentication.
+! ------------------------------------------------------------------------------
+sgsn
+
+    # Directory for storing GTP (GPRS Tunnelling Protocol) state files
+    gtp state-dir {{ GTP_STATE_DIR | default('/var/lib/osmocom/osmo-sgsn') }}
+
+    # Local IP address for the GTP endpoint interface
+    gtp local-ip {{ GTP_LOCAL_IP | default('127.0.0.1') }}
+
+    # GGSN 0: Remote IP address of the Gateway GPRS Support Node
+    ggsn 0 remote-ip {{ GGSN_0_REMOTE_IP | default('127.0.0.2') }}
+
+    # GGSN 0: GTP version to use for communication with this GGSN (typically 1)
+    ggsn 0 gtp-version {{ GGSN_0_GTP_VERSION | default(1) }}
+
+    # GGSN 0: Interval in seconds for sending echo requests to the GGSN
+    ggsn 0 echo-interval {{ GGSN_0_ECHO_INTERVAL | default(60) }}
+
+    # Authentication requirement policy ('required', 'optional', 'never')
+    authentication {{ AUTHENTICATION_REQUIRED | default('required') }}
+
+    # Authentication policy selection ('remote', 'internal')
+    auth-policy {{ AUTH_POLICY | default('remote') }}
+
+    # GSUP (GPRS Support Unstructured Protocol): Remote IP address for HSS/HLR communication
+    gsup remote-ip {{ GSUP_REMOTE_IP | default('127.0.0.1') }}
+
+    # GSUP: Remote port number for HSS/HLR communication
+    gsup remote-port {{ GSUP_REMOTE_PORT | default(4222) }}
+!
+
+! ------------------------------------------------------------------------------
+! NS (Network Service) / BSSGP Configuration
+! Configures the Network Service layer and BSS GPRS Support Protocol bindings.
+! ------------------------------------------------------------------------------
+ns
+
+    # TNS Block Timer: Time to wait for a block response (seconds)
+    timer tns-block {{ TIMER_TNS_BLOCK | default(3) }}
+
+    # TNS Block Retries: Number of retries before timing out the block timer
+    timer tns-block-retries {{ TIMER_TNS_BLOCK_RETRIES | default(3) }}
+
+    # TNS Reset Timer: Time to wait for a reset response (seconds)
+    timer tns-reset {{ TIMER_TNS_RESET | default(3) }}
+
+    # TNS Reset Retries: Number of retries before timing out the reset timer
+    timer tns-reset-retries {{ TIMER_TNS_RESET_RETRIES | default(3) }}
+
+    # TNS Test Timer: Time to wait for a test response (seconds)
+    timer tns-test {{ TIMER_TNS_TEST | default(30) }}
+
+    # TNS Alive Timer: Time between alive checks (seconds)
+    timer tns-alive {{ TIMER_TNS_ALIVE | default(3) }}
+
+    # TNS Alive Retries: Number of retries before declaring the link dead
+    timer tns-alive-retries {{ TIMER_TNS_ALIVE_RETRIES | default(10) }}
+
+    # Bind to the specified UDP socket for NS signaling
+    bind udp local
+        # IP address to listen on for NS traffic
+        listen {{ NS_LISTEN_IP | default('127.0.0.1') }} {{ NS_LISTEN_PORT | default(23000) }}
+
+        # Accept IP-Access mode connections (BSS interface specific)
+        accept-ipaccess
+    !
+!
+
+bssgp
+!

@@ -1,0 +1,45 @@
+# Configuration file for MWC (Website Change Monitor)
+# Self-documenting template: all variables include schema defaults for safety.
+
+# =============================================================================
+# Global defaults for email notifications
+# =============================================================================
+
+# from_email: default='monitor@localhost'  desc='The sender email address for change notification emails.'
+from: {{ from_email | default('monitor@localhost') }}
+
+# to_email: default='admin@localhost'  desc='The recipient email address for change notification emails.'
+to: {{ to_email | default('admin@localhost') }}
+
+# smtp_server: default='localhost'  desc='The hostname or IP address of the SMTP server to use for sending emails.'
+smtp_server: {{ smtp_server | default('localhost') }}
+
+# smtp_port: default=25  desc='The port number of the SMTP server.'
+smtp_port: {{ smtp_port | default(25) }}
+
+# smtp_user: default=''  desc='The username for authenticating with the SMTP server. Leave empty if no auth is required.'
+smtp_user: {{ smtp_user | default('') }}
+
+# smtp_pass: default=''  desc='The password for authenticating with the SMTP server.'
+smtp_pass: {{ smtp_pass | default('') }}
+
+# =============================================================================
+# Feed server settings
+# =============================================================================
+
+# [feedserver] section header
+[feedserver]
+
+# feed_port: default=8000  desc='The port number where the mwcfeedserver listens for incoming feed requests.'
+port: {{ feed_port | default(8000) }}
+
+# =============================================================================
+# Monitored website entries
+# =============================================================================
+
+# watches: default=[{'shortname': 'example', 'url': 'http://example.com'}]
+# desc='A list of websites to monitor for changes. Each entry must define a shortname and the URL to monitor.'
+{% for entry in watches | default([{'shortname': 'example', 'url': 'http://example.com'}]) %}
+[{{ entry.shortname }}]
+url: {{ entry.url }}
+{% endfor %}

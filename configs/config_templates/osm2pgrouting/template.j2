@@ -1,0 +1,122 @@
+#!/bin/bash
+set -euo pipefail
+
+# ==============================================================================
+# osm2pgrouting Batch Import Script
+# ==============================================================================
+# This template generates a self-contained shell script to execute the osm2pgrouting
+# utility. It reads OpenStreetMap data and imports it into a PostgreSQL database
+# for use with pgRouting.
+#
+# Generated variables are protected with sensible defaults to prevent breakage
+# if specific schema fields are omitted during role execution.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Input Data Source
+# ------------------------------------------------------------------------------
+# Path to the input OSM file (.osm or .osm.pbf).
+# This file contains the raw map data to be processed.
+# Schema field: osm_file
+OSM_FILE="{{ osm_file | default('/data/osm/bundle.osm.pbf') }}"
+
+# ------------------------------------------------------------------------------
+# Database Connection Settings
+# ------------------------------------------------------------------------------
+# Name of the PostgreSQL database where routing tables will be created.
+# Schema field: db_name
+DB_NAME="{{ db_name | default('routing_db') }}"
+
+# Username with write access to the database.
+# Schema field: db_user
+DB_USER="{{ db_user | default('postgres') }}"
+
+# Hostname or IP address of the PostgreSQL database server.
+# Schema field: db_host
+DB_HOST="{{ db_host | default('localhost') }}"
+
+# Port of the PostgreSQL database server.
+# Schema field: db_port
+DB_PORT="{{ db_port | default(5432) }}"
+
+# Database schema to put tables in. Leave empty to use the default search_path.
+# Schema field: db_schema
+DB_SCHEMA="{{ db_schema | default('') }}"
+
+# Prefix added to the beginning of all created table names.
+# Schema field: db_prefix
+DB_PREFIX="{{ db_prefix | default('') }}"
+
+# Suffix added to the end of all created table names.
+# Schema field: db_suffix
+DB_SUFFIX="{{ db_suffix | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Configuration File
+# ------------------------------------------------------------------------------
+# Path to the XML configuration file that defines how OSM tags map to routing
+# graph attributes (e.g., road classes, turn restrictions).
+# Schema field: conf_file
+CONF_FILE="{{ conf_file | default('/usr/share/osm2pgrouting/mapconfig.xml') }}"
+
+# ------------------------------------------------------------------------------
+# Optional Flags
+# ------------------------------------------------------------------------------
+# If true, import the osm_nodes table (point-based nodes from OSM).
+# Accepted values: true, false (lowercase).
+# Schema field: add_nodes
+{% set add_nodes_val = add_nodes | default(False) | lower %}
+ADD_NODES="{{ add_nodes_val }}"
+
+# If true, drop previously created tables before starting the import.
+# WARNING: This will destroy existing routing data in the target schema.
+# Accepted values: true, false (lowercase).
+# Schema field: clean
+{% set clean_val = clean | default(False) | lower %}
+CLEAN_TABLES="{{ clean_val }}"
+
+# ------------------------------------------------------------------------------
+# Construct Command Arguments
+# ------------------------------------------------------------------------------
+# Dynamically build the argument string for osm2pgrouting based on the variables
+# above. Empty strings (schema/prefix/suffix) are omitted to avoid trailing
+# spaces or invalid empty arguments.
+ARGS=""
+
+# Add schema argument only if it is not empty
+{% if db_schema | default('') | trim != '' %}
+ARGS="${ARGS} --schema {{ DB_SCHEMA }}"
+{% endif %}
+
+# Add prefix argument only if it is not empty
+{% if db_prefix | default('') | trim != '' %}
+ARGS="${ARGS} --prefix {{ DB_PREFIX }}"
+{% endif %}
+
+# Add suffix argument only if it is not empty
+{% if db_suffix | default('') | trim != '' %}
+ARGS="${ARGS} --suffix {{ DB_SUFFIX }}"
+{% endif %}
+
+# Add --addnodes flag if the boolean flag is true
+{% if add_nodes | default(False) %}
+ARGS="${ARGS} --addnodes"
+{% endif %}
+
+# Add --clean flag if the boolean flag is true
+{% if clean | default(False) %}
+ARGS="${ARGS} --clean"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Execute osm2pgrouting
+# ------------------------------------------------------------------------------
+echo "Running osm2pgrouting..."
+osm2pgrouting \
+  -f "${OSM_FILE}" \
+  -c "${CONF_FILE}" \
+  -d "${DB_NAME}" \
+  -U "${DB_USER}" \
+  -h "${DB_HOST}" \
+  -p "${DB_PORT}" \
+  ${ARGS}

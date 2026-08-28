@@ -1,0 +1,103 @@
+# Podman-Compose Configuration File
+# Self-documenting template for podman-compose settings.
+# Each directive corresponds to a podman-compose CLI flag or runtime option.
+# Variables must be defined in Ansible inventory or roles; defaults are provided inline.
+
+[DEFAULT]
+# Specify an alternate path to podman binary
+# If omitted or empty, the system $PATH is used to locate the `podman` executable.
+podman_path = {{ podman_path | default('/usr/bin/podman') }}
+
+# Custom global arguments to be passed to `podman`
+# Provide as a list; elements are joined by spaces in the final configuration.
+# Example: ['--log-level=debug']
+podman_args = {{ podman_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman pod` commands
+# Example: ['--infra=false']
+pod_args = {{ pod_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman pull` commands
+# Example: ['--quiet']
+podman_pull_args = {{ podman_pull_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman push` commands
+# Example: ['--compress']
+podman_push_args = {{ podman_push_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman build` commands
+# Example: ['--network=host']
+podman_build_args = {{ podman_build_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman inspect` commands
+# Example: ['--format=json']
+podman_inspect_args = {{ podman_inspect_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman run` commands
+# Example: ['--rm', '--interactive']
+podman_run_args = {{ podman_run_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman start` commands
+# Example: ['--attach']
+podman_start_args = {{ podman_start_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman stop` commands
+# Example: ['--time=10']
+podman_stop_args = {{ podman_stop_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman rm` commands
+# Example: ['--force', '--volumes']
+podman_rm_args = {{ podman_rm_args | default([]) | join(' ') }}
+
+# Custom arguments to be passed to `podman volume` commands
+# Example: ['--driver local']
+podman_volume_args = {{ podman_volume_args | default([]) | join(' ') }}
+
+# Specify an alternate environment file
+# Path to a file containing environment variables for the compose project.
+# If empty, the default .env file in the project directory is used.
+env_file = {{ env_file | default('') }}
+
+# Specify an alternate project name
+# Overrides the default project name (derived from the directory name).
+# Useful for running multiple isolated projects from the same directory tree.
+project_name = {{ project_name | default('') }}
+
+# Specify a profile to enable
+# Only services and volumes associated with this profile will be started.
+profile = {{ profile | default('') }}
+
+# Do not print ANSI control characters
+# Set to true to disable colored output and cursor control codes.
+no_ansi = {{ no_ansi | default(false) | lower }}
+
+# Do not stop and remove existing pod & containers
+# Set to true to skip the cleanup phase before starting.
+no_cleanup = {{ no_cleanup | default(false) | lower }}
+
+# No action; perform a simulation of commands
+# Set to true to print what would be executed without actually doing it.
+dry_run = {{ dry_run | default(false) | lower }}
+
+# Run tasks in parallel
+# Number of concurrent tasks to run. Set to 0 for sequential execution.
+parallel = {{ parallel | default(0) }}
+
+# Print debugging output
+# Set to true to enable verbose logging during execution.
+verbose = {{ verbose | default(false) | lower }}
+
+# In-pod mode flag
+# Controls whether containers are placed in a Podman pod.
+# 1 = enabled (default), 0 = disabled.
+in_pod = {{ in_pod | default(1) }}
+
+[COMPOSE_FILES]
+# List of compose files to use
+# These are equivalent to the -f/--file flags passed to podman-compose.
+# Files are processed in the order they appear here; later files override earlier ones.
+{% if compose_files is defined and compose_files %}
+{% for f in compose_files %}
+file_{{ loop.index0 }} = {{ f }}
+{% endfor %}
+{% endif %}

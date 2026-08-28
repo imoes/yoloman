@@ -1,0 +1,27 @@
+# install-mimic configuration template
+#
+# This template generates a command-line configuration for the 'mimic' utility
+# which installs or mimics source files to a destination.
+# It is self-documenting: every variable is explicitly defaulted to prevent
+# rendering failures when Ansible variables are undefined.
+
+# Enable verbose diagnostic output during execution.
+# Schema: verbose (boolean), default=False
+# If enabled, adds the -v flag to the command.
+{% if verbose | default(false) %}-v{% endif %}
+
+# Path to a reference file to obtain ownership and access mode from.
+# Schema: reffile (string), default=''
+# If provided, adds the -r flag followed by the path.
+{% if reffile | default('') | trim != '' %}-r {{ reffile | default('') | trim }}{% endif %}
+
+# Source file(s) to copy.
+# Schema: sources (list), default=[]
+# Iterates over the list of source files or glob patterns.
+{% for src in sources | default([]) %}{{ src }}
+{% endfor %}
+
+# Destination file path or directory where source files will be placed.
+# Schema: destination (string), default='/usr/local/bin'
+# The target location for the operation.
+{{ destination | default('/usr/local/bin') }}

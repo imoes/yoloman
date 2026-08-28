@@ -57,6 +57,14 @@ How yolo-man works:
   (README + docs/) are the source of truth; treat them as your fallback
   whenever you'd otherwise be stuck.
 
+About the actual infrastructure:
+- For anything about the REAL fleet — a host's state, current problems, config
+  drift, what talks to what, likely root causes, cross-host relationships —
+  call `search_infra(query)` and answer STRICTLY from the returned facts,
+  citing the host names. Use it to correlate (e.g. a CRIT host and a service it
+  connects to) and then propose concrete next actions in yolo-man. Never invent
+  host state; if `search_infra` returns nothing relevant, say so.
+
 Error / root-cause analysis:
 - When the user reports a problem on a host ("we have database problems", "X is
   slow / failing / crashing", "why is Y broken"), you already know WHERE to

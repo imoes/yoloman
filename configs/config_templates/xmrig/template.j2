@@ -1,0 +1,267 @@
+{#
+  XMRig JSON Configuration Template
+  ==================================
+  This template generates a valid JSON configuration file for XMRig.
+  All variables use `default()` to ensure safe rendering even if undefined in the Ansible inventory.
+  Boolean values are rendered as `true`/`false` (lowercase) for valid JSON.
+  Empty strings are rendered as empty strings, not omitted, unless logic dictates.
+  The root object is a JSON object.
+#}
+{
+{# Autosave configuration changes when pool connection changes #}
+  "autosave": {{ (values | default({})).autosave | default(False) | ternary('true', 'false') }},
+
+{# Donate level in percent (default 1%, i.e., 1 minute in 100 minutes) #}
+  "donate-level": {{ (values | default({})).donate_level | default(1) }},
+
+{# URL of mining server #}
+  "url": "{{ (values | default({})).url | default('') }}",
+
+{# Username for mining server #}
+  "user": "{{ (values | default({})).user | default('') }}",
+
+{# Password for mining server #}
+  "pass": "{{ (values | default({})).pass | default('') }}",
+
+{# Rig identifier for pool-side statistics #}
+  "rig-id": "{{ (values | default({})).rig_id | default('') }}",
+
+{# Custom user-agent string for pool #}
+  "user-agent": "{{ (values | default({})).user_agent | default('') }}",
+
+{# Mining algorithm #}
+  "algo": "{{ (values | default({})).algo | default('randomx') }}",
+
+{# Specify coin instead of algorithm #}
+  "coin": "{{ (values | default({})).coin | default('') }}",
+
+{# Enable SSL/TLS support #}
+  "tls": {{ (values | default({})).tls_enabled | default(False) | ternary('true', 'false') }},
+
+{# Pool TLS certificate fingerprint for strict certificate pinning (only if TLS is enabled) #}
+{% if (values | default({})).tls_enabled | default(False) %}
+  "tls-fingerprint": "{{ (values | default({})).tls_fingerprint | default('') }}",
+{% endif %}
+
+{% if (values | default({})).daemon_mode | default(False) %}
+{# Use daemon RPC instead of pool for solo mining #}
+  "daemon": true,
+
+{# Daemon's zmq-pub port number #}
+  "daemon-zmq-port": {{ (values | default({})).daemon_zmq_port | default(10009) }},
+
+{# Daemon poll interval in milliseconds #}
+  "daemon-poll-interval": {{ (values | default({})).daemon_poll_interval | default(1000) }},
+
+{# Daemon job timeout in milliseconds #}
+  "daemon-job-timeout": {{ (values | default({})).daemon_job_timeout | default(15000) }},
+
+{# URL to self-select block templates #}
+  "self-select": "{{ (values | default({})).self_select_url | default('') }}",
+
+{# Also submit solution back to self-select URL #}
+  "submit-to-origin": {{ (values | default({})).submit_to_origin | default(False) | ternary('true', 'false') }},
+{% else %}
+{# Enable nicehash.com support #}
+  "nicehash": {{ (values | default({})).nicehash | default(False) | ternary('true', 'false') }},
+{% endif %}
+
+{# Number of times to retry before switch to backup server #}
+  "retries": {{ (values | default({})).retries | default(5) }},
+
+{# Time to pause between retries in seconds #}
+  "retry-pause": {{ (values | default({})).retry_pause | default(5) }},
+
+{# Prefer IPv6 records from DNS responses #}
+  "dns-ipv6": {{ (values | default({})).dns_ipv6 | default(False) | ternary('true', 'false') }},
+
+{# TTL for internal DNS cache in seconds #}
+  "dns-ttl": {{ (values | default({})).dns_ttl | default(30) }},
+
+{# Bind host for HTTP API #}
+  "http-host": "{{ (values | default({})).api_host | default('127.0.0.1') }}",
+
+{# Bind port for HTTP API (0 to disable) #}
+  "http-port": {{ (values | default({})).api_port | default(0) }},
+
+{# Access token for HTTP API #}
+  "http-access-token": "{{ (values | default({})).api_token | default('') }}",
+
+{# Enable full remote access to HTTP API (only if access token set) #}
+  "http-no-restricted": {{ (values | default({})).api_full_access | default(False) | ternary('true', 'false') }},
+
+{# Custom worker-id for API #}
+  "api-worker-id": "{{ (values | default({})).api_worker_id | default('') }}",
+
+{# Custom instance ID for API #}
+  "api-id": "{{ (values | default({})).api_id | default('') }}",
+
+{# Run the miner in the background #}
+  "background": {{ (values | default({})).background | default(False) | ternary('true', 'false') }},
+
+{# Use system log for output messages #}
+  "syslog": {{ (values | default({})).use_syslog | default(False) | ternary('true', 'false') }},
+
+{# Log all output to a file #}
+  "log-file": "{{ (values | default({})).log_file | default('') }}",
+
+{# Print hashrate report every N seconds (0 to disable) #}
+  "print-time": {{ (values | default({})).print_hashrate_interval | default(0) }},
+
+{# Print health report every N seconds (0 to disable) #}
+  "health-print-time": {{ (values | default({})).print_health_interval | default(0) }},
+
+{# Disable colored output #}
+  "no-color": {{ (values | default({})).disable_colors | default(False) | ternary('true', 'false') }},
+
+{# Verbose output #}
+  "verbose": {{ (values | default({})).verbose | default(False) | ternary('true', 'false') }},
+
+{# Disable CPU mining backend #}
+  "no-cpu": {{ (values | default({})).no_cpu | default(False) | ternary('true', 'false') }},
+
+{# Number of CPU threads (0 for auto) #}
+  "threads": {{ (values | default({})).threads | default(0) }},
+
+{# Set process affinity to CPU core(s), mask 0x3 for cores 0 and 1 #}
+  "cpu-affinity": {{ (values | default({})).cpu_affinity | default(0) }},
+
+{# Algorithm variation, 0 auto select #}
+  "av": {{ (values | default({})).algorithm_variation | default(0) }},
+
+{# Set process priority (0 idle, 2 normal to 5 highest) #}
+  "cpu-priority": {{ (values | default({})).cpu_priority | default(0) }},
+
+{# Maximum CPU threads count (in percentage) hint for autoconfig #}
+  "cpu-max-threads-hint": {{ (values | default({})).cpu_max_threads_hint | default(0) }},
+
+{# Number of 2 MB pages for persistent memory pool, -1 (auto), 0 (disable) #}
+  "cpu-memory-pool": {{ (values | default({})).cpu_memory_pool | default(-1) }},
+
+{# Prefer maximum hashrate rather than system response/stability #}
+  "cpu-no-yield": {{ (values | default({})).cpu_no_yield | default(False) | ternary('true', 'false') }},
+
+{# Disable huge pages support #}
+  "no-huge-pages": {{ (values | default({})).no_huge_pages | default(False) | ternary('true', 'false') }},
+
+{# Custom hugepage size in kB (0 to disable) #}
+  "hugepage-size": {{ (values | default({})).hugepage_size | default(0) }},
+
+{# Enable huge pages support for RandomX JIT code #}
+  "huge-pages-jit": {{ (values | default({})).huge_pages_jit | default(False) | ternary('true', 'false') }},
+
+{# ASM optimizations: auto, none, intel, ryzen, bulldozer #}
+  "asm": "{{ (values | default({})).asm_optimizations | default('auto') }}",
+
+{# Argon2 implementation: x86_64, SSE2, SSSE3, XOP, AVX2, AVX-512F #}
+  "argon2-impl": "{{ (values | default({})).argon2_impl | default('auto') }}",
+
+{# Threads count to initialize RandomX dataset (0 for auto) #}
+  "randomx-init": {{ (values | default({})).randomx_init_threads | default(0) }},
+
+{# Disable NUMA support for RandomX #}
+  "randomx-no-numa": {{ (values | default({})).no_numa | default(False) | ternary('true', 'false') }},
+
+{# RandomX mode: auto, fast, light #}
+  "randomx-mode": "{{ (values | default({})).randomx_mode | default('auto') }}",
+
+{# Use 1GB hugepages for RandomX dataset (Linux only) #}
+  "randomx-1gb-pages": {{ (values | default({})).randomx_1gb_pages | default(False) | ternary('true', 'false') }},
+
+{# Write custom value(s) to MSR registers or disable MSR mod (-1) #}
+  "randomx-wrmsr": "{{ (values | default({})).randomx_wrmsr | default('') }}",
+
+{# Disable reverting initial MSR values on exit #}
+  "randomx-no-rdmsr": {{ (values | default({})).randomx_no_rdmsr | default(False) | ternary('true', 'false') }},
+
+{# Enable Cache QoS #}
+  "randomx-cache-qos": {{ (values | default({})).randomx_cache_qos | default(False) | ternary('true', 'false') }},
+
+{# Enable OpenCL mining backend #}
+  "opencl": {{ (values | default({})).opencl_enabled | default(False) | ternary('true', 'false') }},
+
+{% if (values | default({})).opencl_enabled | default(False) %}
+{# Comma separated list of OpenCL devices to use #}
+  "opencl-devices": "{{ (values | default({})).opencl_devices | default('') }}",
+
+{# OpenCL platform index or name #}
+  "opencl-platform": "{{ (values | default({})).opencl_platform | default('') }}",
+
+{# Path to OpenCL-ICD-Loader #}
+  "opencl-loader": "{{ (values | default({})).opencl_loader | default('') }}",
+
+{# Disable OpenCL cache #}
+  "opencl-no-cache": {{ (values | default({})).opencl_no_cache | default(False) | ternary('true', 'false') }},
+
+{# Print available OpenCL platforms and exit #}
+  "print-platforms": {{ (values | default({})).print_opencl_platforms | default(False) | ternary('true', 'false') }},
+{% endif %}
+
+{# Enable CUDA mining backend #}
+  "cuda": {{ (values | default({})).cuda_enabled | default(False) | ternary('true', 'false') }},
+
+{% if (values | default({})).cuda_enabled | default(False) %}
+{# Path to CUDA plugin #}
+  "cuda-loader": "{{ (values | default({})).cuda_loader | default('') }}",
+
+{# Comma separated list of CUDA devices to use #}
+  "cuda-devices": "{{ (values | default({})).cuda_devices | default('') }}",
+
+{# Bfactor hint for autoconfig (0-12) #}
+  "cuda-bfactor-hint": {{ (values | default({})).cuda_bfactor_hint | default(0) }},
+
+{# Bsleep hint for autoconfig #}
+  "cuda-bsleep-hint": {{ (values | default({})).cuda_bsleep_hint | default(0) }},
+
+{# Disable NVML (NVIDIA Management Library) support #}
+  "no-nvml": {{ (values | default({})).no_nvml | default(False) | ternary('true', 'false') }},
+{% endif %}
+
+{# Generate TLS certificate for specific hostname #}
+  "tls-gen": "{{ (values | default({})).tls_gen_host | default('') }}",
+
+{# Load TLS certificate chain from a file in the PEM format #}
+  "tls-cert": "{{ (values | default({})).tls_cert_file | default('') }}",
+
+{# Load TLS certificate private key from a file in the PEM format #}
+  "tls-cert-key": "{{ (values | default({})).tls_cert_key_file | default('') }}",
+
+{# Load DH parameters for DHE ciphers from a file in the PEM format #}
+  "tls-dhparam": "{{ (values | default({})).tls_dhparam_file | default('') }}",
+
+{# Enable specified TLS protocols, example: ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] #}
+  "tls-protocols": "{{ (values | default({})).tls_protocols | default([]) | join(' ') }}",
+
+{# Set list of available ciphers (TLSv1.2 and below) #}
+  "tls-ciphers": "{{ (values | default({})).tls_ciphers | default([]) | join(' ') }}",
+
+{# Set list of available TLSv1.3 ciphersuites #}
+  "tls-ciphersuites": "{{ (values | default({})).tls_ciphersuites | default([]) | join(' ') }}",
+
+{# Pause mine on battery power #}
+  "pause-on-battery": {{ (values | default({})).pause_on_battery | default(False) | ternary('true', 'false') }},
+
+{# Pause mine when the user is active (resume after N seconds of last activity, 0 to disable) #}
+  "pause-on-active": {{ (values | default({})).pause_on_active_seconds | default(0) }},
+
+{# Run continuous stress test to check system stability #}
+  "stress": {{ (values | default({})).stress_test | default(False) | ternary('true', 'false') }},
+
+{# Run benchmark, N can be between 1M and 10M #}
+  "bench": "{{ (values | default({})).benchmark_iterations | default('') }}",
+
+{# Perform an online benchmark and submit result for sharing #}
+  "submit": {{ (values | default({})).submit_benchmark | default(False) | ternary('true', 'false') }},
+
+{# Verify submitted benchmark by ID #}
+  "verify": "{{ (values | default({})).verify_benchmark_id | default('') }}",
+
+{# Custom RandomX seed for benchmark #}
+  "seed": "{{ (values | default({})).seed | default('') }}",
+
+{# Compare benchmark result with specified hash #}
+  "hash": "{{ (values | default({})).compare_hash | default('') }}",
+
+{# Disable DMI/SMBIOS reader #}
+  "no-dmi": {{ (values | default({})).no_dmi | default(False) | ternary('true', 'false') }}
+}

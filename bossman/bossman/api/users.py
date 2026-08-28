@@ -208,9 +208,30 @@ async def create_grant(
         raise HTTPException(status_code=422, detail="scope=host requires agent_id")
     if body.scope == "host_group" and not body.host_group_id:
         raise HTTPException(status_code=422, detail="scope=host_group requires host_group_id")
+    # An api_token grant is bound to the token's UID, not to its name: names are not unique, so a
+    # name-bound grant applied to every token sharing it (measured: 28). The name is resolved here
+    # and the ambiguity is REFUSED rather than resolved by guessing — an authorisation must not
+    # depend on which of several rows a query happened to return first.
+    token_id = None
+    if body.subject_kind == "api_token":
+        matches = (
+            await session.scalars(select(ApiToken.id).where(ApiToken.name == body.subject_ref))
+        ).all()
+        if not matches:
+            raise HTTPException(status_code=422, detail=f"no API token named {body.subject_ref!r}")
+        if len(matches) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{len(matches)} API tokens are named {body.subject_ref!r} — a grant binds to one "
+                    "token, so the name is ambiguous; rename or revoke the duplicates first"
+                ),
+            )
+        token_id = matches[0]
     g = AccessGrant(
         subject_kind=body.subject_kind,
         subject_ref=body.subject_ref,
+        subject_token_id=token_id,
         scope=body.scope,
         agent_id=body.agent_id if body.scope == "host" else None,
         host_group_id=body.host_group_id if body.scope == "host_group" else None,

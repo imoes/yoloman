@@ -1,0 +1,99 @@
+# Nwipe Secure Erase Configuration
+# This template generates the command-line arguments / configuration file
+# for the Nwipe (Nuclear Wipe) tool, used for secure data erasure of storage devices.
+
+# Path to the log file. If empty or not set, defaults to STDOUT.
+# --logfile=FILE
+{% if logfile is defined and logfile %}
+logfile={{ logfile }}
+{% endif %}
+
+# Wiping method to use for secure erasure.
+# Valid values: dod, gutmann, zero, quick, dod522022m, ops2, random, prng, stream, is5enh.
+# --method=METHOD (default: dodshort)
+method={{ method|default('dodshort') }}
+
+# Number of times to wipe the device using the selected method.
+# --rounds=NUM (default: 1)
+rounds={{ rounds|default(1) }}
+
+# Whether to perform verification of erasure.
+# Valid values: off, last, all.
+# --verify=TYPE (default: last)
+verify={{ verify|default('last') }}
+
+# Perform a sync after NUM writes.
+# 0 for full disk write, 1 for every write, 100000 (default) for periodic sync.
+# --sync=NUM (default: 100000)
+sync={{ sync|default(100000) }}
+
+# PRNG method to use for random passes.
+# Valid values: mersenne, twister, isaac, isaac64.
+# --prng=METHOD (default: mersenne)
+prng={{ prng|default('mersenne') }}
+
+# Directory to write the PDF nwipe reports/certificates to.
+# Use 'noPDF' to disable.
+# --PDFreportpath=DIR (default: .)
+pdfreportpath={{ pdfreportpath|default('.') }}
+
+# Do not perform the final blanking pass after the wipe.
+# --noblank
+{% if noblank | default(False) | bool %}
+noblank
+{% endif %}
+
+# Do not wait for a key before exiting.
+# --nowait
+{% if nowait | default(False) | bool %}
+nowait
+{% endif %}
+
+# Do not allow signals to interrupt a wipe.
+# --nosignals
+{% if nosignals | default(False) | bool %}
+nosignals
+{% endif %}
+
+# Do not show or wipe any USB devices.
+# --nousb
+{% if nousb | default(False) | bool %}
+nousb
+{% endif %}
+
+# Do not show the GUI interface. Can only be used with autonuke.
+# --nogui
+{% if nogui | default(False) | bool %}
+nogui
+{% endif %}
+
+# Anonymize serial numbers in logs and GUI.
+# --quiet
+{% if quiet | default(False) | bool %}
+quiet
+{% endif %}
+
+# Log more messages, useful for debugging.
+# -v, --verbose
+{% if verbose | default(False) | bool %}
+verbose
+{% endif %}
+
+# Devices to exclude from wiping (comma separated).
+# Example: ['/dev/sdc', '/dev/sdd']
+# --exclude=DEVICES
+{% if exclude_devices is defined and exclude_devices is iterable and (exclude_devices | length) > 0 %}
+exclude={{ exclude_devices | join(',') }}
+{% endif %}
+
+# Start wiping all devices (or specified ones) immediately without user confirmation.
+# --autonuke
+{% if autonuke | default(False) | bool %}
+autonuke
+{% endif %}
+
+# Power off system on completion of wipe delayed for one minute.
+# --autopoweroff
+{% if autopoweroff | default(False) | bool %}
+autopoweroff
+{% endif %}

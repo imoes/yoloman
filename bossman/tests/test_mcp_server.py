@@ -8,6 +8,7 @@ network) is injected via build_mcp_server's client_factory parameter.
 
 import json
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -90,7 +91,7 @@ async def _call(mcp, name, args=None):
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"mcp-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("mcp-agent"),
         "token": "tok",
         "address": "10.0.0.7:8010",
         "mode": "standalone",
@@ -546,7 +547,7 @@ async def test_mcp_fleet_health_reports_counters(db_session, session_factory, tm
 async def test_mcp_fleet_hosts_reports_parent_link_and_state_rollup(db_session, session_factory, tmp_path):
     proxy = await _make_agent(db_session, mode="proxy")
     satellite = Agent(
-        name=f"mcp-sat-{uuid.uuid4().hex[:8]}",
+        name=owned_name("mcp-sat"),
         token="",
         mode="satellite",
         enrollment_state="enrolled",

@@ -1,0 +1,30 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		{{ provides | default('live-tools') }}
+# Required-Start:		$syslog bootmisc
+# Required-Stop:
+# Should-Start:		$local_fs
+# Should-Stop:		halt reboot
+# Short-Description:	{{ short_description | default('live-tools') }} - System Support Scripts
+# Description:		{{ description | default('live-tools contains additional support scripts for live systems.') }}
+# X-Start-Before:
+# X-Stop-After:		umountroot
+# X-Interactive:	true
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+case "${1}" in
+	stop)
+		# Path to the live-medium-eject executable
+		if [ -e {{ live_medium_eject_path | default('/usr/bin/live-medium-eject') }} ]
+		then
+			{{ live_medium_eject_path | default('/usr/bin/live-medium-eject') }} ${@}
+		fi
+		;;
+
+	start|force-reload|restart)
+
+		;;
+esac

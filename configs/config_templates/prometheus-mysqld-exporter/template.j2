@@ -1,0 +1,45 @@
+# Prometheus MySQL/MariaDB Exporter configuration
+#
+# This template configures the command-line arguments for the
+# prometheus-mysqld-exporter service.
+#
+# The primary mechanism for passing connection details is via the
+# DATA_SOURCE_NAME environment variable or the --config.my-cnf flag,
+# which points to a MySQL client configuration file (e.g., /etc/mysql/debian.cnf).
+#
+# See the original comments below for details on connection string formats
+# and user privileges required.
+
+# Set the command-line arguments to pass to the prometheus-mysqld-exporter server.
+# Note: Due to shell escaping rules, backslashes must be doubled for regexes.
+# When running under systemd, they may need to be quadrupled (\\\\d to mean \d),
+# and newlines must also be escaped appropriately.
+ARGS="{{ args | default('') }}"
+
+### Database authentication
+#
+# By default the DATABASE connection string will be read from
+# the file specified with the -config.my-cnf parameter.  For example:
+# ARGS='--config.my-cnf /etc/mysql/debian.cnf'
+#
+# Note that SSL options can only be set using a cnf file.
+#
+# To use UNIX domain sockets authentication with or without password:
+# DATA_SOURCE_NAME="prometheus:nopassword@unix(/run/mysqld/mysqld.sock)/"
+# DATA_SOURCE_NAME="prometheus@unix(/run/mysqld/mysqld.sock)/"
+#
+# To use a TCP connection and password authentication:
+# DATA_SOURCE_NAME="prometheus:password@(hostname:port)/dbname"
+
+### Monitoring user creation.
+#
+# You need a user with enough privileges for the exporter to run.
+#
+# Example to create a user to connect (only) via UNIX socket:
+#   CREATE USER IF NOT EXISTS 'prometheus'@'localhost' IDENTIFIED WITH unix_socket;
+#
+# To create a user with a password, that can log in via UNIX or TCP sockets:
+#   CREATE USER IF NOT EXISTS 'prometheus'@'localhost' IDENTIFIED BY 'password';
+#
+# Finally, to grant the necessary privileges:
+#   GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'prometheus'@'localhost';

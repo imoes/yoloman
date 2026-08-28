@@ -1,0 +1,49 @@
+# jardiff configuration template
+# Self-documenting Jinja2 template for jardiff binary arguments.
+# All variables are sourced from Ansible variables; defaults are applied
+# using Jinja2's `default()` filter to ensure safe rendering even when
+# a variable is undefined.
+
+# -f: Path to the 'from' JAR file (the baseline/old version).
+# If the variable is not defined, falls back to /usr/share/java/library-old.jar.
+from_jar: "{{ from_jar | default('/usr/share/java/library-old.jar') }}"
+
+# -t: Path to the 'to' JAR file (the new/target version).
+# If the variable is not defined, falls back to /usr/share/java/library-new.jar.
+to_jar: "{{ to_jar | default('/usr/share/java/library-new.jar') }}"
+
+# -F: Display name for the 'from' JAR file. Used in reports to identify the baseline.
+# If the variable is not defined, falls back to 'Old Library'.
+from_name: "{{ from_name | default('Old Library') }}"
+
+# -T: Display name for the 'to' JAR file. Used in reports to identify the target.
+# If the variable is not defined, falls back to 'New Library'.
+to_name: "{{ to_name | default('New Library') }}"
+
+# -o: Output format for the diff report.
+# Supported values: xml, html, xhtml, text.
+# If the variable is not defined, falls back to 'html'.
+output_format: "{{ output_format | default('html') }}"
+
+# -O: Path to the output report file.
+# Ensure the directory exists before jardiff runs (e.g., via file module).
+# If the variable is not defined, falls back to /var/log/jardiff/diff-report.html.
+output_file: "{{ output_file | default('/var/log/jardiff/diff-report.html') }}"
+
+# -x: Path to a custom XSL stylesheet to transform XML output into HTML.
+# If the variable is not defined, falls back to an empty string (disables custom XSL).
+xsl_file: "{{ xsl_file | default('') }}"
+
+# -s: Href to an external CSS stylesheet for HTML output.
+# If the variable is not defined, falls back to an empty string (uses default internal styles).
+stylesheet: "{{ stylesheet | default('') }}"
+
+# -fa: Relative location of the 'from' API documentation.
+# Generates links in the report pointing to this documentation.
+# If the variable is not defined, falls back to an empty string (disables link).
+from_api: "{{ from_api | default('') }}"
+
+# -ta: Relative location of the 'to' API documentation.
+# Generates links in the report pointing to this documentation.
+# If the variable is not defined, falls back to an empty string (disables link).
+to_api: "{{ to_api | default('') }}"

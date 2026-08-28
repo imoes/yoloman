@@ -1,0 +1,21 @@
+# Logtail configuration file
+# Manages log monitoring and offset tracking for log files.
+# This template generates a simple key-value configuration format.
+
+# Enable or disable logtail service/functionality.
+# Default: True (enabled)
+ENABLE_LOGTAIL: {{ enable_logtail | default(true) | lower }}
+
+# List of log files to monitor.
+# Each entry requires a 'file' (path) and optionally an 'offset' path and 'test_mode' boolean.
+# If log_files is empty or undefined, this section remains empty.
+LOG_FILES:
+{% for entry in log_files | default([]) %}- FILE: {{ entry.file | default('') }}
+  OFFSET: {{ entry.offset | default('auto') }}
+  TEST_MODE: {{ entry.test_mode | default(false) | lower }}
+{% endfor %}
+
+# If true, logtail prints a warning if the log file is shorter than last run.
+# This typically indicates rotation or truncation.
+# Default: True (enabled)
+WARN_ON_TRUNCATE: {{ warn_on_truncate | default(true) | lower }}

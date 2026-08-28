@@ -1,0 +1,220 @@
+#!/bin/bash
+# =============================================================================
+# Ploticus Graph Generation Wrapper
+# =============================================================================
+# This script is a self-documenting wrapper for the `ploticus` graphing utility.
+# It constructs a command line based on configuration variables, supporting two
+# modes: 'prefab' (using built-in templates) and 'script' (using a .p script file).
+#
+# The script is designed to be idempotent and safe for reuse in Ansible roles.
+# All variables default to safe values if not provided by the caller.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configuration Variables
+# -----------------------------------------------------------------------------
+
+# Path to the ploticus executable binary.
+# Schema: ploticus_binary (string)
+PLOTICUS_BIN="{{ ploticus_binary | default('/usr/bin/ploticus') }}"
+
+# Mode of operation.
+# 'prefab': Use built-in templates (vbars, hbars, line, etc.).
+# 'script': Use a user-defined ploticus script file (.p).
+# Schema: mode (string)
+MODE="{{ mode | default('prefab') }}"
+
+# Path to the input data file.
+# Used by prefabs (via datafile=... param) or ignored in script mode.
+# Schema: data_file (string)
+DATA_FILE="{{ data_file | default('/var/lib/ploticus/data.dat') }}"
+
+# Path to the output file where the plot will be saved.
+# Schema: output_file (string)
+OUTPUT_FILE="{{ output_file | default('/var/lib/ploticus/output.png') }}"
+
+# Name of the prefab template to use (e.g., vbars, hbars, line, scat).
+# Only used when MODE is 'prefab'.
+# Schema: prefab_name (string)
+PREFAB_NAME="{{ prefab_name | default('vbars') }}"
+
+# List of additional key=value parameters for the prefab.
+# Only used when MODE is 'prefab'.
+# Schema: prefab_params (list)
+PREFAB_PARAMS="{{ prefab_params | default([]) }}"
+
+# Path to the ploticus script file.
+# Only used when MODE is 'script'.
+# Schema: script_file (string)
+SCRIPT_FILE="{{ script_file | default('/var/lib/ploticus/plot.p') }}"
+
+# Desired output image format.
+# Supported values depend on the build: png, svg, gif, jpeg, eps, ps, swf, wbmp.
+# Schema: output_format (string)
+OUTPUT_FORMAT="{{ output_format | default('png') }}"
+
+# Pixel dimensions for the output image in 'width,height' format.
+# Corresponds to -pixsize.
+# Schema: pixsize (string)
+PIXSIZE="{{ pixsize | default('800,600') }}"
+
+# Paper size in inches in 'width,height' format.
+# Corresponds to -pagesize.
+# Schema: pagesize (string)
+PAGESIZE="{{ pagesize | default('10,8') }}"
+
+# Scale factor for the output.
+# Can be a single value or 'sx,sy'. Corresponds to -scale.
+# Schema: scale (string)
+SCALE="{{ scale | default('1.0') }}"
+
+# Title or label for the plot. Corresponds to -outlabel.
+# Schema: title (string)
+TITLE="{{ title | default('Ploticus Plot') }}"
+
+# Background color of the plot. Corresponds to -backcolor.
+# Schema: back_color (string)
+BACK_COLOR="{{ back_color | default('white') }}"
+
+# Default color for text, lines, and data points. Corresponds to -color.
+# Schema: text_color (string)
+TEXT_COLOR="{{ text_color | default('black') }}"
+
+# Font family to use for text. Corresponds to -font.
+# Schema: font (string)
+FONT="{{ font | default('helvetica') }}"
+
+# Default text size in points. Corresponds to -textsize.
+# Schema: text_size (string)
+TEXT_SIZE="{{ text_size | default('12') }}"
+
+# Default line width. Corresponds to -linewidth.
+# Schema: line_width (string)
+LINE_WIDTH="{{ line_width | default('1') }}"
+
+# If true, crops the output image tightly to the plot extent. Corresponds to -tightcrop.
+# Schema: tight_crop (boolean)
+TIGHT_CROP="{{ tight_crop | default(false) | lower }}"
+
+# If true, uses centimeters as absolute units. Corresponds to -cm.
+# Schema: use_cm (boolean)
+USE_CM="{{ use_cm | default(false) | lower }}"
+
+# If true, sets landscape orientation (primarily for PostScript). Corresponds to -landscape.
+# Schema: landscape (boolean)
+LANDSCAPE="{{ landscape | default(false) | lower }}"
+
+# If true, enables debug mode, writing diagnostic info to stderr. Corresponds to -debug.
+# Schema: debug (boolean)
+DEBUG="{{ debug | default(false) | lower }}"
+
+# -----------------------------------------------------------------------------
+# Command Construction
+# -----------------------------------------------------------------------------
+
+# Initialize the command with the binary path
+CMD="${PLOTICUS_BIN}"
+
+# Add mode-specific flags and parameters
+if [ "${MODE}" = "prefab" ]; then
+    # Prefab mode: specify the template name
+    CMD="${CMD} -prefab ${PREFAB_NAME}"
+    
+    # Append prefab parameters
+    {% for param in prefab_params | default([]) %}
+    CMD="${CMD} ${param}"
+    {% endfor %}
+
+    # Handle data file for prefab mode.
+    # According to ploticus docs, prefabs accept 'datafile=/path' as a param.
+    # We inject it here if not already present in prefab_params.
+    {% set has_datafile = false %}
+    {% for param in prefab_params | default([]) %}
+        {% if param.startswith('datafile=') %}
+            {% set has_datafile = true %}
+        {% endif %}
+    {% endfor %}
+    
+    {% if not has_datafile %}
+    # Check if data_file is set and not empty
+    if [ -n "${DATA_FILE}" ]; then
+        CMD="${CMD} datafile=${DATA_FILE}"
+    fi
+    {% endif %}
+
+elif [ "${MODE}" = "script" ]; then
+    # Script mode: specify the script file
+    CMD="${CMD} -f ${SCRIPT_FILE}"
+    
+    # Note: In script mode, the data source is usually defined inside the .p script
+    # or via stdin. We do not automatically inject -datafile here as it is 
+    # script-specific.
+else
+    echo "Error: Unknown mode '${MODE}'. Use 'prefab' or 'script'." >&2
+    exit 1
+fi
+
+# Add output file
+# Corresponds to -o option
+CMD="${CMD} -o ${OUTPUT_FILE}"
+
+# Add format flag
+# Corresponds to -png, -svg, -gif, etc.
+if [ "${OUTPUT_FORMAT}" = "png" ]; then
+    CMD="${CMD} -png"
+elif [ "${OUTPUT_FORMAT}" = "svg" ]; then
+    CMD="${CMD} -svg"
+elif [ "${OUTPUT_FORMAT}" = "gif" ]; then
+    CMD="${CMD} -gif"
+elif [ "${OUTPUT_FORMAT}" = "jpeg" ]; then
+    CMD="${CMD} -jpeg"
+elif [ "${OUTPUT_FORMAT}" = "eps" ]; then
+    CMD="${CMD} -eps"
+elif [ "${OUTPUT_FORMAT}" = "ps" ]; then
+    CMD="${CMD} -ps"
+else
+    echo "Error: Unsupported format '${OUTPUT_FORMAT}'." >&2
+    exit 1
+fi
+
+# Add sizing and appearance options
+CMD="${CMD} -pixsize ${PIXSIZE}"
+CMD="${CMD} -pagesize ${PAGESIZE}"
+CMD="${CMD} -scale ${SCALE}"
+CMD="${CMD} -outlabel '${TITLE}'"
+CMD="${CMD} -backcolor '${BACK_COLOR}'"
+CMD="${CMD} -color '${TEXT_COLOR}'"
+CMD="${CMD} -font '${FONT}'"
+CMD="${CMD} -textsize ${TEXT_SIZE}"
+CMD="${CMD} -linewidth ${LINE_WIDTH}"
+
+# Add unit options (centimeters)
+# Corresponds to -cm option
+{% if use_cm | default(false) %}
+CMD="${CMD} -cm"
+{% endif %}
+
+# Add crop option
+# Corresponds to -tightcrop option
+{% if tight_crop | default(false) %}
+CMD="${CMD} -tightcrop"
+{% endif %}
+
+# Add orientation option
+# Corresponds to -landscape option
+{% if landscape | default(false) %}
+CMD="${CMD} -landscape"
+{% endif %}
+
+# Add debug option
+# Corresponds to -debug option
+{% if debug | default(false) %}
+CMD="${CMD} -debug"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Execution
+# -----------------------------------------------------------------------------
+
+echo "Executing: ${CMD}"
+exec ${CMD}

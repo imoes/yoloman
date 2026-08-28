@@ -1,0 +1,113 @@
+# makedepf90 configuration template for generating Makefile dependencies
+#
+# makedepf90 is a tool to generate Makefile dependency lists for Fortran source files.
+# It scans Fortran source files for module dependencies and outputs them in a format
+# suitable for inclusion in a Makefile.
+
+# Command: makedepf90
+{% set args = [] %}
+
+# -h: Print help message and quit.
+{% if help | default(False) %}{% set _ = args.append('-h') %}{% endif %}
+
+# -V: Print version and copyright info and quit.
+{% if version | default(False) %}{% set _ = args.append('-V') %}{% endif %}
+
+# -W: Print warnings about missing modules and include files.
+{% if warnings | default(False) %}{% set _ = args.append('-W') %}{% endif %}
+
+# -Wconfused: Print warnings when confused by source files or bugs.
+{% if warn_confused | default(False) %}{% set _ = args.append('-Wconfused') %}{% endif %}
+
+# -m <format>: Format for mod-file names.
+# Default is '%f.o'. Examples: '%f.o', '%m.mod', '%f.mod'
+{% if format_string | default('%f.o') | trim is not equalto '' %}
+{%   set _ = args.append('-m') %}
+{%   set _ = args.append(format_string | default('%f.o')) %}
+{% endif %}
+
+# -u <module>: List of module names to ignore all dependencies for.
+# Repeat this option for each module to ignore.
+{% if ignore_modules | default([]) %}
+{%   for mod in ignore_modules %}
+{%     set _ = args.append('-u') %}
+{%     set _ = args.append(mod) %}
+{%   endfor %}
+{% endif %}
+
+# -d <file>: Make all targets dependent on this specific file.
+{% if depend_on_file is defined and depend_on_file is not none %}
+{%   set _ = args.append('-d') %}
+{%   set _ = args.append(depend_on_file) %}
+{% endif %}
+
+# -r <rule>: Add this indented rule to all dependency lines (except those with -R).
+{% if default_rule is defined and default_rule is not none %}
+{%   set _ = args.append('-r') %}
+{%   set _ = args.append(default_rule) %}
+{% endif %}
+
+# -R <pattern> <rule>: List of special rules for specific file patterns.
+# Each entry is a map with 'pattern' (glob/regex) and 'rule' (Makefile syntax).
+{% if special_rules | default([]) %}
+{%   for rule in special_rules %}
+{%     set _ = args.append('-R') %}
+{%     set _ = args.append(rule.pattern + ' ' + rule.rule) %}
+{%   endfor %}
+{% endif %}
+
+# -fixed: Assume source files are in fixed format (Fortran 77 style).
+{% if fixed_format | default(False) %}{% set _ = args.append('-fixed') %}{% endif %}
+
+# -free: Assume source files are in free format (Fortran 90+ style).
+{% if free_format | default(False) %}{% set _ = args.append('-free') %}{% endif %}
+
+# -o <executable>: Generate executable output rules.
+# If provided, makedepf90 outputs rules for linking the final executable.
+{% if executable_output is defined and executable_output %}
+{%   set _ = args.append('-o') %}
+{%   set _ = args.append(executable_output) %}
+{%   if link_rule is defined and link_rule %}
+{%     set _ = args.append('-l') %}
+{%     set _ = args.append(link_rule) %}
+{%   endif %}
+{% endif %}
+
+# -coco: Use COCO-style dependency generation.
+{% if use_coco | default(False) %}{% set _ = args.append('-coco') %}{% endif %}
+
+# -D <def>: Define a preprocessor macro.
+# Repeat for each define.
+{% if defines | default([]) %}
+{%   for def in defines %}
+{%     set _ = args.append('-D') %}
+{%     set _ = args.append(def) %}
+{%   endfor %}
+{% endif %}
+
+# -b <path>: Objects are in a single path.
+# Tells makedepf90 that all object files reside in the specified directory.
+{% if objects_in_path is defined and objects_in_path %}
+{%   set _ = args.append('-b') %}
+{%   set _ = args.append(objects_in_path) %}
+{% endif %}
+
+# -B <path>: Objects are in the same directory structure as sources.
+{% if objects_same_structure_path is defined and objects_same_structure_path %}
+{%   set _ = args.append('-B') %}
+{%   set _ = args.append(objects_same_structure_path) %}
+{% endif %}
+
+# -I <path>: Include search path.
+# Colon-separated list of directories to search for included modules/files.
+{% if include_paths is defined and include_paths %}
+{%   set _ = args.append('-I') %}
+{%   set _ = args.append(include_paths | join(':')) %}
+{% endif %}
+
+# -nosrc: Do not include source file dependencies.
+# Only output module dependencies, not the source file itself.
+{% if nosrc | default(False) %}{% set _ = args.append('-nosrc') %}{% endif %}
+
+# Execute makedepf90 with the collected arguments.
+makedepf90 {{ args | join(' ') }}

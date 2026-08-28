@@ -1,0 +1,66 @@
+# ==============================================================================
+# rbd-mirror configuration template
+# ==============================================================================
+# This template generates the Ceph rbd-mirror daemon configuration.
+# It maps schema fields to ceph.conf style directives.
+#
+# Schema Field Reference:
+#   conf_path        : Path to the ceph.conf configuration file.
+#   mons             : List of monitor addresses in monhost[:port] format.
+#   rbd_mirror_id    : The ID portion of the daemon name.
+#   rbd_mirror_name  : The rados user name to authenticate as.
+#   cluster_name     : The name of the Ceph cluster.
+#   foreground_stderr: Run daemon in foreground and log to stderr.
+#   foreground_syslog: Run daemon in foreground and log to syslog.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# conf_path: Path to the ceph.conf configuration file. Overrides the default search path.
+# Option: -c, --conf
+# --------------------------------------------------------------------------
+conf = {{ (conf_path | default('/etc/ceph/ceph.conf')) }}
+
+# --------------------------------------------------------------------------
+# mons: List of monitor addresses in monhost[:port] format.
+#       If empty, defaults to standard local monitor.
+# Option: -m
+# --------------------------------------------------------------------------
+# Join the list of monitors with commas. If the list is undefined or empty,
+# provide a sensible default to ensure the daemon can start.
+mons = {{ (mons | default(['127.0.0.1:6789'])) | join(',') }}
+
+# --------------------------------------------------------------------------
+# rbd_mirror_id: The ID portion of the daemon name (e.g., if name is client.rbd-mirror,
+#                id is empty or specific suffix).
+#                Empty string uses default name.
+# Option: -i, --id
+# --------------------------------------------------------------------------
+id = {{ (rbd_mirror_id | default('')) }}
+
+# --------------------------------------------------------------------------
+# rbd_mirror_name: The rados user name to authenticate as.
+# Option: -n, --name
+# --------------------------------------------------------------------------
+name = {{ (rbd_mirror_name | default('client.rbd-mirror')) }}
+
+# --------------------------------------------------------------------------
+# cluster_name: The name of the Ceph cluster.
+# Option: --cluster
+# --------------------------------------------------------------------------
+cluster = {{ (cluster_name | default('ceph')) }}
+
+# --------------------------------------------------------------------------
+# foreground_stderr: Run daemon in foreground and log to stderr instead of
+#                    daemonizing and logging to syslog.
+# Option: -d
+# --------------------------------------------------------------------------
+# Convert boolean to lowercase string 'true' or 'false' for Ceph config compatibility.
+foreground_stderr = {{ (foreground_stderr | default(false) | bool) | ternary('true', 'false') }}
+
+# --------------------------------------------------------------------------
+# foreground_syslog: Run daemon in foreground and log to the usual syslog
+#                    location instead of daemonizing.
+# Option: -f
+# --------------------------------------------------------------------------
+# Convert boolean to lowercase string 'true' or 'false' for Ceph config compatibility.
+foreground_syslog = {{ (foreground_syslog | default(false) | bool) | ternary('true', 'false') }}

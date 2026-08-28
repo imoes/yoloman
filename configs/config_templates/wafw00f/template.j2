@@ -1,0 +1,125 @@
+# ==============================================================================
+# wafw00f Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the wafw00f WAF identification
+# tool. It supports verbose logging, output formatting, proxy usage, and target
+# specification.
+#
+# Each variable uses Jinja2's `default()` filter to ensure the template renders
+# even if the variable is not provided by Ansible, falling back to the schema's
+# defined default value.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Output Verbosity
+# ------------------------------------------------------------------------------
+# Enable verbose output (-v).
+# Use multiple times for more verbosity, but here we represent it as a single flag
+# for config simplicity.
+# Defaults to: False
+verbose: {{ verbose | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# WAF Detection Mode
+# ------------------------------------------------------------------------------
+# Find all WAFs instead of stopping at the first one (-a).
+# Normally wafw00f stops after identifying the first WAF; this flag forces it to
+# continue scanning for additional WAFs.
+# Defaults to: False
+findall: {{ findall | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# Redirection Handling
+# ------------------------------------------------------------------------------
+# Do not follow HTTP redirections (-r).
+# If enabled, wafw00f will not follow 3xx responses, which might be useful if
+# redirects obscure the WAF identity.
+# Defaults to: False
+noredirect: {{ noredirect | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# Output Destination
+# ------------------------------------------------------------------------------
+# Write output to csv, json or text file depending on file extension (-o).
+# To output to stdout, specify an empty string or '-'.
+# Defaults to: '' (stdout)
+output_file: {{ output_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Output Format
+# ------------------------------------------------------------------------------
+# Force output format to csv, json or text (-f).
+# If empty, wafw00f determines the format from the output_file extension or
+# defaults to text.
+# Defaults to: '' (auto-detect)
+output_format: {{ output_format | default('') }}
+
+# ------------------------------------------------------------------------------
+# HTTP Proxy Configuration
+# ------------------------------------------------------------------------------
+# Use an HTTP proxy to perform requests (-p).
+# Examples:
+#   http://hostname:8080
+#   socks5://hostname:1080
+# Leave empty to connect directly.
+# Defaults to: '' (direct)
+proxy: {{ proxy | default('') }}
+
+# ------------------------------------------------------------------------------
+# Request Timeout
+# ------------------------------------------------------------------------------
+# Set the timeout for the requests in seconds (-T).
+# Controls how long wafw00f waits for a response before considering the request
+# failed.
+# Defaults to: 10
+timeout: {{ timeout | default(10) }}
+
+# ------------------------------------------------------------------------------
+# ANSI Color Output
+# ------------------------------------------------------------------------------
+# Disable ANSI colors in output (--no-colors).
+# Useful for log files or environments that do not support color codes.
+# Defaults to: False (colors enabled)
+no_colors: {{ no_colors | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# Target URLs
+# ------------------------------------------------------------------------------
+# List of URLs to test.
+# Each item in the list should be a map (dictionary) containing a 'url' field
+# with the target URL string.
+# Example structure:
+#   input_targets:
+#     - url: 'https://example.com'
+#     - url: 'https://test.com/waf'
+input_targets: |
+{%- for target in input_targets | default([]) %}
+  - {{ target.url }}
+{%- endfor %}
+
+# ------------------------------------------------------------------------------
+# Input Targets File
+# ------------------------------------------------------------------------------
+# Read targets from a file (-i).
+# Use this if `input_targets` is empty.
+# Input format can be csv, json or text.
+# For csv and json, a 'url' column name or element is required.
+# Defaults to: '' (no file)
+input_file: {{ input_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Custom Headers
+# ------------------------------------------------------------------------------
+# Pass custom headers (-H).
+# Path to a file containing headers to overwrite the default User-Agent or add
+# other custom headers.
+# Defaults to: '' (no custom headers file)
+headers_file: {{ headers_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Specific WAF Test
+# ------------------------------------------------------------------------------
+# Test for one specific WAF product (--test=WAF).
+# If empty, wafw00f scans for all known WAFs.
+# Defaults to: '' (all WAFs)
+specific_waf: {{ specific_waf | default('') }}

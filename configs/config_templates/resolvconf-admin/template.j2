@@ -1,0 +1,43 @@
+# /etc/resolvconf/resolv.conf.d/base configuration
+# Managed by resolvconf-admin.
+#
+# This file is processed by `resolvconf` to generate the system's
+# /etc/resolv.conf. It defines the DNS search domains and nameservers.
+
+{% if enabled | default(true) %}
+    # ------------------------------------------------------------------
+    # Nameservers
+    # List of IPv4/IPv6 nameserver addresses to include in resolv.conf.
+    # Defaults to Google's public DNS (8.8.8.8) if not specified.
+    # ------------------------------------------------------------------
+    {% for ns in nameservers | default(['8.8.8.8']) %}
+    nameserver {{ ns }}
+    {% endfor %}
+
+    # ------------------------------------------------------------------
+    # Search Domains
+    # Defines the search list for hostname resolution.
+    # If 'search_domain' is provided, it is included.
+    # If 'search_domains' is provided, those are appended.
+    # ------------------------------------------------------------------
+    {% set search_list = [] %}
+    {% if search_domain | default('') %}
+        {% set _ = search_list.append(search_domain | default('')) %}
+    {% endif %}
+    {% for sd in search_domains | default([]) %}
+        {% set _ = search_list.append(sd) %}
+    {% endfor %}
+
+    {% if search_list | length > 0 %}
+    search {{ search_list | join(' ') }}
+    {% endif %}
+
+    # ------------------------------------------------------------------
+    # Local Domain
+    # The local hostname domain name.
+    # If provided, a 'domain' directive is written.
+    # ------------------------------------------------------------------
+    {% if domain | default('') %}
+    domain {{ domain | default('') }}
+    {% endif %}
+{% endif %}

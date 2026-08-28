@@ -1,0 +1,43 @@
+# stegsnow configuration file
+# This file controls the behavior of the stegsnow steganography tool.
+# All variables must use their schema defaults to ensure safe rendering.
+
+# Enable Huffman compression for the hidden message.
+# When true, the message is compressed before embedding to reduce space usage.
+compress: {{ compress | default(true) | ternary('true', 'false') }}
+
+# Maximum line length in characters.
+# Hidden whitespace is appended to ensure lines do not exceed this limit.
+line_length: {{ line_length | default(80) }}
+
+# Password for ICE encryption.
+# If empty, no encryption is applied to the hidden message.
+# Note: This is a plaintext password field, not a credential store reference.
+password: {{ password | default("") }}
+
+# Suppress statistical output (compression percentage, capacity used).
+# When true, the tool runs silently.
+quiet: {{ quiet | default(false) | ternary('true', 'false') }}
+
+# Operation mode: 'conceal' to hide data, 'extract' to reveal data.
+# 'conceal': Embed a message into a cover file.
+# 'extract': Retrieve a hidden message from a cover file.
+operation: {{ operation | default("extract") }}
+
+{% if (operation | default("extract")) == "conceal" %}
+# Inline message string to conceal.
+# Mutually exclusive with message_file.
+message: {{ message | default("") }}
+
+# Path to file containing the message to conceal.
+# Mutually exclusive with message.
+message_file: {{ message_file | default("") }}
+{% endif %}
+
+# Path to the text file to process.
+# Used as source for extraction or container for concealment.
+input_file: {{ input_file | default("") }}
+
+# Path to write the result.
+# If empty, writes to stdout.
+output_file: {{ output_file | default("") }}

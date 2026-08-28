@@ -1,0 +1,105 @@
+#
+# ============================================================================
+# IceGrid Node Configuration Template
+# ============================================================================
+# This file configures an IceGrid Node daemon (icegridnode).
+# It defines how the node connects to the IceGrid Registry, its own identity,
+# data/output directories, and logging/tracing preferences.
+#
+# Variables used:
+#   - ice_registry_host: Hostname/IP of the IceGrid Registry (default: localhost)
+#   - ice_registry_port: TCP port for the non-SSL registry locator (default: 4061)
+#   - ice_registry_ssl_port: TCP port for the SSL registry locator (default: 4062)
+#   - ice_grid_node_name: Unique identifier for this node in the deployment (default: node1)
+#   - ice_grid_node_bind_host: Host/IP address the node object adapter binds to (default: localhost)
+#   - ice_grid_node_data_dir: Directory for node internal data (default: /var/lib/ice/icegrid/node1)
+#   - ice_grid_node_output_dir: Directory for server stdout/stderr logs (default: /var/lib/ice/icegrid/node1)
+#   - ice_use_systemd_journal: Enable logging to systemd journal if true (default: True)
+#   - ice_grid_node_trace_replica: Trace level for replica operations (default: 2)
+# ============================================================================
+#
+
+#
+# Proxy to the IceGrid Registry
+# The node uses this locator to discover other nodes and servers.
+# Format: Ice.Default.Locator=Category/Name:protocol -h <host> -p <port>
+#
+Ice.Default.Locator=DemoIceGrid/Locator:tcp -h {{ ice_registry_host | default('localhost') }} -p {{ ice_registry_port | default(4061) }}
+
+# Uncomment the following line to use SSL for the registry locator instead of TCP.
+# Ensure SSL certificates are properly configured for the node.
+#Ice.Default.Locator=DemoIceGrid/Locator:ssl -h {{ ice_registry_host | default('localhost') }} -p {{ ice_registry_ssl_port | default(4062) }}
+
+#
+# The name of this IceGrid node.
+# This name must be unique within the IceGrid deployment domain.
+# It is used to identify this node in the registry's database.
+#
+IceGrid.Node.Name={{ ice_grid_node_name | default('node1') }}
+
+#
+# Endpoints for the node's object adapter.
+# These endpoints allow the IceGrid Registry to communicate with this node
+# for deployment instructions, heartbeats, and monitoring.
+# The adapter listens on the specified host. If not specified or set to empty,
+# it may bind to all interfaces, which poses a security risk.
+#
+# To listen on additional interfaces, add more endpoints (e.g., tcp -h 192.168.1.10).
+# Security Note: Exposing these endpoints directly to untrusted networks allows
+# remote code execution if authentication is not configured. Secure them appropriately.
+#
+IceGrid.Node.Endpoints=tcp -h {{ ice_grid_node_bind_host | default('localhost') }}
+
+#
+# Data directory for the IceGrid Node.
+# The node stores its internal state, lease files, and temporary configuration here.
+# This directory must exist and be writable by the user running icegridnode.
+#
+IceGrid.Node.Data={{ ice_grid_node_data_dir | default('/var/lib/ice/icegrid/node1') }}
+
+#
+# Output directory for server logs.
+# When IceGrid starts applications, their standard output (stdout) and standard
+# error (stderr) streams are redirected to files in this directory.
+# Ensure this directory exists and has sufficient disk space.
+#
+IceGrid.Node.Output={{ ice_grid_node_output_dir | default('/var/lib/ice/icegrid/node1') }}
+
+# Optional: Uncomment to redirect stderr to stdout for servers.
+#IceGrid.Node.RedirectErrToOut=1
+
+#
+# Logging configuration.
+# Ice.UseSystemdJournal: When true, log messages are sent to the systemd journal
+# (if running under systemd) instead of or in addition to the default logging mechanism.
+# This allows integration with journalctl for log management.
+#
+Ice.UseSystemdJournal={{ ice_use_systemd_journal | default(True) | lower }}
+
+# The program name reported in logs, helping to identify the source of messages.
+Ice.ProgramName=icegridnode ({{ ice_grid_node_name | default('node1') }})
+
+#
+# Tracing configuration.
+# IceGrid.Node.Trace.Replica: Controls the level of tracing for replica group operations.
+# Higher values produce more verbose logs for debugging replica consistency and leadership.
+# Valid range: 0 (no trace) to 3 (very verbose).
+#
+IceGrid.Node.Trace.Replica={{ ice_grid_node_trace_replica | default(2) }}
+
+#
+# IceMX (Ice Metrics and eXtensions) configuration.
+# These settings control debugging and metrics exposure via Ice admin commands.
+#
+
+# Debug metrics: Group by operation ID.
+IceMX.Metrics.Debug.GroupBy=id
+# Disable debug metrics by default (set to 0 to enable).
+IceMX.Metrics.Debug.Disabled=1
+# Exclude Admin operations from debug metrics to reduce noise.
+IceMX.Metrics.Debug.Reject.parent=Ice\.Admin
+
+# ByParent metrics: Group operations by their parent component.
+IceMX.Metrics.ByParent.GroupBy=parent
+# Disable ByParent metrics by default.
+IceMX.Metrics.ByParent.Disabled=1

@@ -1,132 +1,137 @@
 {
-  "service_name": {
-    "type": "string",
-    "default": "keystone",
-    "description": "Service name used in logs and notifications."
-  },
-  "keystone_uwsgi_port": {
-    "type": "number",
-    "default": 5000,
-    "description": "Port on which the Keystone uWSGI server listens."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable debug logging (verbose output)."
-  },
-  "log_format": {
-    "type": "string",
-    "default": "%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s",
-    "description": "Format string for log messages."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to log file. Empty means log to stderr."
-  },
-  "database": {
-    "type": "object",
-    "default": "",
-    "description": "Database connection configuration."
-  },
-  "database.connection": {
-    "type": "string",
-    "default": "mysql+pymysql://keystone:password@localhost/keystone",
-    "description": "Database connection URI."
-  },
-  "database.max_retries": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of database connection retries."
-  },
-  "database.retry_interval": {
-    "type": "number",
-    "default": 10,
-    "description": "Time (seconds) between connection retries."
-  },
-  "database.pool_size": {
-    "type": "number",
-    "default": 10,
-    "description": "Number of connections maintained in the pool."
-  },
-  "database.pool_recycle": {
-    "type": "number",
-    "default": 600,
-    "description": "Time (seconds) before recycling idle connections."
-  },
-  "database.pool_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Timeout (seconds) for acquiring a connection from the pool."
-  },
-  "token": {
-    "type": "object",
-    "default": "",
-    "description": "Token provider and settings."
-  },
-  "token.provider": {
-    "type": "string",
-    "default": "fernet",
-    "description": "Token provider: 'fernet', 'pki', 'pkiz', or 'uuid'."
-  },
-  "token.total_expiration": {
-    "type": "number",
-    "default": 3600,
-    "description": "Token validity duration (seconds)."
-  },
-  "token.fernet_max_active_keys": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of Fernet keys to maintain for rotation (only with fernet provider)."
-  },
-  "token.key_repository": {
-    "type": "string",
-    "default": "/etc/keystone/fernet-keys/",
-    "description": "Directory for Fernet key files (only with fernet provider)."
-  },
-  "token.uuid_cache_time": {
-    "type": "number",
-    "default": 600,
-    "description": "TTL (seconds) for UUID token caching."
-  },
-  "fernet_tokens": {
-    "type": "object",
-    "default": "",
-    "description": "Fernet token configuration (deprecated; use token.key_repository)."
-  },
-  "fernet_tokens.key_repository": {
-    "type": "string",
-    "default": "/etc/keystone/fernet-keys/",
-    "description": "Deprecated: Use token.key_repository instead."
-  },
-  "revoke": {
-    "type": "object",
-    "default": "",
-    "description": "Token revocation configuration."
-  },
-  "revoke.driver": {
-    "type": "string",
-    "default": "sql",
-    "description": "Revocation backend: 'sql', 'kafka', or custom driver."
-  },
-  "revoke.expiration": {
-    "type": "number",
-    "default": 60,
-    "description": "Time (seconds) before revocation events expire."
-  },
   "cache": {
-    "type": "object",
-    "default": "",
-    "description": "Caching backend configuration."
+    "description": "Caching backend configuration.",
+    "type": "string"
   },
   "cache.backend": {
-    "type": "string",
     "default": "keystone.cache.memcached",
-    "description": "Cache backend: e.g., 'keystone.cache.memcached', 'keystone.cache.sql'."
+    "description": "Cache backend: e.g., 'keystone.cache.memcached', 'keystone.cache.sql'.",
+    "type": "string"
   },
   "cache.memcache_servers": {
-    "type": "list",
     "default": [],
-    "description": "List of Memcached server addresses (e.g., ['10.0.0.1:11211', '10.0.0.2:11211'])."
+    "description": "List of Memcached server addresses (e.g., ['10.0.0.1:11211', '10.0.0.2:11211']).",
+    "type": "list"
+  },
+  "database": {
+    "description": "Database connection configuration.",
+    "type": "string"
+  },
+  "database.connection": {
+    "default": "mysql+pymysql://keystone:password@localhost/keystone",
+    "description": "Database connection URI.",
+    "type": "string"
+  },
+  "database.max_retries": {
+    "default": 10,
+    "description": "Maximum number of database connection retries.",
+    "type": "number"
+  },
+  "database.pool_recycle": {
+    "default": 600,
+    "description": "Time (seconds) before recycling idle connections.",
+    "type": "number"
+  },
+  "database.pool_size": {
+    "default": 10,
+    "description": "Number of connections maintained in the pool.",
+    "type": "number"
+  },
+  "database.pool_timeout": {
+    "default": 30,
+    "description": "Timeout (seconds) for acquiring a connection from the pool.",
+    "type": "number"
+  },
+  "database.retry_interval": {
+    "default": 10,
+    "description": "Time (seconds) between connection retries.",
+    "type": "number"
+  },
+  "debug": {
+    "default": false,
+    "description": "Enable debug logging (verbose output).",
+    "type": "bool"
+  },
+  "fernet_tokens": {
+    "description": "Fernet token configuration (deprecated; use token.key_repository).",
+    "type": "string"
+  },
+  "fernet_tokens.key_repository": {
+    "default": "/etc/keystone/fernet-keys/",
+    "description": "Deprecated: Use token.key_repository instead.",
+    "type": "string"
+  },
+  "keystone_uwsgi_port": {
+    "default": 5000,
+    "description": "Port on which the Keystone uWSGI server listens.",
+    "type": "number"
+  },
+  "log_file": {
+    "default": "",
+    "description": "Path to log file. Empty means log to stderr.",
+    "type": "string"
+  },
+  "log_format": {
+    "default": "%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s",
+    "description": "Format string for log messages.",
+    "type": "string"
+  },
+  "revoke": {
+    "description": "Token revocation configuration.",
+    "type": "string"
+  },
+  "revoke.driver": {
+    "default": "sql",
+    "description": "Revocation backend: 'sql', 'kafka', or custom driver.",
+    "type": "string",
+    "enum": [
+      "sql",
+      "kafka"
+    ]
+  },
+  "revoke.expiration": {
+    "default": 60,
+    "description": "Time (seconds) before revocation events expire.",
+    "type": "number"
+  },
+  "service_name": {
+    "default": "keystone",
+    "description": "Service name used in logs and notifications.",
+    "type": "string"
+  },
+  "token": {
+    "description": "Token provider and settings.",
+    "type": "string"
+  },
+  "token.fernet_max_active_keys": {
+    "default": 3,
+    "description": "Number of Fernet keys to maintain for rotation (only with fernet provider).",
+    "type": "number"
+  },
+  "token.key_repository": {
+    "default": "/etc/keystone/fernet-keys/",
+    "description": "Directory for Fernet key files (only with fernet provider).",
+    "type": "string"
+  },
+  "token.provider": {
+    "default": "fernet",
+    "description": "Token provider: 'fernet', 'pki', 'pkiz', or 'uuid'.",
+    "type": "string",
+    "enum": [
+      "fernet",
+      "pki",
+      "pkiz",
+      "uuid"
+    ]
+  },
+  "token.total_expiration": {
+    "default": 3600,
+    "description": "Token validity duration (seconds).",
+    "type": "number"
+  },
+  "token.uuid_cache_time": {
+    "default": 600,
+    "description": "TTL (seconds) for UUID token caching.",
+    "type": "number"
   }
 }

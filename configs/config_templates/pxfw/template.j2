@@ -1,0 +1,58 @@
+# =============================================================================
+# PXFW Configuration Template
+# =============================================================================
+# This template configures pxfw, a firmware flashing tool for Plextor CD/DVD devices.
+# It defines the target device, firmware source, and operational flags.
+#
+# Schema Fields:
+#   - device: Target block device (e.g., /dev/sr0).
+#   - firmware_path: Path to the firmware binary to flash.
+#   - force_flash: Boolean; force write even if risky.
+#   - update_mode: Boolean; check checksums before writing.
+#   - debug: Boolean; enable verbose logging.
+#   - actions: List of additional operations (read_eeprom, reboot, test_opcodes).
+# =============================================================================
+
+# device: Target device path for the Plextor drive.
+# Supported formats: /dev/hdX (IDE), /dev/scdX (SCSI/SATA/USB), /dev/srX (Linux 2.6+).
+# Defaults to /dev/sr0 if not specified.
+DEVICE: "{{ (values | default({})).device | default('/dev/sr0') }}"
+
+# firmware_path: Path to the firmware binary file (.bin) to be written.
+# This file must be readable by the user running pxfw.
+# Defaults to /usr/share/pxfw/firmware.bin if not specified.
+FIRMWARE_PATH: "{{ (values | default({})).firmware_path | default('/usr/share/pxfw/firmware.bin') }}"
+
+# force_flash: Enables the -f flag.
+# DANGEROUS: Forces flashing even if the device is not recognized or checksum fails.
+# Set to true only if standard flashing fails and you are certain of the hardware compatibility.
+# Defaults to false.
+FORCE_FLASH: {{ (values | default({})).force_flash | default(false) | lower }}
+
+# update_mode: Enables the -u flag.
+# Ensures firmware is written only if the checksum of the new firmware matches the expected value.
+# Highly recommended for safety.
+# Defaults to true.
+UPDATE_MODE: {{ (values | default({})).update_mode | default(true) | lower }}
+
+# debug: Enables the -v flag.
+# Outputs detailed diagnostic information to stdout/stderr during execution.
+# Useful for troubleshooting flashing issues.
+# Defaults to false.
+DEBUG: {{ (values | default({})).debug | default(false) | lower }}
+
+# actions: List of additional actions to perform after or during flashing.
+# Supported actions:
+#   - read_eeprom: Reads the drive's EEPROM data (-e flag).
+#   - reboot: Reboots the drive controller after flashing (-r flag).
+#   - test_opcodes: Runs opcode tests on the drive (-t flag).
+# This section is a YAML list if actions are defined.
+{% set actions = (values | default({})).actions | default([]) %}
+{% if actions is iterable and (actions | length) > 0 %}
+ACTIONS:
+{% for action in actions %}
+  - {{ action }}
+{% endfor %}
+{% else %}
+ACTIONS: []
+{% endif %}

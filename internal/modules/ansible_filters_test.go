@@ -177,3 +177,51 @@ func TestAnsibleFilters_ZipAndProduct(t *testing.T) {
 		t.Errorf("zip = %q", got)
 	}
 }
+
+// TestPathAndShapeFilters pins the five filters the generated library needs and gonja does not ship.
+// Measured on the render ratchet before they existed: seven templates failed with "unable to evaluate
+// filter" naming exactly these, and adding them could not change any other template's output — every use of
+// them had been an error, so the only possible effect was those seven starting to work.
+func TestPathAndShapeFilters(t *testing.T) {
+	values := map[string]any{"items": []any{1, 2, 3}, "flag": true, "nope": false}
+	cases := []struct{ tmpl, want string }{
+		{`{{ "/var/run/x.pid" | dirname }}`, "/var/run"},
+		{`{{ "/var/run/x.pid" | basename }}`, "x.pid"},
+		{`{{ items | count }}`, "3"},
+		{`{{ flag | yes_no }}`, "yes"},
+		{`{{ nope | yes_no }}`, "no"},
+		// A file that wants `on` must not be written `yes` — hence the pair as an argument.
+		{`{{ flag | yes_no("on,off") }}`, "on"},
+		{`{{ nope | yes_no("true,false") }}`, "false"},
+		// dirname of a bare name is "." (path.Dir). Pinned so nobody "fixes" it to an empty string.
+		{`{{ "x.conf" | dirname }}`, "."},
+	}
+	for _, c := range cases {
+		if got := renderTmpl(t, c.tmpl, values); got != c.want {
+			t.Errorf("%s = %q, want %q", c.tmpl, got, c.want)
+		}
+	}
+}
+
+// TestRecordNamedFilters: three filters the render record named by their absence. Same reasoning as the
+// first batch — a filter that does not exist can only have been failing, so adding it changes nothing else.
+func TestRecordNamedFilters(t *testing.T) {
+	values := map[string]any{"host": "10.0.0.1", "v6": "2001:db8::1", "name": "a.b+c", "on": true,
+		"off": false, "nothing": nil}
+	cases := []struct{ tmpl, want string }{
+		{`{{ name | regex_escape }}`, `a\.b\+c`},
+		{`{{ host | ipversion }}`, "4"},
+		{`{{ v6 | ipversion }}`, "6"},
+		// A hostname has no version, and the template wants the branch skipped rather than the render aborted.
+		{`{{ "not-an-address" | ipversion }}`, ""},
+		{`{{ on | yesno("--yes", "--no", "") }}`, "--yes"},
+		{`{{ off | yesno("--yes", "--no", "") }}`, "--no"},
+		// The third arm is the point: "no value at all" is a flag OMITTED, not negated.
+		{`{{ nothing | yesno("--yes", "--no", "") }}`, ""},
+	}
+	for _, c := range cases {
+		if got := renderTmpl(t, c.tmpl, values); got != c.want {
+			t.Errorf("%s = %q, want %q", c.tmpl, got, c.want)
+		}
+	}
+}

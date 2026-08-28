@@ -1,0 +1,39 @@
+# ==============================================================================
+# QEMU User-Mode Emulation Configuration
+# ==============================================================================
+# This file configures QEMU's user-mode emulation behavior.
+# It is typically consumed by distro-specific wrapper scripts or init systems
+# that invoke `qemu-user` with the appropriate command-line flags derived from
+# these settings.
+#
+# Self-documenting: Each variable includes its schema default and description.
+# ==============================================================================
+
+# Path to the ELF interpreter prefix.
+# Equivalent to the -L command line argument.
+# This directory should contain the dynamic linker and shared libraries for
+# the target architecture.
+# Schema default: /etc/qemu-binfmt
+QEMU_USER_LIB_PATH: {{ (qemu_user_lib_path | default('/etc/qemu-binfmt')) | string }}
+
+# Stack size in bytes allocated for emulated processes.
+# Equivalent to the -s command line argument.
+# Schema default: 524288
+QEMU_USER_STACK_SIZE: {{ (qemu_user_stack_size | default(524288)) | int }}
+
+# Host page size to be presented to the emulated environment.
+# Equivalent to the -p command line argument.
+# Schema default: 4096
+QEMU_USER_PAGE_SIZE: {{ (qemu_user_page_size | default(4096)) | int }}
+
+# Comma-separated log options to activate debugging output.
+# If provided, QEMU will log detailed execution information to /tmp/qemu.log.
+# Equivalent to the -d command line argument.
+# Schema default: 'cpu'
+QEMU_USER_LOG_OPTIONS: {{ (qemu_user_log_options | default('cpu')) | string }}
+
+# TCP port number to wait for a GDB connection for remote debugging.
+# If set, QEMU starts a GDB server listener on this port.
+# Equivalent to the -g command line argument.
+# Schema default: '' (empty string, meaning GDB is disabled)
+QEMU_USER_GDB_PORT: {{ (qemu_user_gdb_port | default('')) | string }}

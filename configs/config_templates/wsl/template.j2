@@ -1,0 +1,91 @@
+# WSL User Configuration
+# ~/.wsl-config
+#
+# This configuration file controls the behavior of the Windows Subsystem for Linux (WSL).
+# It maps directly to the configuration settings accessible via `wsl --config` or the
+# Windows Registry.
+#
+# IMPORTANT: This template is self-documenting. Every directive is preceded by its
+# schema description and valid values where applicable.
+
+# =============================================================================
+# DEFAULT DISTRIBUTION
+# =============================================================================
+# The name of the default Linux distribution installed via wsl --install or wsl -d.
+# This distribution is launched when running 'wsl' without arguments.
+default_distro: {{ default_distro | default("Ubuntu") }}
+
+# =============================================================================
+# DEFAULT WSL VERSION
+# =============================================================================
+# The default WSL version (1 or 2) for new distributions, set via wsl --set-default-version.
+# WSL 2 is the modern default, offering better compatibility and performance.
+default_version: {{ default_version | default(2) }}
+
+# =============================================================================
+# KERNEL PATH (WSL 2)
+# =============================================================================
+# Path to the custom Linux kernel for WSL 2, from microsoft/WSL2-Linux-Kernel.
+# If empty, WSL uses the built-in Microsoft-managed kernel.
+# Leave blank for default kernel management.
+kernel_path: {{ kernel_path | default("") }}
+
+# =============================================================================
+# EXPERIMENTAL FEATURES
+# =============================================================================
+# List of experimental feature flags to enable in WSL.
+# These flags enable non-stable functionality that may change or be removed.
+experimental_features:
+{% for feature in experimental_features | default([]) %}  - {{ feature }}
+{% endfor %}
+
+# =============================================================================
+# NETWORKING CONFIGURATION
+# =============================================================================
+# Networking configuration for WSL instance.
+networking:
+  # Network mode for WSL (nat, mirrored, internal, external).
+  # nat: Default NAT network.
+  # mirrored: Shares the host's network interface.
+  # internal: Isolated internal network.
+  # external: Uses the host's network with a static IP.
+  mode: {{ (networking | default({})).mode | default("nat") }}
+
+  # Static IPv4 address for the WSL virtual machine network interface.
+  # Only applicable in 'external' mode or specific custom setups.
+  ipv4_address: {{ (networking | default({})).ipv4_address | default("") }}
+
+  # List of DNS servers for the WSL instance.
+  # These DNS servers are used for name resolution within the WSL VM.
+  dns_servers:
+{% for dns in (networking | default({})).dns_servers | default(["8.8.8.8", "8.8.4.4"]) %}    - {{ dns }}
+{% endfor %}
+
+# =============================================================================
+# FILE SYSTEM INTEGRATION
+# =============================================================================
+# File system integration settings between Windows and WSL.
+filesystem:
+  # Whether to automatically mount Windows partitions in WSL.
+  # When true, Windows drives are accessible under /mnt/ (or mount_point).
+  mount_windows_drives: {{ (filesystem | default({})).mount_windows_drives | default(true) | lower }}
+
+  # The directory path where Windows drives are mounted in Linux.
+  # Default is '/mnt'. Can be changed to '/media/c' etc. if needed.
+  mount_point: {{ (filesystem | default({})).mount_point | default("/mnt") }}
+
+# =============================================================================
+# TELEMETRY
+# =============================================================================
+# Whether to allow WSL to send diagnostic data/telemetry to Microsoft.
+# Set to false to disable telemetry reporting.
+enable_telemetry: {{ enable_telemetry | default(true) | lower }}
+
+# =============================================================================
+# UPDATE CHANNEL
+# =============================================================================
+# The update channel for WSL (stable, dev, beta, release_preview) as per Windows Insiders Program.
+# Controls which WSL updates are applied automatically.
+# stable: Recommended for production.
+# dev/beta/release_preview: For testing new features.
+update_channel: {{ update_channel | default("stable") }}

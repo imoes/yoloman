@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# subnetcalc Subnet Calculation Tasks
+# ==============================================================================
+# This template generates a shell script that invokes `subnetcalc` with a series
+# of subnet calculation tasks defined in the `subnets` variable.
+#
+# Schema Field: `subnets`
+# Description: List of subnet calculation tasks to perform using subnetcalc flags and arguments.
+#              Each item in the list defines the parameters for one subnetcalc invocation.
+# Default: [] (empty list)
+# ==============================================================================
+
+# Ensure subnets is defined as a list to prevent errors during iteration.
+{% set subnets = subnets | default([], boolean=True) %}
+
+{% if subnets %}
+# --- Subnet Calculation Tasks ---
+# Iterate over each subnet entry defined in the schema.
+{% for entry in subnets %}
+# Task {{ loop.index }}: Processing subnet configuration.
+{% set addr = entry.address | default('') %}
+{% set prefix = entry.prefix | default('') %}
+{% set nodns = entry.nodns | default(False) %}
+{% set unique_local = entry.unique_local | default(False) %}
+{% set unique_local_hq = entry.unique_local_hq | default(False) %}
+{% set no_color = entry.no_color | default(False) %}
+
+subnetcalc {{ addr }}{% if prefix is string and prefix != '' %} {{ prefix }}{% endif %}{% if nodns is true %} -n{% endif %}{% if unique_local is true %} -uniquelocal{% endif %}{% if unique_local_hq is true %} -uniquelocalhq{% endif %}{% if no_color is true %} -nocolour{% endif %}
+
+{% endfor %}
+{% else %}
+# No subnet calculation tasks defined.
+{% endif %}

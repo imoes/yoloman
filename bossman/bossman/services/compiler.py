@@ -513,9 +513,20 @@ async def _build_desired_state(
     facts = agent.facts or {}
     inventory = {
         k: facts.get(k)
-        for k in ("collected_at", "os", "system", "board", "bios", "cpu", "memory_mb", "disks", "nics", "installed_packages")
+        # os_family and the Windows role count travel with the rest: a document that describes a host has to
+        # say which FAMILY of host it is, or every consumer re-derives it from os.id and one of them gets it
+        # wrong. Added when the first Windows host arrived and read as Debian.
+        for k in ("collected_at", "os", "os_family", "system", "board", "bios", "cpu", "memory_mb",
+                  "disks", "nics", "installed_packages", "windows_features_installed")
         if facts.get(k) is not None
     }
+
+    # THE OTHER AUTHORITY'S DECLARATION, in its own section and labelled as such. Neither our desired state
+    # (we did not declare it) nor observed state (it is an intention, not a condition) — it is what Windows
+    # Group Policy wants this host to be, and it wins over us wherever the two touch. A document that showed
+    # only our own intent would make that conflict invisible, which is exactly how "the value keeps reverting"
+    # becomes a mystery nobody can explain.
+    policy = facts.get("group_policy")
 
     state = {
         "host": {
@@ -534,6 +545,8 @@ async def _build_desired_state(
         "variables": variables,
         "inventory": inventory,
     }
+    if policy:
+        state["foreign_policy"] = policy
     explain = {
         "ou_path": [n.path for n in ancestry],
         "assignments": [{"plan": a.plan_name, "source": a.source, "version": a.version} for a in assignments],

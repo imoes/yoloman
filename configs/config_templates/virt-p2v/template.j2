@@ -1,0 +1,121 @@
+# ==============================================================================
+# virt-p2v Conversion Configuration Template
+# ==============================================================================
+# This template generates the key-value configuration file used by the
+# virt-p2v (physical-to-virtual) conversion agent. It defines connection
+# details for the conversion server and parameters for the resulting guest VM.
+#
+# Self-Documenting: Every directive is preceded by its schema description.
+# Safe Defaults: Every variable reference uses | default(...) to prevent
+#                undefined variable errors during Ansible rendering.
+# ==============================================================================
+
+# The hostname or IP address of the conversion server.
+# Schema: p2v.server (string)
+p2v.server={{ (p2v | default({})).server | default('') }}
+
+# The SSH port number on the conversion server.
+# Schema: p2v.port (integer)
+p2v.port={{ (p2v | default({})).port | default(22) }}
+
+# The SSH username to log in with on the conversion server.
+# Schema: p2v.username (string)
+p2v.username={{ (p2v | default({})).username | default('root') }}
+
+# The SSH password for authentication.
+# Schema: p2v.password (string)
+# Note: If p2v.identity is set, password is typically ignored by SSH.
+p2v.password={{ (p2v | default({})).password | default('') }}
+
+# URL pointing to an SSH private key (e.g., file:///path/to/key or https://...).
+# Schema: p2v.identity (string)
+# Note: Overrides password if present.
+p2v.identity={{ (p2v | default({})).identity | default('') }}
+
+# Whether to use sudo on the conversion server to gain root privileges.
+# Schema: p2v.use_sudo (boolean)
+# Output: 'enabled' if true, empty string if false.
+p2v.sudo={{ 'enabled' if (p2v | default({})).use_sudo | default(False) else '' }}
+
+# The name of the guest VM to create.
+# Schema: p2v.name (string)
+# Note: Defaults to physical hostname if empty in the conversion agent.
+p2v.name={{ (p2v | default({})).name | default('') }}
+
+# Whether to copy the physical machine's complete CPU topology (sockets, cores, threads) to the guest.
+# Schema: p2v.copy_cpu_topo (boolean)
+# Output: 'enabled' if true, empty string if false.
+p2v.vcpu.phys_topo={{ 'enabled' if (p2v | default({})).copy_cpu_topo | default(False) else '' }}
+
+# Number of vCPU cores for the guest (ignored if copy_cpu_topo is true).
+# Schema: p2v.vcpu_cores (integer)
+p2v.vcpu.cores={{ (p2v | default({})).vcpu_cores | default(0) }}
+
+# Memory size for the guest with unit (e.g., 1024M, 2G).
+# Schema: p2v.memory (string)
+p2v.memory={{ (p2v | default({})).memory | default('') }}
+
+# CPU vendor for the guest (e.g., Intel, AMD).
+# Schema: p2v.cpu_vendor (string)
+p2v.cpu.vendor={{ (p2v | default({})).cpu_vendor | default('') }}
+
+# CPU model for the guest (e.g., IvyBridge).
+# Schema: p2v.cpu_model (string)
+p2v.cpu.model={{ (p2v | default({})).cpu_model | default('') }}
+
+# List of block device names to convert (e.g., sda, sdb).
+# Schema: p2v.disks (list of strings)
+# Output: Comma-separated list of devices.
+p2v.disks={{ (p2v | default({})).disks | default([]) | join(',') }}
+
+# List of removable media devices to convert.
+# Schema: p2v.removable (list of strings)
+# Output: Comma-separated list of devices.
+p2v.removable={{ (p2v | default({})).removable | default([]) | join(',') }}
+
+# List of network interfaces to convert.
+# Schema: p2v.interfaces (list of strings)
+# Output: Comma-separated list of interfaces.
+p2v.interfaces={{ (p2v | default({})).interfaces | default([]) | join(',') }}
+
+# List of network mappings in format interface:target (e.g., em1:ovirtmgmt).
+# Schema: p2v.network_map (list of strings)
+# Output: Comma-separated list of mappings.
+p2v.network={{ (p2v | default({})).network_map | default([]) | join(',') }}
+
+# Output mode for virt-v2v (e.g., libvirt, local).
+# Schema: p2v.output_type (string)
+p2v.o={{ (p2v | default({})).output_type | default('local') }}
+
+# Output allocation mode (e.g., sparse, preallocated).
+# Schema: p2v.output_allocation (string)
+p2v.oa={{ (p2v | default({})).output_allocation | default('sparse') }}
+
+# Libvirt URI for the output connection (used if output_type is libvirt).
+# Schema: p2v.output_connection (string)
+p2v.oc={{ (p2v | default({})).output_connection | default('') }}
+
+# Output format (e.g., raw, qcow2).
+# Schema: p2v.output_format (string)
+p2v.of={{ (p2v | default({})).output_format | default('') }}
+
+# Storage path for the output (e.g., /var/lib/libvirt/images/).
+# Schema: p2v.output_storage (string)
+p2v.os={{ (p2v | default({})).output_storage | default('') }}
+
+# List of miscellaneous output options in format OPTION=VALUE.
+# Schema: p2v.output_misc (list of strings)
+# Output: Comma-separated list of options.
+p2v.oo={{ (p2v | default({})).output_misc | default([]) | join(',') }}
+
+# Pre-conversion command to run.
+# Schema: p2v.pre_command (string)
+p2v.pre={{ (p2v | default({})).pre_command | default('') }}
+
+# Post-conversion command to run on success.
+# Schema: p2v.post_command (string)
+p2v.post={{ (p2v | default({})).post_command | default('poweroff') }}
+
+# Post-conversion command to run on failure.
+# Schema: p2v.fail_command (string)
+p2v.fail={{ (p2v | default({})).fail_command | default('') }}

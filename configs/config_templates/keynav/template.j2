@@ -1,0 +1,91 @@
+# keynav configuration file (~/.keynavrc)
+# This file configures keynav, a keyboard-driven window navigation tool.
+
+# If true, clears all default keybindings at the start of the config file.
+{% if clear_default_bindings | default(True) | bool %}
+clear
+{% endif %}
+
+# If true, keynav will background itself after parsing the config and setting up bindings.
+{% if daemonize | default(False) | bool %}
+daemonize
+{% endif %}
+
+# The key binding used to play back recorded macros. 'shift+at' corresponds to Shift+2.
+# Format: keybinding keynav-command[,keynav-command,...]
+{{ (macro_playback_key | default('shift+at')) }} playback
+
+# The file path where recorded macros are stored.
+# Note: The macro_record_key is used to trigger recording, the path is set in the 'record' command below.
+# Format: keybinding command-path
+
+# The key used to start/stop recording macros.
+# Format: keybinding command-path
+{{ (macro_record_key | default('q')) }} record {{ (macro_file_path | default('~/.keynav_macros')) }}
+
+# The global keybinding to activate keynav navigation mode.
+# Format: keybinding keynav-command[,keynav-command,...]
+{{ (start_keybinding | default('ctrl+semicolon')) }} start
+
+# A user-defined key binding for a custom shell command (e.g., paste).
+# Format: keybinding command-args
+{{ (custom_command_binding | default('v')) }} {{ (custom_command_action | default('sh "xdotool key shift+Insert",end')) }}
+
+# The key binding to warp mouse to center of current cell and perform a left click.
+# Format: keybinding keynav-command[,keynav-command,...]
+{{ (mouse_click_key | default('space')) }} warp,click 1,end
+
+# Alternative key binding to warp mouse and click (Enter key).
+# Format: keybinding keynav-command[,keynav-command,...]
+{{ (enter_click_key | default('Return')) }} warp,click 1,end
+
+# Mouse buttons
+1 click 1
+2 click 2
+3 click 3
+
+# Movement cuts (shrink window)
+h cut-left
+j cut-down
+k cut-up
+l cut-right
+
+# Movement moves (shift window)
+shift+h move-left
+shift+j move-down
+shift+k move-up
+shift+l move-right
+
+# Window zooming
+t windowzoom
+c cursorzoom 300 300
+
+# History
+a history-back
+
+# Utility
+e end
+
+# Compound cuts
+ctrl+h cut-left
+ctrl+j cut-down
+ctrl+k cut-up
+ctrl+l cut-right
+
+# Diagonal cuts
+y cut-left,cut-up
+u cut-right,cut-up
+b cut-left,cut-down
+n cut-right,cut-down
+
+# Diagonal moves
+shift+y move-left,move-up
+shift+u move-right,move-up
+shift+b move-left,move-down
+shift+n move-right,move-down
+
+# Additional compound cuts (ctrl)
+ctrl+y cut-left,cut-up
+ctrl+u cut-right,cut-up
+ctrl+b cut-left,cut-down
+ctrl+n cut-right,cut-down

@@ -84,9 +84,14 @@ def family_of(facts: dict) -> str:
         return fam.lower()
     osr = (facts or {}).get("os_release") or {}
     tokens = f"{osr.get('id','')} {osr.get('id_like','')}".lower()
-    for cand in ("debian", "ubuntu", "redhat", "rhel", "centos", "fedora", "suse"):
+    for cand in ("debian", "ubuntu", "redhat", "rhel", "centos", "fedora", "suse", "windows"):
         if cand in tokens:
             return "redhat" if cand in ("rhel", "centos", "fedora") else ("debian" if cand == "ubuntu" else cand)
+    # DEBIAN AS THE LAST RESORT IS A GUESS, and it was measurably the wrong one: the C# Windows agent reported
+    # no inventory at all, so this line read a Windows Server as Debian and every family-dependent lookup
+    # believed it. The guess stays for a LINUX host whose os-release is unhelpful (where it is usually right
+    # and always harmless — the package names transfer), and api/package_wizard._resolve_family now refuses
+    # to substitute across the Linux/Windows line in either direction.
     return "debian"
 
 
@@ -99,8 +104,13 @@ def installed_roles(facts: dict, catalog: dict) -> list[tuple[str, dict, dict]]:
     out: list[tuple[str, dict, dict]] = []
     for role, entry in (catalog or {}).items():
         fams = entry.get("families") or {}
-        fam = fams.get(family) or fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
-        if any(name in inv for name in fam.get("packages", [])):
+        # EXACT ONLY FOR WINDOWS: a Debian branch's package names cannot appear in a Windows host's
+        # installed-package inventory, so falling back to them would test a Windows host against apt names and
+        # silently conclude that nothing is installed.
+        fam = fams.get(family) if family == "windows" else (
+            fams.get(family) or fams.get("debian") or fams.get("ubuntu")
+            or (next(iter(fams.values()), {}) if fams else {}))
+        if isinstance(fam, dict) and any(name in inv for name in fam.get("packages", [])):
             out.append((role, entry, fam))
     return out
 
@@ -276,24 +286,46 @@ async def find_providers(
     return out
 
 
-def roles_providing(settings: Settings, capability: str, backend: str | None = None) -> list[dict]:
-    """Which catalog ROLE a NEW server would need to provide `capability` (optionally a specific backend) —
-    scanned from the per-template capabilities.json, no host involved."""
-    catalog = load_catalog(settings)
-    accepted = expand_backends(settings, [backend]) if backend else None
-    out: list[dict] = []
-    for role, entry in catalog.items():
-        template = entry.get("template") or role
-        caps = load_template_capabilities(settings, template)
-        if not caps:
+@lru_cache(maxsize=4)
+def _provider_roles_index(templates_dir: str) -> dict[str, list[dict]]:
+    """capability → [provider role candidates], built once by scanning every
+    config_templates/<t>/capabilities.json directly (not via package_catalog,
+    whose template linkage misses most enriched contracts). Each template dir is a
+    role a NEW server could take on. Cached — the first call walks the tree once."""
+    index: dict[str, list[dict]] = {}
+    base = Path(templates_dir)
+    if not base.is_dir():
+        return index
+    for capf in base.glob("*/capabilities.json"):
+        try:
+            caps = json.loads(capf.read_text())
+        except (OSError, ValueError):
             continue
+        if not isinstance(caps, dict):
+            continue
+        template = capf.parent.name
         for prov in caps.get("provides", []) or []:
-            if not isinstance(prov, dict) or prov.get("capability") != capability:
+            if not isinstance(prov, dict) or not prov.get("capability"):
                 continue
-            if accepted and prov.get("backend") and prov["backend"] not in accepted:
-                continue
-            out.append({"role": role, "template": template, "label": entry.get("label", role),
-                        "backend": prov.get("backend"), "default_port": prov.get("default_port")})
+            backend = prov.get("backend") or (prov.get("backends") or [None])[0]
+            index.setdefault(prov["capability"], []).append({
+                "role": template, "template": template, "label": template,
+                "backend": backend, "default_port": prov.get("default_port")})
+    return index
+
+
+def roles_providing(settings: Settings, capability: str, backend: str | None = None) -> list[dict]:
+    """Which ROLE a NEW server would need to provide `capability` (optionally a
+    specific backend) — from the per-template capabilities.json contracts. Enriches
+    the label from package_catalog when a matching entry exists."""
+    accepted = expand_backends(settings, [backend]) if backend else None
+    catalog = load_catalog(settings)
+    labels = {r: (e.get("label") or r) for r, e in catalog.items()} if isinstance(catalog, dict) else {}
+    out: list[dict] = []
+    for cand in _provider_roles_index(settings.config_templates_dir).get(capability, []):
+        if accepted and cand.get("backend") and cand["backend"] not in accepted:
+            continue
+        out.append({**cand, "label": labels.get(cand["role"], cand["label"])})
     return out
 
 

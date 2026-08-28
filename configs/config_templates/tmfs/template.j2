@@ -1,0 +1,36 @@
+# ==============================================================================
+# tmfs - FUSE-based Time Machine over SMB/NFS bridge configuration
+# ==============================================================================
+# This template configures tmfs, a FUSE filesystem that allows macOS
+# Time Machine to back up to non-APFS network shares (SMB/NFS) by
+# bridging the HFS+/APFS metadata requirements.
+#
+# Fields are mapped directly from the Ansible role variables.
+# Every variable uses a `default()` filter to ensure idempotent rendering.
+# ==============================================================================
+
+# hfs_root_mount: The path to the local mount point where the underlying
+# HFS+ formatted volume (or SMB/NFS share acting as HFS+) is mounted.
+# tmfs reads the HFS+ metadata from here to present a valid Time Machine
+# disk image structure to the macOS client.
+# Default: /mnt/hfs
+hfs_root_mount: {{ hfs_root_mount | default('/mnt/hfs') }}
+
+# time_machine_mount: The path to the mount point where tmfs will expose
+# the reconstructed Time Machine filesystem. macOS clients will connect to
+# this directory as if it were a native APFS/HFS+ disk.
+# Default: /mnt/tm
+time_machine_mount: {{ time_machine_mount | default('/mnt/tm') }}
+
+# fuse_options: A comma-separated list of options passed to the FUSE library.
+# Common options include:
+#   - uid/gid: Ownership of the exposed filesystem nodes.
+#   - allow_other: Permit non-root users to access the mount.
+#   - default_permissions: Enforce filesystem permissions.
+# Default: uid=1000,gid=1000,allow_other
+fuse_options: {{ fuse_options | default('uid=1000,gid=1000,allow_other') }}
+
+# command: The tmfs startup command line.
+# Constructs: tmfs <hfs_root> <tm_mount> -o <fuse_options>
+# This line is typically used by a service manager (systemd) or wrapper script.
+command: tmfs {{ hfs_root_mount | default('/mnt/hfs') }} {{ time_machine_mount | default('/mnt/tm') }} {{ '-o' }}{{ fuse_options | default('uid=1000,gid=1000,allow_other') }}

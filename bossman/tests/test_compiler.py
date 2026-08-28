@@ -5,6 +5,7 @@ commit). See tests/conftest.py.
 """
 
 from uuid import uuid4
+from tests.naming import run_suffix
 
 from sqlalchemy import select
 
@@ -31,7 +32,7 @@ DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 
 
 def _sfx() -> str:
-    return uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _ou(db_session, name, parent=None):

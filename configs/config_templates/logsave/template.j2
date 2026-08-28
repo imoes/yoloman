@@ -1,0 +1,16 @@
+#!/bin/sh
+# Wrapper script to log the output of a command to a specific logfile.
+# Command to execute (the program and its arguments)
+CMD="{{ cmd }}"
+# Path to the logfile where output will be saved
+LOGFILE="{{ logfile }}"
+# If true, append to the logfile instead of overwriting
+{% if append %}
+logsave -a "{{ LOGFILE }}" "{{ CMD }}"
+{% elif skip_control_chars %}
+logsave -s "{{ LOGFILE }}" "{{ CMD }}"
+{% elif verbose %}
+logsave -v "{{ LOGFILE }}" "{{ CMD }}"
+{% else %}
+logsave "{{ LOGFILE }}" "{{ CMD }}"
+{% endif %}

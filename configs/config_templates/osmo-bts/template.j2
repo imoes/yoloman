@@ -1,0 +1,67 @@
+# ==============================================================================
+# Osmo-BTS Configuration Template
+# ==============================================================================
+# This template generates the main configuration file for the Osmo-BTS (Base
+# Transceiver Station) software. It defines the physical layer parameters,
+# BTS identification, frequency band, and network connections to OsmoTRX and
+# the OML (Operation and Maintenance Link) network elements.
+#
+# All variables are sourced from the Ansible role's variables or defaults.
+# Every variable uses a Jinja2 `default()` filter to ensure safe rendering
+# even if the variable is undefined in the play.
+# ==============================================================================
+
+# --- Physical Layer Configuration ---
+
+# phy_id: Physical layer ID.
+# This ID uniquely identifies the physical layer instance within the system.
+phy {{ phy_id | default(0) }}
+
+# phy_instance: Physical layer instance ID.
+# Specifies the instance number for the physical layer.
+ instance {{ phy_instance | default(0) }}
+
+# osmotrx_rx_gain: OsmoTRX RX gain level.
+# Sets the receive gain for the OsmoTRX transceiver interface.
+  osmotrx rx-gain {{ osmotrx_rx_gain | default(1) }}
+
+# --- Network Communication (OsmoTRX) ---
+
+# osmotrx_ip_local: Local IP address for OsmoTRX communication.
+# The local IP address where Osmo-BTS listens or connects for OsmoTRX traffic.
+ osmotrx ip local {{ osmotrx_ip_local | default('127.0.0.1') }}
+
+# osmotrx_ip_remote: Remote IP address for OsmoTRX communication.
+# The remote IP address of the OsmoTRX daemon.
+ osmotrx ip remote {{ osmotrx_ip_remote | default('127.0.0.1') }}
+
+# --- BTS Identification and Band ---
+
+# bts_id: Base Transceiver Station ID.
+# A unique identifier for this BTS instance.
+bts {{ bts_id | default(0) }}
+
+# bts_band: Frequency band for the BTS.
+# Specifies the operating frequency band (e.g., 1800 for E-GSM1800).
+ band {{ bts_band | default(1800) }}
+
+# ipa_unit_id_suffix: Suffix for the IPA unit ID.
+# Appended to the BTS band to form part of the IPA (IP Access) unit identifier.
+# Usually matches trx ID or is 0.
+ ipa unit-id {{ bts_band | default(1800) }} {{ ipa_unit_id_suffix | default(0) }}
+
+# --- OML (Operation and Maintenance Link) ---
+
+# oml_remote_ip: Remote IP address for OML connection.
+# The IP address of the entity (e.g., OsmoNITB/OsmoMSC) connected via OML.
+ oml remote-ip {{ oml_remote_ip | default('127.0.0.1') }}
+
+# --- Transceiver Configuration ---
+
+# trx_id: Transceiver ID.
+# Identifies the specific transceiver hardware or logical instance.
+ trx {{ trx_id | default(0) }}
+
+# trx_phy_instance: PHY instance associated with this transceiver.
+# Links the transceiver to a specific physical layer instance.
+  phy {{ phy_id | default(0) }} instance {{ trx_phy_instance | default(0) }}

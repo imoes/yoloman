@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Availability, CheckRule, CheckRuleInput, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, CheckTemplate, CheckTemplateGroup, CheckTemplateInput, CheckTemplateLink, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState, SeverityLabel, ValueMap, ValueMapInput } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -145,11 +145,105 @@ export class MonitoringService {
     return this.http.delete<CheckRule>(`${this.base}/check-rules/${id}/ou-links/${ouId}`);
   }
 
+  /** ---------------------------------------------------------------------
+   * How a measurement is DISPLAYED — two small catalogs that change presentation
+   * only, never the 4-value state machine (OK/WARN/CRIT/UNKNOWN) itself.
+   *
+   * Value maps turn a raw number into a word (0 -> "Down"): the consumer has always
+   * been live (services/monitoring.py maps the value when the winning rule carries a
+   * value_map_id), but nothing could create a map or attach one, so the label could
+   * never appear. Severity labels rename/recolour a state for display. */
+
+  listValueMaps() {
+    return this.http.get<ValueMap[]>(`${this.base}/value-maps`);
+  }
+
+  createValueMap(body: ValueMapInput) {
+    return this.http.post<ValueMap>(`${this.base}/value-maps`, body);
+  }
+
+  updateValueMap(id: string, body: ValueMapInput) {
+    return this.http.put<ValueMap>(`${this.base}/value-maps/${id}`, body);
+  }
+
+  /** check_rules.value_map_id is ON DELETE SET NULL — a rule using this map is
+   * detached, never deleted (so a delete cannot silently drop monitoring). */
+  deleteValueMap(id: string) {
+    return this.http.delete<void>(`${this.base}/value-maps/${id}`);
+  }
+
+  listSeverityLabels() {
+    return this.http.get<SeverityLabel[]>(`${this.base}/severity-labels`);
+  }
+
+  /** The four rows are seeded by the migration; only label and colour are writable —
+   * there is no create/delete, because the set of states is not negotiable. */
+  updateSeverityLabel(state: string, body: { label: string; color: string }) {
+    return this.http.put<SeverityLabel>(`${this.base}/severity-labels/${state}`, body);
+  }
+
+  /** ---------------------------------------------------------------------
+   * Check templates (/api/v1/templates + /template-groups). Reusable bundles of
+   * check rules, linked to host groups; linking materializes real CheckRule rows,
+   * so every write here can change what the fleet is measured against. */
+
+  listCheckTemplates() {
+    return this.http.get<CheckTemplate[]>(`${this.base}/templates`);
+  }
+
+  createCheckTemplate(body: CheckTemplateInput) {
+    return this.http.post<CheckTemplate>(`${this.base}/templates`, body);
+  }
+
+  /** PUT is replace-all for rules and nesting (the API's own shape), then it
+   * re-materializes every link of this template AND of every template nesting it. */
+  updateCheckTemplate(id: string, body: CheckTemplateInput) {
+    return this.http.put<CheckTemplate>(`${this.base}/templates/${id}`, body);
+  }
+
+  deleteCheckTemplate(id: string) {
+    return this.http.delete<void>(`${this.base}/templates/${id}`);
+  }
+
+  listCheckTemplateLinks(id: string) {
+    return this.http.get<CheckTemplateLink[]>(`${this.base}/templates/${id}/links`);
+  }
+
+  linkCheckTemplate(id: string, hostGroup: string) {
+    return this.http.post<CheckTemplateLink>(`${this.base}/templates/${id}/links`, { host_group: hostGroup });
+  }
+
+  unlinkCheckTemplate(id: string, linkId: string) {
+    return this.http.delete<void>(`${this.base}/templates/${id}/links/${linkId}`);
+  }
+
+  listCheckTemplateGroups() {
+    return this.http.get<CheckTemplateGroup[]>(`${this.base}/template-groups`);
+  }
+
+  createCheckTemplateGroup(name: string) {
+    return this.http.post<CheckTemplateGroup>(`${this.base}/template-groups`, { name });
+  }
+
+  deleteCheckTemplateGroup(id: string) {
+    return this.http.delete<void>(`${this.base}/template-groups/${id}`);
+  }
+
   fleetSummary() {
     return this.http.get<FleetSummary>(`${this.base}/fleet/summary`);
   }
 
-  fleetHosts() {
+  /** The fleet table, or ONE host's row when agentId is given.
+   *
+   * The host detail page used to call this without an id and then `.find()` its row, so opening one host
+   * loaded every agent, every service of every host and three fleet-wide metric lookups. A single-host
+   * answer deliberately does NOT touch the fleet cache — caching one row as "the fleet" would empty the
+   * fleet table on the next visit. */
+  fleetHosts(agentId?: string) {
+    if (agentId) {
+      return this.http.get<FleetHost[]>(
+        `${this.base}/fleet/hosts?agent_id=${encodeURIComponent(agentId)}`);
+    }
     const net = this.http.get<FleetHost[]>(`${this.base}/fleet/hosts`)
       .pipe(tap((h) => (this.fleetCache = h)));
     return this.cacheFirst(this.fleetCache ?? undefined, net);

@@ -1128,14 +1128,6 @@ def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
             return str(meta["fqcn"])
     except yaml.YAMLError:
         pass
-    try:
-        import nestedtext
-
-        meta = nestedtext.loads(sidecar, top="dict")
-        if isinstance(meta, dict) and meta.get("fqcn"):
-            return str(meta["fqcn"])
-    except Exception:  # noqa: BLE001 — NestedText fallback; any parse failure → literal fallback
-        pass
     return fallback
 
 
@@ -1214,16 +1206,48 @@ async def evaluate_assigned_checks(
         return []
 
     try:
-        await client.push_modules(deliveries)
+        pushed = await client.push_modules(deliveries)
     except Exception:  # noqa: BLE001 — a push failure means no assigned-check services this cycle
         logger.exception("pushing assigned checks failed for agent %s", agent.name)
         return []
+
+    # THE PER-MODULE RESULTS ARE READ, and that is a fix rather than a nicety. The agent VALIDATES each
+    # module before persisting it (parse + lint + the return-contract check) and reports the failures inside
+    # a 200 response: {"applied": n, "results": [{fqcn, ok, error}]}. This code used to look only at the HTTP
+    # status, so a check that failed validation was silently rejected AND THE HOST KEPT RUNNING THE PREVIOUS
+    # VERSION — for a brand-new check, the first broken draft. Measured: a hand-written check with Python's
+    # implicit string concatenation (which Starlark does not have) was refused with
+    # "33:95: got string literal, want '}'", the push answered 200, and the service state kept reporting an
+    # error from source nobody could find on the host. Twenty minutes of looking in the wrong place, and the
+    # agent had said exactly what was wrong all along.
+    rejected = [r for r in ((pushed or {}).get("results") or []) if isinstance(r, dict) and not r.get("ok")]
+    for r in rejected:
+        logger.error(
+            "agent %s REJECTED pushed check %s: %s — the host keeps whatever version it had, so this check's "
+            "service state may be reporting the previous source. Validate locally with "
+            "`bin/starlark-check -strict <check>.star`.",
+            agent.name, r.get("fqcn"), r.get("error"))
+    rejected_fqcns = {r.get("fqcn") for r in rejected}
 
     now = datetime.now(timezone.utc)
     updated: list[Service] = []
     for ec, fqcn in runnable:
         state, output, value = "UNKNOWN", "check did not return data", None
         params = dict(getattr(ec, "parameters", {}) or {})
+        if fqcn in rejected_fqcns:
+            # NOT RUN, and the service says why. Calling it anyway would execute whatever older version the
+            # host still has and report ITS answer under this check's name — the confusion this whole fix is
+            # about. An UNKNOWN naming the validation error is the honest state.
+            reason = next((r.get("error") for r in rejected if r.get("fqcn") == fqcn), "validation failed")
+            params_of = getattr(ec, "parameters", {}) or {}
+            svc_name = str(params_of.get("service_name") or "").strip() or _item_service_name(
+                ec.check_name, str(params_of.get("item") or "").strip(), catalog)
+            updated.append(await _upsert_service_state(
+                session, agent.id, svc_name, "UNKNOWN", None,
+                f"this host rejected the check when it was pushed, so it was NOT run: {reason}",
+                now, DEFAULT_MAX_ATTEMPTS, metric=ec.check_name, rule_id=None,
+                agent_name=agent.name, agent_tags=agent.tags))
+            continue
         try:
             if extra_params:
                 params = {**params, **extra_params}
@@ -1805,18 +1829,30 @@ async def _latest_disk_used_pct_max(session: AsyncSession, agent_ids: list[UUID]
     return out
 
 
-async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
+async def fleet_hosts(session: AsyncSession, agent_id: UUID | None = None) -> list[FleetHostSummary]:
     """One row per host — every directly enrolled agent *and* every
     satellite discovered via a proxy's own GET /api/v1/hosts/overview
     (services/poller.py's _find_or_create_satellite) — with a CheckMK-
     style worst-service-wins state rollup and the at-a-glance CPU/memory/
     disk values a real fleet cockpit needs. Exactly 5 queries total
     (agents, services, and 3 latest-metric lookups), never one per host:
-    the concrete fix for "no bulk endpoint for a host-overview table"."""
+    the concrete fix for "no bulk endpoint for a host-overview table".
+
+    `agent_id` narrows it to ONE host, and that is not a convenience: the host detail page called this and
+    then did `hosts.find(h => h.id === id)`, so opening one host loaded every agent, EVERY SERVICE OF EVERY
+    HOST (`select(Service)`, unfiltered) and three fleet-wide metric lookups to render a single row. The
+    agent NAMES are still read in full, because a satellite's row names its parent and that lookup has to
+    resolve — one indexed column for the whole fleet is not the cost here.
+    """
     agents = [a for a in (await session.scalars(select(Agent).order_by(Agent.name))).all() if not is_infra_agent(a)]
     names_by_id = {a.id: a.name for a in agents}
+    if agent_id is not None:
+        agents = [a for a in agents if a.id == agent_id]
 
-    services = (await session.scalars(select(Service))).all()
+    svc_stmt = select(Service)
+    if agent_id is not None:
+        svc_stmt = svc_stmt.where(Service.agent_id == agent_id)
+    services = (await session.scalars(svc_stmt)).all()
     services_by_agent: dict[UUID, list[Service]] = {}
     for s in services:
         services_by_agent.setdefault(s.agent_id, []).append(s)

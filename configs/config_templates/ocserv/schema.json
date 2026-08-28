@@ -1,7 +1,257 @@
 {
-  "daemon_config_filename": {
+  "passwd_file": {
     "type": "string",
-    "default": "ocserv.conf",
-    "description": "Filename of the main ocserv configuration file (without path)."
+    "default": "/etc/ocserv/passwd",
+    "description": "Path to the password file for plain authentication."
+  },
+  "tcp_port": {
+    "type": "number",
+    "default": 443,
+    "description": "TCP port number for the VPN service."
+  },
+  "udp_port": {
+    "type": "number",
+    "default": 443,
+    "description": "UDP port number for the VPN service."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "ocserv",
+    "description": "User account to run worker processes as."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "ocserv",
+    "description": "Group account to run worker processes as."
+  },
+  "socket_file": {
+    "type": "string",
+    "default": "run/ocserv-socket",
+    "description": "Socket file used for server IPC (worker-main)."
+  },
+  "chroot_dir": {
+    "type": "string",
+    "default": "/var/lib/ocserv",
+    "description": "The default server directory/chroot."
+  },
+  "server_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+    "description": "Path to the server certificate file."
+  },
+  "server_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/ssl-cert-snakeoil.key",
+    "description": "Path to the server key file."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+    "description": "Path to the Certificate Authority file."
+  },
+  "isolate_workers": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable seccomp/Linux namespaces worker isolation."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 16,
+    "description": "Limit the number of concurrent clients."
+  },
+  "max_same_clients": {
+    "type": "number",
+    "default": 2,
+    "description": "Limit the number of identical clients (users connecting multiple times)."
+  },
+  "rate_limit_ms": {
+    "type": "number",
+    "default": 100,
+    "description": "Rate limit incoming connections in milliseconds."
+  },
+  "server_stats_reset_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Period in seconds for resetting server statistics."
+  },
+  "keepalive": {
+    "type": "number",
+    "default": 32400,
+    "description": "Keepalive interval in seconds."
+  },
+  "dpd": {
+    "type": "number",
+    "default": 90,
+    "description": "Dead peer detection interval in seconds."
+  },
+  "mobile_dpd": {
+    "type": "number",
+    "default": 1800,
+    "description": "Dead peer detection for mobile clients in seconds."
+  },
+  "switch_to_tcp_timeout": {
+    "type": "number",
+    "default": 25,
+    "description": "Time in seconds before switching to TCP if no UDP traffic."
+  },
+  "try_mtu_discovery": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable MTU discovery."
+  },
+  "cert_user_oid": {
+    "type": "string",
+    "default": "0.9.2342.19200300.100.1.1",
+    "description": "OID for reading user ID in client certificates."
+  },
+  "tls_priorities": {
+    "type": "string",
+    "default": "NORMAL:%SERVER_PRECEDENCE:%COMPAT:-VERS-SSL3.0:-VERS-TLS1.0:-VERS-TLS1.1:-VERS-TLS1.3",
+    "description": "GnuTLS priority string."
+  },
+  "auth_timeout": {
+    "type": "number",
+    "default": 240,
+    "description": "Time in seconds allowed for client to authenticate."
+  },
+  "min_reauth_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Time in seconds a client cannot reconnect after failed authentication."
+  },
+  "max_ban_score": {
+    "type": "number",
+    "default": 80,
+    "description": "Ban score threshold for banning clients."
+  },
+  "ban_reset_time": {
+    "type": "number",
+    "default": 1200,
+    "description": "Time in seconds to reset client ban score."
+  },
+  "cookie_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Cookie timeout in seconds."
+  },
+  "deny_roaming": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether roaming is allowed (restrict cookie to single IP)."
+  },
+  "rekey_time": {
+    "type": "number",
+    "default": 172800,
+    "description": "ReKey time in seconds."
+  },
+  "rekey_method": {
+    "type": "string",
+    "default": "ssl",
+    "description": "ReKey method (ssl or new-tunnel)."
+  },
+  "use_occtl": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for the occtl tool."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/ocserv.pid",
+    "description": "Path to the PID file."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Log level (0-9)."
+  },
+  "device": {
+    "type": "string",
+    "default": "vpns",
+    "description": "Name for the tun device."
+  },
+  "predictable_ips": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether generated IPs will be predictable."
+  },
+  "default_domain": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Default domain to be advertised."
+  },
+  "ipv4_network": {
+    "type": "string",
+    "default": "192.168.1.0",
+    "description": "IPv4 network for leases."
+  },
+  "ipv4_netmask": {
+    "type": "string",
+    "default": "255.255.255.0",
+    "description": "IPv4 netmask for leases."
+  },
+  "dns_server_1": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "First DNS server to advertise."
+  },
+  "dns_server_2": {
+    "type": "string",
+    "default": "1.1.1.1",
+    "description": "Second DNS server to advertise."
+  },
+  "ping_leases": {
+    "type": "bool",
+    "default": false,
+    "description": "Ping IP addresses before leasing to verify they are not in use."
+  },
+  "route_1": {
+    "type": "string",
+    "default": "10.0.0.0/8",
+    "description": "First route to forward to clients."
+  },
+  "route_2": {
+    "type": "string",
+    "default": "172.16.0.0/12",
+    "description": "Second route to forward to clients."
+  },
+  "route_3": {
+    "type": "string",
+    "default": "192.168.0.0/16",
+    "description": "Third route to forward to clients."
+  },
+  "cisco_client_compat": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable pre-draft-DTLS version for Cisco client compatibility."
+  },
+  "dtls_legacy": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable legacy DTLS negotiation."
+  },
+  "cisco_svc_client_compat": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable settings for Cisco SVC IPPhone clients."
+  },
+  "client_bypass_protocol": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X-CSTP-Client-Bypass-Protocol."
+  },
+  "camouflage": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable server camouflage feature."
+  },
+  "camouflage_secret": {
+    "type": "string",
+    "default": "mysecretkey",
+    "description": "Secret string for camouflage URL prefix."
+  },
+  "camouflage_realm": {
+    "type": "string",
+    "default": "Restricted Content",
+    "description": "Realm for HTTP authentication camouflage prompt."
   }
 }

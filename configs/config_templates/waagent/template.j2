@@ -1,0 +1,93 @@
+# Microsoft Azure Linux Agent Configuration
+#
+# This file is managed by Ansible. Do not edit manually.
+# Each directive is commented with its schema description and
+# uses a Jinja2 default to ensure safe rendering even if a
+# variable is undefined.
+
+# Enable extension handling. Supported values are y or n.
+# Extensions handling allows password reset, backup, monitoring, and other
+# VM extensions to function correctly.
+Extensions.Enabled={{ extensions_enabled | default('y') }}
+
+# Which provisioning agent to use. Supported values are "auto", "waagent",
+# "cloud-init", or "disabled".
+Provisioning.Agent={{ provisioning_agent | default('cloud-init') }}
+
+# Delete root password after provisioning. Supported values are y or n.
+# This improves security by removing the default root password
+# from the VM image after initial setup.
+Provisioning.DeleteRootPassword={{ provisioning_delete_root_password | default('y') }}
+
+# Regenerate SSH host key pair after provisioning. Supported values are y or n.
+# Regenerating keys ensures uniqueness per VM instance.
+Provisioning.RegenerateSshHostKeyPair={{ provisioning_regenerate_ssh_host_key_pair | default('y') }}
+
+# SSH host key pair type. Supported values are "rsa", "dsa", "ecdsa", "ed25519", and "auto".
+# "auto" selects the best available type based on OpenSSH version.
+Provisioning.SshHostKeyPairType={{ provisioning_ssh_host_key_pair_type | default('auto') }}
+
+# Monitor host name changes and publish changes via DHCP requests. Supported values are y or n.
+# Useful in environments where DNS records must stay in sync with VM hostname.
+Provisioning.MonitorHostName={{ provisioning_monitor_host_name | default('y') }}
+
+# Decode CustomData from Base64. Supported values are y or n.
+# If enabled, cloud-init or user-data passed in Base64 is decoded before processing.
+Provisioning.DecodeCustomData={{ provisioning_decode_custom_data | default('n') }}
+
+# Execute CustomData after provisioning. Supported values are y or n.
+# Allows running arbitrary scripts or commands during initial boot.
+Provisioning.ExecuteCustomData={{ provisioning_execute_custom_data | default('n') }}
+
+# Allow reset password of sys user. Supported values are y or n.
+# Permits the Azure platform to reset the standard user's password via extension.
+Provisioning.AllowResetSysUser={{ provisioning_allow_reset_sys_user | default('n') }}
+
+# Format if unformatted. If 'n', resource disk will not be mounted. Supported values are y or n.
+# Controls whether the ephemeral resource disk is formatted on first use.
+ResourceDisk.Format={{ resource_disk_format | default('y') }}
+
+# File system on the resource disk. Typically ext3 or ext4. FreeBSD images should use 'ufs2' here.
+ResourceDisk.Filesystem={{ resource_disk_filesystem | default('ext4') }}
+
+# Mount point for the resource disk.
+ResourceDisk.MountPoint={{ resource_disk_mount_point | default('/mnt/resource') }}
+
+# Create and use swapfile on resource disk. Supported values are y or n.
+# Useful when VM instances lack sufficient RAM for swap on root disk.
+ResourceDisk.EnableSwap={{ resource_disk_enable_swap | default('n') }}
+
+# Size of the swapfile in MB. 0 means no swap.
+ResourceDisk.SwapSizeMB={{ resource_disk_swap_size_mb | default(0) }}
+
+# Comma-separated list of mount options. See mount(8) for valid options.
+ResourceDisk.MountOptions={{ resource_disk_mount_options | default('None') }}
+
+# Enable verbose logging. Supported values are y or n.
+# Increases log detail for debugging agent issues.
+Logs.Verbose={{ logs_verbose | default('n') }}
+
+# Enable periodic log collection. Supported values are y or n.
+# Collects logs for upload to Azure diagnostics storage.
+Logs.Collect={{ logs_collect | default('y') }}
+
+# How frequently to collect logs in seconds, default is each hour.
+Logs.CollectPeriod={{ logs_collect_period | default(3600) }}
+
+# Is FIPS enabled. Supported values are y or n.
+# Enables Federal Information Processing Standards compliance.
+OS.EnableFIPS={{ os_enable_fips | default('n') }}
+
+# Root device timeout in seconds.
+# Controls how long the agent waits for the root device to become ready.
+OS.RootDeviceScsiTimeout={{ os_root_device_scsi_timeout | default(300) }}
+
+# If "None", the system default version is used. Otherwise, specify the path to the OpenSSL library.
+OS.OpensslPath={{ os_openssl_path | default('None') }}
+
+# Set the path to SSH keys and configuration files.
+OS.SshDir={{ os_ssh_dir | default('/etc/ssh') }}
+
+# Add firewall rules to protect access to Azure host node services. Supported values are y or n.
+# Recommended to keep enabled for security on Azure VMs.
+OS.EnableFirewall={{ os_enable_firewall | default('n') }}

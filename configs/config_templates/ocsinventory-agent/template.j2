@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# OCSInventory Agent Wrapper Script
+#
+# This script serves as a wrapper to execute the ocsinventory-agent
+# with specific runtime configurations defined by the Ansible role.
+# It checks for the executable presence and runs the agent, discarding output.
+#
+
+# Path to the ocsinventory-agent executable.
+# Defaults to /usr/bin/ocsinventory-agent if not specified in the schema.
+PROG={{ prog_path | default('/usr/bin/ocsinventory-agent') }}
+
+# Directory where run files are stored.
+# Defaults to /var/run. Used for generating the enabled-file path.
+RUNDIR={{ run_dir | default('/var/run') }}
+
+# Path to the file indicating if the service is enabled.
+# Defaults to /var/run/ocsinventory-client-enabled.
+# Note: Current logic comments out the check for this file,
+# but the variable is defined for potential future use or manual override.
+ENABLED_FILE={{ enabled_file | default('/var/run/ocsinventory-client-enabled') }}
+
+# Check if the executable exists and is executable.
+# If the binary is missing, exit silently to prevent errors in cron/systemd.
+if [ ! -x "$PROG" ]; then
+    exit 0
+fi
+
+# Service Enabled Check (Currently Disabled)
+# The following block is commented out in the original template.
+# If enabled, it would verify the existence of ENABLED_FILE.
+# If the file is missing, it logs a message to /var/log/ocsinventory-client/ocsinv.log
+# and exits without running the agent.
+#
+#if [ ! -f "$ENABLED_FILE" ]; then
+#    perl -e \
+#       'print localtime()." => Service disabled: not running the cron job\n"'\
+#       >> /var/log/ocsinventory-client/ocsinv.log
+#    exit 0
+#fi
+
+# Stagger execution to avoid all UNIX agents contacting the server at the
+# exact same time. This prevents a thundering herd effect on the OCS server.
+sleep $(( $RANDOM/100 ))
+
+# Execute the OCSInventory Agent.
+# Standard output and standard error are discarded (/dev/null) as the
+# agent typically handles its own logging or reports via network protocols.
+$PROG > /dev/null 2>&1

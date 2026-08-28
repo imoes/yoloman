@@ -1,0 +1,65 @@
+# ============================================================================
+# statgrab configuration template
+# This file configures the statgrab library/cli output behavior.
+# statgrab is a C library that provides a portable interface to system
+# statistics such as CPU usage, memory usage, disk I/O, and network stats.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Output format: linux, bsd, mrtg, or plain.
+# - linux: sysctl-style output (default)
+# - bsd: BSD sysctl-style output
+# - mrtg: MRTG-compatible output
+# - plain: Plain output (only show values)
+# --------------------------------------------------------------------------
+format: {{ format | default('linux') }}
+
+# --------------------------------------------------------------------------
+# Update mode: once, repeated, or diff_once.
+# - once: Display cumulative stats once (default)
+# - repeated: Display stat differences repeatedly (looping)
+# - diff_once: Display stat differences once
+# --------------------------------------------------------------------------
+update_mode: {{ update_mode | default('once') }}
+
+# --------------------------------------------------------------------------
+# Delay in seconds between updates for repeating modes.
+# Only applies if update_mode is 'repeated'.
+# --------------------------------------------------------------------------
+tdelay: {{ tdelay | default(1) }}
+
+# --------------------------------------------------------------------------
+# Display CPU usage as percentages.
+# If true, CPU usage differences are shown as percentages rather than
+# absolute tick counts or values.
+# --------------------------------------------------------------------------
+cpu_percentage: {{ cpu_percentage | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Scaling factor for floating-point values.
+# Multiplies floating-point statistics by this factor before display,
+# effectively converting them to integers or scaled units.
+# --------------------------------------------------------------------------
+factor: {{ factor | default(1) }}
+
+# --------------------------------------------------------------------------
+# Byte unit: none, K, M, or G.
+# - none: Display byte counts in raw bytes (default)
+# - K: Display byte counts in kibibytes
+# - M: Display byte counts in mebibytes
+# - G: Display byte counts in gibibytes
+# --------------------------------------------------------------------------
+byte_unit: {{ byte_unit | default('none') }}
+
+# --------------------------------------------------------------------------
+# List of specific stats to display.
+# If empty, all available stats are displayed.
+# Can use prefixes like 'net.' or 'disk.' to filter specific categories.
+# Items are space-separated in the output.
+# --------------------------------------------------------------------------
+{% set stats_list = stats | default([]) %}
+{% if stats_list | length > 0 %}
+stats: {{ stats_list | join(' ') }}
+{% else %}
+stats:
+{% endif %}

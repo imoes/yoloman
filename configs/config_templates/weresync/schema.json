@@ -1,0 +1,97 @@
+{
+  "source_device": {
+    "type": "string",
+    "default": "/dev/sda",
+    "description": "The source disk device path to clone from."
+  },
+  "target_device": {
+    "type": "string",
+    "default": "/dev/sdb",
+    "description": "The target disk device path to clone to."
+  },
+  "root_partition_num": {
+    "type": "number",
+    "default": 2,
+    "description": "The partition number on the source drive that is mounted as the root filesystem (/)."
+  },
+  "efi_partition_num": {
+    "type": "number",
+    "default": 1,
+    "description": "The partition number on the source drive that is the EFI System Partition. Use 0 if not applicable."
+  },
+  "boot_partition_num": {
+    "type": "number",
+    "default": 0,
+    "description": "The partition number on the source drive that is mounted as /boot. Use 0 if not applicable."
+  },
+  "bootloader_plugin": {
+    "type": "string",
+    "default": "grub2",
+    "description": "The bootloader plugin to use for installing the bootloader on the target (e.g., grub2, uuid_copy, syslinux).",
+    "enum": [
+      "grub2",
+      "uuid_copy"
+    ],
+    "enum_open": true
+  },
+  "check_and_partition": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, check if target partitions are valid and re-partition/re-format them if necessary."
+  },
+  "excluded_partitions": {
+    "type": "list",
+    "default": [],
+    "description": "A list of partition numbers to exclude from being copied or searched. Items are integers representing partition numbers."
+  },
+  "rsync_args": {
+    "type": "string",
+    "default": "-aAXxH --delete",
+    "description": "Arguments to pass to the rsync command used for file copying."
+  },
+  "lvm_source_vg": {
+    "type": "string",
+    "default": "",
+    "description": "The name of the LVM source Volume Group to clone. Empty string if no LVM cloning is required."
+  },
+  "lvm_target_vg": {
+    "type": "string",
+    "default": "",
+    "description": "The name of the LVM target Volume Group. Empty string uses {source}-copy."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable verbose output from wereSync."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable debug output from wereSync."
+  },
+  "source_partition_mask": {
+    "type": "string",
+    "default": "{0}{1}",
+    "description": "A format string to construct source partition paths, taking device name and partition number as arguments."
+  },
+  "target_partition_mask": {
+    "type": "string",
+    "default": "{0}{1}",
+    "description": "A format string to construct target partition paths, taking device name and partition number as arguments."
+  },
+  "source_mount_dir": {
+    "type": "string",
+    "default": "",
+    "description": "The directory to mount source partitions. Empty string uses a random /tmp directory."
+  },
+  "target_mount_dir": {
+    "type": "string",
+    "default": "",
+    "description": "The directory to mount target partitions. Empty string uses a random /tmp directory."
+  },
+  "break_on_error": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, halt the program if any errors occur during copying."
+  }
+}

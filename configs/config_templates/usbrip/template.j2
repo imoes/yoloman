@@ -1,0 +1,200 @@
+# ==============================================================================
+# usbrip Configuration Template
+# Generated for usbrip(1) - The USB forensics toolkit
+# ==============================================================================
+# This file contains global defaults and command-line flags for usbrip operations.
+# See `man usbrip` for full documentation on available subcommands and options.
+# ==============================================================================
+
+# -------------------------------------------------------------------------
+# [GENERAL SETTINGS]
+# -------------------------------------------------------------------------
+
+# The default domain or host name to analyze if none is specified via DOMAINS.
+# Used as a fallback when the --domains argument is omitted.
+# Corresponds to: usbrip <DOMAINS>
+{% if domains is defined and domains | length > 0 %}
+DOMAINS={{ domains | join(' ') }}
+{% else %}
+DOMAINS={{ default_domain | default('localhost') }}
+{% endif %}
+
+# The default number of recent USB events to retrieve.
+# Controls the limit of results returned by history/storage queries.
+# Corresponds to: -n, --number <NUMBER_OF_EVENTS>
+NUMBER_OF_EVENTS={{ default_number_of_events | default(100) }}
+
+# -------------------------------------------------------------------------
+# [FILTER SETTINGS]
+# -------------------------------------------------------------------------
+
+# Date filters for events.
+# Limits the query to events occurring on these specific dates.
+# Corresponds to: -d, --date <DATE> [<DATE> ...]
+{% if date_filters is defined and date_filters | length > 0 %}
+DATE_FILTERS={{ date_filters | join(' ') }}
+{% endif %}
+
+# Vendor IDs (VID) to filter by.
+# Limits results to devices with these specific 4-digit hex Vendor IDs.
+# Corresponds to: --vid <VID> [<VID> ...]
+{% if vid_filters is defined and vid_filters | length > 0 %}
+VID_FILTERS={{ vid_filters | join(' ') }}
+{% endif %}
+
+# Product IDs (PID) to filter by.
+# Limits results to devices with these specific 4-digit hex Product IDs.
+# Corresponds to: --pid <PID> [<PID> ...]
+{% if pid_filters is defined and pid_filters | length > 0 %}
+PID_FILTERS={{ pid_filters | join(' ') }}
+{% endif %}
+
+# Product names to filter by.
+# Limits results to devices whose product name contains these strings.
+# Corresponds to: --prod <PROD> [<PROD> ...]
+{% if product_filters is defined and product_filters | length > 0 %}
+PRODUCT_FILTERS={{ product_filters | join(' ') }}
+{% endif %}
+
+# Manufacturer names to filter by.
+# Limits results to devices whose manufacturer name contains these strings.
+# Corresponds to: --manufact <MANUFACT> [<MANUFACT> ...]
+{% if manufacturer_filters is defined and manufacturer_filters | length > 0 %}
+MANUFACTURER_FILTERS={{ manufacturer_filters | join(' ') }}
+{% endif %}
+
+# Serial numbers to filter by.
+# Limits results to devices with these specific serial numbers.
+# Corresponds to: --serial <SERIAL> [<SERIAL> ...]
+{% if serial_filters is defined and serial_filters | length > 0 %}
+SERIAL_FILTERS={{ serial_filters | join(' ') }}
+{% endif %}
+
+# Hostnames to filter by.
+# Limits results to events that occurred on these hostnames.
+# Corresponds to: --host <HOST> [<HOST> ...]
+{% if host_filters is defined and host_filters | length > 0 %}
+HOST_FILTERS={{ host_filters | join(' ') }}
+{% endif %}
+
+# Ports to filter by.
+# Limits results to events that occurred on these USB ports.
+# Corresponds to: --port <PORT> [<PORT> ...]
+{% if port_filters is defined and port_filters | length > 0 %}
+PORT_FILTERS={{ port_filters | join(' ') }}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# [OUTPUT SETTINGS]
+# -------------------------------------------------------------------------
+
+# The default output format for events.
+# Options: 'list' (default) or 'table'.
+# Corresponds to: -t, --table / -l, --list
+OUTPUT_FORMAT={{ default_output_format | default('list') }}
+
+# List of columns to display when using table format.
+# Overrides default column selection for tabular output.
+# Corresponds to: -c, --column <COLUMN> [<COLUMN> ...]
+{% if columns is defined and columns | length > 0 %}
+COLUMNS={{ columns | join(' ') }}
+{% endif %}
+
+# Path to save the output to disk.
+# If empty, output goes to stdout.
+# Corresponds to: -o, --output <output file>
+OUTPUT_FILE={{ output_file | default('') }}
+
+# -------------------------------------------------------------------------
+# [BEHAVIOR SETTINGS]
+# -------------------------------------------------------------------------
+
+# If true, filters for external USB events (devices that were disconnected).
+# Useful for auditing devices that were removed but left traces.
+# Corresponds to: -e, --external
+EXTERNAL_ONLY={{ external_only | default(false) | lower }}
+
+# If true, suppresses banner output, info messages, and user interaction.
+# Makes the tool suitable for scripting and unattended execution.
+# Corresponds to: -q, --quiet
+QUIET={{ quiet_mode | default(true) | lower }}
+
+# If true, enables debug mode.
+# Increases verbosity, printing detailed internal logs.
+# Corresponds to: --debug
+DEBUG={{ debug_mode | default(false) | lower }}
+
+# -------------------------------------------------------------------------
+# [NETWORK & DATABASE SETTINGS]
+# -------------------------------------------------------------------------
+
+# The target URL for downloading or updating the USB ID database (usb.ids).
+# Used by `usbrip ids download` or `usbrip ids update`.
+# Corresponds to: --target (context: ids management)
+TARGET_URL={{ target_url | default('https://raw.githubusercontent.com/blacktop/usbids/master/usb.ids') }}
+
+# -------------------------------------------------------------------------
+# [ADVANCED / CONTEXT DEPENDENT SETTINGS]
+# -------------------------------------------------------------------------
+
+# Word list to be tested.
+# Context dependent; used in specific subcommands or brute-force scenarios.
+# Corresponds to: -w, --word
+WORD_LIST={{ word_list | default('') }}
+
+# Number of connections in parallel (per host).
+# Used to speed up parallel network or database operations.
+# Corresponds to: -T, --tasks
+PARALLEL_TASKS={{ parallel_tasks | default(1) }}
+
+# Extensions to append to each request.
+# Context dependent; used in network scanning or specific API calls.
+# Corresponds to: -x, --extensions
+EXTENSIONS={{ extensions | default('') }}
+
+# -------------------------------------------------------------------------
+# [AUTHENTICATION & VIOLATION SETTINGS]
+# -------------------------------------------------------------------------
+
+# List of attributes to include in authentication file generation.
+# Used when creating trusted device lists.
+# Corresponds to: -a, --attribute <ATTRIBUTE> [<ATTRIBUTE> ...]
+{% if auth_attributes is defined and auth_attributes | length > 0 %}
+AUTH_ATTRIBUTES={{ auth_attributes | join(' ') }}
+{% endif %}
+
+# Path to the input authentication JSON file for violation checks.
+# Used by `usbrip events violations` to compare against trusted devices.
+# Corresponds to: <IN_AUTH.JSON>
+INPUT_AUTH_FILE={{ input_auth_file | default('') }}
+
+# Path to the output authentication JSON file for trusted devices.
+# Used by `usbrip events genauth` to write the list of allowed devices.
+# Corresponds to: <OUT_AUTH.JSON>
+OUTPUT_AUTH_FILE={{ output_auth_file | default('') }}
+
+# -------------------------------------------------------------------------
+# [HISTORY & STORAGE SETTINGS]
+# -------------------------------------------------------------------------
+
+# Path to the input dump JSON file for events open.
+# Used by `usbrip events open` to load previously exported events.
+# Corresponds to: <DUMP.JSON>
+INPUT_DUMP_FILE={{ input_dump_file | default('') }}
+
+# The storage type to list contents of.
+# Options: 'history' (default) or 'violations'.
+# Corresponds to: <STORAGE_TYPE> in `usbrip storage list`
+STORAGE_TYPE={{ storage_type | default('history') }}
+
+# If true, performs USB ID search offline.
+# Disables network lookups and uses the local database only.
+# Corresponds to: --offline in `usbrip ids search`
+OFFLINE_SEARCH={{ offline_search | default(false) | lower }}
+
+# List of external files to load event history from.
+# Used by `usbrip events open` or similar import commands.
+# Corresponds to: -f, --file <FILE> [<FILE> ...]
+{% if history_files is defined and history_files | length > 0 %}
+HISTORY_FILES={{ history_files | join(' ') }}
+{% endif %}

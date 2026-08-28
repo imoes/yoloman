@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Wrapper script for keditbookmarks
+# ==============================================================================
+#
+# This Jinja2 template generates a self-documenting bash wrapper that invokes
+# `keditbookmarks` with the specific CLI flags defined by the Ansible role
+# variables. Every flag is documented inline so that the resulting script is
+# readable without external documentation.
+#
+# Variable Naming Convention:
+#   The template uses the schema field names directly (e.g., `file`, `importmoz`).
+#   All variables are safely defaulted using Jinja2's `default` filter to prevent
+#   rendering errors when variables are undefined.
+#
+# Usage:
+#   Ensure the Ansible role passes the `keditbookmarks_*` variables.
+#   The generated script will construct the `ARGS` string and exec the command.
+# ==============================================================================
+
+# Command to execute
+COMMAND="keditbookmarks"
+
+# Arguments to pass to the command
+ARGS=""
+
+{# -------------------------------------------------------------------------- #}
+{# File Editing & Import/Export Options                                       #}
+{# -------------------------------------------------------------------------- #}
+
+{% if file | default('') %}
+# File to edit: Specifies the bookmarks file to open for editing.
+ARGS="${ARGS} {{ file | default('') }}"
+{% endif %}
+
+{% if importmoz | default('') %}
+# Import bookmarks from a file in Mozilla format.
+# Use this to migrate bookmarks from Firefox/Thunderbird.
+ARGS="${ARGS} --importmoz {{ importmoz | default('') }}"
+{% endif %}
+
+{% if importns | default('') %}
+# Import bookmarks from a file in Netscape format (4.x and earlier).
+# Legacy HTML-based bookmark format.
+ARGS="${ARGS} --importns {{ importns | default('') }}"
+{% endif %}
+
+{% if importie | default('') %}
+# Import bookmarks from a file in Internet Explorer Favorites format.
+# Typically an .html file exported from IE.
+ARGS="${ARGS} --importie {{ importie | default('') }}"
+{% endif %}
+
+{% if importopera | default('') %}
+# Import bookmarks from a file in Opera format.
+# .html or .opera bookmark format.
+ARGS="${ARGS} --importopera {{ importopera | default('') }}"
+{% endif %}
+
+{% if exportmoz | default('') %}
+# Export bookmarks to a file in Mozilla format.
+# Output is compatible with Firefox/Thunderbird.
+ARGS="${ARGS} --exportmoz {{ exportmoz | default('') }}"
+{% endif %}
+
+{% if exportns | default('') %}
+# Export bookmarks to a file in Netscape format.
+# Standard HTML bookmark format.
+ARGS="${ARGS} --exportns {{ exportns | default('') }}"
+{% endif %}
+
+{% if exporthtml | default('') %}
+# Export bookmarks to a printable HTML format.
+# Creates a navigable HTML file with bookmarks.
+ARGS="${ARGS} --exporthtml {{ exporthtml | default('') }}"
+{% endif %}
+
+{% if exportie | default('') %}
+# Export bookmarks to Internet Explorer Favorites format.
+# Creates an .html file importable by IE.
+ARGS="${ARGS} --exportie {{ exportie | default('') }}"
+{% endif %}
+
+{% if exportopera | default('') %}
+# Export bookmarks to Opera format.
+ARGS="${ARGS} --exportopera {{ exportopera | default('') }}"
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# UI & Session Options                                                       #}
+{# -------------------------------------------------------------------------- #}
+
+{% if address | default('') %}
+# Open at the given position in the bookmarks file.
+# Allows programmatic navigation to a specific bookmark entry.
+ARGS="${ARGS} --address {{ address | default('') }}"
+{% endif %}
+
+{% if customcaption | default('') %}
+# Set the user-readable caption.
+# Example: "Konsole" or "My Bookmarks".
+ARGS="${ARGS} --customcaption {{ customcaption | default('') }}"
+{% endif %}
+
+{% if nobrowser | default(False) %}
+# Hide all browser related functions.
+# Useful when using keditbookmarks purely as a manager without browser integration.
+{% if nobrowser | default(False) | bool %}
+ARGS="${ARGS} --nobrowser"
+{% endif %}
+{% endif %}
+
+{% if dbusobjectname | default('') %}
+# A unique name that represents this bookmark collection.
+# Used for D-Bus communication.
+ARGS="${ARGS} --dbusObjectName {{ dbusobjectname | default('') }}"
+{% endif %}
+
+{% if caption | default('') %}
+# Use 'caption' as the name in the titlebar.
+ARGS="${ARGS} --caption {{ caption | default('') }}"
+{% endif %}
+
+{% if icon | default('') %}
+# Use 'icon' as the application icon.
+# Specify an icon name or path.
+ARGS="${ARGS} --icon {{ icon | default('') }}"
+{% endif %}
+
+{% if config | default('') %}
+# Use alternative configuration file.
+# Overrides the default config location.
+ARGS="${ARGS} --config {{ config | default('') }}"
+{% endif %}
+
+{% if nocrashhandler | default(False) %}
+# Disable crash handler, to get core dumps.
+# Useful for debugging application crashes.
+{% if nocrashhandler | default(False) | bool %}
+ARGS="${ARGS} --nocrashhandler"
+{% endif %}
+{% endif %}
+
+{% if waitforwm | default(False) %}
+# Waits for a WM_NET compatible windowmanager.
+# Ensures proper window manager integration.
+{% if waitforwm | default(False) | bool %}
+ARGS="${ARGS} --waitforwm"
+{% endif %}
+{% endif %}
+
+{% if style | default('') %}
+# Sets the application GUI style.
+# Examples: "breeze", "adwaita", "plastique".
+ARGS="${ARGS} --style {{ style | default('') }}"
+{% endif %}
+
+{% if geometry | default('') %}
+# Sets the client geometry of the main widget.
+# Format: "WxH+X+Y" (e.g., "800x600+100+100").
+ARGS="${ARGS} --geometry {{ geometry | default('') }}"
+{% endif %}
+
+{% if display | default('') %}
+# Use the X-server display.
+# Specifies the X11 display to connect to (e.g., ":0", "localhost:1").
+ARGS="${ARGS} --display {{ display | default('') }}"
+{% endif %}
+
+{% if session | default('') %}
+# Restore the application for the given session ID.
+# Allows resuming a previous editing session.
+ARGS="${ARGS} --session {{ session | default('') }}"
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Qt/X11 Specific Options                                                    #}
+{# -------------------------------------------------------------------------- #}
+
+{% if cmap | default(False) %}
+# Causes the application to install a private color map on an 8-bit display.
+# Rarely needed on modern systems.
+{% if cmap | default(False) | bool %}
+ARGS="${ARGS} --cmap"
+{% endif %}
+{% endif %}
+
+{% if ncols | default(0) | int > 0 %}
+# Limits the number of colors allocated in the color cube on an 8-bit display.
+{% endif %}
+
+{% if nograb | default(False) %}
+# Tells Qt to never grab the mouse or the keyboard.
+# Useful in environments where global input grabbing is undesirable.
+{% if nograb | default(False) | bool %}
+ARGS="${ARGS} --nograb"
+{% endif %}
+{% endif %}
+
+{% if dograb | default(False) %}
+# Override implicit -nograb when running under a debugger.
+# Use this if you need input grabbing for debugging purposes.
+{% if dograb | default(False) | bool %}
+ARGS="${ARGS} --dograb"
+{% endif %}
+{% endif %}
+
+{% if sync | default(False) %}
+# Switches to synchronous mode for debugging.
+# Slows down the application but provides detailed error output.
+{% if sync | default(False) | bool %}
+ARGS="${ARGS} --sync"
+{% endif %}
+{% endif %}
+
+{% if fn | default('') %}
+# Defines the application font.
+# Specify a font family and size (e.g., "Sans Serif,12").
+ARGS="${ARGS} --fn {{ fn | default('') }}"
+{% endif %}
+
+{% if bg | default('') %}
+# Sets the default background color and an application palette.
+# Specify a color name or hex code (e.g., "#FF0000").
+ARGS="${ARGS} --bg {{ bg | default('') }}"
+{% endif %}
+
+{% if fg | default('') %}
+# Sets the default foreground color.
+# Specify a color name or hex code.
+ARGS="${ARGS} --fg {{ fg | default('') }}"
+{% endif %}
+
+{% if btn | default('') %}
+# Sets the default button color.
+# Specify a color name or hex code.
+ARGS="${ARGS} --btn {{ btn | default('') }}"
+{% endif %}
+
+{% if name | default('') %}
+# Sets the application name.
+# Used for identification in window managers and D-Bus.
+ARGS="${ARGS} --name {{ name | default('') }}"
+{% endif %}
+
+{% if title | default('') %}
+# Sets the application title (caption).
+# Alternative to --caption for setting the window title.
+ARGS="${ARGS} --title {{ title | default('') }}"
+{% endif %}
+
+{% if visual | default('') %}
+# Forces the application to use a TrueColor visual on an 8-bit display.
+# Ensures correct color rendering on legacy hardware.
+ARGS="${ARGS} --visual {{ visual | default('') }}"
+{% endif %}
+
+{% if inputstyle | default('offthespot') %}
+# Sets XIM (X Input Method) input style.
+# Common values: "offthespot", "spot", "root".
+ARGS="${ARGS} --inputstyle {{ inputstyle | default('offthespot') }}"
+{% endif %}
+
+{% if im | default('') %}
+# Set XIM server.
+# Specifies the X Input Method server to use.
+ARGS="${ARGS} --im {{ im | default('') }}"
+{% endif %}
+
+{% if noxim | default(False) %}
+# Disable XIM.
+# Turns off X Input Method support entirely.
+{% if noxim | default(False) | bool %}
+ARGS="${ARGS} --noxim"
+{% endif %}
+{% endif %}
+
+{% if reverse | default(False) %}
+# Mirrors the whole layout of widgets.
+# Useful for right-to-left languages or accessibility.
+{% if reverse | default(False) | bool %}
+ARGS="${ARGS} --reverse"
+{% endif %}
+{% endif %}
+
+{% if stylesheet | default('') %}
+# Applies the Qt stylesheet to the application widgets.
+# Allows custom CSS-like styling of the interface.
+ARGS="${ARGS} --stylesheet {{ stylesheet | default('') }}"
+{% endif %}
+
+# Execute the command with the constructed arguments
+exec ${COMMAND} ${ARGS}

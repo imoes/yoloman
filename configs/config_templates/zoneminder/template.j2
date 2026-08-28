@@ -1,0 +1,60 @@
+# ZoneMinder Apache Configuration Template
+# Provides ScriptAlias, Cache Alias, and Web Root Alias for ZoneMinder.
+# This file configures Apache to serve ZoneMinder's CGI binaries, cache, and web interface.
+
+# ZoneMinder's CGI binaries path.
+# Used to enable execution of ZoneMinder's CGI scripts via Apache.
+# Default: /usr/lib/zoneminder/cgi-bin
+ScriptAlias /zm/cgi-bin "{{ zm_cgi_bin_path | default('/usr/lib/zoneminder/cgi-bin') }}"
+
+<Directory "{{ zm_cgi_bin_path | default('/usr/lib/zoneminder/cgi-bin') }}">
+    # Enable CGI execution, disable multiViews (to avoid content negotiation issues with .cgi),
+    # and follow symbolic links if they match the owner.
+    Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
+    # Allow .htaccess overrides if present (though generally discouraged for security).
+    AllowOverride All
+    # Grant access to everyone (ZoneMinder handles its own auth).
+    Require all granted
+</Directory>
+
+# ZoneMinder's cache directory path.
+# Served at /zm/cache to allow direct access to cached images/video segments.
+# Default: /var/cache/zoneminder
+# Order matters: This alias must be defined before the general www alias to take precedence.
+Alias /zm/cache "{{ zm_cache_path | default('/var/cache/zoneminder') }}"
+
+<Directory "{{ zm_cache_path | default('/var/cache/zoneminder') }}">
+    # Disable directory listing (security best practice for cache).
+    # Follow symlinks to allow caching mechanisms to work efficiently.
+    Options -Indexes +FollowSymLinks
+    # Do not allow .htaccess overrides in the cache dir for security.
+    AllowOverride None
+
+    # Apache 2.4 access control block.
+    # Ensures the directory is accessible even if mod_authz_core is loaded.
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+</Directory>
+
+# ZoneMinder's web application path.
+# Served at /zm for the main web interface.
+# Default: /usr/share/zoneminder/www
+Alias /zm "{{ zm_www_path | default('/usr/share/zoneminder/www') }}"
+
+<Directory "{{ zm_www_path | default('/usr/share/zoneminder/www') }}">
+    # Disable directory listing, follow symlinks.
+    Options -Indexes +FollowSymLinks
+
+    # If mod_dir is present, set the default index file to index.php.
+    <IfModule mod_dir.c>
+        DirectoryIndex index.php
+    </IfModule>
+</Directory>
+
+# Specific directory for ZoneMinder's API.
+# Allows for specific overrides or security policies for the API endpoint.
+<Directory "{{ zm_www_path | default('/usr/share/zoneminder/www') }}/api">
+    # Allow .htaccess overrides for API-specific configurations.
+    AllowOverride All
+</Directory>

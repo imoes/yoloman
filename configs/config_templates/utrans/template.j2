@@ -1,0 +1,28 @@
+# ==========================================================================
+# Utrans Backend Configuration Template
+# ==========================================================================
+# This template configures the 'utrans' service, managing which translation
+# backends are loaded and how output file collisions are handled.
+#
+# Self-Documenting: Every configuration directive below is preceded by a
+# comment explaining its purpose, valid values, and source default.
+# ==========================================================================
+
+# [utrans.backends]
+# Comma-separated list of backends to load for translation.
+# Available backends: openrc (service manager), xinetd (socket server),
+# cron (timer scheduler), inetd (socket server), lsb (legacy service).
+# If a backend name is prefixed with '=' (e.g., '=xinetd'), it ignores
+# the default list and loads ONLY the specified backend(s).
+# Default: openrc, xinetd, cron
+backend_list = {{ (backend_list | default(['openrc', 'xinetd', 'cron'])) | join(', ') }}
+
+# [utrans.output]
+# Force mode for translation output files.
+# Controls behavior when the destination directory already contains files
+# with the same name as the output being generated.
+# Valid values:
+#   'overwrite' - Existing files are replaced without prompting.
+#   'none'      - Existing files are left untouched (safe mode).
+# Default: none
+force_mode = {{ force_mode | default('none') }}

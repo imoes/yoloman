@@ -1,133 +1,107 @@
 {
-  "log_level": {
-    "type": "string",
-    "default": {
-      "value": "error"
-    },
-    "description": "Log verbosity level; acceptable values are 'error', 'warning', 'info', 'debug' \u2014 but the broker itself does not expose this in config XML; it's controlled via --log=fd and not configurable via XML. Removed from template and schema."
-  },
-  "listen_addresses": {
-    "type": "list",
-    "default": {
-      "value": [
-        "unix:path=/run/dbus/system_bus_socket",
-        "unix:abstract=/dbus/system_bus_socket"
-      ]
-    },
-    "description": "List of transport addresses the broker listens on"
+  "audit_level": {
+    "default": 0,
+    "description": "Audit logging level: 0 = disabled, 1 = enabled (logs security-relevant events)",
+    "type": "number"
   },
   "auth_mechanisms": {
-    "type": "list",
-    "default": {
-      "value": [
-        "EXTERNAL",
-        "DBUS_COOKIE_SHA1"
-      ]
-    },
-    "description": "Authentication mechanisms the broker supports; values like 'EXTERNAL', 'DBUS_COOKIE_SHA1', 'ANONYMOUS'"
-  },
-  "service_activation": {
-    "type": "object",
-    "default": {
-      "value": null
-    },
-    "description": "Service to auto-start on bus initialization (e.g., system-wide service). Optional."
-  },
-  "user_rules": {
-    "type": "list",
-    "default": {
-      "value": [
-        {
-          "user": "root",
-          "max_replies_per_connection": 1024,
-          "max_connections_per_user": 256,
-          "max_services_per_user": 128
-        },
-        {
-          "user": "messagebus",
-          "max_replies_per_connection": 512,
-          "max_connections_per_user": 128,
-          "max_services_per_user": 64
-        }
-      ]
-    },
-    "description": "Per-user connection limits and privileges. At least one user rule should be present."
-  },
-  "introspection_enabled": {
-    "type": "bool",
-    "default": {
-      "value": false
-    },
-    "description": "Whether to allow introspection via org.freedesktop.DBus.Introspectable. Disable for production security hardening."
-  },
-  "audit_level": {
-    "type": "number",
-    "default": {
-      "value": 0
-    },
-    "description": "Audit logging level: 0 = disabled, 1 = enabled (logs security-relevant events)"
+    "default": [
+      "EXTERNAL",
+      "DBUS_COOKIE_SHA1"
+    ],
+    "description": "Authentication mechanisms the broker supports; values like 'EXTERNAL', 'DBUS_COOKIE_SHA1', 'ANONYMOUS'",
+    "type": "list"
   },
   "inactivity_timeout": {
-    "type": "number",
-    "default": {
-      "value": 0
-    },
-    "description": "Timeout (in seconds) before closing inactive connections. Note: dbus-broker does NOT support inactivity_timeout in config XML; this directive is not documented. Removed from template and schema."
+    "default": 0,
+    "description": "Timeout (in seconds) before closing inactive connections. Note: dbus-broker does NOT support inactivity_timeout in config XML; this directive is not documented. Removed from template and schema.",
+    "type": "number"
   },
-  "max_outstanding_messages": {
-    "type": "number",
-    "default": {
-      "value": 100000
-    },
-    "description": "Maximum number of queued messages per connection"
+  "introspection_enabled": {
+    "default": false,
+    "description": "Whether to allow introspection via org.freedesktop.DBus.Introspectable. Disable for production security hardening.",
+    "type": "bool"
   },
-  "max_message_size": {
-    "type": "number",
-    "default": {
-      "value": 104857600
-    },
-    "description": "Maximum size (in bytes) of a single message (e.g., 100 MB)"
-  },
-  "max_fds_per_connection": {
-    "type": "number",
-    "default": {
-      "value": 256
-    },
-    "description": "Maximum number of file descriptors that may be passed per connection"
-  },
-  "max_fds": {
-    "type": "number",
-    "default": {
-      "value": 64
-    },
-    "description": "Maximum number of file descriptors the broker may open system-wide per user (NOT total for broker process). The CLI option --max-fds sets per-user limit, default 64."
+  "listen_addresses": {
+    "default": [
+      "unix:path=/run/dbus/system_bus_socket",
+      "unix:abstract=/dbus/system_bus_socket"
+    ],
+    "description": "List of transport addresses the broker listens on",
+    "type": "list"
   },
   "listen_backlog": {
-    "type": "number",
-    "default": {
-      "value": 1024
-    },
-    "description": "Maximum number of pending connections in the kernel listen queue"
+    "default": 1024,
+    "description": "Maximum number of pending connections in the kernel listen queue",
+    "type": "number"
   },
-  "max_matches_per_user": {
-    "type": "number",
-    "default": {
-      "value": 16384
-    },
-    "description": "Maximum number of match rules each user may allocate. From CLI option --max-matches=16k."
-  },
-  "max_objects_per_user": {
-    "type": "number",
-    "default": {
-      "value": 16384
-    },
-    "description": "Maximum total number of names, peers, pending replies, etc each user may allocate. From CLI option --max-objects=16k."
+  "log_level": {
+    "default": "error",
+    "description": "Log verbosity level; acceptable values are 'error', 'warning', 'info', 'debug' \u2014 but the broker itself does not expose this in config XML; it's controlled via --log=fd and not configurable via XML. Removed from template and schema.",
+    "type": "string",
+    "enum": [
+      "error",
+      "warning",
+      "info",
+      "debug"
+    ]
   },
   "max_bytes_per_user": {
-    "type": "number",
-    "default": {
-      "value": 16777216
-    },
-    "description": "Maximum number of bytes of message payload each user may allocate. From CLI option --max-bytes=16MiB."
+    "default": 16777216,
+    "description": "Maximum number of bytes of message payload each user may allocate. From CLI option --max-bytes=16MiB.",
+    "type": "number"
+  },
+  "max_fds": {
+    "default": 64,
+    "description": "Maximum number of file descriptors the broker may open system-wide per user (NOT total for broker process). The CLI option --max-fds sets per-user limit, default 64.",
+    "type": "number"
+  },
+  "max_fds_per_connection": {
+    "default": 256,
+    "description": "Maximum number of file descriptors that may be passed per connection",
+    "type": "number"
+  },
+  "max_matches_per_user": {
+    "default": 16384,
+    "description": "Maximum number of match rules each user may allocate. From CLI option --max-matches=16k.",
+    "type": "number"
+  },
+  "max_message_size": {
+    "default": 104857600,
+    "description": "Maximum size (in bytes) of a single message (e.g., 100 MB)",
+    "type": "number"
+  },
+  "max_objects_per_user": {
+    "default": 16384,
+    "description": "Maximum total number of names, peers, pending replies, etc each user may allocate. From CLI option --max-objects=16k.",
+    "type": "number"
+  },
+  "max_outstanding_messages": {
+    "default": 100000,
+    "description": "Maximum number of queued messages per connection",
+    "type": "number"
+  },
+  "service_activation": {
+    "default": null,
+    "description": "Service to auto-start on bus initialization (e.g., system-wide service). Optional.",
+    "type": "object"
+  },
+  "user_rules": {
+    "default": [
+      {
+        "max_connections_per_user": 256,
+        "max_replies_per_connection": 1024,
+        "max_services_per_user": 128,
+        "user": "root"
+      },
+      {
+        "max_connections_per_user": 128,
+        "max_replies_per_connection": 512,
+        "max_services_per_user": 64,
+        "user": "messagebus"
+      }
+    ],
+    "description": "Per-user connection limits and privileges. At least one user rule should be present.",
+    "type": "list"
   }
 }

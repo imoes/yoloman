@@ -1,0 +1,39 @@
+# linescroll configuration
+# This template configures the `linescroll` utility, which monitors log files and
+# displays scrolling statistics (count, rate, etc.) in the terminal.
+
+# Combine all input sources into a single source (--combine)
+# When enabled, all files in the `files` list are treated as a single stream.
+COMBINE: {{ combine | default(false) | lower }}
+
+# Exit after this number of iterations (--limit)
+# Use 'never' to run indefinitely until interrupted.
+LIMIT: {{ limit | default('never') }}
+
+# Don't print graphs, print speed only (--speedonly)
+# Disables the visual graph output, showing only numeric speed/stats.
+SPEEDONLY: {{ speedonly | default(false) | lower }}
+
+# Print only every Nth iteration (--print)
+# Controls the output frequency. 1 means print every iteration.
+PRINT: {{ print | default(1) }}
+
+# Print filename headings before the stats (--filename)
+# Adds the filename header above the stats for each source.
+FILENAME: {{ filename | default(false) | lower }}
+
+# Do not clear the screen between prints (--noclear)
+# Keeps the output persistent on screen without refreshing/clearing.
+NOCLEAR: {{ noclear | default(false) | lower }}
+
+# Do not follow file renames (--nofollow)
+# If set, linescroll will not track files that are renamed or rotated.
+NOFOLLOW: {{ nofollow | default(false) | lower }}
+
+# Treat input lines as values to add to counter (--raw)
+# Instead of counting lines, treat each line as a numeric value to sum/average.
+RAW: {{ raw | default(false) | lower }}
+
+# List of log files or paths to monitor.
+# Use '-' for stdin. Empty list implies stdin or required via CLI.
+FILES: {{ files | default([]) | join(' ') }}

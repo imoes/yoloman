@@ -1,0 +1,127 @@
+# ============================================================================
+# tcpreen Configuration Wrapper
+# ============================================================================
+# This template generates a command-line invocation for the 'tcpreen' TCP
+# stream monitoring tool. tcpreen does not read a standard config file;
+# this script/systemd ExecStart line assembles the appropriate CLI flags
+# based on the provided schema variables.
+#
+# Refer to tcpreen(1) for detailed option descriptions.
+# ============================================================================
+
+{% set daemon_val = daemon | default(False) %}
+{% set bind_address_val = bind_address | default('0.0.0.0') %}
+{% set max_bytes_val = max_bytes | default(0) %}
+{% set connect_to_client_val = connect_to_client | default(False) %}
+{% set log_format_val = log_format | default('raw') %}
+{% set log_file_val = log_file | default('-') %}
+{% set max_fork_val = max_fork | default(1) %}
+{% set max_connections_val = max_connections | default(0) %}
+{% set numeric_val = numeric | default(False) %}
+{% set run_as_user_val = run_as_user | default('') %}
+{% set protocol_val = protocol | default('tcp') %}
+{% set quiet_val = quiet | default(False) %}
+{% set server_hostname_val = server_hostname | default('127.0.0.1') %}
+{% set verbose_val = verbose | default(False) %}
+{% set server_port_val = server_port | default(8080) %}
+{% set local_port_val = local_port | default(0) %}
+
+# ----------------------------------------------------------------------------
+# Daemon Mode
+# ----------------------------------------------------------------------------
+# Run tcpreen in daemon mode (background process).
+# Flag: -d
+{% if daemon_val %}-d {% endif %}
+
+# ----------------------------------------------------------------------------
+# Bind Address
+# ----------------------------------------------------------------------------
+# Network interface or IP address to listen on for client connections.
+# Flag: -a <address>
+{% if bind_address_val != '0.0.0.0' %}-a {{ bind_address_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Max Bytes Per Session
+# ----------------------------------------------------------------------------
+# Limit session length in bytes. 0 means no limit.
+# Flag: -b <bytes>
+{% if max_bytes_val != 0 %}-b {{ max_bytes_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Connect to Client
+# ----------------------------------------------------------------------------
+# Connect to a specified client instead of waiting for a client to connect.
+# Flag: -c
+{% if connect_to_client_val %}-c {% endif %}
+
+# ----------------------------------------------------------------------------
+# Log Format and File
+# ----------------------------------------------------------------------------
+# Output format for captured data (hex, raw, strip, count, null, C, password).
+# Log file path. Use '-' for stdout.
+# Flags: -f <format> [-o <file>]
+-f {{ log_format_val }} {% if log_file_val != '-' %}-o {{ log_file_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Max Forks (Concurrent Sessions)
+# ----------------------------------------------------------------------------
+# Maximum number of simultaneous sessions (forks) allowed.
+# Flag: -F <count>
+{% if max_fork_val != 1 %}-F {{ max_fork_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Max Connections
+# ----------------------------------------------------------------------------
+# Handle this many connections then exit. 0 means run forever.
+# Flag: -m <count>
+{% if max_connections_val != 0 %}-m {{ max_connections_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Numeric Mode
+# ----------------------------------------------------------------------------
+# Disable reverse DNS lookup and service name resolution.
+# Flag: -n
+{% if numeric_val %}-n {% endif %}
+
+# ----------------------------------------------------------------------------
+# Run As User
+# ----------------------------------------------------------------------------
+# Username to drop privileges to after binding socket (requires root initially).
+# Flag: -u <user>
+{% if run_as_user_val %}-u {{ run_as_user_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Protocol
+# ----------------------------------------------------------------------------
+# Network protocol(s) to use (tcp, tcp6, unix, local).
+# Flag: -p <protocol>
+-p {{ protocol_val }}
+
+# ----------------------------------------------------------------------------
+# Quiet Mode
+# ----------------------------------------------------------------------------
+# Turn on quiet mode: do not write to stdout.
+# Flag: -q
+{% if quiet_val %}-q {% endif %}
+
+# ----------------------------------------------------------------------------
+# Server Hostname
+# ----------------------------------------------------------------------------
+# Hostname or IP address of the server to connect to (if not local).
+# Flag: -s <hostname>
+{% if server_hostname_val != '127.0.0.1' %}-s {{ server_hostname_val }} {% endif %}
+
+# ----------------------------------------------------------------------------
+# Verbose Mode
+# ----------------------------------------------------------------------------
+# Increase program verbosity.
+# Flag: -v
+{% if verbose_val %}-v {% endif %}
+
+# ----------------------------------------------------------------------------
+# Ports
+# ----------------------------------------------------------------------------
+# Server port to monitor or connect to.
+# Local port to listen on for clients. 0 means dynamically allocated.
+# Arguments: <server_port> [local_port]
+{{ server_port_val }} {% if local_port_val != 0 %}{{ local_port_val }}{% endif %}

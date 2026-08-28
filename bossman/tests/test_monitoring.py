@@ -4,6 +4,7 @@ evaluate_host. Mirrors tests/test_poller.py's _make_agent/cleanup pattern.
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -299,7 +300,7 @@ def test_hysteresis_blocks_recovery_lt_style():
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    name = f"mon-{uuid.uuid4().hex[:8]}"
+    name = owned_name("mon")
     fields = {"name": name, "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
     fields.update(overrides)
     agent = Agent(**fields)

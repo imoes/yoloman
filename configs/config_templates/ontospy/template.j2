@@ -1,0 +1,44 @@
+# ==============================================================================
+# Ontospy Configuration Template
+# ==============================================================================
+# This template generates the runtime configuration for the 'ontospy' RDF
+# ontology analysis tool. It controls the default command, verbosity, source
+# data location, output format, and extra CLI arguments.
+#
+# Self-documented: every directive is preceded by a comment explaining its
+# purpose and accepted values, sourced from the schema definition.
+# ==============================================================================
+
+# Enable verbose/debug output (prints debug messages)
+# Schema: config.verbose (bool, default: False)
+# If true, adds the -verbose flag to the command line.
+{% set _config = config | default({'verbose': False, 'command': 'scan', 'source': '/etc/ontospy/default.rdf', 'format': 'html', 'output_dir': '/var/lib/ontospy/docs', 'extra_args': []}) %}
+{% if _config.verbose | default(False) %}
+-verbose
+{% endif %}
+
+# The default command to run if no subcommand is specified via CLI flags
+# Common subcommands: scan, gendocs, lib, shell, ser, utils
+# Schema: config.command (str, default: 'scan')
+COMMAND: {{ _config.command | default('scan') }}
+
+# Target RDF source for the command
+# Can be a local file path or a URL
+# Schema: config.source (str, default: '/etc/ontospy/default.rdf')
+SOURCE: {{ _config.source | default('/etc/ontospy/default.rdf') }}
+
+# Output format for 'gendocs' or 'ser' commands
+# Valid formats depend on the command, e.g., html, markdown, ttl, rdfxml
+# Schema: config.format (str, default: 'html')
+FORMAT: {{ _config.format | default('html') }}
+
+# Output directory for generated docs (used by 'gendocs')
+# Schema: config.output_dir (str, default: '/var/lib/ontospy/docs')
+OUTPUT_DIR: {{ _config.output_dir | default('/var/lib/ontospy/docs') }}
+
+# List of extra arguments to pass to the ontospy command
+# Schema: config.extra_args (list of str, default: [])
+# Each item in the list is rendered as a separate ARG directive.
+{% for arg in _config.extra_args | default([]) %}
+ARG: {{ arg | default('') }}
+{% endfor %}

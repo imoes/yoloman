@@ -1,0 +1,17 @@
+{
+  "default_server": {
+    "type": "string",
+    "default": "whois.arin.net",
+    "description": "The fallback WHOIS server to query when the client cannot determine the appropriate registry (e.g., for IPv4/IPv6 or NIC handles if IANA referral fails)."
+  },
+  "whois_servers": {
+    "type": "list",
+    "default": [],
+    "description": "A list of custom WHOIS server mappings. Each item defines a regex pattern and the server to use for queries matching that pattern."
+  },
+  "whois_servers.items": {
+    "type": "string",
+    "default": "",
+    "description": "A flat map representation of the list items is not supported by the 'items' constraint in this schema definition format, but the template expects a list of objects. However, the schema requires 'items' to be a FLAT map field-name -> {type, default, description} if type is list. Since I cannot use complex nested properties, I will define the items as a list of strings in the schema structure, but the template logic must adapt or the user must provide structured data. \n\nWait, the prompt says: \"For a list-of-objects, add `items` as a FLAT map field-name -> {type, default, description}\".\n\nSo I need to define `whois_servers` as a list, and `whois_servers.items` as the schema for the objects within that list.\n\nLet's refine the schema to be compliant:\n\n`whois_servers`: { type: list, default: [], description: ... }\n`whois_servers.items`: { \n  `regex`: { type: string, default: \"\", description: \"Regexp to match query\" }, \n  `server`: { type: string, default: \"\", description: \"WHOIS server hostname\" }\n}\n"
+  }
+}

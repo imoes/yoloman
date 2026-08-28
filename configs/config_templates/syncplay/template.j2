@@ -1,0 +1,67 @@
+# =============================================================================
+# Syncplay Client Configuration Template
+# =============================================================================
+# This template generates the command-line arguments for the Syncplay client.
+# It is self-documenting: every directive includes the schema description as a
+# comment, and every variable uses a safe default to prevent render failures.
+# =============================================================================
+
+# --- Connection Settings -----------------------------------------------------
+
+# Host: Address of the Syncplay server to connect to.
+# Default: localhost
+--host={{ (host | default('localhost')) | string }}
+
+# Username: User name to use when connecting to the server.
+# Default: SyncplayUser
+--name={{ (username | default('SyncplayUser')) | string }}
+
+# Room: Default room to join upon connection.
+# Default: Public
+--room={{ (room | default('Public')) | string }}
+
+# Password: The password required for the server (if applicable).
+# Default: '' (empty string)
+--password={{ (password | default('')) | string }}
+
+# --- Application Settings ----------------------------------------------------
+
+# Player Path: Path to the media player binary (e.g., mpv, vlc).
+# Default: /usr/bin/mpv
+--player-path={{ (player_path | default('/usr/bin/mpv')) | string }}
+
+# Language: Language of Syncplay messages (de/en/es/eo/fi/fr/it/pt_PT/pt_BR/tr/ru/zh_CN/ko).
+# Default: en
+--language={{ (language | default('en')) | string }}
+
+# --- Flags -------------------------------------------------------------------
+
+# Debug: Enable debug mode for verbose output.
+# Default: False
+{% if (debug | default(False) | bool) %}
+--debug
+{% endif %}
+
+# No Store: Do not store configuration settings in .syncplay.
+# Default: False
+{% if (no_store | default(False) | bool) %}
+--no-store
+{% endif %}
+
+# Force GUI Prompt: Force configuration window to appear when Syncplay starts.
+# Default: False
+{% if (force_gui_prompt | default(False) | bool) %}
+--force-gui-prompt
+{% endif %}
+
+# No GUI: Do not show the graphical user interface (run in headless mode).
+# Default: False
+{% if (no_gui | default(False) | bool) %}
+--no-gui
+{% endif %}
+
+# Playlist File: Loads the playlist from the specified file (one entry per line).
+# Default: '' (empty, meaning no playlist loaded)
+{% if (playlist_file | default('')) | string | trim != '' %}
+--load-playlist-from-file={{ (playlist_file | default('')) | string }}
+{% endif %}

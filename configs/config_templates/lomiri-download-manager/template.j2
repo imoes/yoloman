@@ -1,0 +1,22 @@
+# AppArmor profile for lomiri-download-manager
+# This template generates the AppArmor profile configuration for the lomiri-download-manager service.
+# It restricts access to system resources for the ldm-extractor binary.
+
+#include <tunables/global>
+
+profile {{ profile_name | default('ldm-extractor') }} /usr/lib/*/lomiri-download-manager/ldm-extractor {
+  #include <abstractions/base>
+
+  # Access rights for uncompressors (e.g., unzip)
+  # These binaries must be allowed to execute to process incoming files.
+  /usr/bin/unzip ixr,
+
+  # Cache directory for incoming Hub files (read access)
+  # The extractor reads compressed files from the user's cache directory.
+  # Defaults to the standard XDG cache location for the current user.
+  owner @{HOME}/.cache/*/HubIncoming/** r,
+
+  # Cache directory for incoming Hub files (write access)
+  # The extractor writes decompressed files to the same directory.
+  owner @{HOME}/.cache/*/HubIncoming/** w,
+}

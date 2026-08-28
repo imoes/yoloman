@@ -1,0 +1,72 @@
+# ==============================================================================
+# Pixiewps Configuration Template
+# --------------------------------------------------------------------------
+# Self-documented configuration for pixiewps (a WPS pixie-dust attack tool).
+# This template uses Jinja2 for Ansible integration. All variables use
+# explicit defaults to prevent rendering failures when fields are omitted.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Verbosity level for pixiewps output.
+# 1 = quietest, 3 = most verbose.
+# --------------------------------------------------------------------------
+verbosity: {{ verbosity | default(3) }}
+
+# --------------------------------------------------------------------------
+# Attack mode selection.
+# Comma-separated list of modes:
+#   1 - RT/MT/CL
+#   2 - eCos simple
+#   3 - RTL819x (date-based)
+#   4 - eCos simplest [Experimental]
+#   5 - eCos Knuth [Experimental]
+# --------------------------------------------------------------------------
+mode: {{ mode | default('1') }}
+
+# --------------------------------------------------------------------------
+# Starting date for mode 3 attacks.
+# Format: MM/YYYY or YYYY.
+# Defaults to Unix epoch if not set.
+# --------------------------------------------------------------------------
+start_date: {{ start_date | default('01/1970') }}
+
+# --------------------------------------------------------------------------
+# Ending date for mode 3 attacks.
+# Format: MM/YYYY or YYYY.
+# Defaults to max time (02/2038) if not set.
+# --------------------------------------------------------------------------
+end_date: {{ end_date | default('02/2038') }}
+
+# --------------------------------------------------------------------------
+# Input arguments for the WPS bruteforce attack.
+# List of key-value pairs passed as command-line flags (e.g., --pke, --pkr).
+# --------------------------------------------------------------------------
+input_args:
+{%- for arg in (input_args | default([])) %}
+  - '{{ arg.key | default("") }}': '{{ arg.value | default("") }}'
+{%- endfor %}
+
+# --------------------------------------------------------------------------
+# Enable small Diffie-Hellman keys.
+# DEPRECATED option. Must match Reaver config if used.
+# --------------------------------------------------------------------------
+use_small_dh: {{ use_small_dh | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Encrypted settings from M7 for Mode 3 to recover WPA-PSK.
+# Used with --m7-enc <enc7>.
+# --------------------------------------------------------------------------
+m7_enc: {{ m7_enc | default('') }}
+
+# --------------------------------------------------------------------------
+# Encrypted settings from M5 for Mode 3 to recover secret nonce 1.
+# Used with --m7-enc and m7_enc.
+# --------------------------------------------------------------------------
+m5_enc: {{ m5_enc | default('') }}
+
+# --------------------------------------------------------------------------
+# Force backward date search.
+# If true, pixiewps starts from current time and goes backwards.
+# Implies --force logic in date handling.
+# --------------------------------------------------------------------------
+force_backward: {{ force_backward | default(false) | lower }}

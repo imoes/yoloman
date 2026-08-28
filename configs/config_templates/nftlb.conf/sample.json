@@ -1,85 +1,85 @@
 {
-  "enabled": true,
-  "bind_addresses": [
-    "0.0.0.0",
-    "::"
-  ],
-  "backend_pools": [
+ "backend_pools": [
+  {
+   "algorithm": "roundrobin",
+   "enabled": true,
+   "name": "web-pool",
+   "servers": [
     {
-      "name": "web-pool",
-      "algorithm": "roundrobin",
-      "enabled": true,
-      "servers": [
-        {
-          "name": "web1",
-          "address": "10.0.0.10",
-          "port": 80,
-          "weight": 10,
-          "enabled": true
-        },
-        {
-          "name": "web2",
-          "address": "10.0.0.11",
-          "port": 80,
-          "weight": 5,
-          "enabled": true
-        }
-      ]
+     "address": "10.0.0.10",
+     "enabled": true,
+     "name": "web1",
+     "port": 80,
+     "weight": 10
     },
     {
-      "name": "api-pool",
-      "algorithm": "leastconn",
-      "enabled": true,
-      "servers": [
-        {
-          "name": "api1",
-          "address": "10.0.0.20",
-          "port": 8080,
-          "weight": 1,
-          "enabled": true
-        },
-        {
-          "name": "api2",
-          "address": "10.0.0.21",
-          "port": 8080,
-          "weight": 1,
-          "enabled": false
-        }
-      ]
+     "address": "10.0.0.11",
+     "enabled": true,
+     "name": "web2",
+     "port": 80,
+     "weight": 5
     }
-  ],
-  "frontends": [
+   ]
+  },
+  {
+   "algorithm": "leastconn",
+   "enabled": true,
+   "name": "api-pool",
+   "servers": [
     {
-      "name": "http",
-      "protocol": "tcp",
-      "listen_address": "0.0.0.0",
-      "listen_port": 80,
-      "default_backend": "web-pool",
-      "rules": [
-        {
-          "match_type": "path",
-          "match_value": "/api",
-          "backend": "api-pool"
-        },
-        {
-          "match_type": "host",
-          "match_value": "api.example.com",
-          "backend": "api-pool"
-        }
-      ]
+     "address": "10.0.0.20",
+     "enabled": true,
+     "name": "api1",
+     "port": 8080,
+     "weight": 1
     },
     {
-      "name": "https",
-      "protocol": "tcp",
-      "listen_address": "0.0.0.0",
-      "listen_port": 443,
-      "default_backend": "web-pool"
+     "address": "10.0.0.21",
+     "enabled": false,
+     "name": "api2",
+     "port": 8080,
+     "weight": 1
     }
-  ],
-  "max_connections": 100000,
-  "connection_timeout": 60,
-  "health_check_interval": 10,
-  "log_level": "info",
-  "stats_socket": "/run/nftlb/nftlb.sock",
-  "enable_debug": false
+   ]
+  }
+ ],
+ "bind_addresses": [
+  "0.0.0.0",
+  "::"
+ ],
+ "connection_timeout": 60,
+ "enable_debug": false,
+ "enabled": true,
+ "frontends": [
+  {
+   "default_backend": "web-pool",
+   "listen_address": "0.0.0.0",
+   "listen_port": 80,
+   "name": "http",
+   "protocol": "tcp",
+   "rules": [
+    {
+     "backend": "api-pool",
+     "match_type": "path",
+     "match_value": "/api"
+    },
+    {
+     "backend": "api-pool",
+     "match_type": "host",
+     "match_value": "api.example.com"
+    }
+   ]
+  },
+  {
+   "default_backend": "web-pool",
+   "listen_address": "0.0.0.0",
+   "listen_port": 443,
+   "name": "https",
+   "protocol": "tcp"
+  }
+ ],
+ "health_check_interval": 10,
+ "log_level": "info",
+ "max_connections": 100000,
+ "stats_socket": "/run/nftlb/nftlb.sock"
 }

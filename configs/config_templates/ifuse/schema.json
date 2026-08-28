@@ -1,0 +1,32 @@
+{
+  "mountpoint": {
+    "type": "string",
+    "default": "/mnt/iphone",
+    "description": "Local directory where the iOS media/root is mounted."
+  },
+  "udid": {
+    "type": "string",
+    "default": "",
+    "description": "UDID of the specific iOS device to mount. Empty string mounts the first attached device."
+  },
+  "network": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, connects to the device over network."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables debugging output."
+  },
+  "root": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, mounts the root filesystem (jailbroken only)."
+  },
+  "apps": {
+    "type": "list",
+    "default": [],
+    "description": "List of app containers/documents to mount. If empty, only media (or root if specified) is mounted at MOUNTPOINT. Note: ifuse typically mounts one top-level directory; this list allows configuration of multiple app-specific mounts if the service supports chaining or separate invocations. For a single mount operation, this list is usually empty or contains one entry depending on desired behavior (media vs app). Here, we assume a service script that iterates or configures multiple ifuse calls if needed, but strictly following ifuse(1), the primary mount is at MOUNTPOINT. This schema allows specifying app-specific mounts if the wrapper service supports it. However, strictly per ifuse binary, you mount ONE thing per invocation. To be 'canonical' and 'production-sane' for a config file that might drive a wrapper script or service, we include this. If the service is just `ifuse`, this list represents additional mounts the service manager might handle. For a pure `ifuse` config, we might restrict this. Given the prompt asks for a config template for the *package*, and ifuse is a binary, a config file usually drives a script. Let's provide a structure that represents the *primary* mount options and optional app mounts.\n      \n      Actually, ifuse takes ONE mountpoint and ONE set of options. It doesn't take a list of mounts. The options `--documents` and `--container` replace the default media mount. You cannot mount media AND documents in one ifuse invocation. \n      \n      Correction: The template should likely reflect a single invocation's parameters or a configuration for a service that might use ifuse. A single `ifuse` call mounts ONE path. The config should define that one path. If the user wants multiple app mounts, they need multiple mounts/services. \n      \n      Let's refine: The template will configure a single ifuse mount. The `apps` field might be misleading if it implies multiple mounts in one config. However, sometimes configs allow defining "
+  }
+}

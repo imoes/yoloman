@@ -1,0 +1,120 @@
+# ============================================================================
+# Patator Configuration Template
+# ============================================================================
+# This template generates a key-value configuration file for Patator, a multi-protocol
+# brute-forcing and fuzzing tool. Each section corresponds to a parameter in the
+# Patator command-line interface.
+#
+# Variable Naming Convention:
+#   All variables are derived directly from the Ansible role variables (e.g., `module`,
+#   `host`, `port`). They MUST be defined in the Ansible inventory or role defaults.
+#
+# Self-Documentation Principle:
+#   Every configuration directive is preceded by a comment explaining its purpose,
+#   expected format, and default value context.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Module Selection
+# ----------------------------------------------------------------------------
+# The Patator module to execute. Common examples include:
+#   - ftp_login:    Brute-force FTP logins.
+#   - ssh_login:    Brute-force SSH logins.
+#   - http_fuzz:    Fuzz HTTP endpoints.
+#   - mysql_login:  Brute-force MySQL logins.
+#
+# Default: 'ftp_login'
+module: {{ module | default('ftp_login') }}
+
+# ----------------------------------------------------------------------------
+# Target Connection Details
+# ----------------------------------------------------------------------------
+# The target host IP address or hostname to attack.
+# Default: '192.168.1.100'
+host: {{ host | default('192.168.1.100') }}
+
+# The target service port number. This must match the port expected by the
+# selected module (e.g., 21 for FTP, 22 for SSH, 80 for HTTP).
+# Default: 21
+port: {{ port | default(21) }}
+
+# ----------------------------------------------------------------------------
+# Credential Parameters
+# ----------------------------------------------------------------------------
+# The user parameter.
+#   - Use 'FILE0' if you want Patator to read usernames from the file specified
+#     in `user_file`.
+#   - Use a literal string for a single username.
+#
+# Default: 'FILE0'
+user: {{ user | default('FILE0') }}
+
+# The password parameter.
+#   - Use 'FILE1' if you want Patator to read passwords from the file specified
+#     in `password_file`.
+#   - Use a literal string for a single password.
+#
+# Default: 'FILE1'
+password: {{ password | default('FILE1') }}
+
+# ----------------------------------------------------------------------------
+# File Sources for Credentials
+# ----------------------------------------------------------------------------
+# Path to the file containing usernames to try.
+# Used when `user` is set to 'FILE0'.
+# Default: '/opt/patator/users.txt'
+user_file: {{ user_file | default('/opt/patator/users.txt') }}
+
+# Path to the file containing passwords to try.
+# Used when `password` is set to 'FILE1'.
+# Default: '/opt/patator/passwords.txt'
+password_file: {{ password_file | default('/opt/patator/passwords.txt') }}
+
+# ----------------------------------------------------------------------------
+# Execution Limits and Timing
+# ----------------------------------------------------------------------------
+# Maximum number of retries for a single candidate before giving up and moving
+# to the next one.
+# Default: 3
+max_retries: {{ max_retries | default(3) }}
+
+# Timeout in seconds for each connection attempt.
+# Default: 10
+timeout: {{ timeout | default(10) }}
+
+# Number of concurrent threads to use for the attack.
+# Higher values increase speed but may trigger IDS/IPS alerts or overload the target.
+# Default: 10
+threads: {{ threads | default(10) }}
+
+# ----------------------------------------------------------------------------
+# Result Filtering
+# ----------------------------------------------------------------------------
+# Message regex to match for ignoring results.
+# If the target's response contains this regex, the attempt is considered
+# a failure (or noise) and is ignored in the final report.
+# Example: 'Login incorrect' for FTP.
+# Default: 'Login incorrect'
+ignore_mesg: "{{ ignore_mesg | default('Login incorrect') }}"
+
+# ----------------------------------------------------------------------------
+# Additional Module-Specific Arguments
+# ----------------------------------------------------------------------------
+# A list of additional key=value arguments to pass to the Patator module.
+# This is useful for modules that require extra context (e.g., HTTP methods,
+# URL paths, custom headers).
+#
+# Example for http_fuzz:
+#   extra_args:
+#     - 'method=POST'
+#     - 'body={"user":"FILE0"}'
+#
+# Default: [] (empty list)
+extra_args:
+{% if extra_args | default([]) | length > 0 %}
+{% for arg in extra_args | default([]) %}
+  - {{ arg | string }}
+{% endfor %}
+{% else %}
+  []
+{% endif %}

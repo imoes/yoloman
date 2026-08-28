@@ -1,0 +1,101 @@
+# Copyright (C) 2010-2019 by X2Go project, https://wiki.x2go.org
+#       Oleksandr Shneyder <o.shneyder@phoca-gmbh.de>
+#       Moritz 'Morty' Struebe <Moritz.Struebe@informatik.uni-erlangen.de>
+#       Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+#
+# X2Go is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# X2Go is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+# -----------------------------------------------------------------------------
+# Self-documenting configuration for X2Go Thin Client Environment (TCE)
+# management scripts.
+#
+# Variables defined here are consumed by the x2gothinclient-management
+# build/maintenance scripts to construct a chroot-based thin client image.
+# -----------------------------------------------------------------------------
+
+# Name of this instance of the X2Go TCE (appears during thinclient boot process)
+TC_PRETTY_NAME="{{ tc_pretty_name | default('X2Go TCE') }}"
+
+# Adapt to your system!!! This path fits for Debian systems. Or provide the version manually.
+# The version is dynamically extracted from the installed package metadata.
+TC_VERSION=`cat /usr/share/x2go/versions/VERSION.x2gothinclient-management`
+
+# Select the TCE flavour (classical: "displaymanager", minimal MATE desktop shell: "minidesktop")
+TC_FLAVOUR="{{ tc_flavour | default('displaymanager') }}"
+
+# Base path for X2Go thin client files
+TC_BASE="{{ tc_base | default('/opt/x2gothinclient') }}"
+
+# Path to X2Go thin client chroot (derived from base path)
+TC_CHROOT="$TC_BASE/chroot"
+
+# Path to the X2Go thin client configuration (derived from base path)
+TC_CONFIG="$TC_BASE/etc"
+
+# Shell to use when maintaining X2Go thin client chroot manually
+TC_SHELL="{{ tc_shell | default('bash') }}"
+
+# Debian package mirror to use for debootstrap and package installation
+TC_DEBMIRROR_URL="{{ tc_debmirror_url | default('http://ftp.debian.org/debian') }}"
+
+# Distro codename to use for the chroot environment
+TC_DISTRO_CODENAME="{{ tc_distro_codename | default('bookworm') }}"
+
+# Default architecture for the chroot environment
+TC_ARCH="{{ tc_arch | default('amd64') }}"
+
+# Retrieve X2Go packages from this URL (derived from codename)
+TC_X2GO_DEBURL="deb http://packages.x2go.org/debian $TC_DISTRO_CODENAME extras main"
+
+# Use a http/ftp proxy during debootstrap (leave empty if direct connections to http/ftp are allowed)
+TC_HTTP_PROXY="{{ tc_http_proxy | default('') }}"
+TC_HTTPS_PROXY="{{ tc_https_proxy | default('') }}"
+TC_FTP_PROXY="{{ tc_ftp_proxy | default('') }}"
+
+# Module blacklist (used during X2Go TCE creation, e.g. pcspkr)
+TC_MODULE_BLACKLIST="{{ tc_module_blacklist | default('pcspkr') }}"
+
+# TFTP boot environment (PXE/syslinux files delivered via tftpd)
+TC_TFTP_BOOT="{{ tc_tftp_boot | default('/srv/tftp') }}"
+
+# install non-interactively... uncomment it if needed...
+#TC_NONINTERACTIVE=yes
+
+echo
+echo "X2Go Thin Client Environment:"
+echo "============================="
+echo "The X2Go Thin Client Environment is using the following"
+echo "settings:"
+echo
+echo "TC_PRETTY_NAME=$TC_PRETTY_NAME"
+echo "TC_VERSION=$TC_VERSION"
+echo "TC_FLAVOUR=$TC_FLAVOUR"
+echo "TC_BASE=$TC_BASE"
+echo "TC_CONFIG=$TC_CONFIG"
+echo "TC_CHROOT=$TC_CHROOT"
+echo "TC_SHELL=$TC_SHELL"
+echo "TC_DISTRO_CODENAME=$TC_DISTRO_CODENAME"
+echo "TC_ARCH=$TC_ARCH"
+echo "TC_DEBMIRROR_URL=$TC_DEBMIRROR_URL"
+echo "TC_X2GO_DEBURL=$TC_X2GO_DEBURL"
+echo "TC_HTTP_PROXY=$TC_HTTP_PROXY"
+echo "TC_HTTPS_PROXY=$TC_HTTPS_PROXY"
+echo "TC_FTP_PROXY=$TC_FTP_PROXY"
+echo "TC_MODULE_BLACKLIST=$TC_MODULE_BLACKLIST"
+echo "TC_TFTP_BOOT=$TC_TFTP_BOOT"
+echo
+echo "Edit /etc/x2go/x2gothinclient_settings to change this."
+echo

@@ -13,6 +13,22 @@ uv run pytest
 uv run ruff check .
 ```
 
+From the host, the ~16 DB-backed end-to-end tests ("real HTTP, real Postgres") cannot run:
+there is exactly one database — the one in docker compose — and the host does not reach it.
+Run those where the database is:
+
+```bash
+../scripts/test-in-container.sh                        # whole suite, inside the compose network
+../scripts/test-in-container.sh tests/test_runs_api.py # or a subset
+```
+
+The script takes a lock, and that is not cosmetic: `tests/conftest.py`'s autouse
+`_drop_test_residue` deletes every test-shaped row created after its own start time, with no
+notion of *whose* row it is — so two overlapping runs delete each other's data. Measured: the
+same three files pass alone and produce 10 and 12 failures when two runs start together.
+Inside a container always go through `uv run`; calling `/app/.venv/bin/python` directly hits
+an unsynced venv and fails in ways that look like code errors but are not.
+
 ## Local dev database
 
 Bossman needs a Postgres instance with the TimescaleDB extension. For local
@@ -44,7 +60,7 @@ suggesting reuse instead of re-translating from scratch. Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BOSSMAN_EMBEDDING_BASE_URL` | `https://llamacpp03.example.com/embed` | OpenAI-compatible `/v1/embeddings` endpoint |
+| `BOSSMAN_EMBEDDING_BASE_URL` | `https://llm.example.internal/embed` | OpenAI-compatible `/v1/embeddings` endpoint |
 | `BOSSMAN_EMBEDDING_MODEL` | `bge-m3` | Model name passed in the request body |
 | `BOSSMAN_EMBEDDING_DIM` | `1024` | Expected vector width (must match the DB column and the model) |
 | `BOSSMAN_EMBEDDING_TOKEN` | `""` | Bearer token, if the endpoint requires one |
@@ -83,7 +99,7 @@ not a runtime fleet-management action.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BOSSMAN_CHAT_BASE_URL` | `https://llamacpp03.example.com/laguna` | OpenAI-compatible `/v1/chat/completions` endpoint |
+| `BOSSMAN_CHAT_BASE_URL` | `https://llm.example.internal/laguna` | OpenAI-compatible `/v1/chat/completions` endpoint |
 | `BOSSMAN_CHAT_MODEL` | `laguna` | Model name passed in the request body |
 | `BOSSMAN_CHAT_TOKEN` | `""` | Bearer token, if the endpoint requires one |
 

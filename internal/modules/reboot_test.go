@@ -7,7 +7,7 @@ import (
 
 // Note: unlike most other modules in this package, Reboot has no real-host
 // integration test — deliberately. Actually rebooting the shared test host
-// (docker-test.test.example.com) mid test-run would be destructive to
+// (host1.example.internal) mid test-run would be destructive to
 // whatever else is running there, and the module has no way to observe its
 // own success anyway (see the architectural limitation documented in
 // reboot.go: the process runs on the host being rebooted). Coverage here is

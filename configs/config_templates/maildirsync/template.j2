@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+# maildirsync configuration script
+# This file is parsed by the maildirsync.pl script to set default command-line arguments.
+
+# Process the base folder as the recursive collection of Maildir folders.
+$MAILDIRSYNC_RECURSIVE = {{ recursive | default(true) | lower }};
+
+# Directory where deleted files are backed up. Empty string disables backup.
+$MAILDIRSYNC_BACKUP = {{ backup_dir | default('') }};
+
+# If set, deleted messages are moved to a Maildir folder tree inside the backup directory.
+$MAILDIRSYNC_BACKUP_TREE = {{ backup_tree | default(false) | lower }};
+
+# Path to the bzip2 utility. Empty string uses PATH resolution.
+$MAILDIRSYNC_BZIP2 = {{ bzip2_path | default('') }};
+
+# Path to the gzip utility. Empty string uses PATH resolution.
+$MAILDIRSYNC_GZIP = {{ gzip_path | default('') }};
+
+# Path to the maildirsync.pl utility on the remote machine.
+$MAILDIRSYNC_MAILDIRSYNC = {{ maildirsync_bin | default('maildirsync.pl') }};
+
+# Path to the utility used to connect to the remote side.
+$MAILDIRSYNC_RSH = {{ rsh_path | default('ssh') }};
+
+# Transformation type for filenames: 'win' (colon to octal) or 'lin' (octal to colon).
+# Empty means no transformation.
+$MAILDIRSYNC_DESTINATION = {{ destination_os | default('') }};
+
+# Verbosity level: 0 (no info) to 6 (misc info).
+$MAILDIRSYNC_VERBOSE = {{ verbose_level | default(1) }};
+
+# Synchronization algorithm: 'id' (default, fast) or 'md5' (bandwidth efficient).
+$MAILDIRSYNC_ALGORITHM = {{ algorithm | default('id') }};
+
+# Perform delete operations on the target side before transfers.
+$MAILDIRSYNC_DELETE_BEFORE = {{ delete_before | default(false) | lower }};
+
+# List of regex patterns to exclude directories from transfer and state file.
+@MAILDIRSYNC_EXCLUDE = {{ exclude_patterns | default([]) }};
+
+# List of regex patterns to exclude files only from the source side.
+@MAILDIRSYNC_EXCLUDE_SOURCE = {{ exclude_source_patterns | default([]) }};
+
+# List of regex patterns to exclude files only from the target side.
+@MAILDIRSYNC_EXCLUDE_TARGET = {{ exclude_target_patterns | default([]) }};
+
+# Perl expression for renaming files when transferred (e.g., s/Source/Target/).
+$MAILDIRSYNC_RENAME = {{ rename_expr | default('') }};
+
+# Source Maildir path or remote_host:Maildir.
+$MAILDIRSYNC_SOURCE = {{ source_path | default('') }};
+
+# Destination Maildir path or remote_host:Maildir.
+$MAILDIRSYNC_DESTINATION_DIR = {{ destination_path | default('') }};
+
+# Path to the state file storing synchronization status.
+$MAILDIRSYNC_STATE_FILE = {{ state_file_path | default('/var/lib/maildirsync/state.bz2') }};

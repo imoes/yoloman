@@ -1,0 +1,113 @@
+# Configuration for jbig2enc (JBIG2 encoder)
+# This file is a self-documenting template that maps schema fields to jbig2enc command-line options.
+# Each field uses default values to ensure safe rendering even when variables are undefined.
+
+# Root name for the output JBIG2 file.
+# Corresponds to command-line option: -b <basename>
+# The output file will be named <out_basename>.jb2
+out_basename: {{ out_basename | default('output') }}
+
+# Enable TPGD (Two-Pass Generic Region Decoder) in the generic region coder.
+# This feature is used for duplicate line removal in bi-level images.
+# Corresponds to command-line option: -d (or --duplicate-line-removal)
+# Type: boolean
+duplicate_line_removal: {{ duplicate_line_removal | default(False) | lower }}
+
+# Produce data stream ready for embedding in a PDF container.
+# When enabled, the encoder produces a JBIG2 stream suitable for PDF inclusion rather than a standalone file.
+# Corresponds to command-line option: -p (or --pdf)
+# Type: boolean
+pdf_output: {{ pdf_output | default(False) | lower }}
+
+# Use the text region coder (symbol mode) instead of the generic region coder.
+# Symbol mode is generally more efficient for images containing text or line art.
+# Corresponds to command-line option: -s (or --symbol-mode)
+# Type: boolean
+symbol_mode: {{ symbol_mode | default(False) | lower }}
+
+# Classification threshold for the symbol coder.
+# Controls the sensitivity of the symbol matching algorithm.
+# Range: 0.0 to 1.0. Lower values allow more variations.
+# Corresponds to command-line option: -t <threshold>
+classification_threshold: {{ classification_threshold | default(0.92) }}
+
+# Classification weight for the symbol coder.
+# Balances the importance of different features during symbol classification.
+# Range: 0.0 to 1.0.
+# Corresponds to command-line option: -w <weight>
+classification_weight: {{ classification_weight | default(0.5) }}
+
+# Black/White threshold for 1 bpp (black and white) images.
+# Pixels below this value are considered black, above are white.
+# Range: 0 to 255.
+# Corresponds to command-line option: -T <bw_threshold>
+bw_threshold: {{ bw_threshold | default(200) }}
+
+# Use global BW threshold on 8 bpp (grayscale) images instead of local adaptive thresholding.
+# This simplifies thresholding but may reduce quality for complex images.
+# Corresponds to command-line option: -G (or --global)
+# Type: boolean
+use_global_threshold: {{ use_global_threshold | default(False) | lower }}
+
+# Use refinement for lossless encoding.
+# Requires symbol mode to be enabled (-s). Adds a second pass to restore exact pixel values.
+# Corresponds to command-line option: -r (or --refine)
+# Type: boolean
+use_refinement: {{ use_refinement | default(False) | lower }}
+
+# Path to dump the intermediate thresholded image as a PNG file.
+# Useful for debugging the thresholding process.
+# Corresponds to command-line option: -O <outfile>
+output_png: {{ output_png | default('') }}
+
+# Upsample input image by 2x before thresholding.
+# Can improve compression of thin lines in text images.
+# Corresponds to command-line option: -2
+# Type: boolean
+upsample_2x: {{ upsample_2x | default(False) | lower }}
+
+# Upsample input image by 4x before thresholding.
+# Similar to 2x upsample but more aggressive.
+# Corresponds to command-line option: -4
+# Type: boolean
+upsample_4x: {{ upsample_4x | default(False) | lower }}
+
+# Separate images from mixed input and save them individually.
+# If the input contains multiple images, this creates separate output files for each.
+# Corresponds to command-line option: -S
+# Type: boolean
+separate_images: {{ separate_images | default(False) | lower }}
+
+# Write images from mixed input as JPEG files instead of JBIG2.
+# Requires separate_images to be enabled or mixed input processing.
+# Corresponds to command-line option: -j (or --jpeg-output)
+# Type: boolean
+jpeg_output: {{ jpeg_output | default(False) | lower }}
+
+# Use automatic thresholding in the symbol encoder.
+# Attempts to determine the optimal threshold automatically.
+# Corresponds to command-line option: -a (or --auto-thresh)
+# Type: boolean
+auto_thresh: {{ auto_thresh | default(False) | lower }}
+
+# Force the DPI setting for the output image.
+# Overrides the DPI metadata in the input file. A value of 0 disables this override.
+# Corresponds to command-line option: -D <dpi> (or --dpi)
+force_dpi: {{ force_dpi | default(0) }}
+
+# Disable the use of hash functions for automatic thresholding.
+# May speed up processing at the cost of thresholding accuracy.
+# Corresponds to command-line option: --no-hash
+# Type: boolean
+no_hash: {{ no_hash | default(False) | lower }}
+
+# Enable verbose output.
+# Prints detailed progress and statistics to stderr.
+# Corresponds to command-line option: -v
+# Type: boolean
+verbose: {{ verbose | default(False) | lower }}
+
+# List of input image filenames to encode.
+# These are passed as positional arguments to the encoder.
+# Corresponds to: <input_files...>
+input_files: {{ input_files | default([]) | join(' ') }}

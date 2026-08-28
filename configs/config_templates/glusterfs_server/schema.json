@@ -1,48 +1,52 @@
 {
   "allowlist_rpc": {
-    "type": "list",
     "default": [
       "*"
     ],
-    "description": "List of IP addresses or hostnames allowed to connect to the GlusterD RPC service. Use * for any (not recommended in production)."
+    "description": "List of IP addresses or hostnames allowed to connect to the GlusterD RPC service. Use * for any (not recommended in production).",
+    "type": "list"
   },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or NONE."
+  "extra_options": {
+    "description": "Dictionary of additional custom GlusterD options (key \u2192 value). Used for advanced tuning not exposed by other fields.",
+    "type": "object"
   },
   "log_file": {
-    "type": "string",
     "default": "/var/log/glusterfs/glusterd.log",
-    "description": "Path to the glusterd log file."
+    "description": "Path to the glusterd log file.",
+    "type": "string"
   },
-  "working_directory": {
+  "log_level": {
+    "default": "INFO",
+    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or NONE.",
+    "type": "string"
+  },
+  "quorum_type": {
+    "default": "none",
+    "description": "Quorum policy for cluster consensus: 'none', 'majority', or 'all'. Set to 'majority' for production redundancy.",
     "type": "string",
-    "default": "/var/lib/glusterd",
-    "description": "Base working directory for GlusterFS daemon state (must exist and be writable)."
+    "enum": [
+      "none",
+      "majority",
+      "all"
+    ]
   },
   "ssl_enabled": {
-    "type": "bool",
     "default": false,
-    "description": "Enable SSL/TLS for internal GlusterFS cluster communication. Requires certificate setup."
+    "description": "Enable SSL/TLS for internal GlusterFS cluster communication. Requires certificate setup.",
+    "type": "bool"
   },
   "transport_type": {
-    "type": "string",
     "default": "tcp",
     "description": "Transport type(s) for intra-cluster communication: 'tcp', 'rdma', or 'tcp,rdma'.",
     "enum": [
       "tcp",
       "rdma"
-    ]
+    ],
+    "type": "string"
   },
-  "quorum_type": {
-    "type": "string",
-    "default": "none",
-    "description": "Quorum policy for cluster consensus: 'none', 'majority', or 'all'. Set to 'majority' for production redundancy."
-  },
-  "extra_options": {
-    "type": "object",
-    "default": {},
-    "description": "Dictionary of additional custom GlusterD options (key \u2192 value). Used for advanced tuning not exposed by other fields."
+  "working_directory": {
+    "default": "/var/lib/glusterd",
+    "description": "Base working directory for GlusterFS daemon state (must exist and be writable).",
+    "type": "string"
   }
 }

@@ -273,4 +273,3 @@ func probeDNS(p map[string]any) map[string]any {
 	out["records"] = records
 	return out
 }
-

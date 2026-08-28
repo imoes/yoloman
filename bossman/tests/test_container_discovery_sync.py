@@ -8,6 +8,7 @@ failure is reported, not fatal, because the operator's decision is already persi
 from __future__ import annotations
 
 import uuid
+from tests.naming import owned_name
 
 import pytest
 
@@ -18,7 +19,7 @@ from bossman.services.discovery import CONTAINER_CHECK_NAME
 
 def _hex_name() -> str:
     # <prefix>-<8 hex> so the conftest residue guard cleans the agent (and its cascaded rows) up.
-    return f"cont-{uuid.uuid4().hex[:8]}"
+    return owned_name("cont")
 
 
 async def _make_agent(session, address="host.example:8010"):

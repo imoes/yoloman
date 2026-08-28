@@ -1,0 +1,151 @@
+# ==============================================================================
+# WeeChat Configuration File
+# ==============================================================================
+# This template generates the main WeeChat configuration file.
+# It uses variables defined in the Ansible playbook/role to configure
+# the IRC client, relay, and logging subsystems.
+
+# ------------------------------------------------------------------------------
+# Core Settings
+# ------------------------------------------------------------------------------
+
+# The home directory for all WeeChat files (config, data, cache, runtime).
+# This directory serves as the base path for other relative configurations.
+# Format: string (absolute path)
+# Default: /home/weechat/.config/weechat
+weechat.dir = "{{ weechat_dir | default('/home/weechat/.config/weechat', true) }}"
+
+# Enable auto-connect to servers when WeeChat is starting.
+# If true, WeeChat will attempt to connect to all configured servers automatically.
+# Format: boolean (true/false)
+# Default: true
+weechat.autoload = "{{ weechat_autoload | default(true, true) | lower }}"
+
+# Enable/disable plugins auto-load at startup.
+# If false, plugins must be loaded manually.
+# Format: boolean (true/false)
+# Default: true
+weechat.plugins.autoload = "{{ weechat_plugins_autoload | default(true, true) | lower }}"
+
+# Enable/disable scripts auto-load at startup.
+# If false, scripts must be loaded manually.
+# Format: boolean (true/false)
+# Default: true
+weechat.script.autoload = "{{ weechat_script_autoload | default(true, true) | lower }}"
+
+# ------------------------------------------------------------------------------
+# IRC Configuration
+# ------------------------------------------------------------------------------
+
+# List of nicknames to use for IRC connections.
+# WeeChat cycles through these nicks if the primary one is taken.
+# Each nickname is set in its own directive.
+# Format: list of strings
+# Default: ['myuser']
+{% for nick in irc_nicks | default(['myuser'], true) %}
+irc.nicks = "{{ nick }}"
+{% endfor %}
+
+# List of IRC server configurations to connect to at startup.
+# Each server entry defines the connection details and channels.
+# Format: list of objects
+# Default: [{'name': 'libera', 'address': 'irc.libera.chat', 'port': 6697, 'ssl': True, 'channels': ['weechat']}]
+{% for server in irc_servers | default([{'name': 'libera', 'address': 'irc.libera.chat', 'port': 6697, 'ssl': True, 'channels': ['weechat']}], true) %}
+    # Server: {{ server.name }}
+    # Unique identifier for the server (used in config keys like irc.server.name).
+    # Format: string
+    # Default: 'libera'
+    {% set _server_name = server.name | default('libera', true) %}
+
+    # Hostname or IP address of the IRC server.
+    # Format: string
+    # Default: 'irc.libera.chat'
+    irc.server.{{ _server_name }}.address = "{{ server.address | default('irc.libera.chat', true) }}"
+
+    # Port number for the IRC server.
+    # Format: integer
+    # Default: 6697
+    irc.server.{{ _server_name }}.port = "{{ server.port | default(6697, true) }}"
+
+    # Enable SSL/TLS connection for this server.
+    # Format: boolean (true/false)
+    # Default: true
+    irc.server.{{ _server_name }}.ssl = "{{ server.ssl | default(true, true) | lower }}"
+
+    # Path to the SSL certificate file (if required).
+    # Only written if SSL is enabled.
+    # Format: string (file path)
+    # Default: '' (empty)
+    {% if server.ssl | default(true, true) %}
+    irc.server.{{ _server_name }}.ssl_cert = "{{ server.ssl_cert | default('', true) }}"
+    {% endif %}
+
+    # Channels to join on this server.
+    # WeeChat requires the channels to be appended to the previous directive's value
+    # to build the final comma-separated list. We handle this accumulation manually.
+    # Format: list of strings
+    # Default: ['weechat']
+    {% set _channels = server.channels | default(['weechat'], true) %}
+    {% set _channel_list = _channels | map('regex_replace', '^', '#') | join(',') %}
+    irc.server.{{ _server_name }}.channels = "{{ _channel_list }}"
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Relay Configuration
+# ------------------------------------------------------------------------------
+
+# Enable the relay plugin for external clients.
+# Allows connections from WeeChat Android, hexchat, or other IRC clients.
+# Format: boolean (true/false)
+# Default: false
+{% if relay_enabled | default(false, true) %}
+# Enable relay plugin
+# The relay plugin provides a network interface for other clients.
+relay.plugins = "relay"
+
+# Port number for the WeeChat relay.
+# External clients connect to this port.
+# Format: integer
+# Default: 9000
+relay.port = "{{ relay_port | default(9000, true) }}"
+
+# Password required to connect to the relay.
+# Security: Keep this secure. Empty string disables auth (not recommended).
+# Format: string
+# Default: '' (empty)
+relay.password = "{{ relay_password | default('', true) }}"
+
+# Protocol used by the relay (weechat or irc).
+# 'weechat' protocol supports WeeChat-specific features.
+# 'irc' protocol is standard IRC.
+# Format: string
+# Default: 'weechat'
+relay.protocol = "{{ relay_protocol | default('weechat', true) }}"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Logger Configuration
+# ------------------------------------------------------------------------------
+
+# Directory where log files are stored.
+# Can use WeeChat variables like ${weechat.dir}.
+# Format: string (path)
+# Default: '${weechat.dir}/logs'
+logger.dir = "{{ logger_dir | default('${weechat.dir}/logs', true) }}"
+
+# Comma-separated list of buffers to log.
+# Empty string means log all buffers.
+# Format: string
+# Default: '' (empty)
+logger.buffer = "{{ logger_buffer | default('', true) }}"
+
+# Date format string for log file names.
+# Uses strftime format codes.
+# Format: string
+# Default: '%Y-%m-%d'
+logger.file.date = "{{ logger_file_date | default('%Y-%m-%d', true) }}"
+
+# Maximum size of a log file in megabytes before rotation.
+# Format: integer
+# Default: 100
+logger.file.size = "{{ logger_file_size | default(100, true) }}"

@@ -1,95 +1,96 @@
 {
-  "global_hostname": "gateway",
-  "global_domain": "corp.internal",
-  "global_ipv6": true,
-  "global_gateway": "10.0.0.1",
-  "resolver_dns_servers": [
-    "10.0.0.2",
-    "10.0.0.3"
-  ],
-  "resolver_search": [
-    "corp.internal",
-    "dev.corp.internal"
-  ],
-  "interfaces": [
-    {
-      "name": "lo",
-      "type": "loopback",
-      "address_mode": "manual",
-      "up": true,
-      "comment": "Loopback"
-    },
-    {
-      "name": "eth0",
-      "type": "eth",
-      "address_mode": "static",
-      "address": "10.0.0.1",
-      "netmask": "255.255.255.0",
-      "up": true,
-      "mtu": 1500
-    },
-    {
-      "name": "eth1",
-      "type": "eth",
-      "address_mode": "dhcp",
-      "up": true,
-      "mtu": 1500,
-      "comment": "WAN interface"
-    },
-    {
-      "name": "br0",
-      "type": "bridge",
-      "address_mode": "static",
-      "address": "192.168.1.1",
-      "netmask": "255.255.255.0",
-      "up": true,
-      "mtu": 1500,
-      "bridge_ports": "eth2.10 eth3.10",
-      "bridge_stp": false,
-      "comment": "LAN bridge"
-    },
-    {
-      "name": "eth2.10",
-      "type": "vlan",
-      "address_mode": "manual",
-      "up": true,
-      "vlan_id": 10,
-      "vlan_link": "eth2",
-      "comment": "VLAN 10 (LAN)"
-    },
-    {
-      "name": "bond0",
-      "type": "bond",
-      "address_mode": "manual",
-      "up": false,
-      "bond_slaves": "eth4 eth5",
-      "bond_mode": "active-backup",
-      "bond_miimon": 100,
-      "comment": "Bond for future use"
-    }
-  ],
-  "firewall_enabled": true,
-  "firewall_default_input": "drop",
-  "firewall_default_forward": "drop",
-  "firewall_default_output": "accept",
-  "firewall_enable_conntrack": true,
-  "nat_rules": [
-    {
-      "chain": "POSTROUTING",
-      "src_net": "192.168.1.0/24",
-      "comment": "Masquerade internal LAN"
-    },
-    {
-      "chain": "POSTROUTING",
-      "src_net": "10.100.0.0/24",
-      "comment": "Masquerade DMZ"
-    }
-  ],
-  "static_routes": [
-    {
-      "comment": "Route to partner network via gateway",
-      "to": "172.16.0.0/16",
-      "via": "10.0.0.254"
-    }
-  ]
+ "firewall_default_forward": "drop",
+ "firewall_default_input": "drop",
+ "firewall_default_output": "accept",
+ "firewall_enable_conntrack": true,
+ "firewall_enabled": true,
+ "global_domain": "corp.internal",
+ "global_gateway": "10.0.0.1",
+ "global_hostname": "gateway",
+ "global_ipv6": true,
+ "interfaces": [
+  {
+   "address_mode": "manual",
+   "comment": "Loopback",
+   "name": "lo",
+   "type": "loopback",
+   "up": true
+  },
+  {
+   "address": "10.0.0.1",
+   "address_mode": "static",
+   "mtu": 1500,
+   "name": "eth0",
+   "netmask": "255.255.255.0",
+   "type": "eth",
+   "up": true
+  },
+  {
+   "address_mode": "dhcp",
+   "comment": "WAN interface",
+   "mtu": 1500,
+   "name": "eth1",
+   "type": "eth",
+   "up": true
+  },
+  {
+   "address": "192.168.1.1",
+   "address_mode": "static",
+   "bridge_ports": "eth2.10 eth3.10",
+   "bridge_stp": false,
+   "comment": "LAN bridge",
+   "mtu": 1500,
+   "name": "br0",
+   "netmask": "255.255.255.0",
+   "type": "bridge",
+   "up": true
+  },
+  {
+   "address_mode": "manual",
+   "comment": "VLAN 10 (LAN)",
+   "name": "eth2.10",
+   "type": "vlan",
+   "up": true,
+   "vlan_id": 10,
+   "vlan_link": "eth2"
+  },
+  {
+   "address_mode": "manual",
+   "bond_miimon": 100,
+   "bond_mode": "active-backup",
+   "bond_slaves": "eth4 eth5",
+   "comment": "Bond for future use",
+   "name": "bond0",
+   "type": "bond",
+   "up": false
+  }
+ ],
+ "nat_rules": [
+  {
+   "chain": "POSTROUTING",
+   "comment": "Masquerade internal LAN",
+   "src_net": "192.168.1.0/24"
+  },
+  {
+   "chain": "POSTROUTING",
+   "comment": "Masquerade DMZ",
+   "src_net": "10.100.0.0/24"
+  }
+ ],
+ "resolver_dns_servers": [
+  "10.0.0.2",
+  "10.0.0.3"
+ ],
+ "resolver_search": [
+  "corp.internal",
+  "dev.corp.internal"
+ ],
+ "static_routes": [
+  {
+   "comment": "Route to partner network via gateway",
+   "to": "172.16.0.0/16",
+   "via": "10.0.0.254"
+  }
+ ],
+ "version": ""
 }

@@ -1,0 +1,202 @@
+# Stressapptest Command Line Configuration
+# Generated via Ansible Jinja2 template
+#
+# This template generates the command line invocation for the stressapptest utility.
+# Each variable corresponds to a specific command-line flag. Variables not defined
+# or using their default values are handled gracefully.
+
+{% set cmd = command | default('/usr/bin/stressapptest') %}
+{{ cmd }} \
+
+# Run in degraded mode on incompatible systems (-A).
+{% if degraded_mode | default(False) is true %}
+-A \
+{% endif %}
+
+# Number of memory CPU stress threads to run (-C).
+{% if cpu_threads | default(2) is not none %}
+-C {{ cpu_threads | default(2) }} \
+{% endif %}
+
+# Block devices for disk stress testing (-d flags).
+# Each item is a flat map of options.
+{% if block_devices | default([]) | length > 0 %}
+{% for dev in block_devices %}
+-d {{ dev.device | default('') }} \
+{% if dev.destructive | default(False) is true %}
+--destructive \
+{% endif %}
+{% if dev.blocks_per_segment | default(None) is not none %}
+--blocks-per-segment {{ dev.blocks_per_segment }} \
+{% endif %}
+{% if dev.cache_size | default(None) is not none %}
+--cache-size {{ dev.cache_size }} \
+{% endif %}
+{% if dev.segment_size | default(None) is not none %}
+--segment-size {{ dev.segment_size }} \
+{% endif %}
+{% if dev.read_block_size | default(None) is not none %}
+--read-block-size {{ dev.read_block_size }} \
+{% endif %}
+{% if dev.read_threshold | default(None) is not none %}
+--read-threshold {{ dev.read_threshold }} \
+{% endif %}
+{% if dev.write_block_size | default(None) is not none %}
+--write-block-size {{ dev.write_block_size }} \
+{% endif %}
+{% if dev.write_threshold | default(None) is not none %}
+--write-threshold {{ dev.write_threshold }} \
+{% endif %}
+{% if dev.random_threads | default(None) is not none %}
+--random-threads {{ dev.random_threads }} \
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Temporary filenames for disk stress testing (-f flags).
+{% if disk_files | default([]) | length > 0 %}
+{% for file in disk_files %}
+-f {{ file }} \
+{% endfor %}
+{% endif %}
+
+# Don't result check each transaction (-F).
+{% if no_result_check | default(False) is true %}
+-F \
+{% endif %}
+
+# Number of memory invert threads to run (-i).
+{% if invert_threads | default(0) is not none %}
+-i {{ invert_threads | default(0) }} \
+{% endif %}
+
+# Log output to file (-l). If empty, no log file is specified.
+{% if logfile | default('') != '' %}
+-l {{ logfile | default('') }} \
+{% endif %}
+
+# Number of memory copy threads to run (-m).
+{% if memory_copy_threads | default(4) is not none %}
+-m {{ memory_copy_threads | default(4) }} \
+{% endif %}
+
+# Megabytes of RAM to test (-M).
+{% if memory_mbytes | default(1024) is not none %}
+-M {{ memory_mbytes | default(1024) }} \
+{% endif %}
+
+# IP addresses for network stress testing (-n flags).
+# If listen is true, adds --listen.
+{% if network_targets | default([]) | length > 0 %}
+{% for target in network_targets %}
+-n {{ target }} \
+{% endfor %}
+{% if listen | default(False) is true %}
+--listen \
+{% endif %}
+{% endif %}
+
+# Size in bytes of memory chunks (-p). 0 for default.
+{% if memory_pagesize | default(0) is not none %}
+-p {{ memory_pagesize | default(0) }} \
+{% endif %}
+
+# Number of seconds to run the test (-s).
+{% if runtime_seconds | default(60) is not none %}
+-s {{ runtime_seconds | default(60) }} \
+{% endif %}
+
+# Verbosity level (0-20) (-v).
+{% if verbosity | default(8) is not none %}
+-v {{ verbosity | default(8) }} \
+{% endif %}
+
+# Use more CPU-stressful memory copy (-W).
+{% if warm_copy | default(False) is true %}
+-W \
+{% endif %}
+
+# Do the cache coherency testing (--cc_test).
+{% if cache_coherency_test | default(False) is true %}
+--cc_test \
+{% endif %}
+
+# Number of times to increment the cacheline's member (--cc_inc_count).
+{% if cc_inc_count | default(0) is not none %}
+--cc_inc_count {{ cc_inc_count | default(0) }} \
+{% endif %}
+
+# Number of cache line sized datastructures to allocate (--cc_line_count).
+{% if cc_line_count | default(0) is not none %}
+--cc_line_count {{ cc_line_count | default(0) }} \
+{% endif %}
+
+# Size of cache line to use as basis for cache coherency test data structures (--cc_line_size).
+{% if cc_line_size | default(0) is not none %}
+--cc_line_size {{ cc_line_size | default(0) }} \
+{% endif %}
+
+# Find locations to do disk IO automatically (--findfiles).
+{% if find_files | default(False) is true %}
+--findfiles \
+{% endif %}
+
+# Size of disk IO tempfiles (--filesize).
+{% if filesize | default(0) is not none %}
+--filesize {{ filesize | default(0) }} \
+{% endif %}
+
+# Inject false errors to test error handling.
+# If force_errors_like_crazy is also true, uses --force_errors_like_crazy.
+{% if force_errors | default(False) is true or force_errors_like_crazy | default(False) is true %}
+{% if force_errors_like_crazy | default(False) is true %}
+--force_errors_like_crazy \
+{% else %}
+--force_errors \
+{% endif %}
+{% endif %}
+
+# Choose memory regions associated with each CPU to be tested by that CPU (--local_numa).
+{% if local_numa | default(False) is true %}
+--local_numa \
+{% endif %}
+
+# Exit early after finding specified number of errors (--max_errors).
+{% if max_errors | default(0) is not none %}
+--max_errors {{ max_errors | default(0) }} \
+{% endif %}
+
+# Only do ECC error polling, no stress load (--monitor_mode).
+{% if monitor_mode | default(False) is true %}
+--monitor_mode \
+{% endif %}
+
+# Run without checking for ECC or other errors (--no_errors).
+{% if no_errors | default(False) is true %}
+--no_errors \
+{% endif %}
+
+# Allocate memory starting from this address (--paddr_base).
+{% if paddr_base | default(0) is not none %}
+--paddr_base {{ paddr_base | default(0) }} \
+{% endif %}
+
+# Delay (in seconds) between power spikes (--pause_delay).
+{% if pause_delay | default(0) is not none %}
+--pause_delay {{ pause_delay | default(0) }} \
+{% endif %}
+
+# Duration (in seconds) of each pause (--pause_duration).
+{% if pause_duration | default(0) is not none %}
+--pause_duration {{ pause_duration | default(0) }} \
+{% endif %}
+
+# Choose memory regions not associated with each CPU to be tested by that CPU (--remote_numa).
+{% if remote_numa | default(0) is not none %}
+--remote_numa {{ remote_numa | default(0) }} \
+{% endif %}
+
+# Stop after finding the first error (--stop_on_errors).
+{% if stop_on_errors | default(False) is true %}
+--stop_on_errors \
+{% endif %}

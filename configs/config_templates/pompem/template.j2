@@ -1,0 +1,27 @@
+# Pompem Exploit and Vulnerability Finder Configuration
+# This template generates a configuration profile for the pompem CLI tool.
+# It maps schema-defined settings to command-line arguments for execution.
+
+# search_keyword: The keyword to search for in exploit databases like PacketStorm, ZeroDay, etc.
+# Default: 'vulnerability'
+search_keyword: {{ search_keyword | default('vulnerability') }}
+
+# output_format: The file format to write search results to. Supported values: 'txt' or 'html'.
+# Default: 'txt'
+output_format: {{ output_format | default('txt') }}
+
+# download_exploits: Whether to download exploit files found during the search. Corresponds to the --get flag.
+# Default: False
+download_exploits: {{ download_exploits | default(False) | ternary('yes', 'no') }}
+
+# auto_upgrade: Whether to upgrade pompem to the latest version before searching. Corresponds to the --update flag.
+# Default: False
+auto_upgrade: {{ auto_upgrade | default(False) | ternary('yes', 'no') }}
+
+# Execution Command
+# This represents the full command that would be executed by a wrapper script.
+# Logic:
+#   output_flag: -f <format> if output_format is set (though CLI might default, explicit is better)
+#   get_flag: --get if download_exploits is true
+#   update_flag: --update if auto_upgrade is true
+command: pompem {{ search_keyword | default('vulnerability') }} {% if output_format | default('txt') %}-f {{ output_format | default('txt') }} {% endif %}{% if download_exploits | default(False) %}--get {% endif %}{% if auto_upgrade | default(False) %}--update {% endif %}

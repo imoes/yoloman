@@ -1,0 +1,26 @@
+# pagein(1) configuration file
+# Manages how 'pagein' forces swapped-out pages back into RAM.
+# See pagein(1) man page for detailed behavior.
+
+# ---------------------------------------------------------------
+# Verbosity: Enable verbose mode to show progress and paging statistics.
+# Equivalent to command-line flag: -v
+# Values: true (yes/1) or false (no/0)
+# ---------------------------------------------------------------
+verbose: {{ verbose | default(false) | lower }}
+
+# ---------------------------------------------------------------
+# Target selection mode: Determines which processes are affected.
+# - 'all': Page in memory pages for ALL processes (flag: -a)
+# - 'pid': Page in memory pages for a SPECIFIC process only (flag: -p)
+# - 'none': Disable automatic execution, no paging occurs (default)
+# ---------------------------------------------------------------
+target_mode: {{ target_mode | default('none') }}
+
+# ---------------------------------------------------------------
+# Target PID: The specific process ID to target for paging in.
+# REQUIREMENT: Only used when target_mode is 'pid'.
+# INVALID: Cannot be used with target_mode 'all'.
+# Default 0 means no specific PID is set.
+# ---------------------------------------------------------------
+target_pid: {{ target_pid | default(0) }}

@@ -1,211 +1,210 @@
 {
-  "registry_mirrors": {
-    "type": "list",
-    "default": [],
-    "description": "List of registry mirror URLs (e.g., https://mirror.gcr.io) to try before the default Docker Hub."
-  },
-  "insecure_registries": {
-    "type": "list",
-    "default": [],
-    "description": "List of registry hostnames (and optionally ports) to allow insecure HTTP or TLS with unverified certificates."
-  },
-  "default_runtime": {
-    "type": "string",
-    "default": "runc",
-    "description": "Name of the default container runtime to use (e.g., runc, nvidia)."
-  },
-  "runtimes": {
-    "type": "list",
-    "default": [],
-    "description": "Additional container runtimes with custom configurations.",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Unique name for the runtime (e.g., nvidia)."
-      },
-      "path": {
-        "type": "string",
-        "default": "",
-        "description": "Path to the runtime binary (e.g., /usr/bin/nvidia-container-runtime)."
-      },
-      "runtimeArgs": {
-        "type": "list",
-        "default": [],
-        "description": "List of additional arguments passed to the runtime binary."
-      }
-    }
-  },
-  "storage_driver": {
-    "type": "string",
-    "default": "overlay2",
-    "description": "Storage driver to use for images and containers (e.g., overlay2, vfs, zfs)."
-  },
-  "storage_opts": {
-    "type": "list",
-    "default": [],
-    "description": "Driver-specific options as key-value pairs (e.g., ['overlay2.override_kernel_check=true']).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "live_restore": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to keep containers running when the Docker daemon stops or restarts."
-  },
-  "userland_proxy": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to use Docker's userland proxy for port mapping (required for some edge cases)."
-  },
-  "ipv6": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable IPv6 networking support (required for IPv6 container addressing)."
-  },
-  "fixed_cidr_v6": {
-    "type": "string",
-    "default": "2001:db8:1::/64",
-    "description": "IPv6 subnet for container allocation when IPv6 is enabled."
-  },
-  "dns": {
-    "type": "list",
-    "default": [],
-    "description": "List of DNS server IP addresses to configure inside containers."
-  },
-  "dns_search": {
-    "type": "list",
-    "default": [],
-    "description": "List of DNS search domains to configure inside containers."
-  },
-  "labels": {
-    "type": "list",
-    "default": [],
-    "description": "List of labels describing node or host characteristics (e.g., ['node=worker1', 'disk=ssd']).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "log_driver": {
-    "type": "string",
-    "default": "json-file",
-    "description": "Default logging driver for containers (e.g., json-file, syslog, journald)."
-  },
-  "log_opts": {
-    "type": "list",
-    "default": [
-      "max-size=10m",
-      "max-file=3"
-    ],
-    "description": "Logging driver options as key=value pairs (e.g., ['max-size=10m', 'max-file=5']).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "max_concurrent_downloads": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum number of concurrent downloads per image pull (higher = faster pulls but more network use)."
-  },
-  "max_concurrent_uploads": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of concurrent uploads per image push."
-  },
-  "default_ulimits": {
-    "type": "list",
-    "default": [],
-    "description": "Default resource limits (ulimits) for containers (e.g., [{'Name': 'nofile', 'Hard': 65536, 'Soft': 65536}]).",
-    "items": {
-      "Name": {
-        "type": "string",
-        "default": "",
-        "description": "Name of the ulimit (e.g., nofile, nproc)."
-      },
-      "Hard": {
-        "type": "number",
-        "default": 0,
-        "description": "Hard limit value."
-      },
-      "Soft": {
-        "type": "number",
-        "default": 0,
-        "description": "Soft limit value."
-      }
-    }
-  },
-  "features": {
-    "type": "object",
-    "default": {},
-    "description": "Feature flags to enable experimental containerd features.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "max_concurrent_updates": {
-    "type": "number",
-    "default": 1,
-    "description": "Maximum number of concurrent image update operations (e.g., for Swarm updates)."
-  },
-  "max_containers": {
-    "type": "number",
+ "bip": {
+  "default": "",
+  "description": "Bridge IP address and CIDR (e.g., 172.17.0.1/16) for the default docker0 bridge network.",
+  "type": "string"
+ },
+ "bridge": {
+  "default": "docker0",
+  "description": "Name of the default bridge interface (use 'none' to disable bridge networking).",
+  "type": "string"
+ },
+ "containerd": {
+  "default": "/run/containerd/containerd.sock",
+  "description": "Path to the containerd socket (typically auto-detected).",
+  "type": "string"
+ },
+ "data_root": {
+  "default": "/var/lib/docker",
+  "description": "Root directory for Docker persistent data (images, volumes, etc.).",
+  "type": "string"
+ },
+ "debug": {
+  "default": false,
+  "description": "Enable verbose debug logging for troubleshooting.",
+  "type": "bool"
+ },
+ "default_gateway": {
+  "default": "",
+  "description": "IPv4 default gateway for containers on the default bridge.",
+  "type": "string"
+ },
+ "default_gateway_v6": {
+  "default": "",
+  "description": "IPv6 default gateway for containers on the default bridge.",
+  "type": "string"
+ },
+ "default_runtime": {
+  "default": "runc",
+  "description": "Name of the default container runtime to use (e.g., runc, nvidia).",
+  "type": "string"
+ },
+ "default_ulimits": {
+  "default": [],
+  "description": "Default resource limits (ulimits) for containers (e.g., [{'Name': 'nofile', 'Hard': 65536, 'Soft': 65536}]).",
+  "items": {
+   "Hard": {
     "default": 0,
-    "description": "Maximum number of containers allowed to run simultaneously (0 = unlimited)."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose debug logging for troubleshooting."
-  },
-  "data_root": {
-    "type": "string",
-    "default": "/var/lib/docker",
-    "description": "Root directory for Docker persistent data (images, volumes, etc.)."
-  },
-  "exec_root": {
-    "type": "string",
-    "default": "/run/docker",
-    "description": "Root directory for exec-related temporary files."
-  },
-  "pidfile": {
-    "type": "string",
-    "default": "/run/docker.pid",
-    "description": "Path to the Docker daemon PID file."
-  },
-  "containerd": {
-    "type": "string",
-    "default": "/run/containerd/containerd.sock",
-    "description": "Path to the containerd socket (typically auto-detected)."
-  },
-  "bip": {
-    "type": "string",
+    "description": "Hard limit value.",
+    "type": "number"
+   },
+   "Name": {
     "default": "",
-    "description": "Bridge IP address and CIDR (e.g., 172.17.0.1/16) for the default docker0 bridge network."
+    "description": "Name of the ulimit (e.g., nofile, nproc).",
+    "type": "string"
+   },
+   "Soft": {
+    "default": 0,
+    "description": "Soft limit value.",
+    "type": "number"
+   }
   },
-  "fixed_cidr": {
-    "type": "string",
+  "type": "list"
+ },
+ "dns": {
+  "default": [],
+  "description": "List of DNS server IP addresses to configure inside containers.",
+  "type": "list"
+ },
+ "dns_search": {
+  "default": [],
+  "description": "List of DNS search domains to configure inside containers.",
+  "type": "list"
+ },
+ "exec_root": {
+  "default": "/run/docker",
+  "description": "Root directory for exec-related temporary files.",
+  "type": "string"
+ },
+ "features": {
+  "description": "Feature flags to enable experimental containerd features.",
+  "items": {
+   "type": "string"
+  },
+  "type": "object"
+ },
+ "fixed_cidr": {
+  "default": "",
+  "description": "IPv4 subnet for Docker-assigned container IPs when using the default bridge.",
+  "type": "string"
+ },
+ "fixed_cidr_v6": {
+  "default": "2001:db8:1::/64",
+  "description": "IPv6 subnet for container allocation when IPv6 is enabled.",
+  "type": "string"
+ },
+ "insecure_registries": {
+  "default": [],
+  "description": "List of registry hostnames (and optionally ports) to allow insecure HTTP or TLS with unverified certificates.",
+  "type": "list"
+ },
+ "ipv6": {
+  "default": false,
+  "description": "Enable IPv6 networking support (required for IPv6 container addressing).",
+  "type": "bool"
+ },
+ "labels": {
+  "default": [],
+  "description": "List of labels describing node or host characteristics (e.g., ['node=worker1', 'disk=ssd']).",
+  "items": {
+   "type": "string"
+  },
+  "type": "list"
+ },
+ "live_restore": {
+  "default": false,
+  "description": "Whether to keep containers running when the Docker daemon stops or restarts.",
+  "type": "bool"
+ },
+ "log_driver": {
+  "default": "json-file",
+  "description": "Default logging driver for containers (e.g., json-file, syslog, journald).",
+  "type": "string"
+ },
+ "log_opts": {
+  "default": [
+   "max-size=10m",
+   "max-file=3"
+  ],
+  "description": "Logging driver options as key=value pairs (e.g., ['max-size=10m', 'max-file=5']).",
+  "items": {
+   "type": "string"
+  },
+  "type": "list"
+ },
+ "max_concurrent_downloads": {
+  "default": 3,
+  "description": "Maximum number of concurrent downloads per image pull (higher = faster pulls but more network use).",
+  "type": "number"
+ },
+ "max_concurrent_updates": {
+  "default": 1,
+  "description": "Maximum number of concurrent image update operations (e.g., for Swarm updates).",
+  "type": "number"
+ },
+ "max_concurrent_uploads": {
+  "default": 5,
+  "description": "Maximum number of concurrent uploads per image push.",
+  "type": "number"
+ },
+ "max_containers": {
+  "default": 0,
+  "description": "Maximum number of containers allowed to run simultaneously (0 = unlimited).",
+  "type": "number"
+ },
+ "mtu": {
+  "default": 1500,
+  "description": "Maximum Transmission Unit for the default bridge network.",
+  "type": "number"
+ },
+ "pidfile": {
+  "default": "/run/docker.pid",
+  "description": "Path to the Docker daemon PID file.",
+  "type": "string"
+ },
+ "registry_mirrors": {
+  "default": [],
+  "description": "List of registry mirror URLs (e.g., https://mirror.gcr.io) to try before the default Docker Hub.",
+  "type": "list"
+ },
+ "runtimes": {
+  "default": [],
+  "description": "Additional container runtimes with custom configurations.",
+  "items": {
+   "name": {
     "default": "",
-    "description": "IPv4 subnet for Docker-assigned container IPs when using the default bridge."
-  },
-  "mtu": {
-    "type": "number",
-    "default": 1500,
-    "description": "Maximum Transmission Unit for the default bridge network."
-  },
-  "default_gateway": {
-    "type": "string",
+    "description": "Unique name for the runtime (e.g., nvidia).",
+    "type": "string"
+   },
+   "path": {
     "default": "",
-    "description": "IPv4 default gateway for containers on the default bridge."
+    "description": "Path to the runtime binary (e.g., /usr/bin/nvidia-container-runtime).",
+    "type": "string"
+   },
+   "runtimeArgs": {
+    "default": [],
+    "description": "List of additional arguments passed to the runtime binary.",
+    "type": "list"
+   }
   },
-  "default_gateway_v6": {
-    "type": "string",
-    "default": "",
-    "description": "IPv6 default gateway for containers on the default bridge."
+  "type": "list"
+ },
+ "storage_driver": {
+  "default": "overlay2",
+  "description": "Storage driver to use for images and containers (e.g., overlay2, vfs, zfs).",
+  "type": "string"
+ },
+ "storage_opts": {
+  "default": [],
+  "description": "Driver-specific options as key-value pairs (e.g., ['overlay2.override_kernel_check=true']).",
+  "items": {
+   "type": "string"
   },
-  "bridge": {
-    "type": "string",
-    "default": "docker0",
-    "description": "Name of the default bridge interface (use 'none' to disable bridge networking)."
-  }
+  "type": "list"
+ },
+ "userland_proxy": {
+  "default": true,
+  "description": "Whether to use Docker's userland proxy for port mapping (required for some edge cases).",
+  "type": "bool"
+ }
 }

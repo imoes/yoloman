@@ -14,7 +14,6 @@ package authz
 
 import (
 	"fmt"
-	"os/user"
 
 	"github.com/msteinert/pam/v2"
 )
@@ -87,24 +86,5 @@ func (p *PAMAuthenticator) Authenticate(username, password string) (Identity, er
 	return Identity{Kind: KindUser, Name: username, Groups: groups}, nil
 }
 
-// systemGroupsForUser resolves username's group names via the real system
-// user/group database.
-func systemGroupsForUser(username string) ([]string, error) {
-	u, err := user.Lookup(username)
-	if err != nil {
-		return nil, err
-	}
-	gids, err := u.GroupIds()
-	if err != nil {
-		return nil, err
-	}
-	groups := make([]string, 0, len(gids))
-	for _, gid := range gids {
-		g, err := user.LookupGroupId(gid)
-		if err != nil {
-			continue // skip unresolvable gids rather than failing the whole lookup
-		}
-		groups = append(groups, g.Name)
-	}
-	return groups, nil
-}
+// Available reports that real PAM is compiled in.
+func (p *PAMAuthenticator) Available() bool { return true }

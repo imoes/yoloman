@@ -1,0 +1,123 @@
+# ==============================================================================
+# x2gokdrive Configuration Template
+# ==============================================================================
+# This file configures default behavior for X2Go's KDrive server (x2gokdrive).
+# It is sourced by the X2Go server to apply global defaults.
+#
+# NOTE: Many of these options can be overridden by the X2Go client session
+# configuration. This file sets the baseline.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# X2GO_X2GOKDRIVE_DEFAULT_OPTIONS
+# ------------------------------------------------------------------------------
+# Description:
+#   Default options string passed to x2gokdrive.
+#   These options are prepended/appended to the x2gokdrive command line.
+#
+# Syntax:
+#   - Use standard x2gokdrive flags (e.g., "-geometry", "-depth").
+#   - "-extension NAME" disables an extension.
+#   - "+extension NAME" enables an extension.
+#
+# Reference:
+#   Run `x2gokdrive -help` for the full list of supported options.
+#
+# Default:
+#   Empty string.
+# ------------------------------------------------------------------------------
+X2GO_X2GOKDRIVE_DEFAULT_OPTIONS="{{ X2GO_X2GOKDRIVE_DEFAULT_OPTIONS | default('\"\"') }}"
+
+# ------------------------------------------------------------------------------
+# GLX Extension Control (Commented Out by Default)
+# ------------------------------------------------------------------------------
+# Description:
+#   Disables the GLX extension. The old Mesa GLX implementation is often
+#   outdated and can cause issues with modern desktop environments like GNOME 3
+#   (e.g., unbreaking the control center).
+#
+# Warning:
+#   Uncommenting this may improve stability for some desktop environments,
+#   but will break OpenGL-based applications.
+#
+# Syntax:
+#   X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -extension GLX"
+# ------------------------------------------------------------------------------
+# Uncomment the line below to disable GLX if you encounter display issues:
+# X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -extension GLX"
+
+# ------------------------------------------------------------------------------
+# Network Listening Control
+# ------------------------------------------------------------------------------
+# Description:
+#   Launches the X2Go agent (x2goagent) with the "-nolisten tcp" option.
+#   This prevents the X server from listening on TCP ports, forcing X11
+#   forwarding via Unix sockets (more secure and standard for X2Go).
+#
+# Recommendation:
+#   This is the DEFAULT setting. X2Go developers STRONGLY RECOMMEND NOT
+#   to change this unless you fully understand the security implications
+#   and network configuration required for TCP-based X11.
+#
+# Syntax:
+#   X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -nolisten tcp"
+# ------------------------------------------------------------------------------
+X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -nolisten tcp"
+
+# ------------------------------------------------------------------------------
+# Clipboard Behaviour
+# ------------------------------------------------------------------------------
+# Description:
+#   Enforces global clipboard synchronization behaviour for all X2Go sessions.
+#
+# Possible Values:
+#   - both  : Clipboard syncs both ways (Server <-> Client).
+#   - server: Only Server to Client sync.
+#   - client: Only Client to Server sync.
+#   - none  : Clipboard sync is disabled.
+#
+# Default:
+#   If commented out, individual clients can choose their own clipboard
+#   behaviour in their X2Go client settings.
+#
+# Syntax:
+#   X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -clipboard <value>"
+# ------------------------------------------------------------------------------
+# Uncomment to enforce a specific clipboard mode globally:
+# X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -clipboard both"
+
+# ------------------------------------------------------------------------------
+# BIG-REQUESTS Extension Control
+# ------------------------------------------------------------------------------
+# Description:
+#   Disables the BIG-REQUESTS X11 extension.
+#
+# Context:
+#   Older versions of nx-libs did not implement BIG-REQUESTS correctly,
+#   leading to crashes and instability. Newer versions handle it better,
+#   but if you experience weird crashes related to large X11 requests,
+#   uncommenting this line disables the extension to restore stability.
+#
+# Syntax:
+#   X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -extension BIG-REQUESTS"
+# ------------------------------------------------------------------------------
+# Uncomment only if you experience crashes with large X11 operations:
+# X2GO_X2GOKDRIVE_DEFAULT_OPTIONS+=" -extension BIG-REQUESTS"
+
+# ------------------------------------------------------------------------------
+# X2GO_NXOPTIONS
+# ------------------------------------------------------------------------------
+# Description:
+#   Extra nxagent options passed to the NX server component (x2goagent).
+#   Options should be separated by commas.
+#
+# Example:
+#   X2GO_NXOPTIONS="sleep=0,compression=high"
+#
+# Reference:
+#   Consult nxagent documentation for supported options.
+#
+# Default:
+#   Empty string.
+# ------------------------------------------------------------------------------
+X2GO_NXOPTIONS="{{ X2GO_NXOPTIONS | default('\"\"') }}"

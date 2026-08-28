@@ -1,140 +1,138 @@
 {
-  "ipv4_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to enable IPv4 DHCP. Disable only if using IPv6 only or static IPv4."
+ "custom_options": {
+  "description": "Arbitrary key-value options passed directly to dhcpcd (e.g., 'blacklist', 'permit', 'nohook').",
+  "type": "object"
+ },
+ "dns_servers": {
+  "default": [],
+  "description": "Additional DNS server IP addresses to append (beyond those provided by DHCP).",
+  "items": {
+   "description": "IPv4 or IPv6 address of a DNS server.",
+   "type": "string"
   },
-  "ipv6_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to enable IPv6 address autoconfiguration (SLAAC) and DHCPv6."
+  "type": "list"
+ },
+ "domain": {
+  "default": "",
+  "description": "Domain name to request from the DHCP server (e.g., 'example.com').",
+  "type": "string"
+ },
+ "hooks_to_skip": {
+  "default": [],
+  "description": "List of dhcpcd hook scripts to skip (e.g., ['hostname', 'ntp']).",
+  "items": {
+   "description": "Hook name (basename of script in /lib/dhcpcd/dhcpcd-hooks/).",
+   "type": "string"
   },
-  "hostname": {
-    "type": "string",
-    "default": "",
-    "description": "Hostname to advertise to the DHCP server. If empty, the system hostname is used."
+  "type": "list"
+ },
+ "hostname": {
+  "default": "",
+  "description": "Hostname to advertise to the DHCP server. If empty, the system hostname is used.",
+  "type": "string"
+ },
+ "ipv4_enabled": {
+  "default": true,
+  "description": "Whether to enable IPv4 DHCP. Disable only if using IPv6 only or static IPv4.",
+  "type": "bool"
+ },
+ "ipv6_enabled": {
+  "default": true,
+  "description": "Whether to enable IPv6 address autoconfiguration (SLAAC) and DHCPv6.",
+  "type": "bool"
+ },
+ "nis_domain": {
+  "default": "",
+  "description": "NIS (YP) domain name to request from the DHCP server.",
+  "type": "string"
+ },
+ "nis_servers": {
+  "default": [],
+  "description": "List of NIS server addresses to request from the DHCP server.",
+  "items": {
+   "type": "string"
   },
-  "domain": {
-    "type": "string",
-    "default": "",
-    "description": "Domain name to request from the DHCP server (e.g., 'example.com')."
+  "type": "list"
+ },
+ "nisplus_domain": {
+  "default": "",
+  "description": "NIS+ domain name to request from the DHCP server.",
+  "type": "string"
+ },
+ "nisplus_map": {
+  "default": "",
+  "description": "NIS+ map name (e.g., 'netgroup') to request.",
+  "type": "string"
+ },
+ "nisplus_servers": {
+  "default": [],
+  "description": "List of NIS+ server addresses to request.",
+  "items": {
+   "type": "string"
   },
-  "dns_servers": {
-    "type": "list",
+  "type": "list"
+ },
+ "ntp_servers": {
+  "default": [],
+  "description": "List of NTP server addresses to configure for time synchronization.",
+  "items": {
+   "description": "IPv4 or IPv6 address of an NTP server.",
+   "type": "string"
+  },
+  "type": "list"
+ },
+ "request_options": {
+  "description": "Custom DHCP options to request (by numeric option code, e.g., '121' for classless static routes).",
+  "items": {
+   "description": "Human-readable description of the option (for comment only; not used by dhcpcd).",
+   "type": "string"
+  },
+  "type": "object"
+ },
+ "retry_count": {
+  "default": 5,
+  "description": "Number of times to retry DHCP acquisition before giving up.",
+  "type": "number"
+ },
+ "rootpath": {
+  "default": "",
+  "description": "Root path for PXE boot (e.g., '/tftpboot/pxeboot').",
+  "type": "string"
+ },
+ "static_interfaces": {
+  "default": [],
+  "description": "List of interfaces with static IP configuration instead of DHCP.",
+  "items": {
+   "dns": {
     "default": [],
-    "description": "Additional DNS server IP addresses to append (beyond those provided by DHCP).",
+    "description": "List of DNS server addresses to use on this interface.",
     "items": {
-      "type": "string",
-      "description": "IPv4 or IPv6 address of a DNS server."
-    }
-  },
-  "static_interfaces": {
-    "type": "list",
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "interface": {
+    "description": "Network interface name (e.g., 'eth0', 'wlan0').",
+    "type": "string"
+   },
+   "ip_address": {
+    "description": "Static IPv4 address (e.g., '192.168.1.10').",
+    "type": "string"
+   },
+   "prefix_len": {
+    "default": 24,
+    "description": "IPv4 prefix length (CIDR notation).",
+    "type": "number"
+   },
+   "routers": {
     "default": [],
-    "description": "List of interfaces with static IP configuration instead of DHCP.",
+    "description": "List of gateway/router addresses for this interface.",
     "items": {
-      "interface": {
-        "type": "string",
-        "description": "Network interface name (e.g., 'eth0', 'wlan0')."
-      },
-      "ip_address": {
-        "type": "string",
-        "description": "Static IPv4 address (e.g., '192.168.1.10')."
-      },
-      "prefix_len": {
-        "type": "number",
-        "default": 24,
-        "description": "IPv4 prefix length (CIDR notation)."
-      },
-      "routers": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string"
-        },
-        "description": "List of gateway/router addresses for this interface."
-      },
-      "dns": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string"
-        },
-        "description": "List of DNS server addresses to use on this interface."
-      }
-    }
+     "type": "string"
+    },
+    "type": "list"
+   }
   },
-  "custom_options": {
-    "type": "object",
-    "default": {},
-    "description": "Arbitrary key-value options passed directly to dhcpcd (e.g., 'blacklist', 'permit', 'nohook')."
-  },
-  "rootpath": {
-    "type": "string",
-    "default": "",
-    "description": "Root path for PXE boot (e.g., '/tftpboot/pxeboot')."
-  },
-  "ntp_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of NTP server addresses to configure for time synchronization.",
-    "items": {
-      "type": "string",
-      "description": "IPv4 or IPv6 address of an NTP server."
-    }
-  },
-  "nis_domain": {
-    "type": "string",
-    "default": "",
-    "description": "NIS (YP) domain name to request from the DHCP server."
-  },
-  "nis_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of NIS server addresses to request from the DHCP server.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "nisplus_domain": {
-    "type": "string",
-    "default": "",
-    "description": "NIS+ domain name to request from the DHCP server."
-  },
-  "nisplus_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of NIS+ server addresses to request.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "nisplus_map": {
-    "type": "string",
-    "default": "",
-    "description": "NIS+ map name (e.g., 'netgroup') to request."
-  },
-  "request_options": {
-    "type": "object",
-    "default": {},
-    "description": "Custom DHCP options to request (by numeric option code, e.g., '121' for classless static routes).",
-    "items": {
-      "type": "string",
-      "description": "Human-readable description of the option (for comment only; not used by dhcpcd)."
-    }
-  },
-  "retry_count": {
-    "type": "number",
-    "default": 5,
-    "description": "Number of times to retry DHCP acquisition before giving up."
-  },
-  "hooks_to_skip": {
-    "type": "list",
-    "default": [],
-    "description": "List of dhcpcd hook scripts to skip (e.g., ['hostname', 'ntp']).",
-    "items": {
-      "type": "string",
-      "description": "Hook name (basename of script in /lib/dhcpcd/dhcpcd-hooks/)."
-    }
-  }
+  "type": "list"
+ }
 }

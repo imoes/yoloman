@@ -1,0 +1,93 @@
+# ==============================================================================
+# open-isns-discoveryd Configuration Template
+# ==============================================================================
+# This template configures the iSNS Discovery Daemon (open-isns-discoveryd).
+# iSNP (Internet Storage Name Service) allows iSCSI devices to discover each other.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [Client Identification]
+# ------------------------------------------------------------------------------
+
+# The iSCSI qualified source name for this client.
+# Identifies this node uniquely on the iSNS server.
+# If left empty, the source name is derived from the client's hostname.
+#Variable: source_name
+#Default: '' (derived from hostname)
+#SourceName = {{ source_name | default('') }}
+
+# ------------------------------------------------------------------------------
+# [Server Connection]
+# ------------------------------------------------------------------------------
+
+# Name and port of the iSNS server.
+# Possible formats:
+#   foo.example.com
+#   foo.example.com:3205
+#   192.168.1.7:isns
+#   [2001:4e5f::1]:isns
+#   SLP: (Use SLP directory service to discover server)
+#Variable: server_address
+#Default: 'isns.example.com'
+#ServerAddress = {{ server_address | default('isns.example.com') }}
+
+# ------------------------------------------------------------------------------
+# [Security & Authentication]
+# ------------------------------------------------------------------------------
+
+# Authentication enable/disable flag.
+# Set to 1 to enforce signed messages.
+# When enabled, the client signs all outgoing messages and expects signed
+# responses from the server.
+# Requires a valid private DSA key (AuthKeyFile) and the server's public
+# DSA key (ServerKeyFile).
+# If keys are missing, unauthenticated mode is used even if Security=1.
+#Variable: security
+#Default: '1'
+#Security = {{ security | default('1') }}
+
+# Path to the client's private DSA key file (PEM encoded).
+# Required if Security=1.
+#Variable: auth_key_file
+#Default: '/etc/isns/auth_key'
+#AuthKeyFile = {{ auth_key_file | default('/etc/isns/auth_key') }}
+
+# Path to the server's public DSA key file (PEM encoded).
+# Required if Security=1.
+#Variable: server_key_file
+#Default: '/etc/isns/server_key.pub'
+#ServerKeyFile = {{ server_key_file | default('/etc/isns/server_key.pub') }}
+
+# ------------------------------------------------------------------------------
+# [Anti-Replay Protection]
+# ------------------------------------------------------------------------------
+
+# Time window for verifying authentication block timestamps.
+# Prevents replay attacks by ignoring messages older than this window.
+#Format: duration string (e.g., 2m, 30s)
+Auth.ReplayWindow = 2m
+
+# Jitter added to timestamps to prevent synchronization attacks.
+#Format: duration string (e.g., 1s, 500ms)
+Auth.TimeStampJitter = 1s
+
+# ------------------------------------------------------------------------------
+# [Network Parameters - Optional/Tuned]
+# ------------------------------------------------------------------------------
+
+# Maximum number of incoming connections accepted.
+# Usually applies to server-side, but relevant for passive TCP sockets
+# used for ESI (Event Summary Indication) or SCN (State Change Notification).
+#Network.MaxSockets = 1024
+
+# Time to wait for a TCP connection to be established (timeout).
+#Format: seconds
+#Network.ConnectTimeout = 60
+
+# Wait time before retrying a failed connection attempt.
+#Format: seconds
+#Network.ReonnectTimeout = 10
+
+# Total time to wait before timing out a call to the iSNS server.
+#Format: seconds
+#Network.CallTimeout = 60

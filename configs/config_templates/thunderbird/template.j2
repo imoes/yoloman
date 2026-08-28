@@ -1,0 +1,36 @@
+# Thunderbird Profile Configuration (prefs.js)
+# This template generates a prefs.js file for Thunderbird, configuring user preferences
+# via Ansible variables. All variables use sensible defaults from the schema.
+
+// User Interface Locale
+// Sets the UI language for Thunderbird.
+user_pref("general.useragent.locale", "{{ ui_locale | default('en-US') }}");
+
+// Release Channel
+// Determines which update channel Thunderbird checks for updates (release, esr, beta, daily).
+user_pref("app.update.channel", "{{ release_channel | default('release') }}");
+
+// Plugin Info Bar
+// Hides the info bar that appears when a plugin is missing.
+user_pref("plugins.hide_infobar_for_missing_plugin", {{ hide_plugins_infobar | default(true) | lower }});
+
+// Plugin Loading Disable
+// Completely disables loading plugins if true. Note: The original template had a syntax error
+// here (missing preference key). This version sets the standard Mozilla preference for disabling
+// plugins entirely.
+user_pref("plugins.disabled", {{ disable_plugins | default(false) | lower }});
+
+// Safe Mode / Crash Recovery
+// Disables crash recovery on startup to mimic safe-mode behavior regarding extensions.
+{% if safe_mode | default(false) %}
+// Disabling crash recovery for safe-mode simulation
+user_pref("toolkit.startup2.recovery_enabled", 0);
+{% endif %}
+
+// Remote Control Settings
+// Prevents connecting to a running instance of Thunderbird if true.
+{% if no_remote | default(false) %}
+// Preventing remote instance connection
+user_pref("general.startup.browser.dir", "none"); // Placeholder for remote control disable
+user_pref("remote.enabled", false);
+{% endif %}

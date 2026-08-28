@@ -1,0 +1,73 @@
+# Sudoers configuration file
+# Managed by automation
+#
+# This template configures the sudoers file for sudo-ldap.
+# It sets default behaviors, admin group permissions, and
+# optional custom permission rules.
+#
+# NOTE: The sudoers file syntax is strict. Do not introduce
+# trailing spaces after host/user specifications unless
+# required by specific sudo versions. This template follows
+# the standard "specification" format.
+
+# =============================================================================
+# Default Settings
+# =============================================================================
+
+# Reset environment variables to a known set when running commands.
+# This is a security best practice to prevent environment injection.
+Defaults env_reset
+
+# Preserve specific environment variables during sudo execution.
+# 'HOME' is kept so that user sessions behave as expected.
+Defaults env_keep += "HOME"
+
+# Timeout in minutes before sudo password caching expires.
+# If set to 0, sudo will not cache the password (requires password every time).
+# If set to -1, caching is disabled entirely (similar to 0 but explicit).
+# Default: 15 minutes.
+Defaults timestamp_timeout={{ timestamp_timeout | default(15) }}
+
+# Enable password character feedback (asterisks) during password entry.
+# This provides visual confirmation that input is being received.
+# Note: This does not mask the actual password length on all terminals.
+# If true, the 'pwfeedback' option is added to the Defaults line.
+{% if pwfeedback | default(False) | bool %}
+Defaults pwfeedback
+{% endif %}
+
+# =============================================================================
+# Root Permissions
+# =============================================================================
+
+# Allow root to run all commands on all hosts as any user/group.
+# This is the baseline permission for the superuser.
+root ALL=(ALL:ALL) ALL
+
+# =============================================================================
+# Administrator Group Permissions
+# =============================================================================
+
+# Grant full sudo access to specified administrative groups.
+# Each group in 'admin_groups' is granted the ability to run all commands
+# as any user on any host.
+# The template logic assumes group names do NOT include the '%' prefix,
+# as sudoers syntax requires the prefix for group specification.
+{% for admin_group in admin_groups | default(['sudo', 'wheel']) %}
+{{ admin_group }} ALL=(ALL:ALL) ALL
+{% endfor %}
+
+# =============================================================================
+# Custom Permissions
+# =============================================================================
+
+# Apply specific custom permission rules defined in the 'permissions' list.
+# Each rule object should contain:
+#   - target: The user or group (prefixed with '%' if group)
+#   - hosts: The hosts where this rule applies (e.g., 'ALL')
+#   - runas: The user:group to run as (e.g., 'root' or 'root:root')
+#   - commands: The commands allowed (e.g., '/usr/bin/systemctl restart nginx')
+{% for rule in permissions | default([]) %}
+# Rule for {{ rule.target }}
+{{ rule.target }} {{ rule.hosts | default('ALL') }}=({{ rule.runas | default('root') }}) {{ rule.commands }}
+{% endfor %}

@@ -1,0 +1,70 @@
+#!/bin/bash
+# Proxycheck command invocation template.
+# Generates the full command line for the `proxycheck` utility based on provided variables.
+# All variables use schema defaults to ensure safe rendering even when variables are undefined.
+
+proxycheck \
+{# Verbose level: increments verbosity. Default 0 (no -v flags). #}
+{% if (verbose_level | default(0)) > 0 %}
+    -v{% for _ in range((verbose_level | default(0)) - 1) %}-v{% endfor %} \
+{% endif %}
+{# Timeout in seconds. Default 30. #}
+{% if timeout is defined %}
+    -t {{ timeout | default(30) }} \
+{% endif %}
+{# Maximum parallel connections. Default 1000. #}
+{% if max_connections is defined %}
+    -m {{ max_connections | default(1000) }} \
+{% endif %}
+{# Maximum parallel connections to the same host. 0 means unlimited. Default 0. #}
+{% if max_host_connections is defined %}
+    -M {{ max_host_connections | default(0) }} \
+{% endif %}
+{# Stop probing other ports once an open proxy is found. Default False. #}
+{% if (stop_on_first_open | default(False)) | bool %}
+    -s \
+{% endif %}
+{# Source address for outgoing connections. Default empty (auto). #}
+{% if bind_address is defined %}
+    -b {{ bind_address | default('') }} \
+{% endif %}
+{# Write lines about definitely closed proxies to stdout. Default False. #}
+{% if (print_closed | default(False)) | bool %}
+    -n \
+{% endif %}
+{# Print extended proxy information like proxy-agent. Default False. #}
+{% if (print_extended | default(False)) | bool %}
+    -x \
+{% endif %}
+{# File containing list of hosts to check. Use '-' for stdin. Default empty. #}
+{% if host_list_file is defined %}
+    -i {{ host_list_file | default('') }} \
+{% endif %}
+{# Use more advanced ports/protocols. Default False. #}
+{% if (advanced_probing | default(False)) | bool %}
+    -a \
+{% endif %}
+{# Prepend new port specs instead of resetting the default list. Default False. #}
+{% if (do_not_reset_defaults | default(False)) | bool %}
+    -D \
+{% endif %}
+{# Destination host and port to establish a proxied connection to. Default empty. #}
+{% if dest_host is defined %}
+    -d {{ dest_host | default('') }} \
+{% endif %}
+{# Method to determine if a proxy is open (e.g., chat::str:str or dsbl). Default 'chat'. #}
+{% if check_method is defined %}
+    -c {{ check_method | default('chat') }} \
+{% endif %}
+{# List of protocol:port specifications to probe. Default empty list. #}
+{% if proto_port_specs is defined and (proto_port_specs | default([])) | length > 0 %}
+{% for spec in proto_port_specs | default([]) %}
+    -p {{ spec }}{% if not loop.last %} \{% endif %}
+{% endfor %}
+{% endif %}
+{# List of hosts to check, specified on the command line. Default empty list. #}
+{% if hosts_to_check is defined and (hosts_to_check | default([])) | length > 0 %}
+{% for host in hosts_to_check | default([]) %}
+    {{ host }}{% if not loop.last %} \{% endif %}
+{% endfor %}
+{% endif %}

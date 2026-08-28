@@ -1,0 +1,265 @@
+# ==============================================================================
+# vcheck Configuration File Template
+# ==============================================================================
+#
+# This file defines global settings for the vcheck tool and individual program
+# monitoring entries. Each program entry checks a URL (or list of URLs) for a
+# new version string and can optionally download the update.
+#
+# Format: Key = Value
+# Comments: Lines starting with # are ignored.
+#
+# Global configuration block
+config = {
+    # -------------------------------------------------------------------------
+    # defaulturgency
+    # The default urgency level for all programs (high, medium, low).
+    # -------------------------------------------------------------------------
+    defaulturgency = {{ (config | default({})).defaulturgency | default('medium') }}
+
+    # -------------------------------------------------------------------------
+    # dldir
+    # Absolute path to the directory where downloaded files are stored.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).dldir | default('') != '' %}
+    dldir = "{{ (config | default({})).dldir | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dldefaultno
+    # If true, disable automatic downloads unless explicitly enabled per program.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).dldefaultno | default(False) %}
+    dldefaultno
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlprefs
+    # Semicolon-separated list of regexes defining download file type preferences.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).dlprefs | default('') != '' %}
+    dlprefs = {{ (config | default({})).dlprefs | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlretry
+    # Number of times to retry a failed download.
+    # -------------------------------------------------------------------------
+    dlretry = {{ (config | default({})).dlretry | default(0) }}
+
+    # -------------------------------------------------------------------------
+    # ftpproxy
+    # HTTP proxy URL or server:port for FTP retrievals.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).ftpproxy | default('') != '' %}
+    ftpproxy = {{ (config | default({})).ftpproxy | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # httpproxy
+    # HTTP proxy URL or server:port for HTTP retrievals.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).httpproxy | default('') != '' %}
+    httpproxy = {{ (config | default({})).httpproxy | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # nocache
+    # If true, do not cache retrieved documents.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).nocache | default(False) %}
+    nocache
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # plain
+    # If true, disable ANSI escape sequences in output.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).plain | default(False) %}
+    plain
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # proxy
+    # General proxy URL or server:port for both HTTP and FTP.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).proxy | default('') != '' %}
+    proxy = {{ (config | default({})).proxy | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # sortby
+    # Sort order for program entries when rewriting file (name, url).
+    # -------------------------------------------------------------------------
+    sortby = {{ (config | default({})).sortby | default('name') }}
+
+    # -------------------------------------------------------------------------
+    # timeout
+    # Timeout in seconds for remote retrievals.
+    # -------------------------------------------------------------------------
+    timeout = {{ (config | default({})).timeout | default(90) }}
+
+    # -------------------------------------------------------------------------
+    # verbose
+    # If true, print version numbers that haven't been obsoleted.
+    # -------------------------------------------------------------------------
+    {% if (config | default({})).verbose | default(False) %}
+    verbose
+    {% endif %}
+}
+
+# -------------------------------------------------------------------------
+# Program Entries
+# -------------------------------------------------------------------------
+# Iterate through the list of programs defined in the `programs` variable.
+
+{% for prog in (programs | default([])) %}
+prog {{ (prog | default({})).name | default('unknown_program') }} = {
+    # -------------------------------------------------------------------------
+    # comment
+    # A descriptive comment for this specific program entry.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).comment | default('') != '' %}
+    comment = "{{ (prog | default({})).comment | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # disabled
+    # If present, this program is skipped. If absent, it is active.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).disabled | default(False) %}
+    disabled
+    {% else %}
+    # disabled (active)
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dl
+    # Enable downloading for this specific program. Overrides global dldefaultno.
+    # -------------------------------------------------------------------------
+    {% if 'dl' in (prog | default({})) %}
+    dl = {{ (prog | default({})).dl | default(False) }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dldir
+    # Specific download directory for this program, overriding the global one.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dldir | default('') != '' %}
+    dldir = "{{ (prog | default({})).dldir | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlexplicit
+    # List of explicit URLs to check or download from for this program.
+    # -------------------------------------------------------------------------
+    {% for url in ((prog | default({})).dlexplicit | default([])) %}
+    dlexplicit = {{ url }}
+    {% endfor %}
+
+    # -------------------------------------------------------------------------
+    # dlintermediate
+    # If present, allows downloading intermediate versions, not just the latest.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dlintermediate | default(False) %}
+    dlintermediate
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlprefs
+    # Per-program file type preferences (regex list).
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dlprefs | default('') != '' %}
+    dlprefs = {{ (prog | default({})).dlprefs | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlreferrer
+    # HTTP referrer header to send during downloads.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dlreferrer | default('') != '' %}
+    dlreferrer = "{{ (prog | default({})).dlreferrer | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlversion
+    # Last downloaded version. Managed by vcheck, but can be set manually.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dlversion | default('') != '' %}
+    dlversion = {{ (prog | default({})).dlversion | default('') }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # dlexec
+    # Command to run after a successful download.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).dlexec | default('') != '' %}
+    dlexec = "{{ (prog | default({})).dlexec | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # errors
+    # Number of errors detected. Managed by vcheck.
+    # -------------------------------------------------------------------------
+    {% if 'errors' in (prog | default({})) %}
+    errors = {{ (prog | default({})).errors | default(0) }}
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # deleteold
+    # If present, instructs vcheck to delete old obsolete versions.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).deleteold | default(False) %}
+    deleteold = yes
+    {% else %}
+    # deleteold = no
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # newverexec
+    # Command to run when a new version is found.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).newverexec | default('') != '' %}
+    newverexec = "{{ (prog | default({})).newverexec | default('') }}"
+    {% endif %}
+
+    # -------------------------------------------------------------------------
+    # regex
+    # List of regular expressions to match the version number in the source.
+    # -------------------------------------------------------------------------
+    {% for regex in ((prog | default({})).regex | default([])) %}
+    regex = {{ regex }}
+    {% endfor %}
+
+    # -------------------------------------------------------------------------
+    # transform
+    # List of transformation expressions to apply to the matched version string.
+    # -------------------------------------------------------------------------
+    {% for transform in ((prog | default({})).transform | default([])) %}
+    transform = {{ transform }}
+    {% endfor %}
+
+    # -------------------------------------------------------------------------
+    # urgency
+    # Urgency level for this specific program. Overrides global defaulturgency.
+    # -------------------------------------------------------------------------
+    urgency = {{ (prog | default({})).urgency | default('medium') }}
+
+    # -------------------------------------------------------------------------
+    # url
+    # List of URLs to check for version updates.
+    # -------------------------------------------------------------------------
+    {% for url in ((prog | default({})).url | default([])) %}
+    url = {{ url }}
+    {% endfor %}
+
+    # -------------------------------------------------------------------------
+    # version
+    # The latest known version. Managed by vcheck.
+    # -------------------------------------------------------------------------
+    {% if (prog | default({})).version | default('') != '' %}
+    version = {{ (prog | default({})).version | default('') }}
+    {% endif %}
+}
+
+{% endfor %}

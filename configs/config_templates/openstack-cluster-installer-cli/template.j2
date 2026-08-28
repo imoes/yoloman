@@ -1,0 +1,1406 @@
+{#
+  openstack-cluster-installer-cli configuration template.
+  Self-documenting: every field is commented with its schema description.
+  All variables use | default(...) with the schema-provided default values.
+  This file is a JSON manifest of OpenStack cluster installer settings.
+#}
+{# --- Section: machines --- #}
+{# Top-level object container for machine-specific settings. #}
+{# Note: In a real Ansible role, this template would likely render into a YAML or INI file.
+     However, to preserve the exact directive names/paths the software expects (as per schema),
+     we output valid JSON structure with Jinja2 variable resolution. #}
+"machines": {
+  {# Swift num object server per port: #}
+  "servers_per_port": {
+    {# Type constraint: integer. #}
+    "type": "int",
+    {# Default value: 1. #}
+    "default": "{{ (servers_per_port_default | default('1')) }}",
+    {# Description from schema. #}
+    "description": "Swift num object server per port:",
+    {# Roles list. #}
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift object network chunk size: #}
+  "network_chunk_size": {
+    "type": "int",
+    "default": "{{ (network_chunk_size_default | default('65535')) }}",
+    "description": "Swift object network chunk size:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift object disk chunk size: #}
+  "disk_chunk_size": {
+    "type": "int",
+    "default": "{{ (disk_chunk_size_default | default('524288')) }}",
+    "description": "Swift object disk chunk size:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Cinder LVM backend name: #}
+  "lvm_backend_name": {
+    "type": "string",
+    "default": "{{ (lvm_backend_name_default | default('LVM_1')) }}",
+    "description": "Cinder LVM backend name:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder Availability zone: #}
+  "availability_zone": {
+    "type": "string",
+    "default": "{{ (availability_zone_default | default('nova')) }}",
+    "description": "Cinder Availability zone:",
+    "roles": [ "volume", "compute" ]
+  },
+  {# Configure dkms: #}
+  "configure_dkms": {
+    "type": "boolean",
+    "default": "{{ (configure_dkms_default | default('no')) }}",
+    "description": "Configure dkms:",
+    "roles": [ "cephmon", "cephosd", "compute", "controller", "messaging", "network", "sql", "volume" ]
+  },
+  {# Cinder volume copy BPS limit: #}
+  "volume_copy_bps_limit": {
+    "type": "int",
+    "default": "{{ (volume_copy_bps_limit_default | default('1073741824')) }}",
+    "description": "Cinder volume copy BPS limit:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder percentage of backend capacity is reserved: #}
+  "cinder_reserved_percentage": {
+    "type": "int",
+    "default": "{{ (cinder_reserved_percentage_default | default('10')) }}",
+    "description": "Cinder percentage of backend capacity is reserved:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder over subscription ratio when thin provisioning is enabled: #}
+  "cinder_max_over_subscription_ratio": {
+    "type": "float",
+    "default": "{{ (cinder_max_over_subscription_ratio_default | default('4.0')) }}",
+    "description": "Cinder over subscription ratio when thin provisioning is enabled:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder enabled backends override: #}
+  "cinder_enabled_backends": {
+    "type": "string",
+    "default": "{{ (cinder_enabled_backends_default | default('no-override')) }}",
+    "description": "Cinder enabled backends override:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder separate volume groups: #}
+  "cinder_separate_volume_groups": {
+    "type": "boolean",
+    "default": "{{ (cinder_separate_volume_groups_default | default('no')) }}",
+    "description": "Cinder separate volume groups:",
+    "roles": [ "volume" ]
+  },
+  {# Cinder default storage AZ: #}
+  "cinder_default_storage_availability_zone": {
+    "type": "string",
+    "default": "{{ (cinder_default_storage_availability_zone_default | default('nova')) }}",
+    "description": "Cinder default storage AZ:",
+    "roles": [ "controller" ]
+  },
+  {# Nova virtual CPU to physical CPU allocation ratio: #}
+  "cpu_allocation_ratio": {
+    "type": "float",
+    "default": "{{ (cpu_allocation_ratio_default | default('2.0')) }}",
+    "description": "Nova virtual CPU to physical CPU allocation ratio:",
+    "roles": [ "compute" ]
+  },
+  {# Nova virtual ram to physical ram allocation ratio: #}
+  "ram_allocation_ratio": {
+    "type": "float",
+    "default": "{{ (ram_allocation_ratio_default | default('1.0')) }}",
+    "description": "Nova virtual ram to physical ram allocation ratio:",
+    "roles": [ "compute" ]
+  },
+  {# Nova virtual disk to physical disk allocation ratio: #}
+  "disk_allocation_ratio": {
+    "type": "float",
+    "default": "{{ (disk_allocation_ratio_default | default('1.0')) }}",
+    "description": "Nova virtual disk to physical disk allocation ratio:",
+    "roles": [ "compute" ]
+  },
+  {# Compute is cephosd: #}
+  "compute_is_cephosd": {
+    "type": "boolean",
+    "default": "{{ (compute_is_cephosd_default | default('no')) }}",
+    "description": "Compute is cephosd:",
+    "roles": [ "compute" ]
+  },
+  {# Neutron external network name: #}
+  "neutron_external_network_name": {
+    "type": "string",
+    "default": "{{ (neutron_external_network_name_default | default('external')) }}",
+    "description": "Neutron external network name:",
+    "roles": [ "compute", "network" ]
+  },
+  {# Neutron install dynamic routing agent #}
+  "neutron_install_dragent": {
+    "type": "boolean",
+    "default": "{{ (neutron_install_dragent_default | default('no')) }}",
+    "description": "Neutron install dynamic routing agent",
+    "roles": [ "compute", "network" ]
+  },
+  {# Neutron use az: #}
+  "neutron_az_name": {
+    "type": "string",
+    "default": "{{ (neutron_az_name_default | default('az1')) }}",
+    "description": "Neutron use az:",
+    "roles": [ "controller", "network" ]
+  },
+  {# Nova reserved host memory MB: #}
+  "nova_reserved_host_memory_mb": {
+    "type": "int",
+    "default": "{{ (nova_reserved_host_memory_mb_default | default('16384')) }}",
+    "description": "Nova reserved host memory MB:",
+    "roles": [ "compute" ]
+  },
+  {# Nova reserved host disk MB: #}
+  "nova_reserved_host_disk_mb": {
+    "type": "int",
+    "default": "{{ (nova_reserved_host_disk_mb_default | default('10240')) }}",
+    "description": "Nova reserved host disk MB:",
+    "roles": [ "compute" ]
+  },
+  {# Nova default schedule zone: #}
+  "nova_default_schedule_zone": {
+    "type": "string",
+    "default": "{{ (nova_default_schedule_zone_default | default('none')) }}",
+    "description": "Nova default schedule zone:",
+    "roles": [ "controller" ]
+  },
+  {# Nova number of PCIe ports an instance will get #}
+  "nova_num_pcie_ports": {
+    "type": "int",
+    "default": "{{ (nova_num_pcie_ports_default | default('16')) }}",
+    "description": "Nova number of PCIe ports an instance will get",
+    "roles": [ "compute" ]
+  },
+  {# Manila share install: #}
+  "manila_share_install": {
+    "type": "boolean",
+    "default": "{{ (manila_share_install_default | default('no')) }}",
+    "description": "Manila share install:",
+    "roles": [ "compute" ]
+  },
+  {# Kernel from backports: #}
+  "kernel_from_backports": {
+    "type": "boolean",
+    "default": "{{ (kernel_from_backports_default | default('no')) }}",
+    "description": "Kernel from backports:",
+    "roles": [ "all" ]
+  },
+  {# brex MAC address: #}
+  "brex_macaddr": {
+    "type": "string",
+    "default": "{{ (brex_macaddr_default | default('none')) }}",
+    "description": "brex MAC address:",
+    "roles": [ "controller", "compute", "network" ]
+  },
+  {# Swift rsync IO limit: #}
+  "swift_rsync_io_limit_activate": {
+    "type": "boolean",
+    "default": "{{ (swift_rsync_io_limit_activate_default | default('no')) }}",
+    "description": "Swift rsync IO limit:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift rsync I/O limit value in MB: #}
+  "swift_rsync_io_limit_megabytes": {
+    "type": "int",
+    "default": "{{ (swift_rsync_io_limit_megabytes_default | default('80')) }}",
+    "description": "Swift rsync I/O limit value in MB:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift rsync I/O max iops: #}
+  "swift_rsync_io_limit_iops": {
+    "type": "int",
+    "default": "{{ (swift_rsync_io_limit_iops_default | default('100')) }}",
+    "description": "Swift rsync I/O max iops:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift override cluster reserved space: #}
+  "swift_override_cluster_reserved_space": {
+    "type": "boolean",
+    "default": "{{ (swift_override_cluster_reserved_space_default | default('no')) }}",
+    "description": "Swift override cluster reserved space:",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift storage reserved space in GiB (stops incomming rsync): #}
+  "swift_storage_reserved_space": {
+    "type": "int",
+    "default": "{{ (swift_storage_reserved_space_default | default('500')) }}",
+    "description": "Swift storage reserved space in GiB (stops incomming rsync):",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  },
+  {# Swift storage fallocate reserved space in GiB (stop PUTs): #}
+  "swift_storage_fallocate_reserved_space": {
+    "type": "int",
+    "default": "{{ (swift_storage_fallocate_reserved_space_default | default('300')) }}",
+    "description": "Swift storage fallocate reserved space in GiB (stop PUTs):",
+    "roles": [ "swiftstore", "swiftproxy" ]
+  }
+},
+{# --- Section: clusters --- #}
+{# Top-level object container for cluster-wide settings. #}
+"clusters": {
+  {# BGP to the host networking: #}
+  "bgp_to_the_host": {
+    "type": "boolean",
+    "default": "{{ (bgp_to_the_host_default | default('no')) }}",
+    "description": "BGP to the host networking:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# AS number: #}
+  "asn": {
+    "type": "int",
+    "default": "{{ (asn_default | default('0')) }}",
+    "description": "AS number:"
+  },
+  {# Nested OpenStack: #}
+  "nested_openstack": {
+    "type": "boolean",
+    "default": "{{ (nested_openstack_default | default('no')) }}",
+    "description": "Nested OpenStack:",
+    "roles": [ "compute" ]
+  },
+  {# Admin email address: #}
+  "admin_email_address": {
+    "type": "string",
+    "default": "{{ (admin_email_address_default | default('admin@example.com')) }}",
+    "description": "Admin email address:",
+    "roles": [ "controller", "network" ]
+  },
+  {# Mail relay host: #}
+  "mail_relay_host": {
+    "type": "string",
+    "default": "{{ (mail_relay_host_default | default('mail.example.com')) }}",
+    "description": "Mail relay host:"
+  },
+  {# Nova limit tenants to aggregates: #}
+  "nova_limit_tenants_to_placement_aggregate": {
+    "type": "boolean",
+    "default": "{{ (nova_limit_tenants_to_placement_aggregate_default | default('no')) }}",
+    "description": "Nova limit tenants to aggregates:",
+    "roles": [ "controller" ]
+  },
+  {# Nova scheduler prefers hosts with more RAM available: #}
+  "nova_scheduler_prefers_hosts_with_more_ram": {
+    "type": "boolean",
+    "default": "{{ (nova_scheduler_prefers_hosts_with_more_ram_default | default('yes')) }}",
+    "description": "Nova scheduler prefers hosts with more RAM available:",
+    "roles": [ "controller" ]
+  },
+  {# Nova host subset size: #}
+  "nova_host_subset_size": {
+    "type": "int",
+    "default": "{{ (nova_host_subset_size_default | default('3')) }}",
+    "description": "Nova host subset size:",
+    "roles": [ "controller" ]
+  },
+  {# Nova update resources interval: #}
+  "nova_update_resources_interval": {
+    "type": "int",
+    "default": "{{ (nova_update_resources_interval_default | default('300')) }}",
+    "description": "Nova update resources interval:",
+    "roles": [ "compute" ]
+  },
+  {# Cinder default volume type: #}
+  "cinder_default_volume_type": {
+    "type": "string",
+    "default": "{{ (cinder_default_volume_type_default | default('LVM_1')) }}",
+    "description": "Cinder default volume type:",
+    "roles": [ "controller" ]
+  },
+  {# Cinder backup use external swift: #}
+  "cinder_backup_use_external_swift": {
+    "type": "boolean",
+    "default": "{{ (cinder_backup_use_external_swift_default | default('yes')) }}",
+    "description": "Cinder backup use external swift:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Glance prefers Ceph over Swift backend: #}
+  "glance_prefer_ceph_over_swift": {
+    "type": "boolean",
+    "default": "{{ (glance_prefer_ceph_over_swift_default | default('yes')) }}",
+    "description": "Glance prefers Ceph over Swift backend:",
+    "roles": [ "controller" ]
+  },
+  {# Glance API use proxy: #}
+  "glance_api_use_proxy": {
+    "type": "boolean",
+    "default": "{{ (glance_api_use_proxy_default | default('no')) }}",
+    "description": "Glance API use proxy:",
+    "roles": [ "controller" ]
+  },
+  {# Glance API proxy URL: #}
+  "glance_api_proxy_url": {
+    "type": "string",
+    "default": "{{ (glance_api_proxy_url_default | default('http://myproxy.example.com:3128/')) }}",
+    "description": "Glance API proxy URL:",
+    "roles": [ "controller" ]
+  },
+  {# Cinder backup prefers Swift over Ceph: #}
+  "cinder_backup_prefer_swift": {
+    "type": "boolean",
+    "default": "{{ (cinder_backup_prefer_swift_default | default('yes')) }}",
+    "description": "Cinder backup prefers Swift over Ceph:"
+  },
+  {# DHCP (default) domain name: #}
+  "dhcp_domain": {
+    "type": "fqdn",
+    "default": "{{ (dhcp_domain_default | default('')) }}",
+    "description": "DHCP (default) domain name:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron global_physnet_mtu: #}
+  "neutron_global_physnet_mtu": {
+    "type": "int",
+    "default": "{{ (neutron_global_physnet_mtu_default | default('8950')) }}",
+    "description": "Neutron global_physnet_mtu:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron path_mtu: #}
+  "neutron_path_mtu": {
+    "type": "int",
+    "default": "{{ (neutron_path_mtu_default | default('1550')) }}",
+    "description": "Neutron path_mtu:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron DNS domain: #}
+  "neutron_dns_domain": {
+    "type": "string",
+    "default": "{{ (neutron_dns_domain_default | default('example.com.')) }}",
+    "description": "Neutron DNS domain:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron use DVR: #}
+  "neutron_use_dvr": {
+    "type": "boolean",
+    "default": "{{ (neutron_use_dvr_default | default('yes')) }}",
+    "description": "Neutron use DVR:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron VXLAN VNI min: #}
+  "neutron_vxlan_vni_min": {
+    "type": "int",
+    "default": "{{ (neutron_vxlan_vni_min_default | default('1000')) }}",
+    "description": "Neutron VXLAN VNI min:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron VXLAN VNI max: #}
+  "neutron_vxlan_vni_max": {
+    "type": "int",
+    "default": "{{ (neutron_vxlan_vni_max_default | default('9999')) }}",
+    "description": "Neutron VXLAN VNI max:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Neutron use az: #}
+  "neutron_use_az": {
+    "type": "boolean",
+    "default": "{{ (neutron_use_az_default | default('no')) }}",
+    "description": "Neutron use az:",
+    "roles": [ "controller", "network" ]
+  },
+  {# Neutron az list: #}
+  "neutron_az_list": {
+    "type": "string",
+    "default": "{{ (neutron_az_list_default | default('az1/az2/az3')) }}",
+    "description": "Neutron az list:",
+    "roles": [ "controller" ]
+  },
+  {# Glance metadef admin only (OSSN-0088): #}
+  "glance_metadef_admin_only": {
+    "type": "boolean",
+    "default": "{{ (glance_metadef_admin_only_default | default('yes')) }}",
+    "description": "Glance metadef admin only (OSSN-0088):",
+    "roles": [ "controller" ]
+  },
+  {# Install designate: #}
+  "install_designate": {
+    "type": "boolean",
+    "default": "{{ (install_designate_default | default('no')) }}",
+    "description": "Install designate:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Install panko: #}
+  "install_panko": {
+    "type": "boolean",
+    "default": "{{ (install_panko_default | default('no')) }}",
+    "description": "Install panko:",
+    "roles": [ "controller" ]
+  },
+  {# Install magnum: #}
+  "install_magnum": {
+    "type": "boolean",
+    "default": "{{ (install_magnum_default | default('no')) }}",
+    "description": "Install magnum:",
+    "roles": [ "controller" ]
+  },
+  {# Install manila: #}
+  "install_manila": {
+    "type": "boolean",
+    "default": "{{ (install_manila_default | default('no')) }}",
+    "description": "Install manila:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Install octavia: #}
+  "install_octavia": {
+    "type": "boolean",
+    "default": "{{ (install_octavia_default | default('yes')) }}",
+    "description": "Install octavia:",
+    "roles": [ "controller" ]
+  },
+  {# Install telemetry: #}
+  "install_telemetry": {
+    "type": "boolean",
+    "default": "{{ (install_telemetry_default | default('yes')) }}",
+    "description": "Install telemetry:",
+    "roles": [ "controller", "compute", "swiftproxy" ]
+  },
+  {# Install Ironic: #}
+  "install_ironic": {
+    "type": "boolean",
+    "default": "{{ (install_ironic_default | default('no')) }}",
+    "description": "Install Ironic:",
+    "roles": [ "controller" ]
+  },
+  {# Install Heat: #}
+  "install_heat": {
+    "type": "boolean",
+    "default": "{{ (install_heat_default | default('yes')) }}",
+    "description": "Install Heat:",
+    "roles": [ "controller" ]
+  },
+  {# Install Barbican: #}
+  "install_barbican": {
+    "type": "boolean",
+    "default": "{{ (install_barbican_default | default('yes')) }}",
+    "description": "Install Barbican:",
+    "roles": [ "controller" ]
+  },
+  {# Install RabbitMQ: #}
+  "install_rabbit": {
+    "type": "boolean",
+    "default": "{{ (install_rabbit_default | default('yes')) }}",
+    "description": "Install RabbitMQ:",
+    "roles": [ "controller" ]
+  },
+  {# RabbitMQ enable quorum queues: #}
+  "rabbitmq_enable_quorum_queues": {
+    "type": "boolean",
+    "default": "{{ (rabbitmq_enable_quorum_queues_default | default('no')) }}",
+    "description": "RabbitMQ enable quorum queues:",
+    "roles": [ "controller", "compute", "network", "messaging", "volume" ]
+  },
+  {# Rabbitmq message timeout: #}
+  "rabbitmq_message_timeout": {
+    "type": "int",
+    "default": "{{ (rabbitmq_message_timeout_default | default('120')) }}",
+    "description": "Rabbitmq message timeout:",
+    "roles": [ "controller", "compute", "network", "messaging", "volume" ]
+  },
+  {# Install cloudkitty dashboard: #}
+  "install_cloudkitty_dashboard": {
+    "type": "boolean",
+    "default": "{{ (install_cloudkitty_dashboard_default | default('yes')) }}",
+    "description": "Install cloudkitty dashboard:",
+    "roles": [ "controller" ]
+  },
+  {# Manila network cidr: #}
+  "manila_network_cidr": {
+    "type": "string",
+    "default": "{{ (manila_network_cidr_default | default('10.240.0.0/12')) }}",
+    "description": "Manila network cidr:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Manila network division mask: #}
+  "manila_network_division_mask": {
+    "type": "string",
+    "default": "{{ (manila_network_division_mask_default | default('27')) }}",
+    "description": "Manila network division mask:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Generate root ssh keys: #}
+  "generate_root_ssh_keys": {
+    "type": "boolean",
+    "default": "{{ (generate_root_ssh_keys_default | default('no')) }}",
+    "description": "Generate root ssh keys:"
+  },
+  {# API disable rate limit: #}
+  "api_disable_rate_limit": {
+    "type": "boolean",
+    "default": "{{ (api_disable_rate_limit_default | default('no')) }}",
+    "description": "API disable rate limit:",
+    "roles": [ "controller" ]
+  },
+  {# API iptables rate limit: #}
+  "api_iptables_rate_limit": {
+    "type": "int",
+    "default": "{{ (api_iptables_rate_limit_default | default('100')) }}",
+    "description": "API iptables rate limit:",
+    "roles": [ "controller" ]
+  },
+  {# API haproxy redirect port 80: #}
+  "api_haproxy_redirect_port_80": {
+    "type": "boolean",
+    "default": "{{ (api_haproxy_redirect_port_80_default | default('no')) }}",
+    "description": "API haproxy redirect port 80:",
+    "roles": [ "controller" ]
+  },
+  {# API haproxy rate limit: #}
+  "api_haproxy_rate_limit": {
+    "type": "int",
+    "default": "{{ (api_haproxy_rate_limit_default | default('80')) }}",
+    "description": "API haproxy rate limit:",
+    "roles": [ "controller" ]
+  },
+  {# API rate limit whitelist: #}
+  "api_rate_limit_whitelist": {
+    "type": "string",
+    "default": "{{ (api_rate_limit_whitelist_default | default('10.4.38.0/24')) }}",
+    "description": "API rate limit whitelist:",
+    "roles": [ "controller" ]
+  },
+  {# API maintenance activate: #}
+  "api_maint_activate": {
+    "type": "boolean",
+    "default": "{{ (api_maint_activate_default | default('no')) }}",
+    "description": "API maintenance activate:",
+    "roles": [ "controller" ]
+  },
+  {# API maintenance whitelist: #}
+  "api_maint_whitelist": {
+    "type": "ip_list",
+    "default": "{{ (api_maint_whitelist_default | default('10.1.2.3;10.4.5.6')) }}",
+    "description": "API maintenance whitelist:",
+    "roles": [ "controller" ]
+  },
+  {# Swiftstore reserved space in GiB (stops incomming rsync): #}
+  "swiftstore_reserved_space": {
+    "type": "int",
+    "default": "{{ (swiftstore_reserved_space_default | default('300')) }}",
+    "description": "Swiftstore reserved space in GiB (stops incomming rsync):",
+    "roles": [ "swiftstore" ]
+  },
+  {# Swiftstore fallocate reserved space in GiB (stops PUT data): #}
+  "swiftstore_fallocate_reserved_space": {
+    "type": "int",
+    "default": "{{ (swiftstore_fallocate_reserved_space_default | default('200')) }}",
+    "description": "Swiftstore fallocate reserved space in GiB (stops PUT data):",
+    "roles": [ "swiftstore" ]
+  },
+  {# Swiftproxy reserved space in GiB (stops incomming rsync): #}
+  "swiftproxy_reserved_space": {
+    "type": "int",
+    "default": "{{ (swiftproxy_reserved_space_default | default('600')) }}",
+    "description": "Swiftproxy reserved space in GiB (stops incomming rsync):",
+    "roles": [ "swiftproxy" ]
+  },
+  {# Swiftproxy fallocate reserved space in GiB (stops PUT data): #}
+  "swiftproxy_fallocate_reserved_space": {
+    "type": "int",
+    "default": "{{ (swiftproxy_fallocate_reserved_space_default | default('300')) }}",
+    "description": "Swiftproxy fallocate reserved space in GiB (stops PUT data):",
+    "roles": [ "swiftproxy" ]
+  },
+  {# swift proxy disable rate limit: #}
+  "swift_proxy_disable_rate_limit": {
+    "type": "boolean",
+    "default": "{{ (swift_proxy_disable_rate_limit_default | default('no')) }}",
+    "description": "swift proxy disable rate limit:",
+    "roles": [ "swiftproxy", "radosgw" ]
+  },
+  {# swift proxy iptables rate limit: #}
+  "swift_proxy_iptables_rate_limit": {
+    "type": "int",
+    "default": "{{ (swift_proxy_iptables_rate_limit_default | default('100')) }}",
+    "description": "swift proxy iptables rate limit:",
+    "roles": [ "swiftproxy" ]
+  },
+  {# swift proxy haproxy rate limit: #}
+  "swift_proxy_haproxy_rate_limit": {
+    "type": "int",
+    "default": "{{ (swift_proxy_haproxy_rate_limit_default | default('80')) }}",
+    "description": "swift proxy haproxy rate limit:",
+    "roles": [ "swiftproxy", "radosgw" ]
+  },
+  {# Swift proxy haproxy custom delay trigger (in requests/s): #}
+  "swift_proxy_haproxy_custom_delay_trigger": {
+    "type": "int",
+    "default": "{{ (swift_proxy_haproxy_custom_delay_trigger_default | default('100')) }}",
+    "description": "Swift proxy haproxy custom delay trigger (in requests/s):",
+    "roles": [ "swiftproxy" ]
+  },
+  {# Swift proxy haproxy custom delay ms: #}
+  "swift_proxy_haproxy_custom_delay_ms": {
+    "type": "int",
+    "default": "{{ (swift_proxy_haproxy_custom_delay_ms_default | default('50')) }}",
+    "description": "Swift proxy haproxy custom delay ms:",
+    "roles": [ "swiftproxy" ]
+  },
+  {# Swift proxy use Ceilometer middleware #}
+  "swift_proxy_use_ceilometer_middleware": {
+    "type": "boolean",
+    "default": "{{ (swift_proxy_use_ceilometer_middleware_default | default('no')) }}",
+    "description": "Swift proxy use Ceilometer middleware",
+    "roles": [ "swiftproxy" ]
+  },
+  {# Swift ec enable: #}
+  "swift_ec_enable": {
+    "type": "boolean",
+    "default": "{{ (swift_ec_enable_default | default('no')) }}",
+    "description": "Swift ec enable:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec policy index: #}
+  "swift_ec_policy_index": {
+    "type": "int",
+    "default": "{{ (swift_ec_policy_index_default | default('1')) }}",
+    "description": "Swift ec policy index:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec policy name: #}
+  "swift_ec_policy_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (swift_ec_policy_name_default | default('pyeclib-12-4')) }}",
+    "description": "Swift ec policy name:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec type: #}
+  "swift_ec_type": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (swift_ec_type_default | default('liberasurecode_rs_vand')) }}",
+    "description": "Swift ec type:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec num data fragments: #}
+  "swift_ec_num_data_fragments": {
+    "type": "int",
+    "default": "{{ (swift_ec_num_data_fragments_default | default('12')) }}",
+    "description": "Swift ec num data fragments:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec num parity fragments: #}
+  "swift_ec_num_parity_fragments": {
+    "type": "int",
+    "default": "{{ (swift_ec_num_parity_fragments_default | default('4')) }}",
+    "description": "Swift ec num parity fragments:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift ec object segment size: #}
+  "swift_ec_object_segment_size": {
+    "type": "int",
+    "default": "{{ (swift_ec_object_segment_size_default | default('1048576')) }}",
+    "description": "Swift ec object segment size:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift auto mount block devices (managed fstab): #}
+  "swift_auto_mount_block_devices": {
+    "type": "boolean",
+    "default": "{{ (swift_auto_mount_block_devices_default | default('yes')) }}",
+    "description": "Swift auto mount block devices (managed fstab):",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Swift container replicator per region scheduling: #}
+  "swift_container_replicator_per_region_scheduling": {
+    "type": "boolean",
+    "default": "{{ (swift_container_replicator_per_region_scheduling_default | default('no')) }}",
+    "description": "Swift container replicator per region scheduling:",
+    "roles": [ "swiftproxy", "swiftstore" ]
+  },
+  {# Filebeat enable: #}
+  "filebeat_enabled": {
+    "type": "boolean",
+    "default": "{{ (filebeat_enabled_default | default('no')) }}",
+    "description": "Filebeat enable:"
+  },
+  {# Filebeat fields under root: #}
+  "filebeat_fields_under_root": {
+    "type": "boolean",
+    "default": "{{ (filebeat_fields_under_root_default | default('yes')) }}",
+    "description": "Filebeat fields under root:"
+  },
+  {# Filebeat logging level: #}
+  "filebeat_logging_level": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (filebeat_logging_level_default | default('info')) }}",
+    "description": "Filebeat logging level:"
+  },
+  {# Filebeat logging to syslog: #}
+  "filebeat_logging_syslog": {
+    "type": "boolean",
+    "default": "{{ (filebeat_logging_syslog_default | default('no')) }}",
+    "description": "Filebeat logging to syslog:"
+  },
+  {# Filebeat logging to files: #}
+  "filebeat_logging_files": {
+    "type": "boolean",
+    "default": "{{ (filebeat_logging_files_default | default('yes')) }}",
+    "description": "Filebeat logging to files:"
+  },
+  {# Filebeat logging files path: #}
+  "filebeat_logging_files_path": {
+    "type": "string",
+    "size": "128",
+    "default": "{{ (filebeat_logging_files_path_default | default('/var/log/filebeat')) }}",
+    "description": "Filebeat logging files path:"
+  },
+  {# Filebeat logging files name: #}
+  "filebeat_logging_files_name": {
+    "type": "string",
+    "size": "128",
+    "default": "{{ (filebeat_logging_files_name_default | default('filebeat')) }}",
+    "description": "Filebeat logging files name:"
+  },
+  {# Aodh notifier use proxy: #}
+  "aodh_notifier_use_proxy": {
+    "type": "boolean",
+    "default": "{{ (aodh_notifier_use_proxy_default | default('no')) }}",
+    "description": "Aodh notifier use proxy:",
+    "roles": [ "controller" ]
+  },
+  {# Aodh notifier proxy URL: #}
+  "aodh_notifier_proxy_url": {
+    "type": "string",
+    "default": "{{ (aodh_notifier_proxy_url_default | default('http://myproxy.example.com:3128/')) }}",
+    "description": "Aodh notifier proxy URL:",
+    "roles": [ "controller" ]
+  },
+  {# Messaging node memcache memory limit (percent): #}
+  "messaging_node_memcache_memory_limit": {
+    "type": "int",
+    "default": "{{ (messaging_node_memcache_memory_limit_default | default('20')) }}",
+    "description": "Messaging node memcache memory limit (percent):",
+    "roles": [ "messaging" ]
+  },
+  {# Messaging node memcache max connections: #}
+  "messaging_node_memcache_max_connections": {
+    "type": "int",
+    "default": "{{ (messaging_node_memcache_max_connections_default | default('65536')) }}",
+    "description": "Messaging node memcache max connections:",
+    "roles": [ "messaging" ]
+  },
+  {# Controller node memcache max connections: #}
+  "controller_node_memcache_max_connections": {
+    "type": "int",
+    "default": "{{ (controller_node_memcache_max_connections_default | default('32768')) }}",
+    "description": "Controller node memcache max connections:",
+    "roles": [ "controller" ]
+  },
+  {# Horizon themes: #}
+  "horizon_themes": {
+    "type": "string",
+    "default": "{{ (horizon_themes_default | default('default@Default@themes/default:material@Material@themes/material')) }}",
+    "description": "Horizon themes:",
+    "roles": [ "controller" ]
+  },
+  {# Horizon set region cookie: #}
+  "horizon_set_region_cookie_activate": {
+    "type": "boolean",
+    "default": "{{ (horizon_set_region_cookie_activate_default | default('no')) }}",
+    "description": "Horizon set region cookie:",
+    "roles": [ "controller" ]
+  },
+  {# Horizon region cookie name: #}
+  "horizon_region_cookie_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (horizon_region_cookie_name_default | default('RegionOne')) }}",
+    "description": "Horizon region cookie name:",
+    "roles": [ "controller" ]
+  },
+  {# Horizon redirect to external: #}
+  "horizon_redirect_to_external_activate": {
+    "type": "boolean",
+    "default": "{{ (horizon_redirect_to_external_activate_default | default('no')) }}",
+    "description": "Horizon redirect to external:",
+    "roles": [ "controller" ]
+  },
+  {# Horizon redirect to external URL: #}
+  "horizon_redirect_to_external_url": {
+    "type": "string",
+    "default": "{{ (horizon_redirect_to_external_url_default | default('https://www.example.com/horizon/')) }}",
+    "description": "Horizon redirect to external URL:",
+    "roles": [ "controller" ]
+  },
+  {# Haproxy default timeout for http-request #}
+  "haproxy_timeout_http_request": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_http_request_default | default('10s')) }}",
+    "description": "Haproxy default timeout for http-request",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy default timeout for queue #}
+  "haproxy_timeout_queue": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_queue_default | default('1m')) }}",
+    "description": "Haproxy default timeout for queue",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy default timeout for connect #}
+  "haproxy_timeout_connect": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_connect_default | default('10s')) }}",
+    "description": "Haproxy default timeout for connect",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy default timeout for client #}
+  "haproxy_timeout_client": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_client_default | default('1m')) }}",
+    "description": "Haproxy default timeout for client",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy default timeout for server #}
+  "haproxy_timeout_server": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_server_default | default('10m')) }}",
+    "description": "Haproxy default timeout for server",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy default timeout for check #}
+  "haproxy_timeout_check": {
+    "type": "string",
+    "size": "8",
+    "default": "{{ (haproxy_timeout_check_default | default('10s')) }}",
+    "description": "Haproxy default timeout for check",
+    "roles": [ "controller", "radosgw", "swiftproxy", "messaging" ]
+  },
+  {# Haproxy admin external access restriction: #}
+  "haproxy_admin_external_access": {
+    "type": "boolean",
+    "default": "{{ (haproxy_admin_external_access_default | default('no')) }}",
+    "description": "Haproxy admin external access restriction:",
+    "roles": [ "controller" ]
+  },
+  {# HAProxy use SNI: #}
+  "haproxy_use_sni": {
+    "type": "boolean",
+    "default": "{{ (haproxy_use_sni_default | default('no')) }}",
+    "description": "HAProxy use SNI:",
+    "roles": [ "controller", "compute", "network", "radosgw", "swiftproxy" ]
+  },
+  {# Glance SNI name: #}
+  "glance_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (glance_sni_name_default | default('image')) }}",
+    "description": "Glance SNI name:",
+    "roles": [ "controller", "compute", "volume" ]
+  },
+  {# Heat SNI name: #}
+  "heat_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (heat_sni_name_default | default('orchestration-api')) }}",
+    "description": "Heat SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Heat-cfn SNI name: #}
+  "heat_cfn_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (heat_cfn_sni_name_default | default('orchestration-cfn')) }}",
+    "description": "Heat-cfn SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Barbican SNI name: #}
+  "barbican_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (barbican_sni_name_default | default('keymanager')) }}",
+    "description": "Barbican SNI name:",
+    "roles": [ "controller", "compute", "swiftproxy" ]
+  },
+  {# Placement SNI name: #}
+  "placement_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (placement_sni_name_default | default('placement')) }}",
+    "description": "Placement SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Nova SNI name: #}
+  "nova_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (nova_sni_name_default | default('compute')) }}",
+    "description": "Nova SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Neutron SNI name: #}
+  "neutron_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (neutron_sni_name_default | default('network')) }}",
+    "description": "Neutron SNI name:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Ironic SNI name: #}
+  "ironic_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (ironic_sni_name_default | default('baremetal')) }}",
+    "description": "Ironic SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Inspector SNI name: #}
+  "inspector_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (inspector_sni_name_default | default('inspector')) }}",
+    "description": "Inspector SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Octavia SNI name: #}
+  "octavia_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (octavia_sni_name_default | default('loadbalancer')) }}",
+    "description": "Octavia SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Designate SNI name: #}
+  "designate_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (designate_sni_name_default | default('dns')) }}",
+    "description": "Designate SNI name:",
+    "roles": [ "controller", "network" ]
+  },
+  {# Cinder SNI name: #}
+  "cinder_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (cinder_sni_name_default | default('volume')) }}",
+    "description": "Cinder SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Gnocchi SNI name: #}
+  "gnocchi_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (gnocchi_sni_name_default | default('metric')) }}",
+    "description": "Gnocchi SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Panko SNI name: #}
+  "panko_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (panko_sni_name_default | default('event')) }}",
+    "description": "Panko SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Cloudkitty SNI name: #}
+  "cloudkitty_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (cloudkitty_sni_name_default | default('rating')) }}",
+    "description": "Cloudkitty SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Aodh SNI name: #}
+  "aodh_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (aodh_sni_name_default | default('alarm')) }}",
+    "description": "Aodh SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Magnum SNI name: #}
+  "magnum_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (magnum_sni_name_default | default('containers')) }}",
+    "description": "Magnum SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Manila SNI name: #}
+  "manila_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (manila_sni_name_default | default('share')) }}",
+    "description": "Manila SNI name:",
+    "roles": [ "controller" ]
+  },
+  {# Keystone SNI name: #}
+  "keystone_sni_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (keystone_sni_name_default | default('identity')) }}",
+    "description": "Keystone SNI name:",
+    "roles": [ "controller", "compute", "network", "radosgw", "swiftproxy", "volume", "messaging" ]
+  },
+  {# API use IPv6 for haproxy frontends: #}
+  "api_use_ipv6": {
+    "type": "boolean",
+    "default": "{{ (api_use_ipv6_default | default('no')) }}",
+    "description": "API use IPv6 for haproxy frontends:",
+    "roles": [ "controller" ]
+  },
+  {# vip6 IPAddr: #}
+  "vip6_ipaddr": {
+    "type": "string",
+    "default": "{{ (vip6_ipaddr_default | default('::1')) }}",
+    "description": "vip6 IPAddr:",
+    "roles": [ "controller" ]
+  },
+  {# vip6 Netmask: #}
+  "vip6_netmask": {
+    "type": "int",
+    "default": "{{ (vip6_netmask_default | default('128')) }}",
+    "description": "vip6 Netmask:",
+    "roles": [ "controller" ]
+  },
+  {# Cloudkitty max parallel connexions to Gnocchi: #}
+  "cloudkitty_http_pool_maxsize": {
+    "type": "int",
+    "default": "{{ (cloudkitty_http_pool_maxsize_default | default('10')) }}",
+    "description": "Cloudkitty max parallel connexions to Gnocchi:",
+    "roles": [ "messaging" ]
+  },
+  {# Designate NS1: #}
+  "designate_ns1": {
+    "type": "string",
+    "size": "128",
+    "default": "{{ (designate_ns1_default | default('ns1.example.com')) }}",
+    "description": "Designate NS1:",
+    "roles": []
+  },
+  {# Designate NS2: #}
+  "designate_ns2": {
+    "type": "string",
+    "size": "128",
+    "default": "{{ (designate_ns2_default | default('ns2.example.com')) }}",
+    "description": "Designate NS2:",
+    "roles": []
+  },
+  {# Designate zone admin email: #}
+  "designate_zone_admin_email": {
+    "type": "string",
+    "size": "128",
+    "default": "{{ (designate_zone_admin_email_default | default('hostmaster@example.com')) }}",
+    "description": "Designate zone admin email:",
+    "roles": [ "controller", "network" ]
+  },
+  {# Designate managed resource tenant id: #}
+  "designate_managed_resource_tenant_id": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (designate_managed_resource_tenant_id_default | default('123456')) }}",
+    "description": "Designate managed resource tenant id:",
+    "roles": [ "controller" ]
+  },
+  {# External keystone activate: #}
+  "external_keystone_activate": {
+    "type": "boolean",
+    "default": "{{ (external_keystone_activate_default | default('no')) }}",
+    "description": "External keystone activate:",
+    "roles": [ "controller", "compute", "messaging", "network", "radosgw", "swiftproxy", "tempest", "volume" ]
+  },
+  {# External keystone URL: #}
+  "external_keystone_url": {
+    "type": "string",
+    "default": "{{ (external_keystone_url_default | default('https://api.example.com/identity')) }}",
+    "description": "External keystone URL:",
+    "roles": [ "controller", "compute", "messaging", "network", "radosgw", "swiftproxy", "tempest", "volume" ]
+  },
+  {# External keystone admin password: #}
+  "external_keystone_admin_password": {
+    "type": "string",
+    "size": "64",
+    "default": "{{ (external_keystone_admin_password_default | default('changeme')) }}",
+    "description": "External keystone admin password:",
+    "roles": [ "controller", "compute", "messaging", "network", "radosgw", "swiftproxy", "tempest", "volume" ]
+  },
+  {# External keystone region prefixed users: #}
+  "external_keystone_region_prefixed_users": {
+    "type": "boolean",
+    "default": "{{ (external_keystone_region_prefixed_users_default | default('yes')) }}",
+    "description": "External keystone region prefixed users:",
+    "roles": [ "controller", "compute", "messaging", "network", "radosgw", "swiftproxy", "tempest", "volume" ]
+  },
+  {# Keystone TOTP support (in both CLI and Horizon): #}
+  "keystone_totp": {
+    "type": "boolean",
+    "default": "{{ (keystone_totp_default | default('yes')) }}",
+    "description": "Keystone TOTP support (in both CLI and Horizon):",
+    "roles": [ "controller" ]
+  },
+  {# Neutron dnsmasq_dns_servers: #}
+  "neutron_dnsmasq_dns_servers": {
+    "type": "ip_list",
+    "default": "{{ (neutron_dnsmasq_dns_servers_default | default('')) }}",
+    "description": "Neutron dnsmasq_dns_servers:",
+    "roles": [ "compute", "controller", "network" ]
+  },
+  {# Ceph multiple cluster (Ceph storage AZ): #}
+  "ceph_multiple_cluster_az": {
+    "type": "boolean",
+    "default": "{{ (ceph_multiple_cluster_az_default | default('no')) }}",
+    "description": "Ceph multiple cluster (Ceph storage AZ):",
+    "roles": [ "controller", "cephmon", "cephosd", "compute" ]
+  },
+  {# Ceph use cephadm to deploy: #}
+  "ceph_use_cephadm_to_deploy": {
+    "type": "boolean",
+    "default": "{{ (ceph_use_cephadm_to_deploy_default | default('no')) }}",
+    "description": "Ceph use cephadm to deploy:",
+    "roles": [ "controller", "cephmon", "cephosd", "billosd", "billmon", "messaging" ]
+  },
+  {# Ceph configure osbpo: #}
+  "ceph_configure_osbpo": {
+    "type": "boolean",
+    "default": "{{ (ceph_configure_osbpo_default | default('no')) }}",
+    "description": "Ceph configure osbpo:",
+    "roles": [ "cephmon", "cephosd", "billosd", "billmon", "messaging", "compute" ]
+  },
+  {# Nova use qemu backports: #}
+  "nova_use_qemu_backports": {
+    "type": "boolean",
+    "default": "{{ (nova_use_qemu_backports_default | default('no')) }}",
+    "description": "Nova use qemu backports:",
+    "roles": [ "compute" ]
+  },
+  {# Nova use libvirt backports: #}
+  "nova_use_libvirt_backports": {
+    "type": "boolean",
+    "default": "{{ (nova_use_libvirt_backports_default | default('no')) }}",
+    "description": "Nova use libvirt backports:",
+    "roles": [ "compute" ]
+  },
+  {# Nova max instance per host: #}
+  "nova_max_instances_per_host": {
+    "type": "int",
+    "default": "{{ (nova_max_instances_per_host_default | default('50')) }}",
+    "description": "Nova max instance per host:",
+    "roles": [ "controller" ]
+  },
+  {# Nova swtpm enabled: #}
+  "nova_swtpm_enabled": {
+    "type": "boolean",
+    "default": "{{ (nova_swtpm_enabled_default | default('no')) }}",
+    "description": "Nova swtpm enabled:",
+    "roles": [ "compute" ]
+  },
+  {# Nova resize confirm window: #}
+  "nova_resize_confirm_window": {
+    "type": "int",
+    "default": "{{ (nova_resize_confirm_window_default | default('0')) }}",
+    "description": "Nova resize confirm window:",
+    "roles": [ "compute" ]
+  },
+  {# Cloudkitty use storage v2: #}
+  "cloudkitty_use_storage_v2": {
+    "type": "boolean",
+    "default": "{{ (cloudkitty_use_storage_v2_default | default('no')) }}",
+    "description": "Cloudkitty use storage v2:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Cloudkitty storage v2 backend (elasticsearch or opensearch or influxdb): #}
+  "cloudkitty_storage_v2_backend": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (cloudkitty_storage_v2_backend_default | default('elasticsearch')) }}",
+    "description": "Cloudkitty storage v2 backend (elasticsearch or opensearch or influxdb):",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Cloudkitty storage v2 host: #}
+  "cloudkitty_storage_v2_host": {
+    "type": "string",
+    "default": "{{ (cloudkitty_storage_v2_host_default | default('https://user:pass@elastic.example.com')) }}",
+    "description": "Cloudkitty storage v2 host:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Cloudkitty storage v2 index_name: #}
+  "cloudkitty_storage_v2_index_name": {
+    "type": "string",
+    "size": "32",
+    "default": "{{ (cloudkitty_storage_v2_index_name_default | default('cloudkitty')) }}",
+    "description": "Cloudkitty storage v2 index_name:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Cloudkitty processor workers number: #}
+  "cloudkitty_processor_workers": {
+    "type": "int",
+    "default": "{{ (cloudkitty_processor_workers_default | default('12')) }}",
+    "description": "Cloudkitty processor workers number:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Use json log: #}
+  "use_json_log": {
+    "type": "boolean",
+    "default": "{{ (use_json_log_default | default('no')) }}",
+    "description": "Use json log:",
+    "roles": [ "controller", "messaging", "network", "compute", "volume" ]
+  },
+  {# Glance debug log: #}
+  "glance_debug_log": {
+    "type": "boolean",
+    "default": "{{ (glance_debug_log_default | default('yes')) }}",
+    "description": "Glance debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Heat debug log: #}
+  "heat_debug_log": {
+    "type": "boolean",
+    "default": "{{ (heat_debug_log_default | default('yes')) }}",
+    "description": "Heat debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Barbican debug log: #}
+  "barbican_debug_log": {
+    "type": "boolean",
+    "default": "{{ (barbican_debug_log_default | default('yes')) }}",
+    "description": "Barbican debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Placement debug log: #}
+  "placement_debug_log": {
+    "type": "boolean",
+    "default": "{{ (placement_debug_log_default | default('yes')) }}",
+    "description": "Placement debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Nova debug log: #}
+  "nova_debug_log": {
+    "type": "boolean",
+    "default": "{{ (nova_debug_log_default | default('yes')) }}",
+    "description": "Nova debug log:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Ironic debug log: #}
+  "ironic_debug_log": {
+    "type": "boolean",
+    "default": "{{ (ironic_debug_log_default | default('no')) }}",
+    "description": "Ironic debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Neutron debug log: #}
+  "neutron_debug_log": {
+    "type": "boolean",
+    "default": "{{ (neutron_debug_log_default | default('yes')) }}",
+    "description": "Neutron debug log:",
+    "roles": [ "controller", "compute", "network" ]
+  },
+  {# Neutron agent down time: #}
+  "neutron_agent_down_time": {
+    "type": "int",
+    "default": "{{ (neutron_agent_down_time_default | default('150')) }}",
+    "description": "Neutron agent down time:",
+    "roles": [ "controller" ]
+  },
+  {# Cinder debug log: #}
+  "cinder_debug_log": {
+    "type": "boolean",
+    "default": "{{ (cinder_debug_log_default | default('yes')) }}",
+    "description": "Cinder debug log:",
+    "roles": [ "controller", "compute", "volume" ]
+  },
+  {# Gnocchi debug log: #}
+  "gnocchi_debug_log": {
+    "type": "boolean",
+    "default": "{{ (gnocchi_debug_log_default | default('yes')) }}",
+    "description": "Gnocchi debug log:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Gnocchi incoming sacks use redis: #}
+  "gnocchi_incoming_sacks_use_redis": {
+    "type": "boolean",
+    "default": "{{ (gnocchi_incoming_sacks_use_redis_default | default('no')) }}",
+    "description": "Gnocchi incoming sacks use redis:",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi metricd number of workers (0 means os_workers): #}
+  "gnocchi_metricd_workers": {
+    "type": "int",
+    "default": "{{ (gnocchi_metricd_workers_default | default('0')) }}",
+    "description": "Gnocchi metricd number of workers (0 means os_workers):",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi metricd processing_delay: #}
+  "gnocchi_metricd_processing_delay": {
+    "type": "int",
+    "default": "{{ (gnocchi_metricd_processing_delay_default | default('1')) }}",
+    "description": "Gnocchi metricd processing_delay:",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi metricd reporting delay: #}
+  "gnocchi_metricd_reporting_delay": {
+    "type": "int",
+    "default": "{{ (gnocchi_metricd_reporting_delay_default | default('60')) }}",
+    "description": "Gnocchi metricd reporting delay:",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi metricd cleanup delay: #}
+  "gnocchi_metricd_cleanup_delay": {
+    "type": "int",
+    "default": "{{ (gnocchi_metricd_cleanup_delay_default | default('1')) }}",
+    "description": "Gnocchi metricd cleanup delay:",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi metricd greedy: #}
+  "gnocchi_metricd_greedy": {
+    "type": "boolean",
+    "default": "{{ (gnocchi_metricd_greedy_default | default('no')) }}",
+    "description": "Gnocchi metricd greedy:",
+    "roles": [ "messaging" ]
+  },
+  {# Gnocchi API workers: #}
+  "gnocchi_api_workers": {
+    "type": "int",
+    "default": "{{ (gnocchi_api_workers_default | default('24')) }}",
+    "description": "Gnocchi API workers:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Ceilometer debug log: #}
+  "ceilometer_debug_log": {
+    "type": "boolean",
+    "default": "{{ (ceilometer_debug_log_default | default('yes')) }}",
+    "description": "Ceilometer debug log:",
+    "roles": [ "controller", "compute" ]
+  },
+  {# Cloudkitty debug log: #}
+  "cloudkitty_debug_log": {
+    "type": "boolean",
+    "default": "{{ (cloudkitty_debug_log_default | default('yes')) }}",
+    "description": "Cloudkitty debug log:",
+    "roles": [ "controller", "messaging" ]
+  },
+  {# Aodh debug log: #}
+  "aodh_debug_log": {
+    "type": "boolean",
+    "default": "{{ (aodh_debug_log_default | default('no')) }}",
+    "description": "Aodh debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Designate debug log: #}
+  "designate_debug_log": {
+    "type": "boolean",
+    "default": "{{ (designate_debug_log_default | default('yes')) }}",
+    "description": "Designate debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Manila debug log: #}
+  "manila_debug_log": {
+    "type": "boolean",
+    "default": "{{ (manila_debug_log_default | default('no')) }}",
+    "description": "Manila debug log:",
+    "roles": [ "controller" ]
+  },
+  {# Keystone debug log: #}
+  "keystone_debug_log": {
+    "type": "boolean",
+    "default": "{{ (keystone_debug_log_default | default('yes')) }}",
+    "description": "Keystone debug log:",
+    "roles": [ "controller" ]
+  }
+}

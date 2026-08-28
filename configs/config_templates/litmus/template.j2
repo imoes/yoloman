@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# Litmus WebDAV Test Suite Configuration Script
+# This script generates the command line for running the Litmus test suite.
+# Parameters are derived from the schema: litmus role configuration.
+#
+# Variables:
+#   LITMUS_URL       - Base URL of the WebDAV server to test.
+#   LITMUS_CERT      - Path to a PKCS#12 client certificate file (if any).
+#   CERT_FLAG        - CLI flag to specify the client certificate.
+#   PROXY_FLAG       - CLI flag to specify the proxy server.
+#   KEEP_FLAG        - CLI flag to continue on failure.
+#   LITMUS_TESTS     - Space-separated list of test programs to run.
+#   HTDOCS           - Alternate document root for test files.
+#   TESTROOT         - Alternate program directory for litmus binaries.
+#   CMD              - The final command executed to run the tests.
+#
+
+# --------------------------------------------------------------------------
+# Base URL of the WebDAV server to test.
+# Schema field: url
+# Default: 'http://localhost/dav/'
+# --------------------------------------------------------------------------
+LITMUS_URL={{ (url | default('http://localhost/dav/')) }}
+
+# --------------------------------------------------------------------------
+# Client certificate in PKCS#12 format for SSL client authentication.
+# Schema field: client_cert
+# Default: '' (empty, meaning no certificate is used)
+# If a certificate is provided, we set the variable and add the -c flag.
+# --------------------------------------------------------------------------
+{% if (client_cert | default('')) %}
+LITMUS_CERT='{{ client_cert | default('') }}'
+CERT_FLAG=' -c "{{ client_cert | default('') }}"'
+{% else %}
+LITMUS_CERT=''
+CERT_FLAG=''
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Proxy server URL to use for HTTP requests.
+# Schema field: proxy
+# Default: '' (empty, meaning no proxy is used)
+# If a proxy is provided, we add the -p flag.
+# --------------------------------------------------------------------------
+{% if (proxy | default('')) %}
+PROXY_FLAG=' -p "{{ proxy | default('') }}"'
+{% else %}
+PROXY_FLAG=''
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Continue testing even if one suite fails.
+# Schema field: keep_going
+# Default: False
+# If true, the -k flag is added.
+# --------------------------------------------------------------------------
+{% if (keep_going | default(False)) %}
+KEEP_FLAG=' -k'
+{% else %}
+KEEP_FLAG=''
+{% endif %}
+
+# --------------------------------------------------------------------------
+# List of test programs to run.
+# Schema field: tests
+# Default: ['basic', 'copymove', 'props', 'locks', 'http']
+# Rendered as a space-separated string for the TESTS environment variable.
+# --------------------------------------------------------------------------
+LITMUS_TESTS={{ (tests | default(['basic', 'copymove', 'props', 'locks', 'http'])) | join(' ') }}
+
+# --------------------------------------------------------------------------
+# Alternate document root for test files.
+# Schema field: htdocs
+# Default: '/usr/share/litmus/htdocs'
+# --------------------------------------------------------------------------
+HTDOCS={{ (htdocs | default('/usr/share/litmus/htdocs')) }}
+
+# --------------------------------------------------------------------------
+# Alternate program directory.
+# Schema field: testroot
+# Default: '/usr/lib/x86_64-linux-gnu/litmus'
+# --------------------------------------------------------------------------
+TESTROOT={{ (testroot | default('/usr/lib/x86_64-linux-gnu/litmus')) }}
+
+# --------------------------------------------------------------------------
+# Execute litmus with configured environment variables
+# --------------------------------------------------------------------------
+export TESTS="${LITMUS_TESTS}"
+export HTDOCS="${HTDOCS}"
+export TESTROOT="${TESTROOT}"
+
+# --------------------------------------------------------------------------
+# Construct and execute the final command.
+# Litmus command format: litmus [flags] URL USER PASS
+# Flags constructed above: -c (cert), -p (proxy), -k (keep going)
+# --------------------------------------------------------------------------
+CMD="/usr/bin/litmus ${KEEP_FLAG}${CERT_FLAG}${PROXY_FLAG} ${LITMUS_URL} {{ (username | default('davtest')) }} {{ (password | default('test')) }}"
+
+echo "Running Litmus tests:"
+echo "  Command: $CMD"
+echo "  Tests: ${LITMUS_TESTS}"
+echo "  URL: ${LITMUS_URL}"
+echo "  HTDOCS: ${HTDOCS}"
+echo "  TESTROOT: ${TESTROOT}"
+
+exec $CMD

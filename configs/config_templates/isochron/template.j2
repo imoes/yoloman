@@ -1,0 +1,48 @@
+{# ============================================================================ #}
+{# isochron configuration template                                              #}
+{# Self-documenting Jinja2 template for Ansible roles.                           #}
+{# Reference: https://manpages.debian.org/trixie/isochron/isochron-daemon.8.en.html #}
+{# ============================================================================ #}
+
+# Network interface to use for timing measurements.
+interface = "{{ (values | default({})).interface | default('eth0') }}"
+
+# Priority (traffic class) for isochron packets, used in TSN schedules.
+priority = {{ (values | default({})).priority | default(5) }}
+
+# Base time for the TSN schedule (cycle time).
+base_time = "{{ (values | default({})).base_time | default('2023-01-01T00:00:00Z') }}"
+
+# Cycle time for the TSN schedule.
+cycle_time = "{{ (values | default({})).cycle_time | default('1ms') }}"
+
+# Shift time: offset of the isochron traffic class time slot from the base time.
+shift_time = "{{ (values | default({})).shift_time | default('0') }}"
+
+# Advance time: how much in advance of the deadline to wake up.
+advance_time = "{{ (values | default({})).advance_time | default('100us') }}"
+
+# PTP source name for synchronization (e.g., 'eth0').
+ptp_source = "{{ (values | default({})).ptp_source | default('eth0') }}"
+
+# Output file path for the timing report.
+report_file = "{{ (values | default({})).report_file | default('/var/log/isochron/report.csv') }}"
+
+# Verb to run: daemon, send, rcv, orchestrate, or report.
+# This config file is primarily used by `isochron-daemon`.
+verb = "{{ (values | default({})).verb | default('daemon') }}"
+
+# Log level: debug, info, warn, error.
+log_level = "{{ (values | default({})).log_level | default('info') }}"
+
+# Enable hardware timestamping.
+hw_ts = {{ (values | default({})).hw_ts | default(true) | lower }}
+
+# Enable software timestamping.
+sw_ts = {{ (values | default({})).sw_ts | default(true) | lower }}
+
+# Destination MAC address for test packets.
+dest_addr = "{{ (values | default({})).dest_addr | default('01:1b:19:00:00:00') }}"
+
+# Port for test packets (if applicable).
+port = {{ (values | default({})).port | default(3102) }}

@@ -5,6 +5,64 @@
 > *"You only live once — but your servers only get one uptime SLA, so let's not get carried
 > away."*
 
+> [!WARNING]
+> **This is a beta.** Pre-1.0: the REST/MCP surface, the config catalog's recorded formats and the database
+> schema can still change between versions, and an upgrade may need a migration that has not been rehearsed
+> on your data. Run it where you can afford to be surprised — a lab, a staging fleet, hosts you can rebuild.
+> It is a real system doing real work, and it is not yet a promise you should build a change process on.
+>
+> **It is also entirely "vibe coded"** — written conversationally, by an AI pair working against real hosts.
+> What is documented has been exercised on real machines and the numbers were measured, not estimated; what is
+> missing is listed as missing.
+
+## Start here
+
+| | |
+|---|---|
+| **[The presentation](docs/index.html)** | What yoloman and Bossman are, in one page, with screenshots. The landing page of the documentation. |
+| **[CHANGELOG.md](CHANGELOG.md)** | What is new, what changed, what was fixed — and, in its own section, **what is still missing**. |
+| **[Every screen](docs/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
+| **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform, generated from what the agents publish. Machine-readable beside each: [.json](docs/modules-windows.json) |
+| **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
+
+> **On the two HTML pages above:** GitHub renders `README.md` on a repository page and shows an `.html` file
+> as *source code* — so [docs/index.html](docs/index.html) and
+> [docs/frontend-presentation.html](docs/frontend-presentation.html) only display as pages when they are
+> served: either through **GitHub Pages** (from this repository's `/docs` folder — not enabled yet) or by
+> opening the file locally. That is why the presentation below lives in this README as well: the page GitHub
+> actually shows has to carry it.
+
+## What it looks like
+
+Three screens from the running system, taken while this was written.
+
+![The management console showing a Windows host's services](docs/screenshots/mmc-console-services.png)
+
+*The management console: MMC's snap-in tree rebuilt — tree on the left, result list in the middle, actions on
+the selected row. 195 services from a Windows host; the same tree serves a Debian one, and the snap-ins it
+cannot offer say why.*
+
+![The result log listing operations with their outcomes](docs/screenshots/result-log.png)
+
+*The result log: what hosts **did**, and what came back — not the audit log, which records what was asked of
+the server. A request and its effect are two facts, and only the second answers "did that install work".*
+
+![Assigning a check to a scope, with its generated parameter form](docs/screenshots/assign-check-dialog.png)
+
+*Assigning a check to an OU. The parameter form is generated from the check's own metadata, and nothing is
+written until the staged changes are applied together.*
+
+## What it does
+
+| | |
+|---|---|
+| **Monitoring that says why** | Checks run on the host and become services with state, value and a sentence. 1432 checks available, most translated from Checkmk; writing your own is two files and one validation command. |
+| **Configuration as values, not text** | Config files are parsed by a codec into values, merged per key with the winning scope recorded, and written back — with generations and rollback. 2484 file grammars, 3272 described fields. |
+| **Windows managed as Windows** | Roles and features, scheduled tasks, shares, firewall rules, IIS, DNS, DHCP, the event log, Group Policy — 34 modules, each idempotent and previewable. Windows' own words pass through: install state has seven values, a restart is *yes/no/maybe*. |
+| **A console you already know** | MMC's snap-in tree: 19 snap-ins over any managed host, Linux included, declared as JSON. Create dialogs are generated from each module's own schema, so a form cannot offer a parameter the module would refuse. |
+| **A record of what was done** | Every module call leaves an operation record: parameters, verdict, evidence, who asked. Eight outcomes that are never collapsed — a dry run is not a no-op, a refusal is not a crash, and *timed-out* may have completed. |
+| **Bare metal to running host** | PXE-boot a machine, image it, write its identity and network in, and let it come up already enrolled — with roles as desired state rather than a one-time script. |
+
 A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
 **observability**, and **configuration management** to an AI — over [MCP](https://modelcontextprotocol.io)
 (stdio or Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime on the
@@ -32,6 +90,153 @@ Two cooperating components:
   Aggregates the fleet, compiles per-host desired state (GPO-style), translates foreign automation
   (Ansible collections, Checkmk checks) into the agent's sandboxed runtime, and gives an AI one
   endpoint for the whole infrastructure.
+
+---
+
+## Install
+
+Three ways in, and they are not equivalent — pick by what the host should be.
+
+| | what it gives you | when |
+|---|---|---|
+| **Docker Compose** *(primary)* | the whole stack — Bossman, its database, the web console, the poller — in one command | evaluating, and the normal way to run the controller |
+| **`yoloman-bossman` package** | the controller natively: bundled Python runtime, systemd unit, web console on one port. **You provide PostgreSQL.** | a host where a container runtime is not wanted |
+| **`yoloman-agent` package** | one managed node: a single static Go binary + systemd unit | every machine you want to manage |
+
+The Docker deployment stays the primary one, and that is a statement about support rather than taste: it is
+what the project is developed and tested against every day. The packages exist because a controller is
+sometimes not allowed to be a container, and because a managed node should never need one.
+
+### Quick start — Docker (5 minutes)
+
+```bash
+git clone https://github.com/imoes/yoloman && cd yoloman
+docker compose up -d --build          # Bossman + TimescaleDB + web console + poller
+```
+
+Open **http://localhost:4201** and log in with `admin` / `admin123` (seeded on first start — change it).
+Then add your first node:
+
+```bash
+# ON THE MACHINE TO MANAGE — the agent dials nothing; Bossman connects to it.
+curl -fsSL https://github.com/imoes/yoloman/releases/latest/download/agent.deb -o agent.deb
+sudo apt install ./agent.deb          # or: dnf install ./agent.rpm
+```
+
+In the console: **Hosts → Add host**, give it the address (`<host>:8010`) and the bearer token the agent's
+postinst generated in `/etc/agentic-mcp/config.yaml`. The host appears with its facts, services and config
+files within a minute.
+
+### Quick start — packages, no Docker
+
+The controller needs a database first. This is the one thing the package cannot install for you: PostgreSQL
+with **timescaledb** (hypertables and continuous aggregates for the metric store) and **pgvector** (search
+embeddings). The migration enables both extensions; it cannot install them.
+
+```bash
+# 1. the database (example: Debian, with Timescale's own repository already set up)
+sudo -u postgres createuser bossman --pwprompt
+sudo -u postgres createdb -O bossman bossman
+
+# 2. the controller
+sudo apt install ./yoloman-bossman_<version>_amd64.deb
+
+# 3. point it at the database and create the schema
+sudo sed -i 's|CHANGE_ME|<the password from step 1>|' /etc/yoloman/bossman.env
+sudo bossman-migrate
+
+# 4. start it
+sudo systemctl start yoloman-bossman
+```
+
+Then open the console and **it asks you to create the first administrator** — no password on a command line,
+and nothing to type into a shell you may not even have on that host. That form is a one-shot: the endpoint
+behind it refuses with 409 the moment any account exists, so it closes behind itself rather than being a
+signup route somebody forgot to protect. (`bossman-create-admin` still exists for a scripted install.)
+
+The console is then on **http://127.0.0.1:8000** — served by the same process, since a native install has no
+nginx. It binds to localhost on purpose: this console manages your fleet, and a fresh install should not be
+reachable from the network before you have changed the password. Put it behind a TLS reverse proxy, or set
+`BOSSMAN_BIND=0.0.0.0` in `/etc/yoloman/bossman.env` once you have.
+
+Every setting lives in that one file; each is a `BOSSMAN_`-prefixed field of
+[`bossman/bossman/config.py`](bossman/bossman/config.py). `systemctl restart yoloman-bossman` applies it.
+
+**The agent, on each managed node:**
+
+```bash
+sudo apt install ./yoloman-agent_<version>_amd64.deb    # or dnf install ./…rpm
+```
+
+It starts read-only. Two things it does at install time are worth knowing:
+
+- **it generates a bearer token** into `/etc/agentic-mcp/config.yaml` (mode 0600) — that is what you paste
+  into Bossman when adding the host;
+- **it creates the group `yoloman-agent` is administered through**, `yoloadmin`, **empty**. Members of that
+  group — and `root`, always — can sign in to the agent's own standalone web console on
+  `https://<host>:8010/ui/`. Empty means nobody but root can, which is the honest state for a fresh install:
+  `sudo gpasswd -a <user> yoloadmin` when you want a human in there.
+
+### Package repository (apt / dnf)
+
+Installing a `.deb` by hand installs it once and never mentions the next version. The repository is what makes
+`apt upgrade` work. The tree is built by `scripts/build-repo.sh`, signed, and published to the **`gh-pages`
+branch** by `scripts/publish-repo.sh`.
+
+The tree is built by `scripts/build-repo.sh`, signed, and published by `scripts/publish-repo.sh` to
+**[imoes/yoloman-packages](https://github.com/imoes/yoloman-packages)** — a repository of its own, not a
+branch of this one. A branch holding 250 MB of packages is dragged along by every `git clone` of the source:
+measured, a full clone went from 74 MB to 302 MB the moment it existed. Packages are release artifacts, not
+source history.
+
+```bash
+# Debian / Ubuntu
+curl -fsSL https://imoes.github.io/yoloman-packages/yoloman-archive-keyring.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/yoloman-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/yoloman-archive-keyring.gpg] https://imoes.github.io/yoloman-packages/deb stable main" \
+  | sudo tee /etc/apt/sources.list.d/yoloman.list
+sudo apt update && sudo apt install yoloman-agent
+
+# RHEL / AlmaLinux / Rocky / Fedora
+sudo rpm --import https://imoes.github.io/yoloman-packages/rpm/repodata/repomd.xml.key
+sudo tee /etc/yum.repos.d/yoloman.repo <<'REPO'
+[yoloman]
+name=YOLO-MANager
+baseurl=https://imoes.github.io/yoloman-packages/rpm
+enabled=1
+repo_gpgcheck=1
+gpgkey=https://imoes.github.io/yoloman-packages/rpm/repodata/repomd.xml.key
+REPO
+sudo dnf install yoloman-agent
+```
+
+The repository is **signed** — apt verifies through `signed-by`, dnf through `repo_gpgcheck`, so neither
+needs `trusted=yes` or `gpgcheck=0`. The signing key:
+
+```
+YOLO-MANager package signing (apt/yum repository) <yoloman@users.noreply.github.com>
+ed25519, fingerprint C052 E324 E1E6 0722 5EFF  6B73 ADEC 047E 24F8 F241
+```
+
+`scripts/test-repo.sh` installs from the tree with that verification switched ON — a signed repository tested
+with `trusted=yes` would prove nothing about the signature, which is the entire point of having one.
+
+Building and proving the repository locally:
+
+```bash
+scripts/build-agent-deb.sh          # yoloman-agent .deb + .rpm
+scripts/build-bossman-deb.sh        # yoloman-bossman .deb + .rpm (bundled runtime; ~100 MB)
+scripts/build-repo.sh               # the apt + yum tree under deploy-artifacts/repo
+scripts/test-repo.sh                # serves it and installs FROM it on debian:12 and almalinux:9
+```
+
+Every one of those is install-tested against real distributions rather than assumed:
+
+| script | what it proves |
+|---|---|
+| `scripts/install-test-agent-deb.sh` | the agent installs on debian:12 + almalinux:9, creates `yoloadmin`, ships all eleven catalog files, and four real logins behave (root without the group, a member, a non-member with the same password, a wrong password) |
+| `scripts/install-test-bossman.sh` | the controller installs against a real TimescaleDB, migrates, creates an operator, answers `/healthz`, logs that operator in, serves the console, survives a deep link, and does **not** shadow `/api/v1` |
+| `scripts/test-repo.sh` | `apt install` and `dnf install` both work off the generated repository |
 
 ---
 
@@ -117,7 +322,40 @@ Runs on every managed host. Highlights:
 - **eBPF observability** (Coroot-style) — TCP connection tracking, process-exec events, disk-I/O
   latency, container-aware, with graceful degradation on older kernels.
 - **Local SQLite metrics store** with retention/downsampling and a bulk `metrics_dump` endpoint.
-- **PAM login + SQLite-backed per-token/user/group ACL** with a per-tool kill switch, enforced
+- **A path that no package ships is named as such** — the codec registry answers *how* a config file is
+  written and says nothing about whether there *is* one. 2248 of its 14599 entries have a path that is
+  exactly their package's own name (`/etc/bind`, `/etc/aide`, `/etc/ttygif`), 1342 of them recorded with
+  confidence "high". Extracting the real `.deb` settles it per path — file, directory, dangling symlink or
+  absent, with "absent but created by a maintainer script" kept apart from "nothing accounts for this" — and
+  `/config-fields` carries the verdict, so a screen says *no file is shipped there* instead of opening an
+  editor on nothing. **2001 of 3563 "Configure this file" offers were withdrawn** on that measurement — the
+  write path is whole-file, so pressing one would have created a file in `/etc` that looks configured and
+  that nothing reads. Withdrawn, not deleted: they are reported with the template, the verdict and the
+  package, because a binding that just vanished is indistinguishable from one that never existed, and the
+  next batch run would recreate it.
+  **Two guards decide when the verdict may not withdraw**, because "not in this package on this distro" is
+  not "no such file": the harvested corpus proves the file exists somewhere (`/etc/named.conf` is absent from
+  Debian's bind9 and present on EL — 51 such cases), and the package manager itself, asked in a base image,
+  disclaims 34 of debian:12's 106 `/etc` files (`/etc/hostname`, `/etc/fstab`, `/etc/passwd`, the `pam.d/
+  common-*` stack) because the system creates them. Without the second guard the measurement withdrew the
+  editor for the machine's own hostname.
+- **The same config editor with or without Bossman** — `GET /api/v1/config-fields?path=` answers "what can
+  be set in this file, and how is it written" (per-key codec merge, whole-file template render, or neither
+  with the reason named). A standalone agent serves it from projections recorded by Bossman's own rules
+  rather than a second implementation, and `scripts/diff-agent-config-fields.sh` measures that the two agree
+  key for key.
+- **Local login for the standalone UI** — `POST /api/v1/auth/login` verifies a username/password
+  against this host's own accounts and must ALSO find the user in group **`yoloadmin`** (created
+  empty by the package's postinst; grant with `gpasswd -a <user> yoloadmin`). A correct password is
+  not authorisation, so a service account with a password cannot administer the host. **Root is
+  always exempt from the group** — the group starts empty, and the account that already owns every
+  file on the host must not be locked out of the interface whose purpose is being the way in. The
+  exemption is UID 0, not the name, and root's password is still required. Two backends,
+  chosen by the build: real libpam (`CGO_ENABLED=1`, the packaged binary) or pam_unix's own
+  `unix_chkpwd` helper when there is no libpam linked at all — so a fully static build still has a
+  login. `GET /api/v1/auth/methods` says which is available and, when none is, *why*, so the form is
+  not offered on a host that cannot honour it.
+- **SQLite-backed per-token/user/group ACL** with a per-tool kill switch, enforced
   identically over MCP and REST. Every mutating action previews in `check_mode` first; real
   execution requires a global `write: true` switch (default `false` — mutating tools aren't even
   registered otherwise).
@@ -303,6 +541,16 @@ host has for it — one per filesystem, per file, per sensor — exactly like a 
 
 Assign a check on the **host's Checks tab** or, GPO-style, to a **group/OU in OU / Policy** — a
 host's own config overrides the inherited one, warn/crit levels merged weakest→strongest.
+
+**Check templates** (Library ▸ Check templates) bundle threshold rules into a named, reusable set —
+the Zabbix/Checkmk "template" idea. A template can **nest** other templates and then also carries
+their rules (resolved transitively, cycle-safe), and it is **linked to host groups**: linking
+*materializes* real check rules scoped to that group, and editing the template updates them in every
+group it is linked to. The screen shows both sides so the effect is checkable rather than promised —
+the *rule* ("3 effective: 2 own + 1 nested") next to the *instance* ("3 materialized check rules in
+this group"). Rules born from a template are read-only where they land: the API refuses a direct
+edit (`409 — edit the template instead`), and the host's rule list names the template that owns them.
+
 **Auto-discovery** runs the checks' discovery on a host and proposes assignments; when a check needs
 credentials (e.g. a MySQL monitoring user), a **provisioning recipe** (`<name>.provision.nt`) creates
 the account on the host and stores the generated credential — the admin credentials are used once and
@@ -327,14 +575,14 @@ Start with `list_hosts` (name, mode, enrollment, online, OU/tags). For one host:
 (cross-signal snapshot). Fleet health: `fleet_health`, `list_problems`. Logs/procs:
 `get_host_logs`, `get_host_processes`. The whole host as one document:
 `get_server_document(host)`; ask it a question with `explain_server(host, question)`.
-In the UI this is the host's **Overview / Services / Configuration** tabs.
+In the UI this is the host's **Overview / Services** tabs plus **Management ▸ Configuration**.
 
 ### Configure ONE host (set_host_config)
 Set a single config file on one machine: `set_host_config(host, path, values,
 dry_run=True)` — it merges into the file via the file's codec (foreign keys kept),
 previews the diff, and only writes when `dry_run=False`. Managed files are then
 **auto-enforced every poll** (drift is reverted and recorded as a roll-backable
-generation). UI: the host's **Configuration → Settings** (gpedit) tab.
+generation). UI: the host's **Management ▸ Configuration ▸ Settings** (gpedit) snap-in.
 
 ### Configure MANY hosts with a policy (named policies, link to a scope)
 A policy is a **named container** of config-file entries you author once and **link
@@ -359,7 +607,8 @@ tree object and in the report.
 See state with `list_problems` and `host_services(host)`. Author a rule with
 `set_threshold(host_or_scope, metric, comparison, warn, crit)`. Manage noise with
 `acknowledge_problem` and `schedule_downtime`. To see **which rule wins** for a host
-and why, open its **Configuration → Effective thresholds** tab (closest-to-host).
+and why, open its **Management ▸ Configuration ▸ Effective thresholds** (closest-to-host) — or the
+same thresholds from the service row itself, whichever door you are standing at.
 
 ### Find and read a check (list_checks, get_check)
 `list_checks(query)` returns each check's name, short description, one-paragraph
@@ -577,6 +826,11 @@ CGO_ENABLED=0 go build -o bin/starlark-check ./cmd/starlark-check
 
 # Bossman stack
 docker compose up -d --build
+
+# Packages (see Install above for what each one is tested to do)
+scripts/build-agent-deb.sh          # yoloman-agent .deb + .rpm
+scripts/build-bossman-deb.sh        # yoloman-bossman .deb + .rpm
+scripts/build-repo.sh               # the apt + yum repository tree
 ```
 
 Without a config file the agent falls back to built-in defaults (`127.0.0.1:8010`, write disabled).

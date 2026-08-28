@@ -1,0 +1,33 @@
+# ==============================================================================
+# nmzmail Configuration Template
+# ==============================================================================
+# This file configures nmzmail, a full-text search indexer for maildir folders.
+# It is designed to be used in conjunction with mutt/namazu2 for local email search.
+#
+# Variables used:
+#   base       - Base directory for nmzmail index data
+#   result     - Directory for storing search result temporary files
+#   limit      - Maximum number of results returned per query (0 for unlimited)
+#   maildirs   - List of maildir paths to be indexed
+# ==============================================================================
+
+# Base directory where nmzmail builds its index.
+# Corresponds to: -b <base> (default: $HOME/.nmzmail)
+base: {{ base | default('/home/user/.nmzmail') }}
+
+# Result directory where nmzmail builds search results.
+# Corresponds to: -r <result> (default: within $HOME/.nmzmail)
+result: {{ result | default('/home/user/.nmzmail/result') }}
+
+# Maximum number of results returned when querying via command line.
+# Corresponds to: -n <limit> (default: unlimited, often 50)
+# Set to 0 or null for no limit.
+limit: {{ limit | default(50) }}
+
+# List of maildir directories to be indexed.
+# Corresponds to: -i <maildir1> <maildir2> ...
+# The list is joined with spaces to form the command line arguments.
+# If the list is empty, no maildirs are indexed.
+maildirs: |
+  {% for maildir in maildirs | default([]) %}  {{ maildir }}
+  {% endfor %}

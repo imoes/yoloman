@@ -30,7 +30,6 @@ RUN uv sync --frozen --no-dev
 COPY bossman ./bossman
 COPY alembic ./alembic
 COPY alembic.ini ./
-COPY scripts ./scripts
 
 # The gonja render-check binary (enum-enrich gate for the on-demand qualify
 # endpoint) is INSTALLED into the image — not mounted — so a qualify run in the
@@ -45,13 +44,11 @@ ENV RENDER_CHECK_BIN=/usr/local/bin/render-check
 # overridden (see docker-compose.yml) to point here instead.
 RUN mkdir -p /app/data/tls
 
-# `python scripts/seed_admin.py` (a plain script-file invocation, unlike
-# `-c` or a console-script entry point such as `alembic`) puts the
-# script's own directory on sys.path[0], not /app — found the hard way,
-# `import bossman` failed even under `uv run` for exactly this invocation
-# form, while `uv run alembic upgrade head` worked (alembic's own CLI adds
-# the CWD to sys.path itself). PYTHONPATH=/app makes every invocation
-# style import bossman correctly, regardless of how it's run.
+# `python scripts/seed_admin.py` (a plain script-file invocation, unlike `-c` or a console-script entry
+# point such as `alembic`) put the script's own directory on sys.path[0], not /app — found the hard way,
+# `import bossman` failed even under `uv run` for exactly that form. The seed now runs as
+# `-m bossman.tools.seed_admin`, which has no such problem; PYTHONPATH=/app is kept because it makes every
+# other invocation style import bossman correctly too.
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

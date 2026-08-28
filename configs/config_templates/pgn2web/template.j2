@@ -1,0 +1,76 @@
+# ============================================================================
+# pgn2web Configuration Template
+# ============================================================================
+# This file configures pgn2web, a utility that converts PGN (Portable Game
+# Notation) chess game files into navigable HTML pages.
+#
+# Each directive is commented with its purpose, corresponding CLI option,
+# and the schema description. All variables use the |default() filter to
+# ensure safe rendering even if the variable is undefined in the playbook.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Include Homepage Link
+# ----------------------------------------------------------------------------
+# Set to 'yes' to include a link to the pgn2web homepage in the generated HTML.
+# This allows users of the generated pages to easily find the source tool.
+# Corresponds to CLI option: -c yes|no
+#
+# Schema Field: include_homepage_link
+# Default: 'yes'
+# ----------------------------------------------------------------------------
+INCLUDE_HOMEPAGE_LINK: {{ include_homepage_link | default('yes') }}
+
+# ----------------------------------------------------------------------------
+# Chess Piece Visual Set
+# ----------------------------------------------------------------------------
+# Defines the visual appearance of the chess pieces rendered in the HTML.
+# This affects the images/assets loaded by the browser to display the board.
+# Common valid values include: adventurer, alfonso-x, cases, condal, harlequin,
+# kingdom, leipzig, line, lucena, magnetic, mark, marroquin, maya, mediaeval,
+# merida, motif, etc.
+# Corresponds to CLI option: -p <piece-set>
+#
+# Schema Field: piece_set
+# Default: 'alfonso-x'
+# ----------------------------------------------------------------------------
+PIECE_SET: {{ piece_set | default('alfonso-x') }}
+
+# ----------------------------------------------------------------------------
+# HTML Layout Style
+# ----------------------------------------------------------------------------
+# Determines the structure and navigation method of the generated webpages.
+# - frameset: Uses HTML frames to separate the board from move lists.
+# - linked: Creates separate HTML files for each game, linked via a table of contents.
+# - individual: Generates single, self-contained HTML files for each game.
+# Corresponds to CLI option: -s frameset|linked|individual
+#
+# Schema Field: layout_style
+# Default: 'linked'
+# ----------------------------------------------------------------------------
+LAYOUT_STYLE: {{ layout_style | default('linked') }}
+
+# ----------------------------------------------------------------------------
+# Input PGN File Path
+# ----------------------------------------------------------------------------
+# The absolute path to the source PGN file containing the chess games to
+# be converted. Ensure this path is accessible by the user running pgn2web.
+# Corresponds to CLI option: -i <path> (implied by context)
+#
+# Schema Field: pgn_input
+# Default: '/var/lib/pgn2web/games.pgn'
+# ----------------------------------------------------------------------------
+PGN_INPUT: {{ pgn_input | default('/var/lib/pgn2web/games.pgn') }}
+
+# ----------------------------------------------------------------------------
+# Output HTML File Path
+# ----------------------------------------------------------------------------
+# The destination path where the generated HTML content will be written.
+# Depending on `LAYOUT_STYLE`, this may be a single file or a directory.
+# Ensure the parent directory exists and is writable.
+# Corresponds to CLI option: -o <path> (implied by context)
+#
+# Schema Field: html_output
+# Default: '/var/www/html/chess-games.html'
+# ----------------------------------------------------------------------------
+HTML_OUTPUT: {{ html_output | default('/var/www/html/chess-games.html') }}

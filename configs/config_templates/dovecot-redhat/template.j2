@@ -1,0 +1,95 @@
+## Dovecot configuration file
+
+# If you're in a hurry, see http://wiki2.dovecot.org/QuickConfiguration
+
+# "doveconf -n" command gives a clean output of the changed settings. Use it
+# instead of copy&pasting files when posting to the Dovecot mailing list.
+
+# '#' character and everything after it is treated as comments. Extra spaces
+# and tabs are ignored. If you want to use either of these explicitly, put the
+# value inside quotes, eg.: key = "# char and trailing whitespace  "
+
+# Most (but not all) settings can be overridden by different protocols and/or
+# source/destination IPs by placing the settings inside sections, for example:
+# protocol imap { }, local 127.0.0.1 { }, remote 10.0.0.0/8 { }
+
+# Default values are shown for each setting, it's not required to uncomment
+# those. These are exceptions to this though: No sections (e.g. namespace {})
+# or plugin settings are added by default, they're listed only as examples.
+# Paths are also just examples with the real defaults being based on configure
+# options. The paths listed here are for configure --prefix=/usr
+# --sysconfdir=/etc --localstatedir=/var
+
+# Protocols we want to be serving.
+{% if protocols %}protocols = {{ protocols }}{% else %}#protocols = imap pop3 lmtp submission{% endif %}
+
+# A comma separated list of IPs or hosts where to listen in for connections. 
+# "*" listens in all IPv4 interfaces, "::" listens in all IPv6 interfaces.
+# If you want to specify non-default ports or anything more complex,
+# edit conf.d/master.conf.
+{% if listen %}listen = {{ listen }}{% else %}#listen = *, ::{% endif %}
+
+# Base directory where to store runtime data.
+{% if base_dir %}base_dir = {{ base_dir }}{% else %}#base_dir = /var/run/dovecot/{% endif %}
+
+# Name of this instance. In multi-instance setup doveadm and other commands
+# can use -i <instance_name> to select which instance is used (an alternative
+# to -c <config_path>). The instance name is also added to Dovecot processes
+# in ps output.
+{% if instance_name %}instance_name = {{ instance_name }}{% else %}#instance_name = dovecot{% endif %}
+
+# Greeting message for clients.
+{% if login_greeting %}login_greeting = {{ login_greeting }}{% else %}#login_greeting = Dovecot ready.{% endif %}
+
+# Space separated list of trusted network ranges. Connections from these
+# IPs are allowed to override their IP addresses and ports (for logging and
+# for authentication checks). disable_plaintext_auth is also ignored for
+# these networks. Typically you'd specify your IMAP proxy servers here.
+{% if login_trusted_networks %}login_trusted_networks = {{ login_trusted_networks }}{% else %}#login_trusted_networks ={% endif %}
+
+# Space separated list of login access check sockets (e.g. tcpwrap)
+{% if login_access_sockets %}login_access_sockets = {{ login_access_sockets }}{% else %}#login_access_sockets = {% endif %}
+
+# With proxy_maybe=yes if proxy destination matches any of these IPs, don't do
+# proxying. This isn't necessary normally, but may be useful if the destination
+# IP is e.g. a load balancer's IP.
+{% if auth_proxy_self %}auth_proxy_self = {{ auth_proxy_self }}{% else %}#auth_proxy_self ={% endif %}
+
+# Show more verbose process titles (in ps). Currently shows user name and
+# IP address. Useful for seeing who are actually using the IMAP processes
+# (eg. shared mailboxes or if same uid is used for multiple accounts).
+{% if verbose_proctitle %}verbose_proctitle = {{ verbose_proctitle | lower }}{% else %}#verbose_proctitle = no{% endif %}
+
+# Should all processes be killed when Dovecot master process shuts down.
+# Setting this to "no" means that Dovecot can be upgraded without
+# forcing existing client connections to close (although that could also be
+# a problem if the upgrade is e.g. because of a security fix).
+{% if shutdown_clients %}shutdown_clients = {{ shutdown_clients | lower }}{% else %}#shutdown_clients = yes{% endif %}
+
+# If non-zero, run mail commands via this many connections to doveadm server,
+# instead of running them directly in the same process.
+{% if doveadm_worker_count %}doveadm_worker_count = {{ doveadm_worker_count }}{% else %}#doveadm_worker_count = 0{% endif %}
+# UNIX socket or host:port used for connecting to doveadm server
+{% if doveadm_socket_path %}doveadm_socket_path = {{ doveadm_socket_path }}{% else %}#doveadm_socket_path = doveadm-server{% endif %}
+
+# Space separated list of environment variables that are preserved on Dovecot
+# startup and passed down to all of its child processes. You can also give
+# key=value pairs to always set specific settings.
+{% if import_environment %}import_environment = {{ import_environment }}{% else %}#import_environment = TZ{% endif %}
+
+##
+## Dictionary server settings
+##
+
+dict {
+  #quota = mysql:/etc/dovecot/dovecot-dict-sql.conf.ext
+}
+
+# Most of the actual configuration gets included below. The filenames are
+# first sorted by their ASCII value and parsed in that order. The 00-prefixes
+# in filenames are intended to make it easier to understand the ordering.
+!include conf.d/*.conf
+
+# A config file can also tried to be included without giving an error if
+# it's not found:
+!include_try local.conf

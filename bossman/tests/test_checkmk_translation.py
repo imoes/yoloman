@@ -1,11 +1,11 @@
 """Block G9 — the Checkmk-check translation helpers (pure, no LLM/IO)."""
 
-import nestedtext
+import yaml
 
 from bossman.services.checkmk_translation import (
     CHECK_CONTRACT_ADDENDUM,
     build_checkmk_messages,
-    build_checkmk_metadata_nt,
+    build_checkmk_metadata,
 )
 
 _RECORD = {
@@ -23,12 +23,13 @@ _RECORD = {
 }
 
 
-def test_metadata_is_readonly_check_nt():
-    meta = nestedtext.loads(build_checkmk_metadata_nt(_RECORD), top="dict")
+def test_metadata_is_a_readonly_check():
+    meta = yaml.safe_load(build_checkmk_metadata(_RECORD))
     assert meta["fqcn"] == "checkmk.fileinfo"
     assert meta["collection"] == "checkmk"
-    # NestedText leaves are strings — writes is the string "False", kind "check"
-    assert meta["writes"] == "False"        # a check never mutates
+    # A REAL bool now. NestedText required every leaf to be a string, so this was "False" — and the Go
+    # agent's coerceBool has always accepted both, which is why the switch is safe as well as more correct.
+    assert meta["writes"] is False         # a check never mutates
     assert meta["runtime"] == "starlark"
     assert meta["kind"] == "check"
     assert meta["source"] == "translated"
@@ -36,7 +37,7 @@ def test_metadata_is_readonly_check_nt():
 
 
 def test_metadata_has_required_keys():
-    meta = nestedtext.loads(build_checkmk_metadata_nt(_RECORD), top="dict")
+    meta = yaml.safe_load(build_checkmk_metadata(_RECORD))
     for key in ("name", "fqcn", "collection", "short_description", "options", "writes", "runtime"):
         assert key in meta, key
 

@@ -1,0 +1,24 @@
+# Configuration for tea-cli (Gitea CLI tool)
+# See https://cli.gitea.com/
+
+# The default Gitea server URL used if no server is specified during login.
+default_server_url = "{{ (values | default({})).default_server_url | default('https://gitea.com') }}"
+
+# The default limit for items returned per page in API queries (e.g., issues, PRs).
+pagination_limit = {{ (values | default({})).pagination_limit | default(30) }}
+
+# The default output format for commands that support -o/--output. Allowed: simple, table, csv, tsv, yaml, json.
+default_output_format = "{{ (values | default({})).default_output_format | default('simple') }}"
+
+# A list of Gitea authentication profiles to configure in the tea config file.
+# Each item is a flat map of fields allowed in the [logins.<name>] section.
+{% for login in ((values | default({})).logins | default([])) %}
+[logins.{{ (login | default({})).name | default('unnamed') | string }}]
+url = "{{ (login | default({})).url | default('') | string }}"
+{% if (login | default({})).token is defined and ((login | default({})).token | default('') | string) != '' %}token = "{{ (login | default({})).token | string }}"
+{% endif %}
+{% if (login | default({})).ssh_key is defined and ((login | default({})).ssh_key | default('') | string) != '' %}ssh_key = "{{ (login | default({})).ssh_key | string }}"
+{% endif %}
+{% if (login | default({})).scopes is defined and ((login | default({})).scopes | default('') | string) != '' %}scopes = "{{ (login | default({})).scopes | string }}"
+{% endif %}
+{% endfor %}

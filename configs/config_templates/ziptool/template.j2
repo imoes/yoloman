@@ -1,0 +1,28 @@
+# Canonical configuration for ziptool CLI operations
+
+# Global flags for the ziptool command invocation
+# Supported flags: c (check), e (error if exists), g (guess encoding), n (create if not exist), r (raw encoding), s (strict encoding), t (truncate)
+# This section defines single-character flags passed directly to the ziptool binary.
+# An empty list results in no global flags.
+global_flags: {{ (global_flags | default([])) | join('') }}
+
+# The target zip archive path
+# This is the primary file that ziptool will read from and write to.
+zip_archive: {{ zip_archive | default('/var/lib/ziptool/archive.zip') }}
+
+# Input constraints for reading partial archives
+# -o: Start reading input archive from offset
+input_offset: {{ input_offset | default(0) }}
+
+# -l: Only read length bytes of archive
+# Set to 0 to read until the end of the file.
+input_length: {{ input_length | default(0) }}
+
+# List of commands to execute sequentially
+# Each item in this list represents a single operation on the zip archive.
+commands:
+{% for cmd in (commands | default([])) %}
+# Command: {{ cmd.command | default('add') }}{% if cmd.args | default([]) %}
+  # Args: {{ cmd.args | default([]) }}{% endif %}
+  {{ cmd.command | default('add') }}{% if cmd.args | default([]) %} {{ cmd.args | default([]) | join(' ') }}{% endif %}
+{% endfor %}

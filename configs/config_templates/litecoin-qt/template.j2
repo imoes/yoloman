@@ -1,0 +1,140 @@
+# ============================================================================
+# Litecoin-Qt / Litecoind Configuration Template
+# ============================================================================
+# This template generates a self-documenting configuration file for litecoin-qt or litecoind.
+# It covers blockchain network selection, RPC interface settings, P2P network
+# configuration, wallet parameters, and debugging/optimization options.
+#
+# Variables are sourced from Ansible inventory/group vars. Every variable reference
+# uses the `default` filter to prevent render failures if a variable is undefined.
+# ============================================================================
+
+# [Chain Selection]
+# Specifies the blockchain network to use. Allowed values: main, test, signet, regtest.
+# Default: main
+chain={{ chain | default('main') }}
+
+# [Data Directory]
+# Directory to hold blocks and wallet data.
+# Default: /var/lib/litecoin
+datadir={{ datadir | default('/var/lib/litecoin') }}
+
+# [Server & RPC Interface]
+# Enable server mode to accept JSON-RPC commands.
+# Note: litecoin-qt is primarily a GUI client; for headless operation, use litecoind.
+# This setting enables the RPC interface used by external applications.
+# Default: False
+server={{ server | default(false) | lower }}
+
+# --- RPC Authentication ---
+
+# Username for JSON-RPC connections.
+# Default: litecoinrpc
+rpcuser={{ rpcuser | default('litecoinrpc') }}
+
+# Password for JSON-RPC connections.
+# SECURITY WARNING: Ensure this is a strong, unique password.
+# Default: secure_password_123
+rpcpassword={{ rpcpassword | default('secure_password_123') }}
+
+# Port to listen for JSON-RPC connections.
+# Default: 9332
+rpcport={{ rpcport | default(9332) }}
+
+# Bind RPC server to specific address to listen for JSON-RPC connections.
+# It is recommended to bind to 127.0.0.1 for security unless remote access is required.
+# Default: 127.0.0.1
+rpcbind={{ rpcbind | default('127.0.0.1') }}
+
+# List of IP addresses allowed to connect via JSON-RPC.
+# Supports CIDR notation (e.g., 192.168.1.0/24).
+# Default: ['127.0.0.1']
+{% for ip in (rpcallowip | default(['127.0.0.1'])) %}
+rpcallowip={{ ip }}
+{% endfor %}
+
+# [Network & P2P Configuration]
+# Enable all P2P network activity.
+# Set to false to run in silent/seed-only mode.
+# Default: True
+networkactive={{ networkactive | default(true) | lower }}
+
+# Port to listen for incoming peer connections.
+# Default: 9333
+port={{ port | default(9333) }}
+
+# Bind to a specific address for peer connections.
+# Can append '=onion' to tag the binding as a Tor onion service.
+# Default: 0.0.0.0
+bind={{ bind | default('0.0.0.0') }}
+
+# List of nodes to connect to exclusively.
+# If this list is provided, automatic peer discovery (DNS seeds) is disabled
+# and the node will only connect to these peers.
+# Default: [] (empty list)
+{% for node in (connect | default([])) %}
+connect={{ node }}
+{% endfor %}
+
+# List of nodes to add to the connection list.
+# These nodes are added as peers but automatic discovery remains active.
+# Default: [] (empty list)
+{% for node in (addnode | default([])) %}
+addnode={{ node }}
+{% endfor %}
+
+# Query for peer addresses via DNS lookup.
+# Default: True
+dnsseed={{ dnsseed | default(true) | lower }}
+
+# [Wallet Configuration]
+# Paths to wallet files or directories to load at startup.
+# Can be specified multiple times.
+# Default: [] (empty list)
+{% for wallet_path in (wallets | default([])) %}
+wallet={{ wallet_path }}
+{% endfor %}
+
+# Directory to hold wallet data files.
+# Default: /var/lib/litecoin/wallets
+walletdir={{ walletdir | default('/var/lib/litecoin/wallets') }}
+
+# Type of addresses to generate for new transactions.
+# Options: legacy, p2sh-segwit, bech32.
+# Default: bech32
+addresstype={{ addresstype | default('bech32') }}
+
+# Type of change output addresses.
+# Options: legacy, p2sh-segwit, bech32.
+# Default: bech32
+changetype={{ changetype | default('bech32') }}
+
+# [General & Debugging]
+# Location of debug log file relative to datadir.
+# Default: debug.log
+debuglogfile={{ debuglogfile | default('debug.log') }}
+
+# Reduce storage requirements by pruning old blocks (in MiB).
+# Set to 0 to disable pruning. Minimum for pruning is typically 550 MiB.
+# Default: 0
+prune={{ prune | default(0) }}
+
+# Number of script verification threads.
+# Set to 0 for automatic detection based on CPU cores.
+# Default: 0
+par={{ par | default(0) }}
+
+# Maximum database cache size in MiB.
+# This helps with performance for large blockchain datasets.
+# Default: 450
+dbcache={{ dbcache | default(450) }}
+
+# Keep the transaction memory pool below this size in megabytes.
+# Default: 300
+maxmempool={{ maxmempool | default(300) }}
+
+# Output debugging information.
+# '1' for all categories, or specific categories like 'net,tor,mempool'.
+# Leave empty to disable specific debug output.
+# Default: '' (empty string)
+debug={{ debug | default('') }}

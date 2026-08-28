@@ -1,0 +1,46 @@
+# Piper gaming device configuration
+# This template generates a configuration file for the Piper GTK application
+# used to configure gaming devices (e.g., mouse, keyboard) via libratbag.
+# Self-documenting: every directive is preceded by its schema description.
+
+[General]
+# Default language code for the application interface
+language = {{ (language | default('en')) }}
+
+[Device]
+# Default polling rate in Hz for gaming mice
+default_polling_rate = {{ (default_polling_rate | default(1000)) }}
+
+# List of connected devices to configure
+{% set devices_list = devices | default([]) %}
+{% for device in devices_list %}
+# Start of configuration block for a specific gaming device
+[Device:{{ (device.name | default('unnamed')) }}]
+# Unique name for the device
+name = {{ (device.name | default('unnamed')) }}
+# Vendor ID (hexadecimal)
+vendor_id = {{ (device.vendor_id | default('0x0000')) }}
+# Product ID (hexadecimal)
+product_id = {{ (device.product_id | default('0x0000')) }}
+
+# Profiles available for this device
+{% set profiles_list = device.profiles | default([]) %}
+{% for profile in profiles_list %}
+# Configuration block for a specific profile
+[Profile:{{ (profile.number | default(0)) }}]
+# Profile number (0-based or 1-based as per ratbagd)
+number = {{ (profile.number | default(0)) }}
+# DPI settings for this profile
+{% set dpi_levels = profile.dpi_levels | default([]) %}
+{% for dpi in dpi_levels %}
+# DPI value for a specific sensor level
+dpi_{{ (dpi.level | default(0)) }} = {{ (dpi.value | default(800)) }}
+{% endfor %}
+# Button mappings for this profile
+{% set buttons_list = profile.buttons | default([]) %}
+{% for button in buttons_list %}
+# Button mapping: button_id equals action
+button_{{ (button.id | default(0)) }} = {{ (button.action | default('default')) }}
+{% endfor %}
+{% endfor %}
+{% endfor %}

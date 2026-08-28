@@ -1,0 +1,12 @@
+# Mailcap configuration for metamail
+# Each entry defines how to handle a specific MIME content type.
+
+{# Iterate over the list of mailcap entries defined in the schema. #}
+{% for entry in mailcap_entries | default([]) %}
+  {# The description field from the schema entry, used for human-readable documentation within the config. #}
+  # {{ entry.description | default('') }}
+  {# The MIME content type (e.g., 'text/html'), a mandatory part of the mailcap format. #}
+  {{ entry.content_type | default('') }}; {{ entry.command | default('') }}
+  {# Optional flags (e.g., 'needseditornotify'), joined with semicolons if present. #}
+  {% if entry.flags | default([]) %}; {{ entry.flags | default([]) | join('; ') }}{% endif %}
+{% endfor %}

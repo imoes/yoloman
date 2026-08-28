@@ -1,65 +1,65 @@
 {
-  "logtarget": "/var/log/fail2ban.log",
-  "syslogfacility": "daemon",
-  "loglevel": 2,
-  "bantime": "1h",
-  "findtime": "10m",
-  "maxretry": 5,
-  "backend": "auto",
-  "banaction": "iptables-multiport",
-  "banaction_allports": "iptables-allports",
-  "unbanaction": "iptables-delchain",
-  "use_dns": false,
-  "ignoreip": [
-    "127.0.0.1/8",
-    "::1",
-    "192.168.1.0/24"
-  ],
-  "mta": "sendmail",
-  "destemail": "admin@example.com",
-  "sendername": "Fail2Ban",
-  "sender": "fail2ban@example.com",
-  "chain": "INPUT",
-  "protocol": "tcp",
-  "default_port": "ssh",
-  "jails": [
-    {
-      "name": "sshd",
-      "enabled": true,
-      "description": "Secure Shell daemon jail",
-      "port": "ssh",
-      "filter": "sshd",
-      "logpath": [
-        "/var/log/auth.log",
-        "/var/log/secure"
-      ],
-      "maxretry": 5,
-      "findtime": 600,
-      "bantime": 600,
-      "action": "iptables-multiport[name=SSHD, port=ssh, protocol=tcp]"
-    },
-    {
-      "name": "sshd-ddos",
-      "enabled": false,
-      "description": "DDoS protection for SSH (optional)",
-      "port": "ssh",
-      "filter": "sshd-ddos",
-      "logpath": [
-        "/var/log/auth.log"
-      ],
-      "maxretry": 3
-    },
-    {
-      "name": "postfix",
-      "enabled": true,
-      "description": "Postfix mail server protection",
-      "port": "smtp,ssmtp",
-      "filter": "postfix",
-      "logpath": [
-        "/var/log/mail.log"
-      ],
-      "maxretry": 5,
-      "bantime": 3600
-    }
-  ]
+ "backend": "auto",
+ "banaction": "iptables-multiport",
+ "banaction_allports": "iptables-allports",
+ "bantime": "1h",
+ "chain": "INPUT",
+ "default_port": "ssh",
+ "destemail": "admin@example.com",
+ "findtime": "10m",
+ "ignoreip": [
+  "127.0.0.1/8",
+  "::1",
+  "192.168.1.0/24"
+ ],
+ "jails": [
+  {
+   "action": "iptables-multiport[name=SSHD, port=ssh, protocol=tcp]",
+   "bantime": 600,
+   "description": "Secure Shell daemon jail",
+   "enabled": true,
+   "filter": "sshd",
+   "findtime": 600,
+   "logpath": [
+    "/var/log/auth.log",
+    "/var/log/secure"
+   ],
+   "maxretry": 5,
+   "name": "sshd",
+   "port": "ssh"
+  },
+  {
+   "description": "DDoS protection for SSH (optional)",
+   "enabled": false,
+   "filter": "sshd-ddos",
+   "logpath": [
+    "/var/log/auth.log"
+   ],
+   "maxretry": 3,
+   "name": "sshd-ddos",
+   "port": "ssh"
+  },
+  {
+   "bantime": 3600,
+   "description": "Postfix mail server protection",
+   "enabled": true,
+   "filter": "postfix",
+   "logpath": [
+    "/var/log/mail.log"
+   ],
+   "maxretry": 5,
+   "name": "postfix",
+   "port": "smtp,ssmtp"
+  }
+ ],
+ "loglevel": 2,
+ "logtarget": "/var/log/fail2ban.log",
+ "maxretry": 5,
+ "mta": "sendmail",
+ "protocol": "tcp",
+ "sender": "fail2ban@example.com",
+ "sendername": "Fail2Ban",
+ "syslogfacility": "daemon",
+ "unbanaction": "iptables-delchain",
+ "use_dns": false
 }

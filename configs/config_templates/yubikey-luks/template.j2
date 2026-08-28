@@ -1,0 +1,29 @@
+# YubiKey LUKS Configuration
+# ==========================
+# This file configures the behavior of the YubiKey integration with LUKS
+# (Linux Unified Key Setup) during boot authentication.
+#
+# IMPORTANT: After modifying this file, you MUST update the initial ramdisk
+# for the changes to take effect on the next boot:
+#     sudo update-initramfs -u
+
+# Welcome text displayed to the user during the YubiKey authentication prompt.
+# Controls what message is shown before asking for the YubiKey touch or passphrase.
+# Type: String
+WELCOME_TEXT="{{ welcome_text | default('Please insert yubikey and press enter or enter a valid passphrase') }}"
+
+# Concatenate mode.
+# Set to "1" if you want both your password and Yubikey response to be bundled together
+# and written to the key slot. This mode requires the user to enter the password first,
+# then touch the YubiKey, combining them into a single authentication event for the slot.
+# Set to "0" to treat them as separate factors or alternatives depending on other configs.
+# Type: Integer (0 or 1)
+CONCATENATE={{ concatenate | default(0) }}
+
+# Hash password mode.
+# Set to "1" if you want to hash your password with sha256 before combining it with
+# the YubiKey response. This adds an extra layer of transformation for the password component.
+# Set to "0" if the password should be used in plaintext (or whatever default LUKS handles)
+# without additional SHA256 hashing by this utility.
+# Type: Integer (0 or 1)
+HASH={{ hash | default(0) }}

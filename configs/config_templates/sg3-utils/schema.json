@@ -1,44 +1,48 @@
 {
-  "verbose": {
-    "type": "bool",
+ "default_timeout": {
+  "default": 30,
+  "description": "Default timeout (in seconds) for SCSI commands executed by tools like sg_scan and sdparm. Set to 0 for no timeout.",
+  "type": "number"
+ },
+ "device_rules": {
+  "default": [],
+  "description": "List of per-device rules to control how SCSI generic devices are scanned or used. Rules are evaluated in order.",
+  "items": {
+   "comment": {
+    "default": "",
+    "description": "Optional human-readable comment describing this rule.",
+    "type": "string"
+   },
+   "dev_node": {
+    "default": "",
+    "description": "Device node path (e.g., /dev/sda, /dev/sg2) to match. Supports glob patterns like /dev/sd*.",
+    "type": "string"
+   },
+   "skip": {
     "default": false,
-    "description": "Enable verbose output for diagnostic tools (e.g., show device details, command details)."
+    "description": "If true, skip this device entirely (do not expose it to sg3-utils tools).",
+    "type": "bool"
+   },
+   "timeout": {
+    "default": null,
+    "description": "Per-device timeout (in seconds). Overrides the global default_timeout for this device only.",
+    "type": "number"
+   }
   },
-  "default_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Default timeout (in seconds) for SCSI commands executed by tools like sg_scan and sdparm. Set to 0 for no timeout."
-  },
-  "device_rules": {
-    "type": "list",
-    "default": [],
-    "description": "List of per-device rules to control how SCSI generic devices are scanned or used. Rules are evaluated in order.",
-    "items": {
-      "dev_node": {
-        "type": "string",
-        "default": "",
-        "description": "Device node path (e.g., /dev/sda, /dev/sg2) to match. Supports glob patterns like /dev/sd*."
-      },
-      "skip": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, skip this device entirely (do not expose it to sg3-utils tools)."
-      },
-      "timeout": {
-        "type": "number",
-        "default": null,
-        "description": "Per-device timeout (in seconds). Overrides the global default_timeout for this device only."
-      },
-      "comment": {
-        "type": "string",
-        "default": "",
-        "description": "Optional human-readable comment describing this rule."
-      }
-    }
-  },
-  "no_auto": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, disable automatic scanning of /dev/sg* nodes. Useful when using multipath or custom discovery logic."
-  }
+  "type": "list"
+ },
+ "no_auto": {
+  "default": false,
+  "description": "If true, disable automatic scanning of /dev/sg* nodes. Useful when using multipath or custom discovery logic.",
+  "type": "bool"
+ },
+ "omit": {
+  "source": "inferred-from-template",
+  "type": "string"
+ },
+ "verbose": {
+  "default": false,
+  "description": "Enable verbose output for diagnostic tools (e.g., show device details, command details).",
+  "type": "bool"
+ }
 }

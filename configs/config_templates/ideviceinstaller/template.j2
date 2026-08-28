@@ -1,0 +1,65 @@
+# ideviceinstaller configuration template
+# This template generates a command-line invocation for `ideviceinstaller`.
+# It is driven by the role variables defined in the schema.
+
+# Target specific device by UDID. Leave empty for auto-detection.
+# If the variable `udid` is not provided or is empty, the option is omitted
+# to allow ideviceinstaller to auto-detect the connected device.
+{% if udid | default('') | trim != '' %}
+--udid {{ udid | default('') | trim }}
+{% endif %}
+
+# Connect to network device via Wi-Fi.
+# When `network` is true, the --network flag is added to connect over WiFi
+# instead of USB.
+{% if network | default(False) | bool %}
+--network
+{% endif %}
+
+# Wait for app installed/uninstalled notification before reporting success.
+# When `notify_wait` is true, the tool waits for the iOS notification
+# confirming the operation finished before exiting.
+{% if notify_wait | default(False) | bool %}
+--notify-wait
+{% endif %}
+
+# Enable communication debugging.
+# When `debug` is true, verbose debugging information is printed to stderr.
+{% if debug | default(False) | bool %}
+--debug
+{% endif %}
+
+# Command to execute: list, install, uninstall, or upgrade.
+# The subsequent flags and arguments depend on this choice.
+{% set cmd = command | default('list') %}
+{% if cmd == 'list' %}
+# List installed apps on the device.
+# Uses --all to retrieve data for all apps.
+# Attributes to return are specified via --attribute for each attribute name.
+--all
+{% for attr in attributes | default(['CFBundleIdentifier', 'CFBundleShortVersionString', 'CFBundleDisplayName']) %}
+--attribute {{ attr }}
+{% endfor %}
+{% elif cmd == 'install' %}
+# Install app from a package file (.ipa, .ipcc, or .app directory).
+# Specifies the source path.
+# Optionally applies a SINF file for provisioning profile updates.
+# Optionally specifies an external iTunesMetadata.xml file.
+{{ path | default('') }}
+{% if sinf | default('') | trim != '' %}
+--sinf {{ sinf | default('') | trim }}
+{% endif %}
+{% if metadata | default('') | trim != '' %}
+--metadata {{ metadata | default('') | trim }}
+{% endif %}
+{% elif cmd == 'uninstall' %}
+# Uninstall app specified by its Bundle Identifier.
+{{ bundle_identifier | default('') }}
+{% elif cmd == 'upgrade' %}
+# Upgrade app from a package file.
+# Similar to install, but targets an existing app.
+{{ path | default('') }}
+{% if sinf | default('') | trim != '' %}
+--sinf {{ sinf | default('') | trim }}
+{% endif %}
+{% endif %}

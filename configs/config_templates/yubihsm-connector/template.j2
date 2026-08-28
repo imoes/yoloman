@@ -1,0 +1,86 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          yubihsm-connector
+# Required-Start:    $local_fs $network $named $time $syslog
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts the yubihsm-connector
+# Description:       starts yubihsm-connector using start-stop-daemon
+### END INIT INFO
+
+# Description string for the service
+DESC="{{ desc | default('yubihsm-connector') }}"
+
+# Service name used for PID and log files
+NAME={{ name | default('yubihsm-connector') }}
+
+# Path to the yubihsm-connector YAML configuration file
+DAEMONOPTS="-c {{ config_file | default('/etc/yubihsm-connector.yaml') }}"
+
+# System user account to run the daemon as
+DAEMONUSER={{ daemon_user | default('yubihsm-connector') }}
+
+# Environment variable name holding the stop schedule
+STOP_SCHEDULE="${{ stop_schedule_var | default('STOP_SCHEDULE') }}{{ stop_schedule_default | default('/QUIT/5/TERM/5/KILL/5') }}"
+
+PIDFILE=/var/run/$NAME.pid
+LOGFILE=/var/log/$NAME.log
+
+DAEMON=/usr/bin/yubihsm-connector
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+start() {
+    # Create the log file and set ownership for the daemon user
+    touch $LOGFILE && chown $DAEMONUSER $LOGFILE
+    start-stop-daemon --start --quiet --make-pidfile --pidfile $PIDFILE \
+        --background --chuid $DAEMONUSER --oknodo --exec $DAEMON -- $DAEMONOPTS
+}
+
+stop() {
+    # Stop the daemon using the configured retry schedule and remove the PID file
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --retry=$STOP_SCHEDULE \
+        --oknodo
+    rm -f $PIDFILE
+}
+
+status() {
+    # Check if the process is running by inspecting the PID file
+    if [ -f $PIDFILE ]; then
+        if kill -0 $(cat "$PIDFILE"); then
+            echo "$NAME is running"
+        else
+            echo "$NAME process is dead, but pidfile exists"
+        fi
+    else
+        echo "$NAME is not running"
+    fi
+}
+
+case "$1" in
+    start)
+        echo "Starting $NAME"
+        start
+    ;;
+    stop)
+        echo "Stopping $NAME"
+        stop
+    ;;
+    restart|force-reload)
+        echo "Restarting $NAME"
+        stop
+        start
+    ;;
+    status)
+        status
+    ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|force-reload|status}"
+        exit 2
+    ;;
+esac
+
+exit 0

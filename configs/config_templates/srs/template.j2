@@ -1,0 +1,60 @@
+# Configuration for Mail::SRS (srs command line interface)
+# This script generates a wrapper or invocation line based on parameters.
+
+# Primary secret string used for encoding SRS addresses.
+# Overrides --secretfile for encoding if both are present.
+# Corresponds to: --secret
+# Type: string
+srs_secret: {{ (values | default({})).srs_secret | default('CHANGE_ME_SECRET') }}
+
+# Path to a file containing secrets, one per line.
+# Used for decoding; secrets from here are also used for decoding if --secret is specified.
+# Corresponds to: --secretfile
+# Type: string
+srs_secretfile: {{ (values | default({})).srs_secretfile | default('/etc/srs/secrets') }}
+
+# The alias address to which mail was sent.
+# The domain-part is used in the generated SRS address.
+# Required for forward mode.
+# Corresponds to: --alias
+# Type: string
+srs_alias: {{ (values | default({})).srs_alias | default('srs@yourdomain.com') }}
+
+# String separator for the SRS address.
+# Defaults to '='.
+# Corresponds to: --separator
+# Type: string
+srs_separator: {{ (values | default({})).srs_separator | default('=') }}
+
+# Number of base64 characters to use for the cryptographic authentication code.
+# Corresponds to: --hashlength
+# Type: integer
+srs_hashlength: {{ (values | default({})).srs_hashlength | default(4) }}
+
+# List of sender addresses to transform.
+# Must contain at least one item if used for static batch processing.
+# Corresponds to: --address (multiple)
+# Type: list
+# Note: In a service context, these are often passed dynamically, but can be defaulted here for testing or static rules.
+srs_addresses:
+{% for addr in (values | default({})).srs_addresses | default([]) %}  - {{ addr }}
+{% endfor %}
+
+# Transformation mode: 'forward' or 'reverse'.
+# Default is 'forward'.
+# Corresponds to: --forward or --reverse
+# Type: string
+srs_mode: {{ (values | default({})).srs_mode | default('forward') }}
+
+# Generated command line
+# This represents the canonical invocation of the `srs` command with the above parameters.
+command: >-
+  srs
+  {% if (values | default({})).srs_secret | default('') | trim != '' %}--secret={{ (values | default({})).srs_secret | default('') }}{% endif %}
+  {% if (values | default({})).srs_secretfile | default('') | trim != '' %}--secretfile={{ (values | default({})).srs_secretfile | default('') }}{% endif %}
+  --alias={{ (values | default({})).srs_alias | default('') }}
+  {% if (values | default({})).srs_separator | default('=') != '=' %}--separator={{ (values | default({})).srs_separator | default('=') }}{% endif %}
+  {% if (values | default({})).srs_hashlength | default(4) != 4 %}--hashlength={{ (values | default({})).srs_hashlength | default(4) }}{% endif %}
+  {% if (values | default({})).srs_mode | default('forward') == 'reverse' %}--reverse{% else %}--forward{% endif %}
+  {% for addr in (values | default({})).srs_addresses | default([]) %}
+  {{ addr }}{% endfor %}

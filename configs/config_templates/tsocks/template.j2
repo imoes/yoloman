@@ -1,0 +1,45 @@
+# This is the configuration for libtsocks (transparent socks)
+# Lines beginning with # and blank lines are ignored
+#
+# The basic idea is to specify:
+#	- Local subnets - Networks that can be accessed directly without
+#			  assistance from a socks server
+#	- Paths - Paths are basically lists of networks and a socks server
+#		  which can be used to reach these networks
+#	- Default server - A socks server which should be used to access 
+#			   networks for which no path is available
+# Much more documentation than provided in these comments can be found in
+# the man pages, tsocks(8) and tsocks.conf(8)
+
+# Local networks
+# Local subnet 1 definition (IP/mask) accessible directly without socks.
+local = {{ local_1 | default('192.168.0.0/255.255.255.0') }}
+
+# Local subnet 2 definition (IP/mask) accessible directly without socks.
+local = {{ local_2 | default('10.0.0.0/255.0.0.0') }}
+
+# Paths
+# Network range for path 1 that requires socks proxy.
+# Specific network and port range for path 1 that requires socks proxy.
+# Socks server IP or hostname for path 1.
+# Socks protocol version for path 1 server (4 or 5).
+# Default username for authentication on path 1 server.
+# Default password for authentication on path 1 server.
+path {
+	reaches = {{ path_1_reach_1 | default('150.0.0.0/255.255.0.0') }}
+	reaches = {{ path_1_reach_2 | default('150.1.0.0:80/255.255.0.0') }}
+	server = {{ path_1_server | default('10.1.7.25') }}
+	server_type = {{ path_1_server_type | default('5') }}
+	default_user = {{ path_1_default_user | default('delius') }}
+	default_pass = {{ path_1_default_pass | default('hello') }}
+}
+
+# Default server
+# Default Socks server IP or hostname for unmatched connections.
+server = {{ default_server | default('192.168.0.1') }}
+
+# Socks protocol version for the default server (4 or 5).
+server_type = {{ default_server_type | default('5') }}
+
+# Port number for the default Socks server.
+server_port = {{ default_server_port | default('1080') }}

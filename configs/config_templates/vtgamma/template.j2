@@ -1,0 +1,31 @@
+# vtgamma configuration template.
+# Generates command-line flags for the vtgamma utility to adjust Linux console (VT) gamma,
+# contrast, and color palette settings.
+
+# Gamma correction value(s). Single float for all channels or space-separated red green blue floats.
+# Schema field: gamma (default '1.0')
+GAMMA {{ gamma | default('1.0') }}
+
+# Enable black on white mode. Inverts the console colors so that black becomes white and vice versa.
+# Schema field: reverse (default False)
+{% if reverse | default(False) | bool %}
+-v
+{% endif %}
+
+# Set palette permanently on Linux console (VT) using ioctl. This applies the settings persistently across reboots on the physical terminal.
+# Schema field: permanent (default False)
+{% if permanent | default(False) | bool %}
+-p
+{% endif %}
+
+# Use LCHab color space instead of RGB. Requires the libgraphics-colorobject-perl package to be installed.
+# Schema field: use_lab (default False)
+{% if use_lab | default(False) | bool %}
+-l
+{% endif %}
+
+# Select color palette. Available palettes: vga, gruvbox, monokai, ubuntu. An empty string or default 'vga' uses the system default.
+# Schema field: palette (default 'vga')
+{% if palette | default('vga') | trim != '' %}
+--palette {{ palette | default('vga') }}
+{% endif %}

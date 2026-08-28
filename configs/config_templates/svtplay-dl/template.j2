@@ -1,0 +1,301 @@
+# ===========================================================================
+# svtplay-dl Configuration Template
+#
+# This file configures `svtplay-dl`, a video downloader for SVT Play and
+# other supported streaming services. It translates Ansible variables into
+# the tool's native configuration format.
+#
+# Each setting corresponds to a command-line flag. Refer to `svtplay-dl(1)`
+# for detailed documentation.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Output Settings
+# ---------------------------------------------------------------------------
+
+# Output directory or filename pattern for downloads.
+# Corresponds to: --output <path>
+# If a full path is provided, downloads go there. If a pattern is used,
+# it dictates filename structure.
+output: {{ (values | default({})).output | default('/home/user/Downloads') }}
+
+# Filename format string.
+# Corresponds to: --filename <format>
+# Supports various placeholders (title, episode, service, etc.).
+# Note: The curly braces are literal template parts, not Jinja delimiters.
+filename: '{{ (values | default({})).filename | default("{title}.s{season}e{episode}.{episodename}-{id}-{service}.{ext}") }}'
+
+# ---------------------------------------------------------------------------
+# General Behavior
+# ---------------------------------------------------------------------------
+
+# Create a subfolder titled as the show name.
+# Corresponds to: --subfolder
+subfolder: {{ (values | default({})).subfolder | default(true) | lower }}
+
+# Overwrite existing files if they already exist.
+# Corresponds to: -f, --force
+force: {{ (values | default({})).force | default(false) | lower }}
+
+# Enable support for live streams (RTMP based ones).
+# Corresponds to: -l, --live
+live: {{ (values | default({})).live | default(false) | lower }}
+
+# Capture time in minutes of a live stream.
+# Corresponds to: -c, --capture_time
+# Only effective if `live` is true. Omitted if null.
+{% if (values | default({})).capture_time is not none %}
+capture_time: {{ (values | default({})).capture_time | default(None) }}
+{% endif %}
+
+# Be less verbose (suppress most output).
+# Corresponds to: -s, --silent
+silent: {{ (values | default({})).silent | default(false) | lower }}
+
+# Only show a message when the file is downloaded (semi-silent).
+# Corresponds to: --silent-semi
+silent_semi: {{ (values | default({})).silent_semi | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# Authentication & Security
+# ---------------------------------------------------------------------------
+
+# Username for authentication with protected content.
+# Corresponds to: -u USERNAME
+# Empty string omits this option.
+{% if (values | default({})).username | default('') != '' %}
+username: '{{ (values | default({})).username | default("") }}'
+{% endif %}
+
+# Password for authentication with protected content.
+# Corresponds to: -p PASSWORD
+# Empty string omits this option.
+{% if (values | default({})).password | default('') != '' %}
+password: '{{ (values | default({})).password | default("") }}'
+{% endif %}
+
+# Token for authentication with protected content.
+# Corresponds to: --token TOKEN
+# Empty string omits this option.
+{% if (values | default({})).token | default('') != '' %}
+token: '{{ (values | default({})).token | default("") }}'
+{% endif %}
+
+# Download thumbnail from the site if available.
+# Corresponds to: -t, --thumbnail
+thumbnail: {{ (values | default({})).thumbnail | default(false) | lower }}
+
+# Do not download any video, but instead print the direct URL.
+# Corresponds to: -g, --get-url
+get_url: {{ (values | default({})).get_url | default(false) | lower }}
+
+# Don't attempt to verify SSL certificates.
+# WARNING: This reduces security. Use only if necessary for self-signed certs.
+# Corresponds to: --dont-verify-ssl-cert
+dont_verify_ssl_cert: {{ (values | default({})).dont_verify_ssl_cert | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# HTTP Options
+# ---------------------------------------------------------------------------
+
+# A header to add to each HTTP request.
+# Format: header1=value;header2=value2
+# Corresponds to: --http-header
+# Empty string omits this option.
+{% if (values | default({})).http_header | default('') != '' %}
+http_header: '{{ (values | default({})).http_header | default("") }}'
+{% endif %}
+
+# A cookie to add to each HTTP request.
+# Format: cookie1=value;cookie2=value2
+# Corresponds to: --cookies
+# Empty string omits this option.
+{% if (values | default({})).cookies | default('') != '' %}
+cookies: '{{ (values | default({})).cookies | default("") }}'
+{% endif %}
+
+# Use a specified HTTP/HTTPS/SOCKS proxy.
+# Corresponds to: --proxy
+# Empty string omits this option.
+{% if (values | default({})).proxy | default('') != '' %}
+proxy: '{{ (values | default({})).proxy | default("") }}'
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Filtering & Selection
+# ---------------------------------------------------------------------------
+
+# Exclude videos with specified WORD(s) in the filename.
+# Comma separated list.
+# Corresponds to: --exclude
+# Omits if list is empty or null.
+{% if (values | default({})).exclude is defined and (values | default({})).exclude | length > 0 %}
+exclude: '{{ (values | default({})).exclude | join(",") }}'
+{% endif %}
+
+# Only download videos published on or after this date.
+# Format: yyyy-MM-dd
+# Corresponds to: --after-date
+# Empty string omits this option.
+{% if (values | default({})).after_date | default('') != '' %}
+after_date: '{{ (values | default({})).after_date | default("") }}'
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Quality & Format Selection
+# ---------------------------------------------------------------------------
+
+# Choose what format to download based on bitrate/video resolution.
+# Corresponds to: -q, --quality
+# Null omits this option.
+{% if (values | default({})).quality is not none %}
+quality: {{ (values | default({})).quality | default(None) }}
+{% endif %}
+
+# Allow given quality to differ by a specified amount (in kbps or similar).
+# Corresponds to: -Q
+# Null omits this option.
+{% if (values | default({})).flexible_quality is not none %}
+flexible_quality: {{ (values | default({})).flexible_quality | default(None) }}
+{% endif %}
+
+# Preferred download method/stream type.
+# Options: dash, hls, http
+# Corresponds to: -P, --preferred
+# Empty string omits this option.
+{% if (values | default({})).preferred | default('') != '' %}
+preferred: '{{ (values | default({})).preferred | default("") }}'
+{% endif %}
+
+# Stream priority if two streams have the same quality.
+# Comma separated list (e.g., dash,hls,http).
+# Corresponds to: --stream-priority
+# Omits if list is empty or null.
+{% if (values | default({})).stream_priority is defined and (values | default({})).stream_priority | length > 0 %}
+stream_priority: '{{ (values | default({})).stream_priority | join(",") }}'
+{% endif %}
+
+# Choose the preferred codec/format.
+# E.g., h264, h264-51
+# Corresponds to: --format-preferred
+# Omits if list is empty or null.
+{% if (values | default({})).format_preferred is defined and (values | default({})).format_preferred | length > 0 %}
+format_preferred: '{{ (values | default({})).format_preferred | join(",") }}'
+{% endif %}
+
+# Choose the language of the audio track.
+# Corresponds to: --audio-language
+# Empty string omits this option.
+{% if (values | default({})).audio_language | default('') != '' %}
+audio_language: '{{ (values | default({})).audio_language | default("") }}'
+{% endif %}
+
+# Choose the role of the video (e.g., main, commentary).
+# Corresponds to: --video-role
+# Empty string omits this option.
+{% if (values | default({})).video_role | default('') != '' %}
+video_role: '{{ (values | default({})).video_role | default("") }}'
+{% endif %}
+
+# Choose what video resolution to download.
+# Comma separated list (e.g., 480,720,1080).
+# Corresponds to: --resolution
+# Omits if list is empty or null.
+{% if (values | default({})).resolution is defined and (values | default({})).resolution | length > 0 %}
+resolution: '{{ (values | default({})).resolution | join(",") }}'
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Subtitle Options
+# ---------------------------------------------------------------------------
+
+# Download subtitle from the site if available.
+# Corresponds to: -S, --subtitle
+subtitle: {{ (values | default({})).subtitle | default(false) | lower }}
+
+# Merge subtitle with video/audio file.
+# Corresponds to: -M, --merge-subtitle
+merge_subtitle: {{ (values | default({})).merge_subtitle | default(false) | lower }}
+
+# Download ONLY the subtitle file (ignoring video/audio) if used with -S.
+# Corresponds to: --force-subtitle
+force_subtitle: {{ (values | default({})).force_subtitle | default(false) | lower }}
+
+# Download only if a subtitle is available.
+# Corresponds to: --require-subtitle
+require_subtitle: {{ (values | default({})).require_subtitle | default(false) | lower }}
+
+# Download all available subtitles for the video.
+# Corresponds to: --all-subtitles
+all_subtitles: {{ (values | default({})).all_subtitles | default(false) | lower }}
+
+# Also download the subtitles in their native format (e.g., .srt, .vtt).
+# Corresponds to: --raw-subtitles
+raw_subtitles: {{ (values | default({})).raw_subtitles | default(false) | lower }}
+
+# Converts the color information in subtitles to HTML font tags.
+# Corresponds to: --convert-subtitle-colors
+convert_subtitle_colors: {{ (values | default({})).convert_subtitle_colors | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# Episode Selection
+# ---------------------------------------------------------------------------
+
+# Try to download all episodes of a show.
+# Corresponds to: -A, --all-episodes
+all_episodes: {{ (values | default({})).all_episodes | default(false) | lower }}
+
+# Get last NN episodes instead of all episodes.
+# Overrides `all_episodes` if specified.
+# Corresponds to: --all-last
+# Null omits this option.
+{% if (values | default({})).all_last is not none %}
+all_last: {{ (values | default({})).all_last | default(None) }}
+{% endif %}
+
+# Include clips from websites when using -A (all episodes).
+# Corresponds to: --include-clips
+include_clips: {{ (values | default({})).include_clips | default(false) | lower }}
+
+# Reverse download order (newest first vs oldest first).
+# Corresponds to: -R, --reverse
+reverse: {{ (values | default({})).reverse | default(false) | lower }}
+
+# ---------------------------------------------------------------------------
+# Service Specific Options
+# ---------------------------------------------------------------------------
+
+# CMore Operator (specific to CMore service).
+# Corresponds to: --cmore-operator
+# Empty string omits this option.
+{% if (values | default({})).cmore_operator | default('') != '' %}
+cmore_operator: '{{ (values | default({})).cmore_operator | default("") }}'
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Post-processing & Merging
+# ---------------------------------------------------------------------------
+
+# Do not automatically remux to mp4.
+# Corresponds to: --no-remux
+no_remux: {{ (values | default({})).no_remux | default(false) | lower }}
+
+# Do not automatically merge video, audio and possibly also subtitle(s).
+# Corresponds to: --no-merge
+no_merge: {{ (values | default({})).no_merge | default(false) | lower }}
+
+# Do not postprocess anything (skip ffmpeg steps).
+# Corresponds to: --no-postprocess
+no_postprocess: {{ (values | default({})).no_postprocess | default(false) | lower }}
+
+# Do postprocessing while also keeping original files.
+# Corresponds to: --keep-original
+keep_original: {{ (values | default({})).keep_original | default(false) | lower }}
+
+# Format you want resulting file in.
+# Options: mkv, mp4
+# Corresponds to: --output-format
+# Empty string omits this option.
+{% if (values | default({})).output_format | default('') != '' %}
+output_format: '{{ (values | default({})).output_format | default("") }}'
+{% endif %}

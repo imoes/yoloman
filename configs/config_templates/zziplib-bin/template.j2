@@ -1,0 +1,112 @@
+#!/bin/bash
+# Wrapper script for zziplib-bin utilities to enforce default XOR values and standard output redirection.
+# This template is self-documenting: each variable is accompanied by its schema description.
+
+# Filesystem path to the zzcat binary
+# Default: /usr/bin/zzcat
+ZZCAT_PATH='{{ zzcat_path | default("/usr/bin/zzcat") }}'
+
+# Filesystem path to the zzdir binary
+# Default: /usr/bin/zzdir
+ZZDIR_PATH='{{ zzdir_path | default("/usr/bin/zzdir") }}'
+
+# Filesystem path to the zzxorcat binary
+# Default: /usr/bin/zzxorcat
+ZZXORCAT_PATH='{{ zzxorcat_path | default("/usr/bin/zzxorcat") }}'
+
+# Filesystem path to the zzxordir binary
+# Default: /usr/bin/zzxordir
+ZZXORDIR_PATH='{{ zzxordir_path | default("/usr/bin/zzxordir") }}'
+
+# Filesystem path to the zzxorcopy binary
+# Default: /usr/bin/zzxorcopy
+ZZXORCOPY_PATH='{{ zzxorcopy_path | default("/usr/bin/zzxorcopy") }}'
+
+# Default hexadecimal XOR value for obfuscation tools when -HEX is not supplied
+# Default: 0x55
+DEFAULT_XOR='{{ default_xor | default("0x55") }}'
+
+# Whether to print debug information about tool execution
+# Default: false (converted to string 'false' for shell comparison)
+VERBOSE='{{ verbose | default(false) | string | lower }}'
+
+# List of default input files/directories to process (currently unused in dispatcher but available for future expansion)
+# Default: empty list
+DEFAULT_INPUT_FILES="{{ default_input_files | default([], true) | join(' ') }}"
+
+# Default output directory for zzxorcopy operations if not specified in arguments
+# If empty, output is to stdout or current directory based on tool behavior
+# Default: empty string
+OUTPUT_DIR='{{ output_dir | default("") }}'
+
+# Run the specified tool with the provided arguments
+run_tool() {
+  local tool=$1
+  shift
+  if [ "${VERBOSE}" = "true" ]; then
+    echo "Running ${tool} with args: $@"
+  fi
+  exec "${tool}" "$@"
+}
+
+# Main execution logic
+# This section allows the script to act as a generic dispatcher
+if [ -n "$1" ]; then
+  case "$1" in
+    zzcat)
+      run_tool "${ZZCAT_PATH}" "${@:2}"
+      ;;
+    zzdir)
+      run_tool "${ZZDIR_PATH}" "${@:2}"
+      ;;
+    zzxorcat)
+      # Inject default XOR if not provided
+      args=("${@:2}")
+      has_hex=false
+      for arg in "${args[@]}"; do
+        if [[ "$arg" =~ ^-0x[0-9A-Fa-f]+$ ]]; then
+          has_hex=true
+        fi
+      done
+      if [ "$has_hex" = false ]; then
+        args=("-HEX" "${DEFAULT_XOR}" "${args[@]}")
+      fi
+      run_tool "${ZZXORCAT_PATH}" "${args[@]}"
+      ;;
+    zzxordir)
+      # Inject default XOR if not provided
+      args=("${@:2}")
+      has_hex=false
+      for arg in "${args[@]}"; do
+        if [[ "$arg" =~ ^-0x[0-9A-Fa-f]+$ ]]; then
+          has_hex=true
+        fi
+      done
+      if [ "$has_hex" = false ]; then
+        args=("-HEX" "${DEFAULT_XOR}" "${args[@]}")
+      fi
+      run_tool "${ZZXORDIR_PATH}" "${args[@]}"
+      ;;
+    zzxorcopy)
+      # Inject default XOR if not provided
+      args=("${@:2}")
+      has_hex=false
+      for arg in "${args[@]}"; do
+        if [[ "$arg" =~ ^-0x[0-9A-Fa-f]+$ ]]; then
+          has_hex=true
+        fi
+      done
+      if [ "$has_hex" = false ]; then
+        args=("-HEX" "${DEFAULT_XOR}" "${args[@]}")
+      fi
+      run_tool "${ZZXORCOPY_PATH}" "${args[@]}"
+      ;;
+    *)
+      echo "Unknown tool: $1"
+      exit 1
+      ;;
+  esac
+else
+  echo "Usage: $0 {zzcat|zzdir|zzxorcat|zzxordir|zzxorcopy} [args...]"
+  exit 1
+fi

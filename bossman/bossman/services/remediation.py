@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,13 +77,49 @@ async def _recent_runs(session: AsyncSession, policy_id: UUID, agent_id: UUID) -
 
 async def _execute_policy(
     session: AsyncSession, settings: Settings, agent: Agent, service_name: str,
-    policy: RemediationPolicy, client_factory,
+    policy: RemediationPolicy, client_factory, *, run_id=None,
 ) -> tuple[str, str]:
     """Actually run one policy's remediation runbook on the host. Returns
     (status, detail). Execution NEVER happens automatically — only from an Apply
     (manual/AI), so there is no gate here beyond a reachable host."""
     if not agent.address:
         return "failed", "host has no reachable address"
+
+    # An EVENT HANDLER carries the action when the rule points at one: a runbook as before, or
+    # a script — managed by Bossman and deployed per run, or one the agent already has locally.
+    # The trigger, scope, rate limit, autonomy, verify, rollback and audit around this call are
+    # unchanged; only WHAT runs got richer. See docs/event-handling.md.
+    if policy.event_handler_id is not None:
+        from bossman.db.models import EventHandler
+        from bossman.services.event_handlers import run_handler
+
+        handler = await session.get(EventHandler, policy.event_handler_id)
+        if handler is None:
+            # Cannot normally happen (the FK is ON DELETE RESTRICT), so it is reported rather
+            # than silently treated as "nothing to do".
+            return "failed", f"event handler {policy.event_handler_id} is gone"
+        # The state and the run id are FACTS the handler was promised (docs/event-handling.md
+        # lists BOSSMAN_EVENT_STATE and _RUN_ID) and used to arrive empty: the state was never
+        # looked up, and the audit row was created only AFTER the run, so its id did not exist
+        # yet. Measured on a real host: "state= … run=". The state is read here, and the id is
+        # minted by the caller before executing so the same value lands in the row and in the
+        # script's environment — that is what connects a host log line to the audit trail.
+        from bossman.db.models import Service as _Service
+
+        state = await session.scalar(
+            select(_Service.state).where(_Service.agent_id == agent.id, _Service.name == service_name)
+        )
+        value = await session.scalar(
+            select(_Service.value).where(_Service.agent_id == agent.id, _Service.name == service_name)
+        )
+        ok, detail = await run_handler(
+            session, settings, agent, handler, client=client_factory(agent, settings),
+            values=policy.params or {}, service_name=service_name,
+            state=state or "", value=value, run_id=run_id,
+            requested_by=f"remediation:{policy.name}",
+        )
+        return ("ran" if ok else "failed"), detail
+
     rb = await session.scalar(select(Runbook).where(Runbook.name == policy.runbook_name))
     doc = nt_runbook.parse_data(rb.doc, source=f"runbook {policy.runbook_name!r}") if rb else None
     if not isinstance(doc, nt_runbook.Runbook):
@@ -100,6 +136,21 @@ async def _execute_policy(
         return ("ran" if ok else "failed"), "remediation runbook " + ("succeeded" if ok else "failed")
     except Exception as exc:  # noqa: BLE001 — one bad remediation must not sink the cycle
         return "failed", f"error: {str(exc)[:200]}"
+
+
+async def _action_label(session: AsyncSession, policy: RemediationPolicy) -> str:
+    """"kind:name" for the audit row — resolved WHEN THE RUN IS WRITTEN.
+
+    The kind is part of the fact: "clean-logs" alone would not say whether a runbook or a script
+    ran. Resolved now rather than looked up later, because the rule (and with it the answer) may
+    be gone by the time someone reads the history.
+    """
+    if policy.event_handler_id is not None:
+        from bossman.db.models import EventHandler
+
+        handler = await session.get(EventHandler, policy.event_handler_id)
+        return f"handler:{handler.name}" if handler is not None else f"handler:{policy.event_handler_id}"
+    return f"runbook:{policy.runbook_name}" if policy.runbook_name else ""
 
 
 async def _has_open_proposal(session: AsyncSession, policy_id: UUID, agent_id: UUID, service_name: str) -> bool:
@@ -124,12 +175,62 @@ async def propose_for_service(session: AsyncSession, agent: Agent, service_name:
             continue
         run = RemediationRun(
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
-            runbook_name=p.runbook_name, status="pending",
+            runbook_name=p.runbook_name, action=await _action_label(session, p), status="pending",
             detail=f"auto-detected on '{service_name}' — awaiting Apply",
         )
         session.add(run)
         out.append({"policy": p.name, "host": agent.name, "service": service_name, "runbook": p.runbook_name})
     return out
+
+
+def _is_prod(agent: Agent) -> bool:
+    """Best-effort 'is this a production host': criticality or an env tag."""
+    if (agent.criticality or "").lower() in ("prod", "production", "critical"):
+        return True
+    return str((agent.tags or {}).get("env", "")).lower() in ("prod", "production")
+
+
+async def _auto_allowed(
+    session: AsyncSession, settings: Settings, policy: RemediationPolicy, agent: Agent,
+    cycle_counts: dict,
+) -> tuple[bool, str]:
+    """The autonomy gate — every guardrail that must pass before a fix is applied
+    unattended. Returns (allowed, reason). Any No leaves the proposal pending for a
+    human."""
+    if not settings.remediation_autonomy_enabled:
+        return False, "autonomy kill-switch off"
+    if not policy.enabled:
+        return False, "policy disabled"
+    if policy.autonomy != "auto_verify":
+        return False, "policy not autonomous"
+    if _is_prod(agent) and not policy.allow_prod:
+        return False, "production host (allow_prod off)"
+    if await _recent_runs(session, policy.id, agent.id) >= policy.max_per_hour:
+        return False, "rate-limited (max_per_hour)"
+    if cycle_counts.get(policy.id, 0) >= policy.max_blast_radius:
+        return False, "blast-radius cap reached this cycle"
+    return True, "ok"
+
+
+async def _execute_runbook_by_name(
+    session: AsyncSession, settings: Settings, agent: Agent, runbook_name: str,
+    request_vars: dict, client_factory,
+) -> tuple[bool, str]:
+    """Run an arbitrary runbook (e.g. a compensating rollback) on a host. Best-effort."""
+    if not agent.address:
+        return False, "host has no reachable address"
+    rb = await session.scalar(select(Runbook).where(Runbook.name == runbook_name))
+    doc = nt_runbook.parse_data(rb.doc, source=f"runbook {runbook_name!r}") if rb else None
+    if not isinstance(doc, nt_runbook.Runbook):
+        return False, f"runbook {runbook_name!r} missing or is a role"
+    try:
+        _, rr = await execute_runbook(
+            session, agent, doc, settings=settings, client=client_factory(agent, settings),
+            request_vars=request_vars, dry_run=False, requested_by=f"remediation-rollback:{runbook_name}", commit=False)
+        ok = rr.get("ok", True) and not rr.get("aborted")
+        return ok, "rollback runbook " + ("succeeded" if ok else "failed")
+    except Exception as exc:  # noqa: BLE001
+        return False, f"rollback error: {str(exc)[:200]}"
 
 
 async def apply_run(session: AsyncSession, settings: Settings, run: RemediationRun, client_factory) -> dict[str, Any]:
@@ -142,10 +243,30 @@ async def apply_run(session: AsyncSession, settings: Settings, run: RemediationR
         run.detail = "policy or host no longer exists"
         return {"status": "failed", "detail": run.detail}
     status, detail = await _execute_policy(session, settings, agent, run.service_name, policy, client_factory)
+    now = datetime.now(timezone.utc)
     run.status = status
     run.detail = detail
-    run.at = datetime.now(timezone.utc)
-    return {"status": status, "detail": detail, "host": agent.name, "runbook": policy.runbook_name}
+    run.at = now
+    run.applied_at = now
+    _set_verify_phase(run, policy, status, now)
+    return {"status": status, "detail": detail, "phase": run.phase,
+            "host": agent.name, "runbook": policy.runbook_name}
+
+
+def _set_verify_phase(run: RemediationRun, policy: RemediationPolicy, status: str, now: datetime) -> None:
+    """After an apply, move the run into its next lifecycle phase: a successful
+    apply enters `verifying` (the poller re-checks it after verify_after_s) unless
+    the policy disabled verify; a failed apply is terminal `failed`."""
+    if status != "ran":
+        run.phase = "failed"
+        run.outcome = "apply_failed"
+        return
+    if getattr(policy, "verify", True):
+        run.phase = "verifying"
+        run.verify_due_at = now + timedelta(seconds=getattr(policy, "verify_after_s", 60) or 60)
+    else:
+        run.phase = "resolved"
+        run.outcome = "applied (verify disabled)"
 
 
 async def run_remediations_for_service(
@@ -154,14 +275,25 @@ async def run_remediations_for_service(
     """Run every matching policy for one (host, check) NOW and log each — the
     manual/AI direct trigger (there is no automatic execution path)."""
     results = []
+    now = datetime.now(timezone.utc)
     for p in await matching_policies(session, agent, service_name):
-        status, detail = await _execute_policy(session, settings, agent, service_name, p, client_factory)
-        session.add(RemediationRun(
+        # The id is generated BEFORE the run so the handler's BOSSMAN_EVENT_RUN_ID names the very
+        # row this run is about; creating the row first and updating it afterwards would work too
+        # but would leave a half-written row visible to a concurrent reader.
+        run_id = uuid4()
+        status, detail = await _execute_policy(
+            session, settings, agent, service_name, p, client_factory, run_id=run_id
+        )
+        run = RemediationRun(
+            id=run_id,
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
-            runbook_name=p.runbook_name, status=status, detail=detail[:2000],
-        ))
+            runbook_name=p.runbook_name, action=await _action_label(session, p),
+            status=status, detail=detail[:2000], applied_at=now, at=now,
+        )
+        _set_verify_phase(run, p, status, now)
+        session.add(run)
         results.append({"policy": p.name, "host": agent.name, "service": service_name,
-                        "runbook": p.runbook_name, "status": status, "detail": detail})
+                        "runbook": p.runbook_name, "status": status, "phase": run.phase, "detail": detail})
     return results
 
 
@@ -183,3 +315,120 @@ async def collect_and_propose(session: AsyncSession, touched: list[Service]) -> 
             agents[svc.agent_id] = agent
         proposed += len(await propose_for_service(session, agent, svc.name))
     return proposed
+
+
+async def verify_due(session_factory, settings: Settings) -> int:
+    """Closed-loop VERIFY step (poller hook). Picks up runs in phase `verifying`
+    whose settle time has elapsed, re-checks the triggering service on the host,
+    and closes the loop: recovered → `resolved`; still failing → `escalated`
+    (notify a human via the existing notification engine). Best-effort per run —
+    one bad verify never sinks the cycle. Returns how many runs were processed.
+
+    Local imports avoid any import cycle at module load (poller imports this)."""
+    from bossman.services.agent_client import client_for
+    from bossman.services import notification
+    from bossman.services.notification import NotifyEvent
+    from bossman.services.monitoring import evaluate_assigned_checks
+
+    now = datetime.now(timezone.utc)
+    processed = 0
+    async with session_factory() as session:
+        rows = (await session.scalars(
+            select(RemediationRun).where(
+                RemediationRun.phase == "verifying", RemediationRun.verify_due_at <= now)
+        )).all()
+        for run in rows:
+            agent = await session.get(Agent, run.agent_id) if run.agent_id else None
+            if agent is None:
+                run.phase = "failed"
+                run.outcome = "host no longer exists"
+                run.verified_at = now
+                processed += 1
+                continue
+            # Best-effort targeted recheck so verify reflects the CURRENT state,
+            # not a stale poll (assigned checks only; metric-threshold services are
+            # refreshed by the poller and read below either way).
+            if agent.address:
+                try:
+                    await evaluate_assigned_checks(session, agent, client_for(agent, settings), settings.checks_dir)
+                except Exception:  # noqa: BLE001
+                    logger.debug("verify recheck failed for %s", agent.name, exc_info=True)
+            svc = await session.scalar(select(Service).where(
+                Service.agent_id == run.agent_id, Service.name == run.service_name))
+            state = svc.state if svc else None
+            recovered = state == "OK"
+            run.verified_at = now
+            run.verify_state = state or "UNKNOWN"
+            run.verify_ok = recovered
+            if recovered:
+                run.phase = "resolved"
+                run.outcome = "recovered"
+            else:
+                run.phase = "escalated"
+                run.outcome = f"no_recovery (still {state or 'UNKNOWN'})"
+                # Optional compensating rollback runbook before we hand off to a human.
+                policy = await session.get(RemediationPolicy, run.policy_id) if run.policy_id else None
+                rb_name = getattr(policy, "rollback_runbook", None) if policy else None
+                rolled = ""
+                if rb_name and agent.address:
+                    ok_rb, detail_rb = await _execute_runbook_by_name(
+                        session, settings, agent, rb_name,
+                        {"check_service": run.service_name, "check_host": agent.name}, client_for)
+                    rolled = f" | rollback '{rb_name}': {'ok' if ok_rb else 'failed'} ({detail_rb})"
+                    run.outcome += rolled
+                try:
+                    ev = NotifyEvent(
+                        agent_name=agent.name, service_name=run.service_name,
+                        state=state or "UNKNOWN", event="problem",
+                        output=(f"Auto-remediation '{run.runbook_name}' did NOT recover "
+                                f"'{run.service_name}' (still {state or 'UNKNOWN'}).{rolled} Manual attention needed."),
+                        agent_tags=agent.tags or {})
+                    await notification.dispatch(session, settings, ev)
+                except Exception:  # noqa: BLE001
+                    logger.warning("remediation escalation dispatch failed for %s", agent.name, exc_info=True)
+            processed += 1
+        if processed:
+            await session.commit()
+    if processed:
+        logger.info("remediation verify: processed %d run(s)", processed)
+    return processed
+
+
+async def auto_apply_due(session_factory, settings: Settings) -> int:
+    """Autonomous apply step (poller hook, Phase 2). Pulls PENDING proposals whose
+    policy is `auto_verify`, runs each through the guardrail gate, and — only when
+    every guardrail passes — applies it (which enters `verifying`, so the Phase-1
+    verify closes the loop). Anything that fails a guardrail stays pending for a
+    human. Gated overall by the autonomy kill-switch. Returns how many were applied.
+
+    Local import avoids an import cycle at module load (poller imports this)."""
+    if not settings.remediation_autonomy_enabled:
+        return 0
+    from bossman.services.agent_client import client_for
+
+    applied = 0
+    cycle_counts: dict = {}
+    async with session_factory() as session:
+        rows = (await session.scalars(
+            select(RemediationRun).where(
+                RemediationRun.status == "pending", RemediationRun.phase == "proposed")
+            .order_by(RemediationRun.at.asc())
+        )).all()
+        for run in rows:
+            policy = await session.get(RemediationPolicy, run.policy_id) if run.policy_id else None
+            agent = await session.get(Agent, run.agent_id) if run.agent_id else None
+            if policy is None or agent is None:
+                continue
+            allowed, reason = await _auto_allowed(session, settings, policy, agent, cycle_counts)
+            if not allowed:
+                logger.debug("auto-apply skipped %s/%s: %s", agent.name, run.service_name, reason)
+                continue
+            cycle_counts[policy.id] = cycle_counts.get(policy.id, 0) + 1
+            await apply_run(session, settings, run, client_for)
+            run.detail = f"[auto] {run.detail or ''}".strip()
+            applied += 1
+        if applied:
+            await session.commit()
+    if applied:
+        logger.info("remediation auto-apply: applied %d proposal(s)", applied)
+    return applied

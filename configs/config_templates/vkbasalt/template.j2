@@ -1,0 +1,53 @@
+# vkBasalt Configuration File
+# Self-documenting template generated for Ansible role usage.
+# This file configures the vkBasalt Vulkan post-processing layer.
+
+[global]
+# The key used to toggle effects on/off at runtime. Common keys: Home, Insert, End, Pause.
+toggleKey={{ toggle_key | default('Home') }}
+
+[output]
+# The destination file path for the generated configuration file.
+# If a directory is provided, vkbasalt-cli generates a config there.
+# If a file is provided, it writes the config there.
+# Note: The actual runtime config is typically ~/.config/vkBasalt/vkBasalt.conf
+path={{ output_path | default('~/.config/vkBasalt/vkBasalt.conf') }}
+
+[effect.cas]
+# Contrast Adaptive Sharpening sharpness level. Range: 0.0 to 1.0. Higher values increase sharpness.
+sharpness={{ cas_sharpness | default(0.25) }}
+
+[effect.dls]
+# Deep Learning Sharpening sharpness level. Range: 0.0 to 1.0.
+sharpness={{ dls_sharpness | default(1.0) }}
+# Deep Learning Sharpening denoise level. Range: 0.0 to 1.0. Helps reduce noise introduced by sharpening or compression.
+denoise={{ dls_denoise | default(0.0) }}
+
+[effect.fxaa]
+# FXAA subpixel quality factor. Higher values may look sharper but are slower.
+subpixelQuality={{ fxaa_subpixel_quality | default(0.33) }}
+# FXAA quality edge threshold. Controls how much contrast is needed to trigger anti-aliasing.
+qualityEdgeThreshold={{ fxaa_quality_edge_threshold | default(0.25) }}
+# FXAA minimum edge threshold.
+qualityEdgeThresholdMin={{ fxaa_quality_edge_threshold_min | default(0.083) }}
+
+[effect.smaa]
+# SMAA edge detection method. 'luma' is generally preferred for performance, 'color' for accuracy.
+edgeDetection={{ smaa_edge_detection | default('luma') }}
+# SMAA edge detection threshold.
+threshold={{ smaa_threshold | default(0.1) }}
+# SMAA maximum search steps for edge detection.
+maxSearchSteps={{ smaa_max_search_steps | default(16) }}
+# SMAA maximum search steps for diagonal edges.
+maxSearchStepsDiagonal={{ smaa_max_search_steps_diagonal | default(8) }}
+# SMAA corner rounding factor to prevent artifacts in corners.
+cornerRounding={{ smaa_corner_rounding | default(0.0) }}
+
+[effect.lut]
+# Path to the LUT file if 'lut' is in the effects list. Leave empty if LUT is not used.
+filePath={{ lut_file_path | default('') }}
+
+[effects]
+# List of active effects. Valid values: cas, dls, fxaa, smaa, lut.
+# Comma-separated list of effect names. Example: cas,fxaa,lut
+activeEffects={{ effects | default(['cas']) | join(',') }}

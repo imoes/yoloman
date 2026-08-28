@@ -1,0 +1,50 @@
+# Configuration for i8kutils (i8kmon)
+# This file defines fan curve thresholds and status display settings for
+# Dell laptops supported by the i8kmon daemon.
+
+# Status check timeout in seconds
+# Controls how often i8kmon checks the hardware sensor status.
+set config(timeout)     {{ timeout | default(2) }}
+
+# Temperature threshold at which the temperature is displayed in red
+# When the CPU temperature exceeds this value (in Celsius), the display color changes.
+set config(t_high)      {{ t_high | default(80) }}
+
+# Number of temperature configurations
+# Defines how many fan speed levels (curves) are active. Must match the number of config blocks.
+set config(num_configs) {{ num_configs | default(5) }}
+
+# Temperature thresholds: {fan_speeds low_ac high_ac low_batt high_batt}
+# Each line defines a configuration block:
+#   fan_speeds: {left_fan_state right_fan_state}
+#   low_ac:     AC temperature low threshold
+#   high_ac:    AC temperature high threshold
+#   low_batt:   Battery temperature low threshold
+#   high_batt:  Battery temperature high threshold
+
+# Config 0: Initial state
+# Fan speeds are typically off or low; thresholds are minimal.
+set config(0)   {{ '{0 0}' }} {{ temp_0_ac_low | default(-1) }} {{ temp_0_ac_high | default(50) }} -1 {{ temp_0_ac_high | default(50) }}
+
+# Config 1: First transition state
+# Fan speeds start increasing as temperature rises.
+set config(1)   {{ '{0 1}' }} {{ temp_1_ac_low | default(45) }} {{ temp_1_ac_high | default(55) }} {{ temp_1_batt_low | default(45) }} {{ temp_1_batt_high | default(55) }}
+
+# Config 2: Second transition state
+set config(2)   {{ '{1 1}' }} {{ temp_2_ac_low | default(50) }} {{ temp_2_ac_high | default(65) }} {{ temp_2_batt_low | default(50) }} {{ temp_2_batt_high | default(65) }}
+
+# Config 3: Third transition state
+set config(3)   {{ '{1 2}' }} {{ temp_3_ac_low | default(60) }} {{ temp_3_ac_high | default(70) }} {{ temp_3_batt_low | default(60) }} {{ temp_3_batt_high | default(70) }}
+
+# Config 4: Highest temperature state
+# Fans run at maximum speed; thresholds allow for high thermal loads.
+set config(4)   {{ '{2 2}' }} {{ temp_4_ac_low | default(65) }} {{ temp_4_ac_high | default(128) }} {{ temp_4_batt_low | default(65) }} {{ temp_4_batt_high | default(128) }}
+
+# Speed values are set here to avoid i8kmon probing them at every start.
+# Left fan speed values string (space-separated RPMs for fan states 0, 1, 2...)
+set status(leftspeed)   "{{ status_leftspeed | default('0 2500 5000 5000') }}"
+
+# Right fan speed values string (space-separated RPMs for fan states 0, 1, 2...)
+set status(rightspeed)  "{{ status_rightspeed | default('0 2500 5000 5000') }}"
+
+# end of file

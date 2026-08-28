@@ -39,3 +39,14 @@ func stringArrayProp(description string) map[string]any {
 		"description": description,
 	}
 }
+
+// objectMapProp describes a free-form object whose values are all strings — e.g. a set of
+// environment variables. Kept next to the other prop helpers so every module describes such a
+// parameter the same way.
+func objectMapProp(description string) map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"description":          description,
+		"additionalProperties": map[string]any{"type": "string"},
+	}
+}

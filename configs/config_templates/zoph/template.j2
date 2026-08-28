@@ -1,0 +1,27 @@
+# Zoph Web Interface Configuration for Apache2
+# This template configures Apache2 to serve the Zoph application.
+# It sets up an Alias for the URL path and defines Directory access controls.
+
+# zoph_alias_path: The URL path where the Zoph web interface is served.
+# Default: '/usr/share/zoph/www/php'
+Alias /zoph {{ zoph_alias_path | default('/usr/share/zoph/www/php') }}
+
+# zoph_document_root: The filesystem path to the Zoph web root directory.
+# Default: '/usr/share/zoph/www/php'
+<Directory {{ zoph_document_root | default('/usr/share/zoph/www/php') }}>
+    Options FollowSymLinks
+    AllowOverride Limit Options FileInfo
+
+    # If running inside Freedombox then use its authentication system.
+    # Checks for the existence of a specific configuration file.
+    <IfFile includes/freedombox-auth-ldap.conf>
+        Include includes/freedombox-auth-ldap.conf
+        Require valid-user
+    </IfFile>
+
+    # Otherwise no Apache authentication and use zoph builtin.
+    # If the freedombox auth file is not present, grant access to all.
+    <IfFile !includes/freedombox-auth-ldap.conf>
+        Require all granted
+    </IfFile>
+</Directory>

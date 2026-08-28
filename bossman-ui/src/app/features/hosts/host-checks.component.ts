@@ -1,11 +1,12 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { Agent } from '../../core/models/agent.model';
 import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } from '../../core/models/check.model';
@@ -14,34 +15,46 @@ import { CheckService } from '../../core/services/check.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
+import { ServiceChecksComponent } from './management/service-checks/service-checks.component';
 import { serviceStateBadge } from '../../shared/status.util';
-import { formatMetricValue } from '../../shared/format.util';
-import {
-  ScopeVarsDialogComponent,
-  ScopeVarsDialogData,
-} from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
+import { formatMetricValue, serviceMetricSpec } from '../../shared/format.util';
+import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
+
+/** One row of the persisted discovery result (Checkmk's autochecks). */
+interface DiscoRow {
+  check_name: string; item: string | null; state: string;
+  first_seen?: string; last_seen?: string; parameters?: Record<string, unknown>;
+}
 
 /**
- * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
- * apply to this host (resolved GPO-style from OU/group/host assignments),
- * where each check's warn levels come from, and lets you override an
- * inherited check's parameters at host scope. Auto-discovery is the
- * host-centric way to add checks; browsing the full catalog to add a
- * service check by hand lives in Management ▸ Service checks (single source
- * of truth — not duplicated here). Group/OU-wide assignment stays in OU/Policy.
+ * Block G9-P2 — the host's Checks tab: everything this host is measured by, and what came
+ * back. Four different things live here and the sections say which is which, because "check"
+ * used to name all four at once:
+ *
+ *   Check              a definition in the library      (browsed in Library ▸ Checks)
+ *   Assigned check     a RULE: it applies to this host  (Service checks + Effective checks)
+ *   Discovered service a FACT: discovery found it       (Discovered services)
+ *   Service state      a MEASUREMENT: what it reported  (Service states)
+ *
+ * The SERVICE CHECKS section is the folded-in Management ▸ Service checks snap-in. That split
+ * was worse than redundancy: this tab explicitly filtered the "Service checks" category out
+ * (with a comment calling the snap-in the single source of truth), so a tab named "Checks"
+ * hid a whole class of the host's own checks and nothing on it said so. See
+ * docs/logik-audit.md, area 1. Group/OU-wide assignment still belongs to OU / Policy — that
+ * is a different scope, not a second place for the same scope.
  */
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent, ServiceChecksComponent, MatDialogModule],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
 
-      <!-- Toolbar: auto-discovery is THE host-centric path. Browsing the full
-           check catalog to add a service check by hand lives in the
-           Management ▸ Service checks snap-in (single source of truth), so it
-           is intentionally not duplicated here. -->
+      <!-- Toolbar: auto-discovery is the host-centric path (it proposes from what the host
+           actually has). Adding an endpoint check by hand is the Service checks section
+           below — on this same tab, so both ways of getting a check onto this host are in
+           one place. -->
       <div class="bm-add">
         <button mat-flat-button color="primary" (click)="runDiscover()" [disabled]="discovering()">
           <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
@@ -49,9 +62,6 @@ import {
         <button mat-stroked-button (click)="recheckNow()" [disabled]="rechecking()"
                 title="Run this host's checks now instead of waiting for the next poll">
           <mat-icon>refresh</mat-icon> {{ rechecking() ? 'Rechecking…' : 'Recheck now' }}
-        </button>
-        <button mat-button (click)="editHostVars()">
-          <mat-icon>data_object</mat-icon> Variables…
         </button>
       </div>
 
@@ -131,9 +141,9 @@ import {
         </div>
       }
 
-      <!-- Reached only via "Override here" on an inherited (OU/group) check —
-           set host-scoped parameters. Catalog browsing to ADD a new check
-           lives in Management ▸ Service checks, not here. -->
+      <!-- Reached only via "Override here" on an inherited (OU/group) check — set
+           host-scoped parameters. Adding a NEW check is either Auto-discover above or the
+           Service checks section below. -->
       @if (pickName()) {
         <div class="bm-form">
           <div class="bm-form-title">Configure <b>{{ pickName() }}</b> for {{ agent().name }}</div>
@@ -154,7 +164,86 @@ import {
         </div>
       }
 
+      <!-- What discovery KNOWS about this host, in every state the model can hold.
+           Without this a service that disappears from the host also disappears from
+           the view — the state space would be incomplete and nobody would learn that
+           something is missing (Checkmk calls this state "vanished"). -->
+      @if (disco(); as d) {
+        <h3>Discovered services
+          <span class="bm-dim bm-disco-sub">what discovery found on the host — a fact, not a rule</span>
+        </h3>
+        <div class="bm-disco-tabs">
+          @for (b of discoBuckets(); track b.key) {
+            <button type="button" class="bm-disco-tab" [class.sel]="discoFilter() === b.key"
+                    [class.warn]="b.key === 'vanished' && b.count > 0"
+                    (click)="discoFilter.set(b.key)" [title]="b.hint">
+              {{ b.label }} <b>{{ b.count }}</b>
+            </button>
+          }
+        </div>
+        @if (discoRows().length) {
+          <div class="bm-group">
+            <table class="bm-table">
+              <thead><tr><th>Service</th><th>Item</th><th>State</th><th>Last seen</th><th></th></tr></thead>
+              <tbody>
+                @for (s of discoRows(); track s.check_name + '/' + (s.item || '')) {
+                  <tr [class.bm-disco-gone]="s.state === 'vanished'">
+                    <td class="bm-mono">{{ s.check_name }}</td>
+                    <td class="bm-dim">{{ s.item || '—' }}</td>
+                    <td>
+                      <span class="bm-disco-state" [class.gone]="s.state === 'vanished'"
+                            [class.ign]="s.state === 'ignored'" [title]="discoStateHint(s.state)">
+                        {{ discoStateLabel(s.state) }}
+                      </span>
+                    </td>
+                    <td class="bm-dim">{{ s.last_seen ? (s.last_seen | date: 'short') : '—' }}</td>
+                    <td class="bm-svc-actions">
+                      @if (s.state === 'vanished') {
+                        <button mat-button (click)="discoDecide('remove', s)" [disabled]="discoBusy()"
+                                title="It is gone — stop tracking it (the row is dropped)">Remove</button>
+                        <button mat-button (click)="discoDecide('ignore', s)" [disabled]="discoBusy()"
+                                title="Keep the entry but never offer it again">Ignore</button>
+                      } @else if (s.state === 'undecided') {
+                        <button mat-button (click)="discoDecide('accept', s)" [disabled]="discoBusy()"
+                                title="Monitor it from now on">Monitor</button>
+                        <button mat-button (click)="discoDecide('ignore', s)" [disabled]="discoBusy()"
+                                title="Remembered — later runs stop offering it">Ignore</button>
+                      } @else if (s.state === 'monitored') {
+                        <button mat-button (click)="discoDecide('remove', s)" [disabled]="discoBusy()"
+                                title="Stop monitoring it; discovery offers it again next run">Stop</button>
+                      } @else {
+                        <button mat-button (click)="discoDecide('accept', s)" [disabled]="discoBusy()"
+                                title="Undo the ignore and monitor it">Monitor</button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="bm-dim">Nothing in this state.</p>
+        }
+      }
+
+      <!-- The active endpoint checks (HTTP/TCP/DNS/certificate). They used to live only in
+           Management > Service checks while THIS tab filtered them out, so the tab called
+           "Checks" hid a whole class of the host's checks and nothing said so. Now they are
+           here, where every other check of this host is, and the one place that can add or
+           edit them is here too. -->
+      <h3>Service checks</h3>
+      <p class="bm-dim bm-what">
+        <b>Assigned check</b> (a rule): an endpoint this host actively probes. Configure and add
+        them here — they are listed separately from the checks below only because they are
+        authored differently, not because they live elsewhere.
+      </p>
+      <app-service-checks [agentId]="agent().id" />
+
       <h3>Effective checks</h3>
+      <p class="bm-dim bm-what">
+        <b>Assigned check</b> (a rule): a check from the library that applies to this host,
+        inherited from its OU/group or set here. The service checks above are not repeated.
+      </p>
       @if (effectiveChecks().length) {
         <div class="bm-group">
         <table class="bm-table">
@@ -178,28 +267,52 @@ import {
         </table>
         </div>
       } @else {
-        <p class="bm-dim">No assigned checks on this host yet. Run <b>Auto-discover checks</b> above, add a service check in <b>Management&nbsp;▸&nbsp;Service checks</b>, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
+        <p class="bm-dim">No library checks assigned to this host yet. Run <b>Auto-discover checks</b> above, add a <b>service check</b> in the section above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
       }
 
       <!-- F-4: the monitoring services actually running on this host, so the
            tab reconciles the two notions of "check" (assigned Starlark checks
            above vs. threshold/built-in monitoring services here). -->
-      <h3 class="bm-svc-h">Monitoring services <span class="bm-dim">({{ services().length }})</span></h3>
+      <h3 class="bm-svc-h">Service states <span class="bm-dim">({{ services().length }})</span></h3>
+      <p class="bm-dim bm-what">
+        <b>Service state</b> (a measurement): what a check most recently reported. A rule above
+        says what to measure; a row here says what came back.
+      </p>
       <p class="bm-dim bm-svc-note">
         From threshold rules + the agent's built-in metrics — distinct from the assigned checks above.
-        Edit thresholds in <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>; full detail on the
-        <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab.
+        <b>Click a threshold to change it for this host</b> — the same editor the
+        <a [routerLink]="['/hosts', agent().id]" [queryParams]="{ tab: 'services' }">Services</a> tab
+        opens, reached from here so a value you are looking at is a value you can edit. Setting it
+        for MANY hosts is a different scope, not a different editor:
+        <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>.
       </p>
       @if (services().length) {
         <div class="bm-group">
           <table class="bm-table">
-            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Metric</th><th></th></tr></thead>
+            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Threshold</th><th>Metric</th><th></th></tr></thead>
             <tbody>
               @for (s of services(); track s.id) {
                 <tr>
                   <td>{{ s.name }}</td>
                   <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
                   <td class="bm-num">{{ fmtValue(s) }}</td>
+                  <!-- WHY is this row WARN/CRIT? A state without its threshold is an
+                       assertion without a reason. The API already ships it
+                       (ServiceOut.warn/crit_threshold + comparison). -->
+                  <!-- The threshold is editable HERE, not only two screens away. It is the same
+                       ThresholdDialogComponent the Services tab opens and the same createCheckRule
+                       behind it: two entry points, ONE editor. Two editors for one value would be
+                       the actual mistake — this is a second door, not a second room. -->
+                  <td class="bm-thr">
+                    <button class="bm-thr-btn" [title]="thresholdHint(s) || 'Set a warn/crit threshold for this service on this host'"
+                            (click)="editThreshold(s)">
+                      @if (s.warn_threshold != null || s.crit_threshold != null) {
+                        <span class="bm-mono">{{ thresholdText(s) }}</span>
+                      } @else {
+                        <span class="bm-thr-none">set…</span>
+                      }
+                    </button>
+                  </td>
                   <td class="bm-dim bm-mono">{{ s.metric }}</td>
                   <td class="bm-svc-actions">
                     <button mat-icon-button class="bm-del" [disabled]="deleting() === s.id"
@@ -220,10 +333,38 @@ import {
   `,
   styles: [
     `
+      /* Discovery states: all four buckets always visible, and "vanished" has to
+         LOOK different — an unnoticed missing service is the failure this section
+         exists to prevent. */
+      .bm-thr { font-size: 12px; white-space: nowrap; opacity: 0.85; }
+      /* The threshold reads as text until hovered, then as the control it is: a table full of
+         buttons is noise, but a value you can change must not look inert either. */
+      .bm-thr-btn { font: inherit; color: inherit; background: none; border: 1px solid transparent;
+        border-radius: 5px; padding: 2px 6px; cursor: pointer; text-align: left; }
+      .bm-thr-btn:hover, .bm-thr-btn:focus-visible { border-color: var(--mat-sys-outline-variant);
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-thr-none { opacity: 0.5; font-style: italic; }
+      .bm-disco-sub { font-weight: 400; font-size: 12px; margin-left: 8px; }
+      .bm-disco-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+      .bm-disco-tab { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 20px;
+        cursor: pointer; border: 1px solid var(--mat-sys-outline-variant); background: transparent;
+        color: var(--mat-sys-on-surface); }
+      .bm-disco-tab.sel { border-color: var(--mat-sys-primary);
+        background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
+      .bm-disco-tab.warn { border-color: #e5534b; color: #e5534b; }
+      .bm-disco-tab.warn.sel { background: color-mix(in srgb, #e5534b 18%, transparent); color: #ff8b84; }
+      .bm-disco-state { font-size: 11.5px; padding: 1px 8px; border-radius: 10px;
+        border: 1px solid var(--mat-sys-outline-variant); }
+      .bm-disco-state.gone { color: #ff8b84; border-color: #e5534b;
+        background: color-mix(in srgb, #e5534b 14%, transparent); }
+      .bm-disco-state.ign { opacity: 0.6; }
+      .bm-disco-gone td.bm-mono, .bm-disco-gone .bm-mono { text-decoration: line-through; opacity: 0.8; }
+
       /* Grouped-inset layout (design-philosophy §9): comfortable max width,
          rounded hairline groups, quiet header rows. */
       .bm-checks { padding: 4px 2px; max-width: 960px; }
       .bm-svc-h { margin-top: 28px; }
+      .bm-what { margin: 2px 0 8px; font-size: 12.5px; max-width: 860px; }
       .bm-svc-note { font-size: 12px; margin: 2px 0 10px; }
       .bm-svc-note a { color: var(--mat-sys-primary); }
       .bm-add { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -272,8 +413,8 @@ import {
 export class HostChecksComponent {
   private checkService = inject(CheckService);
   private monitoringService = inject(MonitoringService);
-  private agentService = inject(AgentService);
   private dialog = inject(MatDialog);
+  private agentService = inject(AgentService);
   agent = input.required<Agent>();
   /** F-4 bridge: the monitoring services actually active on this host (from
    * threshold check-rules + the agent's built-in metrics) — a different notion
@@ -311,14 +452,6 @@ export class HostChecksComponent {
     });
   }
 
-  /** Host-scope runbook variables (strongest in the GPO merge). */
-  editHostVars(): void {
-    const a = this.agent();
-    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
-      ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'host', scopeId: a.id, scopeLabel: 'host ' + a.name } },
-    );
-  }
-
   checks = signal<EffectiveCheck[]>([]);
   catalog = signal<CheckCatalogEntry[]>([]);
   error = signal<string | null>(null);
@@ -339,9 +472,12 @@ export class HostChecksComponent {
   provInfo = signal<Record<string, { available: boolean; title?: string; admin_params?: { name: string; secret: boolean; description: string }[] }>>({});
   private adminCreds = signal<Record<string, Record<string, string>>>({});
 
-  /** Effective checks minus the active "Service checks" (HTTP/TCP/DNS/…):
-   * those are managed in Management ▸ Service checks, so listing them here too
-   * would be redundant. Checks not in the library keep showing (orphan view). */
+  /** Effective checks minus the active "Service checks" (HTTP/TCP/DNS/…): those have their
+   * own section ON THIS TAB, which is where they are added and edited, so repeating them in
+   * this table would show the same row twice on one screen. The difference from before is
+   * that the other section is now here rather than in a Management snap-in — the rows are
+   * not hidden from the tab any more, only sorted into the section that can act on them.
+   * Checks not in the library keep showing (orphan view). */
   effectiveChecks = computed(() => {
     const cat = new Map(this.catalog().map((c) => [c.name, c.category]));
     return this.checks().filter((c) => cat.get(c.check_name) !== 'Service checks');
@@ -386,6 +522,14 @@ export class HostChecksComponent {
     });
   }
 
+  /** Just the service states — a threshold change does not alter the assigned checks or the
+   * catalog, so reloading all four lists would be noise. */
+  private refreshServices(): void {
+    this.monitoringService.agentServices(this.agent().id).subscribe({
+      next: (v) => this.services.set(v ?? []), error: () => this.services.set([]),
+    });
+  }
+
   private reload(agentId: string): void {
     this.checkService.effectiveHostChecks(agentId).subscribe({
       next: (r) => this.checks.set(r.checks),
@@ -393,11 +537,91 @@ export class HostChecksComponent {
     });
     this.checkService.listChecks().subscribe({ next: (r) => this.catalog.set(r.checks) });
     this.monitoringService.agentServices(agentId).subscribe({ next: (s) => this.services.set(s ?? []), error: () => this.services.set([]) });
+    this.checkService.discoveredServices(agentId).subscribe({
+      next: (d) => this.disco.set(d), error: () => this.disco.set(null),
+    });
+  }
+
+  // ---- discovered services: every state the model holds, none of them silent ----
+  disco = signal<{ counts: Record<string, number>; services: DiscoRow[] } | null>(null);
+  discoFilter = signal<string>('vanished');
+  discoBusy = signal(false);
+
+  /** The four lifecycle states, always all four — a bucket with 0 still shows, so
+   *  "no vanished services" is a statement rather than an absence. */
+  discoBuckets(): { key: string; label: string; count: number; hint: string }[] {
+    const c = this.disco()?.counts || {};
+    return [
+      { key: 'vanished', label: 'Vanished', count: c['vanished'] || 0,
+        hint: 'Was found before, this run did not find it — decide: remove or ignore' },
+      { key: 'undecided', label: 'New', count: c['undecided'] || 0,
+        hint: 'Discovery found it, nobody decided yet' },
+      { key: 'monitored', label: 'Monitored', count: c['monitored'] || 0,
+        hint: 'Found and being monitored' },
+      { key: 'ignored', label: 'Ignored', count: c['ignored'] || 0,
+        hint: 'Decided against — later runs stop offering it' },
+    ];
+  }
+  discoRows(): DiscoRow[] {
+    return (this.disco()?.services || []).filter((s) => s.state === this.discoFilter());
+  }
+  discoStateLabel(state: string): string {
+    return state === 'undecided' ? 'new' : state;
+  }
+  discoStateHint(state: string): string {
+    return this.discoBuckets().find((b) => b.key === state)?.hint || state;
+  }
+  /** accept | ignore | remove — the verbs the API already implements. */
+  discoDecide(verb: 'accept' | 'ignore' | 'remove', s: DiscoRow): void {
+    this.discoBusy.set(true);
+    const spec = { check_name: s.check_name, item: s.item || undefined };
+    this.checkService.decideDiscovery(this.agent().id, { [verb]: [spec] }).subscribe({
+      next: () => { this.discoBusy.set(false); this.reload(this.agent().id); },
+      error: (e) => { this.discoBusy.set(false); this.fail(e); },
+    });
   }
 
   private fail(e: unknown): void {
     const d = (e as { error?: { detail?: string }; message?: string })?.error?.detail;
     this.error.set(d ?? (e as { message?: string })?.message ?? 'Request failed');
+  }
+
+  /** The rule this row is graded against, e.g. ">= 80 / >= 90". Answering "why is
+   *  this WARN?" needs the comparison too — "80" alone does not say which side is
+   *  bad. */
+  thresholdText(s: ServiceState): string {
+    const op = this.comparisonText(s.comparison);
+    const parts: string[] = [];
+    if (s.warn_threshold != null) parts.push(`${op}${s.warn_threshold}`);
+    if (s.crit_threshold != null) parts.push(`${op}${s.crit_threshold}`);
+    return parts.join(' / ');
+  }
+  /** Where the numbers come from + what they mean — the provenance the assignment
+   *  table shows in its "From" column, spelled out here for the measurement. */
+  thresholdHint(s: ServiceState): string {
+    if (s.warn_threshold == null && s.crit_threshold == null) {
+      return 'No threshold rule: this check reports its own state, so there is no value to grade. '
+           + 'Add a rule in OU / Policy to grade it.';
+    }
+    const w = s.warn_threshold != null ? `warn ${this.comparisonText(s.comparison)}${s.warn_threshold}` : 'no warn level';
+    const c = s.crit_threshold != null ? `crit ${this.comparisonText(s.comparison)}${s.crit_threshold}` : 'no crit level';
+    const rule = `The rule grades ${s.metric} at ${w}, ${c} (edit it in OU / Policy).`;
+    // No value means no comparison happened — claiming one would be a false reason.
+    if (s.value == null) {
+      return `${s.state}: no value was reported for ${s.metric}, so nothing could be graded. ${rule}`;
+    }
+    return `${s.state} because ${s.metric} = ${s.value} against ${w}, ${c}. ${rule}`;
+  }
+  private comparisonText(c: ServiceState['comparison']): string {
+    switch (c) {
+      case 'gt': return '> ';
+      case 'ge': return '>= ';
+      case 'lt': return '< ';
+      case 'le': return '<= ';
+      case 'eq': return '= ';
+      case 'ne': return '!= ';
+      default: return '';
+    }
   }
 
   scopeLabel(c: EffectiveCheck): string {
@@ -576,4 +800,40 @@ export class HostChecksComponent {
       error: (e) => this.fail(e),
     });
   }
+  /** Second entry point to the threshold editor — the FIRST is the Services tab row.
+   *
+   * Two doors, one editor: this opens the very ThresholdDialogComponent the Services tab opens and
+   * posts through the same createCheckRule. That distinction matters. Two entry points to one
+   * editor is navigation, and it is what makes a value you are looking at a value you can change.
+   * Two DIFFERENT editors for one threshold would be the defect — they could disagree, and the
+   * operator would have no way to tell which one won.
+   *
+   * Before this, the cell showed the threshold and the caption told you to go to OU / Policy or the
+   * Services tab: the reason a row is WARN was on screen while the only way to act on it was not.
+   */
+  editThreshold(s: ServiceState): void {
+    const spec = serviceMetricSpec(s.name, s.metric);
+    const ref = this.dialog.open(ThresholdDialogComponent, {
+      width: 'min(880px, 94vw)',
+      maxWidth: '94vw',
+      data: {
+        hostName: this.agent().name,
+        serviceName: s.name,
+        // A disk service carries its mount in the name ("Disk /var"); serviceMetricSpec splits that
+        // out so the rule is scoped to THAT mount instead of every disk on the host.
+        metric: spec?.members[0] ?? s.metric ?? '',
+        labelValue: spec?.mount ?? null,
+      },
+    });
+    ref.afterClosed().subscribe((input) => {
+      if (!input) return;
+      // Reload the service list either way: on success the new grading must be visible, and on
+      // failure the row must still show what the host actually has rather than the value we tried.
+      this.monitoringService.createCheckRule(input).subscribe({
+        next: () => this.refreshServices(),
+        error: () => this.refreshServices(),
+      });
+    });
+  }
+
 }

@@ -1,0 +1,77 @@
+{#
+  Seccomp Filter Configuration Template
+  =====================================
+  Generates a JSON configuration blob for a seccomp (Secure Computing Mode) filter loader.
+  This configuration restricts the system calls available to the service, enhancing security.
+
+  Schema Reference:
+  - enabled: Boolean. Enables the filter.
+  - no_new_privs: Boolean. Sets PR_SET_NO_NEW_PRIVS.
+  - flags: List. Seccomp filter flags (e.g., LOG, TSYNC).
+  - architectures: List. Allowed audit architectures.
+  - allowed_syscalls: List. Allowed system call names.
+  - log_actions: List. Seccomp return actions to log.
+#}
+
+{#
+  "enabled": Whether to enable seccomp filtering for this service.
+  Defaults to true if the variable is unset or undefined.
+#}
+"enabled": {{ enabled | default(true) | lower }},
+
+{#
+  "mode": Fixed mode "filter". Seccomp filters operate in 'filter' mode.
+#}
+"mode": "filter",
+
+{#
+  "no_new_privs": Set PR_SET_NO_NEW_PRIVS before installing filter, required for SECCOMP_SET_MODE_FILTER.
+  Defaults to true.
+#}
+"no_new_privs": {{ no_new_privs | default(true) | lower }},
+
+{#
+  "flags": Seccomp flags such as SECCOMP_FILTER_FLAG_LOG or SECCOMP_FILTER_FLAG_TSYNC.
+  Corresponds to man page 'FLAGS' section.
+  Defaults to empty list [] if unset.
+#}
+{% if flags | default([]) | length > 0 %}
+"flags": [
+    {{ flags | default([]) | join(', ') }}
+],
+{% endif %}
+
+{#
+  "architectures": List of AUDIT_ARCH_* identifiers allowed by the filter.
+  Corresponds to man page 'struct seccomp_data' arch field.
+  Defaults to ['AUDIT_ARCH_X86_64', 'AUDIT_ARCH_I386'].
+#}
+"architectures": [
+{% for arch in architectures | default(['AUDIT_ARCH_X86_64', 'AUDIT_ARCH_I386']) %}
+    {{ arch | string }}{% if not loop.last %},{% endif %}
+{% endfor %}
+],
+
+{#
+  "allowed_syscalls": List of system call names (SYS_*) allowed by the BPF filter.
+  Denies all others. Corresponds to man page 'ALLOW' action.
+  Defaults to a comprehensive list of standard Linux syscalls.
+#}
+"allowed_syscalls": [
+{% for call in allowed_syscalls | default(['SYS_read', 'SYS_write', 'SYS_openat', 'SYS_close', 'SYS_fstat', 'SYS_mmap', 'SYS_mprotect', 'SYS_munmap', 'SYS_brk', 'SYS_rt_sigaction', 'SYS_rt_sigprocmask', 'SYS_rt_sigreturn', 'SYS_exit_group', 'SYS_exit', 'SYS_clock_gettime', 'SYS_arch_prctl', 'SYS_set_tid_address', 'SYS_set_robust_list', 'SYS_prlimit64', 'SYS_futex', 'SYS_getrandom', 'SYS_statfs', 'SYS_getpid', 'SYS_access', 'SYS_newfstatat', 'SYS_readlinkat', 'SYS_dup', 'SYS_ioctl', 'SYS_writev', 'SYS_pipe', 'SYS_dup2', 'SYS_mkdir', 'SYS_execve', 'SYS_fchdir', 'SYS_getcwd']) %}
+    "{{ call | string }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+],
+
+{#
+  "actions_logged": List of seccomp return actions to log via actions_logged.
+  Corresponds to man page '/proc interfaces' actions_logged.
+  Defaults to ['SECCOMP_RET_KILL_PROCESS', 'SECCOMP_RET_KILL_THREAD'] if unset.
+#}
+{% if log_actions | default(['SECCOMP_RET_KILL_PROCESS', 'SECCOMP_RET_KILL_THREAD']) | length > 0 %}
+"actions_logged": [
+{% for action in log_actions | default(['SECCOMP_RET_KILL_PROCESS', 'SECCOMP_RET_KILL_THREAD']) %}
+    "{{ action | string }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+{% endif %}

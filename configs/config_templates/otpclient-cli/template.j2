@@ -1,0 +1,110 @@
+# ==============================================================================
+# otpclient-cli Configuration Template
+# ==============================================================================
+# This template generates a configuration file for the otpclient CLI tool.
+# It manages One-Time Password (OTP) secrets stored in an SQLite database.
+#
+# The configuration is structured as a mix of key-value pairs and a nested
+# 'accounts' list. All variables are safe and provide defaults based on the
+# schema.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Database Configuration
+# ------------------------------------------------------------------------------
+# Path to the database file storing OTP secrets.
+# Default taken from otpclient.cfg if not specified.
+# Variable: db_path
+# ------------------------------------------------------------------------------
+"database": "{{ db_path | default('/home/user/otpclient.db') }}"
+
+# ------------------------------------------------------------------------------
+# Import Settings
+# ------------------------------------------------------------------------------
+# Enable import operation from a source file.
+# If true, import_file and import_type must be specified.
+# Variable: import_enabled
+# ------------------------------------------------------------------------------
+import_enabled: {{ import_enabled | default(false) | lower }}
+
+# File to import. Mandatory if import_enabled is true.
+# Variable: import_file
+# ------------------------------------------------------------------------------
+import_file: "{{ import_file | default('') }}"
+
+# The import/export type for the database.
+# Supported types: andotp_plain, andotp_encrypted, aegis_plain, aegis_encrypted, authpro_plain, authpro_encrypted.
+# Variable: import_type
+# ------------------------------------------------------------------------------
+import_type: "{{ import_type | default('andotp_plain') }}"
+
+# ------------------------------------------------------------------------------
+# Export Settings
+# ------------------------------------------------------------------------------
+# Enable export operation to output directory.
+# Variable: export_enabled
+# ------------------------------------------------------------------------------
+export_enabled: {{ export_enabled | default(false) | lower }}
+
+# The output directory for export.
+# Defaults to user's home directory if left empty or if using default.
+# Variable: export_output_dir
+# ------------------------------------------------------------------------------
+export_output_dir: "{{ export_output_dir | default('/home/user/otpclient_backup') }}"
+
+# ------------------------------------------------------------------------------
+# Show Settings
+# ------------------------------------------------------------------------------
+# Account name to show a token for.
+# Mandatory if show_enabled is true and not provided via CLI.
+# Variable: show_account
+# ------------------------------------------------------------------------------
+show_account: "{{ show_account | default('') }}"
+
+# Issuer to show a token for. Used with --show.
+# Variable: show_issuer
+# ------------------------------------------------------------------------------
+show_issuer: "{{ show_issuer | default('') }}"
+
+# Match exactly the provided account/issuer.
+# Variable: match_exact
+# ------------------------------------------------------------------------------
+match_exact: {{ match_exact | default(true) | lower }}
+
+# Show also next OTP.
+# Variable: show_next
+# ------------------------------------------------------------------------------
+show_next: {{ show_next | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# List Settings
+# ------------------------------------------------------------------------------
+# List all accounts and issuers for the given database.
+# Variable: list_enabled
+# ------------------------------------------------------------------------------
+list_enabled: {{ list_enabled | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# GApplication Service Mode
+# ------------------------------------------------------------------------------
+# Enter GApplication service mode (use from D-Bus service files).
+# Variable: service_mode
+# ------------------------------------------------------------------------------
+service_mode: {{ service_mode | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# User Accounts Management
+# ------------------------------------------------------------------------------
+# List of account objects to manage or reference in configuration contexts
+# not purely CLI-argument driven.
+# Variable: accounts
+# ------------------------------------------------------------------------------
+accounts:
+{% if accounts is defined and accounts | length > 0 %}
+{% for acc in accounts %}
+  - name: "{{ acc.name | default('') }}"
+    issuer: "{{ acc.issuer | default('') }}"
+{% endfor %}
+{% else %}
+  # No accounts defined.
+{% endif %}

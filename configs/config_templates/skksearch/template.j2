@@ -1,0 +1,57 @@
+# SKK Dictionary Configuration Template
+# This file configures the paths to SKK (Simple Kankaku Henkan) dictionary files.
+# SKK is a Japanese input method tool. The compiled dictionary (CDB) is used for fast lookup,
+# while plain text dictionaries can be added for additional vocabulary.
+
+# Path to the compiled SKK dictionary CDB file.
+# The CDB (Coincidence Database) format provides efficient hash-based lookups.
+cdb:{{ skk_cdb_path | default('/usr/share/skk/SKK-JISYO.cdb') }}
+
+# Path to the plain text SKK dictionary file.
+# Plain text dictionaries are loaded in addition to the CDB file.
+# Multiple plain dictionaries can be specified in the 'skk_plain_path' variable as a list.
+# This block generates a directive for each path in the list.
+# If skk_plain_path is a string, it is treated as a single path.
+{% set plain_paths = skk_plain_path | default('/usr/share/skk/SKK-JISYO') %}
+{% if plain_paths is string %}
+#plain:{{ plain_paths }}
+{% elif plain_paths is iterable %}
+{% for path in plain_paths %}
+#plain:{{ path }}
+{% endfor %}
+{% endif %}
+
+# Additional SKK Dictionary Extras
+# The following sections define optional extra dictionaries that can be enabled
+# by uncommenting the relevant lines. These are commented out by default to keep
+# the configuration minimal. Administrators can uncomment specific entries
+# depending on their required vocabulary (e.g., names, locations, specific domains).
+
+##plain:/usr/share/skk/SKK-JISYO.ML
+##plain:/usr/share/skk/SKK-JISYO.M
+##plain:/usr/share/skk/SKK-JISYO.S
+##plain:/usr/share/skk/SKK-JISYO.not_wrong
+##plain:/usr/share/skk/SKK-JISYO.notes
+#plain:/usr/share/skk/SKK-JISYO.lisp
+#plain:/usr/share/skk/SKK-JISYO.JIS2
+#plain:/usr/share/skk/SKK-JISYO.assoc
+#plain:/usr/share/skk/SKK-JISYO.china_taiwan
+#plain:/usr/share/skk/SKK-JISYO.fullname
+#plain:/usr/share/skk/SKK-JISYO.geo
+#plain:/usr/share/skk/SKK-JISYO.hukugougo
+#plain:/usr/share/skk/SKK-JISYO.jinmei
+#plain:/usr/share/skk/SKK-JISYO.law
+#plain:/usr/share/skk/SKK-JISYO.mazegaki
+#plain:/usr/share/skk/SKK-JISYO.noregist
+#plain:/usr/share/skk/SKK-JISYO.okinawa
+#plain:/usr/share/skk/SKK-JISYO.propernoun
+#plain:/usr/share/skk/SKK-JISYO.pubdic+
+#plain:/usr/share/skk/SKK-JISYO.requested
+#plain:/usr/share/skk/SKK-JISYO.station
+#plain:/usr/share/skk/SKK-JISYO.zipcode
+#plain:/usr/share/skk/SKK-JISYO.office.zipcode
+#plain:/usr/share/skk/SKK-JISYO.JIS3_4
+#plain:/usr/share/skk/SKK-JISYO.JIS2004
+#plain:/usr/share/skk/SKK-JISYO.edict
+#plain:/usr/share/skk/SKK-JISYO.itaiji
+#plain:/usr/share/skk/SKK-JISYO.itaiji.JIS3_4

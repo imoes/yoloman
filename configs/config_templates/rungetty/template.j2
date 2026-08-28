@@ -1,0 +1,64 @@
+# =============================================================================
+# rungetty /etc/inittab Configuration Template
+# =============================================================================
+#
+# PURPOSE:
+#   This template generates inittab(5) entries for rungetty. It manages
+#   virtual consoles (TTYs), configuring how rungetty spawns login shells,
+#   handles autologin, and applies specific flags like clearing the screen
+#   or using the long hostname.
+#
+# VARIABLES REQUIRED:
+#   global_options  (dict) - Global flags applied to all consoles unless
+#                            overridden per-console.
+#   ttys            (list) - A list of console configurations. Each item
+#                            must contain: id, runlevels, tty, command,
+#                            and optionally: description, autologin, username,
+#                            group, priority, working_directory, delay, prompt.
+#
+# EXAMPLE USAGE (Ansible):
+#   global_options:
+#     noclear: false
+#     long_hostname: true
+#   ttys:
+#     - id: "1"
+#       runlevels: "12345"
+#       tty: "tty1"
+#       command: "/sbin/getty"
+#       arguments: "38400"
+#       autologin: "root"
+#       description: "Main console"
+
+# -----------------------------------------------------------------------------
+# Global Defaults
+# -----------------------------------------------------------------------------
+# Description: Global rungetty flags applied to all consoles unless overridden
+#              per-console. These are prepended to the command line for every
+#              TTY entry.
+# Note: inittab parsing is simple, so these are applied globally.
+
+{% if global_options | default({}) | bool %}
+{% if (global_options | default({})).noclear | default(false) | bool %}--noclear {% endif %}
+{% if (global_options | default({})).long_hostname | default(false) | bool %}--long-hostname {% endif %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Per-Console Entries
+# -----------------------------------------------------------------------------
+# Iterates over the `ttys` list to generate one inittab line per TTY.
+# Format: id:runlevels:action:process
+# Action is fixed to 'respawn' for rungetty.
+
+{% for tty_config in (ttys | default([])) %}
+# {{ tty_config.description | default('Console ' + tty_config.tty) }}: {{ tty_config.command }} {{ tty_config.arguments | default('') }}
+r{{ tty_config.id | default('') }}:{{ tty_config.runlevels | default('2345') }}:respawn:/sbin/rungetty {{ tty_config.tty | default('tty1') }} \
+{% if tty_config.autologin | default(false) %}--autologin {{ tty_config.autologin | default('') }} {% endif %}
+{% if tty_config.username | default('') %}-u {{ tty_config.username | default('') }} {% endif %}
+{% if tty_config.group | default('') %}-g {{ tty_config.group | default('') }} {% endif %}
+{% if tty_config.priority | default(0) != 0 %}-n {{ tty_config.priority | default(0) }} {% endif %}
+{% if tty_config.working_directory | default('') %}-w {{ tty_config.working_directory | default('') }} {% endif %}
+{% if tty_config.delay | default(0) > 0 %}-d {{ tty_config.delay | default(0) }} {% endif %}
+{% if tty_config.prompt | default('') %}--prompt {{ tty_config.prompt | default('') }} {% endif %}
+-- {{ tty_config.command | default('/sbin/getty') }} {{ tty_config.arguments | default('') }}
+
+{% endfor %}

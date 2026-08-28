@@ -1,0 +1,48 @@
+# ==============================================================================
+# Configuration for sensible-mda (Local Mail Delivery Agent Router)
+#
+# sensible-mda acts as a router to find the first available SUID (Set-User-ID)
+# Mail Delivery Agent (MDA) binary from a predefined list. It ensures that
+# mail is delivered by a binary that has the necessary permissions to write
+# to user mail spools, while allowing the MTA to run as unprivileged.
+#
+# This template generates a YAML-compatible configuration file for sensible-mda.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# List of MDA binaries to check for existence and SUID status.
+#
+# Description: Ordered list of MDA binaries to attempt delivery with.
+#              sensible-mda checks for the first SUID MDA found in this list.
+#              Order matters: sensible-mda tries them in this sequence.
+#
+# Real documented MDAs: procmail, maildrop, deliver, mail.local
+# ------------------------------------------------------------------------------
+mda_list:
+{# If the variable is not defined, provide the schema default as a list. #}
+{% for mda in mda_list | default(['/usr/bin/procmail', '/usr/bin/maildrop', '/usr/bin/deliver', '/usr/bin/mail.local']) %}
+# Attempt delivery with: {{ mda }}
+  - {{ mda }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Fallback MDA binary.
+#
+# Description: The binary to use if none of the preferred MDAs in mda_list
+#              are found or are executable. If this fails, delivery is bounced.
+#
+# Common fallback: /usr/bin/procmail or /usr/bin/mail.local
+# ------------------------------------------------------------------------------
+fallback_mda: {{ fallback_mda | default('/usr/bin/procmail') }}
+
+# ------------------------------------------------------------------------------
+# Recipient user context.
+#
+# Description: The system user under whom the local mail delivery process
+#              typically runs or checks for the MDA's existence context.
+#              sensible-mda handles the setuid mechanism, but this defines
+#              the target uid/gid context for the envelope recipient.
+#
+# Typical value: mail
+# ------------------------------------------------------------------------------
+recipient_user: {{ recipient_user | default('mail') }}

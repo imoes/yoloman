@@ -1,10 +1,7 @@
-import { Component, Inject, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { Component, Inject, inject, viewChild } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { environment } from '../../../../environments/environment';
+import { ScopeVarsEditorComponent } from './scope-vars-editor.component';
 
 export interface ScopeVarsDialogData {
   scopeType: 'ou' | 'group' | 'host';
@@ -12,119 +9,31 @@ export interface ScopeVarsDialogData {
   scopeLabel: string; // e.g. "OU /Databases" or "host db01"
 }
 
-interface Row { key: string; value: string; secret: boolean; }
-const MASK = '••••••••';
-
 /**
- * Block G11 — set the variables directly on one scope (OU/group/host). These
- * resolve GPO-style at runbook-run time (group < OU root→leaf < host), so a
- * value set on a parent OU is inherited by its hosts and overridable deeper.
- * Values are stored as strings here; numeric-looking ones are coerced on save
- * so a runbook's ${port} lands as an int, not "5432".
+ * Block G11 — set variables directly on one scope (OU/group/host) as a dialog.
+ * The whole editor lives in the reusable ScopeVarsEditorComponent (also embedded
+ * in the host Configuration tab); this wrapper only supplies the dialog chrome
+ * and drives the editor's save() from the action bar.
  */
 @Component({
   selector: 'app-scope-vars-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [MatDialogModule, MatButtonModule, ScopeVarsEditorComponent],
   template: `
     <h2 mat-dialog-title>Variables — {{ data.scopeLabel }}</h2>
     <mat-dialog-content>
-      <p class="bm-dim">Set directly on this scope. Resolved GPO-style at run time
-        (group &lt; OU root→leaf &lt; host); deeper/host values win.</p>
-      @for (r of rows(); track $index) {
-        <div class="bm-row">
-          <input class="bm-in bm-key" [ngModel]="r.key" (ngModelChange)="setKey($index, $event)" placeholder="mysql_port" />
-          <input class="bm-in bm-val" [type]="r.secret ? 'password' : 'text'" [ngModel]="r.value"
-                 (ngModelChange)="setVal($index, $event)" (focus)="onSecretFocus($index)"
-                 [placeholder]="r.secret ? '••••••••' : '3306'" />
-          <button mat-icon-button (click)="toggleSecret($index)"
-                  [color]="r.secret ? 'primary' : undefined"
-                  [title]="r.secret ? 'Secret — encrypted at rest' : 'Mark as secret (encrypt at rest)'">
-            <mat-icon>{{ r.secret ? 'lock' : 'lock_open' }}</mat-icon>
-          </button>
-          <button mat-icon-button (click)="remove($index)" title="Remove"><mat-icon>close</mat-icon></button>
-        </div>
-      }
-      <button mat-stroked-button (click)="add()"><mat-icon>add</mat-icon> Add variable</button>
-      @if (error()) { <p class="bm-err">{{ error() }}</p> }
+      <app-scope-vars-editor
+        [scopeType]="data.scopeType" [scopeId]="data.scopeId" [scopeLabel]="data.scopeLabel"
+        (saved)="dialogRef.close(true)" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close(false)">Cancel</button>
-      <button mat-raised-button color="primary" (click)="save()">Save</button>
+      <button mat-raised-button color="primary" (click)="editor().save()">Save</button>
     </mat-dialog-actions>
   `,
-  styles: [`
-    .bm-dim { opacity: 0.7; font-size: 13px; margin-bottom: 8px; max-width: 520px; }
-    .bm-err { color: var(--bm-red); }
-    .bm-row { display: flex; gap: 8px; align-items: center; }
-    .bm-key { width: 200px; } .bm-val { flex: 1; min-width: 220px; }
-  `],
 })
-export class ScopeVarsDialogComponent implements OnInit {
+export class ScopeVarsDialogComponent {
   dialogRef = inject(MatDialogRef<ScopeVarsDialogComponent, boolean>);
-  private http = inject(HttpClient);
-  private base = environment.apiUrl;
-  rows = signal<Row[]>([]);
-  error = signal<string>('');
-
+  editor = viewChild.required(ScopeVarsEditorComponent);
   constructor(@Inject(MAT_DIALOG_DATA) public data: ScopeVarsDialogData) {}
-
-  private idParam(): string {
-    const key = { ou: 'ou_id', group: 'host_group_id', host: 'agent_id' }[this.data.scopeType];
-    return `${key}=${this.data.scopeId}`;
-  }
-
-  ngOnInit(): void {
-    this.http.get<{ vars: Record<string, unknown>; secret_keys?: string[] }>(
-      `${this.base}/scope-vars?scope_type=${this.data.scopeType}&${this.idParam()}`,
-    ).subscribe((r) => {
-      const secret = new Set(r.secret_keys || []);
-      const rows = Object.entries(r.vars || {}).map(([key, value]) => ({
-        key, value: String(value), secret: secret.has(key),
-      }));
-      this.rows.set(rows.length ? rows : [{ key: '', value: '', secret: false }]);
-    });
-  }
-
-  add(): void { this.rows.update((r) => [...r, { key: '', value: '', secret: false }]); }
-  remove(i: number): void { this.rows.update((r) => r.filter((_, idx) => idx !== i)); }
-  setKey(i: number, v: string): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, key: v } : row))); }
-  setVal(i: number, v: string): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, value: v } : row))); }
-  toggleSecret(i: number): void { this.rows.update((r) => r.map((row, idx) => (idx === i ? { ...row, secret: !row.secret } : row))); }
-
-  /** Clicking into a still-masked secret clears the mask so a real edit
-   * replaces it; leaving it untouched (mask) preserves the stored ciphertext. */
-  onSecretFocus(i: number): void {
-    this.rows.update((r) => r.map((row, idx) => (idx === i && row.secret && row.value === MASK ? { ...row, value: '' } : row)));
-  }
-
-  private coerce(v: string): unknown {
-    if (v === 'true' || v === 'false') return v === 'true';
-    if (/^-?\d+$/.test(v)) return parseInt(v, 10);
-    if (/^-?\d*\.\d+$/.test(v)) return parseFloat(v);
-    return v;
-  }
-
-  save(): void {
-    const vars: Record<string, unknown> = {};
-    const secretKeys: string[] = [];
-    for (const { key, value, secret } of this.rows()) {
-      const k = key.trim();
-      if (!k) continue;
-      if (secret) {
-        secretKeys.push(k);
-        // A secret left as the mask means "unchanged" → send the mask so the
-        // backend keeps the existing ciphertext. Never coerce a secret.
-        vars[k] = value === '' ? MASK : value;
-      } else {
-        vars[k] = this.coerce(value);
-      }
-    }
-    const body: Record<string, unknown> = { scope_type: this.data.scopeType, vars, secret_keys: secretKeys };
-    body[{ ou: 'ou_id', group: 'host_group_id', host: 'agent_id' }[this.data.scopeType]] = this.data.scopeId;
-    this.http.put(`${this.base}/scope-vars`, body).subscribe({
-      next: () => this.dialogRef.close(true),
-      error: (e) => this.error.set(e?.error?.detail ?? 'save failed'),
-    });
-  }
 }

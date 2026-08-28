@@ -12,6 +12,7 @@ interface FstabEntry { device: string; mountpoint: string; fstype: string; optio
 import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
 import { UsageBarComponent, fmtBytes } from '../../../shared/config-dialog/usage-bar.component';
 import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
+import { HostDisksComponent } from '../host-disks.component';
 
 /** A flattened lsblk device row carrying its nesting depth. */
 interface DevRow {
@@ -26,6 +27,16 @@ interface DevRow {
   depth: number;
 }
 
+/** One entry of /proc/swaps, as the agent's `swap` module reports it. Sizes are KiB because that
+ * is what the kernel prints; the card converts for display rather than the module guessing a unit. */
+interface SwapArea {
+  name: string;
+  type: string;
+  size_kb: number;
+  used_kb: number;
+  priority: number;
+}
+
 /** Block J4d, Cockpit-adaptation — the Storage section rebuilt like Cockpit's
  * storaged (../cockpit/pkg/storaged): a single hierarchical device table
  * (disk → partition → LVM → filesystem) with per-filesystem usage bars, and
@@ -37,7 +48,7 @@ interface DevRow {
 @Component({
   selector: 'app-host-storage',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent, HostDisksComponent],
   template: `
     <div class="bm-mgmt-section">
       @if (loading()) {
@@ -45,155 +56,34 @@ interface DevRow {
       } @else if (loadErr()) {
         <p class="bm-svc-err">{{ loadErr() }}</p>
       } @else if (data(); as s) {
-        <div class="bm-topbar">
-          <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
-          <span class="bm-spacer"></span>
-          @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
-          @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
-          <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
-        </div>
-
-        <!-- Storage: one hierarchical device table (Cockpit's overview) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Storage</h3>
-            @if (!s.block_devices.available) { <span class="bm-na">unavailable</span> }
+        @if (msg() || err()) {
+          <div class="bm-topbar">
             <span class="bm-spacer"></span>
-            <button mat-icon-button [matMenuTriggerFor]="createMenu" [disabled]="busy()" title="Create storage device"><mat-icon>add</mat-icon></button>
-            <mat-menu #createMenu="matMenu">
-              <button mat-menu-item (click)="createVg()"><mat-icon>dns</mat-icon> Create LVM volume group</button>
-              <button mat-menu-item (click)="createZpool()"><mat-icon>waves</mat-icon> Create ZFS pool</button>
-              <button mat-menu-item (click)="wizard()"><mat-icon>auto_awesome</mat-icon> Create storage (thin/VDO/ZFS)…</button>
-            </mat-menu>
-          </header>
-          @if (s.block_devices.available) {
-            <table class="bm-ct">
-              <thead><tr><th>Device</th><th>Type</th><th>Size</th><th>Usage / mount</th><th></th></tr></thead>
-              <tbody>
-                @for (d of rows(); track d.path) {
-                  <tr>
-                    <td class="bm-dev" [style.padding-left.px]="14 + d.depth * 20">
-                      <mat-icon class="bm-dev-ic">{{ devIcon(d) }}</mat-icon>{{ d.name }}
-                    </td>
-                    <td><span class="bm-type">{{ d.fstype || d.type }}</span></td>
-                    <td class="bm-mono">{{ bytes(d.size) }}</td>
-                    <td>
-                      @if (d.mountpoint && d.fssize) {
-                        <app-usage-bar [used]="d.fsused || 0" [total]="d.fssize" [critical]="0.95" [short]="true" />
-                        <span class="bm-mnt">{{ d.mountpoint }}</span>
-                      } @else if (d.mountpoint) {
-                        <span class="bm-chip">{{ d.mountpoint }}</span>
-                      } @else { <span class="bm-muted">—</span> }
-                    </td>
-                    <td class="bm-right">
-                      <button mat-icon-button [matMenuTriggerFor]="devMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                      <mat-menu #devMenu="matMenu">
-                        @if (d.type === 'disk') {
-                          <button mat-menu-item (click)="createPartTable(d)"><mat-icon>grid_on</mat-icon> Create partition table…</button>
-                          <button mat-menu-item (click)="createPartition(d)"><mat-icon>add_box</mat-icon> Create partition…</button>
-                        }
-                        @if (d.type === 'part' || d.type === 'lvm' || d.type === 'crypt') {
-                          <button mat-menu-item (click)="format(d)"><mat-icon>build</mat-icon> Format…</button>
-                          @if (d.mountpoint) {
-                            <button mat-menu-item (click)="unmount(d)"><mat-icon>eject</mat-icon> Unmount</button>
-                          } @else {
-                            <button mat-menu-item (click)="mount(d)"><mat-icon>save</mat-icon> Mount…</button>
-                          }
-                        }
-                        @if (d.type === 'part') {
-                          <button mat-menu-item class="bm-danger" (click)="deletePartition(d)"><mat-icon>delete</mat-icon> Delete partition</button>
-                        }
-                      </mat-menu>
-                    </td>
-                  </tr>
-                }
-                @if (!rows().length) { <tr><td colspan="5" class="bm-empty">No storage found.</td></tr> }
-              </tbody>
-            </table>
-          }
-        </section>
+            @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
+            @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
+          </div>
+        }
 
-        <!-- LVM volume groups (with capacity bars + object-bound LV actions) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Volume groups (LVM)</h3>
-            @if (!s.lvm.available) { <span class="bm-na">unavailable</span> }
-          </header>
-          @if (s.lvm.available) {
-            @for (vg of s.lvm.vgs || []; track vg.vg_name) {
-              <div class="bm-vg">
-                <div class="bm-vg-top">
-                  <span class="bm-dev"><mat-icon class="bm-dev-ic">dns</mat-icon>{{ vg.vg_name }}</span>
-                  <span class="bm-spacer"></span>
-                  <span class="bm-vg-cap">{{ bytes(usedBytes(vg)) }} / {{ bytes(num(vg.vg_size)) }} used</span>
-                  <button mat-icon-button [matMenuTriggerFor]="vgMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                  <mat-menu #vgMenu="matMenu">
-                    <button mat-menu-item (click)="createLv(vg.vg_name, num(vg.vg_free))"><mat-icon>add</mat-icon> Create logical volume…</button>
-                    <button mat-menu-item (click)="pvresizeVg(vg.vg_name)"><mat-icon>open_in_full</mat-icon> Grow VG (resize PVs)</button>
-                    <button mat-menu-item class="bm-danger" (click)="deleteVg(vg.vg_name)"><mat-icon>delete</mat-icon> Delete volume group</button>
-                  </mat-menu>
-                </div>
-                <div class="bm-bar"><span class="bm-bar-fill" [style.width.%]="usedPct(vg)" [class.bm-bar-warn]="usedPct(vg) >= 80" [class.bm-bar-crit]="usedPct(vg) >= 90"></span></div>
-                @if (lvsOf(s, vg.vg_name).length) {
-                  <table class="bm-ct bm-lv-t">
-                    <tbody>
-                      @for (lv of lvsOf(s, vg.vg_name); track lv.lv_name) {
-                        <tr>
-                          <td class="bm-dev bm-lv-name"><mat-icon class="bm-dev-ic">layers</mat-icon>{{ lv.lv_name }}</td>
-                          <td class="bm-right bm-mono">{{ bytes(num(lv.lv_size)) }}</td>
-                          <td class="bm-right">
-                            <button mat-icon-button [matMenuTriggerFor]="lvMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                            <mat-menu #lvMenu="matMenu">
-                              <button mat-menu-item (click)="resizeLv(vg.vg_name, lv.lv_name, num(lv.lv_size), num(vg.vg_free))"><mat-icon>open_in_full</mat-icon> Resize…</button>
-                              <button mat-menu-item class="bm-danger" (click)="deleteLv(vg.vg_name, lv.lv_name)"><mat-icon>delete</mat-icon> Delete</button>
-                            </mat-menu>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                }
-              </div>
-            }
-            @if (!(s.lvm.vgs || []).length) { <p class="bm-empty">No volume groups.</p> }
-          }
-        </section>
+        <!-- The partition editor IS the Storage snapin now: visual disk + a
+             selection-driven toolbar + a staged op queue, covering disks,
+             partitions, LVM and ZFS (docs/disk-management.md). It replaced the
+             old lsblk device table and the LVM/ZFS cards; /etc/fstab stays below. -->
+        <app-host-disks [agentId]="agentId()" />
 
-        <!-- ZFS: always listed (even without tooling/pools) so it's discoverable. -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>ZFS pools</h3>
-            @if (!s.zfs.available) { <span class="bm-na">zfs tooling not installed</span> }
-            <span class="bm-spacer"></span>
-            <button mat-icon-button (click)="createZpool()" [disabled]="busy()" title="Create ZFS pool"><mat-icon>add</mat-icon></button>
-          </header>
-          @if ((s.zfs.pools || []).length) {
-            <table class="bm-ct">
-              <tbody>
-                @for (p of s.zfs.pools || []; track $index) {
-                  <tr>
-                    <td class="bm-dev"><mat-icon class="bm-dev-ic">waves</mat-icon>{{ p.name || p }}</td>
-                    <td class="bm-right">
-                      <button mat-icon-button [matMenuTriggerFor]="zpMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                      <mat-menu #zpMenu="matMenu">
-                        <button mat-menu-item (click)="createDataset(p.name || p)"><mat-icon>add</mat-icon> Create dataset…</button>
-                      </mat-menu>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          } @else {
-            <p class="bm-empty">No ZFS pools. Use “Create ZFS pool” to make one from free devices.</p>
-          }
-        </section>
 
         <!-- /etc/fstab: the columnar mount table, decoded via the fstab codec
              and edited as values — applied through state/apply (versioned +
-             roll-backable), respecting the Dry-run toggle above. -->
+             roll-backable). Dry run only affects THIS card now (the partition
+             editor above has its own Preview/Apply), so the toggle lives here. -->
         <section class="bm-card">
           <header class="bm-card-head"><h3>Mounts (/etc/fstab)</h3>
             @if (!fstabAvail()) { <span class="bm-na">unavailable</span> }
             <span class="bm-spacer"></span>
             @if (fstabMsg()) { <span class="bm-svc-ok">{{ fstabMsg() }}</span> }
             @if (fstabErr()) { <span class="bm-svc-err">{{ fstabErr() }}</span> }
+            <label class="bm-chk" title="Preview the rendered /etc/fstab instead of writing it">
+              <input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run</label>
+            <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>
             <button mat-stroked-button (click)="addMount()" [disabled]="busy() || !fstabAvail()"><mat-icon>add</mat-icon> Add mount</button>
             <button mat-flat-button color="primary" (click)="saveFstab()" [disabled]="busy() || !fstabDirty()">{{ dryRun() ? 'Preview' : 'Apply' }}</button>
           </header>
@@ -217,6 +107,57 @@ interface DevRow {
             </table>
           }
         </section>
+
+        <!-- Swap. Its own card rather than rows in the fstab table: an fstab line is the
+             PERSISTENCE of a swap area, not the area itself. A line can exist with no active
+             swap (never mkswap'd) and an area can be active with no line (gone after reboot),
+             so showing them as one thing would let the UI claim a state the host does not have.
+             The note under the table says which of the two this card changes. -->
+        <section class="bm-card">
+          <header class="bm-card-head"><h3>Swap</h3>
+            <span class="bm-spacer"></span>
+            @if (swapMsg()) { <span class="bm-svc-ok">{{ swapMsg() }}</span> }
+            @if (swapErr()) { <span class="bm-svc-err">{{ swapErr() }}</span> }
+          </header>
+          <table class="bm-ct">
+            <thead><tr><th>Area</th><th>Type</th><th>Size</th><th>Used</th><th>Priority</th><th></th></tr></thead>
+            <tbody>
+              @for (a of swapAreas(); track a.name) {
+                <tr>
+                  <td class="bm-mono">{{ a.name }}</td>
+                  <td>{{ a.type }}</td>
+                  <td>{{ mib(a.size_kb) }}</td>
+                  <td>{{ mib(a.used_kb) }}</td>
+                  <td>{{ a.priority }}</td>
+                  <td class="bm-right">
+                    <button mat-icon-button class="bm-danger" [disabled]="swapBusy()"
+                            (click)="removeSwap(a)" title="Swap off (the file is kept)">
+                      <mat-icon>delete</mat-icon></button>
+                  </td>
+                </tr>
+              }
+              @if (!swapAreas().length) { <tr><td colspan="6" class="bm-empty">No swap is active.</td></tr> }
+            </tbody>
+          </table>
+          <div class="bm-swap-add">
+            <input class="bm-fi bm-fi-wide" placeholder="/swapfile" [value]="newSwapPath()"
+                   (input)="newSwapPath.set($any($event.target).value)" />
+            <input class="bm-fi bm-fi-sm" placeholder="2G" [value]="newSwapSize()"
+                   (input)="newSwapSize.set($any($event.target).value)" />
+            <input class="bm-fi bm-fi-xs" placeholder="prio" [value]="newSwapPrio()"
+                   (input)="newSwapPrio.set($any($event.target).value)" />
+            <button mat-stroked-button [disabled]="swapBusy() || !newSwapPath() || !newSwapSize()"
+                    (click)="addSwap()">{{ dryRun() ? 'Preview' : 'Add swap file' }}</button>
+          </div>
+          @if (swapSteps().length) {
+            <p class="bm-swap-note">Would run: <span class="bm-mono">{{ swapSteps().join(' → ') }}</span></p>
+          }
+          <p class="bm-swap-note">
+            This card manages the RUNNING swap only. To survive a reboot the area also needs a line
+            in <span class="bm-mono">/etc/fstab</span> — add it in Mounts above
+            (<span class="bm-mono">type swap</span>, mount point <span class="bm-mono">none</span>).
+          </p>
+        </section>
       }
     </div>
   `,
@@ -227,6 +168,8 @@ interface DevRow {
       .bm-topbar { display: flex; align-items: center; gap: 12px; }
       .bm-spacer { flex: 1; }
       .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow: hidden; background: var(--mat-sys-surface); }
+      .bm-swap-add { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-swap-note { margin: 0; padding: 0 14px 10px; font-size: 12px; opacity: 0.7; }
       .bm-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
       .bm-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
       .bm-na { color: var(--mat-sys-on-surface); opacity: 0.5; font-size: 12px; }
@@ -343,6 +286,75 @@ export class HostStorageComponent {
       error: (e) => { this.loading.set(false); this.loaded.set(true); this.loadErr.set(e?.error?.detail ?? 'failed to load storage'); },
     });
     this.loadFstab();
+    this.loadSwap();
+  }
+
+  // ---- Swap ----------------------------------------------------------------
+  // The agent's `swap` module owns the RUNNING area (create → mkswap → swapon); the fstab line is
+  // the config module's job. Keeping them apart here mirrors that: two truths that can legitimately
+  // disagree must not be shown as one row.
+  swapAreas = signal<SwapArea[]>([]);
+  swapBusy = signal(false);
+  swapMsg = signal('');
+  swapErr = signal('');
+  swapSteps = signal<string[]>([]);
+  newSwapPath = signal('/swapfile');
+  newSwapSize = signal('2G');
+  newSwapPrio = signal('');
+
+  /** KiB → a size a human reads. The module reports KiB because /proc/swaps does. */
+  mib(kb: number): string {
+    if (kb >= 1024 * 1024) return (kb / 1024 / 1024).toFixed(1) + ' GiB';
+    return Math.round(kb / 1024) + ' MiB';
+  }
+
+  private loadSwap(): void {
+    // Read-only, so it works on a write-gated host too. An old agent without the module just
+    // leaves the card empty rather than showing an error the operator cannot act on.
+    this.agentService.callTool(this.agentId(), 'swap', {}).subscribe({
+      next: (r: any) => this.swapAreas.set(r?.result?.data?.areas ?? []),
+      error: () => this.swapAreas.set([]),
+    });
+  }
+
+  addSwap(): void {
+    this.swapBusy.set(true);
+    this.swapMsg.set('');
+    this.swapErr.set('');
+    this.swapSteps.set([]);
+    const params: Record<string, unknown> = {
+      path: this.newSwapPath().trim(), size: this.newSwapSize().trim(), state: 'present',
+    };
+    const prio = parseInt(this.newSwapPrio(), 10);
+    if (!isNaN(prio)) params['priority'] = prio;
+    this.tool('swap', params).subscribe({
+      next: (r: any) => {
+        this.swapBusy.set(false);
+        // The module returns the steps it took (or would take), so a preview says exactly what an
+        // Apply will do instead of leaving the operator to guess.
+        this.swapSteps.set(r?.result?.data?.steps ?? []);
+        this.swapMsg.set(r?.result?.msg ?? (this.dryRun() ? 'previewed' : 'applied'));
+        if (!this.dryRun()) this.loadSwap();
+      },
+      error: (e) => { this.swapBusy.set(false); this.swapErr.set(e?.error?.detail ?? 'failed'); },
+    });
+  }
+
+  removeSwap(a: SwapArea): void {
+    this.swapBusy.set(true);
+    this.swapMsg.set('');
+    this.swapErr.set('');
+    this.swapSteps.set([]);
+    // remove_file is deliberately NOT sent: swapping off is reversible, deleting is not, and a
+    // delete button in a table row is too easy to hit for something unrecoverable.
+    this.tool('swap', { path: a.name, state: 'absent' }).subscribe({
+      next: (r: any) => {
+        this.swapBusy.set(false);
+        this.swapMsg.set(r?.result?.msg ?? 'swapped off');
+        if (!this.dryRun()) this.loadSwap();
+      },
+      error: (e) => { this.swapBusy.set(false); this.swapErr.set(e?.error?.detail ?? 'failed'); },
+    });
   }
 
   /** Load /etc/fstab from the observed state (decoded to entries by the fstab

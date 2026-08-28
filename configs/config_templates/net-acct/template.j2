@@ -1,0 +1,70 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          net-acct
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:      2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: User-mode IP accounting daemon
+### END INIT INFO
+#
+# /etc/init.d/net-acct start/stop/restart nacctd
+#
+# See /usr/share/doc/net-acct/ for information
+#
+
+DAEMON=/usr/sbin/nacctd
+NAME=nacctd
+DESC="User-mode IP accounting daemon"
+
+# Path to the PID file for the nacctd daemon.
+# Default: /var/run/nacctd.pid
+PIDFILE={{ pidfile | default('/var/run/nacctd.pid') }}
+
+# Path to the nacctd configuration file.
+# Default: /etc/naccttab
+CONFFILE={{ conffile | default('/etc/naccttab') }}
+
+test -r "$CONFFILE" || exit 0
+test -x "$DAEMON" || exit 0
+
+# Function used to determine if the program is alive
+is_alive () {
+    ret=1
+    if [ -r "$PIDFILE" ] ; then
+        pid=`cat $PIDFILE`
+        if [ -e /proc/$pid ] ; then
+            procname=`/bin/ps h -p $pid -C ${DAEMON##*/}`
+            [ -n "$procname" ] && ret=0
+        fi
+    fi
+    return $ret
+}
+
+
+case "$1" in
+  start)
+    start-stop-daemon --start --verbose --exec "$DAEMON"
+    ;;
+  stop)
+    start-stop-daemon --stop --verbose --pidfile "$PIDFILE"
+    ;;
+  restart|force-reload|reload)
+    start-stop-daemon --stop --retry 5 --verbose --pidfile "$PIDFILE"
+    start-stop-daemon --start --verbose --exec "$DAEMON"
+    ;;
+  status)
+    echo -n "Status of $DAEMON: "
+    if is_alive; then
+        echo "alive."
+    else
+        echo "dead."
+        exit 1
+    fi
+    ;;
+  *)
+    echo "Usage: /etc/init.d/net-acct {start|stop|restart|status}"
+    exit 1
+esac
+
+exit 0

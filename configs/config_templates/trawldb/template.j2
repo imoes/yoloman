@@ -1,0 +1,32 @@
+# ==============================================================================
+# Trawl Database (trawldb) Configuration Template
+# ==============================================================================
+# This template generates the trawldb configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# derived from its schema definition.
+# ==============================================================================
+
+# backup_suffix: The suffix appended to the original file when saving a backup during -edit operations.
+# Corresponds to the -b/--backup option.
+backup_suffix = "{{ backup_suffix | default('.bak') }}"
+
+# cpp_preprocessor: The path to the C preprocessor binary to use when processing resource files.
+# Corresponds to the -c/--cpp option.
+cpp_preprocessor = "{{ cpp_preprocessor | default('/usr/bin/cpp') }}"
+
+# cpp_defines: List of C preprocessor macros to define. Each item should be a string like 'MY_VAR=1' or 'DEBUG'.
+# Corresponds to -D/--define. Can be specified multiple times.
+{% for define in cpp_defines | default([]) %}
+cpp_define = "{{ define }}"
+{% endfor %}
+
+# include_dirs: List of additional include directories for the C preprocessor.
+# Corresponds to -I/--include. Can be specified multiple times.
+{% for include_dir in include_dirs | default([]) %}
+cpp_include_dir = "{{ include_dir }}"
+{% endfor %}
+
+# disable_cpp: If true, disables the use of the C preprocessor for all trawldb operations involving resource files.
+# Corresponds to --nocpp. When true, -c, -D, and -I options are ignored during load/merge.
+{% if disable_cpp | default(False) %}no_cpp = true
+{% endif %}

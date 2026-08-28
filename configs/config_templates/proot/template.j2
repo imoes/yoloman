@@ -1,0 +1,165 @@
+#!/bin/sh
+# ==============================================================================
+# Proot Execution Script
+#
+# This script constructs and executes a `proot` command based on the provided
+# configuration values. It handles alias expansion for recommended (-R) and
+# safe install (-S) binds, custom mount points, and various proot flags.
+#
+# Usage: source this script or execute it directly. The environment variables
+# below are populated from the Ansible role variables.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Configuration Variables
+# These variables map directly to proot command-line arguments.
+# ------------------------------------------------------------------------------
+
+# Sets the initial working directory inside the guest rootfs.
+# Corresponds to: -w, --pwd, --cwd
+# Default: /
+INITIAL_CWD="{{ (initial_cwd | default('/')) }}"
+
+# Sets the debug information level.
+# - Higher integer = more verbose.
+# - Negative = quieter.
+# Corresponds to: -v, --verbose
+# Default: 0
+VERBOSE_LEVEL="{{ (verbose_level | default(0)) }}"
+
+# Makes the current user appear as root (uid=0, gid=0).
+# Corresponds to: -0, --root-id
+# Default: false
+FAKE_ROOT="{{ (fake_root | default(false)) | lower }}"
+
+# Makes the current kernel appear as the specified release string.
+# Corresponds to: -k, --kernel-release
+# Default: '' (empty)
+KERNEL_RELEASE="{{ (kernel_release | default('')) }}"
+
+# Makes the current user and group appear as the specified uid:gid string.
+# Corresponds to: -i, --change-id
+# Default: '' (empty)
+CHANGE_ID="{{ (change_id | default('')) }}"
+
+# Specifies the QEMU user-mode command to use for cross-architecture guest programs.
+# Corresponds to: -q, --qemu
+# Default: '' (empty)
+QEMU_COMMAND="{{ (qemu_command | default('')) }}"
+
+# List of mount/bind strings in the format 'host_path:guest_path' or 'host_path:guest_path!'
+# to overlay host files/directories.
+# Corresponds to: -b, --bind, -m, --mount
+# Default: [] (empty list)
+MOUNTS_JSON="{{ (mounts | default([])) | tojson }}"
+
+# The path to the guest root file-system.
+# Corresponds to: -r, --rootfs
+# Default: /
+ROOTFS_PATH="{{ (rootfs_path | default('/')) }}"
+
+# If true, uses the -R alias behavior.
+# -R is an alias for: -r <rootfs> + standard recommended binds.
+# If this is true, the custom `mounts` list is IGNORED.
+# Corresponds to: -R
+# Default: false
+USE_RECOMMENDED_BINDS="{{ (use_recommended_binds | default(false)) | lower }}"
+
+# If true, uses the -S alias behavior.
+# -S is an alias for: -0 (fake root) -r <rootfs> + safe minimal binds.
+# If this is true, the custom `mounts` list is IGNORED.
+# Corresponds to: -S
+# Default: false
+USE_SAFE_INSTALL_BINDS="{{ (use_safe_install_binds | default(false)) | lower }}"
+
+# The command to execute inside the proot environment.
+# Default: /bin/sh
+COMMAND_TO_RUN="{{ (command | default('/bin/sh')) }}"
+
+# ------------------------------------------------------------------------------
+# Command Construction
+# ------------------------------------------------------------------------------
+
+PROOT_CMD="proot"
+
+# Add verbose flag if set
+if [ -n "${VERBOSE_LEVEL}" ]; then
+    PROOT_CMD="${PROOT_CMD} -v ${VERBOSE_LEVEL}"
+fi
+
+# Add fake root flag if true
+if [ "${FAKE_ROOT}" = "true" ]; then
+    PROOT_CMD="${PROOT_CMD} -0"
+fi
+
+# Add kernel release if set
+if [ -n "${KERNEL_RELEASE}" ]; then
+    PROOT_CMD="${PROOT_CMD} -k ${KERNEL_RELEASE}"
+fi
+
+# Add change-id if set
+if [ -n "${CHANGE_ID}" ]; then
+    PROOT_CMD="${PROOT_CMD} -i ${CHANGE_ID}"
+fi
+
+# Add QEMU command if set
+if [ -n "${QEMU_COMMAND}" ]; then
+    PROOT_CMD="${PROOT_CMD} -q ${QEMU_COMMAND}"
+fi
+
+# Add initial working directory if not default root (and not handled by alias)
+# Note: -R and -S handle their own context, but -w can be added to them if needed.
+# For simplicity, we add -w if it's explicitly set and not empty, unless using aliases
+# that might conflict or override. However, -w is generally safe to add.
+if [ -n "${INITIAL_CWD}" ]; then
+    PROOT_CMD="${PROOT_CMD} -w ${INITIAL_CWD}"
+fi
+
+# Handle predefined aliases (-R and -S)
+if [ "${USE_RECOMMENDED_BINDS}" = "true" ]; then
+    # -R is an alias for -r + standard binds. We use -r and add the standard binds manually
+    # to allow further customization via the mounts list if necessary, or just use -R directly.
+    # Since -R is a complex alias, let's use it directly for simplicity if no other mounts are needed.
+    # But to be flexible, we'll use -r and add the standard list.
+    PROOT_CMD="${PROOT_CMD} -r ${ROOTFS_PATH}"
+    
+    # Standard binds for -R
+    STANDARD_BINDS_R="/etc/host.conf /etc/hosts /etc/hosts.equiv /etc/mtab /etc/netgroup /etc/networks /etc/passwd /etc/group /etc/nsswitch.conf /etc/resolv.conf /etc/localtime /dev /sys /proc /tmp /run /var/run/dbus/system_bus_socket ${HOME}"
+    
+    for bind in ${STANDARD_BINDS_R}; do
+        PROOT_CMD="${PROOT_CMD} -b ${bind}"
+    done
+
+elif [ "${USE_SAFE_INSTALL_BINDS}" = "true" ]; then
+    # -S is an alias for -0 -r + safe binds
+    # -0 is already added above if FAKE_ROOT is true. -S forces it, so ensure it's there.
+    # If FAKE_ROOT was false, we must add it now because -S requires it.
+    # However, the template logic adds -0 based on FAKE_ROOT. 
+    # If USE_SAFE_INSTALL_BINDS is true, it implies -0. Let's ensure -0 is present.
+    # The previous block added -0 if FAKE_ROOT=true. If it's false, we need to add it.
+    # To keep it simple and aligned with the -S definition: -0 -r path + safe binds.
+    PROOT_CMD="${PROOT_CMD} -0 -r ${ROOTFS_PATH}"
+    
+    # Standard binds for -S
+    STANDARD_BINDS_S="/etc/host.conf /etc/hosts /etc/nsswitch.conf /etc/resolv.conf /dev /sys /proc /tmp /run/shm ${HOME}"
+    
+    for bind in ${STANDARD_BINDS_S}; do
+        PROOT_CMD="${PROOT_CMD} -b ${bind}"
+    done
+else
+    # Standard usage with explicit rootfs
+    PROOT_CMD="${PROOT_CMD} -r ${ROOTFS_PATH}"
+    
+    # Add custom mounts/bindings
+    # This block iterates over the Ansible-provided 'mounts' list.
+    {% for mount in (mounts | default([])) %}
+    PROOT_CMD="${PROOT_CMD} -b {{ mount }}"
+    {% endfor %}
+fi
+
+# Add the command to execute
+PROOT_CMD="${PROOT_CMD} ${COMMAND_TO_RUN}"
+
+# Execute the command
+echo "Executing: ${PROOT_CMD}"
+exec ${PROOT_CMD}

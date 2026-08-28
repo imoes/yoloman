@@ -1,0 +1,45 @@
+# osdlyrics configuration file
+# Location: ~/.config/osdlyrics/osdlyrics.conf
+#
+# This file configures the behavior of osdlyrics, a desktop overlay lyrics player.
+# It is structured in INI-style sections: General, Player, Lyrics, and Display.
+# All values are populated from Ansible variables with safe defaults derived from the schema.
+
+[General]
+# Whether to start osdlyrics automatically with the desktop session
+auto_start = {{ auto_start | default(true) | lower }}
+
+# The ISO 639 language code for lyrics display and UI
+language = {{ language | default('en') }}
+
+[Player]
+# The backend player plugin to use (e.g., 'mpd', 'rhythmbox', 'spotify', 'vlc')
+player = {{ player | default('mpd') }}
+
+# Connection details for MPD player (ignored if player is not mpd)
+# Only used if player is 'mpd'
+mpd_host = {{ mpd_host | default('localhost') }}
+mpd_port = {{ mpd_port | default(6600) }}
+
+[Lyrics]
+# The plugin used to fetch lyrics from the internet (e.g., 'lyricwiki', 'genius', 'mosh', 'wikipedia')
+source = {{ lyrics_source | default('lyricwiki') }}
+
+# Automatically search for and download lyrics when a new track starts
+auto_download = {{ auto_download | default(true) | lower }}
+
+# Pango font string for displaying lyrics (e.g., 'Sans 20', 'Noto Sans CJK SC 18')
+font = {{ font | default('Sans 20') }}
+
+# Color for the currently active lyric line (hex or named color)
+color_active = {{ color_active | default('#ffcc00') }}
+
+# Color for inactive lyric lines (hex or named color)
+color_inactive = {{ color_inactive | default('#ffffff') }}
+
+[Display]
+# Enable the desktop overlay display
+display_on = {{ display_on | default(true) | lower }}
+
+# Opacity of the lyrics window, from 0.0 (transparent) to 1.0 (opaque)
+opacity = {{ opacity | default(0.8) }}

@@ -1,0 +1,94 @@
+# ==============================================================================
+# systemd-repart Configuration Template
+# ==============================================================================
+# This template generates a configuration file for `systemd-repart`, a tool used
+# to automatically partition and format block devices during boot or offline
+# operations. It consumes definitions from `*.conf` files in a specified directory.
+#
+# All variables use the schema-provided defaults to ensure safe rendering even
+# if the variable is undefined in the Ansible inventory.
+# ==============================================================================
+
+# --- Block Device ---
+# The block device or file to operate on.
+# Example: /dev/sda, /dev/nvme0n1, or a loopback file.
+BlockDevice={{ block_device | default('/dev/sda') }}
+
+# --- Definition Directory ---
+# Directory path to read *.conf partition definition files from.
+# systemd-repart looks for .conf files in this directory to determine
+# partition layout.
+Definitions={{ definitions | default('/etc/repart.d') }}
+
+# --- Root Path ---
+# Path to the root file system used for searching config files and machine-id.
+# Useful when creating offline images or when the root is mounted elsewhere.
+Root={{ root | default('/') }}
+
+# --- Factory Reset ---
+# Boolean to enable factory reset mode, deleting partitions marked with FactoryReset=yes.
+# When true, existing partitions with the FactoryReset flag are wiped and recreated.
+FactoryReset={{ factory_reset | default(false) | lower }}
+
+# --- Empty Device Handling ---
+# How to operate on block devices with no partition table.
+# Values:
+#   refuse - Do nothing if no partition table exists (default safe behavior)
+#   allow  - Proceed with existing empty device
+#   require - Fail if no partition table exists (strict)
+#   force  - Force operations even on devices with existing data (dangerous)
+#   create - Create a new partition table if none exists
+Empty={{ empty | default('allow') }}
+
+# --- Discard/TRIM ---
+# Boolean to issue BLKDISCARD on free space or added partitions.
+# Helps maintain SSD/NVMe performance and reclaim space.
+Discard={{ discard | default(true) | lower }}
+
+# --- Seed ---
+# UUID for cryptographic hashing of partition UUIDs, or 'random'.
+# Deterministic UUIDs are generated based on this seed and partition label,
+# ensuring consistency across multiple repart runs.
+Seed={{ seed | default('random') }}
+
+# --- Encryption Key File ---
+# Path to the encryption key file for LUKS2 volumes.
+# Used to automatically unlock LUKS2 encrypted partitions defined in .conf files.
+KeyFile={{ key_file | default('') }}
+
+# --- Private Key ---
+# Path or designation for the signing key for verity signature partitions.
+# Used for dm-verity signatures to ensure data integrity.
+PrivateKey={{ private_key | default('') }}
+
+# --- Certificate ---
+# Path or designation for the X.509 certificate for verity signature partitions.
+# Used alongside the private key for dm-verity signature verification.
+Certificate={{ certificate | default('') }}
+
+# --- TPM2 Device ---
+# Path to the TPM2 device for LUKS2 TPM2 enrollment.
+# Enables TPM-backed unlocking of LUKS2 volumes.
+Tpm2Device={{ tpm2_device | default('') }}
+
+# --- TPM2 PCRs ---
+# List of PCRs (Platform Configuration Registers) for TPM2 PCR lock/seal operations.
+# Comma-separated list of PCR indices to bind the volume to.
+# Example: 0,2,4,7
+Tpm2Pcrs={{ tpm2_pcrs | default('') }}
+
+# --- Architecture ---
+# Architecture override for partition types (e.g., x86-64, arm64).
+# Ensures correct partition type codes are used for the target hardware.
+Architecture={{ architecture | default('auto') }}
+
+# --- Offline Mode ---
+# Boolean or 'auto' to enable offline image building without loop devices.
+# When 'auto' or true, allows creating images without mounting the device,
+# useful for containerized or chroot environments.
+Offline={{ offline | default('auto') }}
+
+# --- Sector Size ---
+# Sector size in bytes for the produced image (power of 2, 512-4096).
+# Defines the alignment and block size for the new partition table/image.
+SectorSize={{ sector_size | default(512) }}

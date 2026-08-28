@@ -1,0 +1,70 @@
+#!/usr/bin/sedsed
+# Script to run sedsed with the specified configuration.
+# This template is self-documenting: every directive is annotated
+# with the schema description that generated it.
+
+# Input file containing the sed script to process
+# Schema: input_file (string, default '')
+# Desc: Path to the sed script file to be processed. If empty and no expression is provided, sedsed reads from stdin.
+{% set _input_file = input_file | default('') %}
+{% if _input_file %}
+-f {{ _input_file | default('') }}
+{% else %}
+# No input file specified; use stdin or inline expression
+{% endif %}
+
+# Inline sed script expression if not using -f
+# Schema: expression (string, default '')
+# Desc: Inline sed script expression to be processed. Mutually exclusive in intent with input_file for a single run, but can be combined.
+{% set _expression = expression | default('') %}
+{% if _expression %}
+-e "{{ _expression | default('') }}"
+{% endif %}
+
+# Suppress automatic printing of pattern space
+# Schema: quiet (boolean, default False)
+# Desc: Suppress automatic printing of pattern space.
+{% if quiet | default(False) | bool %}
+-n
+{% endif %}
+
+# Mode of operation for sedsed
+# Schema: mode (string, default 'indent')
+# Desc: The operation mode for sedsed. Valid values: debug, indent, tokenize, htmlize.
+{% set _mode = mode | default('indent') %}
+{% if _mode == 'debug' %}
+# Enable debug mode to show data flow between commands
+-d
+# Hide specific debug info categories (PATT, HOLD, COMM) if specified
+# Schema: hide_debug (list, default [])
+# Desc: List of debug information categories to hide (PATT, HOLD, COMM). Only valid in debug mode.
+{% set _hide_debug = hide_debug | default([]) %}
+{% if _hide_debug %}
+--hide {{ _hide_debug | join(', ') }}
+{% endif %}
+# Show debug output in colors (default ON, omit if true, add --nocolor if false)
+# Schema: color (boolean, default True)
+# Desc: Show debug output in colors. Only relevant in debug mode.
+{% if not (color | default(True) | bool) %}
+--nocolor
+{% endif %}
+# Dump the debugged sed script to screen
+# Schema: dump_debug (boolean, default False)
+# Desc: Dump the debugged sed script to screen. Only relevant in debug mode.
+{% if dump_debug | default(False) | bool %}
+--dump-debug
+{% endif %}
+{% elif _mode == 'indent' %}
+# Indent mode: reformat the script with standard spacing
+-i
+# Indent prefix string (default: 4 spaces)
+# Schema: indent_prefix (string, default '    ')
+# Desc: Indent prefix string for indent mode. Default is 4 spaces.
+--prefix "{{ indent_prefix | default('    ') }}"
+{% elif _mode == 'tokenize' %}
+# Tokenize mode: show extensive command-by-command information
+-t
+{% elif _mode == 'htmlize' %}
+# HTMLize mode: convert sed script to a colorful HTML page
+-H
+{% endif %}

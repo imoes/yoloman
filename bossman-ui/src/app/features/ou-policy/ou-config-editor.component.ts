@@ -10,6 +10,7 @@ import { HostGroupService } from '../../core/services/host-group.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DirectiveSpec } from '../../core/models/agent.model';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
+import { ConfigAdvisories, ConfigAdvisoriesComponent } from '../../shared/config-advisories/config-advisories.component';
 import { ConditionsEditorComponent } from '../../shared/components/conditions-editor/conditions-editor.component';
 
 interface ScopePolicy {
@@ -38,7 +39,7 @@ interface PendingEdit {
   path: string;
   key: string;
   mode: 'configured' | 'removed' | 'notconf';
-  value: string;
+  value: unknown;
   fmt: string;
 }
 
@@ -66,7 +67,7 @@ export interface EditorScope {
 @Component({
   selector: 'app-ou-config-editor',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ConditionsEditorComponent],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ConfigAdvisoriesComponent, ConditionsEditorComponent],
   template: `
     <div class="bm-oce">
       <h3 class="bm-oce-h">Settings (gpedit)</h3>
@@ -112,6 +113,12 @@ export interface EditorScope {
                 </button>
               }
             </div>
+            @if (!writesPerKey(sel)) {
+              <p class="bm-dim">{{ noPerKeyReason(sel) }}</p>
+            }
+            <!-- The same component the two host editors use. This was the THIRD wording of one fact, and
+                 the only one that also had to be right about a policy rather than a host. -->
+            <app-config-advisories [spec]="selSpec()" />
             <table class="bm-oce-settings">
               <thead><tr><th>Setting</th><th>State</th><th>Policy value</th><th>Default</th></tr></thead>
               <tbody>
@@ -136,7 +143,11 @@ export interface EditorScope {
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'notconf'" (change)="mode.set('notconf')" /> Host based — no policy at this {{ scopeWord }} (the host's own value applies)</label>
                 <label class="bm-oce-radio"><input type="radio" name="ocemode" [checked]="mode() === 'configured'" (change)="mode.set('configured')" /> Configured</label>
                 @if (mode() === 'configured') {
-                  @if (valueOptions(); as opts) {
+                  @if (dsIsJson()) {
+                    <textarea class="bm-oce-val bm-oce-json" rows="4" [ngModel]="value()" (ngModelChange)="value.set($event)"
+                              placeholder='["a", "b"] or a JSON object'></textarea>
+                    <p class="bm-oce-src">This setting is a {{ directiveSpec()?.type === 'list' ? 'list' : 'structure' }} — enter it as JSON; it is stored and applied as a real structure.</p>
+                  } @else if (valueOptions(); as opts) {
                     <select class="bm-oce-val" [ngModel]="value()" (ngModelChange)="value.set($event)">
                       @for (o of opts; track o) { <option [value]="o">{{ o }}</option> }
                     </select>
@@ -344,7 +355,11 @@ export class OuConfigEditorComponent implements OnChanges {
           const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
           if (!path || path.includes('*') || seen.has(path)) continue;
           seen.add(path);
-          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec });
+          // KEEP THE MEASURED CODEC — `none` means the round-trip probe applied every codec to the bytes the
+          // package ships and none reproduced the file, so there is no per-key write for it. Coercing it to
+          // `keyvalue` (as this did) made a per-key POLICY offerable for 40 such paths; the policy would be
+          // stored, win at its scope, and then have no writer on the host. Same fix as the host editor.
+          files.push({ path, format: e.codec ?? '' });
         }
         this.catalog.set(files);
         this.loaded.set(true);
@@ -426,6 +441,11 @@ export class OuConfigEditorComponent implements OnChanges {
    * read ({type, values:[…]}). This is what makes the OU editor's controls typed
    * from the same source as the host gpedit (and picks up codec⊕directive merges
    * + template-schema fields the raw directive catalog alone doesn't carry). */
+  /** What is known ABOUT the selected file, from the same /config-fields reply the field specs come from.
+   * A POLICY is the worse case for all three warnings: it is stored, wins at its scope, and would keep
+   * reporting drift it cannot fix — on a path where no file exists at all, forever. */
+  selSpec = signal<ConfigAdvisories | null>(null);
+
   private loadFields(path: string): void {
     this.agentService.configFields(path).subscribe({
       next: (r) => {
@@ -441,8 +461,11 @@ export class OuConfigEditorComponent implements OnChanges {
           };
         }
         this.fieldsForSelected.set({ path, specs });
+        // The same reply already carries what is known ABOUT the file. This editor was fetching it and
+        // throwing it away, then reading a separate bulk catalog for one of the three statements.
+        this.selSpec.set(r);
       },
-      error: () => this.fieldsForSelected.set({ path, specs: {} }),
+      error: () => { this.fieldsForSelected.set({ path, specs: {} }); this.selSpec.set(null); },
     });
   }
 
@@ -450,9 +473,31 @@ export class OuConfigEditorComponent implements OnChanges {
     return this.policies().find((p) => p.path === path);
   }
 
+
+
+  /** Can this file be written ONE KEY AT A TIME? The measured codec decides — `none` means no codec
+   * reproduced the shipped bytes, so there is no per-key writer and a per-key policy could never be
+   * applied. Empty means the file was never measured. Neither is a per-key target. */
+  writesPerKey(path: string): boolean {
+    const fmt = (this.catalog().find((r) => r.path === path)?.format
+                 ?? this.policyFor(path)?.format ?? '').toLowerCase();
+    return !!fmt && fmt !== 'none';
+  }
+
+  /** The reason the settings list is empty, in the operator's words — a refusal has to name its ground. */
+  noPerKeyReason(path: string): string {
+    const fmt = (this.catalog().find((r) => r.path === path)?.format ?? '').toLowerCase();
+    return fmt === 'none'
+      ? 'No codec reproduces this file, so it cannot be policed setting by setting — it is written as a whole by its template.'
+      : 'This file has never been measured, so no per-key policy is offered for it yet.';
+  }
+
   rows(): SettingRow[] {
     const path = this.selected();
     if (!path) return [];
+    // A file with no per-key writer gets no rows: offering a policy that cannot be applied is the defect
+    // this replaced (the picker used to relabel a measured `none` as `keyvalue`).
+    if (!this.writesPerKey(path)) return [];
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
     const specs = this.specsForFile(path);
     const des = new Map(this.flat(this.policyFor(path)?.values ?? {}, fmt));
@@ -476,7 +521,7 @@ export class OuConfigEditorComponent implements OnChanges {
       if (p) {
         base.pending = true;
         base.state = p.mode === 'notconf' ? 'Host based' : p.mode === 'removed' ? 'Removed' : 'Configured';
-        base.policy = p.mode === 'configured' ? p.value : '';
+        base.policy = p.mode === 'configured' ? this.scalar(p.value) : '';
       }
       return base;
     });
@@ -556,6 +601,36 @@ export class OuConfigEditorComponent implements OnChanges {
     return this.specsForFile(path)[key] ?? null;
   }
 
+  /** A playbook/config value is not only a scalar — LISTS and DICTS are common
+   * (`packages: [nginx, git]`, `nginx: {worker_processes: 4}`). Edit those as
+   * JSON: true for a `list` directive, or — when the catalog has no scalar type
+   * for the key — when the current value already looks like JSON. Scalar-typed
+   * directives (enum/bool/int/string) never switch to JSON. Mirrors the scope
+   * ScopeVarsDialog so policy values match host_vars. */
+  dsIsJson(): boolean {
+    const t = this.directiveSpec()?.type;
+    if (t === 'list') return true;
+    if (t === 'enum' || t === 'bool' || t === 'int' || t === 'string') return false;
+    const v = this.value().trim();
+    return v.startsWith('[') || v.startsWith('{');
+  }
+
+  /** The value to store for this edit — a real structure for JSON kinds (policy
+   * `values` is JSONB), a plain string otherwise, null when Removed. Sets
+   * `error` and returns ok:false on invalid JSON so apply() can bail. */
+  private storeValue(): { ok: boolean; value: unknown } {
+    if (this.mode() === 'removed') return { ok: true, value: null };
+    const raw = this.value();
+    if (!this.dsIsJson()) return { ok: true, value: raw };
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { this.error.set('Invalid JSON.'); return { ok: false, value: null }; }
+    if (parsed === null || typeof parsed !== 'object') {
+      this.error.set('Enter a JSON array or object.');
+      return { ok: false, value: null };
+    }
+    return { ok: true, value: parsed };
+  }
+
   /** Enum/bool → real allowed values from the ADMX catalog (a listbox), like
    * the host gpedit; falls back to the yes/no-family guess, else free text. */
   valueOptions(): string[] | null {
@@ -584,17 +659,21 @@ export class OuConfigEditorComponent implements OnChanges {
     const key = this.editKey();
     if (!path || !key) return;
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
+    this.error.set(null);
+    // Parse list/dict values to real structures up front (so both the staged and
+    // the immediate path store the structure, not its JSON text); bail on bad JSON.
+    const sv = this.storeValue();
+    if (!sv.ok) return;
     // Deferred mode: stage the edit and update the row overlay; nothing hits the
     // API until the dialog's Save (saveAll). Re-editing a key replaces its entry.
     if (this.deferApply) {
       const next = new Map(this.pending());
-      next.set(this.pk(path, key), { path, key, mode: this.mode(), value: this.value(), fmt });
+      next.set(this.pk(path, key), { path, key, mode: this.mode(), value: sv.value, fmt });
       this.pending.set(next);
       this.editKey.set(null);
       return;
     }
     this.busy.set(true);
-    this.error.set(null);
     const done = () => {
       this.busy.set(false);
       this.editKey.set(null);
@@ -609,8 +688,7 @@ export class OuConfigEditorComponent implements OnChanges {
       this.ouService.unsetConfigPolicyKey({ ...this.scopeArg(), path, key }).subscribe({ next: done, error: fail });
       return;
     }
-    const value = this.mode() === 'removed' ? null : this.value();
-    const values = this.unflatten(key, value, fmt !== 'keyvalue');
+    const values = this.unflatten(key, sv.value, fmt !== 'keyvalue');
     this.ouService.createConfigPolicy({ ...this.scopeArg(), path, format: fmt ?? 'keyvalue', values, conditions: this.condFor(path) }).subscribe({
       next: (r) => {
         this.appDialog.notify(

@@ -1,0 +1,69 @@
+#!/bin/sh
+# squid-purge configuration script generated from gonja template
+# This script executes `purge` with the specified parameters.
+
+PURGE_OPTS=""
+
+# Debug level for purge output (0-7). See man page: -d l
+# default: 0
+if [ -n "{{ purge_debug_level }}" ]; then
+  PURGE_OPTS="${PURGE_OPTS} -d {{ purge_debug_level }}"
+fi
+
+# Location of squid.conf to determine cache directories. See man page: -c cf
+# default: /usr/local/squid/etc/squid.conf
+if [ -n "{{ purge_squid_conf_path }}" ]; then
+  PURGE_OPTS="${PURGE_OPTS} -c {{ purge_squid_conf_path }}"
+fi
+
+# Squid cache manager host and port. See man page: -p h[:p]
+# default: localhost:3128
+if [ -n "{{ purge_host }}" ]; then
+  PURGE_OPTS="${PURGE_OPTS} -p {{ purge_host }}"
+fi
+
+# Purge action bits (0=print, 1=purge, 2=unlink 404s, 4=unlink weird). See man page: -P #
+# default: 0
+if [ -n "{{ purge_action_bits }}" ]; then
+  PURGE_OPTS="${PURGE_OPTS} -P {{ purge_action_bits }}"
+fi
+
+# Enable parallel processing across cache dirs? See man page: -n (inhibits parallel)
+# default: false (parallel enabled)
+{% if not purge_sequential_mode %}
+  PURGE_OPTS="${PURGE_OPTS} -n"
+{% endif %}
+
+# Copy rescued files to this directory. See man page: -C dir
+# default: off
+{% if purge_rescue_dir is not none %}
+  PURGE_OPTS="${PURGE_OPTS} -C {{ purge_rescue_dir }}"
+  # Keep HTTP headers in rescued files? See man page: -H
+  {% if purge_keep_headers %}
+    PURGE_OPTS="${PURGE_OPTS} -H"
+  {% endif %}
+{% endif %}
+
+# Verbose output? See man page: -v
+# default: false
+{% if purge_verbose %}
+  PURGE_OPTS="${PURGE_OPTS} -v"
+{% endif %}
+
+# Regular expressions to search for/purge. See man page: -e|-E re
+# default: none (empty)
+# If using a file of expressions, use purge_expression_file instead.
+{% if purge_expressions %}
+  {% for expr in purge_expressions %}
+    PURGE_OPTS="${PURGE_OPTS} -E "{{ expr }}"
+  {% endfor %}
+{% endif %}
+
+# Path to a file containing regular expressions (one per line). See man page: -f|-F fn
+# default: none
+{% if purge_expression_file is not none %}
+  PURGE_OPTS="${PURGE_OPTS} -F {{ purge_expression_file }}"
+{% endif %}
+
+# Executing purge with calculated options
+exec purge {{ PURGE_OPTS }}

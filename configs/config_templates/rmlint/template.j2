@@ -1,0 +1,195 @@
+# ==============================================================================
+# rmlint Configuration Template
+# ==============================================================================
+# This template generates a command-line invocation for `rmlint`, a tool to find
+# and remove duplicate files. All parameters are configurable via Ansible variables.
+# If a variable is not set, default values from the schema are used.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# [targets] List of target directories or files to scan for duplicates.
+# --------------------------------------------------------------------------
+# rmlint scans these paths for content duplicates.
+TARGETS: {{ targets | default(['/home']) | join(' ') }}
+
+# --------------------------------------------------------------------------
+# [types] Comma-separated list of lint types (e.g., 'defaults', 'df,dd', 'all -df').
+# --------------------------------------------------------------------------
+# Defines what kinds of "lint" (duplicates, empty files, bad symlinks) to find.
+# See `rmlint --help` or man page for available groups and types.
+TYPES: {{ types | default('defaults') }}
+
+# --------------------------------------------------------------------------
+# [outputs] List of output specs in format 'format:destination'.
+# --------------------------------------------------------------------------
+# Examples: 'sh:rmlint.sh' (script), 'pretty:stdout', 'json:rmlint.json'.
+# If not specified, defaults to generating a remove script, printing summary.
+OUTPUTS: {% for out in outputs | default(['sh:rmlint.sh', 'pretty:stdout', 'summary:stdout', 'json:rmlint.json']) %}-o {{ out }}{% endfor %}
+
+# --------------------------------------------------------------------------
+# [configs] List of format configs in format 'format:option=value'.
+# --------------------------------------------------------------------------
+# Allows fine-tuning of output formats. Example: 'sh:handler=remove'.
+# If not specified, uses default handlers for each output format.
+CONFIGS: {% for cfg in configs | default([]) %}-c {{ cfg }}{% endfor %}
+
+# --------------------------------------------------------------------------
+# [algorithm] Hash algorithm to use.
+# --------------------------------------------------------------------------
+# Options: blake2b (default, fast), sha256, md5, paranoid (slow, strict).
+ALGORITHM: {{ algorithm | default('blake2b') }}
+
+# --------------------------------------------------------------------------
+# [verbose] If true, uses -VVV (loud). If false, uses -V (quiet).
+# --------------------------------------------------------------------------
+# Controls log verbosity. -VVV is very verbose, -V is quiet.
+VERBOSE: {{ '-VVV' if verbose | default(True) else '-V' }}
+
+# --------------------------------------------------------------------------
+# [progress] If true, enables progress bar (-g). If false, disables it (-G).
+# --------------------------------------------------------------------------
+# Shows a progress bar on stderr.
+PROGRESS: {{ '-g' if progress | default(True) else '-G' }}
+
+# --------------------------------------------------------------------------
+# [hardlink_policy] Hardlink handling policy.
+# --------------------------------------------------------------------------
+# Options: '--hardlinked' (default, treat as duplicates), '--keep-hardlinked' (skip),
+# or '--no-hardlinked' (don't handle).
+HARDLINK_POLICY: {{ hardlink_policy | default('--hardlinked') }}
+
+# --------------------------------------------------------------------------
+# [symlink_policy] Symlink handling policy.
+# --------------------------------------------------------------------------
+# Options: '-f' (follow symlinks), '-F' (no-follow), or '-@' (default, see symlinks).
+SYMLINK_POLICY: {{ symlink_policy | default('-@') }}
+
+# --------------------------------------------------------------------------
+# [no_cross_dev] If true, uses -x (stay on same device). If false, uses -X (allow cross-devices).
+# --------------------------------------------------------------------------
+# Prevents scanning across filesystem boundaries.
+CROSSDEV: {{ '-x' if no_cross_dev | default(False) else '-X' }}
+
+# --------------------------------------------------------------------------
+# [hidden_policy] Hidden file handling policy.
+# --------------------------------------------------------------------------
+# Options: '-r' (include hidden files), '-R' (default, no hidden), or '--partial-hidden'.
+HIDDEN_POLICY: {{ hidden_policy | default('-R') }}
+
+# --------------------------------------------------------------------------
+# [size_range] Size range filter: 'min-max' or single size.
+# --------------------------------------------------------------------------
+# Example: '100KB', '0-2M'. Files outside this range are ignored.
+SIZE_RANGE: {{ size_range | default('1') }}
+
+# --------------------------------------------------------------------------
+# [max_depth] Maximum recursion depth.
+# --------------------------------------------------------------------------
+# 'INF' for infinite depth, or an integer (e.g., '1') for limited recursion.
+MAX_DEPTH: {{ max_depth | default('INF') }}
+
+# --------------------------------------------------------------------------
+# [threads] Number of threads to use.
+# --------------------------------------------------------------------------
+# Parallelizes hashing and scanning. 16 is a reasonable default.
+THREADS: {{ threads | default(16) }}
+
+# --------------------------------------------------------------------------
+# [mem_limit] Memory limit for hashing.
+# --------------------------------------------------------------------------
+# Example: '512M', '1G'. Empty string means no specific limit.
+MEM_LIMIT: {{ mem_limit | default('') }}
+
+# --------------------------------------------------------------------------
+# [keep_tagged] If true, uses -k (--keep-all-tagged). If false, uses -K (--keep-all-untagged).
+# --------------------------------------------------------------------------
+# Determines which files to keep when conflicts arise with tags.
+KEEP_TAGGED: {{ '-k' if keep_tagged | default(False) else '-K' }}
+
+# --------------------------------------------------------------------------
+# [must_match_tagged] If true, uses -m (--must-match-tagged). If false, uses -M (--must-match-untagged).
+# --------------------------------------------------------------------------
+# Requires tagged files to match specific criteria.
+MUST_MATCH: {{ '-m' if must_match_tagged | default(False) else '-M' }}
+
+# --------------------------------------------------------------------------
+# [rank_by] Ranking criteria string.
+# --------------------------------------------------------------------------
+# Determines which file in a duplicate set is considered the "original".
+# Default: 'pOma' (path, Original, mtime, size).
+RANK_BY: {{ rank_by | default('pOma') }}
+
+# --------------------------------------------------------------------------
+# [sort_by] Sorting criteria for output groups.
+# --------------------------------------------------------------------------
+# Sorts the output groups. Empty string uses default sorting.
+SORT_BY: {{ sort_by | default('') }}
+
+# --------------------------------------------------------------------------
+# [mtime_window] Mtime window in seconds for duplicate grouping.
+# --------------------------------------------------------------------------
+# Files with similar content but differing mtime within this window are grouped.
+# -1 ignores mtime.
+MTIME_WINDOW: {{ mtime_window | default(-1) }}
+
+# --------------------------------------------------------------------------
+# [use_xattr] If true, uses -C (--xattr) for caching checksums in extended attributes.
+# --------------------------------------------------------------------------
+# Speeds up subsequent runs by storing hashes in xattrs.
+XATTR: {{ '-C' if use_xattr | default(False) else '' }}
+
+# --------------------------------------------------------------------------
+# [write_unfinished] If true, uses -U (--write-unfinished).
+# --------------------------------------------------------------------------
+# Writes partially finished results if interrupted.
+WRITE_UNFINISHED: {{ '-U' if write_unfinished | default(False) else '' }}
+
+# --------------------------------------------------------------------------
+# [clamp_low] Clamp low parameter for partial comparison.
+# --------------------------------------------------------------------------
+# Example: '10%'. Empty string uses default (0).
+CLAMP_LOW: {{ '-q ' + clamp_low if clamp_low | default('') else '' }}
+
+# --------------------------------------------------------------------------
+# [clamp_top] Clamp top parameter for partial comparison.
+# --------------------------------------------------------------------------
+# Example: '50%'. Empty string uses default (1.0 or 100%).
+CLAMP_TOP: {{ '-Q ' + clamp_top if clamp_top | default('') else '' }}
+
+# --------------------------------------------------------------------------
+# [no_fiemap] If true, uses --without-fiemap. If false, uses --with-fiemap.
+# --------------------------------------------------------------------------
+# Controls whether to use the fiemap ioctl for sparse file detection.
+FIE_MAP: {{ '--without-fiemap' if no_fiemap | default(False) else '--with-fiemap' }}
+
+# ==============================================================================
+# Command Execution
+# ==============================================================================
+# Constructs the final rmlint command line using the configured parameters.
+# -----------------------------------------------------------------------------
+rmlint \
+    {{ targets | default(['/home']) | join(' ') }} \
+    {{ types | default('defaults') }} \
+    {% for out in outputs | default(['sh:rmlint.sh', 'pretty:stdout', 'summary:stdout', 'json:rmlint.json']) %}-o {{ out }}{% endfor %} \
+    {% for cfg in configs | default([]) %}-c {{ cfg }}{% endfor %} \
+    {{ algorithm | default('blake2b') }} \
+    {{ '-VVV' if verbose | default(True) else '-V' }} \
+    {{ '-g' if progress | default(True) else '-G' }} \
+    {{ hardlink_policy | default('--hardlinked') }} \
+    {{ symlink_policy | default('-@') }} \
+    {{ '-x' if no_cross_dev | default(False) else '-X' }} \
+    {{ hidden_policy | default('-R') }} \
+    {{ size_range | default('1') }} \
+    {{ max_depth | default('INF') }} \
+    {{ threads | default(16) }} \
+    {{ mem_limit | default('') }} \
+    {{ '-k' if keep_tagged | default(False) else '-K' }} \
+    {{ '-m' if must_match_tagged | default(False) else '-M' }} \
+    {{ rank_by | default('pOma') }} \
+    {{ sort_by | default('') }} \
+    {{ mtime_window | default(-1) }} \
+    {{ '-C' if use_xattr | default(False) else '' }} \
+    {{ '-U' if write_unfinished | default(False) else '' }} \
+    {{ '-q ' + clamp_low if clamp_low | default('') else '' }} \
+    {{ '-Q ' + clamp_top if clamp_top | default('') else '' }} \
+    {{ '--without-fiemap' if no_fiemap | default(False) else '--with-fiemap' }}

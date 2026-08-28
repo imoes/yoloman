@@ -1,0 +1,57 @@
+# ==============================================================================
+# JDim (JDim: Japanese Dim) Configuration Template
+# ==============================================================================
+# This template generates a configuration file for JDim, a NNTP client for
+# Japanese BBS/Usenet services.
+#
+# Structure:
+#   - [general] : Core runtime settings (encoding, etc.)
+#   - [view]    : UI presentation settings
+#   - [update]  : Auto-update behavior
+#   - [proxy]   : Network proxy configuration
+#   - [bbs_server] : List of default BBS server definitions
+# ==============================================================================
+
+{% set _config = config | default({}, true) %}
+
+[general]
+# Default character encoding for BBS pages.
+# Common values: euc-jp, utf-8, sjis.
+# See schema: config.charset (default: "euc-jp")
+charset = {{ _config.charset | default("euc-jp") }}
+
+[view]
+# Number of articles to display per page in the message list.
+# See schema: config.max_article_count (default: 100)
+max_article_count = {{ _config.max_article_count | default(100) }}
+
+[update]
+# Update interval in seconds for checking new articles.
+# See schema: config.update_interval (default: 60)
+interval = {{ _config.update_interval | default(60) }}
+
+[proxy]
+# Proxy server address (leave empty if none).
+# If empty, JDim will connect directly.
+# See schema: config.proxy_host (default: "")
+host = {{ _config.proxy_host | default("") }}
+
+# Proxy server port.
+# See schema: config.proxy_port (default: 8080)
+port = {{ _config.proxy_port | default(8080) }}
+
+[bbs_server]
+# List of default BBS servers to connect to.
+# Each item is a dictionary with 'name' and 'url'.
+# Generated dynamically from config.bbs_servers list.
+# See schema: config.bbs_servers (list of dicts)
+
+{% if _config.bbs_servers is defined and _config.bbs_servers is iterable %}
+{% for server in _config.bbs_servers %}
+[server_{{ loop.index }}]
+# Name identifier for this BBS server.
+name = {{ server.name | default("") }}
+# URL of the BBS server.
+url = {{ server.url | default("") }}
+{% endfor %}
+{% endif %}

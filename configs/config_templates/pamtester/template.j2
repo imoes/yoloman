@@ -1,0 +1,50 @@
+# pamtester test configuration
+# This template generates a script to run pamtester against a specific PAM service.
+# pamtester is a command-line utility, not a daemon with a config file.
+# The 'config' here represents the invocation parameters.
+
+{% if verbose %}
+# Enable verbose output for debugging
+VERBOSE_FLAG="-v"
+{% else %}
+VERBOSE_FLAG=""
+{% endif %}
+
+# Target PAM service (e.g., login, sshd, su)
+SERVICE="{{ service }}"
+
+# Target user account
+USER="{{ user }}"
+
+# PAM operation to perform (authenticate, acct_mgmt, open_session, close_session, chauthtok)
+OPERATION="{{ operation }}"
+
+{% if extra_items %}
+# Additional information items to pass to PAM modules (-I item=value)
+EXTRA_ITEMS=(
+{% for item in extra_items %}
+  "-I {{ item.key }}={{ item.value }}"
+{% endfor %}
+)
+{% else %}
+EXTRA_ITEMS=()
+{% endif %}
+
+{% if extra_envs %}
+# Environment variables to set during execution (-E var=value)
+EXTRA_ENVS=(
+{% for env in extra_envs %}
+  "-E {{ env.key }}={{ env.value }}"
+{% endfor %}
+)
+{% else %}
+EXTRA_ENVS=()
+{% endif %}
+
+{% if options %}
+# PAM option flags for the operation (e.g., PAM_SILEENT, PAM_DISALLOW_NULL_AUTHTOK)
+# Note: pamtester expects these as literal strings if passed directly, 
+# but typically users might want to define the operation string itself.
+# Since pamtester(1) shows options are appended to operations like 'authenticate(...)',
+# we will construct the operation argument dynamically if options are provided.
+# However, the man page says 

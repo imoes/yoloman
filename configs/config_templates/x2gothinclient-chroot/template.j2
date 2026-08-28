@@ -1,0 +1,58 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          x2gothinclient-chroot
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# X-Start-Before:    nfs-common alsa-utils
+# Short-Description: Prepare X2Go TCE tmpfs directories for usage
+# Description:       Ensure required NFS statd directories exist and have correct ownership
+### END INIT INFO
+
+set -e
+
+. /lib/lsb/init-functions
+
+# pre-init X2Go Thin Client through init script...
+if [ -d /usr/share/doc/x2gothinclient-displaymanager ]; then
+	test -x /etc/x2go/x2gothinclient_init && . /etc/x2go/x2gothinclient_init
+fi
+
+case "$1" in
+  start|""
+        # Ensure the NFS rpc_pipefs directory exists.
+        # Path to the NFS rpc_pipefs directory.
+        mkdir -p {{ nfs_rpc_pipefs_path | default('/var/lib/nfs/rpc_pipefs') }}
+
+        # Ensure the NFS status monitor (sm) directory exists.
+        # Path to the NFS sm directory.
+        mkdir -p {{ nfs_sm_path | default('/var/lib/nfs/sm') }}
+
+        # Ensure the NFS status monitor backup (sm.bak) directory exists.
+        # Path to the NFS sm.bak directory.
+        mkdir -p {{ nfs_sm_bak_path | default('/var/lib/nfs/sm.bak') }}
+
+        # Set the owner user for NFS directories.
+        chown {{ nfs_owner_user | default('statd') }}:{{ nfs_owner_group | default('nogroup') }} {{ nfs_rpc_pipefs_path | default('/var/lib/nfs/rpc_pipefs') }}
+
+        # Set the owner user for NFS directories.
+        chown {{ nfs_owner_user | default('statd') }}:{{ nfs_owner_group | default('nogroup') }} {{ nfs_sm_path | default('/var/lib/nfs/sm') }}
+
+        # Set the owner user for NFS directories.
+        chown {{ nfs_owner_user | default('statd') }}:{{ nfs_owner_group | default('nogroup') }} {{ nfs_sm_bak_path | default('/var/lib/nfs/sm.bak') }}
+
+        exit 0
+        ;;
+  restart|reload|force-reload|status)
+        echo "Error: argument '$1' not supported" >&2
+        exit 3
+        ;;
+  stop)
+        # No-op
+        ;;
+  *)
+        echo "Usage: x2gothinclient-chroot start" >&2
+        exit 3
+        ;;
+esac

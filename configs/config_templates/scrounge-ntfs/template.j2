@@ -1,0 +1,85 @@
+# ============================================================================
+# scrounge-ntfs rescue operation wrapper
+# ============================================================================
+# This template generates a shell script wrapper for `scrounge-ntfs`.
+# `scrounge-ntfs` itself does not use a static config file; it operates
+# via command-line arguments. This script serves as a reproducible
+# execution environment, setting variables and constructing the command
+# based on the provided schema fields.
+# ============================================================================
+
+#!/bin/bash
+
+# ----------------------------------------------------------------------------
+# Disk device containing the NTFS partition to rescue
+# The raw device used to access the disk which contains the NTFS partition
+# to rescue files from.
+# ----------------------------------------------------------------------------
+DISK={{ disk | default('/dev/sda') }}
+
+# ----------------------------------------------------------------------------
+# Start sector of the NTFS partition
+# The beginning of the NTFS partition in sectors.
+# ----------------------------------------------------------------------------
+START={{ start | default(0) }}
+
+# ----------------------------------------------------------------------------
+# End sector of the NTFS partition
+# The end of the NTFS partition in sectors.
+# ----------------------------------------------------------------------------
+END={{ end | default(0) }}
+
+# ----------------------------------------------------------------------------
+# Output directory for rescued files
+# Directory to put rescued files in.
+# ----------------------------------------------------------------------------
+OUTPUT_DIR={{ output_dir | default('/mnt/recovery') }}
+
+# ----------------------------------------------------------------------------
+# MFT offset in sectors (optional)
+# The location of the MFT from the beginning of the partition in sectors.
+# If empty or not provided, no directory information can be used.
+# ----------------------------------------------------------------------------
+{% set mft_offset_val = mft_offset | default('') %}
+{% if mft_offset_val | length > 0 %}
+MFT_OFFSET={{ mft_offset_val }}
+{% else %}
+MFT_OFFSET=''
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Cluster size in sectors (optional)
+# The cluster size in sectors. If empty or not provided, scrounge-ntfs
+# defaults to 8.
+# ----------------------------------------------------------------------------
+{% set cluster_size_val = cluster_size | default('') %}
+{% if cluster_size_val | length > 0 %}
+CLUSTER_SIZE={{ cluster_size_val }}
+{% else %}
+CLUSTER_SIZE=''
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Construct and execute the scrounge-ntfs command
+# Builds the command line string based on the variables defined above,
+# applying optional flags (-m for MFT offset, -c for cluster size) if
+# their corresponding values are non-empty.
+# ----------------------------------------------------------------------------
+
+# Base command
+# Using a variable to hold the full command string for execution
+cmd="scrounge-ntfs {{ output_dir | default('/mnt/recovery') }} {{ disk | default('/dev/sda') }} {{ start | default(0) }} {{ end | default(0) }}"
+
+# Append MFT offset flag if provided
+{% if mft_offset_val | length > 0 %}
+cmd="{{ cmd }} -m {{ mft_offset_val }}"
+{% endif %}
+
+# Append cluster size flag if provided
+{% if cluster_size_val | length > 0 %}
+cmd="{{ cmd }} -c {{ cluster_size_val }}"
+{% endif %}
+
+# Execute the constructed command
+echo "Executing: $cmd"
+exec $cmd

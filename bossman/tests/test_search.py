@@ -83,7 +83,8 @@ async def fixture_fleet(db_session):
     db_session.add_all(svcs)
     row, raw = new_api_token(f"search-caller-{tag}")
     db_session.add(row)
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=f"search-caller-{tag}", scope="all"))
+    await db_session.flush()  # the grant references this token by uid — it must exist first
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=f"search-caller-{tag}", subject_token_id=row.id, scope="all"))
     await db_session.commit()
     yield {"tag": tag, "web": web, "db": db, "tst": tst, "raw": raw, "token": row, "svcs": svcs}
     for s in svcs:
@@ -224,7 +225,7 @@ async def test_search_hosts_by_inventory(db_session):
     db_session.add(a)
     row, raw = new_api_token(f"inv-caller-{tag}")
     db_session.add(row)
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=f"inv-caller-{tag}", scope="all"))
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=f"inv-caller-{tag}", subject_token_id=row.id, scope="all"))
     await db_session.commit()
     app = create_app()
     with TestClient(app) as client:

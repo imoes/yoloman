@@ -1,0 +1,51 @@
+{#
+  jose (https://github.com/latchset/jose) configuration template.
+  This file configures the `jose` command-line tool (or library defaults if applicable).
+  As `jose` is primarily a CLI utility / library and not a long-running daemon,
+  this configuration is minimal. It handles global defaults for logging and JWK sources.
+#}
+
+{# Global debug level: 0=error, 1=warning, 2=info, 3=debug. Default 0. #}
+debug_level = {{ debug_level | default(0) }}
+
+{# Log file path. If empty or not set, logs go to stderr. #}
+log_file = {{ log_file | default("") }}
+
+{# Directory to store or look for JSON Web Key (JWK) sets. Default: ~/.jose/jwks #}
+jwks_dir = {{ jwks_dir | default("~/.jose/jwks") }}
+
+{# Path to the default private JWK file. Default: ~/.jose/private.jwk #}
+private_key_file = {{ private_key_file | default("~/.jose/private.jwk") }}
+
+{# Path to the default public JWK file. Default: ~/.jose/public.jwk #}
+public_key_file = {{ public_key_file | default("~/.jose/public.jwk") }}
+
+{# Default algorithm for key operations if not specified. Default: "PS256" #}
+default_alg = {{ default_alg | default("PS256") }}
+
+{# Default key type (rsa, ec, okp) if generating new keys. Default: "rsa" #}
+default_key_type = {{ default_key_type | default("rsa") }}
+
+{# Default key size in bits for RSA/EC generation. Default: 2048 #}
+default_key_size = {{ default_key_size | default(2048) }}
+
+{# Enable or disable hardware security modules (HSM) support. Default: false #}
+hsm_enabled = {{ hsm_enabled | default(false) | lower }}
+
+{# HSM library path (pkcs11 module). Default: "" #}
+hsm_library = {{ hsm_library | default("") }}
+
+{# HSM PIN for the token. Default: "" #}
+hsm_pin = {{ hsm_pin | default("") }}
+
+{# List of additional directories to search for JWK sets. Default: [] #}
+{% set _jwks_extra_dirs = jwks_extra_dirs | default([]) %}
+{% if _jwks_extra_dirs is iterable and not (_jwks_extra_dirs is string) %}
+jwks_extra_dirs = {{ _jwks_extra_dirs | join(",") }}
+{% endif %}
+
+{# Custom trust store path for CA certificates. Default: "" (system default) #}
+ca_cert_file = {{ ca_cert_file | default("") }}
+
+{# Timeout for network-based JWK operations in seconds. Default: 30 #}
+jwk_timeout = {{ jwk_timeout | default(30) }}

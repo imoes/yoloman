@@ -1,0 +1,173 @@
+# ==============================================================================
+# LinkChecker Configuration Template
+# ==============================================================================
+# This configuration file is auto-generated. Do not edit manually.
+# To customize settings, update the Ansible variables bound to this template.
+# ==============================================================================
+
+# Global application settings
+[linkcheck]
+
+# Maximum number of concurrent threads for checking links
+# Command-line equivalent: --threads=NUMBER
+# Default: 1
+threads = {{ threads | default(1) }}
+
+# Depth of recursion for following links
+# Command-line equivalent: -r NUMBER, --recursion-level=NUMBER
+# Controls how deep LinkChecker follows links from the starting URL.
+# Default: 0 (no recursion)
+recursion_level = {{ recursion_level | default(0) }}
+
+# Timeout in seconds for connection attempts
+# Command-line equivalent: --timeout=NUMBER
+# Applies to both HTTP and FTP connections.
+# Default: 10
+timeout = {{ timeout | default(10) }}
+
+# User-Agent string sent to HTTP servers
+# Command-line equivalent: --user-agent=STRING
+# Used to identify this LinkChecker instance to web servers.
+user_agent = "{{ user_agent | default('LinkChecker/10.5') }}"
+
+# Enable checking of external URLs (those outside the starting domain)
+# Command-line equivalent: --check-extern
+# If false, only URLs within the same host as the starting URL are checked.
+# Default: True
+check_extern = {{ check_extern | default(True) | lower }}
+
+# Honor robots.txt exclusion protocol
+# Command-line equivalent: --no-robots
+# Setting this to true tells LinkChecker to IGNORE robots.txt files.
+# Setting this to false makes LinkChecker HONOR robots.txt.
+# Note: The variable name `ignore_robots` implies "True" means "Do not honor".
+# So we pass the variable directly to `no_robots` which is the "don't honor" flag.
+no_robots = {{ ignore_robots | default(False) | lower }}
+
+# URL filters to ignore completely (syntax check only)
+# Command-line equivalent: --ignore-url=REGEX
+# URLs matching these regular expressions will only be checked for syntax,
+# not actually fetched or linked. Can be repeated.
+# Default: [] (empty list)
+{% for url in ignore_url | default([]) %}
+ignore_url = {{ url }}
+{% endfor %}
+
+# URL filters to check but not recurse into
+# Command-line equivalent: --no-follow-url=REGEX
+# URLs matching these regular expressions are checked for validity,
+# but LinkChecker will not follow links found within them. Can be repeated.
+# Default: [] (empty list)
+{% for url in no_follow_url | default([]) %}
+no_follow_url = {{ url }}
+{% endfor %}
+
+# Global HTTP/FTP Authorization (Legacy/General)
+# Command-line equivalent: --user=STRING, --password=STRING
+# Note: Specific credentials should ideally be placed in [http] or [ftp] sections.
+# This block is present for backward compatibility or simple cases.
+{% if http_user is defined and http_user is not none %}
+user = {{ http_user }}
+{% endif %}
+{% if http_password is defined and http_password is not none %}
+password = {{ http_password }}
+{% endif %}
+
+# Output Configuration
+# Command-line equivalent: -o TYPE, --output=TYPE
+# Valid types: text, html, sql, csv, gml, dot, xml, sitemap, none
+output = {{ output_type | default('text') }}
+
+# File Output Specifications
+# Command-line equivalent: -F TYPE[/ENCODING][/FILENAME], --file-output=TYPE
+# Allows saving output to files. Format: TYPE[/ENCODING][/FILENAME].
+# Default: [] (empty list, no file output)
+{% for file_output in file_outputs | default([]) %}
+file_output = {{ file_output }}
+{% endfor %}
+
+# Log all checked URLs, overriding --no-warnings
+# Command-line equivalent: -v, --verbose
+# If true, logs all URLs checked, providing detailed output.
+# Default: False
+verbose = {{ verbose | default(False) | lower }}
+
+# Do not print URL check status messages
+# Command-line equivalent: --no-status
+# If true, suppresses the printing of status messages during the check.
+# Default: False
+no_status = {{ no_status | default(False) | lower }}
+
+# HTTP Section
+# Settings specific to HTTP requests.
+[http]
+
+# HTTP Proxy URL
+# Command-line equivalent: --http-proxy=URL
+# Environment variable: http_proxy (if config option is omitted)
+# Example: http://user:pass@proxyhost:port
+{% if http_proxy is defined and http_proxy is not none %}
+proxy = {{ http_proxy }}
+{% endif %}
+
+# HTTP Authorization User
+# Command-line equivalent: --http-user=STRING
+# Overrides global user for HTTP requests.
+{% if http_user is defined and http_user is not none %}
+user = {{ http_user }}
+{% endif %}
+
+# HTTP Authorization Password
+# Command-line equivalent: --http-password=STRING
+# Overrides global password for HTTP requests.
+{% if http_password is defined and http_password is not none %}
+password = {{ http_password }}
+{% endif %}
+
+# FTP Section
+# Settings specific to FTP requests.
+[ftp]
+
+# FTP Proxy URL
+# Command-line equivalent: --ftp-proxy=URL
+# Environment variable: ftp_proxy
+{% if ftp_proxy is defined and ftp_proxy is not none %}
+proxy = {{ ftp_proxy }}
+{% endif %}
+
+# FTP Authorization User
+# Command-line equivalent: --ftp-user=STRING
+# Default: anonymous
+# If not set, LinkChecker may default to 'anonymous'.
+{% if ftp_user is defined and ftp_user is not none %}
+user = {{ ftp_user }}
+{% else %}
+user = anonymous
+{% endif %}
+
+# FTP Authorization Password
+# Command-line equivalent: --ftp-password=STRING
+# Default: anonymous@
+# For anonymous access, this is usually an email address.
+{% if ftp_password is defined and ftp_password is not none %}
+password = {{ ftp_password }}
+{% else %}
+password = anonymous@
+{% endif %}
+
+# Cookie Files
+# Command-line equivalent: --cookiefile=FILENAME
+# List of Netscape-style cookie files to load.
+# Default: [] (empty list)
+{% for cookiefile in cookiefiles | default([]) %}
+cookiefile = {{ cookiefile }}
+{% endfor %}
+
+# Debug Logging
+# Command-line equivalent: --debug=STRING
+# Activates debug loggers. Available: cmdline, checking, cache, plugin, all.
+# Can be repeated to activate multiple debuggers.
+# Default: [] (empty list)
+{% for logger in debug_loggers | default([]) %}
+debug = {{ logger }}
+{% endfor %}

@@ -1,0 +1,25 @@
+# iptotal Web Application Configuration
+# Configures Apache directives for the iptotal application document root and alias.
+# This template generates standard Apache httpd configuration.
+
+# Alias directive maps a URL path to a filesystem directory.
+# document_root_url (default='/var/lib/iptotal/')
+Alias /iptotal {{ document_root_url | default('/var/lib/iptotal/') }}
+
+# Directory block to secure and configure access to the document root.
+# document_root_path (default='/var/lib/iptotal')
+<Directory {{ document_root_path | default('/var/lib/iptotal') }}>
+    # Follow symbolic links within the directory.
+    # Allows relative links to resolve outside the document root if necessary.
+    Options +FollowSymLinks
+
+    # Disable .htaccess processing for this directory for performance and security.
+    AllowOverride None
+
+    # Allow access to all users.
+    Require all granted
+
+    # Set the default index file served when a directory is accessed.
+    # directory_index (default='template.html')
+    DirectoryIndex {{ directory_index | default('template.html') }}
+</Directory>

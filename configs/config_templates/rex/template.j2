@@ -1,0 +1,86 @@
+# ============================================================================
+# Rex Configuration Template
+# Generated for Rex automation framework
+# ============================================================================
+# This file configures the Rex deployment automation tool. It defines feature
+# flags, default SSH credentials/keys, and target server groups/nodes.
+
+# Enable specific Rex feature flags.
+# Schema: features (default=['1.4'])
+# Desc: List of Rex feature flags to enable in the Rexfile, e.g., autodie, template_ng, 1.4.
+{% set feature_flags = features | default(['1.4']) %}
+{% if feature_flags | length > 0 %}
+use Rex -feature => {{ feature_flags | join(', ') }};
+{% endif %}
+
+# ============================================================================
+# Default Connection Settings
+# ============================================================================
+
+# Default username for SSH connections.
+# Schema: default_user (default='root')
+# Desc: The default username to use for SSH connections when not overridden by server-specific settings.
+user "{{ default_user | default('root') }}";
+
+# Default password for servers without specific credentials.
+# Schema: default_password (default='')
+# Desc: The default password for authentication. Leave empty or use private keys in production.
+password "{{ default_password | default('') }}";
+
+# Path to the default private SSH key file.
+# Schema: default_private_key (default='/root/.ssh/id_rsa')
+# Desc: Path to the default private key file for SSH authentication.
+private_key "{{ default_private_key | default('/root/.ssh/id_rsa') }}";
+
+# ============================================================================
+# Feature Flags (Individual Enablers)
+# ============================================================================
+
+# Enable 'autodie' mode: causes Rex to die immediately if a command fails.
+# Schema: enable_autodie (default=True)
+# Desc: If true, enables the 'autodie' feature flag, causing Rex to die on failed commands.
+{% if enable_autodie | default(True) %}
+use Rex -feature => ['autodie'];
+{% endif %}
+
+# Enable 'template_ng': the new, improved template engine.
+# Schema: enable_template_ng (default=False)
+# Desc: If true, enables the 'template_ng' feature flag for the new template engine.
+{% if enable_template_ng | default(False) %}
+use Rex -feature => ['template_ng'];
+{% endif %}
+
+# ============================================================================
+# Server Groups
+# ============================================================================
+
+# Define a default server group.
+# Schema: group_name (default='webservers')
+# Desc: The name of the default server group to define.
+# Schema: server_list (default=['web01.example.com', 'web02.example.com'])
+# Desc: List of server hostnames or IPs belonging to the default group.
+group "{{ group_name | default('webservers') }}" => {{ server_list | default(['web01.example.com', 'web02.example.com']) | join(', ') }};
+
+# ============================================================================
+# Individual Server Configurations
+# ============================================================================
+
+# Iterate through any specific server overrides/additions.
+# Schema: servers (default=[])
+# Desc: List of individual server configurations with specific attributes. Items are flat maps with keys: name, user, password, private_key.
+{% for server in servers | default([]) %}
+server "{{ server.name }}",
+  user "{{ server.user | default(default_user | default('root')) }}",
+  password "{{ server.password | default(default_password | default('')) }}",
+  private_key "{{ server.private_key | default(default_private_key | default('/root/.ssh/id_rsa')) }}";
+{% endfor %}
+
+# ============================================================================
+# Default Task Placeholder
+# ============================================================================
+
+# Example task structure.
+task "default_task", sub {
+  run "hostname";
+};
+1;

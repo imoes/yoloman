@@ -1,0 +1,33 @@
+# sipcalc configuration
+# This file is not natively read by sipcalc(1). 
+# It is a template to generate a shell script wrapper or a batch processing script
+# that invokes sipcalc with the specified parameters.
+
+# Base command for sipcalc
+# Uses the 'binary' variable to locate the sipcalc executable
+command="{{ binary }}"
+
+# List of IP addresses/networks to process
+# Each item can be a CIDR notation (e.g., 192.168.1.0/24), an IP interface name (e.g., eth0),
+# or an IPv6 address. The script will iterate over this list.
+{% for item in targets %}
+# Processing target: {{ item }}
+# Uses flags: --all (-a) to display all available information
+# Output is printed to stdout
+{{ command }} -a {{ item }}
+{% endfor %}
+
+# Optional: Enable DNS resolution for hostnames found in the input
+# If enabled, sipcalc will attempt to resolve IP addresses to hostnames
+{% if resolve %}
+# DNS resolution is enabled. The --resolve (-d) flag is passed to sipcalc.
+# Note: In the loop above, you would replace '-a' with '-a -d' or add '-d' to the command variable.
+{% endif %}
+
+# Optional: Split networks into subnets
+# If subnets is greater than 0, sipcalc will calculate that many extra subnets
+# If subnets is 0, it shows all possible subnets for the given mask
+{% if subnets != 0 %}
+# Subnet splitting is enabled for {{ subnets }} extra subnets
+# The --subnets (-n) flag is used. Note: For the loop above, you would add '-n {{ subnets }}'
+{% endif %}

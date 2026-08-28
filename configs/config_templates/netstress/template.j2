@@ -1,0 +1,108 @@
+# ===========================================================================
+# Netstress Master Configuration Template
+# ===========================================================================
+# This template generates the configuration file for the `netstress` benchmark tool.
+# Netstress is used to stress-test network connections, either in master or slave mode.
+# See: http://netstress.sourceforge.net/
+# ===========================================================================
+
+# -------------------------------------------------------------------------
+# Instance role: master or slave
+# master: initiates the connection and sends data
+# slave: waits for connections and receives data
+# -------------------------------------------------------------------------
+mode = {{ mode | default('master') }}
+
+# -------------------------------------------------------------------------
+# Network interface to stress test
+# The specific network interface (e.g., eth0, ens33) that netstress will bind to or monitor.
+# -------------------------------------------------------------------------
+iface = {{ iface | default('eth0') }}
+
+# -------------------------------------------------------------------------
+# Host or IP address for connection
+# Target host (for master) or listen address (for slave).
+# -------------------------------------------------------------------------
+host = {{ host | default('127.0.0.1') }}
+
+# -------------------------------------------------------------------------
+# Port number to use
+# The TCP/UDP port number for the network connection. Default is 5678.
+# -------------------------------------------------------------------------
+port = {{ port | default(5678) }}
+
+# -------------------------------------------------------------------------
+# Random number seed for reproducibility (master only)
+# Used by the master to generate pseudo-random data patterns.
+# Set to a specific value to reproduce exact test results.
+# -------------------------------------------------------------------------
+seed = {{ seed | default(12345) }}
+
+# -------------------------------------------------------------------------
+# Time reporting mode
+# 'time': reports the current system time
+# 'elapsed': reports time elapsed since the test started (default)
+# -------------------------------------------------------------------------
+report_mode = {{ report_mode | default('elapsed') }}
+
+# -------------------------------------------------------------------------
+# Interval in seconds between reports
+# How often to print status updates to stdout. Default is 5 seconds.
+# -------------------------------------------------------------------------
+report_interval = {{ report_interval | default(5) }}
+
+# -------------------------------------------------------------------------
+# Number of reports before stopping
+# After this many reports are generated, the test stops automatically.
+# Set to 0 to run indefinitely (requires manual stop or signal).
+# -------------------------------------------------------------------------
+report_count = {{ report_count | default(3) }}
+
+# -------------------------------------------------------------------------
+# Benchmark unit
+# 'mb': Megabits per second (default)
+# 'kb': Kilobits per second
+# 'mbps': Megabytes per second
+# 'kbs': Kilobytes per second
+# 'bps': Bytes per second
+# 'b': Bits per second
+# -------------------------------------------------------------------------
+unit = {{ unit | default('mb') }}
+
+# -------------------------------------------------------------------------
+# Test direction
+# 'rw': Read/Write (bidirectional)
+# 'mw': Master Write (master sends, slave receives)
+# 'mr': Master Read (master receives, slave sends)
+# -------------------------------------------------------------------------
+direction = {{ direction | default('rw') }}
+
+# -------------------------------------------------------------------------
+# Enable real random test instead of pseudo-random
+# When true, uses /dev/urandom for data generation (slower, more realistic).
+# When false (default), uses pseudo-random generator (faster).
+# -------------------------------------------------------------------------
+real_random = {{ real_random | default(false) | lower }}
+
+# -------------------------------------------------------------------------
+# Enable fast mode
+# Disables data integrity checking and disables real_random.
+# Use for maximum throughput testing where data validity is not required.
+# -------------------------------------------------------------------------
+fast_mode = {{ fast_mode | default(false) | lower }}
+
+# -------------------------------------------------------------------------
+# Verbosity level
+# Controls output verbosity. Higher values increase detail.
+# 0: minimal (default)
+# 1-3: increasing levels of detail
+# -------------------------------------------------------------------------
+verbosity = {{ verbosity | default(0) }}
+
+# -------------------------------------------------------------------------
+# Debug level
+# Controls debug output for troubleshooting.
+# 0: no debug output (default)
+# 1-3: increasing levels of debug info
+# -------------------------------------------------------------------------
+debug = {{ debug | default(0) }}

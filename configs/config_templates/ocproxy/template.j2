@@ -1,0 +1,108 @@
+# ==============================================================================
+# ocproxy Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for ocproxy.
+# ocproxy is a tool for tunneling traffic over OpenConnect VPN connections,
+# allowing port forwarding and SOCKS5 proxying.
+#
+# Variables are mapped directly from the Ansible role's schema.
+# Each variable uses | default(D) to ensure a valid value even if unset.
+# ==============================================================================
+
+{% set _forwardings = forwardings | default([]) %}
+{% set _allow_remote = allow_remote | default(false) | bool %}
+{% set _verbose = verbose | default(false) | bool %}
+{% set _tcpdump = tcpdump | default(false) | bool %}
+{% set _keepalive = keepalive | default(None) %}
+{% set _vpn_ip = vpn_ip | default(None) %}
+{% set _mtu = mtu | default(None) %}
+{% set _dns_server = dns_server | default(None) %}
+{% set _domain = domain | default(None) %}
+{% set _dynamic_port = dynamic_port | default(None) %}
+{% set _dynfw_bind_address = dynfw_bind_address | default('127.0.0.1') %}
+
+# ------------------------------------------------------------------------------
+# Port Forwarding Rules (-L)
+# ------------------------------------------------------------------------------
+# List of port forwarding rules in the format port:host:hostport (resembles ssh -L).
+# Each item is a flat map with keys: port, host, host_port.
+{% for fwd in _forwardings %}
+# Local port to bind: {{ (fwd.port | default('')) | string }}
+# Destination host on the VPN side: {{ (fwd.host | default('')) | string }}
+# Destination port on the VPN side: {{ (fwd.host_port | default('')) | string }}
+-L{{ (fwd.port | default('')) | string }}:{{ (fwd.host | default('')) | string }}:{{ (fwd.host_port | default('')) | string }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Dynamic Forwarding / SOCKS5 Proxy (-D)
+# ------------------------------------------------------------------------------
+# Port to start SOCKS5 server on. If provided, -D is added.
+{% if _dynamic_port is not none %}
+# Dynamic forwarding port: {{ _dynamic_port }}
+# Bind address for the dynamic forwarding socket: {{ _dynfw_bind_address }}
+-D{{ _dynfw_bind_address }}:{{ _dynamic_port }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Bind Address / Remote Access (-g)
+# ------------------------------------------------------------------------------
+# If true, binds local sockets to 0.0.0.0 instead of 127.0.0.1 (-g).
+{% if _allow_remote %}
+-g
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# TCP Keepalive (-k)
+# ------------------------------------------------------------------------------
+# Interval in seconds to send TCP keepalive packets (-k).
+{% if _keepalive is not none %}
+-k{{ _keepalive }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Verbose Mode (-v)
+# ------------------------------------------------------------------------------
+# Enable verbose debugging output (-v).
+{% if _verbose %}
+-v
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# TCP Dump (-T)
+# ------------------------------------------------------------------------------
+# Write log of TCP/UDP packets to /tmp/tcpdump (-T).
+{% if _tcpdump %}
+-T
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# VPN IP Override (-I)
+# ------------------------------------------------------------------------------
+# Override VPN side IP address (-I).
+{% if _vpn_ip is not none %}
+-I{{ _vpn_ip }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# MTU Override (-M)
+# ------------------------------------------------------------------------------
+# Override MTU for VPN interface (-M).
+{% if _mtu is not none %}
+-M{{ _mtu }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# DNS Server Override (-d)
+# ------------------------------------------------------------------------------
+# Override DNS server IP (-d).
+{% if _dns_server is not none %}
+-d{{ _dns_server }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# DNS Domain Override (-o)
+# ------------------------------------------------------------------------------
+# Override default DNS domain for unqualified hostnames (-o).
+{% if _domain is not none %}
+-o{{ _domain }}
+{% endif %}

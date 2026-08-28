@@ -1,0 +1,53 @@
+# pinentry-fltk configuration template
+# This template generates a command-line argument file for pinentry-fltk,
+# a frontend for pinentry that uses the FLTK toolkit.
+# It is primarily used in GnuPG agent configurations for PIN entry operations.
+# Variables correspond to pinentry command-line options.
+
+{% if enable_debug | default(false) %}
+# enable_debug: Turn on debugging output. Note that this may reveal sensitive information.
+# When true, pinentry will output debugging information to stderr.
+--debug
+{% endif %}
+
+{% if no_global_grab | default(false) %}
+# no_global_grab: Grab the keyboard only when the window is focused.
+# Prevents pinentry from grabbing input globally, which can be useful
+# in debugging scenarios or specific window manager setups.
+--no-global-grab
+{% endif %}
+
+{% if parent_wid | default('') %}
+# parent_wid: Window ID to use as the parent window for positioning.
+# Specifies the X11 window ID that pinentry will use as its parent window.
+# This allows pinentry to be positioned relative to another application window.
+--parent-wid {{ parent_wid | default('') }}
+{% endif %}
+
+{% if display | default('') %}
+# display: STRING to pass as the X11 display.
+# Sets the X11 display string (e.g., ':0', 'localhost:10.0') that pinentry
+# will connect to for graphical output.
+--display {{ display | default('') }}
+{% endif %}
+
+{% if ttyname | default('') %}
+# ttyname: STRING to pass as the tty name.
+# Specifies the terminal device name to use for input/output operations.
+# Useful when running pinentry in a specific TTY context.
+--ttyname {{ ttyname | default('') }}
+{% endif %}
+
+{% if lc_ctype | default('') %}
+# lc_ctype: STRING to pass as the LC_CTYPE locale setting.
+# Overrides the locale character classification used by pinentry.
+# Example: 'en_US.UTF-8' or 'C'
+--lc-ctype {{ lc_ctype | default('') }}
+{% endif %}
+
+{% if lc_messages | default('') %}
+# lc_messages: STRING to pass as the LC_MESSAGES locale setting.
+# Overrides the locale used for user-facing messages in pinentry.
+# Example: 'en_US.UTF-8' or 'C'
+--lc-messages {{ lc_messages | default('') }}
+{% endif %}

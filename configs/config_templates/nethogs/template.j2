@@ -1,0 +1,65 @@
+# NetHogs Configuration Wrapper
+# NetHogs is primarily an interactive CLI tool and does not have a standard persistent configuration file.
+# This template generates a wrapper script to run nethogs with the specified parameters.
+
+#!/bin/bash
+# Wrapper script for nethogs
+
+EXEC_CMD="nethogs"
+
+# Delay for update refresh rate in seconds. Default is 1.
+EXEC_CMD="$EXEC_CMD -d {{ refresh_rate | default(1) }}"
+
+# View mode: 0=kB/s, 1=total kB, 2=total bytes, 3=total MB, 4=MB/s, 5=GB/s. Default is 0.
+EXEC_CMD="$EXEC_CMD -v {{ view_mode | default(0) }}"
+
+# Number of updates. Default is 0 (unlimited).
+EXEC_CMD="$EXEC_CMD -c {{ update_count | default(0) }}"
+
+# Enable tracemode (text output format). Default is False.
+{% if tracemode | default(false) %}
+EXEC_CMD="$EXEC_CMD -t"
+{% endif %}
+
+# Sort output by sent column. Default is False.
+{% if sort_sent | default(false) %}
+EXEC_CMD="$EXEC_CMD -s"
+{% endif %}
+
+# Display command line. Default is False.
+{% if display_cmdline | default(false) %}
+EXEC_CMD="$EXEC_CMD -l"
+{% endif %}
+
+# Display the program basename. Default is False.
+{% if display_basename | default(false) %}
+EXEC_CMD="$EXEC_CMD -b"
+{% endif %}
+
+# Monitor all devices, even loopback/stopped ones. Default is False.
+{% if all_devices | default(false) %}
+EXEC_CMD="$EXEC_CMD -a"
+{% endif %}
+
+# Capture TCP and UDP. Default is False.
+{% if capture_tcp_udp | default(false) %}
+EXEC_CMD="$EXEC_CMD -C"
+{% endif %}
+
+# Garbage collection period in number of refreshes. Default is 50.
+EXEC_CMD="$EXEC_CMD -g {{ garbage_collection_period | default(50) }}"
+
+# Show only processes with the specified pid(s). Default is [] (no filter).
+{% if target_pids | default([]) | length > 0 %}
+EXEC_CMD="$EXEC_CMD -P {{ target_pids | default([]) | join(' ') }}"
+{% endif %}
+
+# Device(s) to monitor. Default is all interfaces up and running excluding loopback.
+{% if devices | default([]) | length > 0 %}
+EXEC_CMD="$EXEC_CMD {{ devices | default([]) | join(' ') }}"
+{% else %}
+# Default: monitor all interfaces up and running excluding loopback
+EXEC_CMD="$EXEC_CMD"
+{% endif %}
+
+exec $EXEC_CMD

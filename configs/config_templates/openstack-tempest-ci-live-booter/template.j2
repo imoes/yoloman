@@ -1,0 +1,73 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          openstack-proxy-node-nat
+# Required-Start:    $network
+# Required-Stop:     $network
+# Should-Start:      $local_fs
+# Should-Stop:       $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: A small script to initialise iptables to allow forwarding and masquerading.
+# Description:       A small script to initialise iptables to allow forwarding and masquerading.
+### END INIT INFO
+
+MODPROBE=/sbin/modprobe
+IPTABLES=/sbin/iptables
+EXTIF=`awk '{ if ( $2 == "00000000" ) print $1 }' /proc/net/route | head -n 1`
+MGMT_IF={{ mgmt_if }}
+MGMT_NET_CIDR={{ mgmt_net_cidr }}
+OTCI_PXE_SERVER_IP={{ otc_pxe_server_ip }}
+OTCI_PXE_NETMASK={{ otc_pxe_netmask }}
+PXE_NIC_NAME={{ pxe_nic_name }}
+PXE_VM_VIRTAP_NAME={{ pxe_vm_virtap_name }}
+PXE_VM_NIC_USER={{ pxe_vm_nic_user }}
+
+. /lib/lsb/init-functions
+
+case "$1" in
+start|systemd-start)
+	echo 1 >/proc/sys/net/ipv4/ip_forward
+
+	$MODPROBE ip_tables
+	$MODPROBE ip_conntrack
+	$MODPROBE iptable_nat
+	$MODPROBE ip_nat_ftp
+
+	$MODPROBE dummy
+	ip link set name ${PXE_NIC_NAME} dev dummy0 || true
+	ifconfig ${PXE_NIC_NAME} hw ether 00:22:22:ff:ff:ff
+
+	# Create a bridge and bridge that interface to it
+	ip tuntap add dev ${PXE_VM_VIRTAP_NAME} mode tap user ${PXE_VM_NIC_USER} || true
+	brctl addbr {{ mgmt_if }} || true
+	brctl addif {{ mgmt_if }} ${PXE_NIC_NAME} || true
+	brctl addif {{ mgmt_if }} ${PXE_VM_VIRTAP_NAME} || true
+	ifconfig {{ mgmt_if }} {{ otc_pxe_server_ip }} netmask {{ otc_pxe_netmask }} up
+	ip link set {{ mgmt_if }} up
+	ip link set ${PXE_NIC_NAME} up
+	ip link set ${PXE_VM_VIRTAP_NAME} up
+
+	# Allow all connections OUT and only existing and related ones IN
+	$IPTABLES -I FORWARD -i ${EXTIF} -o {{ mgmt_if }} -m state --state ESTABLISHED,RELATED -j ACCEPT
+	$IPTABLES -I FORWARD -i {{ mgmt_if }} -s {{ mgmt_net_cidr }} -o ${EXTIF} -j ACCEPT
+
+	#$IPTABLES -t nat -A POSTROUTING -o $EXTIF -j MASQUERADE
+	$IPTABLES -t nat -I POSTROUTING -s {{ mgmt_net_cidr }} -o ${EXTIF} -j MASQUERADE
+;;
+stop)
+	brctl delif {{ mgmt_if }} ${PXE_NIC_NAME} || true
+	brctl delif {{ mgmt_if }} ${PXE_VM_VIRTAP_NAME} || true
+	brctl delbr {{ mgmt_if }} || true
+	ip link delete ${PXE_VM_VIRTAP_NAME} || true
+;;
+restart|reload|force-reload)
+	$0 stop
+	sleep 1
+	$0 start
+;;
+*)
+	echo 'Usage: $0 {start|stop|restart|reload}'
+	exit 1
+;;
+esac

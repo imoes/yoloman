@@ -1,0 +1,82 @@
+# SpamProbe Configuration File
+# Generated for service: spamprobe
+# This file configures the Bayesian spam filter 'spamprobe'.
+# See `man spamprobe` for full documentation on command-line options.
+
+# -----------------------------------------------------------------------------
+# -C number: Default neutral probability for unseen terms.
+# Prevents terms with low counts from having unreasonable influence.
+# If a word appears only once, its probability is biased towards this value.
+# Default: 5
+# -----------------------------------------------------------------------------
+DEFAULT_NEUTRAL_PROBABILITY = {{ default_neutral_probability | default(5) }}
+
+# -----------------------------------------------------------------------------
+# -l number: Spam probability threshold.
+# Messages scoring >= this value are classified as spam.
+# Range: 0 to 1.
+# Default: 0.7
+# -----------------------------------------------------------------------------
+SPAM_THRESHOLD = {{ spam_threshold | default(0.7) }}
+
+# -----------------------------------------------------------------------------
+# -p number: Maximum number of words per phrase.
+# Increases accuracy but also database size and processing time.
+# Default: 2
+# -----------------------------------------------------------------------------
+MAX_PHRASE_LENGTH = {{ max_phrase_length | default(2) }}
+
+# -----------------------------------------------------------------------------
+# -s number: In-memory cache size (number of terms).
+# Reduces disk I/O by caching frequently accessed terms.
+# 0 implies 100,000 terms.
+# Default: 2500
+# -----------------------------------------------------------------------------
+CACHE_SIZE = {{ cache_size | default(2500) }}
+
+# -----------------------------------------------------------------------------
+# -a char: Replacement character for non-ASCII chars.
+# Use '-' to ignore them (-7 flag logic) or other chars.
+# Default: 'z'
+# -----------------------------------------------------------------------------
+NON_ASCII_REPLACEMENT = '{{ non_ascii_replacement | default("z") }}'
+
+# -----------------------------------------------------------------------------
+# -o option: Special options.
+# Enable features like 'graham', 'honor-status-header', 'tokenized'.
+# If empty, no special options are used.
+# Default: []
+# -----------------------------------------------------------------------------
+SPECIAL_OPTIONS = {{ special_options | default([], true) | join(", ") }}
+
+# -----------------------------------------------------------------------------
+# -D directory: Path to shared system-wide database.
+# Used as a baseline for all users.
+# Leave empty if not using a shared DB.
+# Default: ''
+# -----------------------------------------------------------------------------
+SHARED_DATABASE_DIR = '{{ shared_database_dir | default("") }}'
+
+# -----------------------------------------------------------------------------
+# -d type:path: Path to user-specific database directory.
+# Can include type prefix like 'bdb:/var/spamprobe' or 'hash:16:/var/spamprobe'.
+# Leave empty to use default user location.
+# Default: ''
+# -----------------------------------------------------------------------------
+USER_DATABASE_PATH = '{{ user_database_path | default("") }}'
+
+# -----------------------------------------------------------------------------
+# -H option: Headers to scan.
+# Legal values: all, nox, none, normal. Or +headername (e.g., '+x-spam-status').
+# Default is 'normal' (scans standard headers).
+# Default: ['normal']
+# -----------------------------------------------------------------------------
+SCANNED_HEADERS = {{ scanned_headers | default(['normal'], true) | join(" ") }}
+
+# -----------------------------------------------------------------------------
+# -P number: Purge terms with junk count <= 2 every N messages.
+# Prevents database bloat.
+# Set to 0 to disable periodic purging during processing.
+# Default: 0
+# -----------------------------------------------------------------------------
+PURGE_EVERY_N_MESSAGES = {{ purge_every_n_messages | default(0) }}

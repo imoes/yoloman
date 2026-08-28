@@ -1,0 +1,58 @@
+# inputattach configuration file
+# This file serves as a legacy or wrapper-script compatible configuration for inputattach.
+# Note: inputattach is primarily controlled via command-line arguments passed to the init system.
+# This configuration represents the standard parameters for managing instances of inputattach.
+
+# Daemon mode: Run in background
+# Description: Forks into the background.
+{% if (daemon | default(false)) is boolean %}
+{% if daemon | default(false) %}
+DAEMON_MODE=true
+{% else %}
+DAEMON_MODE=false
+{% endif %}
+{% else %}
+# Warning: 'daemon' is expected to be boolean.
+DAEMON_MODE={{ daemon | default(false) | ternary('true', 'false') }}
+{% endif %}
+
+# Always mode: Ignore initialization failures
+# Description: Ignore initialization failures when attaching the device.
+{% if (always | default(false)) is boolean %}
+{% if always | default(false) %}
+ALWAYS_MODE=true
+{% else %}
+ALWAYS_MODE=false
+{% endif %}
+{% else %}
+# Warning: 'always' is expected to be boolean.
+ALWAYS_MODE={{ always | default(false) | ternary('true', 'false') }}
+{% endif %}
+
+# NoInit mode: Skip device initialization
+# Description: Skip device initialization.
+{% if (noinit | default(false)) is boolean %}
+{% if noinit | default(false) %}
+NOINIT_MODE=true
+{% else %}
+NOINIT_MODE=false
+{% endif %}
+{% else %}
+# Warning: 'noinit' is expected to be boolean.
+NOINIT_MODE={{ noinit | default(false) | ternary('true', 'false') }}
+{% endif %}
+
+# Baud rate: Specify the baud rate to use.
+# Description: Specify the baud rate to use. Default is 38400.
+BAUD_RATE={{ baud | default(38400) }}
+
+# Instances: List of inputattach instances to start
+# Description: List of inputattach configurations. Each item is a map with 'mode' and 'device'.
+# If empty, no instances are started by this template.
+{% for instance in instances | default([]) %}
+# Instance {{ loop.index }} configuration
+# Mode: The device mode/protocol for this instance.
+INSTANCE_{{ loop.index }}_MODE={{ instance.mode | default('') }}
+# Device: The input device path (e.g., /dev/ttyS0) for this instance.
+INSTANCE_{{ loop.index }}_DEVICE={{ instance.device | default('') }}
+{% endfor %}

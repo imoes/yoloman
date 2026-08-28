@@ -1,0 +1,84 @@
+{#
+  ============================================================================
+  ProFTPD Configuration Template
+  ============================================================================
+  This template generates a proftpd.conf file. It is self-documenting:
+  every directive is preceded by a comment explaining its source and purpose,
+  derived from the Ansible schema.
+  ============================================================================
+#}
+
+{# The name of the ProFTPD server as reported to clients and used in identification. #}
+ServerName "{{ server_name | default('ProFTPD Server') }}"
+
+{# Logging configuration format string. #}
+LogFormat "%h %l %u %t \"%r\" %>s %b"
+
+{# The user ID under which ProFTPD processes will run. #}
+User {{ user | default('nobody') }}
+
+{# The group ID under which ProFTPD processes will run. #}
+Group {{ group | default('nogroup') }}
+
+{# Default umask for file creation. #}
+Umask 022
+
+{# Require valid user authentication. #}
+RequireValidShell on
+
+{# The identification string sent in response to FEAT commands and welcome messages. #}
+ServerIdent on "{{ server_ident | default('ProFTPD Default Server') }}"
+
+{#
+  Global settings block.
+  ============================================================================
+#}
+<Global>
+  {# The IP address ProFTPD binds to for incoming connections. #}
+  DefaultAddress {{ default_address | default('0.0.0.0') }}
+  
+  {# The TCP port number ProFTPD listens on for FTP connections. #}
+  Port {{ port | default(21) }}
+</Global>
+
+{# Define the default root directory for new virtual hosts. #}
+DefaultRoot ~
+
+{# Enable Wtmp logging. #}
+WtmpLog on
+
+{# The directory path where ProFTPD log files are stored. #}
+SystemLog {{ log_dir | default('/var/log/proftpd') }}/proftpd.log
+
+{#
+  Default Virtual Host configuration.
+  ============================================================================
+#}
+<VirtualHost {{ listen_address | default('0.0.0.0') }}>
+  {# The ServerName directive for the default VirtualHost. #}
+  ServerName "{{ vhost_server_name | default('localhost') }}"
+  
+  {# The default root directory (chroot or path) for the default VirtualHost. #}
+  DefaultRoot {{ vhost_root | default('/') }}
+  
+  {#
+    Anonymous FTP access configuration.
+    ============================================================================
+  #}
+  <Anonymous {{ anon_path | default('/srv/ftp') }}>
+    {# The user identity for anonymous FTP access. #}
+    User {{ anon_user | default('ftp') }}
+    
+    {# The group identity for anonymous FTP access. #}
+    Group {{ anon_group | default('ftp') }}
+    
+    {#
+      Directory restrictions within the anonymous root.
+      ============================================================================
+    #}
+    <Directory *>
+      {# Disallow write access in anonymous root. #}
+      AllowOverwrite off
+    </Directory>
+  </Anonymous>
+</VirtualHost>

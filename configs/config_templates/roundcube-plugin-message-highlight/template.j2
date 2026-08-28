@@ -1,0 +1,48 @@
+<?php
+// Configuration for the Roundcube "Message Highlight" plugin.
+// This file is managed by Ansible. Do not edit manually.
+//
+// The plugin allows users to define highlighting rules for emails based on keywords,
+// senders, subjects, or headers. Each rule specifies which emails should be highlighted
+// and with which background color.
+//
+// The structure is an array of rules. Each rule is a dictionary with optional keys:
+// - name: A human-readable label for the rule.
+// - match: A string or list of strings to match against email fields.
+// - fields: An array of email fields to check (e.g., 'subject', 'from', 'to', 'body').
+// - case_sensitive: Boolean. If true, matching is case-sensitive. Default is false.
+// - background: A CSS color string (e.g., '#ffffcc', 'yellow').
+// - border: An optional CSS border string.
+
+// Main plugin configuration array
+// Default: Empty list. Users define their own rules in Roundcube UI or here.
+$config['message_highlight_rules'] = (
+    // List of highlighting rules.
+    {{ (message_highlight_rules | default([])) | tojson }}
+);
+
+// Optional: Global settings for the plugin
+// If not set, defaults are used.
+
+// Enable or disable the plugin globally.
+// Default: true
+$config['message_highlight_enabled'] = {{ message_highlight_enabled | default(true) | tojson }};
+
+// Default color scheme if no rule specifies one.
+// Default: '#ffffcc' (light yellow)
+$config['message_highlight_default_color'] = {{ message_highlight_default_color | default('#ffffcc') | tojson }};
+
+// Show the rule name as a tooltip or label in the interface.
+// Default: true
+$config['message_highlight_show_label'] = {{ message_highlight_show_label | default(true) | tojson }};
+
+// Sort rules by priority (if a priority field exists in future versions).
+// Default: true
+$config['message_highlight_sort_rules'] = {{ message_highlight_sort_rules | default(true) | tojson }};
+
+// If set, this file can be used to load rules from a JSON file.
+// Default: null (use inline config)
+{% if message_highlight_rules_file | default(omit) is not none %}
+$config['message_highlight_rules_file'] = {{ message_highlight_rules_file | default('') | tojson }};
+{% endif %}
+?>

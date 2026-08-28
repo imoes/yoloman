@@ -17,9 +17,9 @@ log_format = %(asctime)s.%(msecs03d %(levelname)-8s] %(message)s
 # Logging date format.
 log_date_format = %Y-%m-%d %H:%M:%S
 # Enable verbose logging (INFO level and above).
-verbose = {{ verbose | default(True) }}
+verbose = {{ verbose | default(True) | lower }}
 # Enable debug-level logging.
-debug = {{ debug | default(False) }}
+debug = {{ debug | default(False) | lower }}
 
 # Messaging transport URL for RPC communication (e.g., RabbitMQ).
 # Format: transport://user:pass@host:port/virtual_host
@@ -38,19 +38,19 @@ report_interval = {{ report_interval | default(30) }}
 min_broadcast_domain_size = {{ min_broadcast_domain_size | default(0) }}
 # Enable L2 population driver for optimized flooding in tunnel networks
 # (required for DVR).
-l2_population = {{ l2_population | default(True) }}
+l2_population = {{ l2_population | default(True) | lower }}
 # List of extension drivers to enable (comma-separated string when rendered).
 extension_drivers = {{ extension_drivers | default(['port_security', 'qos', 'security_group']) | join(', ') }}
 # Explicit toggle for QoS extension driver (used as fallback if not in extension_drivers list).
-qos_extension_driver = {{ qos_extension_driver | default(True) }}
+qos_extension_driver = {{ qos_extension_driver | default(True) | lower }}
 # Explicit toggle for Port Security extension driver.
-port_security_extension_driver = {{ port_security_extension_driver | default(True) }}
+port_security_extension_driver = {{ port_security_extension_driver | default(True) | lower }}
 # Enable trunk extension driver for subport management.
-trunk_extension_driver = {{ trunk_extension_driver | default(False) }}
+trunk_extension_driver = {{ trunk_extension_driver | default(False) | lower }}
 # Enable SR-IOV extension driver for bare-metal SR-IOV ports.
-sriov_extension_driver = {{ sriov_extension_driver | default(False) }}
+sriov_extension_driver = {{ sriov_extension_driver | default(False) | lower }}
 # Enable security group extension driver (often auto-enabled via extension_drivers).
-security_group_extension_driver = {{ security_group_extension_driver | default(True) }}
+security_group_extension_driver = {{ security_group_extension_driver | default(True) | lower }}
 # Direction for QoS bandwidth limits (ingress, egress, or both).
 qos_limit_direction = {{ qos_limit_direction | default('both') }}
 
@@ -71,7 +71,7 @@ tunnel_bridge = {{ ovs_tunnel_bridge | default('br-tun') }}
 # (must be reachable by other compute hosts).
 local_ip = {{ ovs_local_ip | default('10.0.0.1') }}
 # Enable overlay network tunneling (VXLAN/GRE).
-enable_tunneling = {{ ovs_enable_tunneling | default(True) }}
+enable_tunneling = {{ ovs_enable_tunneling | default(True) | lower }}
 # List of tunnel types to use (comma-separated in rendered config).
 tunnel_types = {{ ovs_tunnel_types | default(['vxlan']) | join(', ') }}
 # UDP port for VXLAN tunneling (standard: 4789).
@@ -80,28 +80,28 @@ vxlan_udp_port = {{ ovs_vxlan_udp_port | default(4789) }}
 # (e.g., '239.1.1.1'). Leave empty to disable (recommended with L2POP).
 vxlan_group = {{ ovs_vxlan_group | default('') }}
 # Enable ARP responder in OVS to respond to ARP requests locally.
-arp_responder = {{ ovs_arp_responder | default(True) }}
+arp_responder = {{ ovs_arp_responder | default(True) | lower }}
 # Enable centralized NAT (SNAT) for external network access (non-DVR mode).
-use_centralized_nat = {{ ovs_use_centralized_nat | default(False) }}
+use_centralized_nat = {{ ovs_use_centralized_nat | default(False) | lower }}
 # OVS bridge used for SNAT in DVR mode
 # (when centralized NAT is disabled).
 dvr_snat_default_br = {{ ovs_dvr_snat_default_br | default('br-snat') }}
 
 [securitygroup]
 # Enable security groups for instances.
-enable_security_group = {{ securitygroup_enable_security_group | default(True) }}
+enable_security_group = {{ securitygroup_enable_security_group | default(True) | lower }}
 # Firewall driver: 'openvswitch' (OVS flow-based) or 'iptables' (legacy).
 firewall_driver = {{ securitygroup_firewall_driver | default('openvswitch') }}
 # Log dropped packets for security group rules.
-log_dropped_traffic = {{ securitygroup_log_dropped_traffic | default(False) }}
+log_dropped_traffic = {{ securitygroup_log_dropped_traffic | default(False) | lower }}
 
 [l3]
 # Enable distributed virtual routing (DVR) support in the agent.
-enable_distributed_routing = {{ l3_enable_distributed_routing | default(False) }}
+enable_distributed_routing = {{ l3_enable_distributed_routing | default(False) | lower }}
 # Maximum number of L3 agents to schedule per HA router.
 ha_max_agents_per_router = {{ l3_ha_max_agents_per_router | default(2) }}
 # Enable high-availability mode for L3 services (requires DVR).
-l3_ha = {{ l3_l3_ha | default(False) }}
+l3_ha = {{ l3_l3_ha | default(False) | lower }}
 # Minimum number of L3 agents required to keep a router functional.
 min_l3_agents_per_router = {{ l3_min_l3_agents_per_router | default(1) }}
 

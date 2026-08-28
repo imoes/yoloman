@@ -1,46 +1,51 @@
 {
-  "tftp_root": {
-    "type": "string",
-    "default": "/srv/tftp",
-    "description": "Absolute path to the TFTP root directory. All files served must be under this directory."
-  },
-  "tftp_user": {
-    "type": "string",
-    "default": "nobody",
-    "description": "System user account under which the TFTP service runs (for security isolation)."
+  "TFTP_OPTIONS": {
+    "source": "inferred-from-template",
+    "type": "string"
   },
   "tftp_address": {
-    "type": "string",
     "default": "0.0.0.0",
-    "description": "IP address (IPv4 or IPv6) the TFTP server binds to. Use '0.0.0.0' for all IPv4 interfaces."
+    "description": "IP address (IPv4 or IPv6) the TFTP server binds to. Use '0.0.0.0' for all IPv4 interfaces.",
+    "type": "string"
   },
-  "tftp_port": {
-    "type": "number",
-    "default": 69,
-    "description": "UDP port number for the TFTP service (standard TFTP port is 69)."
+  "tftp_debug": {
+    "default": false,
+    "description": "If true, enables verbose debug logging (sent to syslog). Use only for troubleshooting. Note: In tftpd-hpa, this is often controlled via --verbose.",
+    "type": "bool"
+  },
+  "tftp_ipv6_enabled": {
+    "default": false,
+    "description": "If true, enable IPv6 support. If false, IPv6 is disabled. Note: In tftpd-hpa, IPv6 is typically enabled by using --listen-ipv6 or specifying an IPv6 address.",
+    "type": "bool"
   },
   "tftp_options": {
-    "type": "string",
     "default": "--secure",
     "description": "Space-separated command-line options passed to the TFTP daemon. Common: --secure (disables write operations), --verbose (log extra info). Note: This variable maps to TFTP_OPTIONS in the init script.",
     "enum": [
       "--secure",
       "--listen"
-    ]
+    ],
+    "type": "string",
+    "enum_open": true
   },
-  "tftp_ipv6_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enable IPv6 support. If false, IPv6 is disabled. Note: In tftpd-hpa, IPv6 is typically enabled by using --listen-ipv6 or specifying an IPv6 address."
+  "tftp_port": {
+    "default": 69,
+    "description": "UDP port number for the TFTP service (standard TFTP port is 69).",
+    "type": "number"
+  },
+  "tftp_root": {
+    "default": "/srv/tftp",
+    "description": "Absolute path to the TFTP root directory. All files served must be under this directory.",
+    "type": "string"
   },
   "tftp_umask": {
-    "type": "string",
     "default": null,
-    "description": "Umask (e.g., '022') to apply to newly created files in the TFTP directory. Omit (leave null) to use system default. Note: tftpd-hpa does not support umask natively in the init script defaults; this is included for schema compatibility but may require alternative configuration methods."
+    "description": "Umask (e.g., '022') to apply to newly created files in the TFTP directory. Omit (leave null) to use system default. Note: tftpd-hpa does not support umask natively in the init script defaults; this is included for schema compatibility but may require alternative configuration methods.",
+    "type": "string"
   },
-  "tftp_debug": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, enables verbose debug logging (sent to syslog). Use only for troubleshooting. Note: In tftpd-hpa, this is often controlled via --verbose."
+  "tftp_user": {
+    "default": "nobody",
+    "description": "System user account under which the TFTP service runs (for security isolation).",
+    "type": "string"
   }
 }

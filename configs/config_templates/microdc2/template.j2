@@ -1,0 +1,63 @@
+# Microdc2 Configuration File
+# https://microdc2.sourceforge.io/
+#
+# This template generates the `microdc2.conf` configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# describing its purpose and mapped to the corresponding schema field.
+
+# --- Identity Settings ---
+
+# nickname: The nickname used to identify the client on Direct Connect hubs.
+# Default: 'MicroDC User'
+nickname = {{ nickname | default('MicroDC User') }}
+
+# description: A short description of the user/client displayed to others.
+# Default: 'Linux Direct Connect Client'
+description = {{ description | default('Linux Direct Connect Client') }}
+
+# realname: Real name of the user.
+# Default: '' (empty)
+realname = {{ realname | default('') }}
+
+# email: Email address associated with the user identity.
+# Default: '' (empty)
+email = {{ email | default('') }}
+
+# --- Connection Limits ---
+
+# slots: Number of slots for uploading files to other users.
+# Default: 1
+slots = {{ slots | default(1) }}
+
+# max_download: Maximum number of simultaneous download connections for this client.
+# Default: 5
+max_download = {{ max_download | default(5) }}
+
+# max_upload: Maximum number of simultaneous upload connections for this client.
+# Default: 5
+max_upload = {{ max_upload | default(5) }}
+
+# --- Shared Directory ---
+
+# shared: Path to the local directory containing files available for sharing.
+# Default: '/home/user/shared'
+shared = {{ shared | default('/home/user/shared') }}
+
+# --- Filelist Configuration ---
+
+# filelist_refresh_interval: Refresh interval for local filelist in seconds.
+# If set to 0, runs in slave mode (only checks for changes every minute).
+# Default: 60
+filelist_refresh_interval = {{ filelist_refresh_interval | default(60) }}
+
+# --- Startup Commands ---
+
+# startup_commands: List of commands to execute automatically on startup.
+# Examples: 'connect hub.example.com', 'search query'
+# Default: [] (empty list, no commands run)
+{% set cmds = startup_commands | default([]) %}
+{% if cmds is iterable and cmds | length > 0 %}
+{% for cmd in cmds %}
+{{ cmd | trim }}
+{% endfor %}
+{% endif %}

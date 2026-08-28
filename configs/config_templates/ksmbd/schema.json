@@ -1,475 +1,474 @@
 {
-  "global": {
-    "type": "object",
-    "default": {},
-    "description": "Global settings for the ksmbd server.",
-    "properties": {
-      "workgroup": {
-        "type": "string",
-        "default": "WORKGROUP",
-        "description": "NetBIOS workgroup or domain name."
-      },
-      "netbios_name": {
-        "type": "string",
-        "default": "",
-        "description": "Custom NetBIOS name. Leave empty to use hostname."
-      },
-      "server_string": {
-        "type": "string",
-        "default": "",
-        "description": "Server description string (visible in network browsers)."
-      },
-      "log_level": {
-        "type": "number",
-        "default": 1,
-        "description": "Logging verbosity: 0 (none) to 10 (debug)."
-      },
-      "log_file": {
-        "type": "string",
-        "default": "/var/log/ksmbd/ksmbd.log",
-        "description": "Path to the log file."
-      },
-      "max_log_size": {
-        "type": "number",
-        "default": 1024,
-        "description": "Maximum log file size in KB (0 = no rotation)."
-      },
-      "printing": {
-        "type": "boolean",
-        "default": false,
-        "description": "Enable CUPS printing if true (else BSD printing)."
-      },
-      "printcap_name": {
-        "type": "string",
-        "default": "/etc/printcap",
-        "description": "Path to printcap file (BSD printing only)."
-      },
-      "lpstat_command": {
-        "type": "string",
-        "default": "lpstat",
-        "description": "Path to `lpstat` command (CUPS)."
-      },
-      "lpr_command": {
-        "type": "string",
-        "default": "lpr",
-        "description": "Path to `lpr` command."
-      },
-      "lpq_command": {
-        "type": "string",
-        "default": "lpq",
-        "description": "Path to `lpq` command."
-      },
-      "lprm_command": {
-        "type": "string",
-        "default": "lprm",
-        "description": "Path to `lprm` command."
-      },
-      "protocols": {
-        "type": "object",
-        "default": {},
-        "properties": {
-          "min": {
-            "type": "string",
-            "default": "SMB2",
-            "description": "Minimum SMB protocol version."
-          },
-          "max": {
-            "type": "string",
-            "default": "SMB3.1.1",
-            "description": "Maximum SMB protocol version."
-          }
-        },
-        "description": "Allowed SMB protocol versions (SMB2, SMB3, SMB3.0, SMB3.1.1)."
-      },
-      "guest_account": {
-        "type": "string",
-        "default": "nobody",
-        "description": "Unix user to map guest logins to."
-      },
-      "guest_ok": {
-        "type": "boolean",
-        "default": false,
-        "description": "Allow guest access at global level."
-      },
-      "map_to_guest": {
-        "type": "string",
-        "default": "Bad User",
-        "description": "When to map to guest (Bad User, Bad Password, etc.)."
-      },
-      "username_map": {
-        "type": "string",
-        "default": "/etc/ksmbd/smbusers",
-        "description": "Path to user mapping file."
-      },
-      "passdb_backend": {
-        "type": "string",
-        "default": "tdbsam",
-        "description": "Authentication backend (tdbsam, ldapsam, smbpasswd, passdb)."
-      },
-      "ldap": {
-        "type": "object",
-        "default": {},
-        "properties": {
-          "suffix": {
-            "type": "string",
-            "default": "",
-            "description": "LDAP directory base DN (required for ldapsam)."
-          },
-          "admin_dn": {
-            "type": "string",
-            "default": "",
-            "description": "LDAP admin DN."
-          },
-          "admin_password": {
-            "type": "string",
-            "default": "",
-            "description": "LDAP admin password (preferably in a secure file)."
-          },
-          "user_suffix": {
-            "type": "string",
-            "default": "",
-            "description": "Suffix for user entries."
-          },
-          "group_suffix": {
-            "type": "string",
-            "default": "",
-            "description": "Suffix for group entries."
-          },
-          "machine_suffix": {
-            "type": "string",
-            "default": "",
-            "description": "Suffix for machine accounts."
-          },
-          "ssl": {
-            "type": "string",
-            "default": "off",
-            "description": "LDAP TLS mode (on, off, start_tls)."
-          },
-          "tls_cacertdir": {
-            "type": "string",
-            "default": "",
-            "description": "Directory with CA certificates for TLS."
-          }
-        },
-        "description": "LDAP configuration for ldapsam backend."
-      },
-      "kerberos": {
-        "type": "object",
-        "default": {},
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "default": false,
-            "description": "Enable Kerberos/Active Directory integration."
-          },
-          "method": {
-            "type": "string",
-            "default": "secrets and keytab",
-            "description": "Kerberos keytab usage method."
-          },
-          "smartcard_security": {
-            "type": "boolean",
-            "default": false,
-            "description": "Require smartcard authentication."
-          },
-          "removal_action": {
-            "type": "string",
-            "default": "kill",
-            "description": "Action on smartcard removal (kill, disconnect)."
-          }
-        },
-        "description": "Kerberos/AD integration options."
-      },
-      "security": {
-        "type": "string",
-        "default": "user",
-        "description": "Security model: user, domain, ads (Active Directory)."
-      },
-      "realm": {
-        "type": "string",
-        "default": "",
-        "description": "Kerberos realm (required if security = ads)."
-      },
-      "winbind_enum_users": {
-        "type": "boolean",
-        "default": true,
-        "description": "Allow enumeration of domain users."
-      },
-      "winbind_enum_groups": {
-        "type": "boolean",
-        "default": true,
-        "description": "Allow enumeration of domain groups."
-      },
-      "winbind_nss_info": {
-        "type": "string",
-        "default": "template",
-        "description": "Winbind NSS info template (sfu, template, rfc2307)."
-      },
-      "winbind_trusted_domains_only": {
-        "type": "boolean",
-        "default": true,
-        "description": "Only trust the primary domain."
-      },
-      "winbind_use_default_domain": {
-        "type": "boolean",
-        "default": true,
-        "description": "Use short names for domain users."
-      },
-      "socket_options": {
-        "type": "string",
-        "default": "TCP_NODELAY IPTOS_LOWDELAY",
-        "description": "TCP socket optimization options."
-      },
-      "max_connections": {
-        "type": "number",
-        "default": 0,
-        "description": "Maximum concurrent connections (0 = unlimited)."
-      },
-      "interfaces": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "string",
-          "description": "Interface name (e.g., eth0, bond0) to bind to."
-        },
-        "description": "List of network interfaces to bind to (leave empty for all)."
-      },
-      "listen_addresses": {
-        "type": "list",
-        "default": [],
-        "items": {
-          "type": "object",
-          "properties": {
-            "ip": {
-              "type": "string",
-              "description": "IPv4/IPv6 address to listen on."
-            },
-            "port": {
-              "type": "number",
-              "description": "Port number (optional; default 445)."
-            }
-          }
-        },
-        "description": "Explicit IP addresses (and optional ports) to listen on."
-      },
-      "ports": {
-        "type": "object",
-        "default": {},
-        "properties": {
-          "smb139": {
-            "type": "boolean",
-            "default": false,
-            "description": "Enable legacy SMB1 on port 139."
-          }
-        },
-        "description": "Legacy port settings (SMB1 over 139)."
-      }
-    }
-  },
-  "shares": {
-    "type": "list",
+ "global": {
+  "description": "Global settings for the ksmbd server.",
+  "properties": {
+   "guest_account": {
+    "default": "nobody",
+    "description": "Unix user to map guest logins to.",
+    "type": "string"
+   },
+   "guest_ok": {
+    "default": false,
+    "description": "Allow guest access at global level.",
+    "type": "boolean"
+   },
+   "interfaces": {
     "default": [],
+    "description": "List of network interfaces to bind to (leave empty for all).",
     "items": {
-      "type": "object",
-      "required": [
-        "name",
-        "path"
-      ],
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Share name (used as section header)."
-        },
-        "comment": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable description."
-        },
-        "path": {
-          "type": "string",
-          "description": "Absolute filesystem path to export."
-        },
-        "readonly": {
-          "type": "boolean",
-          "default": true,
-          "description": "Allow writes if false."
-        },
-        "create_mask": {
-          "type": "string",
-          "default": "0644",
-          "description": "Octal permission mask for new files."
-        },
-        "directory_mask": {
-          "type": "string",
-          "default": "0755",
-          "description": "Octal permission mask for new directories."
-        },
-        "force_user": {
-          "type": "string",
-          "default": "",
-          "description": "Force ownership to this user (Unix username)."
-        },
-        "force_group": {
-          "type": "string",
-          "default": "",
-          "description": "Force group ownership to this group."
-        },
-        "guest_ok": {
-          "type": "boolean",
-          "default": false,
-          "description": "Allow guest access to this share."
-        },
-        "browsable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Visible in network browsing."
-        },
-        "hide_unreadable": {
-          "type": "boolean",
-          "default": false,
-          "description": "Hide files the user cannot read."
-        },
-        "case_sensitive": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable case-sensitive matching (Linux filesystems)."
-        },
-        "vfs_modules": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string",
-            "description": "VFS module name (e.g., recycle, audit, acl_xattr)."
-          },
-          "description": "List of VFS modules to load for this share."
-        },
-        "vfs_options": {
-          "type": "object",
-          "default": {},
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "description": "Per-VFS module options (e.g., {'recycle': {'repository': '.recycle'}})."
-        },
-        "valid_users": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Users explicitly allowed to access the share."
-        },
-        "invalid_users": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Users explicitly denied access."
-        },
-        "write_list": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Users with write access (if share is read-only)."
-        },
-        "read_list": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Users with read-only access (if share is writable)."
-        },
-        "locking": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable file locking."
-        },
-        "strict_locking": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable mandatory (byte-range) locking."
-        },
-        "oplocks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable opportunistic locking (oplocks)."
-        },
-        "level2_oplocks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable level 2 oplocks (shared read locks)."
-        },
-        "kernel_oplocks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable kernel oplocks (for consistency)."
-        },
-        "streams_xattr": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable alternate data streams support (macOS)."
-        },
-        "nt_acl_support": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable Windows ACL inheritance."
-        },
-        "nt_acl_display_in_sid": {
-          "type": "boolean",
-          "default": false,
-          "description": "Display ACLs in SID format (not names)."
-        },
-        "dos_filemode": {
-          "type": "boolean",
-          "default": false,
-          "description": "Allow clients to set DOS file attributes."
-        },
-        "recycle": {
-          "type": "object",
-          "default": {},
-          "properties": {
-            "repository": {
-              "type": "string",
-              "default": ".recycle",
-              "description": "Folder where deleted files go."
-            },
-            "versions": {
-              "type": "boolean",
-              "default": true,
-              "description": "Preserve file versions."
-            },
-            "keeptree": {
-              "type": "boolean",
-              "default": true,
-              "description": "Preserve directory structure."
-            },
-            "touch": {
-              "type": "boolean",
-              "default": true,
-              "description": "Update mtime on file move to recycle bin."
-            },
-            "exclude": {
-              "type": "string",
-              "default": "*.tmp,*.temp",
-              "description": "Comma-separated file patterns to exclude."
-            },
-            "exclude_dir": {
-              "type": "string",
-              "default": "tmp|temp",
-              "description": "Pipe-separated directory patterns to exclude."
-            }
-          },
-          "description": "Recycle bin (VFS module) configuration."
-        }
-      }
+     "description": "Interface name (e.g., eth0, bond0) to bind to.",
+     "type": "string"
     },
-    "description": "List of SMB shares to export."
-  }
+    "type": "list"
+   },
+   "kerberos": {
+    "default": {},
+    "description": "Kerberos/AD integration options.",
+    "properties": {
+     "enabled": {
+      "default": false,
+      "description": "Enable Kerberos/Active Directory integration.",
+      "type": "boolean"
+     },
+     "method": {
+      "default": "secrets and keytab",
+      "description": "Kerberos keytab usage method.",
+      "type": "string"
+     },
+     "removal_action": {
+      "default": "kill",
+      "description": "Action on smartcard removal (kill, disconnect).",
+      "type": "string"
+     },
+     "smartcard_security": {
+      "default": false,
+      "description": "Require smartcard authentication.",
+      "type": "boolean"
+     }
+    },
+    "type": "object"
+   },
+   "ldap": {
+    "default": {},
+    "description": "LDAP configuration for ldapsam backend.",
+    "properties": {
+     "admin_dn": {
+      "default": "",
+      "description": "LDAP admin DN.",
+      "type": "string"
+     },
+     "admin_password": {
+      "default": "",
+      "description": "LDAP admin password (preferably in a secure file).",
+      "type": "string"
+     },
+     "group_suffix": {
+      "default": "",
+      "description": "Suffix for group entries.",
+      "type": "string"
+     },
+     "machine_suffix": {
+      "default": "",
+      "description": "Suffix for machine accounts.",
+      "type": "string"
+     },
+     "ssl": {
+      "default": "off",
+      "description": "LDAP TLS mode (on, off, start_tls).",
+      "type": "string"
+     },
+     "suffix": {
+      "default": "",
+      "description": "LDAP directory base DN (required for ldapsam).",
+      "type": "string"
+     },
+     "tls_cacertdir": {
+      "default": "",
+      "description": "Directory with CA certificates for TLS.",
+      "type": "string"
+     },
+     "user_suffix": {
+      "default": "",
+      "description": "Suffix for user entries.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "listen_addresses": {
+    "default": [],
+    "description": "Explicit IP addresses (and optional ports) to listen on.",
+    "items": {
+     "properties": {
+      "ip": {
+       "description": "IPv4/IPv6 address to listen on.",
+       "type": "string"
+      },
+      "port": {
+       "description": "Port number (optional; default 445).",
+       "type": "number"
+      }
+     },
+     "type": "object"
+    },
+    "type": "list"
+   },
+   "log_file": {
+    "default": "/var/log/ksmbd/ksmbd.log",
+    "description": "Path to the log file.",
+    "type": "string"
+   },
+   "log_level": {
+    "default": 1,
+    "description": "Logging verbosity: 0 (none) to 10 (debug).",
+    "type": "number"
+   },
+   "lpq_command": {
+    "default": "lpq",
+    "description": "Path to `lpq` command.",
+    "type": "string"
+   },
+   "lpr_command": {
+    "default": "lpr",
+    "description": "Path to `lpr` command.",
+    "type": "string"
+   },
+   "lprm_command": {
+    "default": "lprm",
+    "description": "Path to `lprm` command.",
+    "type": "string"
+   },
+   "lpstat_command": {
+    "default": "lpstat",
+    "description": "Path to `lpstat` command (CUPS).",
+    "type": "string"
+   },
+   "map_to_guest": {
+    "default": "Bad User",
+    "description": "When to map to guest (Bad User, Bad Password, etc.).",
+    "type": "string"
+   },
+   "max_connections": {
+    "default": 0,
+    "description": "Maximum concurrent connections (0 = unlimited).",
+    "type": "number"
+   },
+   "max_log_size": {
+    "default": 1024,
+    "description": "Maximum log file size in KB (0 = no rotation).",
+    "type": "number"
+   },
+   "netbios_name": {
+    "default": "",
+    "description": "Custom NetBIOS name. Leave empty to use hostname.",
+    "type": "string"
+   },
+   "passdb_backend": {
+    "default": "tdbsam",
+    "description": "Authentication backend (tdbsam, ldapsam, smbpasswd, passdb).",
+    "type": "string"
+   },
+   "ports": {
+    "default": {},
+    "description": "Legacy port settings (SMB1 over 139).",
+    "properties": {
+     "smb139": {
+      "default": false,
+      "description": "Enable legacy SMB1 on port 139.",
+      "type": "boolean"
+     }
+    },
+    "type": "object"
+   },
+   "printcap_name": {
+    "default": "/etc/printcap",
+    "description": "Path to printcap file (BSD printing only).",
+    "type": "string"
+   },
+   "printing": {
+    "default": false,
+    "description": "Enable CUPS printing if true (else BSD printing).",
+    "type": "boolean"
+   },
+   "protocols": {
+    "default": {},
+    "description": "Allowed SMB protocol versions (SMB2, SMB3, SMB3.0, SMB3.1.1).",
+    "properties": {
+     "max": {
+      "default": "SMB3.1.1",
+      "description": "Maximum SMB protocol version.",
+      "type": "string"
+     },
+     "min": {
+      "default": "SMB2",
+      "description": "Minimum SMB protocol version.",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "realm": {
+    "default": "",
+    "description": "Kerberos realm (required if security = ads).",
+    "type": "string"
+   },
+   "security": {
+    "default": "user",
+    "description": "Security model: user, domain, ads (Active Directory).",
+    "type": "string"
+   },
+   "server_string": {
+    "default": "",
+    "description": "Server description string (visible in network browsers).",
+    "type": "string"
+   },
+   "socket_options": {
+    "default": "TCP_NODELAY IPTOS_LOWDELAY",
+    "description": "TCP socket optimization options.",
+    "type": "string"
+   },
+   "username_map": {
+    "default": "/etc/ksmbd/smbusers",
+    "description": "Path to user mapping file.",
+    "type": "string"
+   },
+   "winbind_enum_groups": {
+    "default": true,
+    "description": "Allow enumeration of domain groups.",
+    "type": "boolean"
+   },
+   "winbind_enum_users": {
+    "default": true,
+    "description": "Allow enumeration of domain users.",
+    "type": "boolean"
+   },
+   "winbind_nss_info": {
+    "default": "template",
+    "description": "Winbind NSS info template (sfu, template, rfc2307).",
+    "type": "string"
+   },
+   "winbind_trusted_domains_only": {
+    "default": true,
+    "description": "Only trust the primary domain.",
+    "type": "boolean"
+   },
+   "winbind_use_default_domain": {
+    "default": true,
+    "description": "Use short names for domain users.",
+    "type": "boolean"
+   },
+   "workgroup": {
+    "default": "WORKGROUP",
+    "description": "NetBIOS workgroup or domain name.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "shares": {
+  "default": [],
+  "description": "List of SMB shares to export.",
+  "items": {
+   "properties": {
+    "browsable": {
+     "default": true,
+     "description": "Visible in network browsing.",
+     "type": "boolean"
+    },
+    "case_sensitive": {
+     "default": false,
+     "description": "Enable case-sensitive matching (Linux filesystems).",
+     "type": "boolean"
+    },
+    "comment": {
+     "default": "",
+     "description": "Human-readable description.",
+     "type": "string"
+    },
+    "create_mask": {
+     "default": "0644",
+     "description": "Octal permission mask for new files.",
+     "type": "string"
+    },
+    "directory_mask": {
+     "default": "0755",
+     "description": "Octal permission mask for new directories.",
+     "type": "string"
+    },
+    "dos_filemode": {
+     "default": false,
+     "description": "Allow clients to set DOS file attributes.",
+     "type": "boolean"
+    },
+    "force_group": {
+     "default": "",
+     "description": "Force group ownership to this group.",
+     "type": "string"
+    },
+    "force_user": {
+     "default": "",
+     "description": "Force ownership to this user (Unix username).",
+     "type": "string"
+    },
+    "guest_ok": {
+     "default": false,
+     "description": "Allow guest access to this share.",
+     "type": "boolean"
+    },
+    "hide_unreadable": {
+     "default": false,
+     "description": "Hide files the user cannot read.",
+     "type": "boolean"
+    },
+    "invalid_users": {
+     "default": [],
+     "description": "Users explicitly denied access.",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "kernel_oplocks": {
+     "default": true,
+     "description": "Enable kernel oplocks (for consistency).",
+     "type": "boolean"
+    },
+    "level2_oplocks": {
+     "default": true,
+     "description": "Enable level 2 oplocks (shared read locks).",
+     "type": "boolean"
+    },
+    "locking": {
+     "default": true,
+     "description": "Enable file locking.",
+     "type": "boolean"
+    },
+    "name": {
+     "description": "Share name (used as section header).",
+     "type": "string"
+    },
+    "nt_acl_display_in_sid": {
+     "default": false,
+     "description": "Display ACLs in SID format (not names).",
+     "type": "boolean"
+    },
+    "nt_acl_support": {
+     "default": false,
+     "description": "Enable Windows ACL inheritance.",
+     "type": "boolean"
+    },
+    "oplocks": {
+     "default": true,
+     "description": "Enable opportunistic locking (oplocks).",
+     "type": "boolean"
+    },
+    "path": {
+     "description": "Absolute filesystem path to export.",
+     "type": "string"
+    },
+    "read_list": {
+     "default": [],
+     "description": "Users with read-only access (if share is writable).",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "readonly": {
+     "default": true,
+     "description": "Allow writes if false.",
+     "type": "boolean"
+    },
+    "recycle": {
+     "default": {},
+     "description": "Recycle bin (VFS module) configuration.",
+     "properties": {
+      "exclude": {
+       "default": "*.tmp,*.temp",
+       "description": "Comma-separated file patterns to exclude.",
+       "type": "string"
+      },
+      "exclude_dir": {
+       "default": "tmp|temp",
+       "description": "Pipe-separated directory patterns to exclude.",
+       "type": "string"
+      },
+      "keeptree": {
+       "default": true,
+       "description": "Preserve directory structure.",
+       "type": "boolean"
+      },
+      "repository": {
+       "default": ".recycle",
+       "description": "Folder where deleted files go.",
+       "type": "string"
+      },
+      "touch": {
+       "default": true,
+       "description": "Update mtime on file move to recycle bin.",
+       "type": "boolean"
+      },
+      "versions": {
+       "default": true,
+       "description": "Preserve file versions.",
+       "type": "boolean"
+      }
+     },
+     "type": "object"
+    },
+    "streams_xattr": {
+     "default": false,
+     "description": "Enable alternate data streams support (macOS).",
+     "type": "boolean"
+    },
+    "strict_locking": {
+     "default": true,
+     "description": "Enable mandatory (byte-range) locking.",
+     "type": "boolean"
+    },
+    "valid_users": {
+     "default": [],
+     "description": "Users explicitly allowed to access the share.",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "vfs_modules": {
+     "default": [],
+     "description": "List of VFS modules to load for this share.",
+     "items": {
+      "description": "VFS module name (e.g., recycle, audit, acl_xattr).",
+      "type": "string"
+     },
+     "type": "list"
+    },
+    "vfs_options": {
+     "additionalProperties": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object"
+     },
+     "default": {},
+     "description": "Per-VFS module options (e.g., {'recycle': {'repository': '.recycle'}}).",
+     "type": "object"
+    },
+    "write_list": {
+     "default": [],
+     "description": "Users with write access (if share is read-only).",
+     "items": {
+      "type": "string"
+     },
+     "type": "list"
+    }
+   },
+   "required": [
+    "name",
+    "path"
+   ],
+   "type": "object"
+  },
+  "type": "list"
+ }
 }

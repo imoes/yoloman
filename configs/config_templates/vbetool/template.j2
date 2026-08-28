@@ -1,0 +1,75 @@
+# Vbetool Configuration Template
+# vbetool is primarily a CLI utility and does not have a standard global config file.
+# This template generates a shell script wrapper that executes vbetool with specified parameters,
+# suitable for use in systemd services, init scripts, or cron jobs.
+
+#!/bin/sh
+# Wrapper script for vbetool operations
+
+# Base command
+VBETOOL_CMD="{{ vbetool_command }}"
+
+# Common options (if any, though vbetool uses subcommands for most options)
+# This block allows for global flags if supported by future versions or specific builds
+{% if vbetool_global_flags %}
+GLOBAL_FLAGS="{{ vbetool_global_flags }}"
+{% else %}
+GLOBAL_FLAGS=""
+{% endif %}
+
+# Execute vbetool
+# The subcommand (vbestate, dpms, vbemode, etc.) determines the arguments
+{% if subcommand == 'vbestate' %}
+  # vbestate save|restore
+  # Input/Output is handled via stdin/stdout redirection in the caller or script logic
+  # This template assumes a specific action: save or restore
+  {% if vbestate_action == 'save' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbestate save > {{ vbestate_save_path }}
+  {% elif vbestate_action == 'restore' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbestate restore < {{ vbestate_restore_path }}
+  {% endif %}
+
+{% elif subcommand == 'dpms' %}
+  # dpms on|off|standby|suspend|reduced
+  /usr/sbin/vbetool $GLOBAL_FLAGS dpms {{ dpms_state }}
+
+{% elif subcommand == 'vbemode' %}
+  # vbemode get|set <mode>
+  {% if vbemode_action == 'get' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbemode get
+  {% elif vbemode_action == 'set' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbemode set {{ vbemode_mode }}
+  {% endif %}
+
+{% elif subcommand == 'vgamode' %}
+  # vgamode <mode>
+  /usr/sbin/vbetool $GLOBAL_FLAGS vgamode {{ vgamode_value }}
+
+{% elif subcommand == 'post' %}
+  # post [romfile]
+  {% if post_romfile %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS post {{ post_romfile }}
+  {% else %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS post
+  {% endif %}
+
+{% elif subcommand == 'vgastate' %}
+  # vgastate on|off
+  /usr/sbin/vbetool $GLOBAL_FLAGS vgastate {{ vgastate_state }}
+
+{% elif subcommand == 'vbefp' %}
+  # vbefp panelid|panelsize|getbrightness|setbrightness|invert
+  {% if vbefp_action == 'setbrightness' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbefp setbrightness {{ vbefp_brightness }}
+  {% elif vbefp_action == 'invert' %}
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbefp invert
+  {% else %}
+  # panelid, panelsize, getbrightness are info-only, usually called directly
+  /usr/sbin/vbetool $GLOBAL_FLAGS vbefp {{ vbefp_action }}
+  {% endif %}
+
+{% else %}
+  # Default: no operation defined
+  echo "No valid subcommand configured."
+  exit 1
+{% endif %}

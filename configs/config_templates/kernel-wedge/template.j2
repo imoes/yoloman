@@ -1,0 +1,76 @@
+# ==============================================================================
+# kernel-wedge configuration template
+# ==============================================================================
+# This template generates the configuration file for 'kernel-wedge', a tool
+# used in Debian installation environments to split kernel source packages into
+# .udeb (Debian installer) binary packages.
+#
+# Self-Documenting Principle:
+# - Every configuration directive is preceded by a comment explaining its
+#   purpose, source, and valid values.
+# - All Jinja2 variables use the 'default' filter to prevent rendering errors
+#   when optional variables are undefined in the Ansible inventory.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Target architecture for the generated .udeb files.
+# Valid values: amd64, i386, arm64, armhf, etc.
+# Default: amd64
+# ------------------------------------------------------------------------------
+arch: {{ arch | default('amd64') }}
+
+# ------------------------------------------------------------------------------
+# Source package name for the kernel tree.
+# This is the source package (e.g., 'linux') from which the udebs will be
+# derived. It should NOT include version strings.
+# Default: linux
+# ------------------------------------------------------------------------------
+kernel_package: {{ kernel_package | default('linux') }}
+
+# ------------------------------------------------------------------------------
+# Directory where the generated .udeb files will be stored.
+# Ensure this directory exists and is writable before running kernel-wedge.
+# Default: /tmp/udebs
+# ------------------------------------------------------------------------------
+output_dir: {{ output_dir | default('/tmp/udebs') }}
+
+# ------------------------------------------------------------------------------
+# List of kernel variants to split into udebs.
+# Each item in this list defines a specific kernel meta-package to process.
+# ------------------------------------------------------------------------------
+kernels:
+{% for k in kernels | default([]) %}
+  # ----------------------------------------------------------
+  # Name of the kernel meta-package (e.g., 'linux-image-amd64')
+  # ----------------------------------------------------------
+  - name: {{ k.name | default('') }}
+  
+    # ----------------------------------------------------------
+  # Kernel version string (e.g., '5.10.0-10')
+  # ----------------------------------------------------------
+    version: {{ k.version | default('') }}
+  
+    # ----------------------------------------------------------
+  # List of kernel modules to include in the udeb.
+  # These are module package names (e.g., ['linux-base', 'linux-image-...']).
+  # If empty or undefined, no modules are explicitly included.
+  # ----------------------------------------------------------
+    include_modules: {{ k.include_modules | default([]) | join(', ') }}
+
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Verbosity level of the kernel-wedge output.
+# 0 = Quiet (errors only)
+# 1 = Normal (standard output)
+# 2 = Verbose (debugging information)
+# Default: 0
+# ------------------------------------------------------------------------------
+debug_level: {{ debug_level | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Whether to build kernel modules in parallel.
+# Enables faster processing when the build system supports parallel jobs.
+# Default: true
+# ------------------------------------------------------------------------------
+parallel_build: {{ parallel_build | default(true) | lower }}

@@ -1,0 +1,150 @@
+# =============================================================================
+# Par2 (PARity v2) Archive Configuration Template
+# =============================================================================
+# This template generates command-line arguments for the par2cmdline utility.
+# It supports three modes: create (generating recovery files), verify (checking integrity),
+# and repair (restoring data using recovery files).
+#
+# Note: Many options are mutually exclusive (e.g., block_count vs block_size).
+# The template outputs ALL defined fields. It is the responsibility of the
+# calling playbook to ensure only the relevant arguments for the selected 'cmd'
+# are present in the final command string, or to use conditional logic in the
+# task that invokes par2.
+# =============================================================================
+
+# -------------------------------------------------------------------------
+# Operation Mode
+# -------------------------------------------------------------------------
+# Description: Operation mode: 'create', 'verify', or 'repair'.
+# CLI Flag: c, v, r
+cmd={{ cmd | default('create') }}
+
+# -------------------------------------------------------------------------
+# Target Files
+# -------------------------------------------------------------------------
+# Description: The PAR2 file or data file to operate on.
+# CLI Flag: <PAR2 file> [files]
+# Note: This is typically a positional argument, not a key=value pair.
+target_file={{ target_file | default('data') }}
+
+# -------------------------------------------------------------------------
+# Archive Identification (Create Mode)
+# -------------------------------------------------------------------------
+# Description: The main PAR2 archive name. Required for create mode.
+# CLI Flag: -a <file>
+archive_name={{ archive_name | default('data') }}
+
+# -------------------------------------------------------------------------
+# Block Configuration (Create Mode)
+# -------------------------------------------------------------------------
+# Description: Set the Block-Count. Mutually exclusive with block_size.
+# CLI Flag: -b<n>
+# Note: If block_count is empty, block_size is used.
+block_count={{ block_count | default('') }}
+
+# Description: Set the Block-Size in bytes. Mutually exclusive with block_count.
+# CLI Flag: -s<n>
+block_size={{ block_size | default('524288') }}
+
+# -------------------------------------------------------------------------
+# Redundancy Configuration (Create Mode)
+# -------------------------------------------------------------------------
+# Description: Level of redundancy as a percentage.
+# CLI Flag: -r<n>
+# Note: Used if redundancy_size is not set.
+redundancy_percent={{ redundancy_percent | default('5') }}
+
+# Description: Redundancy target size (e.g., '100k', '10m', '1g'). Overrides redundancy_percent if set.
+# CLI Flag: -r<c><n>
+# Note: Mutually exclusive with recovery_block_count logic in some contexts,
+#       but specifically overrides redundancy_percent.
+redundancy_size={{ redundancy_size | default('') }}
+
+# -------------------------------------------------------------------------
+# Recovery Block Details (Create/Repair Mode)
+# -------------------------------------------------------------------------
+# Description: Recovery block count. Mutually exclusive with redundancy_percent/size.
+# CLI Flag: -c<n>
+# Note: If set, it defines the exact number of recovery blocks to create or use.
+recovery_block_count={{ recovery_block_count | default('') }}
+
+# Description: First Recovery-Block-Number for adding additional recovery data.
+# CLI Flag: -f<n>
+first_recovery_block_number={{ first_recovery_block_number | default('') }}
+
+# -------------------------------------------------------------------------
+# Recovery File Constraints (Create Mode)
+# -------------------------------------------------------------------------
+# Description: Use uniform recovery file sizes. Mutually exclusive with limit_recovery_size.
+# CLI Flag: -u
+# Note: Par2 defaults to non-uniform sizes; use this for fixed size chunks.
+uniform_recovery_files={{ uniform_recovery_files | default(false) | lower }}
+
+# Description: Limit size of recovery files. Mutually exclusive with uniform_recovery_files.
+# CLI Flag: -l
+limit_recovery_size={{ limit_recovery_size | default(false) | lower }}
+
+# Description: Number of recovery files. Mutually exclusive with limit_recovery_size.
+# CLI Flag: -n<n>
+# Note: Defines the total count of .par2 files to generate.
+recovery_file_count={{ recovery_file_count | default('') }}
+
+# -------------------------------------------------------------------------
+# Performance Tuning
+# -------------------------------------------------------------------------
+# Description: Memory in MB to use.
+# CLI Flag: -m<n>
+memory_mb={{ memory_mb | default(16) }}
+
+# Description: Number of threads for main processing. Empty for auto-detect.
+# CLI Flag: -t<n>
+# Note: If empty, par2 uses default CPU detection.
+threads_main={{ threads_main | default('') }}
+
+# Description: Number of files hashed in parallel.
+# CLI Flag: -T<n>
+threads_parallel={{ threads_parallel | default(2) }}
+
+# -------------------------------------------------------------------------
+# Output Verbosity
+# -------------------------------------------------------------------------
+# Description: Verbosity level: 0 (quiet), 1 (verbose), 2 (more verbose).
+# CLI Flag: -q / -v
+verbosity={{ verbosity | default(0) }}
+
+# -------------------------------------------------------------------------
+# Post-Operation Cleanup
+# -------------------------------------------------------------------------
+# Description: Purge backup and par files on successful recovery.
+# CLI Flag: -p
+# Note: Dangerous in create mode if not intended; primarily for repair.
+purge_files={{ purge_files | default(false) | lower }}
+
+# -------------------------------------------------------------------------
+# Directory Traversal
+# -------------------------------------------------------------------------
+# Description: Recurse into subdirectories.
+# CLI Flag: -R
+# Note: Applies to create/verify/repair operations on directories.
+recurse={{ recurse | default(false) | lower }}
+
+# -------------------------------------------------------------------------
+# Advanced Data Recovery
+# -------------------------------------------------------------------------
+# Description: Enable data skipping to find badly mispositioned blocks.
+# CLI Flag: -N
+# Note: Useful for damaged disks where blocks are shifted.
+data_skipping={{ data_skipping | default(false) | lower }}
+
+# Description: Skip leaway distance (+/-) from expected block position.
+# CLI Flag: -S<n>
+# Note: Used in conjunction with data_skipping to define search radius.
+skip_leaway={{ skip_leaway | default('') }}
+
+# -------------------------------------------------------------------------
+# Base Path Reference
+# -------------------------------------------------------------------------
+# Description: Basepath to use as reference for datafiles.
+# CLI Flag: -B<path>
+# Note: Changes the working directory context for file operations.
+basepath={{ basepath | default('.') }}

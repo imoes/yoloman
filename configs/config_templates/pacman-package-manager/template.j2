@@ -1,0 +1,131 @@
+#
+# /etc/pacman.conf
+#
+# See the pacman.conf(5) manpage for option and repository directives
+# This configuration file defines the global behavior of the Pacman package manager.
+#
+
+#
+# GENERAL OPTIONS
+#
+[options]
+# The following paths are commented out with their default values listed.
+# If you wish to use different paths, uncomment and update the paths.
+
+# RootDir: Sets the root directory for pacman operations.
+# Default: /
+#RootDir     = /
+
+# DBPath: Database path for pacman metadata.
+# This directory stores the local package database (packages installed on the system).
+DBPath      = {{ db_path | default('/var/lib/pacman/') }}
+
+# CacheDir: Directory where downloaded packages are cached.
+# Packages downloaded from mirrors are stored here to allow re-installation without re-downloading.
+CacheDir    = {{ cache_dir | default('/var/cache/pacman/pkg/') }}
+
+# LogFile: Path to the pacman log file.
+# All pacman operations (install, remove, sync, etc.) are recorded here.
+LogFile     = {{ log_file | default('/var/log/pacman.log') }}
+
+# GPGDir: Directory for GPG keys used by pacman.
+# Pacman uses GnuPG to verify package signatures. This is where the keyring is stored.
+GPGDir      = {{ gpg_dir | default('/etc/pacman.d/gnupg/') }}
+
+# HookDir: Directory for pacman hooks.
+# Scripts in this directory are executed before or after pacman transactions (e.g., grub-mkconfig, systemd updates).
+HookDir     = {{ hook_dir | default('/etc/pacman.d/hooks/') }}
+
+# HoldPkg: Packages that pacman will never upgrade automatically.
+# Prevents accidental upgrades of critical system components like the package manager itself or the C library.
+HoldPkg     = pacman glibc
+
+# XferCommand: Command to use for downloading packages.
+# Default is internal curl/wget based. Uncomment to use custom transfer tools.
+#XferCommand = /usr/bin/curl -L -C - -f -o %o %u
+#XferCommand = /usr/bin/wget --passive-ftp -c -O %o %u
+
+# CleanMethod: Defines how pacman cleans up old packages during upgrade.
+# KeepInstalled ensures that previously installed versions are kept if they are still needed or for rollback.
+#CleanMethod = KeepInstalled
+
+# Architecture: Target architecture for package downloads.
+# 'auto' detects the system architecture. Can be set to 'x86_64', 'i686', etc.
+Architecture = {{ architecture | default('auto') }}
+
+# Pacman won't upgrade packages listed in IgnorePkg and members of IgnoreGroup
+# IgnorePkg: List of packages to ignore during global upgrades (e.g., kernel, glibc).
+#IgnorePkg   =
+# IgnoreGroup: List of package groups to ignore during global upgrades.
+#IgnoreGroup =
+
+# NoUpgrade: List of file paths that pacman should not overwrite during upgrades.
+# Useful for preserving custom configurations in /etc.
+#NoUpgrade   =
+
+# NoExtract: List of file patterns that pacman should not extract from package archives.
+# NoExtract   =
+
+# Misc options
+
+# UseSyslog: Log pacman actions to syslog instead of a log file.
+# UseSyslog
+
+# Color: Enable color output in the terminal.
+# Color
+
+# NoProgressBar: Disable the progress bar during downloads/installations.
+# NoProgressBar
+
+# CheckSpace: Check available disk space before installing/upgrading packages.
+# Ensures there is enough room for the transaction.
+CheckSpace
+
+# VerbosePkgLists: Display detailed package lists.
+# VerbosePkgLists
+
+# ParallelDownloads: Maximum number of simultaneous mirror downloads.
+# Higher values speed up repository synchronization and package downloads but consume more bandwidth.
+ParallelDownloads = {{ parallel_downloads | default(5) }}
+
+# DownloadUser: User to run download commands as.
+# DownloadUser = alpm
+
+# DisableSandbox: Disable the use of namespaces (sandbox) for package verification.
+# DisableSandbox
+
+#
+# REPOSITORIES
+#   - can be defined here or included from another file
+#   - pacman will search repositories in the order defined here
+#   - local/custom mirrors can be added here or in separate files
+#   - repositories listed first will take precedence when packages
+#     have identical names, regardless of version number
+#   - URLs will have $repo replaced by the name of the current repo
+#   - URLs will have $arch replaced by the name of the architecture
+#
+# Repository entries are of the format:
+#       [repo-name]
+#       Server = ServerName
+#       Include = IncludePath
+#
+# The header [repo-name] is crucial - it must be present and
+# uncommented to enable the repo.
+#
+
+# An example of a disabled remote package repository with multiple servers
+# available. To enable, uncomment the following lines. You can add preferred
+# servers immediately after the header and they will be used before the
+# default mirrors.
+#
+# [core]
+# SigLevel = Required
+# Server = ftp://ftp.example.com/foobar/$repo/os/$arch/
+# The file referenced here should contain a list of 'Server = ' lines.
+# Include = /etc/pacman.d/mirrorlist
+
+# An example of a custom package repository.  See the pacman manpage for
+# tips on creating your own repositories.
+# [custom]
+# SigLevel = Optional TrustAll
+# Server = file:///home/packages

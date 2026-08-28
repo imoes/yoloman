@@ -1,0 +1,183 @@
+# ============================================================
+# pexec - Parallel Execution Configuration Template
+# This template generates the pexec configuration file.
+# It is self-documenting: every setting is described above its line.
+# Variables default to the schema defaults if not provided by Ansible.
+# ============================================================
+
+# Name identifier for this pexec instance
+# Used to identify the specific pexec configuration/instance
+name = {{ (pexec | default({})).name | default('pexec') }}
+
+# ============================================================
+# Execution Settings
+# ============================================================
+
+# Full path of the shell to be used for script execution
+# Default shell for interpreting commands
+shell = {{ (pexec | default({})).shell | default('/bin/sh') }}
+
+# The maximal number of processes running simultaneously
+# Limits parallelism to prevent resource exhaustion
+max_procs = {{ (pexec | default({})).max_procs | default(4) }}
+
+# Scheduling priority nice value for pexec and all children
+# Higher value = lower priority. Default 0 is normal priority.
+nice = {{ (pexec | default({})).nice | default(0) }}
+
+# Remote shell path for building tunnel between local and peer hosts
+# Used for executing commands on remote machines via SSH
+remote_shell = {{ (pexec | default({})).remote_shell | default('/usr/bin/ssh') }}
+
+# Full path of the pexec program on remote hosts.
+# Empty means auto-detect on the remote host.
+remote_pexec = {{ (pexec | default({})).remote_pexec | default('') }}
+
+# ============================================================
+# Daemon and Control Settings
+# ============================================================
+
+# Control port for hypervisor daemon mode.
+# 0 disables hypervisor mode. Non-zero enables it on this port.
+control_port = {{ (pexec | default({})).control_port | default(0) }}
+
+# Port for remote control via INET or UNIX domain sockets.
+# 0 disables remote control binding.
+bind_port = {{ (pexec | default({})).bind_port | default(0) }}
+
+# Name of the mutex for atomic command execution.
+# Empty means no mutex; commands are not atomic.
+mutex = {{ (pexec | default({})).mutex | default('') }}
+
+# ============================================================
+# Logging Settings
+# ============================================================
+
+# Name of the log file.
+# Empty string disables logging entirely.
+log_file = {{ (pexec | default({})).log_file | default('') }}
+
+# Logging level: debug, info, warn, error, fatal
+# Controls verbosity of log output.
+log_level = {{ (pexec | default({})).log_level | default('info') }}
+
+# Increase the log level by one if true.
+# For example, if log_level is 'info', verbose=true makes it 'debug'.
+verbose = {{ (pexec | default({})).verbose | default(false) | lower }}
+
+# ============================================================
+# Operational Modes
+# ============================================================
+
+# Starts pexec in hypervisor mode.
+# Requires control_port to be non-zero.
+hypervisor_mode = {{ (pexec | default({})).hypervisor_mode | default(false) | lower }}
+
+# Use FIFO queue processing instead of default LIFO.
+# Changes the order in which queued commands are executed.
+fifo_queue = {{ (pexec | default({})).fifo_queue | default(false) | lower }}
+
+# Load average interval for limiting processes.
+# Values: 0, 1, 2, 1min, 5min, 15min.
+# Empty disables load-based process limiting.
+load_interval = {{ (pexec | default({})).load_interval | default('') }}
+
+# ============================================================
+# I/O Redirection Settings
+# ============================================================
+
+# Input file for redirecting standard input.
+# Empty usually falls back to /dev/null via normal_redirection.
+input_file = {{ (pexec | default({})).input_file | default('/dev/null') }}
+
+# Output file for redirecting standard output.
+# Empty uses stdout.
+output_file = {{ (pexec | default({})).output_file | default('') }}
+
+# Error file for redirecting standard error.
+# Empty uses stderr.
+error_file = {{ (pexec | default({})).error_file | default('') }}
+
+# Format string for final standard output redirection.
+# Empty uses default formatting.
+output_format = {{ (pexec | default({})).output_format | default('') }}
+
+# Format string for final standard error redirection.
+# Empty uses default formatting.
+error_format = {{ (pexec | default({})).error_format | default('') }}
+
+# Disable automatic newlines after the output and error formats.
+# True removes trailing newlines from formatted output.
+omit_newlines = {{ (pexec | default({})).omit_newlines | default(false) | lower }}
+
+# ============================================================
+# Environment and Command Settings
+# ============================================================
+
+# Environment variable NAME=VALUE to set before each execution.
+# Empty means no extra environment variables are set.
+environment = {{ (pexec | default({})).environment | default('') }}
+
+# The main command or script to execute.
+# This is the core task pexec will run.
+command = {{ (pexec | default({})).command | default('') }}
+
+# ============================================================
+# Parameter Handling
+# ============================================================
+
+# File containing the main parameter list.
+# Empty uses inline parameters or the parameters list.
+parameter_file = {{ (pexec | default({})).parameter_file | default('') }}
+
+# Column index from which parameters should be taken if read from file.
+# 1 is the first column.
+param_column = {{ (pexec | default({})).param_column | default(1) }}
+
+# Treat the whole line as a single parameter if reading from file.
+# True disables column splitting.
+treat_line_as_single = {{ (pexec | default({})).treat_line_as_single | default(false) | lower }}
+
+# List of parameters to pass to the command.
+# Used if parameter_file is empty.
+parameters = {% for param in (pexec | default({})).parameters | default([]) %} {{ param }} {% endfor %}
+
+# ============================================================
+# Atomic/Exclusive Execution Settings
+# ============================================================
+
+# Command to execute atomically under mutex protection.
+# Empty means no atomic command is executed.
+atomic_command = {{ (pexec | default({})).atomic_command | default('') }}
+
+# File to save standard input to under mutex protection.
+# Empty means no save action is performed.
+save_file = {{ (pexec | default({})).save_file | default('') }}
+
+# File to dump content to stdout under mutex protection.
+# Empty means no dump action is performed.
+dump_file = {{ (pexec | default({})).dump_file | default('') }}
+
+# ============================================================
+# Remote Control and Status
+# ============================================================
+
+# Port or host:port to connect to existing pexec instance for remote control.
+# Empty means connect locally or not at all.
+connect_to = {{ (pexec | default({})).connect_to | default('') }}
+
+# Print actual status of running jobs and exit.
+# If true, pexec checks status and exits immediately.
+check_status = {{ (pexec | default({})).check_status | default(false) | lower }}
+
+# Equivalent to --output - --error --input /dev/null.
+# Enables standard I/O redirection defaults.
+normal_redirection = {{ (pexec | default({})).normal_redirection | default(false) | lower }}
+
+# Use specified shell to interpret the command(s) instead of direct execution.
+# True enables shell command mode.
+shell_command_mode = {{ (pexec | default({})).shell_command_mode | default(false) | lower }}
+
+# Allow multiple individual shell command scripts to be executed in parallel.
+# True enables multiple command mode.
+multiple_command_mode = {{ (pexec | default({})).multiple_command_mode | default(false) | lower }}

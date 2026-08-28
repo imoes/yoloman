@@ -1,0 +1,61 @@
+# NextEPC MME Configuration
+# This file configures the Mobility Management Entity (MME) for the NextEPC core network.
+# It uses YAML syntax.
+
+logger:
+    # Path to the MME log file.
+    file: {{ nextepc_log_file | default('/var/log/nextepc/mme.log') }}
+    trace:
+        # Enable application tracing.
+        app: {{ nextepc_log_trace_app | default(1) }}
+        # Enable S1AP tracing.
+        s1ap: {{ nextepc_log_trace_s1ap | default(1) }}
+        # Enable NAS tracing.
+        nas: {{ nextepc_log_trace_nas | default(1) }}
+        # Enable Diameter tracing.
+        diameter: {{ nextepc_log_trace_diameter | default(1) }}
+        # Enable GTPv2 tracing.
+        gtpv2: {{ nextepc_log_trace_gtpv2 | default(1) }}
+
+parameter:
+
+mme:
+    # Path to the freeDiameter configuration file for the MME.
+    freeDiameter: {{ nextepc_freeDiameter_conf | default('/etc/nextepc/freeDiameter/mme.conf') }}
+    s1ap:
+    gtpc:
+    gummei:
+        plmn_id:
+            # Mobile Country Code for the MME GUMMEI.
+            mcc: {{ mme_gummei_plmn_mcc | default('001') }}
+            # Mobile Network Code for the MME GUMMEI.
+            mnc: {{ mme_gummei_plmn_mnc | default('01') }}
+        # MME Group ID.
+        mme_gid: {{ mme_gummei_gid | default(2) }}
+        # MME Code.
+        mme_code: {{ mme_gummei_mme_code | default(1) }}
+    tai:
+        plmn_id:
+            # Mobile Country Code for the Tracking Area Identity.
+            mcc: {{ mme_tai_plmn_mcc | default('001') }}
+            # Mobile Network Code for the Tracking Area Identity.
+            mnc: {{ mme_tai_plmn_mnc | default('01') }}
+        # Tracking Area Code.
+        tac: {{ mme_tai_tac | default(12345) }}
+    security:
+        # List of integrity protection algorithms in order of preference.
+        integrity_order: {{ mme_security_integrity_order | default(['EIA1', 'EIA2', 'EIA0']) | tojson }}
+        # List of ciphering algorithms in order of preference.
+        ciphering_order: {{ mme_security_ciphering_order | default(['EEA0', 'EEA1', 'EEA2']) | tojson }}
+    network_name:
+        full: {{ mme_network_name_full | default('NextEPC') }}
+
+sgw:
+    gtpc:
+        # IP address of the SGW for GTP-C.
+        addr: {{ sgw_gtpc_addr | default('127.0.0.2') }}
+
+pgw:
+    gtpc:
+        # List of IP addresses of the PGW for GTP-C.
+        addr: {{ pgw_gtpc_addrs | default(['127.0.0.3', '::1']) | tojson }}

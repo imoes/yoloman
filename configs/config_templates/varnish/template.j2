@@ -1,24 +1,98 @@
-# Varnish NCSA log rotation configuration
-# Manages rotation of the Varnish NCSA log file.
-/var/log/varnish/varnishncsa.log {
-    # Rotate the log file daily
-    daily
+#
+# Varnish VCL Configuration Template
+#
+# This template generates a Varnish Configuration Language (VCL) file.
+# Varnish is an HTTP accelerator (reverse proxy/cache) used to speed up
+# dynamic web applications by caching responses.
+#
+# Schema Reference:
+# - backend_default_host: Host/IP of the default backend (default: 127.0.0.1)
+# - backend_default_port: Port of the default backend (default: 8080)
+# - default_ttl: Default cache TTL for 2xx/3xx responses in seconds (default: 3600)
+# - error_ttl: Cache TTL for 4xx/5xx responses in seconds (default: 60)
+# - debug_headers: Enable X-Varnish-Debug header (default: False)
+# - add_x_varnish_headers: Add X-Cache (HIT/MISS) and X-Varnish headers (default: True)
+# - add_age_header: Preserve original Age header in X-Age-Original (default: False)
+# - serve_stale_on_error: Serve stale content when backend fails (default: True)
+#
 
-    # Keep 7 rotated log files before deleting oldest
-    rotate 7
+# VCL Version Declaration
+# Specifies the VCL syntax version for the Varnish compiler.
+vcl 4.1;
 
-    # Do not raise an error if the log file is missing
-    missingok
+# Default Backend Definition
+# Defines the default backend server where Varnish forwards requests if no
+# other backend matches.
+backend default {
+    # Hostname or IP address of the default backend server.
+    .host = "{{ backend_default_host | default('127.0.0.1') }}";
 
-    # Compress rotated log files with gzip
-    compress
+    # Port number of the default backend server.
+    .port = "{{ backend_default_port | default('8080') }}";
+}
 
-    # Delay compression of the most recently rotated log file until the next rotation cycle
-    delaycompress
+# vcl_recv: Request Handling
+# This subroutine is called at the beginning of a request, after the complete
+# request has been received and parsed. Its purpose is to decide whether or not
+# to serve the request, how to do it, and, if it is to be served, from which backend.
+sub vcl_recv {
+    # Debug headers configuration
+    # If enabled, adds a debug flag to the request for diagnostic purposes.
+    # Should only be used in non-production environments.
+    {% if debug_headers | default(False) | bool %}
+    set req.http.X-Varnish-Debug = "on";
+    {% endif %}
+}
 
-    # Execute the following commands after the log file is rotated
-    postrotate
-        # Attempt to gracefully restart or reload the varnishncsa service to reopen the new log file
-        systemctl try-reload-or-restart varnishncsa.service
-    endscript
+# vcl_backend_response: Backend Response Handling
+# This subroutine is called when a response has been received from the backend.
+# It allows modifying the response before it is cached or delivered to the client.
+sub vcl_backend_response {
+    # Default TTL configuration
+    # Sets the time-to-live for successful responses (2xx/3xx).
+    set beresp.ttl = {{ default_ttl | default(3600) }}s;
+
+    # Error TTL configuration
+    # Marks error responses (4xx/5xx) as uncacheable by default, but allows
+    # setting a specific short TTL for these errors to avoid propagating stale errors.
+    set beresp.uncacheable = true;
+    if (beresp.status >= 400) {
+        set beresp.ttl = {{ error_ttl | default(60) }}s;
+    }
+
+    # Serve stale on error configuration
+    # If enabled, allows Varnish to serve stale content when the backend is
+    # unavailable, improving resilience and user experience during outages.
+    # The grace period is set to the same value as the default TTL.
+    {% if serve_stale_on_error | default(True) | bool %}
+    set beresp.grace = {{ default_ttl | default(3600) }}s;
+    {% endif %}
+}
+
+# vcl_deliver: Response Delivery
+# This subroutine is called just before a response is delivered to the client.
+# It can be used to manipulate response headers.
+sub vcl_deliver {
+    # Add X-Cache and X-Varnish headers
+    # Adds diagnostic headers indicating cache hit/miss status and the Varnish
+    # transaction ID. Useful for debugging cache performance.
+    {% if add_x_varnish_headers | default(True) | bool %}
+    if (obj.hits > 0) {
+        set resp.http.X-Cache = "HIT";
+    } else {
+        set resp.http.X-Cache = "MISS";
+    }
+    set resp.http.X-Varnish = req.http.X-Varnish;
+    {% endif %}
+
+    # Preserve Age header for debugging
+    # If enabled, copies the original Age header to X-Age-Original before
+    # removing it. This allows inspection of the original age before Varnish
+    # potentially modifies or removes it.
+    {% if add_age_header | default(False) | bool %}
+    if (resp.http.Age) {
+        set resp.http.X-Age-Original = resp.http.Age;
+    }
+    unset resp.http.Age;
+    {% endif %}
 }

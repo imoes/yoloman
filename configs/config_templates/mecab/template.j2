@@ -1,0 +1,89 @@
+# MeCab Resource File Configuration
+#
+# This template configures the MeCab morphological analyzer.
+# It supports system dictionaries, user-defined dictionaries,
+# output formatting, and parsing parameters.
+#
+# Self-documented: every directive includes its schema description
+# and safe defaults to prevent rendering failures.
+
+# ==============================================================================
+# Dictionary Configuration
+# ==============================================================================
+
+# Path to the system dictionary directory used by MeCab.
+# Schema: dicdir (string, default: '/var/lib/mecab/dic/ipadic')
+dicdir = {{ dicdir | default('/var/lib/mecab/dic/ipadic') }}
+
+# Path to a user-defined dictionary file.
+# Leave empty to disable user dictionaries.
+# Schema: userdic (string, default: '')
+userdic = {{ userdic | default('') }}
+
+# ==============================================================================
+# Parsing & Output Parameters
+# ==============================================================================
+
+# Lattice information level.
+# 0 is standard; higher values provide more debug info about the parsing lattice.
+# Schema: lattice_level (integer, default: 0)
+lattice-level = {{ lattice_level | default(0) }}
+
+# Output format type.
+# Options include 'default', 'wakati', 'none', 'bos_eos'.
+# Schema: output_format_type (string, default: 'default')
+output-format-type = {{ output_format_type | default('default') }}
+
+# Input buffer size in bytes.
+# Controls the internal buffer for reading input text.
+# Schema: input_buffer_size (integer, default: 8192)
+input-buffer-size = {{ input_buffer_size | default(8192) }}
+
+# Number of best results to output.
+# Useful for finding alternative parse trees.
+# Schema: nbest (integer, default: 1)
+nbest = {{ nbest | default(1) }}
+
+# Temperature parameter theta for probabilistic estimation.
+# Affects the randomness/probability distribution in parsing.
+# Schema: theta (float, default: 0.75)
+theta = {{ theta | default(0.75) }}
+
+# Cost factor for the parsing model.
+# Influences the trade-off in the cost function during parsing.
+# Schema: cost_factor (integer, default: 700)
+cost-factor = {{ cost_factor | default(700) }}
+
+# ==============================================================================
+# Format Strings
+# ==============================================================================
+
+# Format string for Beginning Of Sentence marker.
+# Schema: bos_format (string, default: '%B')
+bos-format = {{ bos_format | default('%B') }}
+
+# Format string for End Of Sentence marker.
+# Schema: eos_format (string, default: '%E\n')
+eos-format = {{ eos_format | default('%E\n') }}
+
+# Format string for each parsed node.
+# Schema: node_format (string, default: '%m\t%F\n')
+node-format = {{ node_format | default('%m\t%F\n') }}
+
+# Format string for unknown words.
+# Schema: unk_format (string, default: '%m\t%F\n')
+unk-format = {{ unk_format | default('%m\t%F\n') }}
+
+# Features for unknown words, specified as a string.
+# Empty string uses default features.
+# Schema: unk_feature (string, default: '')
+unk-feature = {{ unk_feature | default('') }}
+
+# ==============================================================================
+# Dictionary Names
+# ==============================================================================
+
+# List of dictionary names to load from the system dicdir.
+# Rendered as a comma-separated list.
+# Schema: dictionary_names (list, default: ['ipadic'])
+dictionary-names = {{ (dictionary_names | default(['ipadic'])) | join(',') }}

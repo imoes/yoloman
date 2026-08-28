@@ -1,0 +1,81 @@
+# Wbox HTTP Testing Tool / Server Configuration
+# This template generates a command line execution configuration for wbox.
+
+# webroot: The root directory for the web server when running in server mode.
+# Default: /var/www/html
+webroot: {{ webroot | default('/var/www/html') }}
+
+# port: The port number for the server in server mode.
+# Default: 8081
+port: {{ port | default(8081) }}
+
+# max_clients: The maximum number of concurrent clients allowed in server mode.
+# Default: 20
+max_clients: {{ max_clients | default(20) }}
+
+# --- Benchmarking/Test Target Settings ---
+
+# url: The target URL to test or benchmark.
+# Default: http://localhost
+url: {{ url | default('http://localhost') }}
+
+# request_count: The number of requests to send before stopping.
+# Default: 1
+request_count: {{ request_count | default(1) }}
+
+# compr: Whether to send Accept-Encoding: gzip,deflate in the request.
+# Default: False
+compr: {{ compr | default(False) | lower }}
+
+# showhdr: Whether to show the HTTP reply header.
+# Default: False
+showhdr: {{ showhdr | default(False) | lower }}
+
+# dump: Whether to show the HTTP reply header and body.
+# Default: False
+dump: {{ dump | default(False) | lower }}
+
+# silent: Whether to suppress status lines.
+# Default: False
+silent: {{ silent | default(False) | lower }}
+
+# head: Whether to use the HEAD method instead of GET.
+# Default: False
+head: {{ head | default(False) | lower }}
+
+# http10: Whether to use HTTP/1.0 instead of HTTP/1.1.
+# Default: False
+http10: {{ http10 | default(False) | lower }}
+
+# close: Whether to close the connection after reading few bytes.
+# Default: False
+close: {{ close | default(False) | lower }}
+
+# host: The hostname to use for the Host: field in the HTTP request.
+# Default: '' (empty)
+host: {{ host | default('') }}
+
+# timesplit: Whether to show transfer times for different data chunks.
+# Default: False
+timesplit: {{ timesplit | default(False) | lower }}
+
+# wait: Number of seconds to wait between requests.
+# Default: 1
+wait: {{ wait | default(1) }}
+
+# clients: Number of concurrent clients to spawn.
+# Default: 1
+clients: {{ clients | default(1) }}
+
+# referer: The URL to send as the referer header.
+# Default: '' (empty)
+referer: {{ referer | default('') }}
+
+# cookies: List of cookies to send with the request (name/value pairs).
+# Default: [] (empty list)
+# Each item is a mapping with 'name' and 'value' keys.
+cookies:
+{% for cookie in cookies | default([]) %}
+- name: {{ cookie.name }}
+  value: {{ cookie.value }}
+{% endfor %}

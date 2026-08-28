@@ -1,0 +1,25 @@
+# ==============================================================================
+# TCL3270 Session Configuration
+# ==============================================================================
+# This file configures the connection parameters and operational options for
+# tcl3270 and its underlying s3270 session management.
+#
+# Variables are sourced from the Ansible inventory/vars. All variables use
+# safe defaults as defined in the schema to ensure idempotent rendering.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# s3270.host: The hostname or IP address of the IBM host to connect to.
+# --------------------------------------------------------------------------
+s3270.host {{ (values | default({})).host | default('localhost') }}
+
+# --------------------------------------------------------------------------
+# s3270.port: The TCP port number on the host for the 3270 data stream connection.
+# --------------------------------------------------------------------------
+s3270.port {{ (values | default({})).port | default(23) }}
+
+# --------------------------------------------------------------------------
+# tcl3270.debug: If true, enables debugging information and tracing of data
+#                going between tcl3270 and s3270.
+# --------------------------------------------------------------------------
+{% if (values | default({})).debug | default(false) %}tcl3270.debug on{% else %}tcl3270.debug off{% endif %}

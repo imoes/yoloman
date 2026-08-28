@@ -1,0 +1,36 @@
+# ytree configuration file for the ytree file manager.
+# This template generates the ~/.ytree configuration file.
+# It defines file type viewers, archive decompression commands,
+# and environment variables specific to ytree.
+
+[VIEWER]
+# List of file extension patterns and the command to use for viewing them.
+# Format: ext_list=command
+# Default viewers cover common image, document, audio, and text formats.
+{% for viewer_entry in (viewers | default([
+    {'ext': '.jpg,.gif,.bmp', 'cmd': 'xv'},
+    {'ext': '.ps', 'cmd': 'ghostview'},
+    {'ext': '.pdf', 'cmd': 'acroread'},
+    {'ext': '.mp3', 'cmd': 'mpg123'},
+    {'ext': '.htm,.html', 'cmd': 'lynx'}
+])) %}
+{{ viewer_entry.ext }}={{ viewer_entry.cmd }}
+{% endfor %}
+
+[ARCHIVE]
+# Command used to decompress .F (freeze) files.
+# Default is 'melt' as per ytree documentation.
+.F={{ freeze_cmd | default('melt') }}
+
+# Command used to decompress .Z/.gz files.
+# Default is 'gunzip -c'.
+.Z={{ gzip_cmd | default('gunzip -c') }}
+
+# Command for other compressed files if no specific match.
+# Default is 'uncompress'.
+.other={{ other_compressor_cmd | default('uncompress') }}
+
+[ENVIRONMENT]
+# Delay in milliseconds for escape sequences to avoid problems on RS/6000 machines.
+# This sets the ESCDELAY environment variable within the ytree context.
+ESCDELAY={{ esc_delay | default(1000) }}

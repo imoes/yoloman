@@ -1,0 +1,163 @@
+# Author:       Alan Robertson
+# Support:      linux-ha-dev@lists.tummy.com
+# License:      GNU Lesser General Public License (LGPL)
+#
+# This file configures the environment for Linux-HA (Heartbeat) resource agents.
+# It defines standard directories, sets up the execution PATH, and provides
+# helper functions for cluster messaging and parameter retrieval.
+#
+# Configuration variables are derived from Ansible host/group vars, falling back
+# to the defaults specified in the schema.
+
+# === Directory Configuration ===
+
+# HA_SBIN_DIR: Directory containing high-availability sbin utilities.
+# Used for privileged HA-specific commands.
+: ${HA_SBIN_DIR:={{ ha_sbin_dir | default('/usr/sbin') }}}
+
+# HA_NOARCHBIN: Directory containing non-architecture specific heartbeat binaries/scripts.
+# Typically holds scripts shared across CPU architectures.
+: ${HA_NOARCHBIN:={{ ha_noarchbin | default('/usr/share/heartbeat') }}}
+
+# OCF_AGENTS: Directory containing OCF (Open Cluster Framework) resource agents.
+# These are the scripts that manage individual cluster resources.
+: ${OCF_AGENTS:={{ ocf_agents | default('/usr/lib/ocf/resource.d/heartbeat/') }}}
+
+# === Environment Exports ===
+
+# Export standard HA environment variables expected by the subsystem.
+# Note: Many of these (HA_DIR, HA_RCDIR, etc.) are assumed to be set by the
+# calling context or sourced later; we export them to ensure visibility.
+export HA_DIR HA_RCDIR HA_FIFO HA_BIN
+
+# Debug and Logging configuration
+# HA_DEBUGLOG: Path to debug log file.
+# HA_LOGFILE:  Path to the main cluster log file.
+# HA_LOGFACILITY: Syslog facility (e.g., daemon, local0) for cluster messages.
+export HA_DEBUGLOG HA_LOGFILE HA_LOGFACILITY
+
+# HA_DATEFMT: Date format string for log timestamps.
+# HA_RESOURCEDIR: Directory for resource-specific data.
+# HA_DOCDIR: Directory for HA documentation.
+export HA_DATEFMT HA_RESOURCEDIR HA_DOCDIR
+
+# Export the OCF agents directory so OCF scripts can find their shared libraries/tools.
+export OCF_AGENTS
+
+# === PATH Construction ===
+
+# Construct the execution PATH to prioritize HA binaries.
+# 1. Prepend HA_BIN (if set).
+# 2. Add HA_SBIN_DIR for privileged commands.
+# 3. Add HA_NOARCHBIN for shared scripts.
+# 4. Append the existing PATH.
+PATH=$HA_BIN:${HA_SBIN_DIR}:${HA_NOARCHBIN}:$PATH
+
+# Normalize PATH:
+# - Remove double colons (::) resulting from empty variables.
+# - Remove leading/trailing colons.
+# - Remove current directory references (.:) if they appear in weird spots.
+# This ensures `command` resolution is robust regardless of variable state.
+PATH=`echo $PATH | sed -e 's%::%%' -e 's%:\.:%:%' -e 's%^:%%' -e 's%^\.:%:%'`
+export PATH
+
+# === Utility Functions ===
+
+# Echo function: A wrapper around standard echo.
+# Ensures consistent output behavior across different shells/environments.
+Echo() {
+  echo "$@"
+}
+
+# ha_clustermsg: Sends a message to the cluster FIFO.
+# Wraps stdin content with ">>>" and "<<<" delimiters.
+# This is used by resource agents to communicate status/events to the heartbeat engine.
+# Args: None. Reads from stdin.
+ha_clustermsg() {
+	(echo ">>>"; cat -; echo "<<<")	| cat - >> $HA_FIFO
+}
+
+# ha_parameter: Retrieves a configuration parameter from the HA configuration file ($HA_CF).
+# Implements default logic for specific parameters like 'keepalive' and 'deadtime'.
+# Args: $1 - Parameter name.
+ha_parameter() {
+  # Extract value: replace multiple spaces with single space, trim leading spaces,
+  # remove comments (#...), match line starting with param name.
+  VALUE=`sed -e 's%[ 	][ 	]*% %' -e 's%^ %%' -e 's%#.*%%'   $HA_CF |
+  grep -i "^$1 " | sed 's%[^ ]* %%'`
+  
+  if
+    [ "X$VALUE" = X ]
+  then
+    # Parameter not found in config; apply defaults.
+    case $1 in
+      keepalive)
+        # Default keepalive interval in seconds.
+        VALUE={{ keepalive_default | default(2) }};;
+      deadtime)
+        # Deadtime defaults to keepalive * 2 + 1.
+        # Recursively fetch keepalive value.
+        ka=`ha_parameter keepalive`
+        VALUE=`expr $ka '*' 2 '+' 1`;;
+    esac
+  fi
+  
+  Echo $VALUE
+}
+
+# BSD_Status: Checks the status of a process using BSD-style ps output.
+# Looks for the process running, or stale PID/lock files.
+# Args: $1 - Base name of the process (e.g., 'heartbeat', 'pacemaker').
+# Returns: Sets global ret_status and prints status message.
+#   0: Running.
+#   1: Dead but PID file exists.
+#   2: Dead but lock file exists.
+BSD_Status() {
+  local base=${1##*/}
+  local pid
+
+  # Check if process is currently running
+  ret_status=`/bin/ps -ao pid,command | grep $base | sed 's/ .*//'`
+
+  if 
+    [ "$ret_status" != "" ]
+  then
+    echo "${base} is running..."
+    return 0
+  fi
+
+  # Check various locations for stale PID files
+  if 
+    [ -f $HA_VARRUN/${base}.pid ] 
+  then
+    echo "${base} dead but pid file exists"
+    return 1
+  fi
+
+  if 
+    [ -f /var/run/${base}.pid ] 
+  then
+    echo "${base} dead but pid file exists"
+    return 1
+  fi
+
+  # Check for stale lock files
+  if 
+    [ -f $HA_VARLOCK/${base}.pid ] 
+  then
+    echo "${base} dead but lock file exists"
+    return 2
+  fi
+
+  if 
+    [ -f /var/spool/lock/${base} ] 
+  then
+    echo "${base} dead but lock file exists"
+    return 2
+  fi
+}
+
+# Source the OCF shell functions library.
+# This provides standard helpers for OCF resource agents (ocf_*, exit codes, etc.).
+# Now get the good stuff
+. /usr/lib/ocf/lib/heartbeat/ocf-shellfuncs

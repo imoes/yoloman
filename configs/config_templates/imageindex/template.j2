@@ -1,0 +1,355 @@
+# ============================================================================
+# imageindex Configuration Template (.imageindexrc)
+# ============================================================================
+# This file is consumed by the `imageindex` Perl script. It contains Perl
+# variable assignments.
+#
+# Self-Documentation:
+# Every configuration directive below is accompanied by a comment explaining
+# its purpose and source from the schema. All variables use the `default()`
+# Jinja2 filter to ensure safe rendering even if the Ansible variable is
+# undefined, matching the schema defaults provided.
+#
+# Booleans in Perl are typically represented as 1 (true) or 0 (false).
+# The template converts Ansible booleans (True/False) to 1/0 automatically.
+# ============================================================================
+
+# End of configuration marker (required by Perl)
+1;
+
+
+# ============================================================================
+# Directory and Image Size Settings
+# ============================================================================
+
+# Name of the directory that holds thumbnail images
+{% set _thumbnail_dir = thumbnail_dir | default('thumbnail') %}
+$thumbnail_dir = '{{ _thumbnail_dir }}';
+
+# Size of the thumbnail images in the x direction (pixels)
+{% set _default_thumbnail_x = default_thumbnail_x | default(200) %}
+$default_thumbnail_x = {{ _default_thumbnail_x }};
+
+# Size of the thumbnail images in the y direction (pixels)
+{% set _default_thumbnail_y = default_thumbnail_y | default(200) %}
+$default_thumbnail_y = {{ _default_thumbnail_y }};
+
+# If both dimensions of the original are within this much of the thumbnail
+# dimensions we will skip the thumbnail generation
+{% set _thumbnail_threshold = thumbnail_threshold | default(1.0) %}
+$thumbnail_threshold = {{ _thumbnail_threshold }};
+
+# Size of the medium images in the x direction (pixels)
+{% set _med_x = med_x | default(800) %}
+$med_x = {{ _med_x }};
+
+# Size of the medium images in the y direction (pixels)
+{% set _med_y = med_y | default(600) %}
+$med_y = {{ _med_y }};
+
+# Name of the directory that holds medium images
+{% set _med_dir = med_dir | default('medium') %}
+$med_dir = '{{ _med_dir }}';
+
+# If both dimensions of the original are within this much of the medium
+# dimensions we will skip creating the medium-size format
+{% set _med_threshold = med_threshold | default(1.6) %}
+$med_threshold = {{ _med_threshold }};
+
+
+# ============================================================================
+# Feature Toggles (Boolean: 1=Enabled, 0=Disabled)
+# ============================================================================
+
+# Automatically recurse into subdirectories?
+{% set _do_recurse = do_recurse | default(False) | bool | int %}
+$do_recurse = {{ _do_recurse }};
+
+# Generate medium images at all?
+{% set _do_medium = do_medium | default(True) | bool | int %}
+$do_medium = {{ _do_medium }};
+
+# Generate the slideshow and frame view?
+{% set _do_slide = do_slide | default(True) | bool | int %}
+$do_slide = {{ _do_slide }};
+
+# Generate the details view?
+{% set _do_detail = do_detail | default(True) | bool | int %}
+$do_detail = {{ _do_detail }};
+
+# Use/display caption info stored in images?
+{% set _do_captions = do_captions | default(True) | bool | int %}
+$do_captions = {{ _do_captions }};
+
+# Process subdirectories as entries in the normal index and details views?
+{% set _do_dirs = do_dirs | default(True) | bool | int %}
+$do_dirs = {{ _do_dirs }};
+
+# Create a montage of all the images?
+{% set _do_montage = do_montage | default(True) | bool | int %}
+$do_montage = {{ _do_montage }};
+
+# Map ASCII smily patterns embedded within an image's comment into real
+# emoticon images?
+{% set _do_emoticons = do_emoticons | default(True) | bool | int %}
+$do_emoticons = {{ _do_emoticons }};
+
+# Sort timestamps in reverse order?
+{% set _do_reverse = do_reverse | default(True) | bool | int %}
+$do_reverse = {{ _do_reverse }};
+
+# Process video files?
+{% set _do_video_files = do_video_files | default(True) | bool | int %}
+$do_video_files = {{ _do_video_files }};
+
+# Overlay a small icon into one of the corners of the thumbnail and medium
+# views for video files?
+{% set _do_video_thumbnail_icons = do_video_thumbnail_icons | default(True) | bool | int %}
+$do_video_thumbnail_icons = {{ _do_video_thumbnail_icons }};
+
+
+# ============================================================================
+# Video File Configuration
+# ============================================================================
+
+# Regular expression to identify video files by their extension
+{% set _video_regexp = video_regexp | default('(avi|mov|mpg|mpeg|mjpeg|m1v|m2v|wmv|fli|nuv|vob|ogm|vcd|svcd|mp4|qt)') %}
+$video_regexp = '{{ _video_regexp }}';
+
+# Corner where video icon is placed (SouthWest, NorthWest, NorthEast, SouthEast)
+{% set _video_icon_gravity = video_icon_gravity | default('SouthWest') %}
+$video_icon_gravity = '{{ _video_icon_gravity }}';
+
+# Video icon type (1 for yellow dot with play arrow, 2 for purple camera icon)
+{% set _video_icon = video_icon | default(1) %}
+$video_icon = {{ _video_icon }};
+
+
+# ============================================================================
+# Hyperlink Targets
+# ============================================================================
+
+# What the hyperlink for the thumbnail image in the index view points to
+# (index, fullsize, medium, thumbnail, slide, details)
+{% set _index_linkto = index_linkto | default('slide') %}
+$index_linkto = '{{ _index_linkto }}';
+
+# What the hyperlink for the thumbnail image in the details view points to
+{% set _details_linkto = details_linkto | default('index') %}
+$details_linkto = '{{ _details_linkto }}';
+
+# What the hyperlink for the medium image in the slide view points to
+{% set _slide_linkto = slide_linkto | default('fullsize') %}
+$slide_linkto = '{{ _slide_linkto }}';
+
+
+# ============================================================================
+# Layout and View Settings
+# ============================================================================
+
+# Default number of columns to use in the index and detail views
+{% set _default_columns = default_columns | default(3) %}
+$default_columns = {{ _default_columns }};
+
+# Set the orientation of slide frame (horizontal or vertical)
+{% set _frame_orient = frame_orient | default('vertical') %}
+$frame_orient = '{{ _frame_orient }}';
+
+# Controls if an image caption is retrieved and written into the HTML output
+# and where (top, bottom, none)
+{% set _slide_caption = slide_caption | default('top') %}
+$slide_caption = '{{ _slide_caption }}';
+
+# Controls if the date/time of an image is written into the HTML output and
+# where (top, bottom, none)
+{% set _slide_date = slide_date | default('bottom') %}
+$slide_date = '{{ _slide_date }}';
+
+# In the detail view, the number of times thumbnail images are shrunk (factor)
+{% set _detailshrink = detailshrink | default(2) %}
+$detailshrink = {{ _detailshrink }};
+
+
+# ============================================================================
+# Image Quality Settings (0-100)
+# ============================================================================
+
+# Quality of the thumbnails being written out
+{% set _thumb_quality = thumb_quality | default(50) %}
+$thumb_quality = {{ _thumb_quality }};
+
+# Quality of the medium images written out
+{% set _med_quality = med_quality | default(80) %}
+$med_quality = {{ _med_quality }};
+
+
+# ============================================================================
+# Montage Configuration
+# ============================================================================
+
+# Minimum number of tiles that will be found in a montage image
+{% set _montage_min = montage_min | default(4) %}
+$montage_min = {{ _montage_min }};
+
+# Maximum number of tiles that will be found in a montage
+{% set _montage_max = montage_max | default(36) %}
+$montage_max = {{ _montage_max }};
+
+# Space between montage images (pixels)
+{% set _montage_whitespace = montage_whitespace | default(2) %}
+$montage_whitespace = {{ _montage_whitespace }};
+
+# How to fill incomplete montage tiles (repeat or blank)
+{% set _montage_fill = montage_fill | default('blank') %}
+$montage_fill = '{{ _montage_fill }}';
+
+
+# ============================================================================
+# Styling and CSS
+# ============================================================================
+
+# Cascading style sheet content for HTML output rendering.
+# Note: Newlines in the CSS are escaped for Perl string literal compatibility.
+{% set _stylesheet = stylesheet | default('body { color: black; background: white; }\nh1.title { font-family: Helvetica,sans-serif; font-size: 200%; font-weight: bold; text-align: center; }\nh2.daterange { font-family: Arial,Helvetica,sans-serif; font-size: 125%; text-align: center; }\nh3 { font-family: Arial,Helvetica,sans-serif; font-size: 90%; text-align: center; }\ndiv.caption { font-family: Arial,Helvetica,sans-serif; font-size: 100%; font-weight: bold; margin: 1em; }\ndiv.index { font-family: Arial,Helvetica,sans-serif; font-size: 80%; }\ndiv.detail { font-family: Arial,Helvetica,sans-serif; font-size: 80%; }\ndiv.credits { font-family: Arial,Helvetica,sans-serif; font-size: 80%; text-align: right; margin: 10px }\ntable.index { background: #ffffff; border: none; border-spacing: 8px; }\ntd.index { border: none; padding: 3px }\ntable.frame { background: #ffffff; border: none }\ntd.frame { border: none; padding: 0px }\nimg.index { border: none; }\nimg.slide { border: none; }\nimg.frame { border: none; }\na:link { color: blue; }\na:visited { color: green; }\na:hover { color: red; }\na:active { color: red; }') %}
+$stylesheet = '
+{{ _stylesheet | replace('\n', '\\n') }}
+';
+
+
+# ============================================================================
+# Text Labels and HTML Attributes
+# ============================================================================
+
+# Adjust what is presented in empty table cells when there are not an even
+# number of images
+{% set _emptycell = emptycell | default('<I>empty</I>') %}
+$emptycell = "{{ _emptycell }}";
+
+# Control the text of a hyperlink to a parent directory
+{% set _updirtext = updirtext | default('up one directory') %}
+$updirtext = "{{ _updirtext }}";
+
+# Control the text of a hyperlink to the frame view
+{% set _framelinktext = framelinktext | default('slideshow view (frames)') %}
+$framelinktext = "{{ _framelinktext }}";
+
+# Control the text of a hyperlink to the detail view
+{% set _detaillinktext = detaillinktext | default('details index') %}
+$detaillinktext = "{{ _detaillinktext }}";
+
+# Control the text of a hyperlink to the index view
+{% set _indexlinktext = indexlinktext | default('main index') %}
+$indexlinktext = "{{ _indexlinktext }}";
+
+# Control the default TITLE string written out in the HTML for a given directory
+{% set _default_titletext = default_titletext | default('Image directory') %}
+$default_titletext = "{{ _default_titletext }}";
+
+
+# ============================================================================
+# Thumbnail Title Attributes (HTML title="...")
+# ============================================================================
+
+# Control the TITLE attributes for hyperlinks to thumbnail images within the
+# frame view (%f=file, %d=date)
+{% set _framethumbtitle = framethumbtitle | default('%f - %d') %}
+$framethumbtitle = "{{ _framethumbtitle }}";
+
+# Control the TITLE attributes for hyperlinks to thumbnail images within the
+# index view (%f=file, %s=size)
+{% set _indexthumbtitle = indexthumbtitle | default('%f (%s)') %}
+$indexthumbtitle = "{{ _indexthumbtitle }}";
+
+# Control the TITLE attributes for hyperlinks to thumbnail images within the
+# slide view (%f=file, %s=size)
+{% set _slidethumbtitle = slidethumbtitle | default('%f (%s)') %}
+$slidethumbtitle = "{{ _slidethumbtitle }}";
+
+# Control the TITLE attributes for hyperlinks to thumbnail images within the
+# detail view (%c=comment)
+{% set _detailthumbtitle = detailthumbtitle | default('%c') %}
+$detailthumbtitle = "{{ _detailthumbtitle }}";
+
+# Control the TITLE attributes for hyperlinks to montage images within the
+# index view (%n=count, %b=begin, %e=end)
+{% set _montagetitle = montagetitle | default('%n images %b through %e') %}
+$montagetitle = "{{ _montagetitle }}";
+
+
+# ============================================================================
+# Character Sets and Date/Time Formats
+# ============================================================================
+
+# Control which charset the generated html pages should have
+{% set _file_charset = file_charset | default('ISO-8859-1') %}
+$file_charset = "{{ _file_charset }}";
+
+# Control the way the date is formed in the frame view
+{% set _framedateformat = framedateformat | default('%m/%d/%Y') %}
+$framedateformat = "{{ _framedateformat }}";
+
+# Control the way the time is formed in the frame view
+{% set _frametimeformat = frametimeformat | default('%r') %}
+$frametimeformat = "{{ _frametimeformat }}";
+
+# Control the way the date is formed in the index view
+{% set _indexdateformat = indexdateformat | default('%m/%d/%Y') %}
+$indexdateformat = "{{ _indexdateformat }}";
+
+# Control the way the time is formed in the index view
+{% set _indextimeformat = indextimeformat | default('%r') %}
+$indextimeformat = "{{ _indextimeformat }}";
+
+# Control the way the date is formed in the slide view
+{% set _slidedateformat = slidedateformat | default('%m/%d/%Y') %}
+$slidedateformat = "{{ _slidedateformat }}";
+
+# Control the way the time is formed in the slide view
+{% set _slidetimeformat = slidetimeformat | default('%r') %}
+$slidetimeformat = "{{ _slidetimeformat }}";
+
+# Control the way the date is formed in the detail view
+{% set _detaildateformat = detaildateformat | default('%m/%d/%Y') %}
+$detaildateformat = "{{ _detaildateformat }}";
+
+# Control the way the time is formed in the detail view
+{% set _detailtimeformat = detailtimeformat | default('%I:%M %p') %}
+$detailtimeformat = "{{ _detailtimeformat }}";
+
+
+# ============================================================================
+# Output Filenames and Directories
+# ============================================================================
+
+# Control what the index view's HTML filename will be
+{% set _indexfile = indexfile | default('index.html') %}
+$indexfile = '{{ _indexfile }}';
+
+# Control what the detail view's HTML filename will be
+{% set _detailfile = detailfile | default('details.html') %}
+$detailfile = '{{ _detailfile }}';
+
+# Control what the frame view's HTML filename will be
+{% set _framefile = framefile | default('frame.html') %}
+$framefile = '{{ _framefile }}';
+
+# Control what the slide view's HTML filename will be
+{% set _slidefile = slidefile | default('slides.html') %}
+$slidefile = '{{ _slidefile }}';
+
+# Control the name of the directory where all the slide view HTML files will
+# be deposited
+{% set _slide_dir = slide_dir | default('slides') %}
+$slide_dir = '{{ _slide_dir }}';
+
+# Control the name of the cascading style sheet written out in each directory
+{% set _stylefile = stylefile | default('style.css') %}
+$stylefile = '{{ _stylefile }}';
+
+# Control the name of the montage image if enabled
+{% set _montagefile = montagefile | default('montage.jpg') %}
+$montagefile = '{{ _montagefile }}';
+
+# Control the prefix of the emoticon PNG image filenames
+{% set _emoticonprefix = emoticonprefix | default('ii_') %}
+$emoticonprefix = '{{ _emoticonprefix }}';

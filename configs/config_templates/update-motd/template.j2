@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
-{# 
-  update-motd dynamic MOTD generator
-  ================================
-  This script is invoked by pam_motd(8) on user login to generate the dynamic
-  Message of the Day. It executes all executable scripts found in /etc/update-motd.d/
-  (sorted lexicographically via run-parts) and appends their output to /run/motd.dynamic.
-  Finally, it ensures /etc/motd is a symlink to /run/motd.dynamic.
-
-  Configuration is driven by Ansible variables mapped from the role schema.
-=#
+# Dynamically generates the MOTD (Message of the Day) by executing scripts in /etc/update-motd.d/
+# Scripts are run in lexicographic order (via run-parts --lsbsysinit), with output appended to /run/motd.dynamic
+# This script is invoked by pam_motd(8) on user login
 
 # Ensure /run directory exists (in case of early boot or minimal env)
 mkdir -p /run
@@ -18,33 +11,6 @@ MOTD_TMP="/run/motd.dynamic"
 
 # Clear previous dynamic MOTD content (to avoid stale or duplicated output)
 > "$MOTD_TMP"
-
-{# 
-  Install custom MOTD script fragments
-  Each item in update_motd_scripts is a dict with 'filename' and 'content'.
-  We write them to /etc/update-motd.d/ with proper permissions if the list is not empty.
-=#}
-{% set scripts = update_motd_scripts | default([]) %}
-{% if scripts is iterable and scripts | length > 0 %}
-{% for script_item in scripts %}
-{% set filename = (script_item | default({})).filename | default('') %}
-{% set content = (script_item | default({})).content | default('# empty') %}
-
-{# Write each custom script fragment to /etc/update-motd.d/ #}
-if [ ! -d /etc/update-motd.d ]; then
-    mkdir -p /etc/update-motd.d
-fi
-
-{# Write content to the file #}
-cat > "/etc/update-motd.d/{{ filename }}" << 'MOTD_SCRIPT_EOF'
-{{ content }}
-MOTD_SCRIPT_EOF
-
-{# Make the script executable #}
-chmod +x "/etc/update-motd.d/{{ filename }}"
-
-{% endfor %}
-{% endif %}
 
 # Iterate through executable scripts in /etc/update-motd.d in order
 # run-parts --lsbsysinit ensures scripts are sorted like: 00-foo, 01-bar, ..., 99-baz
@@ -62,16 +28,9 @@ done
 
 # Symlink /etc/motd → /run/motd.dynamic (if not already), so pam_motd(8) picks it up
 # This symlink is typically created by the distribution; we ensure it here for robustness
-{# 
-  Whether to ensure /etc/motd symlinks to /run/motd.dynamic after generation.
-  Default: True.
-=#}
-{% set symlink_motd = symlink_motd | default(true) %}
-{% if symlink_motd %}
 if [ -e /etc/motd ] && [ "$(readlink -f /etc/motd)" != "$MOTD_TMP" ]; then
   rm -f /etc/motd
 fi
 if [ ! -e /etc/motd ]; then
   ln -sf "$MOTD_TMP" /etc/motd
 fi
-{% endif %}

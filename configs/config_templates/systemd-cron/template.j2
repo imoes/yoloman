@@ -1,0 +1,48 @@
+# /etc/anacrontab: configuration file for anacron
+#
+# This file controls the scheduling of periodic commands (typically from
+# /etc/cron.daily, /etc/cron.weekly, etc.) via the anacron service.
+# Note: When using systemd-cron, the standard anacron jobs are often
+# disabled in favor of native systemd timers (cron-(daily|weekly|monthly).timer).
+# These jobs remain here for reference or for systems not fully converted.
+
+# =============================================================================
+# START_HOURS_RANGE
+# =============================================================================
+# Description: Hour of the day (0-23) to start anacron jobs if START_HOURS_RANGE
+#              is uncommented and active. This delays the execution of anacron
+#              jobs until this hour to avoid heavy load at midnight.
+#              Default: 6
+# =============================================================================
+# Uncomment the following line to activate the delayed start.
+# The value is substituted directly into the configuration.
+START_HOURS_RANGE={{ START_HOURS_RANGE | default(6) }}
+
+# =============================================================================
+# Standard Anacron Jobs (Reference)
+# =============================================================================
+# Format: days delay job-id command
+# - days: The period in days defined by the job-id.
+# - delay: The number of minutes anacron waits after the system is booted
+#          before running a job.
+# - job-id: A unique identifier for the job (e.g., cron.daily).
+# - command: The command to execute.
+
+# Daily job: Run scripts in /etc/cron.daily
+#1	5	cron.daily	run-parts --report /etc/cron.daily
+
+# Weekly job: Run scripts in /etc/cron.weekly
+#7	10	cron.weekly	run-parts --report /etc/cron.weekly
+
+# Monthly job: Run scripts in /etc/cron.monthly
+#@monthly	15	cron.monthly	run-parts --report /etc/cron.monthly
+
+# Note: When using systemd-cron these 3 standard jobs are disabled
+# and replaced by corresponding native systemd units:
+#   cron-(daily,weekly,monthly)-<job>.timer
+#   & cron-(daily,weekly,monthly)-<job>.service
+# that uses persistent timers to ensure that executions missed because
+# the system was off are run after boot.
+#
+# These 3 records are left here as a reference on how
+# to write an anacrontab

@@ -1,0 +1,123 @@
+# ==============================================================================
+# Sieve-Connect Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the `sieve-connect` CLI tool,
+# which is used to manage Sieve scripts on a Cyrus IMAP server.
+#
+# All variables are sourced from Ansible facts/vars and default to safe, standard
+# values if not explicitly provided. Boolean values are rendered as 'true' or 'false'.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Server Connection Settings
+# --------------------------------------------------------------------------
+
+# Default server hostname or IP address.
+# Used if --server is not provided and no SRV records or $IMAP_SERVER environment variable is set.
+# The default 'localhost' ensures local development works out-of-the-box.
+SERVER={{ server | default('localhost') }}
+
+# Default port specification.
+# Supports service name lookup (e.g., 'sieve') with fallback to number, e.g., 'sieve(4190)'.
+# This allows the underlying network layer to resolve the port dynamically.
+PORT={{ port | default('sieve(4190)') }}
+
+# Authentication user ID.
+# Required unless connecting on a Unix system with a matching Cyrus account.
+# If left empty, the tool will prompt for credentials or use system identity.
+USER={{ user | default('') }}
+
+# Authorization ID (authzid).
+# Optional. Requests authorization to act as this ID rather than the authenticated user.
+# Useful for administrative access where the admin acts on behalf of a user.
+AUTHZID={{ authzid | default('') }}
+
+# Authentication mechanism.
+# Forces a specific SASL mechanism (e.g., 'digest-md5', 'PLAIN', 'LOGIN').
+# If empty, the client will negotiate the mechanism automatically.
+AUTH_MECH={{ auth_mech | default('') }}
+
+# Authentication realm.
+# Passes realm information to the authentication mechanism.
+# Often required for SASL PLAIN/Digest-MD5 to identify the security domain.
+REALM={{ realm | default('') }}
+
+# --------------------------------------------------------------------------
+# Sieve Script Settings
+# --------------------------------------------------------------------------
+
+# Local sieve script file path.
+# Path to the script on the local filesystem to upload, download, edit, etc.
+# Used as the source for 'upload' and target for 'download' actions.
+LOCAL_SIEVE={{ local_sieve | default('') }}
+
+# Remote sieve script name on the server.
+# The name of the script as stored on the Cyrus IMAP Sieve storage.
+# Defaults to the basename of LOCAL_SIEVE if not specified.
+REMOTE_SIEVE={{ remote_sieve | default('') }}
+
+# Action to perform.
+# One of: upload, download, list, delete, checkscript, edit, activate, deactivate, exec.
+# If empty or not set, the tool enters interactive mode to prompt the user.
+ACTION={{ action | default('') }}
+
+# --------------------------------------------------------------------------
+# TLS and Network Settings
+# --------------------------------------------------------------------------
+
+# Enable debug traces.
+# Turns on diagnostic output to stderr for troubleshooting connection or auth issues.
+# Renders as 'true' or 'false'.
+DEBUG={{ debug | default(false) | ternary('true', 'false') }}
+
+# Disable TLS certificate verification.
+# Allows connection even if the server's certificate verification fails (e.g., self-signed).
+# WARNING: This reduces security. Only use in trusted/test environments.
+NOTLSVERIFY={{ notlsverify | default(false) | ternary('true', 'false') }}
+
+# Force cleartext channel fallback.
+# If TLS negotiation fails or is not available, falls back to a non-TLS cleartext connection.
+# Only effective if NOTLSVERIFY is also true or if the server supports STARTTLS downgrade.
+CLEARCHAN={{ clearchan | default(false) | ternary('true', 'false') }}
+
+# Use IPv4 only.
+# Coerces the network connection to IPv4 only.
+USE_IPV4={{ use_ipv4 | default(false) | ternary('true', 'false') }}
+
+# Use IPv6 only.
+# Coerces the network connection to IPv6 only.
+USE_IPV6={{ use_ipv6 | default(false) | ternary('true', 'false') }}
+
+# Disable SRV record lookup.
+# Inhibits searching for DNS SRV records to locate the Sieve service.
+# Forces the use of the explicit SERVER and PORT settings.
+NOSRV={{ nosrv | default(false) | ternary('true', 'false') }}
+
+# Ignore server VERSION capability.
+# Prevents filtering commands based on the server's advertised Sieve version.
+# Useful for interacting with older or non-compliant servers.
+IGNORE_SERVER_VERSION={{ ignore_server_version | default(false) | ternary('true', 'false') }}
+
+# Client key file for TLS.
+# Path to the private key in PEM format for client certificate authentication.
+# Required if the server demands mutual TLS (mTLS).
+CLIENT_KEY={{ client_key | default('') }}
+
+# Client certificate file for TLS.
+# Path to the client certificate in PEM format for mutual TLS (mTLS).
+CLIENT_CERT={{ client_cert | default('') }}
+
+# TLS CA file path.
+# Path to a file containing Certificate Authority (CA) certificates for verification.
+# Used to verify the server's certificate chain.
+TLS_CA_FILE={{ tls_ca_file | default('') }}
+
+# TLS CA directory path.
+# Path to a directory containing individual CA certificate files for verification.
+# Alternative to TLS_CA_FILE.
+TLS_CA_PATH={{ tls_ca_path | default('') }}
+
+# TLS hostname for verification.
+# Overrides the hostname used for TLS SNI (Server Name Indication) and certificate verification.
+# Useful when connecting via IP address but needing to verify a certificate by name.
+TLS_HOSTNAME={{ tls_hostname | default('') }}

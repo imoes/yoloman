@@ -94,8 +94,29 @@ export interface GaugeWidgetData {
   error?: string;
 }
 
+/** One plotted line: a saved graph's item, or the single inline agent+metric. `resolution`
+ * is the tier the backend served (raw/hourly/daily) — shown, because a chart that silently
+ * switched from per-minute to per-day points would look smoother for no visible reason. */
+export interface TimeseriesSeries {
+  item_id: string | null;
+  agent_id: string;
+  metric: string;
+  label: string | null;
+  color: string;
+  draw_style: string;
+  axis_side: 'left' | 'right';
+  resolution: string;
+  points: Array<{ time: string; value: number | null }>;
+}
+
 export interface TimeseriesWidgetData {
-  points: Array<{ time: string; value: number }>;
+  /** Present for the single inline series, kept so older widgets render unchanged. */
+  points?: Array<{ time: string; value: number }>;
+  resolution?: string;
+  /** Every series — one entry for the inline case, N for a saved graph. */
+  series?: TimeseriesSeries[];
+  /** Set when the widget references a saved graph (config.graph_id). */
+  graph?: { id: string; name: string; graph_type: string; show_legend: boolean };
   error?: string;
 }
 

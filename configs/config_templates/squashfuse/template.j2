@@ -1,0 +1,29 @@
+# Squashfuse Configuration
+# Mount a SquashFS archive via squashfuse
+
+{% set _archive_path = (archive_path | default('/var/lib/squashfuse/images/rootfs.squashfs')) %}
+{% set _mountpoint = (mountpoint | default('/mnt/squashfs')) %}
+{% set _options = (options | default(['allow_other'])) %}
+{% set _foreground = (foreground | default(False)) %}
+
+# archive_path: Path to the SquashFS archive file.
+# Default: /var/lib/squashfuse/images/rootfs.squashfs
+# This is the image file that squashfuse will mount as a filesystem.
+archive: {{ _archive_path }}
+
+# mountpoint: Directory where the filesystem will be mounted.
+# Default: /mnt/squashfs
+# This is the local directory where the contents of the SquashFS archive become accessible.
+mountpoint: {{ _mountpoint }}
+
+# options: List of options to pass to squashfuse.
+# Default: ['allow_other']
+# Supported options include: offset=N, subdir=PATH, notify_pipe=PATH, debug, allow_other, allow_root, etc.
+# These are joined into a comma-separated string for the configuration file.
+options: {{ _options | join(', ') }}
+
+# foreground: Run in foreground mode (implies debug).
+# Default: False
+# If set to true, squashfuse will run in the foreground and enable debug logging.
+# Useful for troubleshooting or running as a non-daemonized service.
+foreground: {{ _foreground | ternary('true', 'false') }}

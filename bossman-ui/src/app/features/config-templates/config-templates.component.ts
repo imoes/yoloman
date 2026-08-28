@@ -1,13 +1,18 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { AgentService } from '../../core/services/agent.service';
-import { ConfigTemplate } from '../../core/models/agent.model';
+import { ConfigTemplate, ConfigTemplateListing } from '../../core/models/agent.model';
 
 /** Block F3 — the Class-B config template catalog (Setup → Config templates).
  * A read-only reference browser over configs/config_templates/: pick a
  * template to see its schema (the editable variables), sample values, and the
  * Jinja2 source. Binding + preview + apply against a host happen in the host's
- * Configuration tab (K2). */
+ * Configuration tab (K2).
+ *
+ * TWO REQUESTS, not one. The list arrives without bodies and the selected template is fetched on its own —
+ * the whole catalog with every body was a 36 MB download to read one of 5474 files. The visible consequence
+ * is that the variable count moved from the list row into the detail pane: it comes from the schema, and the
+ * list no longer carries schemas. Showing a count there would mean loading everything again to compute it. */
 @Component({
   selector: 'app-config-templates',
   standalone: true,
@@ -19,19 +24,28 @@ import { ConfigTemplate } from '../../core/models/agent.model';
         Class-B templates: a whole config file rendered from high-level values (Jinja2). Bind one to a
         discovered file — and edit its values as a form — in a host's <strong>Configuration</strong> tab.
       </p>
+      @if (withheld()) {
+        <p class="bm-ct-withheld">
+          This host carries {{ templates().length }} templates and withholds {{ withheld() }}: {{ criterion() }}.
+          The full catalog is on Bossman.
+        </p>
+      }
       @if (templates().length) {
         <div class="bm-ct">
           <div class="bm-ct-list">
             @for (t of templates(); track t.name) {
-              <div class="bm-ct-item" [class.bm-ct-sel]="selected()?.name === t.name" (click)="select(t)">
+              <div class="bm-ct-item" [class.bm-ct-sel]="selectedName() === t.name" (click)="select(t)">
                 <span class="bm-ct-name">{{ t.name }}</span>
-                <span class="bm-dim">{{ keyCount(t) }} vars</span>
+                <span class="bm-dim bm-ct-path">{{ t.target_path || '' }}</span>
               </div>
             }
           </div>
           <div class="bm-ct-detail">
+            @if (err()) { <p class="bm-ct-withheld">{{ err() }}</p> }
+            @if (loading()) { <p class="bm-dim">Loading…</p> }
             @if (selected(); as t) {
               <h2>{{ t.name }}</h2>
+              <p class="bm-dim">{{ keyCount(t) }} variables</p>
               <h3>Variables (schema)</h3>
               <table class="bm-ct-schema">
                 <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
@@ -50,7 +64,7 @@ import { ConfigTemplate } from '../../core/models/agent.model';
               <pre class="bm-ct-code">{{ t.sample | json }}</pre>
               <h3>Template (Jinja2)</h3>
               <pre class="bm-ct-code">{{ t.template }}</pre>
-            } @else {
+            } @else if (!loading() && !err()) {
               <p class="bm-dim">Select a template.</p>
             }
           </div>
@@ -77,28 +91,55 @@ import { ConfigTemplate } from '../../core/models/agent.model';
       .bm-ct-key { font-family: ui-monospace, monospace; }
       .bm-ct-code { padding: 10px 12px; background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; font-size: 12px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
       .bm-empty { opacity: 0.7; margin-top: 16px; }
+      .bm-ct-path { font-family: ui-monospace, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bm-ct-withheld { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); border-radius: 4px; font-size: 13px; }
     `,
   ],
 })
 export class ConfigTemplatesComponent {
   private agentService = inject(AgentService);
 
-  templates = signal<ConfigTemplate[]>([]);
+  templates = signal<ConfigTemplateListing[]>([]);
   selected = signal<ConfigTemplate | null>(null);
+  /** Held separately from selected(): the row must highlight the moment it is clicked, while the body is
+   * still in flight. Reading the name off selected() would leave the previous row lit during the fetch. */
+  selectedName = signal('');
+  loading = signal(false);
+  err = signal('');
+  withheld = signal(0);
+  criterion = signal('');
 
   constructor() {
     this.agentService.configTemplates().subscribe({
       next: (res) => {
         const ts = res.templates ?? [];
         this.templates.set(ts);
-        if (ts.length) this.selected.set(ts[0]);
+        this.withheld.set(res.withheld ?? 0);
+        this.criterion.set(res.criterion ?? '');
+        if (ts.length) this.select(ts[0]);
       },
       error: () => this.templates.set([]),
     });
   }
 
-  select(t: ConfigTemplate): void {
-    this.selected.set(t);
+  select(t: ConfigTemplateListing): void {
+    this.selectedName.set(t.name);
+    this.selected.set(null);
+    this.loading.set(true);
+    this.err.set('');
+    this.agentService.configTemplate(t.name).subscribe({
+      next: ({ tpl, missing }) => {
+        this.loading.set(false);
+        this.selected.set(tpl);
+        // A name in the list whose body cannot be fetched is a real inconsistency, not a normal absence —
+        // it is said out loud rather than shown as an empty pane.
+        this.err.set(missing);
+      },
+      error: (e) => {
+        this.loading.set(false);
+        this.err.set(e?.error?.detail || `Could not load ${t.name}.`);
+      },
+    });
   }
   keyCount(t: ConfigTemplate): number {
     return Object.keys(t.schema || {}).length;

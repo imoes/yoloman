@@ -1,76 +1,93 @@
 {
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Global logging verbosity level. Choose from debug, info, warn, error."
-  },
-  "home_dir": {
-    "type": "string",
-    "default": "/var/lib/multispeech",
-    "description": "Base directory for multispeech data, including cache, voices, and logs."
-  },
   "default_engine": {
-    "type": "string",
     "default": "flite",
-    "description": "Default speech synthesis engine to use when none specified (flite, mbrola, pico, festival)."
-  },
-  "default_voice": {
-    "type": "string",
-    "default": "en-us",
-    "description": "Default voice language/variant (e.g., en-us, fr-fr, de-de). Must match voices supported by the default engine."
-  },
-  "default_rate": {
-    "type": "number",
-    "default": 175,
-    "description": "Default speech rate in words per minute (typical range: 100\u2013250)."
+    "description": "Default speech synthesis engine to use when none specified (flite, mbrola, pico, festival).",
+    "type": "string"
   },
   "default_pitch": {
-    "type": "number",
     "default": 50,
-    "description": "Default pitch adjustment (0\u201399). Higher values = higher pitch. 50 is neutral."
+    "description": "Default pitch adjustment (0\u201399). Higher values = higher pitch. 50 is neutral.",
+    "type": "number"
+  },
+  "default_rate": {
+    "default": 175,
+    "description": "Default speech rate in words per minute (typical range: 100\u2013250).",
+    "type": "number"
+  },
+  "default_voice": {
+    "default": "en-us",
+    "description": "Default voice language/variant (e.g., en-us, fr-fr, de-de). Must match voices supported by the default engine.",
+    "type": "string"
   },
   "default_volume": {
-    "type": "number",
     "default": 80,
-    "description": "Default volume (0\u2013100). 80 is loud but safe for most speakers."
-  },
-  "threaded_render": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable or disable multi-threaded rendering for concurrent jobs. Improves throughput on multi-core systems."
-  },
-  "max_jobs": {
-    "type": "number",
-    "default": 4,
-    "description": "Maximum number of concurrent speech rendering jobs. Adjust based on CPU/memory capacity."
-  },
-  "job_timeout": {
-    "type": "number",
-    "default": 30,
-    "description": "Maximum time (seconds) a rendering job may run before being terminated."
+    "description": "Default volume (0\u2013100). 80 is loud but safe for most speakers.",
+    "type": "number"
   },
   "engines": {
-    "type": "object",
-    "default": {},
     "description": "Per-engine configuration blocks. Each engine has its own section with enable flag and paths.",
     "items": {
+      "festival": {
+        "default": {},
+        "description": "Configuration for Festival Speech Synthesis System.",
+        "items": {
+          "config_dir": {
+            "default": "/etc/festival",
+            "description": "Directory containing Festival init scripts and voice definitions.",
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "description": "Enable Festival engine (powerful but resource-intensive).",
+            "type": "bool"
+          },
+          "server_binary": {
+            "default": "/usr/bin/festival_server",
+            "description": "Path to the Festival server binary.",
+            "type": "string"
+          },
+          "server_host": {
+            "default": "127.0.0.1",
+            "description": "Hostname or IP address Festival server listens on.",
+            "type": "string"
+          },
+          "server_port": {
+            "default": 1314,
+            "description": "Port Festival server listens on (default 1314).",
+            "type": "number"
+          },
+          "voices": {
+            "default": [
+              "us1",
+              "us2",
+              "kal_diphone",
+              "slt_arctic"
+            ],
+            "description": "List of voice identifiers available in Festival.",
+            "items": {
+              "description": "Festival voice name (e.g., 'kal_diphone', 'slt_arctic').",
+              "type": "string"
+            },
+            "type": "list"
+          }
+        },
+        "type": "object"
+      },
       "flite": {
-        "type": "object",
         "default": {},
         "description": "Configuration for FLITE (Fast Little ITU) TTS engine.",
         "items": {
-          "enabled": {
-            "type": "bool",
-            "default": true,
-            "description": "Enable FLITE engine (required for many basic English voices)."
-          },
           "binary": {
-            "type": "string",
             "default": "/usr/bin/flite",
-            "description": "Path to the FLITE binary."
+            "description": "Path to the FLITE binary.",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Enable FLITE engine (required for many basic English voices).",
+            "type": "bool"
           },
           "voices": {
-            "type": "list",
             "default": [
               "en-us",
               "en-gb",
@@ -78,34 +95,34 @@
             ],
             "description": "List of FLITE voice identifiers available (e.g., en-us, en-gb, cmu-rms).",
             "items": {
-              "type": "string",
-              "description": "FLITE voice identifier string."
-            }
+              "description": "FLITE voice identifier string.",
+              "type": "string"
+            },
+            "type": "list"
           }
-        }
+        },
+        "type": "object"
       },
       "mbrola": {
-        "type": "object",
         "default": {},
         "description": "Configuration for MBROLA phoneme-to-waveform synthesizer.",
         "items": {
-          "enabled": {
-            "type": "bool",
-            "default": false,
-            "description": "Enable MBROLA engine (requires external MBROLA binaries + voice data)."
-          },
           "binary": {
-            "type": "string",
             "default": "/usr/bin/mbrola",
-            "description": "Path to the MBROLA binary."
+            "description": "Path to the MBROLA binary.",
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "description": "Enable MBROLA engine (requires external MBROLA binaries + voice data).",
+            "type": "bool"
           },
           "voice_dir": {
-            "type": "string",
             "default": "/usr/share/mbrola",
-            "description": "Directory containing MBROLA voice data files (.dbl)."
+            "description": "Directory containing MBROLA voice data files (.dbl).",
+            "type": "string"
           },
           "voices": {
-            "type": "list",
             "default": [
               "fr1",
               "fr2",
@@ -114,34 +131,34 @@
             ],
             "description": "List of MBROLA voice identifiers (e.g., fr1 for French, de4 for German).",
             "items": {
-              "type": "string",
-              "description": "MBROLA voice ID, typically matching a .dbl file name without extension."
-            }
+              "description": "MBROLA voice ID, typically matching a .dbl file name without extension.",
+              "type": "string"
+            },
+            "type": "list"
           }
-        }
+        },
+        "type": "object"
       },
       "pico": {
-        "type": "object",
         "default": {},
         "description": "Configuration for Pico TTS (e.g., from Android/Nuance).",
         "items": {
-          "enabled": {
-            "type": "bool",
-            "default": true,
-            "description": "Enable Pico TTS engine (lightweight, good for embedded use)."
-          },
           "binary": {
-            "type": "string",
             "default": "/usr/bin/pico2wave",
-            "description": "Path to the pico2wave binary."
+            "description": "Path to the pico2wave binary.",
+            "type": "string"
           },
           "default_lang": {
-            "type": "string",
             "default": "en-US",
-            "description": "Default language code used when none specified."
+            "description": "Default language code used when none specified.",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Enable Pico TTS engine (lightweight, good for embedded use).",
+            "type": "bool"
           },
           "langs": {
-            "type": "list",
             "default": [
               "en-US",
               "en-GB",
@@ -152,67 +169,58 @@
             ],
             "description": "List of language codes supported by the Pico installation.",
             "items": {
-              "type": "string",
-              "description": "Language code in RFC 5646 format (e.g., 'en-US')."
-            }
+              "description": "Language code in RFC 5646 format (e.g., 'en-US').",
+              "type": "string"
+            },
+            "type": "list"
           }
-        }
-      },
-      "festival": {
-        "type": "object",
-        "default": {},
-        "description": "Configuration for Festival Speech Synthesis System.",
-        "items": {
-          "enabled": {
-            "type": "bool",
-            "default": false,
-            "description": "Enable Festival engine (powerful but resource-intensive)."
-          },
-          "server_binary": {
-            "type": "string",
-            "default": "/usr/bin/festival_server",
-            "description": "Path to the Festival server binary."
-          },
-          "config_dir": {
-            "type": "string",
-            "default": "/etc/festival",
-            "description": "Directory containing Festival init scripts and voice definitions."
-          },
-          "server_host": {
-            "type": "string",
-            "default": "127.0.0.1",
-            "description": "Hostname or IP address Festival server listens on."
-          },
-          "server_port": {
-            "type": "number",
-            "default": 1314,
-            "description": "Port Festival server listens on (default 1314)."
-          },
-          "voices": {
-            "type": "list",
-            "default": [
-              "us1",
-              "us2",
-              "kal_diphone",
-              "slt_arctic"
-            ],
-            "description": "List of voice identifiers available in Festival.",
-            "items": {
-              "type": "string",
-              "description": "Festival voice name (e.g., 'kal_diphone', 'slt_arctic')."
-            }
-          }
-        }
+        },
+        "type": "object"
       }
-    }
+    },
+    "type": "object"
+  },
+  "home_dir": {
+    "default": "/var/lib/multispeech",
+    "description": "Base directory for multispeech data, including cache, voices, and logs.",
+    "type": "string"
+  },
+  "job_timeout": {
+    "default": 30,
+    "description": "Maximum time (seconds) a rendering job may run before being terminated.",
+    "type": "number"
+  },
+  "log_file": {
+    "source": "inferred-from-template",
+    "type": "string"
+  },
+  "log_level": {
+    "default": "info",
+    "description": "Global logging verbosity level. Choose from debug, info, warn, error.",
+    "type": "string",
+    "enum": [
+      "debug",
+      "info",
+      "warn",
+      "error"
+    ]
+  },
+  "max_jobs": {
+    "default": 4,
+    "description": "Maximum number of concurrent speech rendering jobs. Adjust based on CPU/memory capacity.",
+    "type": "number"
+  },
+  "threaded_render": {
+    "default": true,
+    "description": "Enable or disable multi-threaded rendering for concurrent jobs. Improves throughput on multi-core systems.",
+    "type": "bool"
   },
   "voice_aliases": {
-    "type": "object",
-    "default": {},
     "description": "Mapping of short, human-friendly voice aliases to engine+voice identifiers (e.g., 'en-male' \u2192 'flite+cmu-rms').",
     "items": {
-      "type": "string",
-      "description": "Alias \u2192 engine+voice-id mapping (e.g., 'en-male = flite+cmu-rms')."
-    }
+      "description": "Alias \u2192 engine+voice-id mapping (e.g., 'en-male = flite+cmu-rms').",
+      "type": "string"
+    },
+    "type": "object"
   }
 }

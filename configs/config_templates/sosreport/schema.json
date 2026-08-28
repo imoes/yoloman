@@ -1,0 +1,198 @@
+{
+  "profile": {
+    "type": "string",
+    "default": "default",
+    "description": "Comma-separated list of sos profiles to enable (e.g., 'networking, storage'). Defaults to 'default' if not specified."
+  },
+  "batch": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable batch mode to suppress interactive prompts."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of concurrent threads for data collection."
+  },
+  "compression_type": {
+    "type": "string",
+    "default": "gz",
+    "description": "Compression method for the final archive (zip, gz, bz2, xz).",
+    "enum": [
+      "gz",
+      "zip"
+    ]
+  },
+  "label": {
+    "type": "string",
+    "default": "",
+    "description": "Arbitrary identifier to append to the archive filename."
+  },
+  "case_id": {
+    "type": "string",
+    "default": "",
+    "description": "Support case identifier to include in the archive metadata."
+  },
+  "log_size": {
+    "type": "number",
+    "default": 25,
+    "description": "Maximum size in MiB for collected logs. 0 means unlimited."
+  },
+  "journal_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size in MiB for collected journals. 0 means unlimited."
+  },
+  "plugin_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Global timeout in seconds for each plugin to complete. 0 means no limit."
+  },
+  "cmd_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Global timeout in seconds for individual command execution. 0 means no limit."
+  },
+  "tmp_dir": {
+    "type": "string",
+    "default": "/var/tmp",
+    "description": "Directory used for temporary files and staging the archive."
+  },
+  "upload": {
+    "type": "bool",
+    "default": false,
+    "description": "Attempt to upload the archive to a remote location after collection."
+  },
+  "upload_url": {
+    "type": "string",
+    "default": "",
+    "description": "Target URL (https/sftp/ftp) for the upload."
+  },
+  "upload_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for upload authentication."
+  },
+  "upload_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for upload authentication."
+  },
+  "upload_directory": {
+    "type": "string",
+    "default": "/",
+    "description": "Remote directory path to upload to."
+  },
+  "upload_method": {
+    "type": "string",
+    "default": "auto",
+    "description": "HTTP method for upload (put, post, auto).",
+    "enum": [
+      "auto",
+      "put",
+      "post"
+    ]
+  },
+  "upload_protocol": {
+    "type": "string",
+    "default": "auto",
+    "description": "Protocol override for upload (https, ftp, sftp, auto).",
+    "enum": [
+      "auto",
+      "https",
+      "ftp",
+      "sftp"
+    ]
+  },
+  "upload_no_ssl_verify": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable SSL certificate verification for HTTPS uploads."
+  },
+  "encrypt": {
+    "type": "bool",
+    "default": false,
+    "description": "Encrypt the resulting archive using GPG or symmetric encryption."
+  },
+  "encrypt_key": {
+    "type": "string",
+    "default": "",
+    "description": "GPG key ID or recipient for asymmetric encryption."
+  },
+  "encrypt_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Passphrase for symmetric encryption."
+  },
+  "skip_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugin names to disable during collection."
+  },
+  "enable_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional plugin names to enable."
+  },
+  "only_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugin names to enable exclusively (disabling others)."
+  },
+  "skip_commands": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell-wildcard patterns for commands to skip execution."
+  },
+  "skip_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of file path patterns to skip collection."
+  },
+  "allow_system_changes": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow plugins to run commands that might modify system state."
+  },
+  "low_priority": {
+    "type": "bool",
+    "default": false,
+    "description": "Run sos with low priority (niceness 19) to reduce impact on the system."
+  },
+  "sysroot": {
+    "type": "string",
+    "default": "",
+    "description": "Alternate root filesystem path for container or image analysis."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "auto",
+    "description": "Chroot mode setting: auto, always, or never.",
+    "enum": [
+      "auto",
+      "always",
+      "never"
+    ]
+  },
+  "namespaces": {
+    "type": "number",
+    "default": 0,
+    "description": "Limit namespaces for collection. 0 means all namespaces."
+  },
+  "container_runtime": {
+    "type": "string",
+    "default": "auto",
+    "description": "Force container runtime for data collection (auto, podman, docker, none).",
+    "enum": [
+      "auto",
+      "podman",
+      "docker",
+      "none"
+    ]
+  },
+  "plugin_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugin-specific option objects to configure individual plugins. Each object must have keys: plugin (string), option (string), value (string). e.g., [{'plugin': 'logs', 'option': 'timeout', 'value': '600'}]. The items map is: plugin: {type: string, default: '', description: Plugin name}, option: {type: string, default: '', description: Option name within the plugin}, value: {type: string, default: '', description: Value for the option}."
+  }
+}

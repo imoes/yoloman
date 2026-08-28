@@ -1,0 +1,62 @@
+# /etc/default/u-boot - configuration file for u-boot-update(8)
+# This file configures the u-boot-update utility which manages boot entries.
+
+# {{ u_boot_update | default('true') | title | lower }} u-boot-update processing.
+# Enables or disables the processing of u-boot configuration updates.
+U_BOOT_UPDATE="{{ u_boot_update | default('true') }}"
+
+# Manage the following list of u-boot alternatives.
+# Specifies which alternatives (e.g., default, recovery) should be managed.
+{% set alts = u_boot_alternatives | default(['default', 'recovery']) %}
+{% if alts is iterable and (alts is mapping or alts is string or alts is number) %}
+{% set alts = [alts] %}
+{% endif %}
+U_BOOT_ALTERNATIVES="{{ alts | join(' ') }}"
+
+# The default u-boot alternative to boot.
+# Sets the primary boot entry selected by default.
+U_BOOT_DEFAULT="{{ u_boot_default | default('l0') }}"
+
+# {{ u_boot_prompt | default('1') | title }} showing the boot menu prompt.
+# Controls whether the user is presented with a menu at boot time.
+U_BOOT_PROMPT="{{ u_boot_prompt | default('1') }}"
+
+# Which entries to include in the menu.
+# 'all' includes all detected entries; can be restricted to specific types.
+U_BOOT_ENTRIES="{{ u_boot_entries | default('all') }}"
+
+# Label for the main menu entry.
+# The display name shown in the boot menu for the default entry.
+U_BOOT_MENU_LABEL="{{ u_boot_menu_label | default('Debian GNU/Linux') }}"
+
+# Kernel parameters passed to the boot entries.
+# Common parameters like 'ro quiet' or specific console settings.
+U_BOOT_PARAMETERS="{{ u_boot_parameters | default('ro quiet') }}"
+
+# Root device specification for the kernel.
+# Specifies the root filesystem device (e.g., UUID=..., /dev/mmcblk0p2).
+U_BOOT_ROOT="{{ u_boot_root | default('') }}"
+
+# Timeout in seconds before booting the default entry.
+# How long the menu waits before auto-booting.
+U_BOOT_TIMEOUT="{{ u_boot_timeout | default('50') }}"
+
+# Specific Device Tree Blob to use.
+# Overrides the auto-detected DTB for the current kernel.
+U_BOOT_FDT="{{ u_boot_fdt | default('') }}"
+
+# Directory containing kernel images and DTBs.
+# Path where the kernel and associated device tree files are stored.
+U_BOOT_FDT_DIR="{{ u_boot_fdt_dir | default('/usr/lib/linux-image-') }}"
+
+# Specific FDT overlays to apply.
+# Comma-separated list of overlay filenames to apply on top of the base DTB.
+U_BOOT_FDT_OVERLAYS="{{ u_boot_fdt_overlays | default('') }}"
+
+# Directory containing device tree overlays.
+# Path where overlay files (.dtbo) are located.
+U_BOOT_FDT_OVERLAYS_DIR="{{ u_boot_fdt_overlays_dir | default('/boot/dtbo/') }}"
+
+# {{ u_boot_sync_dtbs | default('false') | title | lower }} synchronizing DTBs automatically.
+# If enabled, ensures device tree blobs are copied/synchronized appropriately.
+U_BOOT_SYNC_DTBS="{{ u_boot_sync_dtbs | default('false') }}"

@@ -1,0 +1,198 @@
+{
+  "targets": {
+    "type": "list",
+    "default": [
+      "/home"
+    ],
+    "description": "List of target directories or files to scan for duplicates."
+  },
+  "types": {
+    "type": "string",
+    "default": "defaults",
+    "description": "Comma-separated list of lint types (e.g., 'defaults', 'df,dd', 'all -df'). See man page for groups and types.",
+    "enum": [
+      "all",
+      "defaults",
+      "minimal",
+      "minimaldirs",
+      "none",
+      "badids",
+      "bi",
+      "badlinks",
+      "bl",
+      "emptydirs",
+      "ed",
+      "emptyfiles",
+      "ef",
+      "nonstripped",
+      "ns",
+      "duplicates",
+      "df",
+      "duplicatedirs",
+      "dd"
+    ],
+    "enum_open": true
+  },
+  "outputs": {
+    "type": "list",
+    "default": [
+      "sh:rmlint.sh",
+      "pretty:stdout",
+      "summary:stdout",
+      "json:rmlint.json"
+    ],
+    "description": "List of output specs in format 'format:destination'. e.g., 'sh:/path/to/script.sh', 'json:stdout'."
+  },
+  "configs": {
+    "type": "list",
+    "default": [],
+    "description": "List of format configs in format 'format:option=value'. e.g., 'sh:handler=remove'."
+  },
+  "algorithm": {
+    "type": "string",
+    "default": "blake2b",
+    "description": "Hash algorithm to use. Examples: blake2b, sha256, md5, paranoid.",
+    "enum": [
+      "paranoid",
+      "blake2b",
+      "blake2bp",
+      "sha3-512",
+      "sha512",
+      "sha3-384",
+      "blake2s",
+      "blake2sp",
+      "sha3-256",
+      "sha256",
+      "highway256",
+      "metro256",
+      "metrocrc256",
+      "sha1",
+      "md5",
+      "murmur",
+      "metro",
+      "metrocrc",
+      "highway64",
+      "xxhash",
+      "blake",
+      "sha3",
+      "sha",
+      "highway"
+    ],
+    "enum_open": true
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, uses -VVV (loud). If false, uses -V (quiet)."
+  },
+  "progress": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enables progress bar (-g). If false, disables it (-G)."
+  },
+  "hardlink_policy": {
+    "type": "string",
+    "default": "--hardlinked",
+    "description": "Hardlink handling: '--hardlinked', '--keep-hardlinked', or '--no-hardlinked'. Empty for default.",
+    "enum": [
+      "--hardlinked",
+      "--keep-hardlinked",
+      "--no-hardlinked"
+    ]
+  },
+  "symlink_policy": {
+    "type": "string",
+    "default": "-@",
+    "description": "Symlink handling: '-f' (follow), '-F' (no-follow), or '-@' (see-symlinks). Empty for default (-@).",
+    "enum": [
+      "-f",
+      "-F",
+      "-@"
+    ]
+  },
+  "no_cross_dev": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses -x (stay on same device). If false, uses -X (allow cross-devices)."
+  },
+  "hidden_policy": {
+    "type": "string",
+    "default": "-R",
+    "description": "Hidden file handling: '-r' (include hidden), '-R' (no hidden), or '--partial-hidden'. Empty for default (-R).",
+    "enum": [
+      "-r",
+      "-R",
+      "--partial-hidden"
+    ]
+  },
+  "size_range": {
+    "type": "string",
+    "default": "1",
+    "description": "Size range filter: 'min-max' or single size. e.g., '100KB', '0-2M'."
+  },
+  "max_depth": {
+    "type": "string",
+    "default": "INF",
+    "description": "Maximum recursion depth. e.g., '1' for non-recursive, '2' for one level deep. 'INF' for infinite."
+  },
+  "threads": {
+    "type": "number",
+    "default": 16,
+    "description": "Number of threads to use. e.g., 16."
+  },
+  "mem_limit": {
+    "type": "string",
+    "default": "",
+    "description": "Memory limit for hashing. e.g., '512M', '1G'. Empty for no limit."
+  },
+  "keep_tagged": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses -k (--keep-all-tagged). If false, uses -K (--keep-all-untagged) if other match flags are set."
+  },
+  "must_match_tagged": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses -m (--must-match-tagged). If false, uses -M (--must-match-untagged) if keep flags are set."
+  },
+  "rank_by": {
+    "type": "string",
+    "default": "pOma",
+    "description": "Ranking criteria string. e.g., 'pOma', 'm'. See man page for criteria letters."
+  },
+  "sort_by": {
+    "type": "string",
+    "default": "",
+    "description": "Sorting criteria for output groups. e.g., 's', 'a'. Empty for default (none)."
+  },
+  "mtime_window": {
+    "type": "number",
+    "default": -1,
+    "description": "Mtime window in seconds for duplicate grouping. e.g., 0, 1, -1."
+  },
+  "use_xattr": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses -C (--xattr) for caching checksums in extended attributes."
+  },
+  "write_unfinished": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses -U (--write-unfinished)."
+  },
+  "clamp_low": {
+    "type": "string",
+    "default": "",
+    "description": "Clamp low parameter. e.g., '10%', '100B'. Empty for default (0)."
+  },
+  "clamp_top": {
+    "type": "string",
+    "default": "",
+    "description": "Clamp top parameter. e.g., '50%', '1G'. Empty for default (1.0)."
+  },
+  "no_fiemap": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, uses --without-fiemap. If false, uses --with-fiemap."
+  }
+}

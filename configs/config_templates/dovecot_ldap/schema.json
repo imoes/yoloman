@@ -1,149 +1,160 @@
 {
-  "uris": {
-    "type": "list",
-    "default": [
-      "ldap://localhost"
-    ],
-    "description": "LDAP server URIs to connect to (support failover via multiple URIs)."
+  "aliases_filter": {
+    "default": "",
+    "description": "LDAP filter for alias expansion (e.g., '(mailAlias=%)').",
+    "type": "string"
   },
   "base_dn": {
-    "type": "string",
     "default": "dc=example,dc=com",
-    "description": "Base DN where user entries are searched."
-  },
-  "search_scope": {
-    "type": "string",
-    "default": "sub",
-    "description": "LDAP search scope: 'sub' (subtree), 'one' (one level), 'base' (single entry), or 'children' (children of base)."
+    "description": "Base DN where user entries are searched.",
+    "type": "string"
   },
   "bind_dn": {
-    "type": "string",
     "default": "",
-    "description": "DN to bind with when connecting (leave empty for anonymous bind)."
+    "description": "DN to bind with when connecting (leave empty for anonymous bind).",
+    "type": "string"
   },
   "bind_password": {
-    "type": "string",
     "default": "",
-    "description": "Password for bind DN. Leave empty if anonymous bind is used."
-  },
-  "enable_tls": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS for non-ldaps connections (uses ldaps:// or starttls)."
+    "description": "Password for bind DN. Leave empty if anonymous bind is used.",
+    "type": "string"
   },
   "ca_cert_path": {
-    "type": "string",
     "default": "",
-    "description": "Path to CA certificate file for validating LDAP server certificate (required for ldaps/TLS)."
+    "description": "Path to CA certificate file for validating LDAP server certificate (required for ldaps/TLS).",
+    "type": "string"
+  },
+  "cert_requirement": {
+    "default": "demand",
+    "description": "Certificate verification level: 'demand' (required), 'allow', or 'never'.",
+    "type": "string",
+    "enum": [
+      "demand",
+      "allow",
+      "never"
+    ]
   },
   "client_cert_path": {
-    "type": "string",
     "default": "",
-    "description": "Path to client certificate (for mutual TLS authentication)."
+    "description": "Path to client certificate (for mutual TLS authentication).",
+    "type": "string"
   },
   "client_key_path": {
-    "type": "string",
     "default": "",
-    "description": "Path to client private key (for mutual TLS authentication)."
+    "description": "Path to client private key (for mutual TLS authentication).",
+    "type": "string"
   },
-  "user_filter": {
-    "type": "string",
-    "default": "(objectClass=posixAccount)",
-    "description": "LDAP filter used to locate user entries during authentication."
+  "enable_debug": {
+    "default": false,
+    "description": "Enable verbose LDAP debugging in Dovecot logs (only for troubleshooting).",
+    "type": "bool"
   },
-  "password_scheme": {
-    "type": "string",
-    "default": "SSHA",
-    "description": "Password storage scheme used in LDAP (e.g., SSHA, MD5, CRYPT, PLAIN)."
+  "enable_referrals": {
+    "default": false,
+    "description": "Enable chasing LDAP referrals (useful in multi-DC forests).",
+    "type": "bool"
+  },
+  "enable_starttls": {
+    "default": false,
+    "description": "Explicitly enable STARTTLS when using plain LDAP (requires 'uris' to include ldap://).",
+    "type": "bool"
+  },
+  "enable_tls": {
+    "default": false,
+    "description": "Enable TLS for non-ldaps connections (uses ldaps:// or starttls).",
+    "type": "bool"
   },
   "extra_user_attrs": {
-    "type": "list",
     "default": [],
     "description": "Additional LDAP attributes to map to Dovecot user fields. Each item defines `ldap_attr` and `local_name`.",
     "items": {
       "ldap_attr": {
-        "type": "string",
-        "description": "LDAP attribute name to read (e.g., 'mailAlternateAddress')."
+        "description": "LDAP attribute name to read (e.g., 'mailAlternateAddress').",
+        "type": "string"
       },
       "local_name": {
-        "type": "string",
-        "description": "Dovecot internal field name to populate (e.g., 'maildrop')."
+        "description": "Dovecot internal field name to populate (e.g., 'maildrop').",
+        "type": "string"
       }
-    }
-  },
-  "enable_referrals": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable chasing LDAP referrals (useful in multi-DC forests)."
-  },
-  "ldap_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Timeout in seconds for LDAP operations (0 = no limit)."
-  },
-  "ldap_idle_timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Idle timeout in seconds before LDAP connection is closed."
-  },
-  "ldap_reconnect_delay": {
-    "type": "number",
-    "default": 5,
-    "description": "Seconds to wait before reconnecting after a connection failure."
-  },
-  "max_pending_ops": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of pending LDAP operations per connection."
-  },
-  "enable_starttls": {
-    "type": "bool",
-    "default": false,
-    "description": "Explicitly enable STARTTLS when using plain LDAP (requires 'uris' to include ldap://)."
-  },
-  "cert_requirement": {
-    "type": "string",
-    "default": "demand",
-    "description": "Certificate verification level: 'demand' (required), 'allow', or 'never'."
+    },
+    "type": "list"
   },
   "group_base_dn": {
-    "type": "string",
     "default": "",
-    "description": "Base DN for group searches (if different from user base)."
+    "description": "Base DN for group searches (if different from user base).",
+    "type": "string"
   },
   "group_search_scope": {
-    "type": "string",
     "default": "sub",
-    "description": "Scope for group LDAP searches (same values as 'search_scope')."
+    "description": "Scope for group LDAP searches (same values as 'search_scope').",
+    "type": "string"
   },
-  "enable_debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose LDAP debugging in Dovecot logs (only for troubleshooting)."
+  "ldap_idle_timeout": {
+    "default": 300,
+    "description": "Idle timeout in seconds before LDAP connection is closed.",
+    "type": "number"
   },
-  "tls_cipher_list": {
-    "type": "string",
-    "default": "",
-    "description": "Custom cipher list for TLS (system default if empty)."
+  "ldap_reconnect_delay": {
+    "default": 5,
+    "description": "Seconds to wait before reconnecting after a connection failure.",
+    "type": "number"
   },
-  "aliases_filter": {
-    "type": "string",
-    "default": "",
-    "description": "LDAP filter for alias expansion (e.g., '(mailAlias=%)')."
+  "ldap_timeout": {
+    "default": 60,
+    "description": "Timeout in seconds for LDAP operations (0 = no limit).",
+    "type": "number"
+  },
+  "max_pending_ops": {
+    "default": 10,
+    "description": "Maximum number of pending LDAP operations per connection.",
+    "type": "number"
+  },
+  "password_scheme": {
+    "default": "SSHA",
+    "description": "Password storage scheme used in LDAP (e.g., SSHA, MD5, CRYPT, PLAIN).",
+    "type": "string"
   },
   "sasl_mech": {
-    "type": "string",
-    "default": "",
     "description": "SASL mechanism to use (e.g., 'GSSAPI' for Kerberos).",
     "enum": [
       "GSSAPI",
       "LOGIN",
       "DIGEST-MD5"
-    ]
+    ],
+    "type": "string",
+    "enum_open": true
   },
   "sasl_realm": {
-    "type": "string",
     "default": "",
-    "description": "SASL realm to use (e.g., 'EXAMPLE.COM')."
+    "description": "SASL realm to use (e.g., 'EXAMPLE.COM').",
+    "type": "string"
+  },
+  "search_scope": {
+    "default": "sub",
+    "description": "LDAP search scope: 'sub' (subtree), 'one' (one level), 'base' (single entry), or 'children' (children of base).",
+    "type": "string",
+    "enum": [
+      "sub",
+      "one",
+      "base",
+      "children"
+    ]
+  },
+  "tls_cipher_list": {
+    "default": "",
+    "description": "Custom cipher list for TLS (system default if empty).",
+    "type": "string"
+  },
+  "uris": {
+    "default": [
+      "ldap://localhost"
+    ],
+    "description": "LDAP server URIs to connect to (support failover via multiple URIs).",
+    "type": "list"
+  },
+  "user_filter": {
+    "default": "(objectClass=posixAccount)",
+    "description": "LDAP filter used to locate user entries during authentication.",
+    "type": "string"
   }
 }

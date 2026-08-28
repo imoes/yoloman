@@ -36,10 +36,17 @@ logger = logging.getLogger(__name__)
 # instead of failing the item — a 503 returns in milliseconds, so the wait, not
 # the request, dominates, and once the model is warm the real completion goes
 # through. A genuine 4xx (bad request/auth) is NOT retried.
-_RETRY_STATUSES = frozenset({502, 503, 504})
+# 429 is the one 4xx that MEANS "retry": OpenRouter serves poolside/laguna-s-2.1 from a shared upstream
+# pool and answers 429 "temporarily rate-limited upstream" under other tenants' load. Failing the item
+# there is wrong for the same reason failing on a 503 is — the model is coming back, and the caller has
+# 200-odd config files to get through.
+_RETRY_STATUSES = frozenset({429, 502, 503, 504})
 _MAX_ATTEMPTS = 8
 _BASE_DELAY = 10.0  # seconds; grows per attempt, capped at _MAX_DELAY
 _MAX_DELAY = 30.0
+# 429 gets its own, longer ceiling: a shared-pool throttle does not clear in 30 s, and hammering it every
+# half minute is how a client earns a longer one.
+_RATE_LIMIT_MAX_DELAY = 120.0
 
 
 class ChatClientError(Exception):
@@ -87,6 +94,7 @@ class ChatClient:
         url = f"{self.base_url}/v1/chat/completions"
         last = "no attempt made"
         for attempt in range(_MAX_ATTEMPTS):
+            rate_limited = False
             try:
                 async with self._client() as client:
                     resp = await client.post(url, json=body)
@@ -101,8 +109,10 @@ class ChatClient:
                 if resp.status_code not in _RETRY_STATUSES:
                     raise ChatClientError(f"{self.base_url}: unexpected status {resp.status_code}: {resp.text[:4096]}")
                 last = f"status {resp.status_code}: {resp.text[:200]}"
+                rate_limited = resp.status_code == 429
             if attempt < _MAX_ATTEMPTS - 1:
-                delay = min(_BASE_DELAY * (attempt + 1), _MAX_DELAY)
+                ceiling = _RATE_LIMIT_MAX_DELAY if rate_limited else _MAX_DELAY
+                delay = min(_BASE_DELAY * (attempt + 1), ceiling)
                 logger.warning(
                     "%s: transient (%s); retry %d/%d in %.0fs",
                     self.base_url, last, attempt + 1, _MAX_ATTEMPTS - 1, delay,
@@ -173,8 +183,24 @@ class ChatClient:
 
         try:
             return json.loads(stripped)
-        except ValueError as exc:
-            raise ChatClientError(f"{self.base_url}: response content is not valid JSON: {exc}") from exc
+        except ValueError:
+            pass
+
+        # THE JSON INSIDE THE PROSE. `response_format: json_schema` is a GRAMMAR on llama.cpp and a request
+        # on OpenRouter — poolside/laguna-s-2.1 sometimes prefixes an explanation or appends a note, and the
+        # whole reply then fails to decode while the object it contains is perfectly good. The caller
+        # retries eight times and gives up on a model that answered correctly. So the outermost {...} or
+        # [...] is extracted and decoded; if THAT fails, the reply really is not JSON.
+        for opener, closer in (("{", "}"), ("[", "]")):
+            start, end = stripped.find(opener), stripped.rfind(closer)
+            if start != -1 and end > start:
+                try:
+                    return json.loads(stripped[start:end + 1])
+                except ValueError:
+                    continue
+        raise ChatClientError(
+            f"{self.base_url}: response content is not valid JSON and contains no JSON object: "
+            f"{stripped[:200]!r}")
 
     async def complete_text(
         self,

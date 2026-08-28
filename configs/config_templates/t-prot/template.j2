@@ -1,0 +1,62 @@
+# Configuration template for t-prot (Mail Integrity Verification Tool)
+# This file is typically sourced by Mutt or NeoMutt to define display filters
+# and macros for TOFU (Trust On First Use) protection.
+
+# -----------------------------------------------------------------------------
+# Display Filter Definition
+# -----------------------------------------------------------------------------
+# Description: The display_filter string used to invoke t-prot with its
+# default options. Set to '' to disable TOFU protection by default.
+# t-prot checks if a message body matches the signature of a previous
+# message from the same sender.
+#
+# Default options explained:
+#   -cmekatlS: Toggles for checking various headers/signatures
+#   --max-lines=250: Max lines to scan for signatures
+#   --bigq: Large quote handling
+#   --pgp-short: Short PGP key IDs
+#   --pgp-move-vrf: Move verified flag
+#   -Mmutt: Mutt-specific output formatting
+#   -L: Footers file path
+#   -A: Ads file path
+# -----------------------------------------------------------------------------
+set display_filter='{{ (tprot_display_filter | default('t-prot -cmekatlS --max-lines=250 --bigq --pgp-short --pgp-move-vrf -Mmutt -L/etc/t-prot/footers -A/etc/t-prot/ads')) }}'
+
+# Note: Setting display_filter to an empty string ('') disables t-prot
+# for all messages.
+
+# -----------------------------------------------------------------------------
+# Macros for toggling TOFU protection
+# -----------------------------------------------------------------------------
+# These macros allow the user to temporarily disable or enable t-prot
+# for the current message using keyboard shortcuts.
+# ESC-0 turns it OFF, ESC-1 turns it ON.
+
+# Generic macro definitions (apply to all modes)
+# -----------------------------------------------------------------------------
+# Macro \e0: Unsets the display_filter, effectively disabling t-prot.
+# Macro \e1: Restores the display_filter to its default value, enabling t-prot.
+# -----------------------------------------------------------------------------
+macro generic \e0 ":unset display_filter\n" "Turn TOFU protection off"
+macro generic \e1 ":set display_filter='{{ (tprot_display_filter | default('t-prot -cmekatlS --max-lines=250 --bigq --pgp-short --pgp-move-vrf -Mmutt -L/etc/t-prot/footers -A/etc/t-prot/ads')) }}'\n" "Turn TOFU protection on"
+
+# -----------------------------------------------------------------------------
+# Pager Mode Macros
+# -----------------------------------------------------------------------------
+# Specific macros for the message pager view.
+# These reset the filter, exit the pager view temporarily to apply changes,
+# and then return to displaying the message.
+# -----------------------------------------------------------------------------
+macro pager \e0 ":unset display_filter; exec exit\n:exec display-message\n" "Turn TOFU protection off"
+macro pager \e1 ":set display_filter='{{ (tprot_display_filter | default('t-prot -cmekatlS --max-lines=250 --bigq --pgp-short --pgp-move-vrf -Mmutt -L/etc/t-prot/footers -A/etc/t-prot/ads')) }}'; exec exit\n:exec display-message\n" "Turn TOFU protection on"
+
+# -----------------------------------------------------------------------------
+# Color Definitions for TOFU Messages
+# -----------------------------------------------------------------------------
+# Visual cues for messages detected as TOFU (first message from a known sender).
+# -----------------------------------------------------------------------------
+# Highlight lines starting with "[---" (likely signature blocks) in bright magenta.
+color body	brightmagenta		default	"^\\\[---.*"
+
+# Highlight lines starting with "#v-" or "#v+" (verified/invalid status lines) in green.
+color body	green			default	"^#v[-+]"

@@ -1,0 +1,171 @@
+# Usepackage Environment Manager
+# Copyright (C) 1995-2020  Jonathan Hogg  <me@jonathanhogg.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#
+# Usepackage Sample Configuration File
+#
+# Format:
+#
+#   	<packagename> [<arch> [<os> [<release> [<host> [<shell>]]]]]
+#           [<= <requires>...] :
+#		<setting>[, <setting>...] ;
+#
+# <packagename>, <arch>, <os>, and <host> may use a restricted shell-style
+# pattern matching ('*' for anything, '<pre>*' for prefix, '{<a>,<b>,...}'
+# for a choice. <setting>s are of the form '<name>=<value>' or '<name>+=<value>',
+# alias <name>=<value> or '<[ ... ]>' - these define, respectively, an
+# environment variable to be set, an element to be added to a path variable,
+# an alias to be defined or a section of script to be evaluated directly in
+# the shell.
+#
+# A <value> is either a path list (colon separated) or a literal string in
+# double quotes. New-lines are ignored in path lists and in literal strings.
+# A path may begin with '~' or '~user' which will be expanded respectively
+# to the home directory of the user invoking usepackage or the specified user.
+# The optional <requires> list is a comma-separated list of package or
+# group names that must be loaded into the environment before this package.
+# Whatever you do, DON'T create a mutually dependant loop!
+#
+# e.g.:
+#
+# 	X : PATH+=/usr/X11/bin, LD_LIBRARY_PATH+=/usr/X11/lib ;
+# 	frib * * * mymachine : PATH+=/special/frib/bin ;
+# 	frib sun4* : PATH+=/usr/local/frib/bin/sun4 ;
+# 	frib alpha : PATH+=/usr/local/frib/bin/alpha ;
+# 	cvs <= gnu : CVSROOT=/usr/local/src/cvsroot ;
+#        frob : <[ /usr/local/frob/bin/frob-init ]> ;
+#
+# NOTE: Sun SPARCs identify themselves as 'sun4m' or 'sun4c' not 'sun4',
+#       so use 'sun4*' to match both.
+#
+# Package matching is done sequentially through the file and _every_ record
+# that matches will be added to the environment. Path additions (+=) are
+# made to the head of a path list and duplicates are removed from the tail.
+# Matches are case insensitive.
+#
+#
+# Groups format:
+#
+# 	<groupname> := <packagename>[, <packagename>...] ;
+#
+# No pattern matching is available for <groupname> or <packagename>. Groups
+# cannot reference other groups, only packages. Names are case insensitive.
+#
+# E.g.:
+#
+# 	standard-user-settings := standard, X, TeX ;
+# 	openwin-user-settings := standard, OpenWin, TeX ;
+#
+#
+# Annotations:
+#
+# 	>> name : "..." <<
+#
+# Annotations are used to document packages. The name and description of
+# each package should be given. These are listed with the '-l' option of
+# usepackage.
+
+# Define defaults for environment path values to ensure predictable rendering.
+# These values override the schema defaults if the user provides them, otherwise
+# they fall back to the values specified in the schema description.
+{% set empty_path = empty_path_value | default('""') %}
+{% set current_dir = current_dir_value | default('.') %}
+{% set system_path = system_path_value | default('/usr/bin:/bin') %}
+{% set system_manpath = system_manpath_value | default('/usr/share/man') %}
+{% set system_infopath = system_infopath_value | default('/usr/share/info') %}
+{% set system_ldlibpath = system_ldlibpath_value | default('/usr/lib:/lib') %}
+{% set system_darwin_dylpath = system_darwin_dylpath_value | default('/usr/lib') %}
+{% set site_path = site_path_value | default('/usr/local/bin') %}
+{% set site_manpath = site_manpath_value | default('/usr/local/share/man') %}
+{% set site_infopath = site_infopath_value | default('/usr/local/share/info') %}
+{% set site_ldlibpath = site_ldlibpath_value | default('/usr/local/lib') %}
+{% set site_darwin_dylpath = site_darwin_dylpath_value | default('/usr/local/lib') %}
+{% set sysadm_path = sysadm_path_value | default('/usr/local/sbin:/usr/sbin:/sbin') %}
+
+### Empty path: ###
+
+>> none : "empty paths" <<
+
+# Define the 'none' package which clears standard environment paths.
+# empty_path_value: The value assigned to empty paths (PATH, MANPATH, etc.) for the 'none' package. Usually an empty string literal.
+none :				PATH = "{{ empty_path }}",
+				MANPATH = "{{ empty_path }}",
+				INFOPATH = "{{ empty_path }}",
+				LD_LIBRARY_PATH = "{{ empty_path }}" ;
+# Darwin-specific empty path for dynamic libraries.
+# system_darwin_dylpath_value: The path added to DYLD_LIBRARY_PATH on Darwin systems for standard system libraries.
+# (Note: For 'none' package, this is also effectively empty/removed, but we use the default variable structure for consistency)
+none * Darwin :			DYLD_LIBRARY_PATH = "{{ empty_path }}" ;
+
+
+### If you absolutely insist on such a security hole: ###
+
+>> dot : "add current directory to end of PATH (possible security hole)" <<
+
+# Define the 'dot' package which adds the current directory to PATH.
+# WARNING: This is a potential security risk as it allows execution of local binaries.
+# current_dir_value: The directory path added to PATH by the 'dot' package. Typically the current directory '.'.
+dot :				PATH += {{ current_dir }} ;
+
+
+### Standard things that everyone should have: ###
+
+>> system : "normal system paths" <<
+
+# Define the 'system' package with standard system-wide environment variables.
+# system_path_value: The colon-separated list of paths added to PATH for standard system binaries.
+# system_manpath_value: The path added to MANPATH for standard system manual pages.
+# system_infopath_value: The path added to INFOPATH for standard system info files.
+# system_ldlibpath_value: The colon-separated list of paths added to LD_LIBRARY_PATH for standard system libraries.
+system :			PATH += {{ system_path }},
+				MANPATH += {{ system_manpath }},
+				INFOPATH += {{ system_infopath }},
+				LD_LIBRARY_PATH += {{ system_ldlibpath }} ;
+# Darwin-specific dynamic library path.
+# system_darwin_dylpath_value: The path added to DYLD_LIBRARY_PATH on Darwin systems for standard system libraries.
+system * Darwin :		DYLD_LIBRARY_PATH += {{ system_darwin_dylpath }} ;
+
+>> site : "site installed commands" <<
+
+# Define the 'site' package with site-local environment variables.
+# site_path_value: The path added to PATH for site-local commands.
+# site_manpath_value: The path added to MANPATH for site-local manual pages.
+# site_infopath_value: The path added to INFOPATH for site-local info files.
+# site_ldlibpath_value: The path added to LD_LIBRARY_PATH for site-local libraries.
+site :				PATH += {{ site_path }},
+				MANPATH += {{ site_manpath }},
+				INFOPATH += {{ site_infopath }},
+				LD_LIBRARY_PATH += {{ site_ldlibpath }} ;
+# Darwin-specific site-local dynamic library path.
+# site_darwin_dylpath_value: The path added to DYLD_LIBRARY_PATH on Darwin systems for site-local libraries.
+site * Darwin :			DYLD_LIBRARY_PATH += {{ site_darwin_dylpath }} ;
+
+# System administration binaries
+
+>> sysadm : "system administration commands" <<
+
+# Define the 'sysadm' package for system administration paths.
+# sysadm_path_value: The colon-separated list of paths added to PATH for system administration binaries.
+sysadm :			PATH += {{ sysadm_path }} ;
+
+### Include user's own packages information: ###
+
+# Note: The original template includes a literal shell include directive.
+# In an Ansible/Jinja context, this is often handled by merging user-specific configs
+# or omitting this line if the role manages the entire file statically.
+# Preserving it as literal text for compatibility with the usepackage parser.
+(include ~/.packages)

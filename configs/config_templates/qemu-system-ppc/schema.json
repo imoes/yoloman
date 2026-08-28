@@ -1,0 +1,180 @@
+{
+  "qname": {
+    "type": "string",
+    "default": "ppc-guest",
+    "description": "Name of the guest, displayed in VNC/SDL windows and used for identification."
+  },
+  "uuid": {
+    "type": "string",
+    "default": "00000000-0000-0000-0000-000000000000",
+    "description": "System UUID for the guest. Must be a valid UUID string."
+  },
+  "machine_type": {
+    "type": "string",
+    "default": "mac99",
+    "description": "The emulated PowerPC machine type. Common options: mac99 (Power Mac G3), prep (PReP), g3beige, ibm_termserver.",
+    "enum": [
+      "mac99",
+      "prep",
+      "g3beige",
+      "ibm_termserver"
+    ],
+    "enum_open": true
+  },
+  "accel": {
+    "type": "string",
+    "default": "tcg",
+    "description": "Acceleration engine to use. Options: kvm (Linux), xen, hvf (macOS), nvmm (NetBSD), whpx (Windows), tcg.",
+    "enum": [
+      "kvm",
+      "xen",
+      "hvf",
+      "nvmm",
+      "whpx",
+      "tcg"
+    ]
+  },
+  "cpu_model": {
+    "type": "string",
+    "default": "G4",
+    "description": "CPU model to emulate. Use '-cpu help' for available models for the selected machine."
+  },
+  "smp_config": {
+    "type": "string",
+    "default": "1,sockets=1,cores=1,threads=1",
+    "description": "SMP configuration string. Format: cpus[,sockets=...][,cores=...][,threads=...]. Product must equal cpus."
+  },
+  "memory": {
+    "type": "string",
+    "default": "512M",
+    "description": "Guest RAM size. Supports suffixes M, G. Example: 1G, 256M."
+  },
+  "disk_image": {
+    "type": "string",
+    "default": "disk.img",
+    "description": "Path to the primary disk image file. If the filename contains commas, they must be doubled in the values."
+  },
+  "cdrom_image": {
+    "type": "string",
+    "default": null,
+    "description": "Path to the CD-ROM image file. If null or empty string, no CD-ROM drive is configured."
+  },
+  "network_backend": {
+    "type": "string",
+    "default": "user",
+    "description": "Network backend type. Supported in template: 'user' (NAT), 'tap' (TAP interface). Others require manual config.",
+    "enum": [
+      "user",
+      "tap",
+      "bridge",
+      "socket",
+      "l2tpv3",
+      "vde",
+      "netmap",
+      "af-xdp",
+      "vhost-user",
+      "hubport"
+    ]
+  },
+  "network_model": {
+    "type": "string",
+    "default": "ne2k_pci",
+    "description": "Network device model to use. Common options: ne2k_pci, rtl8139, virtio-net-pci (if supported by machine).",
+    "enum": [
+      "ne2k_pci",
+      "rtl8139",
+      "virtio-net-pci"
+    ],
+    "enum_open": true
+  },
+  "mac_address": {
+    "type": "string",
+    "default": "52:54:00:12:34:56",
+    "description": "MAC address for the virtual network interface."
+  },
+  "display_type": {
+    "type": "string",
+    "default": "gtk",
+    "description": "Display backend. Options: gtk, sdl, curses, spice-app, vnc, none, cocoa (Mac).",
+    "enum": [
+      "gtk",
+      "sdl",
+      "curses",
+      "spice-app",
+      "vnc",
+      "none",
+      "cocoa",
+      "egl-headless",
+      "dbus"
+    ]
+  },
+  "vnc_display": {
+    "type": "string",
+    "default": ":0",
+    "description": "VNC display number or socket path, used when display_type is 'vnc'. Example: ':0' or 'localhost:5900'."
+  },
+  "spice_port": {
+    "type": "string",
+    "default": "5900",
+    "description": "SPICE port number, used when display_type is 'spice'."
+  },
+  "serial_output": {
+    "type": "string",
+    "default": "vc",
+    "description": "Serial port backend. Options: vc, pty, none, stdio, tcp:..., udp:....",
+    "enum": [
+      "vc",
+      "pty",
+      "none",
+      "stdio",
+      "tcp",
+      "udp",
+      "file",
+      "pipe",
+      "braille",
+      "msmouse",
+      "telnet",
+      "websocket",
+      "unix"
+    ]
+  },
+  "boot_order": {
+    "type": "string",
+    "default": "c",
+    "description": "Boot order string. Drive letters: a (floppy), c (hard disk), d (CD-ROM), n (network).",
+    "enum": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "n"
+    ]
+  },
+  "prom_envs": {
+    "type": "list",
+    "default": [
+      "auto-boot?=true"
+    ],
+    "description": "List of OpenBIOS NVRAM environment variables to set. Format: 'variable=value'. Example: ['auto-boot?=false', 'boot-device=hd:2,\\yaboot']."
+  },
+  "kernel_image": {
+    "type": "string",
+    "default": null,
+    "description": "Path to a kernel image (bzImage, zImage) for direct boot. If null, BIOS bootloader is used."
+  },
+  "initrd_image": {
+    "type": "string",
+    "default": null,
+    "description": "Path to an initial ramdisk image (initrd). Used with -kernel."
+  },
+  "kernel_cmdline": {
+    "type": "string",
+    "default": "",
+    "description": "Kernel command line arguments. Used with -kernel."
+  },
+  "extra_args": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional command-line arguments not covered by other variables. Example: ['-no-reboot', '-S']."
+  }
+}

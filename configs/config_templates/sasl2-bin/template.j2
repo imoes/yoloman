@@ -1,0 +1,81 @@
+# ==============================================================================
+# saslauthd Configuration Template
+# ==============================================================================
+# This file configures the Simple Authentication and Security Layer (SASL)
+# authentication daemon (saslauthd). It is typically used by services like
+# Postfix, Dovecot, or Apache to authenticate users against PAM, LDAP, Kerberos, etc.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Instance Description
+# --------------------------------------------------------------------------
+# Description of this saslauthd instance.
+# Recommended value: "SASL Authentication Daemon"
+# Used by init scripts for logging and process identification.
+DESC="{{ saslauthd_desc | default('SASL Authentication Daemon') }}"
+
+# --------------------------------------------------------------------------
+# Instance Name
+# --------------------------------------------------------------------------
+# Short name of this saslauthd instance.
+# Strongly recommended. Used to distinguish between multiple instances if running.
+# Must correspond to the symlink in /etc/default/ or the instance directory.
+NAME="{{ saslauthd_name | default('saslauthd') }}"
+
+# --------------------------------------------------------------------------
+# Authentication Mechanism
+# --------------------------------------------------------------------------
+# Which authentication mechanisms should saslauthd use?
+# Only one option may be used at a time.
+#
+# Available mechanisms:
+#   getpwent  -- use the getpwent() library function (local users)
+#   kerberos5 -- use Kerberos 5 authentication
+#   pam       -- use Linux PAM (Pluggable Authentication Modules)
+#   rimap     -- use a remote IMAP server for authentication
+#   shadow    -- use the local shadow password file
+#   sasldb    -- use the local sasldb database file
+#   ldap      -- use LDAP (requires additional configuration in /etc/saslauthd.conf)
+#
+# Default: pam
+MECHANISMS="{{ saslauthd_mechanisms | default('pam') }}"
+
+# --------------------------------------------------------------------------
+# Mechanism-Specific Options
+# --------------------------------------------------------------------------
+# Additional options for the selected mechanism.
+# These options are passed directly to the authentication module.
+# See the saslauthd(8) man page for mechanism-specific syntax.
+# Default: empty string (no extra options)
+MECH_OPTIONS="{{ saslauthd_mech_options | default('') }}"
+
+# --------------------------------------------------------------------------
+# Number of Processes/Threads
+# --------------------------------------------------------------------------
+# How many saslauthd processes should we run?
+# A value of 0 will fork a new process for each connection (stateless).
+# Higher values improve concurrency but consume more resources.
+# Default: 5
+THREADS="{{ saslauthd_threads | default(5) }}"
+
+# --------------------------------------------------------------------------
+# Other Daemon Options
+# --------------------------------------------------------------------------
+# Other options passed to saslauthd.
+# CRITICAL: You MUST specify the -m option (directory for the socket)
+# or saslauthd won't run!
+#
+# WARNING: DO NOT SPECIFY THE -d OPTION in this file.
+# The -d option causes saslauthd to run in the foreground, which will
+# PREVENT YOUR SYSTEM FROM BOOTING PROPERLY if enabled as a service.
+#
+# Common examples:
+#   Standard:  "-c -m /var/run/saslauthd"
+#   Chroot:    "-c -m /var/spool/postfix/var/run/saslauthd"
+#
+# To check if your service (e.g. Postfix) is chrooted, inspect /etc/postfix/master.cf.
+# If 'smtp inet n - y - - smtpd' exists, it's chrooted.
+# If 'smtp inet n - n - - smtpd' exists, it's NOT chrooted.
+#
+# Default: "-c -m /var/run/saslauthd"
+OPTIONS="{{ saslauthd_options | default('-c -m /var/run/saslauthd') }}"

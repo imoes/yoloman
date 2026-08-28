@@ -1,0 +1,88 @@
+# ==============================================================================
+# prometheus-hacluster-exporter Configuration Template
+# ==============================================================================
+# This configuration file defines the runtime behavior of the HA Cluster Exporter,
+# a Prometheus exporter that scrapes high-availability cluster state (Corosync/Pacemaker)
+# and exposes metrics for monitoring.
+#
+# All fields below are populated from Ansible variables. Each variable uses the
+# `default()` filter to ensure the template renders correctly even if the variable
+# is not explicitly defined in the playbook or inventory.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Web Interface & Metrics Exposure
+# ------------------------------------------------------------------------------
+
+# The address and port the exporter listens on for HTTP connections.
+# Default: 0.0.0.0:9664 (all interfaces, standard exporter port)
+web:
+  # The address and port the exporter listens on.
+  # Format: host:port
+  listen-address: "{{ listen_address | default('0.0.0.0:9664') }}"
+
+  # The HTTP path where Prometheus metrics are served.
+  # Default: /metrics
+  telemetry-path: "{{ telemetry_path | default('/metrics') }}"
+
+  # Additional configuration file for the web exporter.
+  # Default: /etc/ha_cluster_exporter.web.yaml
+  # This allows overriding specific web-related settings externally if needed.
+  config:
+    file: "{{ config_file_path | default('/etc/ha_cluster_exporter.web.yaml') }}"
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+log:
+  # Minimum log level to output.
+  # Options typically include: debug, info, warn, error, fatal.
+  # Default: info
+  level: "{{ log_level | default('info') }}"
+
+  # Format of the log output.
+  # Options: logfmt (key=value), json (structured JSON).
+  # Default: logfmt
+  format: "{{ log_format | default('logfmt') }}"
+
+# ------------------------------------------------------------------------------
+# Binary Paths for HA Stack Components
+# ------------------------------------------------------------------------------
+# The exporter relies on specific system binaries to query the state of
+# the high-availability cluster (Pacemaker/Corosync/SBD/DRBD).
+# These paths must be correct for the underlying OS/distribution.
+
+# Path to the crm_mon binary.
+# Used to query cluster status and resource state.
+# Default: /usr/sbin/crm_mon
+crm-mon-path: "{{ crm_mon_path | default('/usr/sbin/crm_mon') }}"
+
+# Path to the cibadmin binary.
+# Used to read/modify the Cluster Information Base (CIB).
+# Default: /usr/sbin/cibadmin
+cibadmin-path: "{{ cibadmin_path | default('/usr/sbin/cibadmin') }}"
+
+# Path to the corosync-cfgtool binary.
+# Used to query Corosync cluster ring status and configuration.
+# Default: /usr/sbin/corosync-cfgtool
+corosync-cfgtoolpath-path: "{{ corosync_cfgtool_path | default('/usr/sbin/corosync-cfgtool') }}"
+
+# Path to the corosync-quorumtool binary.
+# Used to check the quorum status of the Corosync cluster.
+# Default: /usr/sbin/corosync-quorumtool
+corosync-quorumtool-path: "{{ corosync_quorumtool_path | default('/usr/sbin/corosync-quorumtool') }}"
+
+# Path to the sbd (Stonith Daemon) binary.
+# Used to query fencing/stonith configuration and status.
+# Default: /usr/sbin/sbd
+sbd-path: "{{ sbd_path | default('/usr/sbin/sbd') }}"
+
+# Path to the SBD configuration file.
+# Default: /etc/default/sbd
+sbd-config-path: "{{ sbd_config_path | default('/etc/default/sbd') }}"
+
+# Path to the drbdsetup binary.
+# Used to query Distributed Replicated Block Device status.
+# Default: /sbin/drbdsetup
+drbdsetup-path: "{{ drbdsetup_path | default('/sbin/drbdsetup') }}"

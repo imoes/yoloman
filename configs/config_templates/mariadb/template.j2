@@ -1,302 +1,117 @@
-#!/bin/bash
 #
-### BEGIN INIT INFO
-# Provides:          mariadb
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Should-Start:      $network $named $time
-# Should-Stop:       $network $named $time
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start and stop the MariaDB database server daemon
-# Description:       Controls the main MariaDB database server daemon "mariadbd"
-#                    and its wrapper script "mariadbd-safe".
-### END INIT INFO
-#
-set -e
-set -u
-${DEBIAN_SCRIPT_DEBUG:+ set -v -x}
+# These groups are read by MariaDB server.
+# Use it for options that only the server (but not clients) should see
 
-test -x /usr/sbin/mariadbd || exit 0
+# this is read by the standalone daemon and embedded servers
+[server]
 
-# shellcheck source=/dev/null
-. /usr/lib/lsb/init-functions
-
-SELF="$(cd "$(dirname "$0")"; pwd -P)/$(basename "$0")"
-
-if [ -f /usr/bin/mariadb-admin ]
-then
-  MYADMIN="/usr/bin/mariadb-admin --defaults-file=/etc/mysql/debian.cnf"
-elif [ -f /usr/bin/mysqladmin ]
-then
-  MYADMIN="/usr/bin/mysqladmin --defaults-file=/etc/mysql/debian.cnf"
-else
-  log_failure_msg "Command mariadb-admin/mysqladmin not found! This SysV init script depends on it."
-  exit 1
-fi
-
-if [ ! -x /usr/bin/mariadbd-safe ]
-then
-  log_failure_msg "/usr/bin/mariadbd-safe not found or executable! This SysV init script depends on it."
-  exit 1
-fi
-
-# priority can be overridden and "-s" adds output to stderr
-ERR_LOGGER="logger -p daemon.err -t /etc/init.d/mariadb -i"
-
-if [ -f /etc/default/mysql ]
-then
-  # shellcheck source=/dev/null
-  . /etc/default/mysql
-fi
-
-# Also source default/mariadb in case the installation was upgraded from
-# packages originally installed from MariaDB.org repositories, which have
-# had support for reading /etc/default/mariadb since March 2016.
-if [ -f /etc/default/mariadb ]
-then
-  # shellcheck source=/dev/null
-  . /etc/default/mariadb
-fi
-
-# Safeguard (relative paths, core dumps..)
-cd /
-umask 077
-
-# mysqladmin likes to read /root/.my.cnf. This is usually not what I want
-# as many admins e.g. only store a password without a username there and
-# so break my scripts.
-export HOME=/etc/mysql/
-
-## Fetch a particular option from mysql's invocation.
-#
-# Usage: void mariadbd_get_param option
-mariadbd_get_param() {
-  /usr/sbin/mariadbd --print-defaults \
-    | tr " " "\n" \
-    | grep -- "--$1" \
-    | tail -n 1 \
-    | cut -d= -f2
-}
-
-## Do some sanity checks before even trying to start mariadbd.
-sanity_checks() {
-  # check for config file
-  if [ ! -r /etc/mysql/my.cnf ]
-  then
-    log_warning_msg "$0: WARNING: /etc/mysql/my.cnf cannot be read. See README.Debian.gz"
-    echo                "WARNING: /etc/mysql/my.cnf cannot be read. See README.Debian.gz" | $ERR_LOGGER
-  fi
-
-  # check for diskspace shortage
-  datadir="$(mariadbd_get_param datadir)"
-
-  # If datadir location is not customized in configuration
-  # then it's not printed with /usr/sbin/mariadbd --print-defaults
-  # and this should fall back to a sane default value
-  if [ -z "$datadir" ]
-  then
-    # datadir: Directory where database files are stored.
-    datadir="{{ datadir | default('/var/lib/mysql') }}"
-  fi
-
-  # Verify the datadir location exists
-  if [ ! -d "$datadir" ] && [ ! -L "$datadir" ]
-  then
-    log_failure_msg "$0: ERROR: Can't locate MariaDB data location at $datadir"
-    echo                "ERROR: Can't locate MariaDB data location at $datadir" | $ERR_LOGGER
-    exit 1
-  fi
-
-  # As preset blocksize of GNU df is 1024 then available bytes is $df_available_blocks * 1024
-  # 4096 blocks is then lower than 4 MB
-  df_available_blocks="$(LC_ALL=C BLOCKSIZE='' df --output=avail "$datadir" | tail -n 1)"
-  if [ "$df_available_blocks" -lt "4096" ]
-  then
-    log_failure_msg "$0: ERROR: The partition with $datadir is too full!"
-    echo                "ERROR: The partition with $datadir is too full!" | $ERR_LOGGER
-    exit 1
-  fi
-}
-
-## Checks if there is a server running and if so if it is accessible.
-#
-# check_alive insists on a pingable server
-# check_dead also fails if there is a lost mariadbd in the process list
-#
-# Usage: boolean mariadbd_status [check_alive|check_dead] [warn|nowarn]
-mariadbd_status () {
-  ping_output="$( $MYADMIN ping 2>&1)"
-  # The whole mariadbd_status function should be rewritten in clean shell script,
-  # so ignore minor Shellcheck nag for now as fixing it would be half of the
-  # rewrite
-  # shellcheck disable=SC2181
-  ping_alive="$(( ! $? ))"
-
-  ps_alive=0
-  pidfile="$(mariadbd_get_param pid-file)"
-  if [ -f "$pidfile" ] && ps "$(cat "$pidfile")" >/dev/null 2>&1
-  then
-    ps_alive=1
-  fi
-
-  # Using '-a' is unstandard, but it works and might be needed for the grouping
-  # of the if-else, so keep it and just ignore in Shellcheck
-  # shellcheck disable=SC2166
-  if [ "$1" = "check_alive"  -a  $ping_alive = 1 ] ||
-     [ "$1" = "check_dead"   -a  $ping_alive = 0  -a  $ps_alive = 0 ]
-  then
-    return 0 # EXIT_SUCCESS
-  else
-    if [ "$2" = "warn" ]
-    then
-      echo -e "$ps_alive processes alive and '$MYADMIN ping' resulted in
-$ping_output
-" | $ERR_LOGGER -p daemon.debug
-    fi
-  return 1 # EXIT_FAILURE
-  fi
-}
+# this is only for the mariadbd daemon
+[mariadbd]
 
 #
-# main()
+# * Basic Settings
 #
 
-case "${1:-''}" in
+#user                    = mysql
+pid-file                = /run/mysqld/mysqld.pid
+basedir                 = /usr
+datadir                 = {{ datadir }}
+#tmpdir                  = /tmp
 
-  'start')
-  sanity_checks;
-  # Start daemon
-  log_daemon_msg "Starting MariaDB database server" "mariadbd"
-  if mariadbd_status check_alive nowarn
-  then
-   log_progress_msg "already running"
-   log_end_msg 0
-  else
-    # Could be removed during boot
-    test -e /run/mysqld || install -m 755 -o mysql -g root -d /run/mysqld
+# Broken reverse DNS slows down connections considerably and name resolve is
+# safe to skip if there are no "host by domain name" access grants
+#skip-name-resolve
 
-    # Start MariaDB!
-    /usr/bin/mariadbd-safe "${@:2}" 2>&1 >/dev/null | $ERR_LOGGER &
+# Instead of skip-networking the default is now to listen only on
+# localhost which is more compatible and is not less secure.
+bind-address            = 127.0.0.1
 
-    # startup_timeout: Maximum number of seconds to wait for the MariaDB server to start up during the 'start' operation.
-    for _ in $(seq 1 "${MYSQLD_STARTUP_TIMEOUT:-{{ startup_timeout | default(30) }}}")
-    do
-      sleep 1
-      if mariadbd_status check_alive nowarn
-      then
-        break
-      fi
-      log_progress_msg "."
-    done
-    if mariadbd_status check_alive warn
-    then
-      log_end_msg 0
-      # Now start mysqlcheck or whatever the admin wants.
-      output=$(/etc/mysql/debian-start)
-      if [ -n "$output" ]
-      then
-        log_action_msg "$output"
-      fi
-    else
-      # Try one more time but save error log separately, then spit it out
-      # before logging ends and init script execution ends.
-      if pgrep -ax mariadbd > /dev/null
-      then
-        echo "ERROR: The mariadbd process is running but not responding:"
-        # shellcheck disable=SC2009
-        # Show the mariadbd process and it's parent and next line (if there is a child process)
-        ps faxu | grep mariadbd -C 1
-      else
-        ERROR_LOG_FILE="$(mktemp).err"
-        echo # ensure newline
-        timeout --kill-after=20 10 /usr/bin/mariadbd-safe "${@:2}" --log-error="$ERROR_LOG_FILE"
-        echo "Running '/etc/init.d/mariadb start' failed with error log:"
-        cat "$ERROR_LOG_FILE"
-      fi
+#
+# * Fine Tuning
+#
 
-      log_end_msg 1
-      log_failure_msg "Please take a look at the syslog"
-    fi
-  fi
-  ;;
+#key_buffer_size        = 128M
+#max_allowed_packet     = 1G
+#thread_stack           = 192K
+#thread_cache_size      = 8
+# This replaces the startup script and checks MyISAM tables if needed
+# the first time they are touched
+#myisam_recover_options = BACKUP
+#max_connections        = 100
+#table_cache            = 64
 
-  'stop')
-  # * As a passwordless mysqladmin (e.g. via ~/.my.cnf) must be possible
-  # at least for cron, we can rely on it here, too. (although we have
-  # to specify it explicit as e.g. sudo environments points to the normal
-  # users home and not /root)
-  log_daemon_msg "Stopping MariaDB database server" "mariadbd"
-  if ! mariadbd_status check_dead nowarn
-  then
-    set +e
-    shutdown_out="$( $MYADMIN shutdown 2>&1)"
-    r=$?
-    set -e
-    if [ "$r" -ne 0 ]
-    then
-      log_end_msg 1
-      [ "$VERBOSE" != "no" ] && log_failure_msg "Error: $shutdown_out"
-      log_daemon_msg "Killing MariaDB database server by signal" "mariadbd"
-      killall -15 mariadbd || killall -15 mysqld
-      server_down=
-      for _ in {1..600}
-      do
-        sleep 1
-        if mariadbd_status check_dead nowarn
-        then
-          server_down=1
-          break
-        fi
-      done
-      if test -z "$server_down"
-      then
-        killall -9 mariadbd || killall -9 mysqld
-      fi
-    fi
-  fi
+#
+# * Logging and Replication
+#
 
-  if ! mariadbd_status check_dead warn
-  then
-    log_end_msg 1
-    log_failure_msg "Please stop MariaDB manually and read /usr/share/doc/mariadb-server/README.Debian.gz!"
-    exit 1
-  else
-    log_end_msg 0
-  fi
-  ;;
+# Note: The configured log file or its directory need to be created
+# and be writable by the mysql user, e.g.:
+# $ sudo mkdir -m 2750 /var/log/mysql
+# $ sudo chown mysql /var/log/mysql
 
-  'restart')
-  set +e; $SELF stop; set -e
-  shift
-  $SELF start "${@}"
-  ;;
+# Both location gets rotated by the cronjob.
+# Be aware that this log type is a performance killer.
+# Recommend only changing this at runtime for short testing periods if needed!
+#general_log_file       = /var/log/mysql/mysql.log
+#general_log            = 1
 
-  'reload'|'force-reload')
-  log_daemon_msg "Reloading MariaDB database server" "mariadbd"
-  $MYADMIN reload
-  log_end_msg 0
-  ;;
+# When running under systemd, error logging goes via stdout/stderr to journald
+# and when running legacy init error logging goes to syslog due to
+# /etc/mysql/conf.d/mariadb.conf.d/50-mysqld_safe.cnf
+# Enable this if you want to have error logging into a separate file
+#log_error = /var/log/mysql/error.log
+# Enable the slow query log to see queries with especially long duration
+#log_slow_query_file    = /var/log/mysql/mariadb-slow.log
+#log_slow_query_time    = 10
+#log_slow_verbosity     = query_plan,explain
+#log-queries-not-using-indexes
+#log_slow_min_examined_row_limit = 1000
 
-  'status')
-  if mariadbd_status check_alive nowarn
-  then
-    log_action_msg "$( $MYADMIN version)"
-  else
-    log_action_msg "MariaDB is stopped."
-    exit 3
-  fi
-  ;;
+# The following can be used as easy to replay backup logs or for replication.
+# note: if you are setting up a replica, see README.Debian about other
+#       settings you may need to change.
+#server-id              = 1
+#log_bin                = /var/log/mysql/mysql-bin.log
+expire_logs_days        = 10
+#max_binlog_size        = 100M
 
-  'bootstrap')
-  # Bootstrap the cluster, start the first node
-  # that initiates the cluster
-  log_daemon_msg "Bootstrapping the cluster" "mariadbd"
-  $SELF start "${@:2}" --wsrep-new-cluster
-  ;;
+#
+# * SSL/TLS
+#
 
-  *)
-  echo "Usage: $SELF start|stop|restart|reload|force-reload|status"
-  exit 1
-  ;;
-esac
+# For documentation, please read
+# https://mariadb.com/kb/en/securing-connections-for-client-and-server/
+#ssl-ca = /etc/mysql/cacert.pem
+#ssl-cert = /etc/mysql/server-cert.pem
+#ssl-key = /etc/mysql/server-key.pem
+#require-secure-transport = on
+
+#
+# * Character sets
+#
+
+# MariaDB default is now utf8 4-byte character set.
+# No Debian specific default is required.
+
+#
+# * InnoDB
+#
+
+# InnoDB is enabled by default with a 10MB datafile in /var/lib/mysql/.
+# Read the manual for more InnoDB related options. There are many!
+# Most important is to give InnoDB 80 % of the system RAM for buffer use:
+# https://mariadb.com/kb/en/innodb-system-variables/#innodb_buffer_pool_size
+#innodb_buffer_pool_size = 8G
+
+# this is only for embedded server
+[embedded]
+
+# This group is only read by MariaDB servers, not by MySQL.
+# If you use the same .cnf file for MySQL and MariaDB,
+# you can put MariaDB-only options here
+[mariadbd]
+
+# This group is only read by MariaDB-11.8 servers.
+# If you use the same .cnf file for MariaDB of different versions,
+# use this group for options that older servers don't understand
+[mariadb-11.8]

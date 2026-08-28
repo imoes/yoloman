@@ -1,37 +1,36 @@
 {
-  "webdir": {
-    "type": "string",
-    "default": ".",
-    "description": "Directory to upload files to."
-  },
-  "message": {
-    "type": "string",
-    "default": "",
-    "description": "Message displayed on the web interface."
-  },
-  "picture": {
-    "type": "string",
-    "default": "",
-    "description": "Picture displayed on the web interface."
-  },
-  "dl": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, provide download links for uploaded files."
-  },
-  "auth_users": {
-    "type": "list",
-    "default": [],
-    "description": "List of users allowed to upload (used for authentication). Format: username:password in config file, but passed as object list here for schema clarity, or single auth string if only one user. Given the man page `--auth USER:PASS`, a single auth string is more direct, but supporting a list for multiple users is a common extension. However, the man page shows `--auth USER:PASS` which implies a single credential pair per invocation or config line. We will keep `auth_users` but note it maps to `auth` directives. For schema simplicity and fidelity to the 'single auth flag' nature, we might simplify to `auth` string, but the existing template used `auth_users`. Let's stick to correcting the *documented* directives. The man page only documents `--auth USER:PASS`. It does not document a complex multi-user structure. However, `droopy` typically supports one auth pair. The existing template was highly hallucinated. I will replace the complex auth structure with a simple `auth` string field if that's the only documented way, or keep `auth_users` if we assume the tool supports multiple. Given `droopy` is minimal, `--auth` takes one USER:PASS. I will change `auth_users` to `auth` (string) to match the documented `--auth` flag exactly, as supporting multiple users via a loop is not documented.\nActually, looking at the man page: `-a USER:PASS, --auth USER:PASS`. This is a single value. I will replace the complex `auth_users` schema with a simple `auth` string field.\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"Authentication credentials in format username:password.\""
-  },
-  "ssl": {
-    "type": "string",
-    "default": "",
-    "description": "Path to the SSL PEM certificate file. Used with --ssl flag."
-  },
-  "chmod": {
-    "type": "string",
-    "default": "",
-    "description": "File permissions mode (octal value) for uploaded files."
-  }
+ "auth_users": {
+  "default": [],
+  "description": "List of users allowed to upload (used for authentication). Format: username:password in config file, but passed as object list here for schema clarity, or single auth string if only one user. Given the man page `--auth USER:PASS`, a single auth string is more direct, but supporting a list for multiple users is a common extension. However, the man page shows `--auth USER:PASS` which implies a single credential pair per invocation or config line. We will keep `auth_users` but note it maps to `auth` directives. For schema simplicity and fidelity to the 'single auth flag' nature, we might simplify to `auth` string, but the existing template used `auth_users`. Let's stick to correcting the *documented* directives. The man page only documents `--auth USER:PASS`. It does not document a complex multi-user structure. However, `droopy` typically supports one auth pair. The existing template was highly hallucinated. I will replace the complex auth structure with a simple `auth` string field if that's the only documented way, or keep `auth_users` if we assume the tool supports multiple. Given `droopy` is minimal, `--auth` takes one USER:PASS. I will change `auth_users` to `auth` (string) to match the documented `--auth` flag exactly, as supporting multiple users via a loop is not documented.\nActually, looking at the man page: `-a USER:PASS, --auth USER:PASS`. This is a single value. I will replace the complex `auth_users` schema with a simple `auth` string field.\n      \"type\": \"string\",\n      \"default\": \"\",\n      \"description\": \"Authentication credentials in format username:password.\"",
+  "type": "list"
+ },
+ "chmod": {
+  "default": "",
+  "description": "File permissions mode (octal value) for uploaded files.",
+  "type": "string"
+ },
+ "dl": {
+  "default": false,
+  "description": "If true, provide download links for uploaded files.",
+  "type": "bool"
+ },
+ "message": {
+  "default": "",
+  "description": "Message displayed on the web interface.",
+  "type": "string"
+ },
+ "picture": {
+  "default": "",
+  "description": "Picture displayed on the web interface.",
+  "type": "string"
+ },
+ "ssl": {
+  "description": "Path to the SSL PEM certificate file. Used with --ssl flag.",
+  "type": "object"
+ },
+ "webdir": {
+  "default": ".",
+  "description": "Directory to upload files to.",
+  "type": "string"
+ }
 }

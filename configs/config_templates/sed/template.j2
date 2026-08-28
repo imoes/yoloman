@@ -1,0 +1,111 @@
+{#
+  sed_execution.sh.j2
+  ====================
+  Generates a shell script wrapper for executing GNU sed with specified parameters.
+  This template is self-documenting: every variable usage is annotated with its schema
+  description and a safe default value.
+
+  Schema fields:
+    - sed_version       : The version of GNU sed to target for the script generation. (default: '4.9')
+    - sed_commands      : A list of sed commands to execute. (default: [])
+    - input_file        : The input file path for sed. Defaults to stdin if empty. (default: '/dev/stdin')
+    - output_file       : The output file path for sed. If empty, output goes to stdout. (default: '')
+    - quiet             : If true, adds the -n flag to suppress automatic printing. (default: False)
+    - extended_regex    : If true, adds the -E flag to use extended regular expressions. (default: False)
+    - in_place          : If true, adds the -i flag to edit files in place. (default: False)
+    - line_length       : The desired line-wrap length for the 'l' command. Maps to -l N. (default: 70)
+#}
+#!/bin/bash
+set -euo pipefail
+
+# Sed version identifier for logging or version control purposes
+# Schema: sed_version - The version of GNU sed to target for the script generation.
+SED_VERSION={{ sed_version | default('4.9') }}
+
+# The sed script expression.
+# Schema: sed_commands - A list of sed commands to execute. Each item is a string
+#         representing one or more sed commands (e.g., 's/old/new/g', '/pattern/d').
+#         These commands are joined with semicolons to form a single expression.
+#         Note: Using semicolons allows multiple commands in a single -e argument.
+SED_SCRIPT="{{ sed_commands | default([]) | join('; ') }}"
+
+# Input file to process
+# Schema: input_file - The input file path for sed. Defaults to stdin if empty.
+INPUT_FILE="{{ input_file | default('/dev/stdin') }}"
+
+# Output file destination (empty means stdout)
+# Schema: output_file - The output file path for sed. If empty, output goes to stdout.
+OUTPUT_FILE="{{ output_file | default('') }}"
+
+# Flags for sed execution
+# -n: Suppress automatic printing of pattern space
+# Schema: quiet - If true, adds the -n flag to suppress automatic printing of the pattern space.
+QUIET={{ quiet | default(false) | lower }}
+
+# -E: Use extended regular expressions
+# Schema: extended_regex - If true, adds the -E flag to use extended regular expressions.
+EXTENDED_REGEX={{ extended_regex | default(false) | lower }}
+
+# -i: Edit files in place (optional backup suffix)
+# Schema: in_place - If true, adds the -i flag to edit files in place.
+IN_PLACE={{ in_place | default(false) | lower }}
+
+# -l: Specify line length for 'l' command
+# Schema: line_length - The desired line-wrap length for the 'l' command. Maps to -l N.
+LINE_LENGTH={{ line_length | default(70) }}
+
+# Generate the actual command to be executed
+# We construct the command string step-by-step to handle flags safely.
+COMMAND="sed"
+
+{# Add -n flag if quiet is true #}
+{% if quiet | default(false) | bool %}
+COMMAND="${COMMAND} -n"
+{% endif %}
+
+{# Add -E flag if extended regex is enabled #}
+{% if extended_regex | default(false) | bool %}
+COMMAND="${COMMAND} -E"
+{% endif %}
+
+{# Add -i flag if in-place editing is enabled #}
+{% if in_place | default(false) | bool %}
+COMMAND="${COMMAND} -i"
+{% endif %}
+
+{# Add -l flag if line length is not the default #}
+{% if line_length | default(70) != 70 %}
+COMMAND="${COMMAND} -l {{ line_length | default(70) }}"
+{% endif %}
+
+{# Append the script expression as an -e argument. #}
+{# Using -e allows us to pass the commands directly. #}
+{% if sed_commands | default([]) | length > 0 %}
+COMMAND="${COMMAND} -e '{{ sed_commands | default([]) | join('; ') }}'"
+{% endif %}
+
+{# Handle input/output redirection. #}
+{# If output_file is provided, redirect stdout to it. #}
+{# If input_file is not stdin, specify it as an argument. #}
+{% if output_file | default('') != '' %}
+{# If input is stdin, we might need to handle it differently, but typically #}
+{# sed takes file arguments. If input_file is /dev/stdin, it can be omitted #}
+{# or passed explicitly. We pass it if it's not stdin to be explicit. #}
+{% if input_file | default('/dev/stdin') != '/dev/stdin' %}
+COMMAND="${COMMAND} {{ input_file | default('/dev/stdin') }} > {{ output_file | default('') }}"
+{% else %}
+COMMAND="${COMMAND} > {{ output_file | default('') }}"
+{% endif %}
+{% elif input_file | default('/dev/stdin') != '/dev/stdin' %}
+COMMAND="${COMMAND} {{ input_file | default('/dev/stdin') }}"
+{% else %}
+COMMAND="${COMMAND}"
+{% endif %}
+
+# Display the constructed command and script content for debugging/logging
+echo "Executing: ${COMMAND}"
+echo "Script content: ${SED_SCRIPT}"
+
+# To actually run it, you would use: eval "${COMMAND}" <<< "${SED_SCRIPT}" or similar
+# However, since sed scripts are usually passed as arguments or files, this template
+# serves to generate the invocation context.

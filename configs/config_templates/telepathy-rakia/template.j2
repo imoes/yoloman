@@ -1,0 +1,46 @@
+# ==============================================================================
+# telepathy-rakia Environment Configuration Template
+# ==============================================================================
+# This template generates environment variables required by telepathy-rakia.
+# telepathy-rakia is a SIP telepathy bridge that consumes these variables
+# from its execution environment (e.g., systemd EnvironmentFile, shell profile).
+#
+# Self-documenting: every variable emitted here is preceded by a comment
+# explaining its purpose and corresponding environment variable name.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Debugging and Logging Controls
+# ------------------------------------------------------------------------------
+
+# Enable full debug output.
+# Description: Enable full debug output when set to true. Corresponds to setting RAKIA_DEBUG=all.
+# Behavior: If enabled, sets RAKIA_DEBUG to "all".
+{% if rakia_debug | default(false) %}
+export RAKIA_DEBUG=all
+{% endif %}
+
+# Specify a log file for messages.
+# Description: Filename to overwrite with log messages. Can be prefixed with '+' to append. Corresponds to RAKIA_LOGFILE.
+# Behavior: If specified, sets RAKIA_LOGFILE to the given filename.
+{% if rakia_logfile | default('') %}
+export RAKIA_LOGFILE={{ rakia_logfile | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Runtime Behavior Controls
+# ------------------------------------------------------------------------------
+
+# Prevent automatic exit when no connections are active.
+# Description: If true, sets RAKIA_PERSIST to prevent telepathy-rakia from exiting when idle.
+# Behavior: If enabled, sets RAKIA_PERSIST to "1" to keep the process alive.
+{% if rakia_persist | default(false) %}
+export RAKIA_PERSIST=1
+{% endif %}
+
+# Print all parsed SIP messages at the transport layer.
+# Description: If true, sets TPORT_LOG to print all parsed SIP messages at the transport layer.
+# Behavior: If enabled, sets TPORT_LOG to "1" for low-level SIP debugging via Sofia-SIP.
+{% if tport_log | default(false) %}
+export TPORT_LOG=1
+{% endif %}

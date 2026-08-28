@@ -1,0 +1,68 @@
+# ==============================================================================
+# hwloc Configuration: CLI Defaults Environment Overrides
+# ==============================================================================
+#
+# hwloc (Hardware Locality) is primarily a library and command-line utility
+# set for detecting and displaying the topology of modern parallel machines.
+# It does not run as a persistent daemon.
+#
+# This configuration file generates a shell script (typically sourced by user
+# profiles or login scripts) that sets environment variables. These variables
+# act as global defaults for hwloc command-line tools (such as `hwloc-info`,
+# `hwloc-calc`, `hwloc-bind`, etc.), overriding their built-in defaults.
+#
+# To apply these settings, source this file in your shell:
+#   source /etc/hwloc/hwloc.conf
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Default Index Mode
+# ------------------------------------------------------------------------------
+# Description: Sets the default index mode for hwloc command-line tools.
+#
+# Values:
+#   - logical : Uses indices relative to the topology tree output.
+#              This is usually what you want for human-readable output.
+#   - physical: Uses indices assigned by the OS (e.g., CPU numbers).
+#
+# Reference: hwloc(7) "hwloc Indexes" section.
+# Default: logical
+export HWLOC_INDEX_MODE="{{ (values | default({})).index_mode | default('logical') }}"
+
+# ------------------------------------------------------------------------------
+# Default Verbosity Level
+# ------------------------------------------------------------------------------
+# Description: Sets the default verbosity level for hwloc tools.
+#
+# Values:
+#   - 0 : Quiet mode. Suppresses most output.
+#   - 1 : Default. Standard informational output.
+#   - 2 : Verbose. Detailed output including internal steps or extra details.
+#
+# Note: Different hwloc binaries may interpret this slightly differently.
+# Default: 1
+export HWLOC_VERBOSE="{{ (values | default({})).verbose | default(1) }}"
+
+# ------------------------------------------------------------------------------
+# Default Topology Filter
+# ------------------------------------------------------------------------------
+# Description: A hwloc location specification string to act as a default
+#              filter for tools that support it (e.g., hwloc-calc, hwloc-bind).
+#
+# Values: A valid hwloc location string.
+#   Examples:
+#     - "package:0"       : Only package 0
+#     - "NUMA:0"          : Only NUMA node 0
+#     - "Pu:0"            : Only physical unit 0
+#     - ""                : No filter applied (default behavior)
+#
+# Reference: hwloc(7) "Location Specification" section.
+# If this value is empty, the variable is set to an empty string to ensure
+# tools do not inherit unexpected filters from the environment.
+{% set _filter = (values | default({})).default_filter | default('') | trim %}
+{% if _filter != '' %}
+export HWLOC_DEFAULT_FILTER="{{ _filter }}"
+{% else %}
+export HWLOC_DEFAULT_FILTER=""
+{% endif %}

@@ -1,0 +1,498 @@
+{# pdns-backend-ldap: PowerDNS LDAP Backend Schema Definition
+#
+# This template generates an LDIF-compatible schema definition file for the
+# pdns-backend-ldap PowerDNS module. It defines the LDAP object classes and
+# attribute types required to store and retrieve DNS zones.
+#
+# This file is intended to be loaded into the LDAP directory (e.g., via ldapadd)
+# once, or maintained idempotently. It does NOT configure the running daemon
+# (which is done via pdns.conf or environment variables).
+#
+# Since this is a static schema definition, no dynamic runtime variables are
+# injected into the directives themselves. However, comments are enriched to
+# explain each attribute's purpose, OID, and RFC reference.
+#}
+
+# {# A schema for storing DNS zones in LDAP #}
+# {# ORDERING is not necessary, and some servers don't support integerOrderingMatch. #}
+# {# Omit or change if you like. #}
+
+# {# Attribute: dNSTTL #}
+# {# Description: An integer denoting time to live for DNS records. #}
+# {# OID: 1.3.6.1.4.1.2428.20.0.0 #}
+# {# Syntax: Integer #}
+attributetype ( 1.3.6.1.4.1.2428.20.0.0  NAME 'dNSTTL'
+	DESC 'An integer denoting time to live'
+	EQUALITY integerMatch
+	ORDERING integerOrderingMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
+
+# {# Attribute: dNSClass #}
+# {# Description: The class of a resource record (usually IN). #}
+# {# OID: 1.3.6.1.4.1.2428.20.0.1 #}
+# {# Syntax: IA5 String (case insensitive) #}
+attributetype ( 1.3.6.1.4.1.2428.20.0.1 NAME 'dNSClass'
+	DESC 'The class of a resource record'
+	EQUALITY caseIgnoreIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: wKSRecord #}
+# {# Description: Well known service description (RFC 1035). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.11 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.11 NAME 'wKSRecord'
+	DESC 'a well known service description, RFC 1035'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: pTRRecord #}
+# {# Description: Domain name pointer record (RFC 1035). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.12 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.12 NAME 'pTRRecord'
+	DESC 'domain name pointer, RFC 1035'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: hInfoRecord #}
+# {# Description: Host information record (RFC 1035). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.13 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.13 NAME 'hInfoRecord'
+	DESC 'host information, RFC 1035'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: mInfoRecord #}
+# {# Description: Mailbox or mail list information record (RFC 1035). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.14 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.14 NAME 'mInfoRecord'
+	DESC 'mailbox or mail list information, RFC 1035'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: tXTRecord #}
+# {# Description: Text string record (RFC 1035). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.16 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.16 NAME 'tXTRecord'
+	DESC 'text string, RFC 1035'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: rPRecord #}
+# {# Description: Responsible Person record (RFC 1183). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.17 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.17 NAME 'rPRecord'
+	DESC 'for Responsible Person, RFC 1183'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: aFSDBRecord #}
+# {# Description: AFS Data Base location record (RFC 1183). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.18 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.18 NAME 'aFSDBRecord'
+	DESC 'for AFS Data Base location, RFC 1183'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: SigRecord #}
+# {# Description: Signature record (RFC 2535). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.24 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.24 NAME 'SigRecord'
+	DESC 'Signature, RFC 2535'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: KeyRecord #}
+# {# Description: Key record (RFC 2535). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.25 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.25 NAME 'KeyRecord'
+	DESC 'Key, RFC 2535'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: gPosRecord #}
+# {# Description: Geographical Position record (RFC 1712). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.27 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.27 NAME 'gPosRecord'
+	DESC 'Geographical Position, RFC 1712'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: aAAARecord #}
+# {# Description: IPv6 address record (RFC 1886). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.28 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.28 NAME 'aAAARecord'
+	DESC 'IPv6 address, RFC 1886'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: LocRecord #}
+# {# Description: Location record (RFC 1876). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.29 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.29 NAME 'LocRecord'
+	DESC 'Location, RFC 1876'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: nXTRecord #}
+# {# Description: Non-existent record (RFC 2535). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.30 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.30 NAME 'nXTRecord'
+	DESC 'non-existant, RFC 2535'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: sRVRecord #}
+# {# Description: Service location record (RFC 2782). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.33 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.33 NAME 'sRVRecord'
+	DESC 'service location, RFC 2782'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: nAPTRRecord #}
+# {# Description: Naming Authority Pointer record (RFC 2915). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.35 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.35 NAME 'nAPTRRecord'
+	DESC 'Naming Authority Pointer, RFC 2915'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: kXRecord #}
+# {# Description: Key Exchange Delegation record (RFC 2230). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.36 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.36 NAME 'kXRecord'
+	DESC 'Key Exchange Delegation, RFC 2230'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: certRecord #}
+# {# Description: Certificate record (RFC 2538). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.37 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.37 NAME 'certRecord'
+	DESC 'certificate, RFC 2538'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: a6Record #}
+# {# Description: A6 Record Type (RFC 2874). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.38 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.38 NAME 'a6Record'
+	DESC 'A6 Record Type, RFC 2874'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: dNameRecord #}
+# {# Description: Non-Terminal DNS Name Redirection (RFC 2672). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.39 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.39 NAME 'dNameRecord'
+	DESC 'Non-Terminal DNS Name Redirection, RFC 2672'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: aPLRecord #}
+# {# Description: Lists of Address Prefixes (RFC 3123). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.42 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.42 NAME 'aPLRecord'
+	DESC 'Lists of Address Prefixes, RFC 3123'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: dSRecord #}
+# {# Description: Delegation Signer record (RFC 3658). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.43 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.43 NAME 'dSRecord'
+	DESC 'Delegation Signer, RFC 3658'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: sSHFPRecord #}
+# {# Description: SSH Key Fingerprint record (RFC 4255). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.44 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.44 NAME 'sSHFPRecord'
+	DESC 'SSH Key Fingerprint, RFC 4255'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: iPSecKeyRecord #}
+# {# Description: IPSEC Key Fingerprint record (RFC 4025). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.45 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.45 NAME 'iPSecKeyRecord'
+	DESC 'SSH Key Fingerprint, RFC 4025'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: rRSIGRecord #}
+# {# Description: RRSIG record (RFC 3755). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.46 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.46 NAME 'rRSIGRecord'
+	DESC 'RRSIG, RFC 3755'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: nSECRecord #}
+# {# Description: NSEC record (RFC 3755). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.47 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.47 NAME 'nSECRecord'
+	DESC 'NSEC, RFC 3755'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: dNSKeyRecord #}
+# {# Description: DNSKEY record (RFC 3755). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.48 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.48 NAME 'dNSKeyRecord'
+	DESC 'DNSKEY, RFC 3755'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: dHCIDRecord #}
+# {# Description: DHCID record (RFC 4701). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.49 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.49 NAME 'dHCIDRecord'
+	DESC 'DHCID, RFC 4701'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: nSEC3Record #}
+# {# Description: NSEC record version 3 (RFC 5155). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.50 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.50 NAME 'nSEC3Record'
+	DESC 'NSEC record version 3, RFC 5155'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: nSEC3PARAMRecord #}
+# {# Description: NSEC3 parameters (RFC 5155). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.51 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.51 NAME 'nSEC3PARAMRecord'
+	DESC 'NSEC3 parameters, RFC 5155'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: tLSARecord #}
+# {# Description: TLSA certificate association (RFC 6698). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.52 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.52 NAME 'tLSARecord'
+	DESC 'TLSA certificate association, RFC 6698'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: cDSRecord #}
+# {# Description: Child DS record (RFC 7344). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.59 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.59 NAME 'cDSRecord'
+	DESC 'Child DS, RFC7344'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: cDNSKeyRecord #}
+# {# Description: DNSKEY(s) the Child wants reflected in DS (RFC 7344). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.60 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.60 NAME 'cDNSKeyRecord'
+	DESC 'DNSKEY(s) the Child wants reflected in DS, RFC7344'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: openPGPKeyRecord #}
+# {# Description: OpenPGP Key record (RFC 7929). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.61 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.61 NAME 'openPGPKeyRecord'
+	DESC 'OpenPGP Key, RFC7929'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: SVCBRecord #}
+# {# Description: Service binding record (draft-ietf-dnsop-svcb-https-01). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.64 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.64 NAME 'SVCBRecord'
+	DESC 'Service binding, draft-ietf-dnsop-svcb-https-01'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: HTTPSRecord #}
+# {# Description: HTTPS service binding record (draft-ietf-dnsop-svcb-https-01). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.65 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.65 NAME 'HTTPSRecord'
+	DESC 'HTTPS service binding, draft-ietf-dnsop-svcb-https-01'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: sPFRecord #}
+# {# Description: Sender Policy Framework record (RFC 4408). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.99 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.99 NAME 'sPFRecord'
+	DESC 'Sender Policy Framework, RFC 4408'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: EUI48Record #}
+# {# Description: EUI-48 address record (RFC 7043). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.108 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.108 NAME 'EUI48Record'
+	DESC 'EUI-48 address, RFC7043'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: EUI64Record #}
+# {# Description: EUI-64 address record (RFC 7043). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.109 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.109 NAME 'EUI64Record'
+	DESC 'EUI-64 address, RFC7043'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: tKeyRecord #}
+# {# Description: Transaction Key record (RFC 2930). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.249 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.249 NAME 'tKeyRecord'
+	DESC 'Transaction Key, RFC2930'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: uRIRecord #}
+# {# Description: URI record (RFC 7553). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.256 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.256 NAME 'uRIRecord'
+	DESC 'URI, RFC7553'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: cAARecord #}
+# {# Description: Certification Authority Restriction record (RFC 6844). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.257 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.257 NAME 'cAARecord'
+	DESC 'Certification Authority Restriction, RFC6844'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: dLVRecord #}
+# {# Description: DNSSEC Lookaside Validation record (RFC 4431). #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.32769 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.32769 NAME 'dLVRecord'
+	DESC 'DNSSEC Lookaside Validation, RFC4431'
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: TYPE65226Record #}
+# {# Description: Generic Type 65226 record. #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.65226 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.65226 NAME 'TYPE65226Record'
+	DESC ''
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# Attribute: TYPE65534Record #}
+# {# Description: Generic Type 65534 record. #}
+# {# OID: 1.3.6.1.4.1.2428.20.1.65534 #}
+# {# Syntax: IA5 String #}
+attributetype ( 1.3.6.1.4.1.2428.20.1.65534 NAME 'TYPE65534Record'
+	DESC ''
+	EQUALITY caseIgnoreIA5Match
+	SUBSTR caseIgnoreIA5SubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# {# ObjectClass: dNSDomain2 #}
+# {# Description: Structural object class for DNS zones in LDAP. #}
+# {# Supersedes: dNSDomain #}
+# {# Optional Attributes: All defined DNS record types. #}
+objectclass ( 1.3.6.1.4.1.2428.20.2 NAME 'dNSDomain2'
+	SUP 'dNSDomain' STRUCTURAL
+	MAY ( DNSTTL $ DNSClass $ WKSRecord $ PTRRecord $
+		HINFORecord $ MINFORecord $ TXTRecord $ RPRecord $
+		AFSDBRecord $ SIGRecord $ KEYRecord $ GPOSRecord $
+		AAAARecord $ LOCRecord $ NXTRecord $ SRVRecord $
+		NAPTRRecord $ KXRecord $ CERTRecord $ A6Record $
+		DNAMERecord $ APLRecord $ DSRecord $ SSHFPRecord $
+		IPSECKEYRecord $ RRSIGRecord $ NSECRecord $
+		DNSKEYRecord $ DHCIDRecord $ NSEC3Record $ NSEC3PARAMRecord $
+		TLSARecord $ CDSRecord $ CDNSKEYRecord $ OPENPGPKEYRecord $
+		SVCBRecord $ HTTPSRecord $
+		SPFRecord $ EUI48Record $ EUI64Record $ TKEYRecord $
+		URIRecord $ CAARecord $ DLVRecord $ TYPE65226Record $
+		TYPE65534Record
+	) )

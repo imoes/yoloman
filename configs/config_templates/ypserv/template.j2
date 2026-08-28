@@ -1,0 +1,96 @@
+#!/bin/sh
+#
+# /etc/init.d/nis	Start NIS (formerly YP) server daemons.
+#
+### BEGIN INIT INFO
+# Provides:		    ypserv
+# Required-Start:		$network $portmap $remote_fs
+# Required-Stop:		$portmap $remote_fs
+# Default-Start:		2 3 4 5
+# Default-Stop:			0 1 6
+# Short-Description:	Start NIS server daemons.
+# Description:		Start NIS server daemons.  NIS is mostly
+#			used to let several machines in a network share the
+#			same account information (eg the password file).
+### END INIT INFO
+
+# Customize the variables in /etc/default/nis rather than here
+
+# NISSERVER: Whether to start the ypserv daemon. Set to 'true' to enable.
+NISSERVER={{ NISSERVER | default('false') }}
+
+# NISMASTER: The hostname of the NIS master server, if this machine is a slave.
+NISMASTER={{ NISMASTER | default('') }}
+
+# YPPWDDIR: The directory where password files are located for yppasswd.
+YPPWDDIR={{ YPPWDDIR | default('/etc') }}
+
+# YPCHANGEOK: The command allowed for changing user information.
+YPCHANGEOK={{ YPCHANGEOK | default('chsh') }}
+
+# YPSERVARGS: Additional arguments to pass to the ypserv daemon.
+YPSERVARGS="{{ YPSERVARGS | default('') }}"
+
+# YPPASSWDDARGS: Additional arguments to pass to the yppasswdd daemon.
+YPPASSWDDARGS="{{ YPPASSWDDARGS | default('') }}"
+
+# YPXFRDARGS: Additional arguments to pass to the ypxfrd daemon.
+YPXFRDARGS="{{ YPXFRDARGS | default('') }}"
+
+# YPPWDDIRARGS: Additional arguments to pass to the yppwddir daemon.
+YPPWDDIRARGS="{{ YPPWDDIRARGS | default('') }}"
+
+[ -f /etc/default/nis ] && . /etc/default/nis
+
+. /lib/lsb/init-functions
+
+NET="/usr/sbin"
+
+do_start ()
+{
+	oname=`domainname`
+	nname=`cat /etc/defaultdomain`
+	if [ "$oname" != "$nname" ]; then
+		log_action_msg "Setting NIS domainname to: $nname"
+		domainname "$nname"
+	fi
+	log_daemon_msg "Starting NIS services"
+	if [ "$NISSERVER" != "false" ]; then
+		log_progress_msg "ypserv"
+		start-stop-daemon --start --quiet \\
+			--pidfile /run/ypserv.pid --exec ${NET}/ypserv \\
+			-- ${YPSERVARGS}
+	fi
+	log_end_msg 0
+}
+
+do_stop () {
+	log_daemon_msg "Stopping NIS server services"
+	log_progress_msg "ypserv"
+	start-stop-daemon --stop --quiet --oknodo \\
+		--pidfile /run/ypserv.pid
+	log_end_msg 0
+}
+
+case "$1" in
+  start)
+	do_start
+	;;
+  stop)
+	do_stop
+	;;
+  reload|force-reload)
+	start-stop-daemon --stop --quiet --oknodo --signal 1 \\
+		--pidfile /run/ypserv.pid --exec ${NET}/ypserv
+	;;
+  restart)
+	do_stop
+	sleep 2
+	do_start
+	;;
+  *)
+	echo "Usage: /etc/init.d/nis {start|stop|reload|force-reload|restart}"
+	exit 1
+esac
+
+exit 0

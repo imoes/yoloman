@@ -146,6 +146,7 @@ export class OuService {
       variables: Record<string, string[]>;
       host_labels: Record<string, string[]>;
       ou_folders: string[];
+      host_groups: string[];
     }>(`${environment.apiUrl}/match-vocabulary`);
   }
 

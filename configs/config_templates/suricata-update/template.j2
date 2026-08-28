@@ -1,0 +1,61 @@
+# suricata-update configuration file
+# This file controls how suricata-update fetches, manages, and applies rulesets.
+
+# [data_dir]
+# Data directory for suricata-update. Stores cached rules, state, and lock files.
+data_dir: {{ data_dir | default('/var/lib/suricata') }}
+
+# [suricata_path]
+# Path to the suricata binary. Used for rule syntax testing and compatibility checks.
+suricata: {{ suricata_path | default('/usr/bin/suricata') }}
+
+# [suricata_conf_path]
+# Path to the suricata main configuration file. Used to determine rule load paths and compatibility.
+suricata_conf: {{ suricata_conf_path | default('/etc/suricata/suricata.yaml') }}
+
+# [output_dir]
+# Directory where updated rule files will be written/installed.
+output_dir: {{ output_dir | default('/var/lib/suricata/rules') }}
+
+# [sources]
+# List of sources to enable. Each source is a map with 'name' and 'url'.
+sources:
+{% for source in (sources | default([])) %}
+- name: {{ source.name }}
+  url: {{ source.url }}
+{% endfor %}
+
+# [disabled_sources]
+# List of source names to explicitly disable (ignore).
+disabled_sources:
+{% for source in (disabled_sources | default([])) %}
+- {{ source }}
+{% endfor %}
+
+# [disable_conf]
+# Filename of rule disable filters. Path relative to suricata-conf or absolute.
+disable_conf: {{ disable_conf | default('') }}
+
+# [enable_conf]
+# Filename of rule enable filters. Path relative to suricata-conf or absolute.
+enable_conf: {{ enable_conf | default('') }}
+
+# [modify_conf]
+# Filename of rule modification filters. Path relative to suricata-conf or absolute.
+modify_conf: {{ modify_conf | default('') }}
+
+# [drop_conf]
+# Filename of drop rule filters. Path relative to suricata-conf or absolute.
+drop_conf: {{ drop_conf | default('') }}
+
+# [no_reload]
+# Disable reload of suricata after updating rules.
+no_reload: {{ no_reload | default(False) | lower }}
+
+# [no_test]
+# Disable testing rules with Suricata before applying.
+no_test: {{ no_test | default(False) | lower }}
+
+# [offline]
+# Run offline using most recent cached rules. Do not fetch updates.
+offline: {{ offline | default(False) | lower }}

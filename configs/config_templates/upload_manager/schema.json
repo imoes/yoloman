@@ -1,117 +1,111 @@
 {
-  "cache_path": {
-    "type": "string",
-    "default": "/var/cache/lomiri/upload-manager",
-    "description": "Absolute filesystem path where completed uploads are temporarily cached before being sent."
+ "allow_metered_uploads": {
+  "default": false,
+  "description": "Whether to allow uploads over metered (e.g., cellular) network connections.",
+  "type": "bool"
+ },
+ "auto_start_on_charging": {
+  "default": true,
+  "description": "Whether to automatically start paused uploads when the device begins charging.",
+  "type": "bool"
+ },
+ "backend_enabled": {
+  "description": "Map of backend name → enabled (true/false). Used in conditional sections.",
+  "items": {
+   "description": "Per-backend enabled state. If missing, backend is enabled by default.",
+   "type": "bool"
   },
-  "max_cache_size": {
-    "type": "number",
-    "default": 53687091200,
-    "description": "Maximum total size (in bytes) of the cache directory. Set to 0 for unlimited size."
+  "type": "object"
+ },
+ "backend_ftp_tls": {
+  "description": "Map of backend name → use FTPS (only applicable for FTP backend).",
+  "items": {
+   "description": "Whether to use implicit FTPS for the FTP backend.",
+   "type": "bool"
   },
-  "max_concurrent_uploads": {
-    "type": "number",
-    "default": 3,
-    "description": "Maximum number of uploads that can proceed simultaneously."
+  "type": "object"
+ },
+ "backend_hosts": {
+  "description": "Map of backend name → host/URL.",
+  "items": {
+   "description": "Host or URL for the backend service (e.g., 'example.com', 'https://cloud.example.com').",
+   "type": "string"
   },
-  "max_retries": {
-    "type": "number",
-    "default": 5,
-    "description": "Maximum number of automatic retry attempts for a failed upload before giving up."
+  "type": "object"
+ },
+ "backend_passwords": {
+  "description": "Map of backend name → password/token. Store securely.",
+  "items": {
+   "description": "Password or access token for authentication (if required by backend).",
+   "type": "string"
   },
-  "retry_delay": {
-    "type": "number",
-    "default": 60,
-    "description": "Minimum delay (in seconds) between consecutive retry attempts."
+  "type": "object"
+ },
+ "backend_paths": {
+  "description": "Map of backend name → remote path.",
+  "items": {
+   "description": "Base remote path/prefix where uploads for this backend are stored.",
+   "type": "string"
   },
-  "compress_uploads": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to compress upload payloads before transmission to reduce bandwidth usage."
+  "type": "object"
+ },
+ "backend_users": {
+  "description": "Map of backend name → username.",
+  "items": {
+   "description": "Username for authentication (if required by backend).",
+   "type": "string"
   },
-  "allow_metered_uploads": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to allow uploads over metered (e.g., cellular) network connections."
+  "type": "object"
+ },
+ "backends": {
+  "default": [
+   "ftp",
+   "http"
+  ],
+  "description": "List of enabled upload backends. The order does not affect priority.",
+  "items": {
+   "description": "Supported upload backends. Each backend must be a lowercase identifier.",
+   "enum": [
+    "ftp",
+    "http",
+    "https",
+    "owncloud",
+    "nextcloud",
+    "dropbox",
+    "webdav"
+   ],
+   "type": "string"
   },
-  "auto_start_on_charging": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to automatically start paused uploads when the device begins charging."
-  },
-  "backends": {
-    "type": "list",
-    "default": [
-      "ftp",
-      "http"
-    ],
-    "items": {
-      "type": "string",
-      "enum": [
-        "ftp",
-        "http",
-        "https",
-        "owncloud",
-        "nextcloud",
-        "dropbox",
-        "webdav"
-      ],
-      "description": "Supported upload backends. Each backend must be a lowercase identifier."
-    },
-    "description": "List of enabled upload backends. The order does not affect priority."
-  },
-  "backend_enabled": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "bool",
-      "description": "Per-backend enabled state. If missing, backend is enabled by default."
-    },
-    "description": "Map of backend name \u2192 enabled (true/false). Used in conditional sections."
-  },
-  "backend_hosts": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "string",
-      "description": "Host or URL for the backend service (e.g., 'example.com', 'https://cloud.example.com')."
-    },
-    "description": "Map of backend name \u2192 host/URL."
-  },
-  "backend_users": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "string",
-      "description": "Username for authentication (if required by backend)."
-    },
-    "description": "Map of backend name \u2192 username."
-  },
-  "backend_passwords": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "string",
-      "description": "Password or access token for authentication (if required by backend)."
-    },
-    "description": "Map of backend name \u2192 password/token. Store securely."
-  },
-  "backend_paths": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "string",
-      "description": "Base remote path/prefix where uploads for this backend are stored."
-    },
-    "description": "Map of backend name \u2192 remote path."
-  },
-  "backend_ftp_tls": {
-    "type": "object",
-    "default": {},
-    "items": {
-      "type": "bool",
-      "description": "Whether to use implicit FTPS for the FTP backend."
-    },
-    "description": "Map of backend name \u2192 use FTPS (only applicable for FTP backend)."
-  }
+  "type": "list"
+ },
+ "cache_path": {
+  "default": "/var/cache/lomiri/upload-manager",
+  "description": "Absolute filesystem path where completed uploads are temporarily cached before being sent.",
+  "type": "string"
+ },
+ "compress_uploads": {
+  "default": true,
+  "description": "Whether to compress upload payloads before transmission to reduce bandwidth usage.",
+  "type": "bool"
+ },
+ "max_cache_size": {
+  "default": 53687091200,
+  "description": "Maximum total size (in bytes) of the cache directory. Set to 0 for unlimited size.",
+  "type": "number"
+ },
+ "max_concurrent_uploads": {
+  "default": 3,
+  "description": "Maximum number of uploads that can proceed simultaneously.",
+  "type": "number"
+ },
+ "max_retries": {
+  "default": 5,
+  "description": "Maximum number of automatic retry attempts for a failed upload before giving up.",
+  "type": "number"
+ },
+ "retry_delay": {
+  "default": 60,
+  "description": "Minimum delay (in seconds) between consecutive retry attempts.",
+  "type": "number"
+ }
 }

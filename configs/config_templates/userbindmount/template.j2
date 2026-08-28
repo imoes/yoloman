@@ -1,0 +1,43 @@
+# userbindmount configuration template
+# This file defines the bind mounts to be performed and optional command execution.
+
+# List of bind mount definitions. Each item is a map with source, target, and optional content.
+# Use '-' as source for stdin or string content injection.
+# Defaults to an empty list if not provided.
+{% for mount in (mounts | default([])) %}
+# Bind mount: {{ mount.source | default('unknown_source') }} -> {{ mount.target | default('unknown_target') }}
+{% if mount.content is defined and mount.content is not none %}
+# Content to inject into the target (or stdin if source is '-')
+{{ mount.content }}
+{% endif %}
+{% endfor %}
+
+# Command to execute in the new namespace after mounting.
+# Defaults to the value of the 'command' field, or $SHELL if omitted/empty.
+{% if command is defined and command | trim != '' %}
+# Command to execute in the new namespace after mounting
+{{ command | trim }}
+{% endif %}
+
+# Flags for userbindmount execution:
+
+# Create a new user-namespace (-n / --newns).
+# Defaults to False if not provided.
+{% if newns | default(False) | bool %}
+# Enable new user namespace
+--newns
+{% endif %}
+
+# Add CAP_SYS_ADMIN ambient capability (-s / --sysadm).
+# Defaults to False if not provided.
+{% if sysadm | default(False) | bool %}
+# Enable SYS_ADMIN capability
+--sysadm
+{% endif %}
+
+# Verbose mode, print debugging info (-v / --verbose).
+# Defaults to False if not provided.
+{% if verbose | default(False) | bool %}
+# Enable verbose logging
+--verbose
+{% endif %}

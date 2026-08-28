@@ -291,21 +291,55 @@ async def _latest_metric_value(session: AsyncSession, cfg: dict) -> dict[str, An
     return {"value": row.value if row else None, "warn": cfg.get("warn"), "crit": cfg.get("crit")}
 
 
-async def _metric_series(session: AsyncSession, cfg: dict) -> dict[str, Any]:
+async def _metric_series(session: AsyncSession, cfg: dict, settings) -> dict[str, Any]:
+    """A timeseries widget's data — from a saved graph, or from one inline agent+metric.
+
+    Both go through services/graph_data, which is what makes the widget and the graph the
+    same chart rather than two implementations. This used to run its own `select(Metric)`
+    with no tier selection, so a long lookback pulled every raw row while the identical
+    range in a graph came back downsampled; that is gone.
+
+    `config.graph_id` is the reusable form: the chart is authored once as a Graph (several
+    hosts, per-series colour/axis/function) and a dashboard widget is a PLACE that shows it.
+    `config.agent_id` + `config.metric` stays supported — it is the same computation with an
+    implicit one-item graph, and existing widgets keep working.
+    """
+    from types import SimpleNamespace
+
+    from bossman.services.graph_data import load_graph, series_for_items
+
+    since_dt = datetime.fromtimestamp(
+        datetime.now(timezone.utc).timestamp() - cfg.get("lookback_seconds", 3600), tz=timezone.utc
+    )
+
+    graph_id = cfg.get("graph_id")
+    if graph_id:
+        graph = await load_graph(session, graph_id)
+        if graph is None:
+            # Named, not empty: a widget pointing at a deleted graph must say so, or it looks
+            # like a metric with no data.
+            return {"series": [], "error": f"the saved graph {graph_id} no longer exists"}
+        return {
+            "graph": {"id": str(graph.id), "name": graph.name, "graph_type": graph.graph_type,
+                      "show_legend": graph.show_legend},
+            "series": await series_for_items(session, settings, graph.items, since_dt),
+        }
+
     agent_id = cfg.get("agent_id")
     metric = cfg.get("metric")
     if not agent_id or not metric:
-        return {"points": [], "error": "config.agent_id and config.metric are required"}
-    since = datetime.now(timezone.utc).timestamp() - cfg.get("lookback_seconds", 3600)
-    since_dt = datetime.fromtimestamp(since, tz=timezone.utc)
-    rows = (
-        await session.scalars(
-            select(Metric)
-            .where(Metric.agent_id == agent_id, Metric.metric == metric, Metric.time >= since_dt)
-            .order_by(Metric.time)
-        )
-    ).all()
-    return {"points": [{"time": r.time.isoformat(), "value": r.value} for r in rows]}
+        return {"points": [], "error": "config.graph_id, or config.agent_id and config.metric, are required"}
+    # One implicit item, so the inline case takes the identical code path (including tier
+    # selection) instead of a second, simpler one that drifts.
+    item = SimpleNamespace(
+        id=None, agent_id=agent_id, metric=metric, label=cfg.get("label") or metric,
+        color=cfg.get("color", "#1e9600"), draw_style="line", axis_side="left",
+        function=cfg.get("function", "avg"),
+    )
+    series = await series_for_items(session, settings, [item], since_dt)
+    # `points` stays at the top level for the existing single-series renderer; `series` is
+    # added so one renderer can handle both shapes.
+    return {"points": series[0]["points"], "resolution": series[0]["resolution"], "series": series}
 
 
 def _apply_host_context(hosts: list, context: dict) -> list:
@@ -332,7 +366,12 @@ def _apply_problem_context(problems: list, context: dict) -> list:
     return out
 
 
-async def widget_data(session: AsyncSession, widget: DashboardWidget, context: dict | None = None) -> dict[str, Any]:
+async def widget_data(
+    session: AsyncSession,
+    widget: DashboardWidget,
+    context: dict | None = None,
+    settings=None,
+) -> dict[str, Any]:
     """Computes the current data payload for one widget, dispatched on its
     widget_type — the counterpart to CentralStation's own per-widget
     `/dashboard-widgets/{id}/data` endpoint. Each type's shape is
@@ -340,6 +379,13 @@ async def widget_data(session: AsyncSession, widget: DashboardWidget, context: d
     straight onto an ECharts option builder."""
     cfg = widget.config or {}
     ctx = context or {}
+    # Only the timeseries branch needs settings (the metric tier thresholds live there).
+    # Resolved here rather than made mandatory, so the existing callers and tests that ask
+    # for a stat or top_hosts payload do not have to thread a Settings through.
+    if settings is None:
+        from bossman.config import get_settings as _get_settings
+
+        settings = _get_settings()
     # AI-generated widgets carry their payload inline (Block W2 → unified model);
     # serve it as-is rather than recomputing from a data source.
     if "static" in cfg:
@@ -363,7 +409,7 @@ async def widget_data(session: AsyncSession, widget: DashboardWidget, context: d
     if widget.widget_type == "gauge":
         return await _latest_metric_value(session, cfg)
     if widget.widget_type == "timeseries":
-        return await _metric_series(session, cfg)
+        return await _metric_series(session, cfg, settings)
     # A query-backed table widget (P4): a pinned fleet search. config.query is
     # re-run live each time the widget loads, so the widget IS a saved search.
     if widget.widget_type == "table" and cfg.get("query"):

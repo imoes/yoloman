@@ -1,0 +1,22 @@
+# hwinfo command-line configuration
+# List of hardware items to probe (e.g., disk, cpu, network).
+# Must be present to trigger probing.
+--hwitems={{ hwitems | default(['all']) | join(' --') }}
+
+# Path to the file where log info is written.
+--log={{ log_file | default('/var/log/hwinfo.log') }}
+
+# Increase verbosity. Only together with --map, but included as a config flag.
+--verbose={{ verbose | default(False) | lower }}
+
+# Show only a summary.
+--short={{ short | default(False) | lower }}
+
+# Report RAID devices.
+--listmd={{ listmd | default(False) | lower }}
+
+# List of device names (DEVNAME) to filter output for. Must be used with --hwitems.
+{% for device in device_filters | default([]) %}--only={{ device }}
+{% endfor %}
+# Device name, UDI, or 'all' to store config for. Stored below /var/lib/hardware.
+--save-config={{ save_config_target | default('') }}

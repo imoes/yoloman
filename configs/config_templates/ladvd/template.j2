@@ -1,0 +1,111 @@
+# =============================================================================
+# ladvd configuration template
+# =============================================================================
+# This file configures ladvd, a link-layer discovery protocol (LLDP/CDP/etc.)
+# daemon. It exposes network topology information to adjacent devices.
+#
+# Self-documenting: each variable is described by its schema description and
+# carries a safe default via Jinja2 | default() to prevent rendering errors
+# when an Ansible variable is missing.
+# =============================================================================
+
+# Enable LLDP advertisements
+# Description: Enable LLDP advertisements
+# Default: true
+ENABLE_LLDP={{ enable_lldp | default(true) | lower }}
+
+# Enable CDP (Cisco Discovery Protocol)
+# Description: Enable CDP (Cisco Discovery Protocol)
+# Default: false
+ENABLE_CDP={{ enable_cdp | default(false) | lower }}
+
+# Enable EDP (Extreme Discovery Protocol)
+# Description: Enable EDP (Extreme Discovery Protocol)
+# Default: false
+ENABLE_EDP={{ enable_edp | default(false) | lower }}
+
+# Enable FDP (Foundry Discovery Protocol)
+# Description: Enable FDP (Foundry Discovery Protocol)
+# Default: false
+ENABLE_FDP={{ enable_fdp | default(false) | lower }}
+
+# Enable NDP (Nortel Discovery Protocol)
+# Description: Enable NDP (Nortel Discovery Protocol)
+# Default: false
+ENABLE_NDP={{ enable_ndp | default(false) | lower }}
+
+# Management interface for address auto-detection (e.g., eth0)
+# Description: The management interface for host address auto-detection
+# Default: ""
+MANAGEMENT_INTERFACE={{ management_interface | default("") }}
+
+# Use the management interface's addresses for all interfaces
+# Description: Use management interface addresses for all interfaces
+# Default: false
+USE_MGMT_ADDRS_ALL={{ use_mgmt_addrs_all | default(false) | lower }}
+
+# ISO 3166 two-letter country code for LLDP location TLV
+# Description: Two-letter ISO 3166 country code
+# Default: US
+COUNTRY_CODE={{ country_code | default("US") }}
+
+# Physical location description for LLDP
+# Description: Physical location of the host
+# Default: Default Location
+LOCATION={{ location | default("Default Location") }}
+
+# List of interfaces to explicitly exclude from transmission
+# Description: List of interface names to exclude from transmission
+# Default: [] (empty list)
+# Note: Only physical, bond, or bridge interfaces can be specified here.
+EXCLUDED_INTERFACES={{ excluded_interfaces | default([]) | join(" ") }}
+
+# Run in foreground (for debugging or non-daemon mode)
+# Description: Run in foreground and log to stderr
+# Default: false
+RUN_FOREGROUND={{ run_foreground | default(false) | lower }}
+
+# User to switch to (default: ladvd)
+# Description: User to switch privileges to
+# Default: ladvd
+RUN_USER={{ run_user | default("ladvd") }}
+
+# Enable wireless interfaces
+# Description: Enable usage of wireless interfaces
+# Default: false
+ENABLE_WIRELESS={{ enable_wireless | default(false) | lower }}
+
+# Enable auto-protocol detection from received packets (also enables receive mode)
+# Description: Auto-enable protocols based on received packets
+# Default: false
+AUTO_ENABLE_PROTOCOLS={{ auto_enable_protocols | default(false) | lower }}
+
+# Enable receive mode for packets
+# Description: Enable receive mode for packets
+# Default: false
+RECEIVE_PACKETS={{ receive_packets | default(false) | lower }}
+
+# Save peer hostname/port description in interface descriptions
+# Description: Save received peer hostname/port description
+# Default: false
+SAVE_PEER_DESCRIPTION={{ save_peer_description | default(false) | lower }}
+
+# Save peer hostname/port name in interface descriptions
+# Description: Save received peer hostname/port name
+# Default: false
+SAVE_PEER_NAME={{ save_peer_name | default(false) | lower }}
+
+# Use each interface's hwaddr for chassis-id (not recommended)
+# Description: Use interface hwaddr for chassis-id TLV
+# Default: false
+USE_HWADDR_CHASSIS_ID={{ use_hwaddr_chassis_id | default(false) | lower }}
+
+# Dump pcap-compatible packets to stdout
+# Description: Dump pcap packets to stdout
+# Default: false
+DUMP_PACKETS={{ dump_packets | default(false) | lower }}
+
+# Run only once and exit
+# Description: Run only once
+# Default: false
+RUN_ONCE={{ run_once | default(false) | lower }}

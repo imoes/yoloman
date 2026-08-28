@@ -1,0 +1,41 @@
+# Zabbix Proxy MySQL Configuration Template
+# This template generates a logrotate configuration for the Zabbix Proxy
+# which uses MySQL as its database backend.
+
+# {{ log_directory | default('zabbix-proxy') }}: Directory where Zabbix proxy logs are stored
+# This sets the base path for the log files managed by logrotate.
+/var/log/{{ log_directory | default('zabbix-proxy') }}/zabbix_proxy.log {
+    # {{ log_rotation_count | default(7) }}: Number of rotated log files to keep
+    # Determines how many old log files are retained before the oldest is deleted.
+    rotate {{ log_rotation_count | default(7) }}
+
+    # weekly: Rotate logs on a weekly basis
+    # This defines the frequency of log rotation.
+    weekly
+
+    # compress: Compress rotated log files using gzip
+    # Reduces disk space usage by compressing old logs.
+    compress
+
+    # delaycompress: Delay compression of the most recent rotated log
+    # Allows the current log file to be written to without compression while the previous one is compressed.
+    delaycompress
+
+    # missingok: Do not error if the log file is missing
+    # Prevents logrotate from failing if the log file does not exist at rotation time.
+    missingok
+
+    # notifempty: Do not rotate if the log file is empty
+    # Skips rotation for empty log files to avoid creating unnecessary archive files.
+    notifempty
+
+    # {{ log_file_permissions | default('0640') }}: Permissions for new log files
+    # {{ log_owner | default('zabbix') }}: Owner of the log files
+    # {{ log_group | default('zabbix') }}: Group of the log files
+    # Sets the ownership and permissions for newly created log files after rotation.
+    create {{ log_file_permissions | default('0640') }} {{ log_owner | default('zabbix') }} {{ log_group | default('zabbix') }}
+
+    # sharedscripts: Run the postrotate script only once
+    # Ensures that any post-rotation commands are executed only once, even if multiple log files match the pattern.
+    sharedscripts
+}

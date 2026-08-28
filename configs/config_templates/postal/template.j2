@@ -1,0 +1,85 @@
+# Postal SMTP Load Test Configuration
+# This configuration controls the Postal load testing tool's behavior for sending
+# synthetic SMTP traffic to test mail server performance and reliability.
+#
+# All fields are self-documented with their schema description, default value,
+# and type. Use Jinja2 defaults to ensure safe rendering even if a variable
+# is undefined in the Ansible inventory.
+
+# IP address or name of the SMTP mail server to test.
+# Default: localhost
+smtp_server: {{ smtp_server | default('localhost') }}
+
+# Path to a file containing a list of user email addresses for the To: field.
+# Default: /etc/postal/users.txt
+user_list_file: {{ user_list_file | default('/etc/postal/users.txt') }}
+
+# Path to a file containing a list of sender email addresses for the From: field.
+# Defaults to user_list_file if not specified explicitly.
+# Default: /etc/postal/users.txt (inherited from user_list_file if empty)
+{% if sender_list_file is defined and sender_list_file is string and sender_list_file | trim != '' %}
+sender_list_file: {{ sender_list_file | default('/etc/postal/users.txt') }}
+{% else %}
+sender_list_file: {{ user_list_file | default('/etc/postal/users.txt') }}
+{% endif %}
+
+# Maximum size of the message body in Kilobytes.
+# Specify 0 for just headers (no body content).
+# Default: 10
+max_message_size: {{ max_message_size | default(10) }}
+
+# Minimum size of the message body in Kilobytes.
+# Useful for testing with small payloads.
+# Default: 0
+min_message_size: {{ min_message_size | default(0) }}
+
+# Number of threads to create.
+# This is created per server address if multiple servers are specified.
+# Default: 1
+threads: {{ threads | default(1) }}
+
+# Number of messages to send per connection.
+# -1 for indefinite (keep sending until closed).
+# 0 to disconnect immediately after each message.
+# Default: 1
+messages_per_connection: {{ messages_per_connection | default(1) }}
+
+# Limit throughput in messages per minute.
+# 0 for effectively unlimited (capped internally at 24000).
+# Use this to simulate realistic load patterns.
+# Default: 0
+messages_per_minute: {{ messages_per_minute | default(0) }}
+
+# Percentage of connections that use TLS/SSL.
+# 0 for no SSL, 100 for always SSL.
+# Intermediate values allow mixed testing.
+# Default: 0
+ssl_percentage: {{ ssl_percentage | default(0) }}
+
+# If true, use LMTP protocol instead of SMTP.
+# LMTP is typically used for local delivery to Mail Transfer Agents.
+# Default: false
+use_lmtp: {{ use_lmtp | default(false) | lower }}
+
+# Local IP address(es) to use for outbound connections.
+# Same format as remote address (IP or hostname).
+# Useful for binding to a specific network interface.
+# Default: localhost
+local_address: {{ local_address | default('localhost') }}
+
+# If true, turn on all logging including all message data received.
+# WARNING: This can be very verbose and slow. Use only for debugging.
+# Default: false
+log_all: {{ log_all | default(false) | lower }}
+
+# Breakage simulation mode.
+# 'netscape' avoids leading spaces in subjects (simulating old bugs).
+# 'nonetscape' adds extra spaces (modern behavior).
+# Default: nonetscape
+breakage_mode: {{ breakage_mode | default('nonetscape') }}
+
+# Base path for debugging IO files.
+# Threads create files with ':' and thread number appended.
+# Empty string disables debug file creation.
+# Default: (empty)
+debug_file_base: {{ debug_file_base | default('') }}

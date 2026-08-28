@@ -1,0 +1,23 @@
+# ufo2otf configuration template
+# ----------------------------
+# This configuration drives the ufo2otf font conversion tool.
+# It controls source file inputs and optional generation flags for webfonts, AFDKO
+# compatibility, or diagnostic output.
+
+# webfonts: Generate webfonts (WOFF/WOFF2) in a ./webfonts subfolder during conversion.
+webfonts: {{ webfonts|default(false)|bool | lower }}
+
+# afdko: Generate the OTF with Adobe Font Development Kit for Opentype compatibility
+# (produces more standard Adobe-compatible tables).
+afdko: {{ afdko|default(false)|bool | lower }}
+
+# diagnostics: Display information about available font compilers and exit (no files outputted).
+# Useful for pre-flight checks in CI/CD pipelines.
+diagnostics: {{ diagnostics|default(false)|bool | lower }}
+
+# infiles: The source UFO files to process.
+# Each entry is a file path (string). The list is iterated and indented as a YAML list.
+infiles:
+{%- for f in infiles | default([]) %}
+  - {{ f }}
+{%- endfor %}

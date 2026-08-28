@@ -1,0 +1,123 @@
+# Vimb Configuration Template
+# ==========================
+# This template generates the vimb configuration file.
+# It is self-documenting: every setting is preceded by its description.
+# All variables use `| default(...)` to ensure safe rendering even if undefined.
+# See vimb(1) for full documentation of these settings.
+
+# --- General Settings ---
+
+# The homepage URI opened when Vimb starts without arguments.
+# Default: https://www.example.com
+set home-page={{ (home_page | default('https://www.example.com')) | string }}
+
+# The User-Agent string sent in HTTP requests.
+# Default: Vimb/3.7.0
+set user-agent={{ (user_agent | default('Vimb/3.7.0')) | string }}
+
+# Cookie acceptance policy. Valid values: 'always', 'never', 'origin'.
+# Default: always
+set cookie-accept={{ (cookie_accept | default('always')) | string }}
+
+# Enable dark mode for websites using prefers-color-scheme.
+# Valid values: true/false.
+# Default: false
+set dark-mode={{ (dark_mode | default(false)) | bool | lower }}
+
+# --- Content Settings ---
+
+# Allow JavaScript execution on pages.
+# Valid values: true/false.
+# Default: true
+set scripts={{ (scripts | default(true)) | bool | lower }}
+
+# Allow automatic image loading.
+# Valid values: true/false.
+# Default: true
+set images={{ (images | default(true)) | bool | lower }}
+
+# Enable browser plugins.
+# Valid values: true/false.
+# Default: true
+set plugins={{ (plugins | default(true)) | bool | lower }}
+
+# --- Font Settings ---
+
+# Default font family for text content.
+# Default: sans-serif
+set default-font={{ (default_font | default('sans-serif')) | string }}
+
+# Default font size in pixels.
+# Default: 16
+set font-size={{ (font_size | default(16)) | int }}
+
+# Font family for monospace text.
+# Default: monospace
+set monospace-font={{ (monospace_font | default('monospace')) | string }}
+
+# Font family for serif text.
+# Default: serif
+set serif-font={{ (serif_font | default('serif')) | string }}
+
+# Font family for sans-serif text.
+# Default: sans-serif
+set sans-serif-font={{ (sans_serif_font | default('sans-serif')) | string }}
+
+# Font family for cursive text.
+# Default: cursive
+set cursiv-font={{ (cursiv_font | default('cursive')) | string }}
+
+# --- Download Settings ---
+
+# Default directory for saving downloads.
+# Default: ~/Downloads
+set download-path={{ (download_path | default('~/Downloads')) | string }}
+
+# External command to handle downloads. Must contain %s placeholder for URI.
+# Default: curl -sLJOC - -e '$VIMB_URI' %s
+set download-command={{ (download_command | default("curl -sLJOC - -e '$VIMB_URI' %s")) | string }}
+
+# Use the external download-command instead of Vimb's internal downloader.
+# Valid values: true/false.
+# Default: false
+set download-use-external={{ (download_use_external | default(false)) | bool | lower }}
+
+# --- Header Customization ---
+
+# List of HTTP headers to send or replace. Format: 'HeaderName=HeaderValue'
+# or 'HeaderName' to remove.
+# Default: [] (empty list)
+{% set headers_list = headers | default([]) %}
+{% if headers_list is iterable and (headers_list | length) > 0 %}
+{% for header in headers_list %}
+set header={{ header | string }}
+{% endfor %}
+{% endif %}
+
+# --- Editor & Navigation Settings ---
+
+# Command to open an editor for form fields. Uses %s for the temporary file.
+# Default: vim %s
+set editor-command={{ (editor_command | default('vim %s')) | string }}
+
+# Timeout in milliseconds for key sequence mappings.
+# Default: 1000
+set timeoutlen={{ (timeoutlen | default(1000)) | int }}
+
+# Keys used for hinting links. Must be unique characters.
+# Default: asdfghjkl
+set hint-keys={{ (hint_keys | default('asdfghjkl')) | string }}
+
+# --- Privacy & Hardware ---
+
+# Hardware acceleration policy: 'always', 'never', 'ondemand'.
+# Default: ondemand
+set hardware-acceleration-policy={{ (hardware_acceleration_policy | default('ondemand')) | string }}
+
+# Geolocation access policy: 'always', 'never', 'ask'.
+# Default: ask
+set geolocation={{ (geolocation | default('ask')) | string }}
+
+# Notification access policy: 'always', 'never', 'ask'.
+# Default: ask
+set notification={{ (notification | default('ask')) | string }}

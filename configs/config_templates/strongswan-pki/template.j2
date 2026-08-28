@@ -1,0 +1,25 @@
+pki {
+
+    # Comma-separated list of plugins to load in the pki tool.
+    # Default: none (empty list).
+    load = {{ pki_plugins | default([]) | join(', ') }}
+
+    scep {
+
+        # Source IP address to bind for HTTP operations.
+        # Default: '' (empty, lets the system choose).
+        http_bind = {{ pki_scep_http_bind | default('') }}
+
+        # Timeout for HTTP operations.
+        # Default: 30s.
+        http_timeout = {{ pki_scep_http_timeout | default('30s') }}
+
+        # Whether to allow renewal via PKCSReq instead of RenewalReq.
+        # Some SCEP servers (e.g. openxpki) are incorrectly doing certificate
+        # renewal via messageType PKCSReq (19) instead of RenewalReq (17).
+        # Default: no.
+        renewal_via_pkcs_req = {{ pki_scep_renewal_via_pkcs_req | default('no') }}
+
+    }
+
+}

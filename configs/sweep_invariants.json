@@ -1,0 +1,656 @@
+{
+ "codecs": {
+  "invariants": [
+   {
+    "name": "high-confidence-probe-without-text",
+    "statement": "A record with source=probe and confidence=high must have non-empty text, because probe means a shipped file was examined and the codec was derived from its actual content",
+    "predicate": "text == '' and source == 'probe' and confidence == 'high'",
+    "harm": "The codec assignment is baseless — no file content was examined despite claiming high confidence. Editing this config via the codec would operate on a hallucinated format.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 21,
+     "share": 0.0018,
+     "examples": [
+      "/etc/courier/pop3d",
+      "/etc/crm/crm.conf",
+      "/etc/default/prometheus-apache-exporter",
+      "/etc/default/prometheus-bind-exporter",
+      "/etc/default/prometheus-bird-exporter"
+     ],
+     "predicate_errors": 3974,
+     "first_error": "NameError: name 'source' is not defined"
+    }
+   },
+   {
+    "name": "shell-script-misclassified-as-config",
+    "statement": "Executable shell scripts (.sh, .bash, .csh, .ksh, .zsh, .fish) must not be assigned any config codec (keyvalue, ini, yaml, json, xml)",
+    "predicate": "path != '' and any(path.endswith('.' + ext) for ext in ['sh','bash','csh','ksh','zsh','fish']) and codec in ['keyvalue','ini','yaml','json','xml']",
+    "harm": "Editing via a config codec would corrupt the shell script — key-value parsing loses control flow, shebangs, and comments. Running the mangled script causes unexpected behavior.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1,
+     "share": 0.0001,
+     "examples": [
+      "/etc/ahcp/ahcp-config.sh"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "low-confidence-config-claim",
+    "statement": "Records with confidence=low should not have a non-none codec, because low confidence means the classifier is uncertain this is even a config file",
+    "predicate": "confidence == 'low' and codec not in ['none']",
+    "harm": "The system acts on uncertain classifications, applying a config codec to files that may not be configuration at all, leading to silent corruption.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 68,
+     "share": 0.0059,
+     "examples": [
+      "/etc/apt/s3auth.conf",
+      "/etc/blends/med/med.conf",
+      "/etc/ciderwebmail/ciderwebmail.conf",
+      "/etc/cron.d/munin-node",
+      "/etc/cron.d/sbws"
+     ],
+     "predicate_errors": 79,
+     "first_error": "NameError: name 'confidence' is not defined"
+    }
+   },
+   {
+    "name": "directory-path-no-extension",
+    "statement": "A path that ends with its package name and has no file extension is likely a directory, not a single config file",
+    "predicate": "path != '' and '/' in path and not any(path.endswith('.' + e) for e in ['sh','bash','csh','ksh','zsh','fish','desktop','conf','cfg','ini','yaml','yml','json','xml','toml','env']) and any(path.endswith('/' + pkg) or path.endswith('/' + pkg + '/') for pkg in packages) and not any(path.endswith('/' + pkg + '.') for pkg in packages)",
+    "harm": "Treating a directory as a single config file causes the codec to attempt parsing an entire directory tree, producing meaningless results and potentially corrupting multiple files.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 2845,
+     "share": 0.2461,
+     "examples": [
+      "/etc/0install",
+      "/etc/0xffff",
+      "/etc/2ping",
+      "/etc/2vcard",
+      "/etc/4g8"
+     ],
+     "predicate_errors": 1,
+     "first_error": "NameError: name 'packages' is not defined"
+    }
+   },
+   {
+    "name": "semantic-codec-extension-mismatch",
+    "statement": "The assigned codec must be semantically consistent with the file extension — yaml files get yaml, xml files get xml, json files get json, conf/cfg files get ini or keyvalue (not yaml/xml)",
+    "predicate": "path != '' and len(path) > 4 and ('.yaml' in path or '.yml' in path) and codec not in ['yaml','none'] and codec not in ['ini','keyvalue','xml','json']",
+    "harm": "A YAML file parsed as INI loses YAML-specific constructs (nested maps, lists, multi-line strings). A YAML file parsed as XML is nonsensical. Either way, the file is corrupted on write.",
+    "expected_hits": "few",
+    "result": {
+     "status": "no-occurrence",
+     "hits": 0,
+     "share": 0.0,
+     "examples": [],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "ini-codec-empty-separator",
+    "statement": "An INI codec must declare a non-empty key-value separator; for files absent from the corpus this is not verified by round-trip tests and the parser cannot identify any key-value pairs.",
+    "predicate": "codec == \"ini\" and separator == \"\" and not text",
+    "harm": "On a real host the INI parser cannot split lines into key=value pairs without a separator; all settings are silently lost and services run with default or empty configuration.",
+    "example_record": {
+     "codec": "ini",
+     "separator": "",
+     "text": ""
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 236,
+     "share": 0.0204,
+     "examples": [
+      "/etc/LCDd.conf",
+      "/etc/NetworkManager/conf.d/default-wifi-powersave-on.conf",
+      "/etc/X11/app-defaults/XBuffy",
+      "/etc/ackrc",
+      "/etc/apt/apt.conf.d/20adequate"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "keyvalue-codec-with-sections",
+    "statement": "A key-value codec must not declare INI-style sections; key-value formats are flat and do not support [section] headers.",
+    "predicate": "codec == \"keyvalue\" and sections",
+    "harm": "The parser interprets data lines containing square brackets as section delimiters instead of key-value pairs, misplacing or silently dropping configuration settings and causing services to read incorrect or missing values.",
+    "example_record": {
+     "codec": "keyvalue",
+     "sections": true
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 56,
+     "share": 0.0048,
+     "examples": [
+      "/etc/crossfire/server.conf",
+      "/etc/cryptmount/cmtab",
+      "/etc/fence_agents/ilo2",
+      "/etc/fence_agents/ilo_ssh",
+      "/etc/fence_agents/ipmilan"
+     ],
+     "predicate_errors": 49,
+     "first_error": "NameError: name 'sections' is not defined"
+    }
+   },
+   {
+    "name": "yaml-codec-with-sections",
+    "statement": "A YAML codec must not declare INI-style sections; YAML uses indentation for hierarchy, not [section] markers.",
+    "predicate": "codec == \"yaml\" and sections",
+    "harm": "Section detection misclassifies indented YAML mappings and list items as section delimiters, corrupting the parsed configuration tree and producing structurally invalid output when serialized back.",
+    "example_record": {
+     "codec": "yaml",
+     "sections": true
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 84,
+     "share": 0.0073,
+     "examples": [
+      "/etc/cloud/cloud.cfg.d/",
+      "/etc/condure/condure.yml",
+      "/etc/coredhcp/client.conf",
+      "/etc/coredhcp/server.conf",
+      "/etc/corosync/corosync_notifyd.conf"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "inferred-codec-without-text",
+    "statement": "A non-none codec must not be classified as inferred when the file is absent from the corpus; inference without content verification leaves structured formats unvalidated.",
+    "predicate": "confidence == \"inferred\" and codec != \"none\" and not text",
+    "harm": "The codec was guessed from package or extension metadata without inspecting file content; on a real host the system applies an incorrect parser, causing parse failures, silent data loss, or misconfiguration of services.",
+    "example_record": {
+     "codec": "yaml",
+     "confidence": "inferred",
+     "text": ""
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 591,
+     "share": 0.0511,
+     "examples": [
+      "/boot/efi/EFI/refind/refind.conf",
+      "/etc/ModemManager/ModemManager.conf",
+      "/etc/Rserve.conf",
+      "/etc/afs.conf",
+      "/etc/arc/arex.conf"
+     ],
+     "predicate_errors": 79,
+     "first_error": "NameError: name 'confidence' is not defined"
+    }
+   },
+   {
+    "name": "high-confidence-codec-without-text",
+    "statement": "A non-none codec must not be classified as high confidence when the file is absent from the corpus; high confidence requires verified probing, not inference.",
+    "predicate": "confidence == \"high\" and codec != \"none\" and not text",
+    "harm": "The system trusts an unverified codec assignment with false assurance; on a real host configuration files are parsed with a potentially incorrect codec and there is no evidence to trigger fallback parsing, leading to silent misconfiguration.",
+    "example_record": {
+     "codec": "ini",
+     "confidence": "high",
+     "text": ""
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 649,
+     "share": 0.0561,
+     "examples": [
+      "/etc/LCDd.conf",
+      "/etc/Muttprintrc",
+      "/etc/NetworkManager/conf.d/default-wifi-powersave-on.conf",
+      "/etc/VisualBoyAdvance.cfg",
+      "/etc/X11/app-defaults/Coolmail"
+     ],
+     "predicate_errors": 79,
+     "first_error": "NameError: name 'confidence' is not defined"
+    }
+   }
+  ],
+  "engine": "laguna",
+  "records": 11561
+ },
+ "directives": {
+  "invariants": [
+   {
+    "name": "string_no_numeric_minmax",
+    "statement": "A record whose type is string must not carry numeric min or max fields, since length bounds are meaningless for directive-value parsing where the parser accepts any string.",
+    "predicate": "spec.get('type') == 'string' and isinstance(spec.get('min'), (int, float)) and isinstance(spec.get('max'), (int, float))",
+    "harm": "The config-writer will attempt to enforce integer length constraints on a string value, either rejecting valid strings or silently comparing string lengths against the wrong bounds, producing wrong configurations on the host.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 21,
+     "share": 0.0009,
+     "examples": [
+      "/etc/cntlm.conf",
+      "/etc/cntlm.conf",
+      "/etc/default/rrdcached",
+      "/etc/default/rrdcached",
+      "/etc/default/rrdcached"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "no_sentinel_default",
+    "statement": "A string-type record whose default is a sentinel placeholder word (empty, none, unset, disabled, not set, notset, n/a, auto) violates the invariant that the default must be the actual value written to the config file, not a human-readable note about the value.",
+    "predicate": "spec.get('default') is not None and isinstance(spec.get('default'), str) and spec.get('default').strip().lower() in ('empty', 'none', 'unset', 'disabled', 'not set', 'notset', 'n/a', 'auto')",
+    "harm": "The config-writer will literally write the placeholder word (e.g. 'empty') into the config file instead of the real default, causing the daemon to misinterpret the setting — Postfix home_mailbox set to 'empty' means a literal directory named 'empty', not 'no mailbox set'.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 113,
+     "share": 0.005,
+     "examples": [
+      "/etc/NetworkManager/NetworkManager.conf",
+      "/etc/NetworkManager/NetworkManager.conf",
+      "/etc/X11/app-defaults/XOsview",
+      "/etc/ahcp/ahcp-config.sh",
+      "/etc/apparmor.d/abstractions/tor"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "nonempty_description",
+    "statement": "Every record's description field must be a non-empty, non-whitespace string, because a blank description means the catalog has no documented semantics for the setting and operators cannot reason about it.",
+    "predicate": "isinstance(spec.get('description', ''), str) and len(spec.get('description', '').strip()) == 0",
+    "harm": "Automated tooling that surfaces settings for review (diff generators, compliance auditors, migration guides) will emit a setting with no context, leading to unreviewed changes or silent acceptance of wrong values on production hosts.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 410,
+     "share": 0.0182,
+     "examples": [
+      "/etc/Muttprintrc",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg",
+      "/etc/cloud/cloud.cfg"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "values-without-enum",
+    "statement": "The spec field 'values' must only be present when the type is 'enum'; a values list on a non-enum type is meaningless.",
+    "predicate": "'values' in spec and spec.get('type') != 'enum'",
+    "harm": "A config management tool would attempt to constrain a non-enum field (e.g. string, int) to a fixed set of allowed values, either silently ignoring the constraint and accepting invalid inputs, or crashing when it cannot resolve a dropdown/validator for a type that does not support one.",
+    "example_record": {
+     "spec": {
+      "type": "string",
+      "values": [
+       "md5",
+       "sha256"
+      ],
+      "default": "md5"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 311,
+     "share": 0.0138,
+     "examples": [
+      "/etc/cron.d/sysstat",
+      "/etc/cups/cupsd.conf",
+      "/etc/cups/cupsd.conf",
+      "/etc/cups/cupsd.conf",
+      "/etc/cups/cupsd.conf"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "range-without-numeric-type",
+    "statement": "The spec fields 'min' and/or 'max' must only be present when the type is numeric ('int' or 'float'); range bounds on non-numeric types are invalid.",
+    "predicate": "('min' in spec or 'max' in spec) and spec.get('type') not in ('int', 'float')",
+    "harm": "Range constraints on non-numeric fields cause validators to either crash when comparing incomparable values (e.g. string vs int) or silently perform lexicographic comparisons that contradict numeric intent (e.g. '9' < '10' is False lexicographically but True numerically), producing silently wrong validation decisions.",
+    "example_record": {
+     "spec": {
+      "type": "string",
+      "min": 0,
+      "max": 255,
+      "default": "128"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 89,
+     "share": 0.004,
+     "examples": [
+      "/etc/X11/app-defaults/XWatch",
+      "/etc/X11/app-defaults/XWatch",
+      "/etc/X11/app-defaults/XWatch",
+      "/etc/X11/app-defaults/XWatch",
+      "/etc/X11/app-defaults/XWatch"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "int-default-with-decimal",
+    "statement": "When the type is 'int', the default value (if present) must not contain a decimal point or other float indicator.",
+    "predicate": "spec.get('type') == 'int' and spec.get('default') is not None and '.' in str(spec.get('default'))",
+    "harm": "An int-typed setting with a float-shaped default (e.g. '3.5') causes type coercion failures in config management tools that expect integer values, leading to validation errors, silent truncation (3.5 -> 3), or runtime type mismatches when the value is consumed by code that expects an int.",
+    "example_record": {
+     "spec": {
+      "type": "int",
+      "default": "3.5",
+      "description": "Replication level."
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 56,
+     "share": 0.0025,
+     "examples": [
+      "/etc/chrony.conf",
+      "/etc/chrony.conf",
+      "/etc/chrony.conf",
+      "/etc/conky/conky.conf",
+      "/etc/dillo/dillorc"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   }
+  ],
+  "engine": "laguna",
+  "records": 22471,
+  "decisions": {
+   "nonempty_description": {
+    "verdict": "open",
+    "why": "410 fields, and neither offline source is good enough — the man page yields fragments from neighbouring roff paragraphs (2 of 3 wrong), the file's own comment block is wrong about one field in six (openssl.cnf default_days described as 'Extensions to add to a CRL.'). Needs rh_mine_directives with its doc_is_about gate, i.e. a model with a check."
+   },
+   "invented_key": {
+    "verdict": "decided",
+    "why": "209 keys dropped where the owning package's man page documents >=60% of the catalog AND the key appears in neither the page nor the shipped file; the rest abstain because only 40% of catalog keys appear in their own file at all"
+   }
+  }
+ },
+ "templates": {
+  "invariants": [
+   {
+    "name": "no-duplicate-enum",
+    "statement": "No schema field with an enum list may contain duplicate entries.",
+    "predicate": "any(len(v.get('enum', [])) > len(set(v.get('enum', []))) for v in schema.values() if isinstance(v, dict))",
+    "harm": "Ambiguous intent: consumers cannot know whether the repeated value signals a bug or a deliberate listing, and gonja's Jinja2 engine may silently treat it as either one or two allowed values.",
+    "expected_hits": "few",
+    "result": {
+     "status": "no-occurrence",
+     "hits": 0,
+     "share": 0.0,
+     "examples": [],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "no-unused-schema-parameters",
+    "statement": "More than half of the declared schema parameters must actually be referenced in the template body.",
+    "predicate": "len(schema) > 0 and sum(1 for k in schema.keys() if not re.search(r'\\b' + re.escape(k) + r'(?=[\\s|:.(\\]])', body)) > len(schema) / 2",
+    "harm": "Users are presented with parameters they cannot use; the schema promises configurability that the template never implements, leading to wasted time, confusion, and potential deployment misconfiguration when defaults (which match the shipped file) diverge from real-world values.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 214,
+     "share": 0.0391,
+     "examples": [
+      "0install",
+      "389-ds-base",
+      "LCDd.conf",
+      "acme.sh",
+      "afio"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "list-schema-uses-yaml-list-rendering",
+    "statement": "When a schema field has type 'list' and the template iterates over it, each item must be rendered as a YAML list entry (starting with '- ').",
+    "predicate": "any(v.get('type') == 'list' and ('{% for' in body and '- ' not in body) for v in schema.values() if isinstance(v, dict))",
+    "harm": "A list-type config field rendered as bare values (one per line, no list markers) produces output that parsers cannot distinguish from a sequence of unrelated scalar directives, causing the consumed application to misread individual items as top-level config keys.",
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1232,
+     "share": 0.2251,
+     "examples": [
+      "0install",
+      "2ping",
+      "4g8",
+      "50-server.cnf",
+      "81voltd"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "schema-sample-type-mismatch",
+    "statement": "Every field present in both schema and sample has a sample value whose Python type is consistent with the type declared in schema.",
+    "predicate": "any(k in schema and k in sample and ((schema[k].get('type') == 'string' and not isinstance(sample[k], str)) or (schema[k].get('type') == 'bool' and not isinstance(sample[k], bool)) or (schema[k].get('type') == 'number' and (isinstance(sample[k], bool) or not isinstance(sample[k], (int, float)))) or (schema[k].get('type') == 'list' and not isinstance(sample[k], list)) or (schema[k].get('type') == 'dict' and not isinstance(sample[k], dict))) for k in sample)",
+    "harm": "When the template renders using the sample, a schema-declared number or bool field receiving a string value (or vice versa) causes Jinja2 type-dependent filters to fail or produces output that downstream schema validators reject. On the host, the service may fail to parse its configuration file and refuse to start, or silently use a coerced-but-wrong value.",
+    "example_record": {
+     "schema": {
+      "port": {
+       "type": "number",
+       "default": 2811
+      }
+     },
+     "sample": {
+      "port": "2811"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 116,
+     "share": 0.0212,
+     "examples": [
+      "ModemManager.conf",
+      "anymeal",
+      "apcupsd",
+      "bip",
+      "boinc_client"
+     ],
+     "predicate_errors": 1,
+     "first_error": "AttributeError: 'str' object has no attribute 'get'"
+    }
+   },
+   {
+    "name": "schema-default-type-mismatch",
+    "statement": "Every schema field that declares a default has a default value whose Python type is consistent with the type declared in schema.",
+    "predicate": "any(k in schema and 'default' in schema[k] and ((schema[k].get('type') == 'string' and not isinstance(schema[k]['default'], str)) or (schema[k].get('type') == 'bool' and not isinstance(schema[k]['default'], bool)) or (schema[k].get('type') == 'number' and (isinstance(schema[k]['default'], bool) or not isinstance(schema[k]['default'], (int, float)))) or (schema[k].get('type') == 'list' and not isinstance(schema[k]['default'], list)) or (schema[k].get('type') == 'dict' and not isinstance(schema[k]['default'], dict))) for k in schema)",
+    "harm": "When the template falls back to the schema default (no sample or user override), a type mismatch — e.g. a bool field whose default is the string 'yes' instead of true/false — renders a value that config parsers interpret inconsistently, silently enabling or disabling features on the host.",
+    "example_record": {
+     "schema": {
+      "enabled": {
+       "type": "bool",
+       "default": "yes"
+      }
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 194,
+     "share": 0.0354,
+     "examples": [
+      "0install",
+      "2ping",
+      "2vcard",
+      "389-ds",
+      "389_directory_server"
+     ],
+     "predicate_errors": 2,
+     "first_error": "TypeError: argument of type 'NoneType' is not iterable"
+    }
+   },
+   {
+    "name": "enum-value-outside-enum",
+    "statement": "For every schema field with a declared enum, both the schema default (if present) and the sample value (if present) are members of that enum.",
+    "predicate": "any(k in schema and 'enum' in schema[k] and 'default' in schema[k] and schema[k]['default'] not in schema[k]['enum'] for k in schema) or any(k in schema and k in sample and 'enum' in schema[k] and sample[k] not in schema[k]['enum'] for k in sample)",
+    "harm": "A default or sample value outside the declared enum produces a configuration directive that the consuming application's own validator rejects, causing the service to fail to start or silently revert to an internal fallback value that may be less secure.",
+    "example_record": {
+     "schema": {
+      "query_class": {
+       "type": "string",
+       "enum": [
+        "A",
+        "AAAA"
+       ],
+       "default": "MX"
+      }
+     },
+     "sample": {
+      "query_class": "MX"
+     }
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 308,
+     "share": 0.0563,
+     "examples": [
+      "0xffff",
+      "9mount",
+      "ModemManager.conf",
+      "accountsservice",
+      "acl"
+     ],
+     "predicate_errors": 1,
+     "first_error": "TypeError: argument of type 'NoneType' is not iterable"
+    }
+   },
+   {
+    "name": "body-references-undeclared-variable",
+    "statement": "Every variable referenced in a Jinja2 output expression in the body is either a key in schema or a loop variable declared in a Jinja2 for-loop in the same body.",
+    "predicate": "len(set(re.findall(r'\\{\\{\\s*\\(??\\s*([a-zA-Z_]\\w*)', body)) - set(re.findall(r'\\{%\\s*for\\s+(\\w+)\\s+in', body)) - set(schema)) > 0",
+    "harm": "The template body references a variable absent from the schema, so it cannot be configured by users. At render time the variable resolves to nil and the template silently falls back to a hardcoded value instead of the user-supplied one, producing an insecure or non-functional host configuration that ignores administrator intent.",
+    "example_record": {
+     "schema": {
+      "git.path": {
+       "type": "string",
+       "default": "/var/lib/git"
+      }
+     },
+     "body": "{{ (git | default({})).path | default('/var/lib/git') }}"
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 1206,
+     "share": 0.2203,
+     "examples": [
+      "2vcard",
+      "389-ds-base",
+      "4g8",
+      "50-server.cnf",
+      "64tass"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   },
+   {
+    "name": "required-field-without-default",
+    "statement": "Every field in schema either has a 'default' key or is present in the sample, so that no schema field is left without a value at render time.",
+    "predicate": "any(k in schema and 'default' not in schema[k] and k not in sample for k in schema)",
+    "harm": "A schema field with no default and no sample value is undefined at render time. If the template body does not independently supply a |default() filter, the rendered configuration directive is empty or nil. On the host, the service may crash on startup, bind to a wrong address, or operate with an insecure empty setting (e.g. an empty secret or missing bind address).",
+    "example_record": {
+     "schema": {
+      "secret": {
+       "type": "string",
+       "description": "Required"
+      }
+     },
+     "sample": {}
+    },
+    "expected_hits": "few",
+    "result": {
+     "status": "finding",
+     "hits": 75,
+     "share": 0.0137,
+     "examples": [
+      "0install",
+      "amanda_server",
+      "appstream-util",
+      "certstream-server-go",
+      "claws-mail-feeds-reader"
+     ],
+     "predicate_errors": 0,
+     "first_error": ""
+    }
+   }
+  ],
+  "engine": "laguna",
+  "records": 5474,
+  "decisions": {
+   "no-unused-schema-parameters": {
+    "verdict": "implemented",
+    "why": "/config-fields withholds the 2561 fields (341 templates) whose name appears nowhere in the body, and reports the count instead of dropping the values on write"
+   },
+   "list-schema-uses-yaml-list-rendering": {
+    "verdict": "refuted",
+    "why": "1232 hits but only 22 target a YAML file; replaced by a stronger invariant in the render ratchet — if the recorded target is .yaml/.yml the rendered sample must parse (3 of 17 failed)"
+   },
+   "no-duplicate-enum": {
+    "verdict": "implemented",
+    "why": "dedupe_template_enums.py, 27 lists in 22 schemas, first occurrence kept so documentation order survives"
+   },
+   "schema-sample-type-mismatch": {
+    "verdict": "implemented",
+    "why": "the TYPE is corrected from the sample, not the sample from the type — repairing the sample broke anymeal, frr and munin-node.conf outright"
+   },
+   "schema-default-type-mismatch": {
+    "verdict": "implemented",
+    "why": "295 empty {} defaults dropped, 255 {value: X} unwrapped, 20 bool words coerced, 88 empty strings dropped; 482 other dict shapes reported only"
+   },
+   "enum-value-outside-enum": {
+    "verdict": "implemented",
+    "why": "227 defaults dropped; the 304 SAMPLE cases are reported only, because a mined enum and a sample that renders cannot be decided from here"
+   },
+   "body-references-undeclared-variable": {
+    "verdict": "implemented",
+    "why": "re-measured with jinja2's own parser (the regex counted loop variables and macro arguments): 182 templates, 523 variables. 142 miss one or two and report the count via /config-fields unsettable; the 24 that need more than they offer are refused by the gate"
+   },
+   "required-field-without-default": {
+    "verdict": "open",
+    "why": "75 hits; a required field without a default is what required means — needs a UI decision, not a data rule"
+   },
+   "sample-outside-enum": {
+    "verdict": "refuted",
+    "why": "41 cases, and the shipped file confirms exactly one — an empty string, which means unset rather than a missing enum value. 15 are not in the file at all and 25 have no file in the corpus, so neither side can be shown wrong"
+   }
+  }
+ }
+}

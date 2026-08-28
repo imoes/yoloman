@@ -1,0 +1,111 @@
+{
+  "tomb_path": {
+    "type": "string",
+    "default": "/var/lib/tomb/secret.tomb",
+    "description": "Path to the encrypted tomb storage file."
+  },
+  "tomb_key_path": {
+    "type": "string",
+    "default": "/etc/tomb/secret.tomb.key",
+    "description": "Path to the key file used to open the tomb."
+  },
+  "tomb_size": {
+    "type": "number",
+    "default": 128,
+    "description": "Initial size of the tomb in megabytes (MiB) for 'dig' or 'resize'."
+  },
+  "luks_cipher": {
+    "type": "string",
+    "default": "aes-xts-plain64",
+    "description": "LUKS encryption cipher specification. Supported: aes-xts-plain64, aes-cbc-essiv:sha256, serpent-xts-plain64.",
+    "enum": [
+      "aes-xts-plain64",
+      "aes-cbc-essiv:sha256",
+      "serpent-xts-plain64"
+    ]
+  },
+  "filesystem_type": {
+    "type": "string",
+    "default": "ext4",
+    "description": "Filesystem type for the tomb. Supported: ext3, ext4, btrfs, btrfsmixedmode, ext3maxinodes, ext4maxinodes.",
+    "enum": [
+      "ext3",
+      "ext4",
+      "btrfs",
+      "btrfsmixedmode",
+      "ext3maxinodes",
+      "ext4maxinodes"
+    ]
+  },
+  "mount_options": {
+    "type": "string",
+    "default": "rw,noatime,nodev",
+    "description": "Mount options for the tomb volume."
+  },
+  "use_gpg_key": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GPG asymmetric encryption for the tomb key."
+  },
+  "gpg_recipients": {
+    "type": "list",
+    "default": [],
+    "description": "List of GPG key IDs for key encryption. If empty and use_gpg_key is true, falls back to symmetric password."
+  },
+  "kdf_iter_time": {
+    "type": "number",
+    "default": 5,
+    "description": "KDF iteration time multiplier (millions) for dictionary attack protection."
+  },
+  "kdf_type": {
+    "type": "string",
+    "default": "pbkdf2",
+    "description": "KDF algorithm type: pbkdf2 or argon2.",
+    "enum": [
+      "pbkdf2",
+      "argon2"
+    ]
+  },
+  "kdf_mem": {
+    "type": "number",
+    "default": 18,
+    "description": "RAM size (2^k KB) for argon2 KDF. Default 18 is 250 MiB."
+  },
+  "privilege_escalation_tool": {
+    "type": "string",
+    "default": "sudo",
+    "description": "Tool for privilege escalation: sudo, pkexec, doas, sup, sud.",
+    "enum": [
+      "sudo",
+      "pkexec",
+      "doas",
+      "sup",
+      "sud"
+    ]
+  },
+  "sphinx_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for SPHINX PAKE feature."
+  },
+  "sphinx_host": {
+    "type": "string",
+    "default": "",
+    "description": "Host domain for SPHINX PAKE feature."
+  },
+  "no_color": {
+    "type": "bool",
+    "default": false,
+    "description": "Suppress colors in console output."
+  },
+  "force": {
+    "type": "bool",
+    "default": false,
+    "description": "Force operations, overriding swap checks and other warnings."
+  },
+  "bind_hooks": {
+    "type": "list",
+    "default": [],
+    "description": "List of bind hooks to mount paths from tomb to home directory on open. Items contain tomb_path and home_path relative strings."
+  }
+}

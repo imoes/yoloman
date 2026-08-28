@@ -1,0 +1,45 @@
+# Websploit Configuration Template
+#
+# This template generates the configuration file for the Websploit MITM framework.
+# It is designed to be reusable within Ansible roles, with all variables having
+# explicit defaults and comprehensive self-documenting comments derived from the schema.
+#
+# Format: INI-style sections with nested module lists and global settings objects.
+
+[websploit]
+# The text displayed as the command prompt in the websploit console.
+# Default: 'wsf'
+prompt_text = {{ (prompt_text | default('wsf')) }}
+
+# List of modules available in the websploit database.
+# Items are flat maps of module properties (name, description, enabled).
+# Default: Empty list []
+modules = [
+{% for module in (modules | default([])) %}
+    {
+        # The name identifier of the module.
+        # Default: 'module'
+        name = {{ (module.name | default('module')) }},
+
+        # A short description of the module's purpose.
+        # Default: 'Description'
+        description = {{ (module.description | default('Description')) }},
+
+        # Whether the module is active/enabled.
+        # Default: True
+        enabled = {{ (module.enabled | default(true)) | lower }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+
+# Global settings for the framework
+global_settings = {
+    # Whether the update command is enabled.
+    # Debian packages typically disable this to avoid apt conflicts.
+    # Default: False
+    allow_updates = {{ (allow_updates | default(false)) | lower }},
+
+    # Whether the tool requires root privileges to run.
+    # Default: True
+    require_root = {{ (require_root | default(true)) | lower }}
+}

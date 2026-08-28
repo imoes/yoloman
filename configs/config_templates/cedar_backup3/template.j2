@@ -10,7 +10,7 @@ system:
   # Directory where cedar_backup3 stores state and metadata
   state_dir: {{ (system | default({})).state_dir | default('/var/lib/cedar-backup3') | quote }}
   # Enable verbose logging (true/false)
-  debug: {{ (system | default({})).debug | default(false) }}
+  debug: {{ (system | default({})).debug | default(false) | lower }}
 
 # Backup sets — each set defines what to backup, where to send it, and how often
 {% for set in (backup_sets | default([])) %}
@@ -51,7 +51,7 @@ backup_set:
     timeout_minutes: {{ ((set | default({})).schedule | default({})).timeout_minutes | default(360) }}
   # Compression options
   compression:
-    enabled: {{ ((set | default({})).compression | default({})).enabled | default(true) }}
+    enabled: {{ ((set | default({})).compression | default({})).enabled | default(true) | lower }}
     # Algorithm: gzip, bzip2, or none
     algorithm: {{ ((set | default({})).compression | default({})).algorithm | default('gzip') }}
 {% endfor %}
@@ -63,6 +63,6 @@ global_options:
   # Post-backup command (e.g., eject CD)
   post_backup_cmd: {{ (global_options | default({})).post_backup_cmd | default('') | quote }}
   # If true, skip media verification (faster, but less safe)
-  skip_media_verify: {{ (global_options | default({})).skip_media_verify | default(false) }}
+  skip_media_verify: {{ (global_options | default({})).skip_media_verify | default(false) | lower }}
   # If true, fail the backup if any source is missing
-  strict_sources: {{ (global_options | default({})).strict_sources | default(false) }}
+  strict_sources: {{ (global_options | default({})).strict_sources | default(false) | lower }}

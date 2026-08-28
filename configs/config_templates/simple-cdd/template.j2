@@ -1,0 +1,101 @@
+# ==============================================================================
+# simple-cdd build configuration template
+# ==============================================================================
+# This Jinja2 template generates a configuration file for `simple-cdd`, a tool
+# for building custom Debian/Ubuntu installation media (ISOs/CDs).
+#
+# Most simple-cdd settings are typically passed via command-line flags to the
+# `build-simple-cdd` script. However, this generated configuration file can be
+# used to provide default values or to wrap the tool in automation pipelines
+# where environment variables or a static config file are preferred.
+#
+# Self-documentation principle: every variable is documented with its schema
+# description and has a safe default to prevent rendering errors if undefined.
+# ==============================================================================
+
+# Distribution codename to build against (e.g., trixie, bookworm, sid).
+# Defaults to 'trixie' if not specified.
+DIST: {{ dist | default('trixie') }}
+
+# Official Debian mirror to use for retrieving base packages.
+# Defaults to the main Debian archive mirror.
+DEBIAN_MIRROR: {{ debian_mirror | default('http://deb.debian.org/debian/') }}
+
+# URL for the security updates mirror.
+# Defaults to the Debian security archive mirror.
+SECURITY_MIRROR: {{ security_mirror | default('http://security.debian.org/') }}
+
+# Mirror URL for $DIST-updates.
+# Defaults to the standard Debian mirror if not explicitly set.
+UPDATES_MIRROR: {{ updates_mirror | default('http://deb.debian.org/debian/') }}
+
+# Mirror URL for backports.
+# Defaults to the standard Debian mirror if not explicitly set.
+BACKPORTS_MIRROR: {{ backports_mirror | default('http://deb.debian.org/debian/') }}
+
+# Pre-select this default locale for the installer environment.
+# Defaults to en_US.UTF-8 if not specified.
+LOCALE: {{ locale | default('en_US.UTF-8') }}
+
+# Pre-select this keyboard layout for the installer environment (e.g., us, de, fr).
+# Defaults to 'us' if not specified.
+KEYBOARD: {{ keyboard | default('us') }}
+
+# List of kernel packages to include in the generated image.
+# Defaults to the standard AMD64 linux-image package.
+KERNEL_PACKAGES: {{ kernel_packages | default(['linux-image-amd64']) | join(' ') }}
+
+# List of profiles to select for building the image.
+# Profiles define the software composition. Defaults to standard and installer profiles.
+PROFILES: {{ profiles | default(['standard', 'debian-installer']) | join(' ') }}
+
+# List of build-only profiles. These are used during the build process but not
+# necessarily installed in the final image unless included in PROFILES.
+BUILD_PROFILES: {{ build_profiles | default([]) | join(' ') }}
+
+# List of profiles to automatically install on the target system after installation.
+AUTO_PROFILES: {{ auto_profiles | default([]) | join(' ') }}
+
+# List of local .deb files to include in the local package repository on the CD/ISO.
+# These files are copied to the image and indexed so they can be installed via apt.
+LOCAL_PACKAGES: {{ local_packages | default([]) | join(' ') }}
+
+# Distribution name to pull simple-cdd-profiles udebs from.
+# Useful if building for an older/newer release than the host system.
+PROFILES_UDEB_DIST: {{ profiles_udeb_dist | default('') }}
+
+# Distribution name to pull extra udebs from.
+# Allows adding udebs from distributions not default for the build.
+EXTRA_UDEB_DIST: {{ extra_udeb_dist | default('') }}
+
+# Path to the GPG keyring file used for verifying package authenticity.
+# Defaults to the standard Debian archive keyring location.
+KEYRING: {{ keyring | default('/usr/share/keyrings/debian-archivekeyring.gpg') }}
+
+# Path to the logfile where the full execution log of the build process is written.
+# Defaults to /var/log/simple-cdd-build.log.
+LOGFILE: {{ logfile | default('/var/log/simple-cdd-build.log') }}
+
+# List of tools to use for managing the local package mirror/repository.
+# Defaults to 'reprepro', a standard tool for Debian archives.
+MIRROR_TOOLS: {{ mirror_tools | default(['reprepro']) | join(' ') }}
+
+# List of tools to use for building the final ISO/image.
+# Defaults to 'debian-cd', the official Debian ISO build tool.
+BUILD_TOOLS: {{ build_tools | default(['debian-cd']) | join(' ') }}
+
+# Enable serial console output when booting the generated ISO image.
+# Useful for headless servers or remote debugging.
+SERIAL_CONSOLE: {{ serial_console | default(false) | lower }}
+
+# Enable the "proposed-updates" repository for this distribution.
+# Provides access to pre-release updates for testing.
+PROPOSED_UPDATES: {{ proposed_updates | default(false) | lower }}
+
+# If true, the build will fail if any required optional packages (those ending
+# in .downloads) are missing from the configured mirrors.
+REQUIRE_OPTIONAL_PACKAGES: {{ require_optional_packages | default(false) | lower }}
+
+# If true, only issue a warning if a preseeding file is invalid, rather than
+# failing the build. Useful for iterative development.
+FORCE_PRESEED: {{ force_preseed | default(false) | lower }}

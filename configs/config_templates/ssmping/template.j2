@@ -1,0 +1,34 @@
+# Systemd service unit for ssmpingd
+# See man page ssmping(1) for details.
+
+[Unit]
+Description=ssmpingd daemon - Multicast ping server
+After=network.target
+
+[Service]
+Type=simple
+# Restart the service if it exits unexpectedly.
+Restart=on-failure
+RestartSec=5s
+
+# Listen interface binding.
+# ssmpingd listens on UDP port 4321. If bound to specific interface,
+# use Interface=<ip_address_or_name>. Empty or unset implies all interfaces.
+# Variable: interface (default: '')
+{% set iface = interface | default('') %}
+{% if iface is defined and iface and iface | length > 0 %}
+ExecStart=/usr/sbin/ssmpingd -I {{ iface }}
+{% else %}
+ExecStart=/usr/sbin/ssmpingd
+{% endif %}
+
+# Security hardening
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

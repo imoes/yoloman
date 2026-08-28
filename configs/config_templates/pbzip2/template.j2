@@ -1,0 +1,61 @@
+{# ============================================================================ #}
+{# pbzip2 Configuration Template                                                 #}
+{# ============================================================================ #}
+{# This template generates a variable definition file for pbzip2 settings.      #}
+{# Note: pbzip2 is a command-line utility with no native daemon or persistent     #}
+{# configuration file. These settings are typically passed as command-line        #}
+{# flags or used in wrapper scripts/systemd exec directives.                      #}
+{#                                                                                #}
+{# Self-documenting: Each variable includes its schema description and default    #}
+{# value. Variables are safely defaulted to prevent render errors if omitted      #}
+{# in the playbook role variables.                                                #}
+{# ============================================================================ #}
+
+{# Block size in 100k steps (default 9 = 900k). Corresponds to the -b flag.     #}
+{# Value must be an integer representing the multiplier for 100k block size.     #}
+BLOCK_SIZE={{ block_size | default(9) }}
+
+{# BWT block size / compression level from 1 (fast) to 9 (best).                 #}
+{# Corresponds to -1..-9 flags. Higher values yield better compression but take  #}
+{# more CPU time.                                                               #}
+COMPRESSION_LEVEL={{ compression_level | default(9) }}
+
+{# Maximum memory usage in 1MB steps. Corresponds to the -m flag.                #}
+{# Controls the maximum RAM pbzip2 can allocate. 100 means 100MB.                #}
+MAX_MEMORY={{ max_memory | default(100) }}
+
+{# Number of processors to use (0 or -1 for autodetect). Corresponds to         #}
+{# the -p flag. Set to 0 or -1 to let pbzip2 detect available CPU cores.         #}
+NUM_PROCESSORS={{ num_processors | default(0) }}
+
+{# Output to standard out (stdout) instead of a file. Corresponds to the         #}
+{# -c flag. Useful for piping compressed data to other processes.                #}
+STDOUT_OUTPUT={{ stdout_output | default(false) | bool | lower }}
+
+{# Keep input file, do not delete after compression. Corresponds to the          #}
+{# -k flag. By default, pbzip2 deletes the original file after creating the .bz2 #}
+{# archive. This flag prevents that deletion.                                    #}
+KEEP_INPUT={{ keep_input | default(false) | bool | lower }}
+
+{# Force overwrite existing output file. Corresponds to the -f flag.             #}
+{# If the output file already exists, this flag suppresses the interactive       #}
+{# confirmation prompt and overwrites it immediately.                            #}
+FORCE_OVERWRITE={{ force_overwrite | default(false) | bool | lower }}
+
+{# Quiet mode (suppress output). Corresponds to the -q flag.                     #}
+{# By default, pbzip2 runs in quiet mode, showing only error messages.           #}
+QUIET_MODE={{ quiet_mode | default(true) | bool | lower }}
+
+{# Verbose mode. Corresponds to the -v flag.                                     #}
+{# Enables detailed progress reporting during compression/decompression.         #}
+VERBOSE={{ verbose | default(false) | bool | lower }}
+
+{# Load average determines max number processors to use. Corresponds to the      #}
+{# -l flag. When enabled, pbzip2 will reduce the number of threads if the        #}
+{# system load average exceeds the number of processors.                         #}
+LOAD_AVERAGE_CONTROL={{ load_average_control | default(false) | bool | lower }}
+
+{# Read entire input file into RAM and split between processors. Corresponds     #}
+{# to the -r flag. This can improve performance for small-to-medium files by     #}
+{# avoiding repeated disk I/O, but consumes significant memory.                  #}
+READ_INTO_RAM={{ read_into_ram | default(false) | bool | lower }}

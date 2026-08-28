@@ -1,0 +1,38 @@
+#!/bin/sh
+# Toybox multicall binary wrapper script
+# This script wraps the `toybox` utility, providing a consistent entry point for
+# various subcommands. It supports a default subcommand, global extra arguments,
+# and a verbose mode for debugging.
+
+# ---------------------------------------------------------------------------
+# Configuration Variables
+# ---------------------------------------------------------------------------
+
+# The primary toybox subcommand to execute when the wrapper is invoked without
+# arguments. If the invoking shell does not provide one, this default is used.
+# Example: 'sh', 'ls', 'grep', etc.
+default_command="{{ default_command | default('sh') }}"
+
+# A list of additional arguments to pass to the toybox binary globally.
+# These are useful for setting default behavior like --no-color, or specific
+# environment settings. Rendered as a space-separated string.
+# Example: ['--no-color', '--quiet'] -> "--no-color --quiet"
+extra_args="{{ extra_args | default([]) | join(' ') }}"
+
+# If true, enables verbose output by running --help or logging before execution.
+# When enabled, the script prints the help menu to stderr/stdout and exits,
+# allowing the user to see available subcommands.
+verbose={{ verbose | default(false) | ternary('true', 'false') }}
+
+# ---------------------------------------------------------------------------
+# Execution Logic
+# ---------------------------------------------------------------------------
+
+{% if verbose | default(false) | ternary('true', 'false') == 'true' %}
+# Verbose mode: Print help information for the default command (or general help)
+# to stderr and stdout, then exit. This is useful for documentation or debugging.
+exec /usr/bin/toybox --help ${extra_args} 2>&1 || /usr/bin/toybox ${default_command} ${extra_args}
+{% else %}
+# Normal mode: Execute the default command with the specified arguments.
+exec /usr/bin/toybox ${default_command} ${extra_args}
+{% endif %}

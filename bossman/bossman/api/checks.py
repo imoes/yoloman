@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-import nestedtext
 import yaml
 import asyncio
 
@@ -221,6 +220,19 @@ async def delete_assignment(
             raise HTTPException(status_code=403, detail="not authorized to manage this host")
     elif not (identity.kind == "user" and identity.role == "admin"):
         raise HTTPException(status_code=403, detail="group/OU assignments are admin-only")
+    # A host-scoped assignment that came from discovery is one half of a pair: the
+    # discovered_services row says `monitored` BECAUSE this assignment exists. Deleting
+    # only the assignment left the row claiming "monitored" while the host had no
+    # assigned check — two views of the same host contradicting each other. Reset the
+    # row to `undecided` (the service is still on the host, just not monitored), which
+    # is exactly what apply_discovery's `remove` does.
+    if a.scope_type == "host" and a.agent_id and (a.source or "") == "autodiscovered":
+        from bossman.services import discovery_lifecycle
+
+        item = str((a.parameters or {}).get("item") or "")
+        row = await _discovered_row(session, a.agent_id, a.check_name, item)
+        if row is not None and row.state == discovery_lifecycle.STATE_MONITORED:
+            row.state = discovery_lifecycle.STATE_UNDECIDED
     await session.delete(a)
     await session.commit()
 
@@ -278,7 +290,6 @@ def _load_candidate_checks(
         except OSError:
             continue
         # check_paths returns whichever sidecar exists, so the format follows the extension.
-        meta_format = "nt" if Path(meta_path).suffix == ".nt" else "yaml"
         # Relevance pre-filter by data source (skipped for an explicit re-scan).
         if not names and _check_datasource(star) != datasource:
             continue
@@ -298,13 +309,14 @@ def _load_candidate_checks(
         if check_platform.verdict(name, platform, settings.checkmk_sections_path, datasource) == "impossible":
             continue
         # The agent registers the tool under its fqcn, so parse it out of the sidecar and pass it through
-        # (call_tool needs it). Sidecars are YAML now; a not-yet-converted `.nt` is still accepted.
+        # (call_tool needs it). Sidecars are YAML — the NestedText branch is gone with the dependency:
+        # measured, 0 `.nt` files against 1431 `.yaml` in the tree.
         fqcn = name
         try:
-            meta = yaml.safe_load(sidecar) if meta_format == "yaml" else nestedtext.loads(sidecar, top="dict")
+            meta = yaml.safe_load(sidecar)
             if isinstance(meta, dict) and meta.get("fqcn"):
                 fqcn = str(meta["fqcn"])
-        except (yaml.YAMLError, nestedtext.NestedTextError):
+        except yaml.YAMLError:
             pass
         out.append({
             "name": name, "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": meta_format,
@@ -504,8 +516,17 @@ async def apply_discovery(
             continue
 
         if verb == "remove":
+            # Removing a service that is STILL on the host means "stop monitoring it,
+            # offer it again next run" → undecided. Removing a VANISHED one means
+            # "it is gone, stop tracking it": leaving it as `undecided` would claim
+            # discovery found it while this very run did not — a contradiction, and it
+            # would resurface as "new". So drop the row, which is what
+            # discovery_lifecycle does for remove_vanished_services.
             if row is not None:
-                row.state = discovery_lifecycle.STATE_UNDECIDED
+                if row.state == discovery_lifecycle.STATE_VANISHED:
+                    await session.delete(row)
+                else:
+                    row.state = discovery_lifecycle.STATE_UNDECIDED
             await _drop_assignment(session, agent_id, check_name, item)
             counts["removed"] += 1
             continue

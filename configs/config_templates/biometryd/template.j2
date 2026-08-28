@@ -44,7 +44,7 @@ retry_delay_ms = {{ retry_delay_ms | default(500) }}
 
 # Enable TLS for encrypted communication (if the daemon supports network endpoints).
 # When true, requires tls_cert_path and tls_key_path to be valid.
-tls_enabled = {{ tls_enabled | default(true) }}
+tls_enabled = {{ tls_enabled | default(true) | lower }}
 
 # Path to the TLS server certificate file.
 # Used for authenticating the server to clients over TLS.
@@ -69,7 +69,7 @@ allowed_clients = [
 # Each driver block configures a specific device type or interface.
 {% for driver in (drivers | default([])) %}
 # Driver configuration: {{ driver.name | default('unnamed') }}
-driver.{{ driver.name | default('unnamed') }}.enabled = {{ driver.enabled | default(false) }}
+driver.{{ driver.name | default('unnamed') }}.enabled = {{ driver.enabled | default(false) | lower }}
 driver.{{ driver.name | default('unnamed') }}.config_path = {{ driver.config_path | default('') }}
 
 {% if driver.extra_options is mapping and driver.extra_options | length > 0 %}

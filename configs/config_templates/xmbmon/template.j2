@@ -1,0 +1,147 @@
+# xmbmon configuration file
+# This template generates the configuration for xmbmon, an X-based hardware monitor.
+# All variables default to their schema-defined values to ensure safe reuse.
+
+# ---------------------------------------------------------------------------
+# Geometry: Initial window size
+# Desc: Initial window geometry widthxheight.
+# ---------------------------------------------------------------------------
+geometry {{ (geometry | default('100x140')) }}
+
+# ---------------------------------------------------------------------------
+# Count: History depth
+# Desc: Number of update intervals to keep in history.
+# ---------------------------------------------------------------------------
+count {{ (count | default(4)) }}
+
+# ---------------------------------------------------------------------------
+# Sec: Update interval duration
+# Desc: Duration of each update interval in seconds.
+# ---------------------------------------------------------------------------
+sec {{ (sec | default(20)) }}
+
+# ---------------------------------------------------------------------------
+# Wsec: Time window width
+# Desc: Total seconds of the time window displayed.
+# ---------------------------------------------------------------------------
+wsec {{ (wsec | default(1080)) }}
+
+# ---------------------------------------------------------------------------
+# Tmin: Minimum temperature scale
+# Desc: Minimum temperature value for the Y-axis scale (Celsius).
+# ---------------------------------------------------------------------------
+tmin {{ (tmin | default(10)) }}
+
+# ---------------------------------------------------------------------------
+# Tmax: Maximum temperature scale
+# Desc: Maximum temperature value for the Y-axis scale (Celsius).
+# ---------------------------------------------------------------------------
+tmax {{ (tmax | default(50)) }}
+
+# ---------------------------------------------------------------------------
+# Vmin: Minimum voltage scale
+# Desc: Minimum voltage value for the Y-axis scale (Volts).
+# ---------------------------------------------------------------------------
+vmin {{ (vmin | default(1.8)) }}
+
+# ---------------------------------------------------------------------------
+# Vmax: Maximum voltage scale
+# Desc: Maximum voltage value for the Y-axis scale (Volts).
+# ---------------------------------------------------------------------------
+vmax {{ (vmax | default(2.2)) }}
+
+# ---------------------------------------------------------------------------
+# Tick: Axis ticks
+# Desc: Number of ticks on the vertical axis.
+# ---------------------------------------------------------------------------
+tick {{ (tick | default(3)) }}
+
+# ---------------------------------------------------------------------------
+# Fahren: Temperature unit
+# Desc: Display temperatures in Fahrenheit if True, else Celsius.
+# ---------------------------------------------------------------------------
+fahrn {{ (fahren | default(False)) | lower }}
+
+# ---------------------------------------------------------------------------
+# Method: Hardware access method
+# Desc: Hardware access method: V (via), S (sys), I (isa), A (auto).
+# ---------------------------------------------------------------------------
+method {{ (method | default('V')) }}
+
+# ---------------------------------------------------------------------------
+# Probe chip: Specific sensor chip
+# Desc: Specific chip to probe (e.g., lm85, it87). Leave empty to auto-detect.
+# ---------------------------------------------------------------------------
+{% if (probe_chip | default('')) != '' %}
+probe {{ probe_chip | default('') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# TyanTigerMP: Motherboard support
+# Desc: Enable support for Tyan Tiger MP motherboards.
+# ---------------------------------------------------------------------------
+{% if tyan_tiger_mp | default(False) %}
+TyanTigerMP
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Debug: Debug output
+# Desc: Enable debug output.
+# ---------------------------------------------------------------------------
+{% if debug | default(False) %}
+debug
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Color MB: Motherboard Temperature 1 color
+# Desc: Color for Motherboard Temperature 1.
+# ---------------------------------------------------------------------------
+cltmb {{ (color_mb | default('blue')) }}
+
+# ---------------------------------------------------------------------------
+# Color CPU: CPU Temperature 2 color
+# Desc: Color for CPU Temperature 2.
+# ---------------------------------------------------------------------------
+cltcpu {{ (color_cpu | default('red')) }}
+
+# ---------------------------------------------------------------------------
+# Color CS: Chip Temperature 3 color
+# Desc: Color for Chip Temperature 3.
+# ---------------------------------------------------------------------------
+cltcs {{ (color_cs | default('cyan')) }}
+
+# ---------------------------------------------------------------------------
+# Color VC: VCore Voltage color
+# Desc: Color for VCore Voltage.
+# ---------------------------------------------------------------------------
+clvc {{ (color_vc | default('green')) }}
+
+# ---------------------------------------------------------------------------
+# Comment MB: Motherboard Temperature label
+# Desc: Label for Motherboard Temperature. Use 'NOTEMP' to hide.
+# ---------------------------------------------------------------------------
+{% if (comment_mb | default('MB')) != 'NOTEMP' %}
+cmtmb {{ comment_mb | default('MB') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Comment CPU: CPU Temperature label
+# Desc: Label for CPU Temperature. Use 'NOTEMP' to hide.
+# ---------------------------------------------------------------------------
+{% if (comment_cpu | default('CPU')) != 'NOTEMP' %}
+cmtcpu {{ comment_cpu | default('CPU') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Comment CS: Chip Temperature label
+# Desc: Label for Chip Temperature. Use 'NOTEMP' to hide.
+# ---------------------------------------------------------------------------
+{% if (comment_cs | default('chip')) != 'NOTEMP' %}
+cmtcs {{ comment_cs | default('chip') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Comment VC: VCore Voltage label
+# Desc: Label for VCore Voltage.
+# ---------------------------------------------------------------------------
+cmvc {{ (comment_vc | default('Vc')) }}

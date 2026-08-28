@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from bossman.config import Settings
 from bossman.db.models import BusinessService, Service
 from bossman.services import notification
+from bossman.services.check_assignments import filter_agent_ids
 from bossman.services.compiler import affected_agent_ids
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,10 @@ async def _matched_services(session: AsyncSession, bs: BusinessService) -> list[
             ou_id=sel.get("ou_id"), agent_id=sel.get("agent_id"),
             host_group_id=sel.get("host_group_id"), tenant_id=bs.tenant_id,
         )
+        # The service's condition applies to every one of its selectors: it says which hosts belong to
+        # this business service at all, not which ones a particular selector happens to pick. Applying
+        # it per selector would be the same answer with more chances to forget one.
+        agent_ids = await filter_agent_ids(session, list(agent_ids), getattr(bs, "conditions", None))
         if not agent_ids:
             continue
         stmt = select(Service).where(Service.agent_id.in_(agent_ids))

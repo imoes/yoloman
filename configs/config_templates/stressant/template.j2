@@ -1,0 +1,109 @@
+#!/bin/bash
+# Auto-generated script for stressant
+# This script constructs and executes the stressant command with parameters
+# derived from the Ansible role variables.
+
+STRESSANT_CMD="/usr/bin/stressant"
+
+# Gather basic information (default: True)
+# Set to false to disable gathering basic info.
+{% if not (info | default(True)) %}
+STRESSANT_CMD="$STRESSANT_CMD --no-information"
+{% endif %}
+
+# Run disk tests (default: True)
+# Set to false to disable disk benchmarks.
+{% if not (disk | default(True)) %}
+STRESSANT_CMD="$STRESSANT_CMD --no-disk"
+{% endif %}
+
+# Run SMART tests (default: False)
+# Enables Self-Monitoring, Analysis and Reporting Technology tests.
+{% if smart | default(False) %}
+STRESSANT_CMD="$STRESSANT_CMD --smart"
+{% endif %}
+
+# Device to benchmark (default: /dev/sda)
+# The block device path to use for disk testing.
+STRESSANT_CMD="$STRESSANT_CMD --diskDevice {{ disk_device | default('/dev/sda') }}"
+
+# Path to the fio job file to use (default: /usr/share/doc/fio/examples/basic-verify.fio)
+# Specifies a custom fio job definition file.
+STRESSANT_CMD="$STRESSANT_CMD --jobFile {{ job_file | default('/usr/share/doc/fio/examples/basic-verify.fio') }}"
+
+# Actually destroy the given device (default: False)
+# WARNING: Destructive operation. Use with extreme caution.
+{% if overwrite | default(False) %}
+STRESSANT_CMD="$STRESSANT_CMD --overwrite"
+{% endif %}
+
+# Size to write to disk, bytes or percentage (default: 100M)
+# Determines the chunk size or total amount for disk writes.
+STRESSANT_CMD="$STRESSANT_CMD --writeSize {{ write_size | default('100M') }}"
+
+# Directory to perform file tests in. Leave empty to use default. (default: '')
+# Specifies the directory path for file-based benchmarks.
+{% if directory | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --directory {{ directory | default('') }}"
+{% endif %}
+
+# Upper limit for disk benchmark (default: 1m)
+# Maximum duration to spend on disk testing.
+STRESSANT_CMD="$STRESSANT_CMD --diskRuntime {{ disk_runtime | default('1m') }}"
+
+# Run CPU tests (default: True)
+# Set to false to disable CPU stress tests.
+{% if not (cpu | default(True)) %}
+STRESSANT_CMD="$STRESSANT_CMD --no-cpu"
+{% endif %}
+
+# Timeout for CPU burn-in (default: 1m)
+# Duration to run CPU-intensive operations.
+STRESSANT_CMD="$STRESSANT_CMD --cpuBurnTime {{ cpu_burn_time | default('1m') }}"
+
+# Run network tests (default: True)
+# Set to false to disable network bandwidth/latency tests.
+{% if not (network | default(True)) %}
+STRESSANT_CMD="$STRESSANT_CMD --no-network"
+{% endif %}
+
+# iPerf server to use (default: iperf.he.net)
+# The remote host for network throughput testing.
+STRESSANT_CMD="$STRESSANT_CMD --iperfServer {{ iperf_server | default('iperf.he.net') }}"
+
+# Timeout for iperf test, in seconds (default: 60)
+# Duration of the network transfer test.
+STRESSANT_CMD="$STRESSANT_CMD --iperfTime {{ iperf_time | default('60') }}"
+
+# Email address to send reports to (default: '')
+# If provided, results will be emailed to this address.
+{% if email | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --email {{ email | default('') }}"
+{% endif %}
+
+# SMTP server to use (default: '')
+# Server used to relay email reports. Leave empty for system default MTA.
+{% if smtp_server | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --smtpserver {{ smtp_server | default('') }}"
+{% endif %}
+
+# Username for the SMTP server (default: '')
+# Authentication user for the SMTP server.
+{% if smtp_user | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --smtpuser {{ smtp_user | default('') }}"
+{% endif %}
+
+# Password for the SMTP server (default: '')
+# Authentication password for the SMTP server.
+{% if smtp_pass | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --smtppass {{ smtp_pass | default('') }}"
+{% endif %}
+
+# Path to write reports. Default is stressant-$HOSTNAME.log (default: '')
+# File path for storing the test output logs.
+{% if logfile | default('') %}
+STRESSANT_CMD="$STRESSANT_CMD --logfile {{ logfile | default('') }}"
+{% endif %}
+
+# Execute the command
+exec $STRESSANT_CMD

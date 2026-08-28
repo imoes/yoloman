@@ -1,0 +1,39 @@
+# Symlinks configuration template for symlinks(8)
+# This template generates the command-line arguments and directory list
+# for the symlinks utility. It is self-documenting: each directive is
+# preceded by its schema description.
+
+# recurse: Recursively operate on subdirectories within the same filesystem (-r).
+{% if recurse | default(False) %}
+-r
+{% endif %}
+
+# convert: Convert absolute links to relative links and clean up messy/lengthy links (-c).
+{% if convert | default(True) %}
+-c
+{% endif %}
+
+# detect_lengthy: Detect lengthy links that use '../' more than necessary (-s).
+{% if detect_lengthy | default(False) %}
+-s
+{% endif %}
+
+# remove_dangling: Remove symbolic links whose target does not exist (-d).
+{% if remove_dangling | default(False) %}
+-d
+{% endif %}
+
+# fix_other_fs: Fix links on other filesystems encountered while recursing (-o).
+{% if fix_other_fs | default(False) %}
+-o
+{% endif %}
+
+# verbose: Show all symbolic links, including relative ones (-v).
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+# scan_dirs: List of directory paths to scan for symbolic links.
+{% for dir in scan_dirs | default([]) %}
+{{ dir }}
+{% endfor %}

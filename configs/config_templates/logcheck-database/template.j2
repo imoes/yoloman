@@ -1,0 +1,48 @@
+# logcheck-database configuration for BIND (named) logs
+#
+# This file contains regular expressions used by logcheck to filter
+# BIND (named) log messages. Lines starting with '^' are regexes.
+#
+# These patterns are designed to match normal BIND operational logs,
+# such as zone loads, notifies, stats, and routine client queries.
+# They effectively suppress "noise" from the security report.
+#
+# Note: This package does not support dynamic configuration via variables
+# in the standard sense. It provides a static set of filters.
+# However, if custom ignore patterns are needed, they can be injected
+# via the 'custom_rules' variable (a list of strings).
+
+{# Standard BIND Operational Logs #}
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: (master|slave) zone "[^[[:space:]]]+" \\(IN\\) loaded \\(serial [[:digit:]]+\\)$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: (ns_forw|ns_resp|sysquery): query\([^[:space:]]+\\) (NS points to CNAME \\(^[[:space:]]+\\)|No possible A RRs|All possible A RR\'s lame|Bogus LOOPBACK A RR \\(^[[:space:]]+\\) learnt \\(^[[:space:]]+\\))$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Cleaned cache of [[:digit:]]+ RRsets?$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Lame delegation$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Lame server on \'[^[:space:]]+\' \\(in \'[^[:space:]]+\'\\): \\[[.[:digit:]]+\\].[[:digit:]]+ \'[^[:space:]]+\'$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: NSTATS [[:digit:]]+ [[:digit:]]+( (A|CNAME|SOA|NS|PTR|MX|TXT|AAAA|SRV|38|IXFR|AXFR|ANY|NAPTR)=[[:digit:]]+)+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Received NOTIFY answer$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Response from$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: Sent NOTIFY for [^[:space:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: USAGE [[:digit:]]+ [[:digit:]]+ CPU=[.[:digit:]]+u/[.[:digit:]]+s CHILDCPU=[.[:digit:]]+u/[.[:digit:]]+s$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: XSTATS [[:digit:]]+ [[:digit:]]+( (RR|RNXD|RFwdR|RDupR|RFail|RFErr|RErr|RAXFR|RLame|ROpts|SSysQ|SAns|SFwdQ|SDupQ|SErr|RQ|RIQ|RFwdQ|RDupQ|RTCP|SFwdR|SFail|SFErr|SNaAns|SNXD|RUQ|RURQ|RUXFR|RUUpd)=[[:digit:]]+)+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: approved AXFR from [^[:space:]]+ for [^[:space:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: client [[:digit:]a-f.:]+#[[:digit:]]+: transfer of \'[^[:space:]]+/IN\': AXFR (started|ended)$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: lame server resolving \'[^[:space:]]+\' \\(in \'[^[:space:]]+\'\\): [.[:digit:].]+#[[:digit:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: late CNAME in answer section for [^[:space:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: loading configuration from \'/etc/bind/named\.conf\'$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: no IPv6 interfaces found$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: rcvd NOTIFY\([^[:space:]]+, IN, SOA\\) from \\[[[:digit:]a-f.:]+\\]\\.[[:digit:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: reloading$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: suppressing duplicate notify$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: transfer of \'[^[:space:]]+\' from [^[:space:]]+: end of transfer$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: zone [^[:space:]]+/IN: sending notifies \\(serial [[:digit:]]+\\)$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: zone [^[:space:]]+: transferred serial [[:digit:]]+$
+^(\\w{3} [ :[:digit:]]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ named\[[[:digit:]]+\]: zone transfer \\(AXFR\\) of [^[:space:]]+ to [^[:space:]]+$
+
+{# Custom Rules Injection #}
+{# If custom_rules is defined, append these lines to the configuration #}
+{# This allows users to extend the filtering without modifying the base package #}
+{% if custom_rules is defined and custom_rules is iterable %}
+{% for rule in custom_rules %}
+{{ rule }}
+{% endfor %}
+{% endif %}

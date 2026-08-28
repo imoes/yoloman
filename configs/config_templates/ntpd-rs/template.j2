@@ -1,0 +1,79 @@
+# ==============================================================================
+# ntpd-rs Configuration Template
+# ==============================================================================
+# This template generates the configuration file for ntpd-rs.
+# It is structured into sections: observability, sources, and synchronization.
+# All variables are sourced from the Ansible playbook's variable scope, with
+# safe defaults provided inline to ensure idempotent and crash-proof rendering.
+# ==============================================================================
+
+[observability]
+
+# log-level: Controls the verbosity of the daemon's log output.
+# Valid values: trace, debug, info, warn, error.
+# Default: 'info'
+log-level = "{{ log_level | default('info') }}"
+
+# observation-path: The filesystem path to the Unix domain socket used for
+# runtime observation and statistics collection. Tools like `ntp-ctl` or
+# `ntp-metrics-exporter` connect to this socket.
+# Default: '/var/run/ntpd-rs/observe'
+observation-path = "{{ observation_path | default('/var/run/ntpd-rs/observe') }}"
+
+# ==============================================================================
+# Sources Configuration
+# ==============================================================================
+# The `[[source]]` block defines where ntpd-rs gets its time.
+# Multiple `[[source]]` blocks can exist, but the default setup uses one
+# configured here.
+# ==============================================================================
+[[source]]
+
+# mode: Defines how the source is queried.
+# - 'pool': Discovers multiple servers from the address (requires count).
+# - 'server': Connects to a single specific server address.
+# - 'nts': Uses Network Time Security (not enabled by default).
+# Default: 'pool'
+mode = "{{ source_mode | default('pool') }}"
+
+# address: The hostname or IP address of the NTP source/pool.
+# In 'pool' mode, this is usually a domain like 'pool.ntp.org'.
+# In 'server' mode, this is the specific server IP/hostname.
+# Default: 'ntpd-rs.pool.ntp.org'
+address = "{{ source_address | default('ntpd-rs.pool.ntp.org') }}"
+
+# count: The number of distinct sources to discover and use when in 'pool' mode.
+# This value is ignored if mode is 'server'.
+# Default: 4
+count = {{ source_count | default(4) }}
+
+# ==============================================================================
+# Synchronization & Thresholds
+# ==============================================================================
+# These settings control how aggressively ntpd-rs adjusts the system clock.
+# Adjust these to match your security requirements and hardware stability.
+# ==============================================================================
+[synchronization]
+
+# single-step-panic-threshold: The maximum number of seconds the clock can be
+# stepped forward or backward during normal operation. If the offset exceeds
+# this value, the daemon will not adjust the clock immediately but may wait
+# or log an error, depending on other settings.
+# Default: 1800 (seconds)
+single-step-panic-threshold = {{ single_step_panic_threshold | default(1800) }}
+
+# startup-step-panic-threshold: Limits the allowable time jump during the
+# initial startup phase. This is a map with 'forward' and 'backward' keys.
+# 'forward' is set to 'inf' (infinity) to allow catching up to real time.
+# 'backward' is limited by the variable below to prevent setting the clock
+# back arbitrarily on boot.
+startup-step-panic-threshold = { forward="inf", backward = {{ startup_step_backward_threshold | default(86400) }} }
+
+# accumulated-threshold: (Optional/Commented) If enabled, the daemon stops
+# if the total accumulated time jumps exceed this value. This is disabled by
+# default in the base configuration.
+#accumulated-threshold = 1800
+
+# minimum-agreeing-sources: (Optional/Commented) The minimum number of sources
+# that must agree on the time before the daemon considers the time valid.
+#minimum-agreeing-sources = 3

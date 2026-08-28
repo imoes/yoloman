@@ -1,11 +1,14 @@
-"""Block G9-P3d — credential provisioning (render + run a NestedText recipe,
-produce the check's monitoring params). Fake agent client; no live host."""
+"""Block G9-P3d — credential provisioning (render + run a YAML recipe, produce the check's monitoring
+params). Fake agent client; no live host."""
 
-import nestedtext
+import yaml
 
 from bossman.services import provisioning
 
-_RECIPE_NT = """\
+# YAML, and the quoting matters: `{monitor_password}` is a placeholder this code substitutes, and YAML reads a
+# bare `{...}` as a flow mapping. In NestedText everything was a string and no quoting was needed — that
+# convenience is exactly what the second format cost everywhere else.
+_RECIPE_YAML = """\
 check: mysql
 title: Create a MySQL monitoring user
 admin_params:
@@ -17,16 +20,16 @@ generate:
   - monitor_password
 argv:
   - mysql
-  - -u{admin_user}
-  - -p{admin_password}
+  - "-u{admin_user}"
+  - "-p{admin_password}"
   - -e
-  - CREATE USER 'monitor'@'localhost' IDENTIFIED BY '{monitor_password}';
+  - "CREATE USER 'monitor'@'localhost' IDENTIFIED BY '{monitor_password}';"
 produces:
   user: monitor
-  password: {monitor_password}
+  password: "{monitor_password}"
 """
 
-_RECIPE = nestedtext.loads(_RECIPE_NT, top="dict")
+_RECIPE = yaml.safe_load(_RECIPE_YAML)
 
 
 class FakeClient:
@@ -40,8 +43,9 @@ class FakeClient:
         return {"changed": True, "msg": "ran", "data": {"rc": self.rc, "stdout": "", "stderr": self.stderr}}
 
 
-def test_load_recipe_nt_from_dir(tmp_path):
-    (tmp_path / "mysql.provision.nt").write_text(_RECIPE_NT, encoding="utf-8")
+def test_load_recipe_from_dir(tmp_path):
+    # .provision.yaml — the NestedText variant is gone with the dependency.
+    (tmp_path / "mysql.provision.yaml").write_text(_RECIPE_YAML, encoding="utf-8")
     r = provisioning.load_recipe(tmp_path, "mysql")
     assert r and r["check"] == "mysql"
     assert provisioning.load_recipe(tmp_path, "nope") is None

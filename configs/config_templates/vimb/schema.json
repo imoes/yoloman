@@ -1,0 +1,137 @@
+{
+  "home_page": {
+    "type": "string",
+    "default": "https://www.example.com",
+    "description": "The homepage URI opened when Vimb starts without arguments."
+  },
+  "user_agent": {
+    "type": "string",
+    "default": "Vimb/3.7.0",
+    "description": "The User-Agent string sent in HTTP requests."
+  },
+  "cookie_accept": {
+    "type": "string",
+    "default": "always",
+    "description": "Cookie acceptance policy. Valid values: 'always', 'never', 'origin'.",
+    "enum": [
+      "always",
+      "never",
+      "origin"
+    ]
+  },
+  "dark_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable dark mode for websites using prefers-color-scheme."
+  },
+  "scripts": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow JavaScript execution on pages."
+  },
+  "images": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow automatic image loading."
+  },
+  "plugins": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable browser plugins."
+  },
+  "default_font": {
+    "type": "string",
+    "default": "sans-serif",
+    "description": "Default font family for text content."
+  },
+  "font_size": {
+    "type": "number",
+    "default": 16,
+    "description": "Default font size in pixels."
+  },
+  "monospace_font": {
+    "type": "string",
+    "default": "monospace",
+    "description": "Font family for monospace text."
+  },
+  "serif_font": {
+    "type": "string",
+    "default": "serif",
+    "description": "Font family for serif text."
+  },
+  "sans_serif_font": {
+    "type": "string",
+    "default": "sans-serif",
+    "description": "Font family for sans-serif text."
+  },
+  "cursiv_font": {
+    "type": "string",
+    "default": "cursive",
+    "description": "Font family for cursive text."
+  },
+  "download_path": {
+    "type": "string",
+    "default": "~/Downloads",
+    "description": "Default directory for saving downloads."
+  },
+  "download_command": {
+    "type": "string",
+    "default": "curl -sLJOC - -e '$VIMB_URI' %s",
+    "description": "External command to handle downloads. Must contain %s placeholder for URI."
+  },
+  "download_use_external": {
+    "type": "bool",
+    "default": false,
+    "description": "Use the external download-command instead of Vimb's internal downloader."
+  },
+  "headers": {
+    "type": "list",
+    "default": [],
+    "description": "List of HTTP headers to send or replace. Format: 'HeaderName=HeaderValue' or 'HeaderName' to remove. Note: Due to Jinja2 list iteration limitations in vimb config generation, this template uses a specific loop structure to format the single 'set header' directive correctly if multiple items are needed, but vimb's 'set header' takes a comma-separated list. This schema item represents the individual components that will be joined or handled in the template logic if the engine supported join. However, sticking to strict Jinja2 without custom filters, we will treat 'headers' as a single string value in practice or rely on the user providing a pre-formatted string if multiple are needed. To adhere strictly to 'list' type in schema while producing valid output, we assume the template handles a list of headers by joining them or the user provides a single string. For this template, we will treat 'headers' as a list of strings that the template iterates to build the comma-separated value, but since we cannot use join filter, we must rely on the list being small or the template logic to handle it. *Correction*: The prompt forbids custom filters but allows standard ones. `join` is a standard filter. So we can use `join`.\nRevised Template logic for headers: `set header={{ headers|join(',') }}`.\nItems type for headers: string."
+  },
+  "editor_command": {
+    "type": "string",
+    "default": "vim %s",
+    "description": "Command to open an editor for form fields. Uses %s for the temporary file."
+  },
+  "timeoutlen": {
+    "type": "number",
+    "default": 1000,
+    "description": "Timeout in milliseconds for key sequence mappings."
+  },
+  "hint_keys": {
+    "type": "string",
+    "default": "asdfghjkl",
+    "description": "Keys used for hinting links. Must be unique characters."
+  },
+  "hardware_acceleration_policy": {
+    "type": "string",
+    "default": "ondemand",
+    "description": "Hardware acceleration policy: 'always', 'never', 'ondemand'.",
+    "enum": [
+      "ondemand",
+      "always",
+      "never"
+    ]
+  },
+  "geolocation": {
+    "type": "string",
+    "default": "ask",
+    "description": "Geolocation access policy: 'always', 'never', 'ask'.",
+    "enum": [
+      "always",
+      "never",
+      "ask"
+    ]
+  },
+  "notification": {
+    "type": "string",
+    "default": "ask",
+    "description": "Notification access policy: 'always', 'never', 'ask'.",
+    "enum": [
+      "always",
+      "never",
+      "ask"
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+# Apache configuration template for iipimage-server (IIP Image Server)
+# This template configures the FCGID handler to serve requests via the iipsrv binary.
+
+# ==============================================================================
+# Script Alias Configuration
+# ==============================================================================
+# Maps the URL path to the filesystem location of the iipsrv CGI script.
+# Schema: iipimage_script_alias_path (string, default: '/usr/lib/iipimage-server/')
+
+ScriptAlias /iipsrv/ "{{ iipimage_script_alias_path | default('/usr/lib/iipimage-server/') | trim }}/"
+
+# ==============================================================================
+# Location Block & Access Control
+# ==============================================================================
+# Configures the Apache location handler and access permissions for the image service.
+# Schema: iipimage_location_path (string, default: '/iipsrv/')
+
+<Location "{{ iipimage_location_path | default('/iipsrv/') }}">
+    AllowOverride None
+    Options None
+
+    # Access Control
+    # Allows public access to the image service.
+    <IfModule mod_version.c>
+        <IfVersion < 2.4>
+            Order allow,deny
+            Allow from all
+        </IfVersion>
+        <IfVersion >= 2.4>
+            Require all granted
+        </IfVersion>
+    </IfModule>
+
+    # FCGI Handler Configuration
+    # Tells Apache to treat .fcgi files as FastCGI scripts for this location.
+    AddHandler fcgid-script .fcgi
+</Location>
+
+# ==============================================================================
+# Environment Variables for iipsrv
+# ==============================================================================
+# Passes runtime configuration to the iipsrv process via FastCGI environment variables.
+
+# --- Logging Configuration ---
+# Schema: iipimage_verbosity (string, default: '1')
+# Description: Verbosity level for the IIP server logs.
+FcgidInitialEnv VERBOSITY "{{ iipimage_verbosity | default('1') }}"
+
+# Schema: iipimage_logfile (string, default: '/var/log/iipsrv.log')
+# Description: Path to the log file for the IIP server.
+FcgidInitialEnv LOGFILE "{{ iipimage_logfile | default('/var/log/iipsrv.log') }}"
+
+# --- Caching Configuration ---
+# Schema: iipimage_max_image_cache_size (integer, default: 10)
+# Description: Maximum number of images to keep in the cache.
+FcgidInitialEnv MAX_IMAGE_CACHE_SIZE "{{ iipimage_max_image_cache_size | default(10) }}"
+
+# Schema: iipimage_memcached_servers (string, default: 'localhost')
+# Description: Comma-separated list of memcached servers for caching.
+FcgidInitialEnv MEMCACHED_SERVERS "{{ iipimage_memcached_servers | default('localhost') }}"
+
+# --- Image Processing Limits ---
+# Schema: iipimage_jpeg_quality (integer, default: 90)
+# Description: JPEG output quality level (0-100).
+FcgidInitialEnv JPEG_QUALITY "{{ iipimage_jpeg_quality | default(90) }}"
+
+# Schema: iipimage_max_cvt (integer, default: 5000)
+# Description: Maximum width or height of an image in pixels for processing.
+FcgidInitialEnv MAX_CVT "{{ iipimage_max_cvt | default(5000) }}"
+
+# ==============================================================================
+# FCGID Process Management
+# ==============================================================================
+# Configures the FastCGI process manager settings for Apache.
+
+# Schema: iipimage_fcgid_idle_timeout (integer, default: 0)
+# Description: Idle timeout for FCGI processes in seconds. 0 means unlimited.
+FcgidIdleTimeout {{ iipimage_fcgid_idle_timeout | default(0) }}
+
+# Schema: iipimage_fcgid_max_processes_per_class (integer, default: 1)
+# Description: Maximum number of FCGI processes per class.
+FcgidMaxProcessesPerClass {{ iipimage_fcgid_max_processes_per_class | default(1) }}

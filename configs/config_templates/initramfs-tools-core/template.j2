@@ -1,0 +1,86 @@
+#
+# initramfs-tools.conf
+#
+# Self-documenting configuration file for mkinitramfs(8).
+# This template manages the core initramfs generation settings.
+# See initramfs.conf(5) for detailed manual pages.
+#
+# Note that configuration options from this file can be overridden
+# by config files in the /etc/initramfs-tools/conf.d directory.
+#
+
+#
+# MODULES: [ most | netboot | dep | list ]
+#
+# Module selection strategy:
+# - most: Add most filesystem and all harddrive drivers.
+# - netboot: Add the base modules, network modules, but skip block devices.
+# - dep: Try and guess which modules to load based on dependencies.
+# - list: Only include modules from the 'additional modules' list.
+#
+MODULES={{ MODULES | default('most') }}
+
+#
+# BUSYBOX: [ y | n | auto ]
+#
+# Use busybox shell/utilities: y, n, or auto.
+# If set to 'n', klibc utilities will be used.
+# If set to 'auto' (or unset), busybox will be used if installed and klibc will
+# be used otherwise.
+#
+BUSYBOX={{ BUSYBOX | default('auto') }}
+
+#
+# KEYMAP: [ y | n ]
+#
+# Load keymap during initramfs: y or n.
+#
+KEYMAP={{ KEYMAP | default('n') }}
+
+#
+# COMPRESS: [ gzip | bzip2 | lz4 | lzma | lzop | xz | zstd ]
+#
+# Compression algorithm: gzip, bzip2, lz4, lzma, lzop, xz, or zstd.
+#
+COMPRESS={{ COMPRESS | default('zstd') }}
+
+#
+# COMPRESSLEVEL: ...
+#
+# Compression level for the compressor. Defaults vary by compressor.
+# Leave empty to use defaults.
+#
+# Valid values are:
+# 1 -  9 for gzip|bzip2|lzma|lzop
+# 0 -  9 for  lz4|xz
+# 0 - 19 for zstd
+#
+COMPRESSLEVEL={{ COMPRESSLEVEL | default('') }}
+
+#
+# DEVICE: ...
+#
+# Specific network interface to use (e.g., eth0). Leave empty for automatic detection.
+#
+DEVICE={{ DEVICE | default('') }}
+
+#
+# NFSROOT: [ auto | HOST:MOUNT ]
+#
+# NFS root configuration: auto or HOST:MOUNT.
+#
+NFSROOT={{ NFSROOT | default('auto') }}
+
+#
+# RUNSIZE: ...
+#
+# Size of the /run tmpfs mount point (e.g., 256M or 10%).
+#
+RUNSIZE={{ RUNSIZE | default('10%') }}
+
+#
+# FSTYPE: ...
+#
+# Filesystem type(s) to support, or 'auto' to use the current root filesystem type.
+#
+FSTYPE={{ FSTYPE | default('auto') }}

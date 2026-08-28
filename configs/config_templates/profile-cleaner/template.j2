@@ -1,0 +1,22 @@
+# ============================================================
+# profile-cleaner configuration template
+# Self-documenting: every setting is described above its line.
+# ============================================================
+
+# Terminal color scheme for output messages. Valid values: dark, light.
+# Defaults to 'dark' if not provided.
+COLORSCHEME={{ (values | default({})).color_scheme | default('dark') }}
+
+# Enable verbose output showing reduction details.
+# Rendered as 1 (yes) or 0 (no). Defaults to True (1).
+VERBOSE={{ (values | default({})).verbose | default(true) | ternary(1, 0) }}
+
+# List of browsers and email clients to clean.
+# Supported values: brave, chromium, conkeror, edge, firefox, falkon, google-chrome,
+# heftig, icecat, icedove, inox, librewolf, midori, opera, thunderbird,
+# tor-browser, seamonkey, palemoon, vivaldi.
+# Each listed browser gets a flag set to 1.
+# Defaults to ['firefox', 'thunderbird', 'chromium'] if not provided.
+{% for browser in (values | default({})).browsers | default(['firefox', 'thunderbird', 'chromium']) %}
+BROWSER_{{ browser | upper }}=1
+{% endfor %}

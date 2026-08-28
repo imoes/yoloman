@@ -1,0 +1,93 @@
+# Configuration for snooze service supervision
+# This file defines the default parameters for a snooze instance managed by runsv or similar.
+# The 'snooze' utility is a scheduler that triggers commands based on calendar patterns,
+# handling timezone offsets, jitter, and slack to ensure robust execution.
+
+# Command to execute at the scheduled time
+# Corresponds to the 'command' argument in snooze(1).
+# This is the actual shell command or script that will be run when the schedule triggers.
+cmd="{{ cmd | default('/usr/local/bin/my_task') }}"
+
+# Timefile path for tracking execution state
+# Corresponds to -t <timefile> in snooze(1).
+# This file stores the timestamp of the last execution. Snooze uses this to determine
+# if the scheduled time has arrived and to avoid duplicate executions.
+timefile="{{ timefile | default('/var/run/snooze/myservice.state') }}"
+
+# Minimum wait time after timefile modification before allowing execution
+# Corresponds to -T <timewait> in snooze(1).
+# If the timefile was modified more recently than this number of seconds ago, snooze
+# will wait until the file age exceeds this threshold before proceeding.
+# Prevents racing conditions or accidental rapid restarts.
+timewait={{ timewait | default(0) }}
+
+# Random delay determination up to this many seconds
+# Corresponds to -R <randdelay> in snooze(1).
+# When the scheduled time arrives, snooze may wait up to this many seconds (randomly
+# chosen) before determining the final execution time. Useful for distributing load
+# across multiple identical nodes.
+randdelay={{ randdelay | default(0) }}
+
+# Random jitter in execution up to this many seconds
+# Corresponds to -J <jitter> in snooze(1).
+# Adds a random delay between the scheduled time (and any randdelay) and the actual
+# execution of the command. Helps prevent thundering herd problems.
+jitter={{ jitter | default(0) }}
+
+# Slack time in seconds; commands executed even if late by this amount
+# Corresponds to -s <slack> in snooze(1).
+# If the system is busy or the scheduler wakes up slightly late, snooze will still
+# execute the command if the delay is within this slack window.
+slack={{ slack | default(60) }}
+
+# Day of month pattern
+# Corresponds to -d <day> in snooze(1).
+# Specifies which day of the month the command should run (e.g., 1, 15, *).
+day="{{ day | default('*') }}"
+
+# Month pattern
+# Corresponds to -m <mon> in snooze(1).
+# Specifies which month(s) the command should run (e.g., 1-12, jan-dec, *).
+mon="{{ mon | default('*') }}"
+
+# Weekday pattern (0-7, sunday is 0 and 7)
+# Corresponds to -w <wday> in snooze(1).
+# Specifies which days of the week the command should run.
+# Note: Both 0 and 7 represent Sunday.
+wday="{{ wday | default('*') }}"
+
+# Day of year pattern (1..366)
+# Corresponds to -D <yday> in snooze(1).
+# Specifies which day of the year the command should run (1 to 366).
+yday="{{ yday | default('*') }}"
+
+# ISO week of year pattern (1..53)
+# Corresponds to -W <yweek> in snooze(1).
+# Specifies which ISO week of the year the command should run.
+yweek="{{ yweek | default('*') }}"
+
+# Hour pattern
+# Corresponds to -H <hour> in snooze(1).
+# Specifies the hour of the day the command should run (0-23).
+hour="{{ hour | default('0') }}"
+
+# Minute pattern
+# Corresponds to -M <min> in snooze(1).
+# Specifies the minute of the hour the command should run (0-59).
+min="{{ min | default('0') }}"
+
+# Second pattern
+# Corresponds to -S <sec> in snooze(1).
+# Specifies the second of the minute the command should run (0-59).
+sec="{{ sec | default('0') }}"
+
+# Enable verbose output
+# Corresponds to -v in snooze(1).
+# When true, snooze prints detailed information about its decisions and timing.
+verbose={{ verbose | default(false) | lower }}
+
+# Enable dry run mode (print next 5 times and exit)
+# Corresponds to -n in snooze(1).
+# When true, snooze does not execute the command but prints the next 5 scheduled
+# times for debugging and verification purposes.
+dryrun={{ dryrun | default(false) | lower }}

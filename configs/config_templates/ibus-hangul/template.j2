@@ -1,0 +1,61 @@
+# AppArmor profile for ibus-engine-hangul
+# This profile confines the IBus Hangul input engine, allowing it to access
+# necessary system resources, user configuration files, and communicate with
+# the IBus daemon. It is designed to be included via the 'include' directive
+# in a larger AppArmor configuration or used as a standalone profile file.
+#
+# The profile uses AppArmor variables (e.g., @{HOME}) which are resolved
+# by the AppArmor parser at load time based on the user executing the process.
+
+#include <tunables/global>
+
+/usr/libexec/ibus-engine-hangul flags=(complain) {
+    # Base abstractions: Provides standard access to essential system libraries,
+    # /proc filesystem entries, and basic system calls required by most applications.
+    #include <abstractions/base>
+
+    # DConf abstraction: Allows reading configuration stored in DConf/GSettings,
+    # which ibus-hangul uses to store user preferences.
+    #include <abstractions/dconf>
+
+    # D-Bus Session abstraction: Restricts D-Bus communication to the user's
+    # session bus, adhering to strict security policies for session daemons.
+    #include <abstractions/dbus-session-strict>
+
+    # libhangul abstraction: Grants access to the underlying libhangul library
+    # and its data files, which are required for Hangul input processing.
+    #include <abstractions/libhangul1>
+
+    # Read access to IBus Hangul data files.
+    /usr/share/ibus-hangul/** r,
+
+    # Read access to IBus keymap files.
+    /usr/share/ibus/keymaps/* r,
+
+    # Read access to compiled GSettings schemas, needed to read engine metadata.
+    /usr/share/glib-2.0/schemas/gschemas.compiled r,
+
+    # Read-write access to the IBus bus configuration and cache directories
+    # within the user's home directory. This allows the engine to communicate
+    # with the IBus daemon via local files.
+    owner @{HOME}/.{cache,config}/ibus/bus/ rw,
+    owner @{HOME}/.{cache,config}/ibus/bus/* rw,
+
+    # Read-write access to DConf user database.
+    # Allows the engine to persist its settings.
+    owner /{,var/}run/user/*/dconf/user rw,
+    owner @{HOME}/.config/dconf/user rw,
+
+    # Execute permission for the main IBus binary.
+    # This is primarily for checking the presence/version of the daemon
+    # or for compatibility with certain IBus internal mechanisms.
+    /usr/bin/ibus PUx,
+
+    # Read access to the process's own file descriptors.
+    # This is often required by libraries for introspection or logging.
+    @{PROC}/@{pid}/fd/ r,
+
+    # Allow receiving 'term' (terminate) signals from the IBus daemon.
+    # This ensures the engine can be cleanly shut down when the user session ends.
+    signal (receive) set=("term") peer=/usr/bin/ibus-daemon,
+}

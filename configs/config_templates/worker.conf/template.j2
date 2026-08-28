@@ -1,87 +1,77 @@
 # debci-worker main configuration file
-# ============================================================
-# Self-documenting Jinja2 template for debci worker configuration.
-# Every directive is preceded by its schema description.
-# All variables use `| default(...)` to ensure safe rendering.
-# ============================================================
+# Sets the unique identifier for this worker instance
+worker_id: {{ worker_id }}
 
-# Unique name for this worker instance (used by the coordinator to identify it)
-worker_id: {{ (worker_id | default('worker-01')) | string }}
+# Number of concurrent test jobs this worker can run
+max_jobs: {{ max_jobs }}
 
-# Maximum number of concurrent test jobs this worker can run simultaneously
-max_jobs: {{ (max_jobs | default(2)) | int }}
+# Base directory where test artifacts and logs are stored
+work_dir: {{ work_dir }}
 
-# Root directory for worker state, logs, and test artifacts
-work_dir: {{ (work_dir | default('/var/lib/debci')) | string }}
+# Directory containing test packages and metadata
+package_cache_dir: {{ package_cache_dir }}
 
-# Directory where downloaded test packages and metadata are cached
-package_cache_dir: {{ (package_cache_dir | default('/var/cache/debci/packages')) | string }}
+# URL of the debci coordinator (server)
+coordinator_url: {{ coordinator_url }}
 
-# Base URL of the debci coordinator server
-coordinator_url: {{ (coordinator_url | default('https://coordinator.example.com')) | string }}
+# Path to the API token file for authenticating with the coordinator
+api_token_file: {{ api_token_file }}
 
-# Path to a file containing the API token used to authenticate with the coordinator
-api_token_file: {{ (api_token_file | default('/etc/debci/api-token')) | string }}
-
-# Number of seconds to wait before retrying a failed job (e.g., network error)
-retry_delay: {{ (retry_delay | default(30)) | int }}
+# Number of seconds to wait before retrying a failed job
+retry_delay: {{ retry_delay }}
 
 # Maximum number of retry attempts for a failed job
-max_retries: {{ (max_retries | default(3)) | int }}
+max_retries: {{ max_retries }}
 
-# Enable verbose logging (info level and above)
-verbose: {{ verbose | default(false) | lower }}
+# Enable or disable verbose logging
+verbose: {{ verbose | lower }}
 
-# Enable debug logging (includes all info/warning/error messages plus detailed debug traces)
-# Note: Debug logging implies verbose logging if enabled.
-debug: {{ debug | default(false) | lower }}
+# Enable or disable debug logging
+# (implies verbose if enabled)
+debug: {{ debug | lower }}
 
-# List of CPU architectures this worker can build and test (e.g., 'amd64', 'arm64')
+# List of architectures this worker supports
 supported_architectures:
-{% for arch in (supported_architectures | default(['amd64', 'i386'])) %}  - {{ arch | string }}
+{% for arch in supported_architectures %}  - {{ arch }}
 {% endfor %}
 
-# List of Debian/Ubuntu distribution releases this worker supports
+# List of distribution releases this worker can test
 supported_releases:
-{% for release in (supported_releases | default(['bullseye', 'bookworm', 'trixie'])) %}  - {{ release | string }}
+{% for release in supported_releases %}  - {{ release }}
 {% endfor %}
 
-# Key-value pairs of environment variables to export to test jobs (e.g., TZ, DEBEMAIL)
+# Additional environment variables to pass to test jobs
 environment:
-{% for key, value in (environment | default({})) | dict2items %}  {{ key.key }}: {{ key.value | string }}
+{% for key, value in environment.items() %}  {{ key }}: {{ value }}
 {% endfor %}
 
-# Resource limits per job (applies to systemd/cgroupv2)
+# CPU/memory limits per job (applies to systemd cgroupv2)
 job_limits:
-  cpu_quota: {{ ((job_limits | default({'cpu_quota': 50000})).get('cpu_quota', 50000) | default(50000)) | int }}
-  memory_limit: {{ ((job_limits | default({'memory_limit': '2G'})).get('memory_limit', '2G') | default('2G')) | string }}
+  cpu_quota: {{ job_limits.cpu_quota }}
+  memory_limit: {{ job_limits.memory_limit }}
 
-# Maximum time (in seconds) a single test job may run before being killed
-job_timeout: {{ (job_timeout | default(3600)) | int }}
+# Timeout (in seconds) for individual test runs
+job_timeout: {{ job_timeout }}
 
-# Automatically remove old test artifacts (logs, builds, etc.) to free disk space
-cleanup_enabled: {{ cleanup_enabled | default(true) | lower }}
+# Enable or disable automatic cleanup of old artifacts
+cleanup_enabled: {{ cleanup_enabled | lower }}
 
-# Delete test artifacts older than this many days
-cleanup_age_days: {{ (cleanup_age_days | default(7)) | int }}
+# Number of days after which to delete old test artifacts
+cleanup_age_days: {{ cleanup_age_days }}
 
-# Optional absolute path to a script to run before each test job begins
-pre_test_hook: {{ (pre_test_hook | default('')) | string }}
+# Path to optional pre-test hook script
+pre_test_hook: {{ pre_test_hook }}
 
-# Optional absolute path to a script to run after each test job completes
-post_test_hook: {{ (post_test_hook | default('')) | string }}
+# Path to optional post-test hook script
+post_test_hook: {{ post_test_hook }}
 
-# Run each test job inside an isolated LXC container instead of the host
-lxc_enabled: {{ lxc_enabled | default(false) | lower }}
+# Enable or disable test isolation using LXC containers
+lxc_enabled: {{ lxc_enabled | lower }}
 
-# LXC template to use (e.g., 'debian', 'ubuntu', 'download')
-lxc_template: {{ (lxc_template | default('debian')) | string }}
+# LXC template to use (e.g., 'debian', 'ubuntu')
+lxc_template: {{ lxc_template }}
 
-# Distribution name (used with 'download' template)
-lxc_distribution: {{ (lxc_distribution | default('debian')) | string }}
-
-# Release codename (e.g., 'bullseye', 'focal') — used with 'download' template
-lxc_release: {{ (lxc_release | default('bookworm')) | string }}
-
-# Architecture for LXC containers (should match supported_architectures)
-lxc_architecture: {{ (lxc_architecture | default('amd64')) | string }}
+# LXC distribution and release (used when lxc_template = 'download')
+lxc_distribution: {{ lxc_distribution }}
+lxc_release: {{ lxc_release }}
+lxc_architecture: {{ lxc_architecture }}

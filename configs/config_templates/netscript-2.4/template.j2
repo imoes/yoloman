@@ -1,0 +1,51 @@
+#/etc/netscript/config.yml
+# Primary network interface for service communication
+interface: "{{ netscript.interface | default('eth0') }}"
+
+# Service host address
+host: "{{ netscript.host | default('0.0.0.0') }}"
+
+# Service listening port
+port: "{{ netscript.port | default(8080) }}"
+
+# Enable debug logging
+debug: {{ netscript.debug | default(false) | lower }}
+
+# Log file path
+log_file: "{{ netscript.log_file | default('/var/log/netscript/netscript.log') }}"
+
+# Allowed origins for CORS
+allowed_origins:
+{% for origin in netscript.allowed_origins | default(['http://localhost']) %}
+  - "{{ origin }}"
+{% endfor %}
+
+# Worker configuration
+workers:
+  # Number of worker processes
+  count: "{{ netscript.workers.count | default(4) }}"
+  # Worker timeout in seconds
+  timeout: "{{ netscript.workers.timeout | default(30) }}"
+
+# SSL Configuration
+ssl:
+  # Enable SSL
+  enabled: {{ netscript.ssl.enabled | default(false) | lower }}
+  # Path to SSL certificate
+  cert_path: "{{ netscript.ssl.cert_path | default('/etc/ssl/netscript/cert.pem') }}"
+  # Path to SSL private key
+  key_path: "{{ netscript.ssl.key_path | default('/etc/ssl/netscript/key.pem') }}"
+
+# Database configuration
+database:
+  # Database driver
+  driver: "{{ netscript.database.driver | default('sqlite3') }}"
+  # Database connection string or path
+  dsn: "{{ netscript.database.dsn | default('/var/lib/netscript/data.db') }}"
+
+# Health check endpoint
+health_check:
+  # Enable health check
+  enabled: {{ netscript.health_check.enabled | default(true) | lower }}
+  # Path for health check
+  path: "{{ netscript.health_check.path | default('/health') }}"

@@ -1,0 +1,25 @@
+# Wiipdf configuration file
+# This configuration file defines parameters for wiipdf, a tool that renders PDFs
+# and presents them via Bluetooth to a Wiimote. It is intended to be used with
+# a wrapper script or a systemd user service, as wiipdf itself is a CLI tool
+# and does not run as a persistent daemon.
+
+# The Bluetooth MAC address of the Wiimote to connect to.
+# Must be in standard colon-separated hex format (e.g., AA:BB:CC:DD:EE:FF).
+# This address allows wiipdf to pair and send input events to the specific remote.
+WIIPDF_BLUETOOTH_MAC = {{ bluetooth_mac | default('00:11:22:33:44:55') }}
+
+# The absolute path to the PDF document to be displayed by xpdf.
+# wiipdf uses an external PDF renderer (xpdf) to convert pages to images
+# before sending them. Ensure this path is accessible by the user running wiipdf.
+WIIPDF_PDF_PATH = "{{ pdf_path | default('/home/user/presentation.pdf') }}"
+
+# The path to the xpdf executable used to render the PDF slides.
+# If xpdf is in the system PATH, this can point to the binary directly.
+# If omitted or empty, the wrapper script should rely on PATH resolution.
+WIIPDF_XPDF_BIN = {{ xpdf_bin | default('/usr/bin/xpdf') }}
+
+# Enable verbose output and debugging logs.
+# When true, wiipdf and its underlying tools may emit detailed log messages
+# to stdout/stderr, useful for troubleshooting connection or rendering issues.
+WIIPDF_VERBOSE = {{ verbose | default(false) | lower }}

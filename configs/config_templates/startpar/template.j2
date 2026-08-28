@@ -1,0 +1,45 @@
+# Configuration file for startpar: start runlevel scripts in parallel
+# This file is managed by Ansible. Do not edit manually.
+# See /etc/default/startpar for documentation on the directives below.
+
+# Degree of parallelism (1 = single, 0 or missing = full parallelism)
+# Maps to -p <par>
+# If set to 0 or left empty, all scripts run in full parallel.
+# If set to 1, scripts run sequentially.
+PARALLELISM={{ parallelism | default(0) }}
+
+# I/O weighting factor for blocked processes
+# Maps to -i <iorate>
+# Processes blocked by pending I/O are weighted by this factor relative to
+# CPU-bound processes. Higher values prioritize I/O-heavy tasks.
+IORAGE={{ iorate | default(800) }}
+
+# Global timeout for buffer flushing (seconds)
+# Maps to -T <global_timeout>
+# If no output is printed for this many seconds, the oldest script's buffer
+# is flushed to prevent hanging boot processes indefinitely.
+GLOBAL_TIMEOUT={{ global_timeout | default(0) }}
+
+# Per-script buffer timeout (seconds)
+# Maps to -t <timeout>
+# Flushes the output buffer for a specific script if no output is produced
+# within this duration, preventing indefinite hangs on individual scripts.
+SCRIPT_TIMEOUT={{ script_timeout | default(0) }}
+
+# Prefix output with program name
+# Maps to -n
+# If true, prefixes each line of output with the name of the running program/script.
+# Helps identify which script is producing output during boot.
+PREFIX_NAME={{ prefix_name | default(False) | lower }}
+
+# Argument passed to all runlevel scripts
+# Maps to -a <arg>
+# An optional argument that is appended to every runlevel script invocation.
+# Leave empty if no common argument is needed.
+SCRIPT_ARG={{ script_arg | default('') }}
+
+# Custom etc directory location
+# Maps to -e <etcdir>
+# Location of the system's etc configuration directory.
+# Usually /etc, but can be changed for specialized environments.
+ETC_DIR={{ etc_dir | default('/etc') }}

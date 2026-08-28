@@ -1,0 +1,63 @@
+# ==============================================================================
+# zst Configuration Template
+# ==============================================================================
+# This configuration file defines the default behaviors for the 'zst' compression
+# tool wrapper. All boolean options default to False. Compression level is normalized
+# to the 1-9 scale.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# compression_level: default=2
+# Compression strength from 1 (fastest/weakest) to 9 (slowest/strongest).
+# The underlying Zstd tool is normalized to this 1-9 scale.
+# --------------------------------------------------------------------------
+compression_level = {{ compression_level | default(2) }}
+
+# --------------------------------------------------------------------------
+# algorithm: default='zstd'
+# The default compression algorithm to use.
+# Allowed values: zstd, bz2, xz, gz.
+# --------------------------------------------------------------------------
+algorithm = {{ algorithm | default('zstd') }}
+
+# --------------------------------------------------------------------------
+# keep_source: default=False
+# Whether to keep the original source file after compression or decompression.
+# Corresponds to the '-k' flag.
+# --------------------------------------------------------------------------
+keep_source = {{ keep_source | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# force: default=False
+# Whether to overwrite existing files and allow writing to terminals if needed.
+# Corresponds to the '-f' flag.
+# --------------------------------------------------------------------------
+force = {{ force | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# recursive: default=False
+# Whether to recurse into directories when processing file arguments.
+# Corresponds to the '-r' flag.
+# --------------------------------------------------------------------------
+recursive = {{ recursive | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# stdout: default=False
+# Whether to write compressed/decompressed data to standard output instead of a file.
+# Corresponds to the '-c' flag.
+# --------------------------------------------------------------------------
+stdout = {{ stdout | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# verbose: default=False
+# Whether to list processed files and statistics to standard error.
+# Corresponds to the '-v' flag.
+# --------------------------------------------------------------------------
+verbose = {{ verbose | default(False) | lower }}
+
+# --------------------------------------------------------------------------
+# files: default=[]
+# List of file paths or glob patterns to compress, decompress, or test.
+# --------------------------------------------------------------------------
+files = {% for f in (files | default([])) %}
+- {{ f }}{% endfor %}

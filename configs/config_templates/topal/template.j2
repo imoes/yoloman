@@ -1,0 +1,69 @@
+# ==============================================================================
+# Topal Configuration Template
+# ==============================================================================
+# This file configures the Topal mail encryption/decryption helper.
+# It specifies paths to cryptographic tools, mail transport agents,
+# caching behavior, and identity management.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Section: Executable Paths
+# --------------------------------------------------------------------------
+
+# GnuPG executable path
+# The path to the GnuPG binary used for encryption/decryption/signing.
+# Topal relies on GnuPG to handle OpenPGP operations.
+GnuPG {{ gnupg_path | default('/usr/bin/gpg') }}
+
+# Alpine/Pine mailer executable path
+# The path to the Pine/Alpine mailer binary.
+# Topal uses this client to send signed/encrypted replies or notifications.
+Mailer {{ mailer_path | default('/usr/bin/alpine') }}
+
+# --------------------------------------------------------------------------
+# Section: Decryption Caching
+# --------------------------------------------------------------------------
+
+# Directory for cached decrypted messages
+# Directory where Topal caches decrypted message output to minimize passphrase prompts.
+# Reduces the number of times a user must enter their passphrase for the same
+# content within the cache window.
+CacheDir {{ cache_dir | default('/tmp/topal_cache') }}
+
+# Maximum number of cached entries
+# Maximum number of entries to keep in the decryption cache.
+# Once this limit is reached, the oldest entries are evicted.
+CacheSize {{ cache_size | default(100) }}
+
+# Enable caching of decryption operations
+# Whether to enable caching of decryption operations.
+# Set to true to use CacheDir and CacheSize; false to decrypt on every access.
+UseCache {{ use_cache | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# Section: Logging & Debugging
+# --------------------------------------------------------------------------
+
+# Path to the signature verification log
+# Path to the log file for signature verification events.
+# Topal records successful and failed signature checks here for audit purposes.
+SigLog {{ sig_log | default('/var/log/topal_sig.log') }}
+
+# Enable verbose output for debugging
+# Enable verbose debugging output.
+# When true, Topal outputs detailed operational information to stderr or syslog.
+Verbose {{ verbose | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Section: Identity & Key Management
+# --------------------------------------------------------------------------
+
+# Default keyring to use
+# Path to the default secret keyring file.
+# Topal uses this file to locate private keys for signing and decryption.
+KeyRing {{ key_ring | default('~/.gnupg/secring.gpg') }}
+
+# Path to the default identity configuration
+# Path to the file containing user identity configuration.
+# This file typically maps email addresses to specific keys and names.
+IdentityFile {{ identity_file | default('~/.topal_identity') }}

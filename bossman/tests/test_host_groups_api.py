@@ -5,6 +5,7 @@ session sees them, then cleaned up explicitly.
 """
 
 import uuid
+from tests.naming import run_suffix
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -25,7 +26,7 @@ TENANT = "00000000-0000-0000-0000-000000000001"
 
 
 def _sfx() -> str:
-    return uuid.uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _token(db_session):

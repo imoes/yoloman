@@ -1,0 +1,27 @@
+{
+  "daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "Forks into the background."
+  },
+  "always": {
+    "type": "bool",
+    "default": false,
+    "description": "Ignore initialization failures when attaching the device."
+  },
+  "noinit": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip device initialization."
+  },
+  "baud": {
+    "type": "number",
+    "default": 38400,
+    "description": "Specify the baud rate to use. Default is 38400."
+  },
+  "instances": {
+    "type": "list",
+    "default": [],
+    "description": "List of inputattach configurations. Each item is a map with 'mode' and 'device'. If empty, no instances are started by this template (requires manual config or other means). Note: inputattach typically takes one mode and device per invocation, or multiple modes for the same device. This structure allows defining multiple device bindings or multiple modes for probing. If 'modes' is needed for a single device probing, it should be handled in the 'mode' field as a comma-separated string or a separate field. For this template, 'mode' is a single string representing the primary mode, or comma-separated if the tool supports it in one arg (it does for modes, but let's keep it simple with one mode per instance or use a 'modes' list if preferred. The man page says 'up to four can be specified'. Let's use 'modes' list in the item to be precise, and 'device' string.)\n      Actually, let's refine the item schema to match the CLI better: modes can be multiple. Let's use 'modes' list and 'device' string for each instance.\n      Wait, the prompt says 'items' as a FLAT map field-name -> {type, default, description}.\n      So: instances -> list of {mode_or_modes, device, ...}. Let's use 'modes' as a list of strings for probing, and 'device' as string.\n    },\n    "
+  }
+}

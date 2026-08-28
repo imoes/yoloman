@@ -60,7 +60,12 @@ def main(ctx, params):
         return {"changed": False, "msg": item + ": " + status_desc, "data": {"state": "CRIT", "metrics": {}, "details": ""}}
 
     details = []
-    for p in lines[2:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for p in lines[2:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_p in range(2, len(lines)):
+        p = lines[_i_p]
         p = p.strip()
         if p == "":
             continue

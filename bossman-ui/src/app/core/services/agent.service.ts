@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, concat, of, tap } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, concat, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HttpParams } from '@angular/common/http';
-import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
+import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, GroupAction, LatestMetricsResponse, LogFilters, LogsResponse, MetricCatalogResponse, MetricSeriesResponse, NetworkConfig, NetworkResponse, ObservedStateResponse, PiggybackSource, ProcessesResponse, ServicesResponse, ConfigResource, ConfigTemplate, ConfigTemplateListing, ConfigTemplateIndex, Device, StatePlan, StateResourceChange, StateGenerationsResponse, StateRollbackResponse, StorageResponse, UpdatesResponse, UserAction, VirtResponse } from '../models/agent.model';
 
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
@@ -154,10 +154,59 @@ export class AgentService {
     );
   }
 
-  /** Block K2 — the Class-B config template catalog (name + j2 text + schema +
-   * sample). Bossman-level, not agent-scoped. */
+  /** Block K2 — the Class-B config template catalog: name, the file it renders, and why the claim exists.
+   *
+   * NO BODIES. It used to return every template's j2 text and schema — 36 MB across 5474 directories, for
+   * callers that each wanted exactly one. Use configTemplateIndex() to ask "which template renders this
+   * file" and configTemplate(name) for the body of the one that was chosen.
+   *
+   * `withheld` appears when talking to a standalone AGENT: its package ships only the templates something
+   * can name (~1050 of 5474), and the count plus `criterion` are how that reads as a stated fact rather
+   * than a shorter list than expected. Bossman serves the whole tree and sends neither. */
   configTemplates() {
-    return this.http.get<{ templates: ConfigTemplate[] }>(`${environment.apiUrl}/config-templates`);
+    return this.http.get<{
+      templates: ConfigTemplateListing[]; withheld?: number; criterion?: string;
+    }>(`${environment.apiUrl}/config-templates`);
+  }
+
+  /** path → template, built from the role catalog's config_path plus the codec registry.
+   *
+   * Replaces resolving by basename, which matched /etc/aardvark-dns/aardvark-dns.conf to the template
+   * that renders forward.conf — and the write path is whole-file, so that would have overwritten one
+   * file with another's content. */
+  configTemplateIndex(agentId?: string) {
+    // Passing the host lets the SERVER pick the template that renders THIS host's file:
+    // /etc/caddy/Caddyfile exists on Debian and RedHat with different content. The family is derived
+    // server-side from the host's facts — deriving it here would put one rule in two languages.
+    const q = agentId ? `?agent_id=${encodeURIComponent(agentId)}` : '';
+    return this.http.get<ConfigTemplateIndex>(`${environment.apiUrl}/config-templates/index${q}`);
+  }
+
+  /** One template with its body, schema and sample — fetched when the user opens the editor.
+   *
+   * ABSENCE IS AN ANSWER, not an error, and it is a NAMED one. Seven package snapins each need exactly one
+   * template and previously found it with `.find()` over the whole catalog: a missing name yielded undefined,
+   * the snapin carried on with an empty body, and Apply failed later with nothing pointing back to the cause.
+   * So the reply is `{tpl, missing}` — `missing` carries the sentence to show, and a caller that treats it as
+   * fatal can still do so. The catalog genuinely may not carry a name: a standalone agent ships only the
+   * templates its own index or catalog references.
+   *
+   * A non-404 (auth, network, a broken server) is NOT swallowed — that is a failure, not an absence, and
+   * turning it into "this template does not exist" would state something false. */
+  configTemplate(name: string): Observable<{ tpl: ConfigTemplate | null; missing: string }> {
+    return this.http
+      .get<ConfigTemplate>(`${environment.apiUrl}/config-templates/${encodeURIComponent(name)}`)
+      .pipe(
+        map((tpl) => ({ tpl, missing: '' })),
+        catchError((e: HttpErrorResponse) => {
+          if (e.status !== 404) throw e;
+          return of({
+            tpl: null,
+            missing: `This catalog does not carry the "${name}" config template, so the form and Apply are `
+              + `unavailable here. A standalone agent ships only the templates its index or role catalog names.`,
+          });
+        }),
+      );
   }
 
   /** Block F5 — the guests this host reports via piggyback (Docker containers,
@@ -199,13 +248,47 @@ export class AgentService {
    * template?, fields:{key:FieldDef}} — codec⊕directive for codec'd files, the
    * template schema for freeform. The single field-spec source (config-model
    * consolidation); replaces reading the raw directive catalog per file. */
-  configFields(path: string) {
+  configFields(path: string, agentId?: string) {
     return this.http.get<{
-      path: string; write: string; format?: string; separator?: string; template?: string;
+      /** codec = per-key merge · template = whole-file render · freeform = measured, no grammar and no
+       * template yet (raw text only) · unknown = nothing recorded about this path. `reason` carries the
+       * why for the last two, so a screen never has to say "no fields" without saying why. */
+      path: string; write: string; reason?: string; format?: string; separator?: string; template?: string;
+      /** Where this answer comes from: measured=true means the grammar was decided by round-tripping the
+       * file the package really ships; false means it was never checked against a real file. */
+      provenance?: { source: string; measured: boolean; confidence: string; note: string;
+                     /** What happened when the grammar was TESTED against the shipped file.
+                      * `no-evidence` = the file has no active setting, so its bytes cannot decide — a
+                      * different state from "nobody has looked". */
+                     probe?: { verdict?: string; active_lines?: number; keys?: number } | null };
       fields: Record<string, { type: string; enum?: string[]; default?: unknown; description?: string; min?: number; max?: number }>;
       available: boolean;
-    }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`);
+      /** Present only when the FILE ITSELF says it is machine-written, with the sentence that says so.
+       * Not a write state and not a refusal — munin.conf is parsable, has directives, and still asks not
+       * to be edited. The editor quotes it and the operator decides. */
+      machine_written?: { line: number; quote: string; marker: string };
+      /** The package ships no file at this path — measured by extracting the real .deb/.rpm. Per family,
+       * because 20 of 83 paths measured on both distributions disagree (/etc/named.conf is absent on Debian
+       * and a real file on EL). `created_at_install` marks the one absence that is NOT a problem: a config a
+       * maintainer script writes exists on every installed host, just not in the archive. */
+      path_verdict?: { verdict: string; package?: string; family?: string; created_at_install?: boolean;
+                       reason: string } | null;
+      /** For a template write: the directory name, its sample values, and the fields the template does NOT
+       * place — offered inputs whose value could never reach the file. */
+      template_name?: string;
+      sample?: Record<string, unknown>;
+      withheld?: { count: number; fields: string[]; reason: string } | null;
+      /** The same gap from the other side: values the template READS that no field offers, so they render
+       * empty. Templates needing more than their form offers are refused outright and never get here. */
+      unsettable?: { count: number; variables: string[]; reason: string } | null;
+      /** Calls the RENDERER cannot execute (`.items()`, `.get()`, `.append()` — Python methods Jinja passes
+       * through and gonja does not implement). Latent: the sample never enters those branches, so the render
+       * check cannot see them, and a host's real values can. */
+      renderer_gaps?: { calls: string[]; reason: string } | null;
+    }>(`${environment.apiUrl}/config-fields?path=${encodeURIComponent(path)}`
+       + (agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''));
   }
+
 
   // Block 3 — agent-less devices (snmp|ssh), polled via the co-located poller.
   devices() {

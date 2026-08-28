@@ -10,10 +10,11 @@ fake network dependency while keeping every DB write real.
 
 import asyncio
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bossman.config import Settings, get_settings
@@ -92,7 +93,7 @@ def _settings(**overrides):
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    name = f"poll-{uuid.uuid4().hex[:8]}"
+    name = owned_name("poll")
     fields = {"name": name, "token": "tok", "mode": "standalone", "enrollment_state": "enrolled", "address": "10.0.0.1:8010"}
     fields.update(overrides)
     agent = Agent(**fields)
@@ -437,14 +438,14 @@ async def test_poll_agent_self_entry_identified_by_missing_parent_not_by_name(db
         hosts_overview=[
             # No "parent" key at all -> this is the self entry, even
             # though its reported hostname doesn't match agent.name.
-            {"host": "ansible-runner.test.example.com", "mode": "proxy", "metrics": [], "checks": []},
+            {"host": "host2.example.internal", "mode": "proxy", "metrics": [], "checks": []},
         ]
     )
 
     result = await poll_agent(session_factory, proxy.id, _settings(), asyncio.Semaphore(1), lambda a, s: fake)
 
     assert result.satellites_discovered == 0
-    bogus = await db_session.scalar(select(Agent).where(Agent.name == "ansible-runner.test.example.com"))
+    bogus = await db_session.scalar(select(Agent).where(Agent.name == "host2.example.internal"))
     assert bogus is None, "the proxy's own self entry must never become a satellite Agent row"
 
     await _purge_service_state(db_session, proxy)
@@ -521,5 +522,141 @@ async def test_poll_agent_records_hosts_overview_failure(db_session, session_fac
     assert any("hosts_overview" in e for e in result.errors)
 
     await _purge_service_state(db_session, agent)
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+def test_store_facts_keeps_other_producers_facts() -> None:
+    """The inventory write must not delete facts it does not own.
+
+    `facts` is one document with several writers (inventory, installed_packages, group_policy,
+    external_audit_at). This used to keep a hardcoded list of two foreign keys, so `group_policy`
+    was (a) compared against the inventory document — differing on every tick — and (b) dropped by
+    the rewrite that followed, which erased the gpresult throttle stamp and made every poll re-read
+    the policy. Both halves are asserted here."""
+    from bossman.services.poller import _store_facts
+
+    now = datetime.now(timezone.utc)
+    inv = {"os_family": "windows", "hostname": "wintest", "collected_at": now.isoformat()}
+    agent = Agent(name="t", facts=None)
+
+    _store_facts(agent, {"inventory": inv}, now)
+    assert agent.facts["os_family"] == "windows"
+
+    # Two foreign producers write into the same document.
+    agent.facts = {**agent.facts, "group_policy": {"_taken_at": "x", "settings": [1, 2]},
+                   "installed_packages": [{"name": "p"}]}
+    agent.facts_updated_at = None
+
+    # Same inventory, only collected_at moved: no rewrite at all.
+    _store_facts(agent, {"inventory": {**inv, "collected_at": "later"}}, now)
+    assert agent.facts_updated_at is None, "unchanged inventory must not rewrite facts"
+
+    # A real inventory change rewrites the inventory keys and keeps the foreign ones.
+    _store_facts(agent, {"inventory": {**inv, "hostname": "renamed"}}, now)
+    assert agent.facts["hostname"] == "renamed"
+    assert agent.facts["group_policy"]["settings"] == [1, 2]
+    assert agent.facts["installed_packages"] == [{"name": "p"}]
+
+    # An inventory section the agent stops reporting is dropped, not immortal.
+    _store_facts(agent, {"inventory": {"os_family": "windows"}}, now)
+    assert "hostname" not in agent.facts
+    assert agent.facts["group_policy"]["settings"] == [1, 2]
+
+
+def test_agent_response_nul_scrub() -> None:
+    """A NUL in an agent's JSON must not reach Postgres.
+
+    Real failure on the Windows test host: a registry string in the gpresult read carried a trailing
+    NUL, and asyncpg refused the whole COMMIT (UntranslatableCharacterError) — discarding that host's
+    entire poll cycle, every cycle, with nothing but a traceback to show for it."""
+    from bossman.services.agent_client import _scrub
+
+    data = {"settings": [{"name": "Path\x00", "value": "C:\\x\x00", "n": 3}],
+            "nested": {"a\x00b": ["x\x00"]}, "ok": "clean", "num": 1, "none": None}
+    out = _scrub(data)
+    assert out["settings"][0] == {"name": "Path", "value": "C:\\x", "n": 3}
+    assert out["nested"] == {"ab": ["x"]}
+    assert out["ok"] == "clean" and out["num"] == 1 and out["none"] is None
+    assert "\x00" not in repr(out)
+
+
+class _AuditClient:
+    """A stand-in agent that answers only GET /api/v1/audit, with a page we control."""
+
+    def __init__(self, page: dict):
+        self.page = page
+        self.asked_since: list[int | None] = []
+
+    async def audit(self, since_seq=None, module=None, outcome=None, limit=500):
+        self.asked_since.append(since_seq)
+        return self.page
+
+
+def _audit_page(boot: str, records: list[dict], oldest: int | None = None, dropped: int = 0) -> dict:
+    seqs = [r["seq"] for r in records] or [0]
+    return {"boot_id": boot, "oldest_seq": oldest if oldest is not None else min(seqs),
+            "newest_seq": max(seqs), "dropped": dropped, "capacity": 1000,
+            "count": len(records), "records": records}
+
+
+def _record(seq: int, module="package", outcome="changed", **extra) -> dict:
+    base = {"seq": seq, "id": f"rec-{seq}", "module": module, "outcome": outcome, "dry_run": False,
+            "params": {"name": "x"}, "identity": "CN=bossman",
+            "started_at": "2026-08-27T12:00:00+00:00", "duration_ms": 5.0, "changed": outcome == "changed",
+            "message": "m", "evidence": {"exit_code": 0}}
+    base.update(extra)
+    return base
+
+
+@pytest.mark.asyncio
+async def test_operation_log_collection_cursor_boot_change_and_gap(db_session):
+    """The three things a collector has to get right, on one host.
+
+    A cursor that only takes what is new; a RESTART (new boot_id) that starts again from zero instead of
+    silently skipping the new process's records; and a ring that discarded records before we got there —
+    which must appear as a named `gap` row, because a log with an unmarked hole invites exactly the
+    conclusion it cannot support."""
+    from bossman.db.models import OperationLog
+    from bossman.services.poller import _collect_operation_log
+
+    agent = await _make_agent(db_session)
+
+    # First collection: everything the agent has.
+    client = _AuditClient(_audit_page("boot-1", [_record(1), _record(2)]))
+    assert await _collect_operation_log(db_session, agent, client) == 2
+    await db_session.commit()
+
+    # Second: same boot, one new record — the two we hold are not written again.
+    client = _AuditClient(_audit_page("boot-1", [_record(1), _record(2), _record(3)]))
+    assert await _collect_operation_log(db_session, agent, client) == 1
+    await db_session.commit()
+    rows = (await db_session.execute(
+        select(OperationLog).where(OperationLog.agent_id == agent.id).order_by(OperationLog.seq))).scalars().all()
+    assert [r.seq for r in rows] == [1, 2, 3]
+    assert rows[0].evidence == {"exit_code": 0} and rows[0].record_id == "rec-1"
+
+    # The agent restarted: sequence numbers start again. Taking the old cursor would drop the whole boot.
+    client = _AuditClient(_audit_page("boot-2", [_record(1, module="windows_feature")]))
+    assert await _collect_operation_log(db_session, agent, client) == 1
+    await db_session.commit()
+    assert (await db_session.execute(
+        select(func.count()).select_from(OperationLog).where(OperationLog.agent_id == agent.id)
+    )).scalar_one() == 4
+
+    # A gap: the ring's oldest is beyond our cursor, so seq 2..4 are gone from the host forever.
+    client = _AuditClient(_audit_page("boot-2", [_record(5)], oldest=5, dropped=3))
+    written = await _collect_operation_log(db_session, agent, client)
+    await db_session.commit()
+    assert written == 2  # the gap marker AND the record
+    gap = (await db_session.execute(
+        select(OperationLog).where(OperationLog.agent_id == agent.id, OperationLog.outcome == "gap")
+    )).scalars().one()
+    assert "3 operation(s)" in gap.message and "seq 2..4" in gap.message
+    assert gap.module == "(gap)"
+    # It occupies the LAST MISSING sequence number: unique by definition, and it sorts where the hole is.
+    assert gap.seq == 4
+
+    await db_session.execute(delete(OperationLog).where(OperationLog.agent_id == agent.id))
     await db_session.delete(agent)
     await db_session.commit()

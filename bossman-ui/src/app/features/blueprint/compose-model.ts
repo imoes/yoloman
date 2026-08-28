@@ -79,12 +79,38 @@ export interface BlueprintService {
   y: number;
 }
 
+/** Where ONE connection field's value comes from on a provider — mirrors the
+ *  backend `field_sources` (services/blueprint._service_source_value). */
+export interface FieldSource {
+  from: 'address' | 'port' | 'const' | 'env' | 'value';
+  key?: string;            // env/value key to read
+  value?: string | number; // const literal
+  secret?: boolean;        // credential → masked in the canvas, vault handle at bind
+}
+
+export interface ProvideContract {
+  capability: string;
+  backend?: string;
+  default_port?: number | null;
+  /** per canonical connection field (host/port/name/user/password/…) → its source */
+  field_sources?: Record<string, FieldSource>;
+}
+
+export interface RequireContract {
+  capability: string;
+  backends?: string[];
+  backend_field?: string | null;
+  /** legacy host/port-only map (still honoured) */
+  fields?: Record<string, string>;
+  /** per canonical connection field → the consumer env/value key to write it into */
+  field_targets?: Record<string, string>;
+}
+
 /** The role-grain capability contract mirrored from a template's capabilities.json (the backend's
- *  provides/requires entries — only the fields the editor's plausibility + wiring need). */
+ *  provides/requires entries — the fields the editor's plausibility + FULL wiring need). */
 export interface RoleContract {
-  provides: { capability: string; backend?: string; default_port?: number | null }[];
-  requires: { capability: string; backends?: string[]; backend_field?: string | null;
-              fields?: Record<string, string> }[];
+  provides: ProvideContract[];
+  requires: RequireContract[];
 }
 
 export interface Blueprint {

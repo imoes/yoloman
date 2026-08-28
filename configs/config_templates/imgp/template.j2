@@ -1,0 +1,92 @@
+{# ============================================================================ #}
+{# imgp Configuration Template                                                   #}
+{# This template generates a configuration file for imgp, a stateless CLI tool.  #}
+{# It is designed to be used within Ansible roles to manage batch image          #}
+{# processing parameters. All variables are strictly typed based on the schema  #}
+{# and include safe defaults to prevent rendering errors.                       #}
+{# ============================================================================ #}
+
+# Source directory or file path to process. If omitted, current directory is processed.
+# Variable: path (string)
+path: {{ path | default('/var/lib/imgp/incoming') }}
+
+# Output resolution in HRESxVRES or percentage (e.g., '1920x1080' or '80%').
+# Variable: res (string)
+res: {{ res | default('1080x1080') }}
+
+# Rotate clockwise by specified angle in degrees. Negative inputs rotate anti-clockwise.
+# Note: 0 is not allowed by imgp logic, but default is set to 0 for stability.
+# Variable: rotate (integer)
+rotate: {{ rotate | default(0) }}
+
+# Adapt to specified resolution considering the orientation of the image.
+# Variable: adaptive (boolean)
+adaptive: {{ adaptive | default(false) | lower }}
+
+# Convert PNG images to JPEG to save on space.
+# Variable: convert (boolean)
+convert: {{ convert | default(false) | lower }}
+
+# Erase EXIF metadata of JPEG images.
+# Variable: eraseexif (boolean)
+eraseexif: {{ eraseexif | default(false) | lower }}
+
+# Force to the exact specified resolution.
+# Variable: force (boolean)
+force: {{ force | default(false) | lower }}
+
+# Include hidden (dot) files in processing.
+# Variable: hidden (boolean)
+hidden: {{ hidden | default(false) | lower }}
+
+# Process _IMGP files. Risky due to potential race conditions.
+# Variable: includeimgp (boolean)
+includeimgp: {{ includeimgp | default(false) | lower }}
+
+# Do not process if image hres or vres matches specified hres or vres, or --res is 100.
+# Variable: keep (boolean)
+keep: {{ keep | default(false) | lower }}
+
+# Enlarge smaller images. By default smaller images are not scaled if specified resolution is greater.
+# Variable: enlarge (boolean)
+enlarge: {{ enlarge | default(false) | lower }}
+
+# Use nearest neighbour interpolation for PNG images instead of default antialias.
+# Variable: nearest (boolean)
+nearest: {{ nearest | default(false) | lower }}
+
+# Optimize output images using PIL library optimization algorithm.
+# Variable: optimize (boolean)
+optimize: {{ optimize | default(false) | lower }}
+
+# Save all output JPEG images as progressive, even if the source is not.
+# Variable: progressive (boolean)
+progressive: {{ progressive | default(false) | lower }}
+
+# Save the image with a specified quality factor N (scale 1-95, default 75). JPEG only.
+# Variable: quality (integer)
+quality: {{ quality | default(75) }}
+
+# Do not show any operational output.
+# Variable: mute (boolean)
+mute: {{ mute | default(false) | lower }}
+
+# Minimum resolution in HxV or percentage of --res to resize.
+# Variable: minres (string)
+minres: {{ minres | default('100x100') }}
+
+# Recursively process sub-directories. Symbolic links are ignored.
+# Variable: recurse (boolean)
+recurse: {{ recurse | default(false) | lower }}
+
+# Minimum size in bytes required to process an image.
+# Variable: size (integer)
+size: {{ size | default(1024) }}
+
+# Overwrite the source images. By default an output image is saved with _IMGP appended.
+# Variable: overwrite (boolean)
+overwrite: {{ overwrite | default(false) | lower }}
+
+# Enable debugging.
+# Variable: debug (boolean)
+debug: {{ debug | default(false) | lower }}

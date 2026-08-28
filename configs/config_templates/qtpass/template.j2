@@ -1,0 +1,108 @@
+# ==========================================================================
+# Qtpass Configuration Template
+# ==========================================================================
+#
+# Qtpass is a graphical user interface for pass, the standard unix password
+# manager. This template generates a qtpass.conf configuration file.
+#
+# Note: Qtpass itself is a lightweight frontend that primarily relies on the
+# 'pass' command-line tool. It does not typically have a complex internal
+# service configuration like a database or web server. This configuration
+# file, if used, generally controls UI behavior, git integration, and plugin
+# settings.
+#
+# The 'pass' tool itself is configured via environment variables or its own
+# config file (~/.config/pass/config), often managed by other roles.
+# ==========================================================================
+
+# [General] Section
+# Controls general application behavior and appearance.
+
+# The name of the user/organization associated with the password store.
+# This is often used in git commit messages and identity checks.
+# Default: "Qtpass User"
+{{ qtpass_general_name | default("Qtpass User") }}
+
+# The email address associated with the password store identity.
+# Used for GPG signing and git identity.
+# Default: "user@example.com"
+{{ qtpass_general_email | default("user@example.com") }}
+
+# Whether to use GPG to sign git commits made by qtpass.
+# If true, qtpass will attempt to sign commits using the configured GPG key.
+# Default: true
+{{ qtpass_general_sign_commits | default(true) | lower }}
+
+# The GPG key ID to use for signing. If empty, qtpass may use the default key.
+# Default: ""
+{{ qtpass_general_gpg_key_id | default("") }}
+
+# The path to the password store directory.
+# Default: ~/.password-store
+{{ qtpass_general_store_path | default("~/.password-store") }}
+
+# [UI] Section
+# Controls the look and feel of the application.
+
+# The font family to use for the application.
+# Default: "Sans Serif"
+{{ qtpass_ui_font | default("Sans Serif") }}
+
+# The font size to use for the application.
+# Default: 10
+{{ qtpass_ui_font_size | default(10) }}
+
+# Whether to show the password store tree view.
+# Default: true
+{{ qtpass_ui_show_tree | default(true) | lower }}
+
+# Whether to show the password entry details view.
+# Default: true
+{{ qtpass_ui_show_details | default(true) | lower }}
+
+# [Git] Section
+# Controls git integration settings for the password store.
+
+# The path to the git executable.
+# Default: "git"
+{{ qtpass_git_path | default("git") }}
+
+# The remote URL for the git repository hosting the password store.
+# If empty, git features may be disabled or require manual configuration.
+# Default: ""
+{{ qtpass_git_remote_url | default("") }}
+
+# The branch to use for the git repository.
+# Default: "master"
+{{ qtpass_git_branch | default("master") }}
+
+# Whether to auto-fetch and auto-pull changes from the remote.
+# Default: false
+{{ qtpass_git_auto_fetch | default(false) | lower }}
+
+# [Plugins] Section
+# Controls which plugins are loaded.
+
+# A list of plugin names to load.
+# Default: []
+{% if qtpass_plugins is defined and qtpass_plugins | length > 0 %}
+{{ qtpass_plugins | join(", ") }}
+{% else %}
+# No plugins configured.
+{% endif %}
+
+# [Advanced] Section
+# Advanced settings, typically not needed for standard usage.
+
+# Whether to check for updates.
+# Default: true
+{{ qtpass_advanced_check_updates | default(true) | lower }}
+
+# The log level for qtpass internal logging.
+# Options: debug, info, warning, error, critical.
+# Default: "info"
+{{ qtpass_advanced_log_level | default("info") }}
+
+# ==========================================================================
+# End of Configuration
+# ==========================================================================

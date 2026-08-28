@@ -1,20 +1,20 @@
 # System log configuration
 logPath: {{ log.path }}
-logAppend: {{ log.append }}
+logAppend: {{ log.append | lower }}
 logRotate: {{ log.rotate | default('rename') }}
 
 # Storage configuration
 storage:
   dbPath: {{ storage.dbPath }}
   journal:
-    enabled: {{ storage.journal.enabled }}
-  directoryPerDB: {{ storage.directoryPerDB }}
+    enabled: {{ storage.journal.enabled | lower }}
+  directoryPerDB: {{ storage.directoryPerDB | lower }}
   wiredTiger:
     engineConfig:
       cacheSizeGB: {{ storage.wiredTiger.engineConfig.cacheSizeGB }}
     collectionConfig:
       blockCompressor: {{ storage.wiredTiger.collectionConfig.blockCompressor }}
-  directoryForIndexFiles: {{ storage.directoryForIndexFiles }}
+  directoryForIndexFiles: {{ storage.directoryForIndexFiles | lower }}
 
 # Network configuration
 net:
@@ -24,7 +24,7 @@ net:
     mode: {{ net.ssl.mode }}
     PEMKeyFile: {{ net.ssl.PEMKeyFile | default('') }}
     CAFile: {{ net.ssl.CAFile | default('') }}
-    allowConnectionsWithoutCertificates: {{ net.ssl.allowConnectionsWithoutCertificates }}
+    allowConnectionsWithoutCertificates: {{ net.ssl.allowConnectionsWithoutCertificates | lower }}
 
 # Security configuration
 security:
@@ -33,7 +33,7 @@ security:
 
 # Process management
 processManagement:
-  fork: {{ processManagement.fork }}
+  fork: {{ processManagement.fork | lower }}
 
 # Replication (for replica sets)
 {% if replication.enabled %}
@@ -61,5 +61,5 @@ auditLog:
 systemLog:
   destination: {{ systemLog.destination }}
   path: {{ systemLog.path }}
-  logAppend: {{ systemLog.logAppend }}
+  logAppend: {{ systemLog.logAppend | lower }}
   logRotate: {{ systemLog.logRotate }}

@@ -1,0 +1,13 @@
+# SphinxSearch indexer cron job configuration
+#
+# This template generates a crontab entry to rebuild SphinxSearch indexes daily.
+# It sources the SphinxSearch configuration and runs the indexer binary.
+
+# Rebuild all indexes daily and notify searchd.
+# The cron job runs as the specified user, sourcing the config directory,
+# and executes the indexer binary if the start flag is set and the binary is executable.
+@daily      {{ indexer_user | default('sphinxsearch') }} . {{ sphinxsearch_config_dir | default('/etc/default/sphinxsearch') }} && if [ "$START" = "yes" ] && [ -x {{ indexer_binary | default('/usr/bin/indexer') }} ]; then {{ indexer_binary | default('/usr/bin/indexer') }} --quiet --rotate --all; fi
+
+# Example for rotating only specific indexes (usually these would be part of
+# a larger combined index).
+# */5 * * * * {{ indexer_user | default('sphinxsearch') }} [ -x {{ indexer_binary | default('/usr/bin/indexer') }} ] && {{ indexer_binary | default('/usr/bin/indexer') }} --quiet --rotate postdelta threaddelta

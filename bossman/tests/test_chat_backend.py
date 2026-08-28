@@ -123,6 +123,12 @@ def test_chat_backend_for_selects_and_rejects():
     assert chat_backend_for(s, "claude_cli").name == "claude_cli"
     assert chat_backend_for(s, "hermes_web").name == "hermes_web"
     assert chat_backend_for(s, "codex").name == "codex"
+    assert chat_backend_for(s, "openrouter").name == "openrouter"
     with pytest.raises(ChatBackendError):
         chat_backend_for(s, "bogus")
-    assert set(BACKENDS) == {"claude_cli", "codex", "hermes_web"}
+    # The exhaustive list is asserted on purpose: adding a backend without deciding
+    # that it belongs here should fail. It did — openrouter was added and this
+    # assertion caught it, but the failure sat unnoticed among the DB-dependent
+    # tests that cannot run from the host at all (docs/logik-audit.md: a test that
+    # never runs is not an observation point).
+    assert set(BACKENDS) == {"claude_cli", "codex", "hermes_web", "openrouter"}

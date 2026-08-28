@@ -1,0 +1,63 @@
+#!/bin/sh -e
+
+#
+# miniramfs: Configuration for the minimal initramfs update hook.
+# This script is typically executed by dpkg as a maintainer script
+# during package installation or kernel updates. It ensures that
+# a minimal initial ram filesystem (initramfs) is generated for
+# the specified kernel version.
+#
+
+# The kernel version string for which the initramfs is being generated.
+# This is passed from the kernel package's maintainer script via the
+# DEB_MAINT_PARAMS or directly as an environment variable in some setups,
+# but here it is explicitly configured via the Ansible variable 'version'.
+version="{{ version | default('') }}"
+
+# Ensure the update-miniramfs utility is available in the PATH.
+# If not found, this script exits gracefully to avoid errors on
+# systems where this package is not installed or the binary is missing.
+command -v update-miniramfs > /dev/null || exit 0
+
+# passing the kernel version is required
+#
+# Validate that the kernel version was actually provided.
+# If 'version' is empty, this indicates a misconfiguration or
+# that the dpkg hook failed to pass the necessary parameters.
+if [ -z "${version}" ]; then
+	# Log a warning message to stderr if no version number is detected.
+	# DPKG_MAINTSCRIPT_PACKAGE provides context on which package triggered this.
+	echo >&2 "W: miniramfs: ${DPKG_MAINTSCRIPT_PACKAGE:-kernel package} did not pass a version number"
+	exit 2
+fi
+
+# exit if kernel does not need an initramfs
+#
+# Check the INITRD environment variable. If it is set to 'No',
+# the current kernel configuration does not require an initramfs,
+# so we exit early to save time and resources.
+if [ "$INITRD" = 'No' ]; then
+	exit 0
+fi
+
+# avoid running multiple times
+#
+# Check if this script is being invoked by dpkg's maintainer parameter handling.
+# DEB_MAINT_PARAMS contains arguments passed to the maintainer script.
+# We only want to proceed if the action is 'configure'.
+if [ -n "$DEB_MAINT_PARAMS" ]; then
+	eval set -- "$DEB_MAINT_PARAMS"
+	# If no argument is present or the first argument is not "configure", exit.
+	if [ -z "$1" ] || [ "$1" != "configure" ]; then
+		exit 0
+	fi
+fi
+
+# we're good - create initramfs.
+#
+# Invoke update-miniramfs with the configured kernel version.
+# -c: Clean the destination directory before creation.
+# -k: Specify the kernel version.
+# The output is redirected to stderr for logging purposes.
+# shellcheck disable=SC2086
+update-miniramfs -c -k "${version}" >&2

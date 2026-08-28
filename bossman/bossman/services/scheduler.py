@@ -50,6 +50,11 @@ async def _run_job_on_scope(session: AsyncSession, settings: Settings, job: Sche
         session, job.scope_type, ou_id=job.ou_id, agent_id=job.agent_id,
         host_group_id=job.host_group_id, tenant_id=job.tenant_id,
     )
+    # The condition narrows the scope BEFORE anything runs. A scheduled job writes to hosts, so a
+    # filter that were applied after the fact would be no filter at all.
+    from bossman.services.check_assignments import filter_agent_ids
+
+    agent_ids = await filter_agent_ids(session, list(agent_ids), getattr(job, "conditions", None))
     if not agent_ids:
         return "no-hosts", "scope matched no hosts"
 

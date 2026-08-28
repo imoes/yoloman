@@ -1,0 +1,66 @@
+# Zabbix Frontend Configuration
+# This block configures Apache directives for the Zabbix PHP frontend application.
+#
+# Self-documenting: every variable reference includes its default value from the schema.
+# Every directive is preceded by a comment explaining its purpose and source.
+
+## Zabbix
+
+# Configure URL alias mapping: requests to /zabbix are served from the file system path defined by zabbix_alias_path.
+<IfModule mod_alias.c>
+    # zabbix_alias_path: The URL path alias for the Zabbix frontend.
+    # Default: '/usr/share/zabbix'
+    Alias /zabbix {{ zabbix_alias_path | default('/usr/share/zabbix') }}
+</IfModule>
+
+# Set access controls and PHP settings for the Zabbix document root.
+<Directory "{{ (zabbix_document_root | default('/usr/share/zabbix')) | replace('/', '\\/') }}">
+    # zabbix_document_root: The file system path to the Zabbix frontend files.
+    # Default: '/usr/share/zabbix'
+
+    # Basic directory options: follow symbolic links, no directory listing override.
+    Options FollowSymLinks
+    AllowOverride None
+    Require all granted
+
+    # Apply PHP-specific runtime settings only if the mod_php8.2 module is loaded.
+    # Note: If a different PHP version is used, this IfModule block should be adjusted accordingly.
+    <IfModule mod_php8.2.c>
+        # zabbix_php_max_execution_time: PHP max_execution_time for Zabbix operations.
+        # Default: 300
+        php_value max_execution_time {{ zabbix_php_max_execution_time | default(300) }}
+
+        # zabbix_php_memory_limit: PHP memory_limit for Zabbix operations.
+        # Default: '128M'
+        php_value memory_limit {{ zabbix_php_memory_limit | default('128M') }}
+
+        # zabbix_php_post_max_size: post_max_size for Zabbix operations.
+        # Default: '16M'
+        php_value post_max_size {{ zabbix_php_post_max_size | default('16M') }}
+
+        # zabbix_php_upload_max_filesize: upload_max_filesize for Zabbix operations.
+        # Default: '2M'
+        php_value upload_max_filesize {{ zabbix_php_upload_max_filesize | default('2M') }}
+
+        # zabbix_php_max_input_time: max_input_time for Zabbix operations.
+        # Default: 300
+        php_value max_input_time {{ zabbix_php_max_input_time | default(300) }}
+
+        # Uncomment and set to match your server's timezone if PHP date functions need it.
+        # php_value date.timezone Europe/Riga
+    </IfModule>
+
+</Directory>
+
+# Restrict access to configuration and internal application directories to prevent source code leakage.
+# Note: The regex match <Directory ~ ...> requires escaping backslashes for Apache's regex engine.
+<Directory ~ "^{{ (zabbix_document_root | default('/usr/share/zabbix')) | replace('/', '\\/') }}/(conf|app|include|local)/">
+    # zabbix_document_root: The file system path to the Zabbix frontend files.
+    # Default: '/usr/share/zabbix'
+    Require all denied
+
+    # Explicitly deny access to any PHP files in these restricted directories as a safety net.
+    <files ~ "\.php$">
+        Require all denied
+    </files>
+</Directory>

@@ -1,0 +1,42 @@
+#!/bin/bash
+# Unpacked output directory (default: '/tmp/unpacked')
+# The base directory where extracted archives are placed.
+OUTPUT_DIR="{{ output_dir | default('/tmp/unpacked') }}"
+
+# Continue even if program availability checks fail or directory collision occurs (default: False)
+# If true, adds the -f flag to continue even if program availability checks fail or directory collision occurs.
+# Jinja renders booleans as 'True'/'False' strings; bash treats any non-empty string as true.
+CONTINUE_ON_ERROR={{ continue_on_error | default(False) | bool | lower }}
+
+# Special helper mode: create directory <filename without suffix>/ and extract contents there (default: False)
+# If true, adds the -u flag for special helper mode.
+SPECIAL_HELPER={{ special_helper | default(False) | bool | lower }}
+
+# Smart mode: acts like -u if archive contains multiple elements, otherwise stores in current directory (default: False)
+# If true, adds the -U flag for smart mode.
+SMART_MODE={{ smart_mode | default(False) | bool | lower }}
+
+# Show the list of supported formats (default: False)
+# If true, adds the -s flag to show supported formats instead of extracting.
+SHOW_FORMATS={{ show_formats | default(False) | bool | lower }}
+
+# Dry-run: Display the calculated commands, don't run them (default: False)
+# If true, adds the --dry-run flag to display calculated commands without running them.
+DRY_RUN={{ dry_run | default(False) | bool | lower }}
+
+# More verbosity (default: False)
+# If true, adds the -v flag for more verbosity.
+VERBOSE={{ verbose | default(False) | bool | lower }}
+
+# Arguments to pass to external programs (e.g., -C /tmp) (default: [])
+# List of arguments to pass to external programs (e.g., -C /tmp). Only applies to archive tools, not unp itself.
+TOOL_OPTIONS="{% for tool_opt in tool_options | default([]) %}{{ tool_opt }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+# List of files to unpack (default: [])
+# List of compressed file paths to unpack.
+FILES="{% for file in files | default([]) %}{{ file }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+# Execute unp with conditional flags based on boolean variables.
+# Bash parameter expansion ${VAR:+value} expands to 'value' if VAR is set and non-null.
+# Since Jinja renders True/False, and these are non-null, the flags will be present when booleans are true.
+exec /usr/bin/unp ${DRY_RUN:+--dry-run} ${VERBOSE:+-v} ${SHOW_FORMATS:+-s} ${SPECIAL_HELPER:+-u} ${SMART_MODE:+-U} ${CONTINUE_ON_ERROR:+-f} -- ${TOOL_OPTIONS} $FILES

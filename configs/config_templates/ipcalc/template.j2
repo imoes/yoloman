@@ -1,0 +1,41 @@
+# ipcalc configuration file
+# This template configures the ipcalc utility, which calculates network
+# parameters for IPv4 addresses such as network address, broadcast,
+# and usable host range.
+
+# Disable ANSI color codes in output
+# If true, disables ANSI color codes in the output (--nocolor).
+# Type: boolean
+nocolor={{ nocolor | default(true) | lower }}
+
+# Suppress bitwise binary output
+# If true, suppresses the verbose bitwise binary representation (--nobinary).
+# Type: boolean
+nobinary={{ nobinary | default(false) | lower }}
+
+# Display results as HTML instead of plain text
+# If true, renders the output as an HTML document (--html).
+# Type: boolean
+html_output={{ html_output | default(false) | lower }}
+
+# Use classful bit-count format for masks
+# If true, prints only the bit-count-mask (e.g., /24) for the address (--class).
+# Type: boolean
+class_format={{ class_format | default(false) | lower }}
+
+# Network address to calculate
+# The IPv4 address and netmask to calculate, e.g., '192.168.0.1/24' or '192.168.0.1 255.255.255.0'.
+# Type: string
+network_address={{ network_address | default('192.168.0.1/24') }}
+
+# Split network into subnets of specified sizes
+# List of subnet sizes to split the network into. Corresponds to -s n1 n2 n3. Empty list means no splitting.
+# Type: list of integers/strings
+{% if subnet_splits is defined and subnet_splits | length > 0 %}
+subnet_splits={{ subnet_splits | default([]) | join(' ') }}
+{% endif %}
+
+# Deaggregate address range
+# If true, deaggregates an address range (--range).
+# Type: boolean
+range_mode={{ range_mode | default(false) | lower }}

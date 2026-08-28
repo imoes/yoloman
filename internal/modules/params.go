@@ -33,6 +33,34 @@ func boolParam(params map[string]any, key string, def bool) (bool, error) {
 	return b, nil
 }
 
+// intParam lives here with the other parameter helpers rather than in wait_for.go, where it
+// happened to be written: parameter coercion is one concern and belongs in one file. Moved
+// after almost adding a second copy of it — the duplicate would have drifted.
+// intParam extracts an integer parameter, accepting a JSON-decoded float64,
+// a native int, or a numeric string (this project passes several
+// duration-like parameters as strings elsewhere, e.g. cron's time fields —
+// kept consistent). Returns def if absent.
+func intParam(params map[string]any, key string, def int) (int, error) {
+	v, ok := params[key]
+	if !ok || v == nil {
+		return def, nil
+	}
+	switch n := v.(type) {
+	case float64:
+		return int(n), nil
+	case int:
+		return n, nil
+	case string:
+		var out int
+		if _, err := fmt.Sscanf(n, "%d", &out); err != nil {
+			return 0, fmt.Errorf("%s: expected an integer, got %q", key, n)
+		}
+		return out, nil
+	default:
+		return 0, fmt.Errorf("%s: expected a number, got %T", key, v)
+	}
+}
+
 // stringSliceParam extracts a []string parameter. It accepts both a native
 // []string (as constructed directly in Go, e.g. in tests) and a []any of
 // strings (as produced by decoding JSON, e.g. from an MCP tool call).

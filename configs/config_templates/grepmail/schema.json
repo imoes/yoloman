@@ -1,102 +1,140 @@
 {
-  "patterns": {
-    "type": "list",
-    "default": [],
-    "description": "List of regex patterns to match in messages. At least one pattern or one of -d/-s/-u/-E must be provided."
+  "cache_file": {
+    "default": "",
+    "description": "Path to cache file (default: $HOME/.grepmail-cache). Equivalent to -C.",
+    "type": "string"
+  },
+  "date_spec": {
+    "default": "",
+    "description": "Date specification for filtering. Supports 'today', 'yesterday', '5/18/93', 'before/after since <date>', 'between <d> and <d>'. Empty string matches messages without Date: header. Equivalent to -d.",
+    "type": "string",
+    "enum": [
+      "today",
+      "yesterday",
+      "5/18/93"
+    ]
+  },
+  "debug": {
+    "default": false,
+    "description": "Enable debug mode. Equivalent to -D.",
+    "type": "bool"
+  },
+  "expression": {
+    "default": "",
+    "description": "Complex search expression using Perl syntax over $email, $email_header, $email_body. Incompatible with -b, -h, -e, -i, -M, -S, -Y. Equivalent to -E.",
+    "type": "string"
+  },
+  "header_search_pattern": {
+    "default": "",
+    "description": "Header search pattern with procmail expansion support (^TO:, ^FROM_DAEMON:, ^FROM_MAILER:). Implies -h. Equivalent to -Y.",
+    "type": "string"
   },
   "mailboxes": {
-    "type": "list",
     "default": [],
-    "description": "List of mailbox paths or directories to search. If empty, stdin is used. Supports compressed mailboxes (gzip/bzip2/lzip/xz)."
-  },
-  "output_header_only": {
-    "type": "bool",
-    "default": false,
-    "description": "Print only headers, not body. Equivalent to -H."
+    "description": "List of mailbox paths or directories to search. If empty, stdin is used. Supports compressed mailboxes (gzip/bzip2/lzip/xz).",
+    "type": "list"
   },
   "output_body_only": {
-    "type": "bool",
     "default": false,
-    "description": "Print only body, not headers. Equivalent to -b."
-  },
-  "output_minimal_headers": {
-    "type": "bool",
-    "default": false,
-    "description": "Print minimal headers (From, Date, Subject) + body. Equivalent to -B."
-  },
-  "output_quiet": {
-    "type": "bool",
-    "default": false,
-    "description": "Suppress non-fatal warnings. Equivalent to -q."
-  },
-  "output_report": {
-    "type": "bool",
-    "default": false,
-    "description": "Print filenames with match counts. Equivalent to -r."
+    "description": "Print only body, not headers. Equivalent to -b.",
+    "type": "bool"
   },
   "output_filenames_only": {
-    "type": "bool",
     "default": false,
-    "description": "Print only filenames containing matches. Equivalent to -l."
+    "description": "Print only filenames containing matches. Equivalent to -l.",
+    "type": "bool"
   },
-  "output_line_numbers": {
-    "type": "bool",
+  "output_header_only": {
     "default": false,
-    "description": "Prefix output lines with file:line number. Equivalent to -n."
-  },
-  "output_unique": {
-    "type": "bool",
-    "default": false,
-    "description": "Output only unique messages by Message-ID. Equivalent to -u."
+    "description": "Print only headers, not body. Equivalent to -H.",
+    "type": "bool"
   },
   "output_invert": {
-    "type": "bool",
     "default": false,
-    "description": "Invert match (print non-matching messages). Equivalent to -v."
+    "description": "Invert match (print non-matching messages). Equivalent to -v.",
+    "type": "bool"
+  },
+  "output_line_numbers": {
+    "default": false,
+    "description": "Prefix output lines with file:line number. Equivalent to -n.",
+    "type": "bool"
   },
   "output_mailfolder": {
-    "type": "bool",
     "default": false,
-    "description": "Add X-Mailfolder header to output messages. Equivalent to -m."
+    "description": "Add X-Mailfolder header to output messages. Equivalent to -m.",
+    "type": "bool"
+  },
+  "output_minimal_headers": {
+    "default": false,
+    "description": "Print minimal headers (From, Date, Subject) + body. Equivalent to -B.",
+    "type": "bool"
+  },
+  "output_quiet": {
+    "default": false,
+    "description": "Suppress non-fatal warnings. Equivalent to -q.",
+    "type": "bool"
+  },
+  "output_report": {
+    "default": false,
+    "description": "Print filenames with match counts. Equivalent to -r.",
+    "type": "bool"
+  },
+  "output_unique": {
+    "default": false,
+    "description": "Output only unique messages by Message-ID. Equivalent to -u.",
+    "type": "bool"
+  },
+  "patterns": {
+    "default": [],
+    "description": "List of regex patterns to match in messages. At least one pattern or one of -d/-s/-u/-E must be provided.",
+    "type": "list"
   },
   "search_case_insensitive": {
-    "type": "bool",
     "default": false,
-    "description": "Perform case-insensitive matching. Equivalent to -i."
-  },
-  "search_word_boundary": {
-    "type": "bool",
-    "default": false,
-    "description": "Match only at word boundaries. Equivalent to -w."
-  },
-  "search_ignore_signature": {
-    "type": "bool",
-    "default": false,
-    "description": "Ignore the signature part of messages (everything after '-- '). Equivalent to -S."
-  },
-  "search_ignore_mime_attachments": {
-    "type": "bool",
-    "default": false,
-    "description": "Ignore non-text MIME parts. Equivalent to -M."
-  },
-  "search_force": {
-    "type": "bool",
-    "default": false,
-    "description": "Force processing of all files as mailboxes. Equivalent to -F."
+    "description": "Perform case-insensitive matching. Equivalent to -i.",
+    "type": "bool"
   },
   "search_follow_links": {
-    "type": "bool",
     "default": false,
-    "description": "Follow symbolic links. Implies -R. Equivalent to -L."
+    "description": "Follow symbolic links. Implies -R. Equivalent to -L.",
+    "type": "bool"
+  },
+  "search_force": {
+    "default": false,
+    "description": "Force processing of all files as mailboxes. Equivalent to -F.",
+    "type": "bool"
   },
   "search_header_pattern": {
-    "type": "bool",
     "default": false,
-    "description": "Match only in headers. Equivalent to -h."
+    "description": "Match only in headers. Equivalent to -h.",
+    "type": "bool"
+  },
+  "search_ignore_mime_attachments": {
+    "default": false,
+    "description": "Ignore non-text MIME parts. Equivalent to -M.",
+    "type": "bool"
+  },
+  "search_ignore_signature": {
+    "default": false,
+    "description": "Ignore the signature part of messages (everything after '-- '). Equivalent to -S.",
+    "type": "bool"
+  },
+  "search_word_boundary": {
+    "default": false,
+    "description": "Match only at word boundaries. Equivalent to -w.",
+    "type": "bool"
+  },
+  "signature_pattern": {
+    "default": "",
+    "description": "Regular expression to detect signature separator (default: '^-- $'). Equivalent to -X.",
+    "type": "string"
+  },
+  "size_spec": {
+    "default": "",
+    "description": "Size constraint: '=N', '<N', '<=N', '>N', '>=N', or 'A-B'. Includes header. Equivalent to -s.",
+    "type": "string"
   },
   "status_flags": {
-    "type": "string",
-    "default": "",
     "description": "Filter by Status: header flags (e.g., 'ar' for read and answered). Order/case-insensitive. Equivalent to -j.",
     "enum": [
       "A",
@@ -121,41 +159,8 @@
       "s",
       "t",
       "u"
-    ]
-  },
-  "date_spec": {
+    ],
     "type": "string",
-    "default": "",
-    "description": "Date specification for filtering. Supports 'today', 'yesterday', '5/18/93', 'before/after since <date>', 'between <d> and <d>'. Empty string matches messages without Date: header. Equivalent to -d."
-  },
-  "size_spec": {
-    "type": "string",
-    "default": "",
-    "description": "Size constraint: '=N', '<N', '<=N', '>N', '>=N', or 'A-B'. Includes header. Equivalent to -s."
-  },
-  "expression": {
-    "type": "string",
-    "default": "",
-    "description": "Complex search expression using Perl syntax over $email, $email_header, $email_body. Incompatible with -b, -h, -e, -i, -M, -S, -Y. Equivalent to -E."
-  },
-  "signature_pattern": {
-    "type": "string",
-    "default": "",
-    "description": "Regular expression to detect signature separator (default: '^-- $'). Equivalent to -X."
-  },
-  "header_search_pattern": {
-    "type": "string",
-    "default": "",
-    "description": "Header search pattern with procmail expansion support (^TO:, ^FROM_DAEMON:, ^FROM_MAILER:). Implies -h. Equivalent to -Y."
-  },
-  "cache_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to cache file (default: $HOME/.grepmail-cache). Equivalent to -C."
-  },
-  "debug": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable debug mode. Equivalent to -D."
+    "enum_open": true
   }
 }

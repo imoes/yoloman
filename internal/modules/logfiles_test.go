@@ -171,12 +171,12 @@ func TestLogFilesReadGzip(t *testing.T) {
 func TestLogFilesListHidesRotated(t *testing.T) {
 	root := t.TempDir()
 	for _, n := range []string{
-		"syslog",                    // live — shown
-		"mail.log",                  // live — shown
-		"syslog.1.gz",               // compressed — hidden
-		"alternatives.log.2.gz",     // compressed — hidden
-		"mail.log-20260712",         // date-rotated — hidden
-		"syslog-20260712.gz",        // date-rotated + compressed — hidden
+		"syslog",                // live — shown
+		"mail.log",              // live — shown
+		"syslog.1.gz",           // compressed — hidden
+		"alternatives.log.2.gz", // compressed — hidden
+		"mail.log-20260712",     // date-rotated — hidden
+		"syslog-20260712.gz",    // date-rotated + compressed — hidden
 	} {
 		if err := os.WriteFile(filepath.Join(root, n), []byte("x\n"), 0o644); err != nil {
 			t.Fatal(err)

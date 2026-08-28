@@ -35,6 +35,36 @@ class AgentClientError(Exception):
     the same asyncio.gather."""
 
 
+def _scrub(value: Any) -> Any:
+    """Drop NUL characters from every string an agent sends us.
+
+    JSON permits U+0000 in a string; Postgres `text`/`jsonb` cannot store it, and asyncpg raises
+    UntranslatableCharacterError at COMMIT — not at the assignment, so the failure surfaces far from
+    its cause and takes the whole transaction with it. Measured on the Windows test host: the
+    resultant-set-of-policy read carries registry strings with a trailing NUL (a C string terminator
+    that came along for the ride), and one such value silently discarded that host's ENTIRE poll
+    cycle — metrics, checks, inventory, policy — every 60 seconds, leaving only a traceback in the
+    log while the UI showed stale-but-plausible data.
+
+    Scrubbed HERE, at the boundary where foreign data enters, because every consumer downstream
+    persists what it is handed and none of them can be expected to remember this. A NUL inside a
+    registry string is a terminator artifact, not content, so removing it loses nothing; anything
+    else Postgres accepts is passed through untouched."""
+    if isinstance(value, str):
+        return value.replace("\x00", "") if "\x00" in value else value
+    if isinstance(value, list):
+        return [_scrub(v) for v in value]
+    if isinstance(value, dict):
+        return {(_scrub(k) if isinstance(k, str) else k): _scrub(v) for k, v in value.items()}
+    return value
+
+
+def _decode(resp: httpx.Response) -> Any:
+    """The one place an agent's response becomes Python data — and therefore the one place the
+    NUL scrub can live without being forgotten at the thirteenth call site."""
+    return _scrub(resp.json())
+
+
 class AgentClient:
     """One agent's REST identity: its address plus the credentials needed
     to poll it (bearer token + Bossman's own mTLS client identity)."""
@@ -66,7 +96,44 @@ class AgentClient:
             timeout=self._timeout,
             headers=headers,
             transport=self._transport,
+            # NEVER THROUGH A FORWARD PROXY. httpx reads http_proxy/https_proxy from the environment by
+            # default, and this deployment sets them (the container needs a proxy to reach package repos and
+            # LLM endpoints on the internet). Polling an agent is an intra-fleet call to an IP the proxy has
+            # no business seeing, and the corporate proxy answered every one of them with 403 Forbidden.
+            #
+            # Measured on the live fleet: 3 of 17 agents "had errors" on every cycle —
+            #   metrics: 172.21.0.1:8451: request failed: 403 Forbidden
+            #   metrics: web07:18051: request failed: 403 Forbidden
+            #   metrics: 10.32.28.130:8051: request failed: 403 Forbidden
+            # — and the message named the agent, so it read like three broken hosts rather than one wrong
+            # client. 10.32.28.130 is even inside BOSSMAN_TARGET_NO_PROXY, but that variable governs what
+            # Bossman tells a TARGET host to use; it never reached httpx's own environment lookup.
+            #
+            # trust_env=False rather than a NO_PROXY entry per agent: there is no address at which an agent
+            # SHOULD be proxied, so the correct scope is the client, not a list that has to be maintained
+            # every time a host moves.
+            trust_env=False,
         )
+
+    def _transport_error(self, what: str, exc: Exception) -> AgentClientError:
+        """One place that turns a transport exception into a message an operator can act on.
+
+        A TIMEOUT IS NOT A FAILURE, and for a write it is the wrong answer in the one direction that matters.
+        Measured on the Windows agent: `windows_feature` installing SNMP-Service outlasted the 30-second
+        default, the call came back as "request failed: " with an EMPTY message — and the install COMPLETED.
+        We found out from the next call, which reported "already installed". So a timeout says what actually
+        happened and what to do about it.
+
+        Nine call sites used to spell this themselves, which is why the empty message survived so long: a
+        message nobody owns is a message nobody fixes.
+        """
+        if isinstance(exc, httpx.TimeoutException):
+            return AgentClientError(
+                f"{self.address}: {what}: no answer within {self._timeout:g}s. The agent may still be "
+                f"working and the change may yet complete — re-read the state before retrying, and pass a "
+                f"longer timeout_seconds for an operation that is expected to take minutes."
+            )
+        return AgentClientError(f"{self.address}: {what}: request failed: {exc}")
 
     async def _get_json(self, path: str, params: dict[str, str]) -> Any:
         url = f"https://{self.address}{path}"
@@ -74,12 +141,12 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.get(url, params=params)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: request failed: {exc}") from exc
+            raise self._transport_error("request", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: unexpected status {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: decoding response: {exc}") from exc
 
@@ -155,7 +222,7 @@ class AgentClient:
             raise AgentClientError(f"{self.address}: add piggyback source: {exc}") from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: add piggyback source returned {resp.status_code}: {resp.text[:1024]}")
-        return resp.json()
+        return _decode(resp)
 
     async def remove_piggyback_source(self, source_type: str, host: str) -> dict[str, Any]:
         """DELETE /api/v1/piggyback/sources?type=&host= (F-9)."""
@@ -167,7 +234,7 @@ class AgentClient:
             raise AgentClientError(f"{self.address}: remove piggyback source: {exc}") from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: remove piggyback source returned {resp.status_code}: {resp.text[:1024]}")
-        return resp.json()
+        return _decode(resp)
 
     async def processes(self, limit: int = 0) -> dict[str, Any]:
         """GET /api/v1/processes — the agent's live process table (Block J1):
@@ -242,12 +309,12 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=body)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: tool {name!r}: request failed: {exc}") from exc
+            raise self._transport_error(f"tool {name!r}", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: tool {name!r} returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: tool {name!r}: decoding response: {exc}") from exc
 
@@ -257,6 +324,25 @@ class AgentClient:
         codec, else a sha256 ref). The read side of the server-as-a-document
         model (docs: project-server-as-document)."""
         return await self._get_json("/api/v1/state/observed", {})
+
+    async def audit(self, since_seq: int | None = None, module: str | None = None,
+                    outcome: str | None = None, limit: int = 500) -> dict[str, Any]:
+        """GET /api/v1/audit — THE RESULT LOG the host keeps about itself.
+
+        `{boot_id, oldest_seq, newest_seq, dropped, capacity, count, records:[…]}`. The cursor is the agent's
+        own `seq`, monotonic within one agent PROCESS, which is why `boot_id` comes with it: without the boot
+        id a restart is indistinguishable from "nothing new", and a collector would either skip or repeat a
+        whole boot's worth of records. `dropped` says how many the ring discarded, so falling behind is a
+        number rather than a silence.
+        """
+        params: dict[str, str] = {"limit": str(limit)}
+        if since_seq is not None:
+            params["since_seq"] = str(since_seq)
+        if module:
+            params["module"] = module
+        if outcome:
+            params["outcome"] = outcome
+        return await self._get_json("/api/v1/audit", params)
 
     async def state_generations(self) -> dict[str, Any]:
         """GET /api/v1/state/generations — the agent's local desired-state
@@ -272,11 +358,11 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=document)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state plan: request failed: {exc}") from exc
+            raise self._transport_error(f"state plan", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state plan returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state plan: decoding response: {exc}") from exc
 
@@ -290,11 +376,11 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={**document, "dry_run": dry_run})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state apply: request failed: {exc}") from exc
+            raise self._transport_error(f"state apply", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state apply returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state apply: decoding response: {exc}") from exc
 
@@ -308,11 +394,11 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={"generation": generation, "dry_run": dry_run})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: state rollback: request failed: {exc}") from exc
+            raise self._transport_error(f"state rollback", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: state rollback returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: state rollback: decoding response: {exc}") from exc
 
@@ -329,12 +415,12 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=payload)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: config apply: request failed: {exc}") from exc
+            raise self._transport_error(f"config apply", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: config apply returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: config apply: decoding response: {exc}") from exc
 
@@ -351,11 +437,11 @@ class AgentClient:
                     url, content=deb, headers={"Content-Type": "application/octet-stream"}
                 )
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: self-update: request failed: {exc}") from exc
+            raise self._transport_error(f"self-update", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: self-update returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: self-update: decoding response: {exc}") from exc
 
@@ -372,11 +458,11 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json=patch)
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: collect-config: request failed: {exc}") from exc
+            raise self._transport_error(f"collect-config", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: collect-config returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: collect-config: decoding response: {exc}") from exc
 
@@ -391,11 +477,11 @@ class AgentClient:
             async with self._client() as client:
                 resp = await client.post(url, json={"modules": modules})
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: push modules: request failed: {exc}") from exc
+            raise self._transport_error(f"push modules", exc) from exc
         if resp.status_code != 200:
             raise AgentClientError(f"{self.address}: push modules returned {resp.status_code}: {resp.text[:4096]}")
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: push modules: decoding response: {exc}") from exc
 
@@ -413,14 +499,14 @@ class AgentClient:
                     headers={"Content-Type": "application/octet-stream"},
                 )
         except (httpx.HTTPError, OSError) as exc:
-            raise AgentClientError(f"{self.address}: upload {remote_name!r}: request failed: {exc}") from exc
+            raise self._transport_error(f"upload {remote_name!r}", exc) from exc
 
         if resp.status_code != 200:
             raise AgentClientError(
                 f"{self.address}: upload {remote_name!r} returned {resp.status_code}: {resp.text[:4096]}"
             )
         try:
-            return resp.json()
+            return _decode(resp)
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: upload {remote_name!r}: decoding response: {exc}") from exc
 

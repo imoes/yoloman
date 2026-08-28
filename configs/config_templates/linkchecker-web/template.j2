@@ -1,0 +1,122 @@
+# ============================================================
+# linkchecker-web Apache VirtualHost / Directory Configuration
+# ============================================================
+# This template configures Apache's mod_wsgi to serve the Linkchecker
+# online web interface. It sets up the WSGI application alias, serves
+# static files from the web root, and defines access control rules.
+# ============================================================
+
+<IfModule mod_wsgi.c>
+
+    # --------------------------------------------------------
+    # WSGI Application Mount Point
+    # --------------------------------------------------------
+    # wsgi_script_alias: The URL path alias for the WSGI script.
+    # wsgi_script_path: The filesystem path to the WSGI script.
+    #
+    # Syntax: WSGIScriptAlias <URL-path> <script-path>
+    # This directive maps a URL path to a WSGI application script.
+    WSGIScriptAlias {{ wsgi_script_alias | default('/lconlinewsgi/lc.wsgi') }} {{ wsgi_script_path | default('/usr/lib/cgi-bin/lc.wsgi') }}
+
+    # --------------------------------------------------------
+    # Static File Serving
+    # --------------------------------------------------------
+    # web_root_alias: The URL path alias for the web root directory.
+    # web_root_dir: The filesystem path to the web root directory.
+    #
+    # Syntax: Alias <URL-path> <filesystem-path>
+    # This directive maps a URL path to a directory of static files.
+    Alias {{ web_root_alias | default('/lconline') }} {{ web_root_dir | default('/usr/share/linkchecker/lconline') }}
+
+    # --------------------------------------------------------
+    # Web Root Directory Access Control
+    # --------------------------------------------------------
+    # Controls access to the static files served by the Alias directive.
+    <Directory "{{ web_root_dir | default('/usr/share/linkchecker/lconline') }}">
+        # Options:
+        #   Indexes: Allow directory listing if no index file is present.
+        #   MultiViews: Enable content negotiation (e.g., serve .html or .txt).
+        Options Indexes MultiViews
+
+        # Access Control for Apache 2.4+
+        <IfVersion >= 2.3>
+            # Require local: Only allow access from the local machine.
+            Require local
+        </IfVersion>
+
+        # Access Control for Apache 2.2 (Legacy)
+        <IfVersion < 2.3>
+            # Order: Define the order of processing Allow and Deny directives.
+            Order deny,allow
+
+            # Deny from all: Deny access to everyone by default.
+            Deny from all
+
+            # Allow from 127.0.0.0/255.0.0.0: Allow access from localhost IPv4.
+            Allow from 127.0.0.0/255.0.0.0
+
+            # --------------------------------------------------------
+            # Custom Host/IP Allowance (Commented by Default)
+            # --------------------------------------------------------
+            # custom_allow_host_ip: The IP address of the host to allow access from.
+            # Leave empty to remain commented out. Uncomment and fill to allow
+            # specific external IPs.
+            #
+            # Example: Allow from 192.168.1.100
+            #
+            # Before uncommenting the following lines please put IP address
+            # of your computer in the Allow line
+            {% if custom_allow_host_ip | default('') | trim %}
+            Allow from {{ custom_allow_host_ip | default('') | trim }}
+            {% else %}
+            # Allow from <CUSTOM_IP_HERE>
+            {% endif %}
+
+            # IPv6 addresses work only with apache2
+            # Allow access from localhost IPv6.
+            Allow from ::1/128
+        </IfVersion>
+    </Directory>
+
+    # --------------------------------------------------------
+    # WSGI Script Location Access Control
+    # --------------------------------------------------------
+    # Controls access to the WSGI application endpoint itself.
+    <Location "{{ wsgi_script_alias | default('/lconlinewsgi/lc.wsgi') }}">
+        # Access Control for Apache 2.4+
+        <IfVersion >= 2.3>
+            # Require local: Only allow access from the local machine.
+            Require local
+        </IfVersion>
+
+        # Access Control for Apache 2.2 (Legacy)
+        <IfVersion < 2.3>
+            # Order: Define the order of processing Allow and Deny directives.
+            Order deny,allow
+
+            # Deny from all: Deny access to everyone by default.
+            Deny from all
+
+            # Allow from 127.0.0.0/255.0.0.0: Allow access from localhost IPv4.
+            Allow from 127.0.0.0/255.0.0.0
+
+            # --------------------------------------------------------
+            # Custom Host/IP Allowance (Commented by Default)
+            # --------------------------------------------------------
+            # custom_allow_host_ip: The IP address of the host to allow access from.
+            #
+            # Before uncommenting the following lines please put IP address
+            # of your computer in the Allow line
+            {% if custom_allow_host_ip | default('') | trim %}
+            Allow from {{ custom_allow_host_ip | default('') | trim }}
+            {% else %}
+            # Allow from <CUSTOM_IP_HERE>
+            {% endif %}
+
+            # IPv6 addresses work only with apache2
+            # Allow access from localhost IPv6.
+            Allow from ::1/128
+        </IfVersion>
+    </Location>
+
+</IfModule>

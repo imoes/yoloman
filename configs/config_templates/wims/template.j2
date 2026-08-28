@@ -1,0 +1,54 @@
+# WIMS (Web Integrated Mathematical System) Apache configuration
+# This block defines the CGI entry point, URL routing, and directory permissions for WIMS.
+# All paths are derived from wims_url_prefix and wims_data_root schema fields.
+
+# The URL path prefix for accessing WIMS (e.g., 'wims' results in /wims/...)
+{% set url_prefix = wims_url_prefix | default('wims') %}
+# The base directory where WIMS data and public_html reside.
+{% set data_root = wims_data_root | default('/var/lib/wims') %}
+
+<Directory {{ data_root }}/public_html>
+    # Allow CGI script execution and symlink following, but prevent directory listing
+    Options +FollowSymLinks +ExecCGI -Indexes
+    # Allow .htaccess overrides for fine-grained control if needed
+    AllowOverride All
+    # Grant access to all users
+    Require all granted
+</Directory>
+
+<Directory {{ data_root }}/public_html/modules>
+    # Restrict module directory: allow symlinks but limit override scope
+    Options +FollowSymLinks
+    AllowOverride Limit
+    # Default to denying access unless explicitly allowed by parent or other rules
+    Require all granted
+</Directory>
+
+# Alias the main WIMS data directory to the URL prefix
+Alias /{{ url_prefix }} {{ data_root }}/public_html
+
+# Alias the home-style path (~) to the WIMS data directory
+Alias /~{{ url_prefix }} {{ data_root }}/public_html
+
+# ScriptAliasMatch rules to route WIMS requests to the CGI executable.
+# These rules handle both the tilde-prefixed (~) and standard root-prefixed paths.
+
+# Route wims.* files
+ScriptAliasMatch ^/{{ url_prefix }}/wims\.(.*) {{ data_root }}/public_html/wims.cgi
+ScriptAliasMatch ^/~{{ url_prefix }}/wims\.(.*) {{ data_root }}/public_html/wims.cgi
+
+# Route index.* files
+ScriptAliasMatch ^/{{ url_prefix }}/index\.(.*) {{ data_root }}/public_html/wims.cgi
+ScriptAliasMatch ^/~{{ url_prefix }}/index\.(.*) {{ data_root }}/public_html/wims.cgi
+
+# Route exercise files (typically named like 1234_5678.html)
+ScriptAliasMatch ^/{{ url_prefix }}/../_(.*).html {{ data_root }}/public_html/wims.cgi
+ScriptAliasMatch ^/~{{ url_prefix }}/.._(.*).html {{ data_root }}/public_html/wims.cgi
+
+# Route file downloads
+ScriptAliasMatch ^/{{ url_prefix }}/getfile/(.*) {{ data_root }}/public_html/wims.cgi
+ScriptAliasMatch ^/~{{ url_prefix }}/getfile/(.*) {{ data_root }}/public_html/wims.cgi
+
+# Security: Deny direct execution of CGI scripts outside the WIMS prefix
+# This prevents users from uploading and running arbitrary .cgi files elsewhere
+ScriptAlias /{{ url_prefix }}/....\.cgi {{ data_root }}/public_html/wims.cgi

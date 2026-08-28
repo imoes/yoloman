@@ -1,0 +1,94 @@
+# Meli Configuration Template
+# This file configures the meli terminal mail client.
+# See meli.conf(5) for full documentation.
+#
+# Global Settings
+# These settings apply to the entire meli instance unless overridden by account-specific settings.
+
+# The color theme to use (e.g., 'default', 'light'). See meli-themes(5).
+# Default: 'default'
+theme = {{ theme | default('default') }}
+
+# Enable colored output. Overrides NO_COLOR environment variable.
+# Default: true
+use_color = {{ use_color | default(true) | lower }}
+
+# The command used to edit messages. Defaults to EDITOR env var or a fallback.
+# Default: 'nvim'
+editor_command = {{ editor_command | default('nvim') }}
+
+# Account Configurations
+# List of account configurations for meli. See meli.conf(5) for account fields.
+{% for account in (accounts | default([])) %}
+[[accounts]]
+
+# Unique name for the account.
+# Default: ''
+name = "{{ (account.name | default('')) }}"
+
+# Backend type: 'imap', 'jmap', 'notmuch', or 'maildir'.
+# Default: 'imap'
+backend = "{{ (account.backend | default('imap')) }}"
+
+# The email address for the account.
+# Default: ''
+address = "{{ (account.address | default('')) }}"
+
+{% if (account.backend | default('imap')) == 'imap' or (account.backend | default('imap')) == 'jmap' %}
+# IMAP/JMAP Server Settings
+# The hostname of the IMAP/JMAP server.
+# Default: ''
+server = "{{ (account.server | default('')) }}"
+
+# The port for IMAP/JMAP connections.
+# Default: 993
+port = {{ (account.port | default(993)) }}
+
+# TLS mode: 'none', 'starttls', or 'implicit'.
+# Default: 'starttls'
+tls = "{{ (account.tls | default('starttls')) }}"
+
+# The username for authentication.
+# Default: ''
+username = "{{ (account.username | default('')) }}"
+
+# The password for authentication.
+# For better security, consider using a credential manager or environment variable.
+# Default: ''
+password = "{{ (account.password | default('')) }}"
+
+# The mailbox path prefix.
+# Default: ''
+mailbox_prefix = "{{ (account.mailbox_prefix | default('')) }}"
+{% endif %}
+
+{% if (account.backend | default('imap')) == 'maildir' %}
+# Maildir Settings
+# Root path for Maildir backend.
+# Default: ''
+maildir_path = "{{ (account.maildir_path | default('')) }}"
+{% endif %}
+
+{% if (account.backend | default('imap')) == 'notmuch' %}
+# Notmuch Settings
+# Path to notmuch database directory.
+# Default: ''
+notmuch_db_path = "{{ (account.notmuch_db_path | default('')) }}"
+{% endif %}
+
+# The local path to save the password or credentials file if not using an env var.
+# Default: ''
+credentials_file = "{{ (account.credentials_file | default('')) }}"
+
+# The location of vCard contacts for this account.
+# Default: ''
+vcard_folder = "{{ (account.vcard_folder | default('')) }}"
+
+# The path to a mutt-compatible alias file for contacts.
+# Default: ''
+mutt_alias_file = "{{ (account.mutt_alias_file | default('')) }}"
+
+# The default mailbox to open upon account initialization.
+# Default: 'INBOX'
+default_mailbox = "{{ (account.default_mailbox | default('INBOX')) }}"
+{% endfor %}

@@ -5,7 +5,7 @@
 {{ '# ' if system_config_disabled | default(false) }}system:
   {{ '# ' if system_config_disabled | default(false) }}distro: {{ distro | default('ubuntu') }}
   {{ '# ' if system_config_disabled | default(false) }}search_domain: {{ search_domain | default([]) | join(', ') }}
-  {{ '# ' if system_config_disabled | default(false) }}search_dns: {{ search_dns | default(false) }}
+  {{ '# ' if system_config_disabled | default(false) }}search_dns: {{ search_dns | default(false) | lower }}
 
 # Network configuration
 {{ '# ' if network_config_disabled | default(false) }}network:
@@ -32,9 +32,9 @@ users:
 {% endfor %}
 
 # Package updates and upgrades
-package_update: {{ package_update | default(true) }}
-package_upgrade: {{ package_upgrade | default(false) }}
-package_reboot_if_required: {{ package_reboot_if_required | default(false) }}
+package_update: {{ package_update | default(true) | lower }}
+package_upgrade: {{ package_upgrade | default(false) | lower }}
+package_reboot_if_required: {{ package_reboot_if_required | default(false) | lower }}
 
 # Boot commands
 bootcmd:
@@ -52,7 +52,7 @@ runcmd:
 final_message: {{ final_message | default('The system is finally up, after $uptime seconds') }}
 
 # Local hostname setup
-preserve_hostname: {{ preserve_hostname | default(false) }}
+preserve_hostname: {{ preserve_hostname | default(false) | lower }}
 
 # Time and timezone
 timezone: {{ timezone | default('Etc/UTC') }}

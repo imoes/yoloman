@@ -1,0 +1,121 @@
+#!/bin/bash
+# Wrapper script for smtpping SMTP benchmarking tool.
+# Executes smtpping with parameters derived from the Ansible role variables.
+#
+# This script is self-documenting: every variable assignment corresponds
+# to a schema field with its default and description provided in comments.
+
+set -euo pipefail
+
+# -----------------------------------------------------------------------------
+# Recipient Configuration
+# -----------------------------------------------------------------------------
+# recipient: The recipient email address to send the benchmark ping to.
+RECIPIENT="{{ recipient | default('test@example.com') }}"
+
+# server: The SMTP server to connect to. If empty, MX lookup is performed on
+#         the recipient domain.
+# Logic: Only append @server if the variable is defined and not empty.
+{% if (server | default('')) is defined and (server | default('')) %}
+SERVER="@{{ server | default('') }}"
+{% else %}
+SERVER=""
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Connection & Timing Parameters
+# -----------------------------------------------------------------------------
+# port: The TCP port to use for the SMTP connection.
+PORT="{{ port | default(25) }}"
+
+# wait: Time in milliseconds to wait between pings.
+WAIT="{{ wait | default(1000) }}"
+
+# count: Number of pings to send. Use 'unlimited' or a positive integer.
+COUNT="{{ count | default('unlimited') }}"
+
+# parallel: Number of parallel worker processes.
+PARALLEL="{{ parallel | default(1) }}"
+
+# -----------------------------------------------------------------------------
+# Message Configuration
+# -----------------------------------------------------------------------------
+# size: Ping message size in kilobytes.
+SIZE="{{ size | default(10) }}"
+
+# hello: The HELO/EHLO name to present to the server.
+HELLO="{{ hello | default('localhost.localdomain') }}"
+
+# sender: The sender address (envelope FROM).
+SENDER="{{ sender | default('<>') }}"
+
+# -----------------------------------------------------------------------------
+# Feature Flags
+# -----------------------------------------------------------------------------
+# Build the flags string incrementally.
+# Note: Shell variable expansion handles the leading space or lack thereof.
+
+FLAGS=""
+
+# use_ipv4: Force use of IPv4 (-4).
+{% if (use_ipv4 | default(false)) | bool %}
+FLAGS="${FLAGS} -4"
+{% endif %}
+
+# use_ipv6: Force use of IPv6 (-6).
+{% if (use_ipv6 | default(false)) | bool %}
+FLAGS="${FLAGS} -6"
+{% endif %}
+
+# show_rate: Display rate instead of transaction delays (-r).
+{% if (show_rate | default(false)) | bool %}
+FLAGS="${FLAGS} -r"
+{% endif %}
+
+# quiet: Display less verbose output (-q).
+{% if (quiet | default(false)) | bool %}
+FLAGS="${FLAGS} -q"
+{% endif %}
+
+# verbose: Display more verbose output (-d).
+{% if (verbose | default(false)) | bool %}
+FLAGS="${FLAGS} -d"
+{% endif %}
+
+# use_chunking: Use CHUNKING (BDAT) (-C).
+{% if (use_chunking | default(false)) | bool %}
+FLAGS="${FLAGS} -C"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Message Source Logic
+# -----------------------------------------------------------------------------
+# use_custom_file: If true, use -f (file) instead of -s (size) for message source.
+# custom_file_path: Path to an email file (message/rfc822) to send. Used if use_custom_file is true.
+
+{% if (use_custom_file | default(false)) | bool %}
+# Use custom file if specified. Default to empty string if not defined (though role should ensure valid path).
+MSG_ARG="-f {{ custom_file_path | default('') }}"
+{% else %}
+# Use size-based message generation.
+MSG_ARG="-s {{ size | default(10) }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Execution
+# -----------------------------------------------------------------------------
+# Construct the final command string.
+# Variables:
+#   FLAGS      - Accumulated feature flags (e.g., " -4 -r")
+#   PORT       - Destination port
+#   WAIT       - Wait interval
+#   PARALLEL   - Parallel workers
+#   MSG_ARG    - Message source argument (-f or -s)
+#   HELLO      - HELO/EHLO name
+#   SENDER     - Envelope sender
+#   RECIPIENT  - Target recipient
+#   SERVER     - Optional server override (@host)
+CMD="smtpping${FLAGS} -p ${PORT} -w ${WAIT} -P ${PARALLEL} ${MSG_ARG} -H ${HELLO} -S ${SENDER} ${RECIPIENT}${SERVER}"
+
+echo "Running: ${CMD}"
+exec ${CMD}

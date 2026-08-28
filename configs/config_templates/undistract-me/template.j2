@@ -1,0 +1,44 @@
+# undistract-me configuration for Bash
+#
+# undistract-me alerts the user when a long-running foreground command completes,
+# preventing distraction by allowing work to continue uninterrupted during waits.
+#
+# This is a shell script sourced by bash (via .bashrc or similar), NOT a daemon
+# configuration file. Therefore, there are no network services, ports, or
+# external database connections to manage.
+#
+# See https://github.com/unnonouno/undistract-me for documentation.
+
+# Copyright (c) 2008-2012 undistract-me developers. See LICENSE for details.
+
+# Check for interactive bash and that we haven't already been sourced.
+[ -z "$BASH_VERSION" -o -z "$PS1" -o -n "$last_command_started_cache" ] && return
+
+# Source the main library
+# The path is typically fixed, but can be overridden by the package's file
+# deployment logic.
+. /usr/share/undistract-me/long-running.bash
+
+# Initialize the notification handler
+notify_when_long_running_commands_finish_install
+
+# ---------------------------------------------------------------------------
+# Configuration Variables
+# ---------------------------------------------------------------------------
+# The following variables can be set in this file or in ~/.bashrc to tune
+# undistract-me behavior. They are documented here for self-documentation.
+
+# Minimum time (in seconds) a command must run before triggering a notification.
+# If not set, a sensible default is used by the library.
+# Example: long_running_time=30
+# long_running_time={{ undistract_me_long_running_time | default(30) }}
+
+# Command to run when a long-running command finishes.
+# Defaults to a beep/notification. Can be customized to play a sound or send
+# a desktop notification.
+# Example: command_finished_beep=''
+# command_finished_beep={{ undistract_me_command_finished_beep | default('') }}
+
+# Pattern to exclude from notifications (e.g., specific commands to ignore).
+# Example: long_running_pattern=''
+# long_running_pattern={{ undistract_me_long_running_pattern | default('') }}

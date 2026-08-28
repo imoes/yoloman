@@ -1,0 +1,51 @@
+# =============================================================================
+# rzip (Remote Zip) configuration file
+# =============================================================================
+# This file configures the rzip compression tool.
+# See 'man rzip' or the upstream documentation for details.
+# =============================================================================
+
+# -- compression_level --
+# Description: Compression level from 0 (fastest) to 9 (slowest/best).
+#   Default is 6.
+#   Note: Higher levels require more RAM and CPU time but may achieve
+#   better compression ratios for very large files.
+# Type: integer
+# Default: 6
+compression_level = {{ compression_level | default(6) }}
+
+# -- suffix --
+# Description: Suffix appended to compressed output files.
+#   Default is '.rz'.
+# Type: string
+# Default: .rz
+suffix = {{ suffix | default('.rz') }}
+
+# -- keep_source --
+# Description: If true, keep the original input files after processing.
+#   If false (default), delete the original files after successful
+#   compression or decompression.
+# Type: boolean
+# Default: false
+keep_source = {{ keep_source | default(false) | lower }}
+
+# -- force_overwrite --
+# Description: If true, silently overwrite existing output files.
+#   If false (default), refuse to overwrite and exit with an error.
+# Type: boolean
+# Default: false
+force_overwrite = {{ force_overwrite | default(false) | lower }}
+
+# -- show_progress --
+# Description: If true, display percentage progress during compression
+#   and decompression operations.
+# Type: boolean
+# Default: false
+show_progress = {{ show_progress | default(false) | lower }}
+
+# -- files --
+# Description: List of file paths to compress or decompress.
+#   These files are processed in order.
+# Type: list of strings
+# Default: ['/var/data/largefile.dat']
+files = {{ files | default(['/var/data/largefile.dat']) | join(', ') }}

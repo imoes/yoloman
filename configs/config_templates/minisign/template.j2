@@ -1,0 +1,70 @@
+# Minisign signing configuration template
+# Generates a script to sign files using minisign based on the provided values.
+
+#!/bin/bash
+# Script to sign files using minisign
+set -e
+
+# Secret key file location
+SECKEY_FILE="{{ seckey_file | default('~/.minisign/minisign.key') }}"
+
+# Public key file location
+PUBKEY_FILE="{{ pubkey_file | default('./minisign.pub') }}"
+
+# Signature file output name (default: <file>.minisig, handled by loop)
+SIG_FILE="{{ sig_file | default('') }}"
+
+# Trusted comment to embed in signature
+TRUSTED_COMMENT="{{ trusted_comment | default('') }}"
+
+# Untrusted comment to embed in signature
+UNTRUSTED_COMMENT="{{ untrusted_comment | default('') }}"
+
+# Files to sign
+FILES=(
+{% for file in files_to_sign %}
+    "{{ file }}"
+{% endfor %}
+)
+
+# Verify if secret key exists
+if [ ! -f "$SECKEY_FILE" ]; then
+    echo "Error: Secret key file $SECKEY_FILE not found."
+    exit 1
+fi
+
+# Sign each file
+echo "Signing ${#FILES[@]} file(s)..." #}
+for FILE in "${FILES[@]}"; do
+    if [ ! -f "$FILE" ]; then
+        echo "Warning: File $FILE not found, skipping."
+        continue
+    fi
+
+    # Construct minisign command
+    CMD="minisign -S -s \"$SECKEY_FILE\" -m \"$FILE\""
+    
+    {% if sig_file and sig_file is not none %}
+    # If a specific sig file name pattern is provided, use -x
+    # Note: The template assumes sig_file is a pattern or fixed name. 
+    # For simplicity in this generic template, we rely on default behavior 
+    # unless sig_file is explicitly set per file in a more complex setup.
+    # Here we just output the standard command.
+    {% endif %}
+
+    {% if trusted_comment and trusted_comment is not none %}
+    CMD="$CMD -t \"{{ trusted_comment }}\""
+    {% endif %}
+
+    {% if untrusted_comment and untrusted_comment is not none %}
+    CMD="$CMD -c \"{{ untrusted_comment }}\""
+    {% endif %}
+
+    # Execute the command
+    echo "Running: $CMD"
+    eval $CMD
+    
+    echo "Signed: $FILE"
+done
+
+echo "Signing complete."

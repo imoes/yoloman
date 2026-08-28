@@ -1,0 +1,63 @@
+# =============================================================================
+# Video Downloader Configuration
+# =============================================================================
+# This configuration file controls the behavior of the video-downloader service.
+# It supports yt-dlp style formatting and basic HTTP networking options.
+# =============================================================================
+
+# Default URL prefilled in the application
+# Used as the initial download target if no specific URL is provided in CLI arguments.
+# Defaults to a placeholder YouTube link.
+url = "{{ url | default('https://www.youtube.com/watch?v=dQw4w9WgXcQ') }}"
+
+# Base directory for downloaded files
+# The root path where downloaded media files and subdirectories are stored.
+# Defaults to a user-specific Videos directory.
+path = "{{ path | default('/home/user/Videos') }}"
+
+# Output filename template using yt-dlp style format
+# Defines how downloaded files are named. Uses placeholders like %(title)s, %(ext)s, etc.
+filename_format = "{{ filename_format | default('%(title)s.%(ext)s') }}"
+
+# Subdirectory pattern for organizing downloads
+# Defines how subdirectories are created within the base path, based on metadata.
+output_dir = "{{ output_dir | default('%(title)s') }}"
+
+# Whether to overwrite existing files
+# If true, existing files with the same name/path will be replaced without warning.
+# If false, downloads may be skipped or renamed if a conflict exists.
+overwrite = {{ overwrite | default(false) | lower }}
+
+# Continue partially downloaded files
+# If true, resumes interrupted downloads from where they left off instead of restarting.
+continue_download = {{ continue_download | default(true) | lower }}
+
+# Maximum number of simultaneous downloads
+# Limits concurrency to prevent overwhelming the network or the source server.
+max_concurrent = {{ max_concurrent | default(5) }}
+
+# Bandwidth limit in bytes per second (0 for unlimited)
+# Caps the download speed. Set to 0 to disable throttling.
+bandwidth_limit = {{ bandwidth_limit | default(0) }}
+
+# Proxy URL for HTTP/HTTPS requests
+# Optional proxy address (e.g., http://user:pass@host:port) to route traffic through.
+# Leave empty to connect directly.
+proxy_url = "{{ proxy_url | default('') }}"
+
+# User-Agent string
+# HTTP User-Agent header sent with requests. Defaults to a standard Mozilla browser string.
+user_agent = "{{ user_agent | default('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36') }}"
+
+# Timeout for HTTP requests in seconds
+# Maximum time to wait for a connection or response before failing.
+timeout = {{ timeout | default(30) }}
+
+# Log level for the application
+# Controls verbosity: debug, info, warn, error, critical.
+log_level = "{{ log_level | default('info') }}"
+
+# Path to the log file
+# File path where application logs are written.
+# Ensure the directory exists and is writable by the service user.
+log_file = "{{ log_file | default('/var/log/video-downloader.log') }}"

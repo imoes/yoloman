@@ -1,0 +1,157 @@
+# Bluetooth Management Protocol Configuration
+# This file configures the default behavior for Bluetooth controllers managed by BlueZ mgmt API.
+# Note: This template maps mgmt(7) commands to a declarative configuration structure.
+# Many settings require the controller to be powered off or are runtime-only.
+
+[General]
+
+# The short local name for the Bluetooth controller (max 11 chars).
+# Maps to mgmt Set Local Name command (short variant).
+short_name = {{ short_name | default('BlueZ') }}
+
+# The full local name for the Bluetooth controller (max 249 chars).
+# Maps to mgmt Set Local Name command (full variant).
+# If not explicitly set, defaults to short_name.
+local_name = {{ local_name | default(local_name | default('BlueZ')) }}
+
+# Class of Device in Major:Minor format for BR/EDR controllers.
+# Maps to mgmt Set Device Class command.
+# Format: Major:Minor (e.g., 239:10 for Computer/Laptop)
+# Note: Many modern LE-only controllers do not support CoD.
+class_of_device = {{ class_of_device | default('239:10') }}
+
+# Appearance value (0x03C0) for LE advertising, e.g., Generic Phone.
+# Maps to mgmt Set Appearance command.
+# Standard values defined by Bluetooth SIG.
+appearance = {{ appearance | default(960) }}
+
+[Radio Settings]
+
+# Enable/Disable the Bluetooth controller power state.
+# Maps to mgmt Set Powered command.
+powered = {{ powered | default(true) | lower }}
+
+# Enable/Disable Basic Rate/Enhanced Data Rate support.
+# Maps to mgmt Set BR/EDR command.
+# Required for classic Bluetooth devices.
+br_edr = {{ br_edr | default(true) | lower }}
+
+# Enable/Disable Low Energy support.
+# Maps to mgmt Set Low Energy command.
+le = {{ le | default(true) | lower }}
+
+[Discoverability & Connectability]
+
+# Enable/Disable connectable mode.
+# Maps to mgmt Set Connectable command.
+connectable = {{ connectable | default(true) | lower }}
+
+# Discoverable mode: 0=Not, 1=General, 2=Limited.
+# Maps to mgmt Set Discoverable command.
+discoverable = {{ discoverable | default(2) }}
+
+# Timeout in seconds for discoverable mode.
+# Maps to mgmt Set Discoverable Timeout command.
+# Only applies if discoverable is 1 or 2.
+discoverable_timeout = {{ discoverable_timeout | default(180) }}
+
+# Enable fast connectable mode for BR/EDR.
+# Maps to mgmt Set Fast Connectable command.
+fast_connectable = {{ fast_connectable | default(false) | lower }}
+
+# Enable bondable mode, allowing automatic pairing requests.
+# Maps to mgmt Set Bondable command.
+# Allows devices to pair without explicit user interaction on the remote side.
+bondable = {{ bondable | default(false) | lower }}
+
+# Enable Link Level Security (Security Mode 3).
+# Maps to mgmt Set Link Security command.
+# Requires SSP to be enabled.
+link_security = {{ link_security | default(true) | lower }}
+
+# Enable Secure Simple Pairing.
+# Maps to mgmt Set Secure Simple Pairing command.
+ssp = {{ ssp | default(true) | lower }}
+
+[Privacy & Addressing]
+
+# LE Privacy mode: 0=Disable, 1=Always, 2=Limited.
+# Maps to mgmt Set Privacy command.
+# 0=Disable, 1=Always, 2=Limited (Identity only when bondable/discoverable)
+privacy = {{ privacy | default(0) }}
+
+# Static Random Address for LE controllers (XX:XX:XX:XX:XX:XX).
+# Maps to mgmt Set Static Address command.
+# Use '00:00:00:00:00:00' to disable.
+static_address = {{ static_address | default('00:00:00:00:00:00') }}
+
+[Advertising]
+
+# Advertising mode: 0=Disable, 1=Connectable, 2=Connectable Independent.
+# Maps to mgmt Set Advertising command.
+advertising = {{ advertising | default(0) }}
+
+# List of UUIDs to publish in advertising data.
+# Maps to mgmt Add UUID command for each item in the list.
+# Each item is a flat map: {uuid: string, svc_hint: bool}
+# Renders as a JSON array of objects.
+{% if uuids | default([]) | length > 0 %}
+# Added UUIDs:
+{% for u in uuids | default([]) %}
+add_uuid {{ u.uuid | default('') }}
+{% if u.svc_hint | default(false) %}
+add_uuid_svc_hint {{ u.uuid | default('') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+[Security & Keys]
+
+# Debug keys policy: 0=Discard on disconnect, 1=Discard on reboot, 2=Debug mode.
+# Maps to mgmt Set Debug Keys command.
+debug_keys = {{ debug_keys | default(0) }}
+
+[Discovery]
+
+# LE Scan Interval in ms (for connection establishment).
+# Maps to mgmt Set Scan Parameters command.
+scan_interval = {{ scan_interval | default(100) }}
+
+# LE Scan Window in ms.
+# Maps to mgmt Set Scan Parameters command.
+scan_window = {{ scan_window | default(100) }}
+
+[Devices]
+
+# List of devices to add to the action list.
+# Maps to mgmt Add Device command for each item in the list.
+# Each item is a flat map: {address: string, address_type: number, action: number}
+# Renders as a JSON array of objects.
+# action: 0=Background Scan, 1=Allow Connect, 2=Auto Connect
+# address_type: 0=BR/EDR, 1=LE Public, 2=LE Random
+{% if devices | default([]) | length > 0 %}
+# Added Devices:
+{% for d in devices | default([]) %}
+add_device {{ d.address | default('') }} {{ d.address_type | default(0) }} {{ d.action | default(0) }}
+{% endfor %}
+{% endif %}
+
+# List of blocked device addresses.
+# Maps to mgmt Block Device command for each item in the list.
+# Each item is a flat map: {address: string, address_type: number}
+# Renders as a JSON array of objects.
+{% if blocked_devices | default([]) | length > 0 %}
+# Blocked Devices:
+{% for bd in blocked_devices | default([]) %}
+block_device {{ bd.address | default('') }} {{ bd.address_type | default(0) }}
+{% endfor %}
+{% endif %}
+
+[System Config]
+
+# Default system configuration parameters.
+# Key is Parameter_Type ID, Value is the integer value.
+# Maps to mgmt Set Default System Configuration command.
+# These are parameter_type: value pairs.
+# Renders as a JSON map.
+system_config = {{ system_config | default({}) }}

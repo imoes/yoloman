@@ -1,47 +1,37 @@
 {
   "scan_interval": {
     "type": "number",
-    "default": 10,
-    "description": "How often (in seconds) the daemon scans the system for new processes and updates its database."
-  },
-  "max_processes": {
-    "type": "number",
-    "default": 500,
-    "description": "Maximum number of processes the daemon will track simultaneously. Larger values increase memory usage."
-  },
-  "profile_dir": {
-    "type": "string",
-    "default": "/var/lib/preload",
-    "description": "Directory where preload stores readahead profiles for known files and applications."
-  },
-  "history_dir": {
-    "type": "string",
-    "default": "/var/lib/preload",
-    "description": "Directory where preload stores access history (patterns of file reads) for learning."
+    "default": 20,
+    "description": "The cycle time (quantum of time) for preload to perform data gathering and predictions. Use an even number."
   },
   "proactive": {
     "type": "bool",
     "default": true,
-    "description": "Whether to proactively load files for frequently-used processes *before* they are opened (improves responsiveness, but may increase disk usage)."
+    "description": "Whether to use correlation coefficient in the prediction algorithm and proactively predict files."
   },
-  "passive": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to reactively read ahead *only* when a process actually opens a file."
-  },
-  "readahead_pages": {
+  "max_processes": {
     "type": "number",
-    "default": 0,
-    "description": "Maximum number of pages to read ahead per I/O request. Set to 0 to use the kernel's default value."
+    "default": 30,
+    "description": "Maximum number of processes to use for parallel readahead. Also sets the minimum process size (minsize) for tracking."
   },
-  "monitor_files": {
+  "mapprefix": {
     "type": "list",
-    "default": [],
-    "description": "Additional files (e.g., libraries, executables) to monitor for access patterns, even if not tracked by PID. Each entry can be a path or glob pattern."
+    "default": [
+      "/usr/",
+      "/lib",
+      "/var/cache/",
+      "!/!"
+    ],
+    "description": "Semicolon-separated list of path prefixes to accept or reject mapped files. Uses ! prefix to reject."
   },
-  "preload_iosched": {
-    "type": "string",
-    "default": "--iosched idle",
-    "description": "I/O scheduling class to use for preload (e.g., '--iosched idle')."
+  "exeprefix": {
+    "type": "list",
+    "default": [
+      "!/usr/sbin/",
+      "!/usr/local/sbin/",
+      "/usr/",
+      "!/!"
+    ],
+    "description": "Semicolon-separated list of path prefixes to accept or reject binary executable files."
   }
 }

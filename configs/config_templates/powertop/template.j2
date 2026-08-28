@@ -1,0 +1,125 @@
+#!/bin/bash
+# Powertop auto-tuning script
+# This script applies power management optimizations based on powertop recommendations.
+
+# Exit on error
+set -e
+
+# Powertop executable path
+POWERTOP_BIN="/usr/sbin/powertop"
+
+# Logging configuration
+# Verbosity level for logging: info, verbose, or quiet.
+LOG_LEVEL={{ log_level | default('info') }}
+
+# Calibration Settings
+# Whether to run powertop in calibration mode before applying settings.
+CALIBRATE={{ enable_calibration | default(False) | ternary('true', 'false') }}
+
+# Calibrate for duration in seconds
+# Duration in seconds for the calibration cycle if enabled.
+CALIBRATION_DURATION={{ calibration_duration | default(120) }}
+
+# Output Settings
+# Enable HTML report generation
+# Whether to generate an HTML report of power consumption.
+HTML_REPORT_ENABLED={{ generate_html_report | default(False) | ternary('true', 'false') }}
+
+# Path for the generated HTML report
+# Path to save the generated HTML report.
+HTML_OUTPUT_FILE="{{ html_output_file | default('/var/log/powertop.html') }}"
+
+# Enable CSV report generation
+# Whether to generate a CSV report of power consumption.
+CSV_REPORT_ENABLED={{ generate_csv_report | default(False) | ternary('true', 'false') }}
+
+# Path for the generated CSV report
+# Path to save the generated CSV report.
+CSV_OUTPUT_FILE="{{ csv_output_file | default('/var/log/powertop.csv') }}"
+
+# Report Duration
+# Time in seconds to run the report/calibration
+# Number of seconds to generate a report for when not calibrating.
+REPORT_TIME={{ report_duration | default(30) }}
+
+# Iterations
+# Number of times to run each test during calibration
+# Number of times to run each test during calibration.
+ITERATIONS={{ iterations | default(1) }}
+
+# Workload Configuration
+# Path to a custom workload script to execute during calibration
+# Path to a custom workload script to execute during calibration. Leave empty to skip.
+WORKLOAD_FILE="{{ workload_file | default('') }}"
+
+# Debug Mode
+# Run in debug mode
+# Run powertop in debug mode.
+DEBUG_MODE={{ debug_mode | default(False) | ternary('true', 'false') }}
+
+# Extech Power Analyzer
+# Use Extech Power Analyzer connected to this device node
+# Serial device node for the Extech Power Analyzer (e.g., /dev/ttyUSB0). Leave empty to skip.
+EXTECH_DEVNODE="{{ extech_devnode | default('') }}"
+
+# Quiet Mode
+# Suppress stderr output
+# Suppress stderr output from powertop.
+QUIET_MODE={{ quiet_mode | default(False) | ternary('true', 'false') }}
+
+# Execution Logic
+log() {
+    if [ "${LOG_LEVEL}" != "quiet" ]; then
+        echo "[Powertop] $1"
+    fi
+}
+
+log "Starting Powertop configuration script..."
+
+# Prepare command arguments
+CMD_ARGS="--auto-tune"
+
+if [ "${CALIBRATE}" == "true" ]; then
+    CMD_ARGS="${CMD_ARGS} --calibrate"
+    CMD_ARGS="${CMD_ARGS} --time=${CALIBRATION_DURATION}"
+    CMD_ARGS="${CMD_ARGS} --iteration=${ITERATIONS}"
+    
+    if [ -n "${WORKLOAD_FILE}" ]; then
+        CMD_ARGS="${CMD_ARGS} --workload=${WORKLOAD_FILE}"
+    fi
+else
+    # If not calibrating, just apply auto-tune
+    log "Applying auto-tune settings without calibration."
+fi
+
+if [ "${HTML_REPORT_ENABLED}" == "true" ]; then
+    CMD_ARGS="${CMD_ARGS} --html=${HTML_OUTPUT_FILE}"
+fi
+
+if [ "${CSV_REPORT_ENABLED}" == "true" ]; then
+    CMD_ARGS="${CMD_ARGS} --csv=${CSV_OUTPUT_FILE}"
+fi
+
+if [ "${DEBUG_MODE}" == "true" ]; then
+    CMD_ARGS="${CMD_ARGS} --debug"
+fi
+
+if [ -n "${EXTECH_DEVNODE}" ]; then
+    CMD_ARGS="${CMD_ARGS} --extech=${EXTECH_DEVNODE}"
+fi
+
+if [ "${QUIET_MODE}" == "true" ]; then
+    CMD_ARGS="${CMD_ARGS} --quiet"
+fi
+
+log "Executing command: ${POWERTOP_BIN} ${CMD_ARGS}"
+
+# Execute powertop
+${POWERTOP_BIN} ${CMD_ARGS}
+
+if [ $? -eq 0 ]; then
+    log "Powertop execution completed successfully."
+else
+    log "Powertop execution failed with exit code $?"
+    exit 1
+fi

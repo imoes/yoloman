@@ -1,0 +1,55 @@
+# =============================================================================
+# Transmission Remote GTK Configuration Template
+# =============================================================================
+# This template generates a configuration file for `transmission-remote-gtk`,
+# a GTK-based GUI frontend for the Transmission BitTorrent daemon.
+# It allows users to manage torrents remotely via the RPC interface.
+#
+# All variables are drawn from the Ansible role's variables with safe defaults.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Application Behavior
+# -----------------------------------------------------------------------------
+
+# Start the application window minimized to the system tray.
+# Corresponds to: -m / --minimized
+# If set to true, the main window will be hidden and only the tray icon will appear.
+APP_MINIMIZED={{ app_minimized | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# RPC Connection Settings
+# -----------------------------------------------------------------------------
+
+# The hostname or IP address where the Transmission daemon is listening for RPC connections.
+# Default is 'localhost' (local machine). Use the actual IP/hostname if connecting remotely.
+# Corresponds to: --host
+RPC_HOST="{{ rpc_host | default('localhost') }}"
+
+# The TCP port number where the Transmission daemon is listening for RPC connections.
+# The Transmission daemon default RPC port is 9091. Ensure this matches the daemon's config.
+# Corresponds to: --port
+RPC_PORT={{ rpc_port | default(9091) }}
+
+# -----------------------------------------------------------------------------
+# RPC Authentication
+# -----------------------------------------------------------------------------
+
+# Username required for authenticating with the Transmission daemon RPC interface.
+# Leave empty if the daemon is configured without authentication (not recommended for public access).
+# Corresponds to: --username
+RPC_USERNAME="{{ rpc_username | default('') }}"
+
+# Password required for authenticating with the Transmission daemon RPC interface.
+# Leave empty if no password is set in the daemon.
+# Corresponds to: --password
+RPC_PASSWORD="{{ rpc_password | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Startup Actions
+# -----------------------------------------------------------------------------
+
+# A path to a .torrent file, a magnet link, or a URL to be added to Transmission upon application startup.
+# If left empty, no torrent is added automatically.
+# Corresponds to: [torrent file|magnet link|url] positional argument
+STARTUP_TORRENT="{{ startup_torrent | default('') }}"

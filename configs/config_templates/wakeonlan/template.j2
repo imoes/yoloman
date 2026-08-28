@@ -1,0 +1,23 @@
+# ============================================================================
+# Wake-on-LAN (WoL) Configuration
+#
+# This file defines the parameters for sending Wake-on-LAN magic packets.
+# It specifies the network destination and the target MAC addresses.
+# ============================================================================
+
+# Destination IP address for the magic packet.
+# Use a subnet broadcast address (e.g., 192.168.1.255) or the limited
+# broadcast address (255.255.255.255) to reach all hosts on the local segment.
+DEST_IP={{ dest_ip | default('255.255.255.255') }}
+
+# Destination port for the magic packet.
+# The standard port for WoL is 9 (Discard). Some implementations may use
+# other ports, but 9 is the most widely supported.
+DEST_PORT={{ dest_port | default(9) }}
+
+# List of hardware MAC addresses to send wake-on-lan packets to.
+# Each MAC address should be on its own line.
+# Format: MAC_ADDRESS (e.g., 00:11:22:33:33:55)
+{% for mac in (macs | default([])) %}
+{{ mac }}
+{% endfor %}

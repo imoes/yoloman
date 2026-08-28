@@ -1,0 +1,79 @@
+# pgstat configuration
+# A wrapper script configuration for querying PostgreSQL statistics.
+# This file defines connection parameters and query options for the `pgstat` utility.
+
+# ==============================================================================
+# Execution Control
+# ==============================================================================
+
+# Delay in seconds between updates (corresponds to 'delay' argument in CLI).
+# Use 0 or omit to run once; use positive integer for continuous polling.
+delay: {{ delay | default(1) }}
+
+# Number of iterations to display (0 means infinite loop).
+# Use this to limit the number of refresh cycles in polling mode.
+count: {{ count | default(0) }}
+
+# ==============================================================================
+# Database Connection Settings
+# ==============================================================================
+
+# Database server host or socket directory (corresponds to -h).
+# Defaults to 'localhost'. Can be a hostname, IP, or path to a Unix socket directory.
+host: {{ host | default('localhost') }}
+
+# Database server port number (corresponds to -p).
+# Standard PostgreSQL port.
+port: {{ port | default(5432) }}
+
+# Connect as specified database user (corresponds to -U).
+# The role used to query the statistics views.
+user: {{ user | default('postgres') }}
+
+# Database to connect to (corresponds to -d).
+# The target database where the statistics are collected.
+database: {{ database | default('postgres') }}
+
+# ==============================================================================
+# Statistics Collection Options
+# ==============================================================================
+
+# Stats to collect (e.g., bgwriter, database, table, tableio, index, function, statement, replication slots, slru, wal, etc.).
+# Corresponds to the primary stat type argument.
+stat: {{ stat | default('bgwriter') }}
+
+# Part of stats to display (only works for database and statement).
+# Corresponds to the sub-statistic argument (-S).
+substat: {{ substat | default('') }}
+
+# Include only this object (only works for database, table, tableio, index, function, statement statistics, replication slots, and slru).
+# Corresponds to the filter type argument (-f).
+filter: {{ filter | default('') }}
+
+# ==============================================================================
+# Output Formatting
+# ==============================================================================
+
+# Verbose output (corresponds to -v).
+# If true, enables detailed logging and additional columns.
+verbose: {{ verbose | default(false) | lower }}
+
+# Display human-readable values (corresponds to -H).
+# If true, formats byte counts and durations for readability.
+human_readable: {{ human_readable | default(false) | lower }}
+
+# Do not redisplay header (corresponds to -n).
+# If true, suppresses header lines in continuous output mode.
+no_header: {{ no_header | default(false) | lower }}
+
+# ==============================================================================
+# Specific Filter Objects
+# ==============================================================================
+
+# List of filter objects to include if using -f.
+# Each entry restricts the query to specific database names, table names, etc.,
+# depending on the 'filter' type selected above.
+filter_objects:
+{% for obj in filter_objects | default([]) %}
+  - {{ obj }}
+{% endfor %}

@@ -1,0 +1,32 @@
+# Trawl Daemon Configuration
+# ============================================================
+# This file configures the trawld service.
+# Every setting is self-documented below with its source description
+# and a Jinja2 default to ensure safe rendering even if the
+# variable is undefined in the Ansible play.
+# ============================================================
+
+# Path to the C preprocessor executable used by trawld.
+# If undefined, falls back to the standard system C preprocessor.
+preprocessor: {{ preprocessor | default('/usr/bin/cpp') }}
+
+# If true, enables debug mode.
+# Useful for troubleshooting but may increase log verbosity significantly.
+# Defaults to false (off).
+debug: {{ debug | default(false) | lower }}
+
+# If true, enables verbose mode.
+# Provides general informational logging beyond standard operation.
+# Defaults to false (off).
+verbose: {{ verbose | default(false) | lower }}
+
+# Path to a resource file to load on startup.
+# trawld will read this file to initialize its resources.
+# Defaults to '/etc/trawl/resources'.
+load_file: {{ load_file | default('/etc/trawl/resources') }}
+
+# If true, disables the use of the C preprocessor entirely,
+# regardless of the preprocessor setting above.
+# This is useful if the resource files do not require preprocessing.
+# Defaults to false (preprocessor enabled if configured).
+nocpp: {{ nocpp | default(false) | lower }}

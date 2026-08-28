@@ -1,0 +1,15 @@
+# Configuration for olpc-powerd (OLPC Power Daemon)
+# This package manages power event polling and reporting for One Laptop per Child hardware.
+# It is a local system service with no external network dependencies.
+
+# Interval in seconds for polling power events.
+# Controls how frequently the daemon checks for AC/battery lid/power state changes.
+SWITCHD_OPTS="-f -l -p {{ switchd_poll_interval | default(10) }} -t {{ switchd_report_interval | default(6) }} -F {{ switchd_pid_file | default('/var/run/powerevents') }}"
+
+# Periodic timer interval in minutes for reporting.
+# Determines how often power statistics are logged or reported to a central monitor.
+# Note: This value is embedded in the SWITCHD_OPTS string above via the -t flag.
+
+# Path to the PID file for the switchd process.
+# Used by init systems to track the running daemon instance.
+# Ensure the directory /var/run/ exists and is writable by the service user.

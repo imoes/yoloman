@@ -1,0 +1,40 @@
+#!/usr/bin/env njs
+# Configuration script for njs
+
+# Set the failure exit code for the njs interpreter
+njs.fail_exit_code = {{ values.fail_exit_code }};
+
+# Set the maximum stack size in bytes
+njs.stack_size = {{ values.stack_size }};
+
+# Set the path prefix for loading modules
+njs.path_prefix = "{{ values.path_prefix }}";
+
+# Disable denormals mode for performance
+njs.disabled_denormals = {{ values.disabled_denormals }};
+
+# Disable "unsafe" mode for security
+njs.disabled_unsafe = {{ values.disabled_unsafe }};
+
+# Enable sandbox mode for isolation
+njs.sandbox = {{ values.sandbox }};
+
+# Ignore unhandled promise rejections
+njs.ignore_unhandled_promise_rejection = {{ values.ignore_unhandled_promise_rejection }};
+
+# Load the script as an ES6 module
+njs.load_as_es6_module = {{ values.load_as_es6_module }};
+
+{% for module in values.modules %}
+# Load module: {{ module.name }} from {{ module.path }}
+njs.load_module("{{ module.path }}", "{{ module.name }}");
+{% endfor %}
+
+# Main execution logic
+{% if values.command %}
+# Execute the provided command string
+njs.run("{{ values.command }}");
+{% else %}
+# Default action if no command is provided
+console.log("njs configured with stack_size={{ values.stack_size }}, path_prefix={{ values.path_prefix }}");
+{% endif %}

@@ -17,13 +17,13 @@ max_artifact_size_mb: {{ max_artifact_size_mb | default(256) }}
 max_connections: {{ max_connections | default(1000) }}
 
 # Whether to compress artifacts (gzip) before saving them to disk to reduce storage usage.
-compress_artifacts: {{ compress_artifacts | default(True) }}
+compress_artifacts: {{ compress_artifacts | default(True) | lower }}
 
 # List of trusted upstream debci relays to fetch job definitions and metadata from.
 relays:
 {% for relay in relays | default([]) %}  - host: {{ relay.get('host', '') | default('') }}
     port: {{ relay.get('port', 0) | default(0) }}
-    use_tls: {{ relay.get('use_tls', False) | default(False) }}
+    use_tls: {{ relay.get('use_tls', False) | default(False) | lower }}
 {% endfor %}
 
 # Verbosity of application logging.
@@ -33,7 +33,7 @@ log_level: {{ log_level | default('info') }}
 log_file: {{ log_file | default('/var/log/debci/collector.log') }}
 
 # Whether to expose Prometheus-compatible metrics endpoint.
-metrics_enabled: {{ metrics_enabled | default(False) }}
+metrics_enabled: {{ metrics_enabled | default(False) | lower }}
 
 # Port on which the metrics endpoint is served (if enabled).
 metrics_port: {{ metrics_port | default(9102) }}

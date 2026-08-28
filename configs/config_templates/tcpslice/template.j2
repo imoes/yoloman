@@ -1,0 +1,81 @@
+# =============================================================================
+# Tcpslice Configuration Template
+#
+# This template generates a configuration file for the 'tcpslice' utility.
+# Tcpslice is used to extract, merge, and manipulate packet capture (pcap) files.
+# It supports slicing captures by time, merging multiple files, and tracking
+# network sessions (TCP, SIP, H323).
+#
+# Variables are sourced from Ansible playbook/group/host variables.
+# All variables use |default() to ensure safe rendering even if undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# output_file: Path to the output pcap file.
+# If omitted or empty, defaults to stdout (not recommended for automation).
+# -----------------------------------------------------------------------------
+output_file: {{ output_file | default('./output.pcap') }}
+
+# -----------------------------------------------------------------------------
+# input_files: List of input pcap file paths to slice or merge.
+# Order determines merge order. Must contain at least one file for meaningful operation.
+# -----------------------------------------------------------------------------
+input_files:
+{% for f in input_files | default([]) %}- {{ f }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# start_time: Start time for extraction.
+# Formats:
+#   - Unix timestamp (float)
+#   - Relative (+N seconds)
+#   - ymdhmsu (e.g., 2023y01m01d00h00m00s)
+# Empty uses default (earliest time of first packet).
+# -----------------------------------------------------------------------------
+start_time: {{ start_time | default('') }}
+
+# -----------------------------------------------------------------------------
+# end_time: End time for extraction.
+# Formats:
+#   - Unix timestamp (float)
+#   - Relative (+N seconds) from start
+#   - ymdhmsu format
+# Empty uses default (10 years after start).
+# -----------------------------------------------------------------------------
+end_time: {{ end_time | default('') }}
+
+# -----------------------------------------------------------------------------
+# keep_duplicates: If true, do not discard duplicate packets when merging
+# multiple files. Corresponds to the -D flag.
+# -----------------------------------------------------------------------------
+keep_duplicates: {{ keep_duplicates | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# relative_merge: If true, merge files based on relative time offsets rather
+# than absolute timestamps. Corresponds to the -l flag.
+# -----------------------------------------------------------------------------
+relative_merge: {{ relative_merge | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# session_types: Comma-separated list of session types to track.
+# Valid types: tcp, sip, h323.
+# Empty disables session tracking. Corresponds to the -s flag.
+# Only effective if tcpslice was compiled with libnids and optional libraries.
+# -----------------------------------------------------------------------------
+session_types: {{ session_types | default('') }}
+
+# -----------------------------------------------------------------------------
+# session_expire_seconds: Seconds of inactivity after which an identified
+# session expires. Only effective with session tracking enabled.
+# Corresponds to the -e flag.
+# -----------------------------------------------------------------------------
+session_expire_seconds: {{ session_expire_seconds | default(0) }}
+
+# -----------------------------------------------------------------------------
+# verbosity: Verbosity level for console output.
+#   0: Silent
+#   1: Show session openings/closings
+#   2: Also show subsessions
+# Corresponds to the -v flag.
+# -----------------------------------------------------------------------------
+verbosity: {{ verbosity | default(0) }}

@@ -1,121 +1,120 @@
 {
-  "root": {
-    "type": "string",
-    "default": "/media",
-    "description": "Absolute path to the top-level directory containing your media (videos, music, photos)."
+ "cache_dir": {
+  "default": "",
+  "description": "Path to store transcoding cache files (optional, improves performance).",
+  "type": "string"
+ },
+ "db": {
+  "default": "",
+  "description": "Path to persist the media database (optional). If empty, the database is in-memory and rebuilt on each start.",
+  "type": "string"
+ },
+ "device_model_name": {
+  "default": "DLNA Media Server",
+  "description": "UPnP model name (shown in device info).",
+  "type": "string"
+ },
+ "device_model_url": {
+  "default": "",
+  "description": "URL for device documentation or support (optional).",
+  "type": "string"
+ },
+ "device_name": {
+  "default": "dms",
+  "description": "Name of the DLNA device as displayed on UPnP clients.",
+  "type": "string"
+ },
+ "file_filters_exclude": {
+  "default": [
+   ".*"
+  ],
+  "description": "List of shell-style glob patterns for files or directories to skip (e.g., ['.hidden', '*.tmp']).",
+  "items": {
+   "description": "Glob pattern for exclusion.",
+   "type": "string"
   },
-  "db": {
-    "type": "string",
-    "default": "",
-    "description": "Path to persist the media database (optional). If empty, the database is in-memory and rebuilt on each start."
+  "type": "list"
+ },
+ "http": {
+  "default": 7890,
+  "description": "TCP port for the main HTTP server (serves media and transcoding streams).",
+  "type": "number"
+ },
+ "interface": {
+  "default": "0.0.0.0",
+  "description": "Network interface or IP to bind the HTTP and SSDP services to (e.g., 'eth0', '192.168.1.10', or '0.0.0.0' for all).",
+  "type": "string"
+ },
+ "log_file": {
+  "default": "",
+  "description": "Path to write logs (empty = log to stderr only).",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "info",
+  "description": "Verbosity of server logs.",
+  "type": "string"
+ },
+ "mime_types": {
+  "description": "Custom MIME type mappings (e.g., {'mkv': 'video/x-matroska'}). Keys are lowercase file extensions (no dot).",
+  "items": {
+   "description": "MIME type for the file extension key.",
+   "type": "string"
   },
-  "cache_dir": {
-    "type": "string",
-    "default": "",
-    "description": "Path to store transcoding cache files (optional, improves performance)."
+  "type": "object"
+ },
+ "root": {
+  "default": "/media",
+  "description": "Absolute path to the top-level directory containing your media (videos, music, photos).",
+  "type": "string"
+ },
+ "ssdp_enabled": {
+  "default": true,
+  "description": "Whether to announce the server via UPnP/SSDP so clients can auto-discover it.",
+  "type": "bool"
+ },
+ "ssdp_port": {
+  "default": 1900,
+  "description": "UDP port used for SSDP/UPnP discovery announcements.",
+  "type": "number"
+ },
+ "thumbnails_enabled": {
+  "default": true,
+  "description": "Enable generation of embedded video thumbnails (requires FFmpeg).",
+  "type": "bool"
+ },
+ "thumbnails_height": {
+  "default": 90,
+  "description": "Height (px) of generated thumbnails.",
+  "type": "number"
+ },
+ "thumbnails_width": {
+  "default": 160,
+  "description": "Width (px) of generated thumbnails.",
+  "type": "number"
+ },
+ "transcode_enabled": {
+  "default": false,
+  "description": "Enable on-the-fly transcoding (requires FFmpeg installed).",
+  "type": "bool"
+ },
+ "transcode_extra_args": {
+  "default": [],
+  "description": "Extra command-line arguments passed to FFmpeg during transcoding (e.g., ['-preset', 'fast']).",
+  "items": {
+   "description": "Single FFmpeg argument (string).",
+   "type": "string"
   },
-  "interface": {
-    "type": "string",
-    "default": "0.0.0.0",
-    "description": "Network interface or IP to bind the HTTP and SSDP services to (e.g., 'eth0', '192.168.1.10', or '0.0.0.0' for all)."
-  },
-  "ssdp_port": {
-    "type": "number",
-    "default": 1900,
-    "description": "UDP port used for SSDP/UPnP discovery announcements."
-  },
-  "http": {
-    "type": "number",
-    "default": 7890,
-    "description": "TCP port for the main HTTP server (serves media and transcoding streams)."
-  },
-  "ssdp_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to announce the server via UPnP/SSDP so clients can auto-discover it."
-  },
-  "transcode_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable on-the-fly transcoding (requires FFmpeg installed)."
-  },
-  "transcode_profile": {
-    "type": "string",
-    "default": "h264",
-    "description": "Target format profile for transcoding. Common values: 'h264', 'webm', 'none'."
-  },
-  "transcode_extra_args": {
-    "type": "list",
-    "default": [],
-    "description": "Extra command-line arguments passed to FFmpeg during transcoding (e.g., ['-preset', 'fast']).",
-    "items": {
-      "type": "string",
-      "description": "Single FFmpeg argument (string)."
-    }
-  },
-  "transcode_max_cores": {
-    "type": "number",
-    "default": 0,
-    "description": "Maximum CPU cores to use for transcoding. 0 = auto (use all cores)."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of server logs."
-  },
-  "log_file": {
-    "type": "string",
-    "default": "",
-    "description": "Path to write logs (empty = log to stderr only)."
-  },
-  "device_name": {
-    "type": "string",
-    "default": "dms",
-    "description": "Name of the DLNA device as displayed on UPnP clients."
-  },
-  "device_model_name": {
-    "type": "string",
-    "default": "DLNA Media Server",
-    "description": "UPnP model name (shown in device info)."
-  },
-  "device_model_url": {
-    "type": "string",
-    "default": "",
-    "description": "URL for device documentation or support (optional)."
-  },
-  "mime_types": {
-    "type": "object",
-    "default": {},
-    "description": "Custom MIME type mappings (e.g., {'mkv': 'video/x-matroska'}). Keys are lowercase file extensions (no dot).",
-    "items": {
-      "type": "string",
-      "description": "MIME type for the file extension key."
-    }
-  },
-  "file_filters_exclude": {
-    "type": "list",
-    "default": [
-      ".*"
-    ],
-    "description": "List of shell-style glob patterns for files or directories to skip (e.g., ['.hidden', '*.tmp']).",
-    "items": {
-      "type": "string",
-      "description": "Glob pattern for exclusion."
-    }
-  },
-  "thumbnails_enabled": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable generation of embedded video thumbnails (requires FFmpeg)."
-  },
-  "thumbnails_width": {
-    "type": "number",
-    "default": 160,
-    "description": "Width (px) of generated thumbnails."
-  },
-  "thumbnails_height": {
-    "type": "number",
-    "default": 90,
-    "description": "Height (px) of generated thumbnails."
-  }
+  "type": "list"
+ },
+ "transcode_max_cores": {
+  "default": 0,
+  "description": "Maximum CPU cores to use for transcoding. 0 = auto (use all cores).",
+  "type": "number"
+ },
+ "transcode_profile": {
+  "default": "h264",
+  "description": "Target format profile for transcoding. Common values: 'h264', 'webm', 'none'.",
+  "type": "string"
+ }
 }

@@ -143,7 +143,7 @@ async def get_agent_ebpf(
     # Build an IP→hostname map from the host's OWN observed DNS answers (coroot's
     # ip_to_fqdn). This names targets that have a forward A record but no reverse
     # PTR — common in FreeIPA/AD, whose reverse zones are often incomplete (e.g.
-    # freeipa01.ipa.example.com resolves forward to 192.0.2.97 but has no PTR),
+    # ipa.example.internal resolves forward to 192.0.2.97 but has no PTR),
     # which best-effort _rdns alone can never resolve. Used as the fallback after
     # PTR across every eBPF list that carries raw IPs.
     dns_names = _ip_to_fqdn(l7_events)

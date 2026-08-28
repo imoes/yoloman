@@ -1,0 +1,160 @@
+# SWTPM (Software TPM) Configuration File
+# This template generates the configuration for the swtpm daemon.
+# It supports three interface types: 'socket', 'chardev', and 'cuse'.
+
+# ===========================================================================
+# Global Settings
+# ===========================================================================
+
+# The interface type to use: socket, chardev, or cuse.
+# Controls which set of configuration directives below are active.
+# Default: 'socket'
+interface: {{ interface | default('socket') }}
+
+# TPM version to emulate: 1.2 or 2.0.
+# Use '2.0' for modern guests, '1.2' for legacy compatibility.
+# Default: '2.0'
+version: {{ tpm_version | default('2.0') }}
+
+# Whether to daemonize the swtpm process.
+# If true, swtpm runs in the background.
+# Default: false
+daemonize: {{ daemonize | default(False) | lower }}
+
+# Directory for TPM persistent state storage (keys, NV storage).
+# Ensure this directory exists and has correct permissions.
+# Default: '/var/lib/swtpm'
+tpmstate_dir: {{ tpmstate_dir | default('/var/lib/swtpm') }}
+
+# File mode bits for the TPM state directory (octal string).
+# Example: '0700' for strict access, '0750' for group access.
+# Default: '0640'
+tpmstate_dir_mode: {{ tpmstate_dir_mode | default('0640') }}
+
+# ===========================================================================
+# Logging Configuration
+# ===========================================================================
+
+# Path to the log file. Use '-' to suppress logging (stderr only).
+# If omitted or empty, defaults to '-' (no file logging).
+# Default: '-'
+log_file: {{ log_file | default('-') }}
+
+# Logging level. 0 is normal; 5 enables libtpms debug logging.
+# Higher numbers provide more verbose output.
+# Default: 0
+log_level: {{ log_level | default(0) }}
+
+# Prefix for all log lines. Useful for identifying instances in shared logs.
+# Default: ''
+log_prefix: {{ log_prefix | default('') }}
+
+# Truncate the log file at startup.
+# If true, the log file is cleared before writing new entries.
+# Default: false
+log_truncate: {{ log_truncate | default(False) | lower }}
+
+# ===========================================================================
+# Interface-Specific Configuration
+# ===========================================================================
+
+# --- Socket Interface ---
+# Used when interface is 'socket'. Configures TCP connectivity and control channels.
+
+# TCP port for the socket interface (used if 'server' config does not specify port).
+# Ignored if the server_config string explicitly defines 'port=...'.
+# Default: 2321
+{% if (interface | default('socket')) == 'socket' %}
+port: {{ socket_port | default(2321) }}
+
+# Server configuration string for the socket interface.
+# Format: type=tcp[,port=<port>][,bindaddr=<addr>][,ifname=<if>][,fd=<fd>][,disconnect]
+# This overrides the standalone 'port' directive if 'port=' is present here.
+# Default: 'type=tcp,bindaddr=127.0.0.1,disconnect'
+server: {{ server_config | default('type=tcp,bindaddr=127.0.0.1,disconnect') }}
+
+# Control channel configuration string.
+# Used by management tools (like swtpm_setup) to communicate with the daemon.
+# Format: type=[unixio|tcp][,path=<path>][,port=<port>][,bindaddr=<addr>][,ifname=<if>]
+# Default: 'type=unixio,path=/run/swtpm/swtpm-tpm0'
+ctrl: {{ ctrl_config | default('type=unixio,path=/run/swtpm/swtpm-tpm0') }}
+
+{% endif %}
+
+# --- Character Device Interface ---
+# Used when interface is 'chardev'. Configures Linux character device nodes.
+
+# Path to the character device file created for the TPM interface.
+# This is used when the guest accesses the TPM via /dev/tpm0 style devices.
+# Default: '/dev/tpm0'
+{% if (interface | default('socket')) == 'chardev' %}
+chardev: {{ chardev_path | default('/dev/tpm0') }}
+
+# Create a Linux vTPM proxy device instance.
+# If true, swtpm will create a virtual TPM character device node.
+# Default: false
+vtpm_proxy: {{ vtpm_proxy | default(False) | lower }}
+
+# Control channel configuration for chardev interface.
+# Same format as socket interface control channel.
+# Default: 'type=unixio,path=/run/swtpm/swtpm-tpm0'
+ctrl: {{ ctrl_config | default('type=unixio,path=/run/swtpm/swtpm-tpm0') }}
+
+{% endif %}
+
+# --- CUSE Interface ---
+# Used when interface is 'cuse'. Configures Character Device in Userspace devices.
+
+# Name for the CUSE device created in /dev.
+# The device will typically appear as /dev/<cuse_name>.
+# Default: 'swtpm'
+{% if (interface | default('socket')) == 'cuse' %}
+name: {{ cuse_name | default('swtpm') }}
+
+# CUSE device major number.
+# Default: 10
+maj: {{ cuse_maj | default(10) }}
+
+# CUSE device minor number.
+# Default: 226
+min: {{ cuse_min | default(226) }}
+
+# Control channel configuration for cuse interface.
+# Same format as other interfaces.
+# Default: 'type=unixio,path=/run/swtpm/swtpm-tpm0'
+ctrl: {{ ctrl_config | default('type=unixio,path=/run/swtpm/swtpm-tpm0') }}
+
+{% endif %}
+
+# ===========================================================================
+# Runtime & Security Settings
+# ===========================================================================
+
+# Path to the PID file.
+# The daemon writes its PID here for process management (kill, systemctl).
+# Default: '/run/swtpm/swtpm-tpm0.pid'
+pid_file: {{ pid_file | default('/run/swtpm/swtpm-tpm0.pid') }}
+
+# User to switch to after startup (requires root initially).
+# Leave empty to run as the current user.
+# WARNING: Requires root privileges to start if set.
+# Default: ''
+runas: {{ runas | default('') }}
+
+# Seccomp action on syscall violation.
+# Options: 'none' (no filtering), 'log' (log and allow), 'kill' (kill process).
+# 'kill' is recommended for security.
+# Default: 'kill'
+seccomp_action: {{ seccomp_action | default('kill') }}
+
+# Flags: comma-separated list of startup flags.
+# Options: not-need-init, startup-clear, startup-state, startup-deactivated, startup-none.
+# These affect the initial state of the TPM (e.g., cleared NV storage).
+# Default: ''
+flags: {{ flags | default('') }}
+
+# Locality settings: restrict or allow specific TPM localities.
+# Options: reject-locality-4, allow-set-locality.
+# Controls which TPM localities are accessible by the guest.
+# Default: ''
+locality: {{ locality | default('') }}

@@ -418,7 +418,7 @@ PLAN_FILE_SUFFIXES = (".yaml", ".yml", ".json")
 
 def load_plans_dir(plans_dir: str | Path) -> list[Plan]:
     """Loads every plan file (see PLAN_FILE_SUFFIXES) directly under
-    plans_dir (not recursively — host_vars/ and files/ are conventional
+    plans_dir (not recursively — files/ is a conventional
     subdirectories, not plans themselves) into a Plan, erroring on duplicate
     names. A missing directory yields no plans rather than erroring — matches
     the Go tools.d loader's "optional directory" behavior."""
@@ -486,19 +486,6 @@ def render_catalog_markdown(plans: list[Plan]) -> str:
                 lines.append(f"- `{pname}` ({spec.type}, {requirement})")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
-
-
-def load_host_vars(plans_dir: str | Path, hostname: str) -> dict[str, Any]:
-    """Loads plans_dir/host_vars/<hostname>.yaml if it exists, else {}."""
-    path = Path(plans_dir) / "host_vars" / f"{hostname}.yaml"
-    if not path.is_file():
-        return {}
-    data = yaml.safe_load(path.read_bytes())
-    if data is None:
-        return {}
-    if not isinstance(data, dict):
-        raise PlanError(f"{path}: host_vars file must be a YAML mapping")
-    return data
 
 
 def resolve_params(plan: Plan, host_vars: dict[str, Any], explicit: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,130 @@
+# ==============================================================================
+# PixelMed DicomImageViewer Configuration Template
+# ==============================================================================
+#
+# This Jinja2 template generates the properties file for PixelMed's DicomImageViewer.
+# It configures network settings, DICOM associations, local storage paths, and
+# remote AE (Application Entity) connections.
+#
+# File Location Guidelines:
+#   - The output file should be named ".com.pixelmed.display.DicomImageViewer.properties"
+#     (note the leading dot).
+#   - Standard locations per OS:
+#       Windows 2000/XP:  C:\Documents and Settings\username\
+#       Windows 98/ME:     C:\Windows\
+#       Mac OS X / Linux / Solaris: ~/ (user's home directory)
+#
+# ==============================================================================
+
+# Network.DynamicConfigurationDebugLevel
+# Debug level for network dynamic configuration.
+# 0 for silent (no debugging output), >0 for verbose debugging.
+Network.DynamicConfigurationDebugLevel={{ network_dynamic_configuration_debug_level | default(0) }}
+
+# Application.DatabaseFileName
+# Path where database support files are stored.
+# This directory must exist and be writable by the application user.
+Application.DatabaseFileName={{ application_database_file_name | default('/tmp/testserverdb') }}
+
+# Application.SavedImagesFolderName
+# Path where images stored in the database are saved.
+# This directory must exist and be writable by the application user.
+Application.SavedImagesFolderName={{ application_saved_images_folder_name | default('/tmp/testserverimages') }}
+
+# Application.DatabaseServerName
+# Name used for external TCP access to the database.
+# If this property is absent, no database server will be started.
+Application.DatabaseServerName={{ application_database_server_name | default('testserverdb') }}
+
+# Display.FullScreen
+# True if full-screen rather than tiled window mode is desired.
+# Accepts boolean values (true/false).
+Display.FullScreen={{ display_full_screen | default(False) | lower }}
+
+# Dicom.StorageSCUCompressionLevel
+# Compression level for DICOM Storage SCU (Service Class User).
+# 0 = no compression
+# 1 = propose deflate compression
+# 2 = propose deflate and bzip2 compression (if bzip2 codec is available)
+Dicom.StorageSCUCompressionLevel={{ dicom_storage_scu_compression_level | default(2) }}
+
+# Dicom.ListeningPort
+# Port for the DicomImageViewer application to listen on for incoming DICOM associations.
+Dicom.ListeningPort={{ dicom_listening_port | default(4006) }}
+
+# Dicom.CalledAETitle
+# AE (Application Entity) Title the application calls itself when accepting an association.
+# This must match the calling system's expectation for this peer.
+Dicom.CalledAETitle={{ dicom_called_ae_title | default('LOCALHOST') }}
+
+# Dicom.CallingAETitle
+# AE (Application Entity) Title the application calls itself when initiating an association.
+Dicom.CallingAETitle={{ dicom_calling_ae_title | default('LOCALHOST') }}
+
+# Dicom.PrimaryDeviceType
+# Type of the primary DICOM device.
+# Common values: WSD (Workstation), ARCHIVE, PRINT, etc.
+Dicom.PrimaryDeviceType={{ dicom_primary_device_type | default('WSD') }}
+
+# Dicom.RemoteAEs
+# Space or comma-separated list of all available remote AE names defined in this config.
+# Each name acts as a key for subsequent remote-specific properties.
+# The names here do not strictly need to match the actual AE Titles, but must be unique here.
+Dicom.RemoteAEs={{ dicom_remote_aes | default('localhost remote1 remote2') }}
+
+# Dicom.CurrentlySelectedStorageTargetAE
+# Default storage target AE name.
+# This is the target initially selected in the UI for sending storage operations.
+Dicom.CurrentlySelectedStorageTargetAE={{ dicom_currently_selected_storage_target_ae | default('remote1') }}
+
+# Dicom.CurrentlySelectedQueryTargetAE
+# Default remote query target AE name.
+# This is the target initially selected in the UI for sending query/retrieve operations.
+Dicom.CurrentlySelectedQueryTargetAE={{ dicom_currently_selected_query_target_ae | default('remote1') }}
+
+# ==============================================================================
+# Remote AE Definitions
+# ==============================================================================
+# Each remote AE listed in Dicom.RemoteAEs requires three properties:
+#   Dicom.RemoteAEs.<name>.CalledAETitle
+#   Dicom.RemoteAEs.<name>.HostNameOrIPAddress
+#   Dicom.RemoteAEs.<name>.Port
+# Optionally:
+#   Dicom.RemoteAEs.<name>.QueryModel=STUDYROOT (if the remote supports C-FIND/Study Root)
+# ==============================================================================
+
+# --- Localhost AE Entry ---
+# Called AE Title for the 'localhost' remote AE entry.
+Dicom.RemoteAEs.localhost.CalledAETitle={{ dicom_remote_aes_localhost_called_ae_title | default('LOCALHOST') }}
+
+# Hostname or IP Address for the 'localhost' remote AE entry.
+Dicom.RemoteAEs.localhost.HostNameOrIPAddress={{ dicom_remote_aes_localhost_hostname_or_ip_address | default('127.0.0.1') }}
+
+# Port for the 'localhost' remote AE entry.
+Dicom.RemoteAEs.localhost.Port={{ dicom_remote_aes_localhost_port | default(4006) }}
+
+# --- Remote1 AE Entry ---
+# Called AE Title for the 'remote1' remote AE entry.
+Dicom.RemoteAEs.remote1.CalledAETitle={{ dicom_remote_aes_remote1_called_ae_title | default('REMOTE1') }}
+
+# Hostname or IP Address for the 'remote1' remote AE entry.
+Dicom.RemoteAEs.remote1.HostNameOrIPAddress={{ dicom_remote_aes_remote1_hostname_or_ip_address | default('10.217.142.23') }}
+
+# Port for the 'remote1' remote AE entry.
+Dicom.RemoteAEs.remote1.Port={{ dicom_remote_aes_remote1_port | default(3010) }}
+
+# QueryModel for remote1: Supports C-FIND Study Root query model.
+Dicom.RemoteAEs.remote1.QueryModel=STUDYROOT
+
+# --- Remote2 AE Entry ---
+# Called AE Title for the 'remote2' remote AE entry.
+Dicom.RemoteAEs.remote2.CalledAETitle={{ dicom_remote_aes_remote2_called_ae_title | default('REMOTE2') }}
+
+# Hostname or IP Address for the 'remote2' remote AE entry.
+Dicom.RemoteAEs.remote2.HostNameOrIPAddress={{ dicom_remote_aes_remote2_hostname_or_ip_address | default('remote2.organization.com') }}
+
+# Port for the 'remote2' remote AE entry.
+Dicom.RemoteAEs.remote2.Port={{ dicom_remote_aes_remote2_port | default(4006) }}
+
+# QueryModel for remote2: Supports C-FIND Study Root query model.
+Dicom.RemoteAEs.remote2.QueryModel=STUDYROOT

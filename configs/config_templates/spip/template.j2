@@ -1,0 +1,42 @@
+# SPIP (Site Internet en Protocole Ouvert) configuration template.
+# This template generates an Apache virtual-host snippet for the SPIP application.
+# It configures URL aliasing and filesystem directory access controls.
+
+# --- URL Alias Configuration ---
+
+# Alias /spip <path>
+# desc: The URL path alias for the SPIP application.
+# default: /usr/share/spip
+Alias /spip {{ spip_alias_path | default('/usr/share/spip') }}
+
+# --- Directory: Web Root ---
+
+# <Directory <path>>
+# desc: The filesystem path to the SPIP web root directory.
+# default: /usr/share/spip
+<Directory {{ spip_document_root | default('/usr/share/spip') }}>
+	# Follow symbolic links within this directory
+	Options +FollowSymLinks
+	# Allow .htaccess overrides (e.g., for security rules, rewrites)
+	AllowOverride All
+	# Grant access to all users (Apache 2.4 syntax)
+	Require all granted
+</Directory>
+
+# --- Directory: Sites Data (Protected) ---
+
+# <Directory <path>>
+# desc: The filesystem path to the SPIP sites data directory that requires protection.
+# default: /var/lib/spip/sites
+<Directory {{ spip_sites_path | default('/var/lib/spip/sites') }}>
+	# Do NOT follow symbolic links (security best practice for data dirs)
+	Options -FollowSymLinks
+	# Prevent .htaccess overrides to ensure strict enforcement
+	AllowOverride None
+	# Note: The original template uses 'Require all granted' here as well.
+	# Typically, data directories should be 'Require all denied' to prevent
+	# direct web access to sensitive files. If this directive is intentionally
+	# open for specific PHP include mechanisms, leave as is. Otherwise,
+	# consider changing to 'Require all denied'.
+	Require all granted
+</Directory>

@@ -1,0 +1,96 @@
+# /etc/netscript/ipfilter.conf
+#
+# ==============================================================================
+# netscript-ipfilter configuration
+# ==============================================================================
+# This file defines the default iptables policies, allowed source networks for
+# common services (SSH/HTTP/HTTPS), custom rule injection points, and NAT
+# masquerading settings.
+#
+# NOTE: The values below are used by an external script/role to generate
+# actual `iptables` commands. They are NOT parsed by iptables itself.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# DEFAULT CHAIN POLICIES
+# ------------------------------------------------------------------------------
+# Default policy for the INPUT chain.
+# Applies to packets that do not match any rule in the INPUT chain.
+# Allowed values: ACCEPT, DROP, REJECT
+# Corresponds to: iptables -P INPUT <POLICY>
+DEFAULT_INPUT_POLICY={{ default_input_policy | default('DROP') }}
+
+# Default policy for the FORWARD chain.
+# Applies to packets routed through this host that do not match any FORWARD rule.
+# Allowed values: ACCEPT, DROP, REJECT
+# Corresponds to: iptables -P FORWARD <POLICY>
+DEFAULT_FORWARD_POLICY={{ default_forward_policy | default('DROP') }}
+
+# Default policy for the OUTPUT chain.
+# Applies to locally generated packets that do not match any OUTPUT rule.
+# Allowed values: ACCEPT, DROP, REJECT
+# Corresponds to: iptables -P OUTPUT <POLICY>
+DEFAULT_OUTPUT_POLICY={{ default_output_policy | default('ACCEPT') }}
+
+# ------------------------------------------------------------------------------
+# LOGGING OF DROPPED PACKETS
+# ------------------------------------------------------------------------------
+# Enable logging of packets that match no specific rule before hitting the
+# default policy (or before an explicit DROP rule if logging is enabled).
+# When enabled, a LOG target is inserted to record drops.
+# Values: true (enable logging), false (disable logging)
+LOG_DROPS={{ log_drops | default(false) | lower }}
+
+# Prefix string added to the kernel log messages for dropped packets.
+# Useful for filtering log entries via rsyslog/journald.
+LOG_PREFIX={{ log_prefix | default('FILTER_DROP: ') }}
+
+# ------------------------------------------------------------------------------
+# SERVICE ACCESS RULES (SOURCES)
+# ------------------------------------------------------------------------------
+# List of source IPs or CIDR networks allowed to access SSH (port 22).
+# Each item is a single IP address or network block.
+# Empty list means no SSH access is permitted via this mechanism (or handled by
+# custom_input_rules).
+# Example: ['10.0.0.0/8', '192.168.1.0/24']
+ALLOWED_SSH_SOURCES={{ ssh_sources | default([]) }}
+
+# List of source IPs or CIDR networks allowed to access HTTP (port 80).
+# Each item is a single IP address or network block.
+# Empty list means no HTTP access is permitted via this mechanism.
+# Example: ['10.0.0.0/8', '172.16.0.0/12']
+ALLOWED_HTTP_SOURCES={{ http_sources | default(['0.0.0.0/0']) }}
+
+# List of source IPs or CIDR networks allowed to access HTTPS (port 443).
+# Each item is a single IP address or network block.
+# Empty list means no HTTPS access is permitted via this mechanism.
+# Example: ['10.0.0.0/8', '172.16.0.0/12']
+ALLOWED_HTTPS_SOURCES={{ https_sources | default(['0.0.0.0/0']) }}
+
+# ------------------------------------------------------------------------------
+# CUSTOM RULES
+# ------------------------------------------------------------------------------
+# List of additional iptables rule strings to append to the INPUT chain.
+# Each string should be a complete match/target specification compatible with
+# `iptables -A INPUT ...`.
+# Example: ["-p tcp --dport 8080 -j ACCEPT", "-p udp --dport 53 -j ACCEPT"]
+CUSTOM_INPUT_RULES={{ custom_input_rules | default([]) }}
+
+# List of additional iptables rule strings to append to the FORWARD chain.
+# Each string should be a complete match/target specification compatible with
+# `iptables -A FORWARD ...`.
+# Example: ["-p tcp --dport 3306 -j ACCEPT"]
+CUSTOM_FORWARD_RULES={{ custom_forward_rules | default([]) }}
+
+# ------------------------------------------------------------------------------
+# NAT MASQUERADE
+# ------------------------------------------------------------------------------
+# Enable NAT masquerading for outbound traffic.
+# This allows internal clients to access the internet using this host's IP.
+# Requires appropriate routing and kernel support (net.ipv4.ip_forward=1).
+# Values: true (enable masquerade), false (disable masquerade)
+MASQUERADE_ENABLED={{ masquerade_enabled | default(false) | lower }}
+
+# Network interface to use for masquerading (the external/WAN interface).
+# This interface's address is used as the source for outbound packets.
+MASQUERADE_IFACE={{ masquerade_iface | default('eth0') }}

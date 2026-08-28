@@ -6,6 +6,7 @@ seam already used for the poller and the plan engine's own tests.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -43,7 +44,7 @@ class FakeAgentClient:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"plan-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("plan-agent"),
         "token": "tok",
         "address": "10.0.0.9:8010",
         "mode": "standalone",
@@ -60,11 +61,12 @@ async def _make_agent(db_session, **overrides) -> Agent:
 async def _make_api_token(db_session):
     row, raw = new_api_token("plans-caller")
     db_session.add(row)
+    await db_session.flush()  # the grant references this token by uid — it must exist first
     # Block M: plan-run routes now enforce the host ACL; this suite isn't
     # about that, so a wildcard grant keeps the caller authorized.
     from bossman.db.models import AccessGrant
 
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref="plans-caller", scope="all"))
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref="plans-caller", subject_token_id=row.id, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw

@@ -1,0 +1,49 @@
+#!/bin/bash
+# yubico-piv-tool wrapper configuration
+# This script executes yubico-piv-tool with predefined parameters from Ansible variables.
+# It is a stateless wrapper; it does not manage a daemon or persist state.
+
+# Enable verbose error output for debugging execution failures
+set -x
+
+# Verbosity level for output (0-1).
+# 0: Minimal output, 1: Verbose logging of operations.
+# Corresponds to --verbose flag.
+# Default: 0
+yubico-piv-tool \
+  --verbose {{ verbose_level | default(0) }} \
+  --reader "{{ reader_name | default('Yubikey') }}" \
+  --key "{{ management_key | default('010203040506070801020304050607080102030405060708') }}" \
+{% for action_item in actions | default([]) %}
+  {% if action_item is mapping %}
+    {% if action_item.action is defined %}  --action={{ action_item.action }} \
+    {% endif %}
+    {% if action_item.slot is defined %}  --slot={{ action_item.slot }} \
+    {% endif %}
+    {% if action_item.algorithm is defined %}  --algorithm={{ action_item.algorithm }} \
+    {% endif %}
+    {% if action_item.hash is defined %}  --hash={{ action_item.hash }} \
+    {% endif %}
+    {% if action_item.subject is defined %}  --subject="{{ action_item.subject }}" \
+    {% endif %}
+    {% if action_item.pin is defined %}  --pin="{{ action_item.pin }}" \
+    {% endif %}
+    {% if action_item.key_format is defined %}  --key-format={{ action_item.key_format }} \
+    {% endif %}
+    {% if action_item.input_file is defined %}  --input={{ action_item.input_file }} \
+    {% endif %}
+    {% if action_item.output_file is defined %}  --output={{ action_item.output_file }} \
+    {% endif %}
+    {% if action_item.valid_days is defined %}  --valid-days={{ action_item.valid_days }} \
+    {% endif %}
+    {% if action_item.attestation is defined %}  --attestation \
+    {% endif %}
+    {% if action_item.scp11 is defined %}  --scp11 \
+    {% endif %}
+    {% if action_item.touch_policy is defined %}  --touch-policy={{ action_item.touch_policy }} \
+    {% endif %}
+    {% if action_item.pin_policy is defined %}  --pin-policy={{ action_item.pin_policy }} \
+    {% endif %}
+  {% endif %}
+  2>/dev/null
+{% endfor %}

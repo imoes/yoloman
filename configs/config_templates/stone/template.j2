@@ -1,0 +1,63 @@
+# Stone configuration file
+# Format: [OPTIONS]
+# [ROUTING_RULE_1]
+# [ROUTING_RULE_2]
+# ...
+#
+# OPTIONS:
+# -d: Enable debug mode.
+# -n: Use numeric addresses/ports instead of hostnames.
+# -u max: Max simultaneous UDP sources.
+# -f n: Spawn n child processes.
+# -l: Log to syslog instead of stderr.
+# -z: Enable SSL encryption/decryption globally.
+#
+# ROUTING RULES:
+# Each rule is a line. Separated by -- if multiple rules are present.
+# Syntax variations supported by stone:
+# 1. host:port sport [xhost ...]
+# 2. host:port shost:sport [xhost ...]
+# 3. display [xhost ...]
+# 4. proxy sport [xhost ...]
+# 5. host:port/http request [hosts ...]
+# 6. host:port/proxy header [hosts...]
+#
+
+# Enable debug mode if debug is true.
+{%- if (values | default({})).debug | default(false) %}
+ -d
+{%- endif %}
+
+# Use numeric addresses/ports instead of hostnames.
+{%- if (values | default({})).numeric_mode | default(false) %}
+ -n
+{%- endif %}
+
+# Max simultaneous UDP sources (default/unlimited if 0 or omitted).
+{%- if (values | default({})).max_udp_sources | default(0) != 0 %}
+ -u {{ (values | default({})).max_udp_sources | default(0) }}
+{%- endif %}
+
+# Spawn n child processes (default if 0 or omitted).
+{%- if (values | default({})).num_children | default(0) != 0 %}
+ -f {{ (values | default({})).num_children | default(0) }}
+{%- endif %}
+
+# Log to syslog instead of stderr.
+{%- if (values | default({})).syslog_logging | default(false) %}
+ -l
+{%- endif %}
+
+# Enable SSL encryption/decryption globally.
+{%- if (values | default({})).ssl_enabled | default(false) %}
+ -z
+{%- endif %}
+
+# Routing rules list.
+# Each item in the list is a dict with a 'command' key.
+{%- if (values | default({})).rules | default([]) | length > 0 %}
+# Rules:
+{%- for rule in (values | default({})).rules | default([]) %}
+{{ rule.command }}
+{%- endfor %}
+{%- endif %}

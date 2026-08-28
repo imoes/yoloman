@@ -1,0 +1,71 @@
+# Configuration file for jupyter-nbconvert
+# This template generates a Jupyter nbconvert configuration file.
+# It maps Ansible variables to JupyterApp configuration attributes.
+# All variables are provided with safe defaults matching the schema.
+
+# Full path of a config file.
+# Default: '' (empty string)
+# Note: This setting is usually used to point to this specific config file
+# when invoking jupyter-nbconvert, e.g., `nbconvert --config /path/to/this.conf`.
+c.JupyterApp.config_file = '{{ config_file | default("") }}'
+
+# Answer yes to any questions instead of prompting.
+# Default: False
+c.NbConvertApp.yes = {{ yes | default(False) | lower }}
+
+# Execute the notebook prior to export.
+# Default: False
+c.NbConvertApp.execute = {{ execute | default(False) | lower }}
+
+# Continue notebook execution even if one of the cells throws an error.
+# Default: False
+c.NbConvertApp.allow_errors = {{ allow_errors | default(False) | lower }}
+
+# Write notebook output to stdout instead of files.
+# Default: False
+c.NbConvertApp.stdout = {{ stdout | default(False) | lower }}
+
+# Set log level by value or name.
+# Choices: DEBUG, INFO, WARN, ERROR, CRITICAL
+# Default: 'WARN'
+c.Application.log_level = '{{ log_level | default("WARN") }}'
+
+# Run nbconvert in place, overwriting the existing notebook.
+# Default: False
+c.NbConvertApp.inplace = {{ inplace | default(False) | lower }}
+
+# The URL prefix for reveal.js.
+# Used when exporting to slides format.
+# Default: 'reveal.js'
+c.RevealHelpPreprocessor.url_prefix = '{{ reveal_prefix | default("reveal.js") }}'
+
+# The nbformat version to write.
+# Choices: 1, 2, 3, 4
+# Default: 4
+c.NotebookExporter.nbformat_version = {{ nbformat | default(4) }}
+
+# Writer class used to write the results of the conversion.
+# Default: 'FilesWriter'
+c.NbConvertApp.writer_class = '{{ writer | default("FilesWriter") }}'
+
+# The export format to be used.
+# Choices: custom, html, latex, markdown, notebook, pdf, python, rst, script, slides
+# Default: 'html'
+c.NbConvertApp.export_format = '{{ to | default("html") }}'
+
+# Name of the template file to use.
+# Default: '' (empty string, uses built-in default)
+c.TemplateExporter.template_file = '{{ template | default("") }}'
+
+# Overwrite base name use for output files.
+# Default: '' (empty string, auto-generate based on input)
+c.NbConvertApp.output_base = '{{ output | default("") }}'
+
+# PostProcessor class used to write the results of the conversion.
+# Default: '' (empty string, no post-processing)
+c.NbConvertApp.postprocessor_class = '{{ post | default("") }}'
+
+# List of notebook files to convert.
+# This list is rendered as a Python list of strings.
+# Default: [] (empty list)
+c.NbConvertApp.notebooks = {{ notebooks | default([]) | tojson }}

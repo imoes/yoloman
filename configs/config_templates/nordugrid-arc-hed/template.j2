@@ -1,0 +1,195 @@
+#!/bin/bash
+#
+# chkconfig: 2345 87 13
+# description: ARC HED service
+# processname: arched
+
+### BEGIN INIT INFO
+# Provides:          arched
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description: ARC HED service
+# Description:       ARC's Hosting Environment Daemon
+### END INIT INFO
+
+# source function library
+if [ -f /etc/init.d/functions ]; then
+    . /etc/init.d/functions
+    log_success_msg() {
+        echo -n "$@"
+        success "$@"
+        echo
+    }
+    log_warning_msg() {
+        echo -n "$@"
+        warning "$@"
+        echo
+    }
+    log_failure_msg() {
+        echo -n "$@"
+        failure "$@"
+        echo
+    }
+elif [ -f /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+else
+    echo "Error: Cannot source neither init.d nor lsb functions"
+    exit 1
+fi
+
+prog=arched
+
+# sysconfig files
+if [ -r /etc/sysconfig/nordugrid ]; then
+    . /etc/sysconfig/nordugrid
+elif [ -r /etc/default/nordugrid ]; then
+    . /etc/default/nordugrid
+fi
+if [ -r /etc/sysconfig/${prog} ]; then
+    . /etc/sysconfig/${prog}
+elif [ -r /etc/default/${prog} ]; then
+    . /etc/default/${prog}
+fi
+
+# ARC_LOCATION
+# The base installation directory for ARC components.
+# Defaults to '/usr' if not defined in environment or sysconfig.
+ARC_LOCATION={{ arc_location | default('/usr') }}
+if [ ! -d "$ARC_LOCATION" ]; then
+    log_failure_msg "ARC_LOCATION ($ARC_LOCATION) not found"
+    exit 1
+fi
+
+# PID and lock file
+# Determine the PID_FILE based on execution context (root vs non-root).
+# For root, uses the configured pid_file or default path.
+# For non-root, falls back to user home directory.
+if [ `id -u` = 0 ] ; then
+    # Debian does not have /run/lock/subsys
+    if [ -d /run/lock/subsys ]; then
+        LOCKFILE=/run/lock/subsys/$prog
+    else
+        LOCKFILE=/run/lock/$prog
+    fi
+    # Path to the PID file for the arched daemon.
+    # Defaults to '/run/arched.pid' if PID_FILE is not set in environment.
+    if [ "x$PID_FILE" = "x" ]; then
+        PID_FILE={{ pid_file | default('/run/arched.pid') }}
+    fi
+else
+    LOCKFILE=$HOME/$prog.lock
+    if [ "x$PID_FILE" = "x" ]; then
+        # In non-root mode, use basename of pid_file in home dir
+        # Extract basename using shell command as Jinja has no 'basename' filter
+        PID_FILE=$HOME/$({{ pid_file | default('/run/arched.pid') }} | awk -F/ '{print $NF}')
+    fi
+fi
+
+start() {
+    echo -n "Starting $prog: "
+
+    # Check if we are already running
+    if [ -f "$PID_FILE" ]; then
+        read pid < "$PID_FILE"
+        if [ "x$pid" != "x" ]; then
+            ps -p "$pid" -o comm 2>/dev/null | grep "^$prog$" 1>/dev/null 2>/dev/null
+            if [ $? -eq 0 ] ; then
+                log_success_msg "already running (pid $pid)"
+                return 0
+            fi
+        fi
+        rm -f "$PID_FILE" "$LOCKFILE"
+    fi
+
+    ${ARC_LOCATION}/share/arc/arched-start
+    RETVAL=$?
+
+    if [ $RETVAL -eq 0 ]; then
+        touch $LOCKFILE
+        log_success_msg
+    else
+        log_failure_msg
+    fi
+    return $RETVAL
+}
+
+stop() {
+    echo -n "Stopping $prog: "
+
+    if [ -f "$PID_FILE" ]; then
+        read pid < "$PID_FILE"
+        if [ ! -z "$pid" ] ; then
+            kill "$pid"
+            RETVAL=$?
+            if [ $RETVAL -eq 0 ]; then
+                log_success_msg
+            else
+                log_failure_msg
+            fi
+
+            sleep 1
+            kill -9 "$pid" 1>/dev/null 2>&2
+            rm -f "$PID_FILE" "$LOCKFILE"
+        else
+            RETVAL=1
+            log_failure_msg "$prog shutdown - pidfile is empty"
+        fi
+    else
+        RETVAL=0
+        log_success_msg "$prog shutdown - already stopped"
+    fi
+    return $RETVAL
+}
+
+status() {
+    if [ -f "$PID_FILE" ]; then
+        read pid < "$PID_FILE"
+        if [ "$pid" != "" ]; then
+            if ps -p "$pid" > /dev/null; then
+                echo "$1 (pid $pid) is running..."
+                return 0
+            fi
+            echo "$1 stopped but pid file exists"
+            return 1
+        fi
+    fi
+    if [ -f $LOCKFILE ]; then
+        echo "$1 stopped but lockfile exists"
+        return 2
+    fi
+    echo "$1 is stopped"
+    return 3
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status $prog
+        ;;
+    restart | force-reload)
+        restart
+        ;;
+    reload)
+        ;;
+    condrestart | try-restart)
+        [ -f $LOCKFILE ] && restart || :
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart|force-reload|reload|condrestart|try-restart}"
+        exit 1
+        ;;
+esac
+
+exit $?

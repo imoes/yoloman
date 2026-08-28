@@ -1,224 +1,218 @@
 {
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Logging verbosity level for the Ceilometer Central Agent."
-  },
-  "log_dir": {
-    "type": "string",
-    "default": "/var/log/ceilometer",
-    "description": "Directory where agent log files are written."
-  },
-  "keystone": {
-    "type": "object",
+ "agent": {
+  "description": "Central agent-specific settings.",
+  "items": {
+   "batch_size": {
+    "default": 20,
+    "description": "Number of samples to batch before publishing to storage.",
+    "type": "number"
+   },
+   "disabled_pollsters": {
+    "default": [],
+    "description": "List of pollster names to disable (e.g., ['instance', 'disk.read.bytes'].",
+    "type": "list"
+   },
+   "polling_interval": {
+    "default": 600,
+    "description": "Interval (seconds) between polling cycles for meters.",
+    "type": "number"
+   },
+   "pollster_mapping": {
     "default": {},
-    "description": "Keystone authentication parameters.",
-    "items": {
-      "auth_url": {
-        "type": "string",
-        "default": "http://localhost:5000/v3",
-        "description": "Keystone authentication endpoint URL."
-      },
-      "username": {
-        "type": "string",
-        "default": "ceilometer",
-        "description": "Keystone username for the Ceilometer service."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Keystone password for the Ceilometer service. Required."
-      },
-      "project_name": {
-        "type": "string",
-        "default": "services",
-        "description": "Keystone project (tenant) name for Ceilometer."
-      },
-      "domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Keystone domain name for authentication (optional)."
-      }
-    }
+    "description": "Per-pollster enable/disable overrides (name → boolean).",
+    "type": "object"
+   },
+   "workers": {
+    "default": 1,
+    "description": "Number of worker processes for polling tasks.",
+    "type": "number"
+   }
   },
-  "messaging": {
-    "type": "object",
+  "type": "object"
+ },
+ "events": {
+  "description": "Event processing configuration (optional).",
+  "items": {
+   "definitions": {
+    "default": [],
+    "description": "List of custom event source definitions.",
+    "items": {
+     "items": {
+      "name": {
+       "default": "",
+       "description": "Name of the event source.",
+       "type": "string"
+      },
+      "source": {
+       "default": "",
+       "description": "Event source URI or name (e.g., 'compute', 'identity').",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    },
+    "type": "list"
+   },
+   "enabled": {
+    "default": true,
+    "description": "Whether to enable event processing and source definitions.",
+    "type": "bool"
+   }
+  },
+  "type": "object"
+ },
+ "keystone": {
+  "description": "Keystone authentication parameters.",
+  "items": {
+   "auth_url": {
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone authentication endpoint URL.",
+    "type": "string"
+   },
+   "domain_name": {
+    "default": "Default",
+    "description": "Keystone domain name for authentication (optional).",
+    "type": "string"
+   },
+   "password": {
+    "default": "",
+    "description": "Keystone password for the Ceilometer service. Required.",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "services",
+    "description": "Keystone project (tenant) name for Ceilometer.",
+    "type": "string"
+   },
+   "username": {
+    "default": "ceilometer",
+    "description": "Keystone username for the Ceilometer service.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "keystone_authtoken": {
+  "description": "Keystone middleware authentication token settings.",
+  "items": {
+   "auth_type": {
+    "default": "password",
+    "description": "Authentication type (e.g., 'password', 'v3password').",
+    "type": "string"
+   },
+   "auth_url": {
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone URL for token validation.",
+    "type": "string"
+   },
+   "cafile": {
+    "default": "",
+    "description": "Optional: Path to CA certificate bundle for TLS verification.",
+    "type": "string"
+   },
+   "insecure": {
+    "default": false,
+    "description": "Whether to skip TLS verification (dangerous in production).",
+    "type": "bool"
+   },
+   "password": {
+    "default": "",
+    "description": "Service user password (required).",
+    "type": "string"
+   },
+   "project_domain_name": {
+    "default": "Default",
+    "description": "Project domain name.",
+    "type": "string"
+   },
+   "project_name": {
+    "default": "services",
+    "description": "Project (tenant) name for auth token.",
+    "type": "string"
+   },
+   "user_domain_name": {
+    "default": "Default",
+    "description": "User domain name.",
+    "type": "string"
+   },
+   "username": {
+    "default": "ceilometer",
+    "description": "Service user for keystone_authtoken.",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "log_dir": {
+  "default": "/var/log/ceilometer",
+  "description": "Directory where agent log files are written.",
+  "type": "string"
+ },
+ "log_level": {
+  "default": "INFO",
+  "description": "Logging verbosity level for the Ceilometer Central Agent.",
+  "type": "string"
+ },
+ "messaging": {
+  "description": "Messaging transport configuration.",
+  "items": {
+   "transport_url": {
+    "default": "rabbit://openstack:openstack@localhost:5672/",
+    "description": "RabbitMQ or other transport URL for notifications and RPC.",
+    "type": "string"
+   },
+   "url": {
+    "default": "",
+    "description": "Legacy: MongoDB URL (deprecated, prefer transport_url).",
+    "type": "string"
+   }
+  },
+  "type": "object"
+ },
+ "metering_pipeline": {
+  "default": "/etc/ceilometer/pipeline.yaml",
+  "description": "Path to the pipeline definition YAML file.",
+  "type": "string"
+ },
+ "notification_drivers": {
+  "default": [
+   "meter",
+   "event"
+  ],
+  "description": "List of notification drivers to process incoming notifications.",
+  "type": "list"
+ },
+ "pipeline_manager": {
+  "default": "ceilometer.pipeline.manager.PipelineManager",
+  "description": "Pipeline manager class to load metering pipelines.",
+  "type": "string"
+ },
+ "storage": {
+  "description": "Storage backend configuration (MongoDB or SQL).",
+  "items": {
+   "backend": {
+    "default": "mongodb",
+    "description": "Storage backend type: 'mongodb' or 'sql'.",
+    "type": "string"
+   },
+   "options": {
     "default": {},
-    "description": "Messaging transport configuration.",
+    "description": "Backend-specific options.",
     "items": {
-      "transport_url": {
-        "type": "string",
-        "default": "rabbit://openstack:openstack@localhost:5672/",
-        "description": "RabbitMQ or other transport URL for notifications and RPC."
-      },
-      "url": {
-        "type": "string",
-        "default": "",
-        "description": "Legacy: MongoDB URL (deprecated, prefer transport_url)."
-      }
-    }
+     "connection": {
+      "default": "mysql+pymysql://ceilometer:ceilometer@localhost/ceilometer",
+      "description": "SQL connection string (used if backend = 'sql').",
+      "type": "string"
+     },
+     "url": {
+      "default": "mongodb://ceilometer:ceilometer@localhost:27017/ceilometer",
+      "description": "MongoDB connection URL (used if backend = 'mongodb').",
+      "type": "string"
+     }
+    },
+    "type": "object"
+   }
   },
-  "pipeline_manager": {
-    "type": "string",
-    "default": "ceilometer.pipeline.manager.PipelineManager",
-    "description": "Pipeline manager class to load metering pipelines."
-  },
-  "notification_drivers": {
-    "type": "list",
-    "default": [
-      "meter",
-      "event"
-    ],
-    "description": "List of notification drivers to process incoming notifications."
-  },
-  "metering_pipeline": {
-    "type": "string",
-    "default": "/etc/ceilometer/pipeline.yaml",
-    "description": "Path to the pipeline definition YAML file."
-  },
-  "events": {
-    "type": "object",
-    "default": {},
-    "description": "Event processing configuration (optional).",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether to enable event processing and source definitions."
-      },
-      "definitions": {
-        "type": "list",
-        "default": [],
-        "description": "List of custom event source definitions.",
-        "items": {
-          "type": "object",
-          "items": {
-            "name": {
-              "type": "string",
-              "default": "",
-              "description": "Name of the event source."
-            },
-            "source": {
-              "type": "string",
-              "default": "",
-              "description": "Event source URI or name (e.g., 'compute', 'identity')."
-            }
-          }
-        }
-      }
-    }
-  },
-  "agent": {
-    "type": "object",
-    "default": {},
-    "description": "Central agent-specific settings.",
-    "items": {
-      "polling_interval": {
-        "type": "number",
-        "default": 600,
-        "description": "Interval (seconds) between polling cycles for meters."
-      },
-      "batch_size": {
-        "type": "number",
-        "default": 20,
-        "description": "Number of samples to batch before publishing to storage."
-      },
-      "workers": {
-        "type": "number",
-        "default": 1,
-        "description": "Number of worker processes for polling tasks."
-      },
-      "disabled_pollsters": {
-        "type": "list",
-        "default": [],
-        "description": "List of pollster names to disable (e.g., ['instance', 'disk.read.bytes']."
-      },
-      "pollster_mapping": {
-        "type": "object",
-        "default": {},
-        "description": "Per-pollster enable/disable overrides (name \u2192 boolean)."
-      }
-    }
-  },
-  "storage": {
-    "type": "object",
-    "default": {},
-    "description": "Storage backend configuration (MongoDB or SQL).",
-    "items": {
-      "backend": {
-        "type": "string",
-        "default": "mongodb",
-        "description": "Storage backend type: 'mongodb' or 'sql'."
-      },
-      "options": {
-        "type": "object",
-        "default": {},
-        "description": "Backend-specific options.",
-        "items": {
-          "url": {
-            "type": "string",
-            "default": "mongodb://ceilometer:ceilometer@localhost:27017/ceilometer",
-            "description": "MongoDB connection URL (used if backend = 'mongodb')."
-          },
-          "connection": {
-            "type": "string",
-            "default": "mysql+pymysql://ceilometer:ceilometer@localhost/ceilometer",
-            "description": "SQL connection string (used if backend = 'sql')."
-          }
-        }
-      }
-    }
-  },
-  "keystone_authtoken": {
-    "type": "object",
-    "default": {},
-    "description": "Keystone middleware authentication token settings.",
-    "items": {
-      "auth_type": {
-        "type": "string",
-        "default": "password",
-        "description": "Authentication type (e.g., 'password', 'v3password')."
-      },
-      "auth_url": {
-        "type": "string",
-        "default": "http://localhost:5000/v3",
-        "description": "Keystone URL for token validation."
-      },
-      "project_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "Project domain name."
-      },
-      "user_domain_name": {
-        "type": "string",
-        "default": "Default",
-        "description": "User domain name."
-      },
-      "project_name": {
-        "type": "string",
-        "default": "services",
-        "description": "Project (tenant) name for auth token."
-      },
-      "username": {
-        "type": "string",
-        "default": "ceilometer",
-        "description": "Service user for keystone_authtoken."
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Service user password (required)."
-      },
-      "cafile": {
-        "type": "string",
-        "default": "",
-        "description": "Optional: Path to CA certificate bundle for TLS verification."
-      },
-      "insecure": {
-        "type": "bool",
-        "default": false,
-        "description": "Whether to skip TLS verification (dangerous in production)."
-      }
-    }
-  }
+  "type": "object"
+ }
 }

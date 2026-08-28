@@ -1,48 +1,25 @@
-# Additional environment settings for fakechroot emulation.
-# fakechroot intercepts system calls to simulate a chroot environment
-# for binaries that do not support it natively.
+# Additional environment setting for chroot
 
-# Add /usr/sbin and /sbin to PATH if chroot command can't be found.
-# This ensures that the wrapper scripts located in fakechroot_bindir
-# can be properly resolved if the standard chroot binary is missing
-# or if the environment is minimal.
+# Add /usr/sbin and /sbin to PATH if chroot command can't be found
 if ! command -v chroot >/dev/null; then
-    # Default PATH for chroot if not found, appending /usr/sbin:/sbin
-    # fakechroot_bindir: Directory where fakechroot wrappers for system binaries are installed.
-    PATH="${PATH:-/usr/bin:/bin}:${fakechroot_bindir | default('/usr/sbin')}:/sbin"
+    PATH="${PATH:-/usr/bin:/bin}:/usr/sbin:/sbin"
     export PATH
 fi
 
-# Set a list of command substitutions based on PATH variable.
-# This loop iterates over directories in $PATH and replaces specific
-# commands (like chroot, env, ldd) with their fakechroot equivalents
-# located in fakechroot_bindir.
+# Set a list of command substitutions based on PATH variable
 fakechroot_chroot_env_cmd_subst=""
-# Split PATH by ':' and iterate over each directory.
-# Note: Using a simple shell split here as Jinja is rendered into shell script.
 for fakechroot_chroot_env_d in `echo $PATH | tr ':' ' '`; do
-    # Create substitution mappings: original_command=${fakechroot_bindir}/command.fakechroot
-    # These mappings tell the dynamic linker/loader to use the fake wrappers.
     fakechroot_chroot_env_cmd_subst="$fakechroot_chroot_env_cmd_subst
-$fakedir/chroot=${fakechroot_bindir | default('/usr/sbin')}/chroot.fakechroot
-$fakedir/env=${fakechroot_bindir | default('/usr/sbin')}/env.fakechroot
-$fakedir/ischroot=/bin/true
-$fakedir/ldconfig=/bin/true
-$fakedir/ldd=${fakechroot_bindir | default('/usr/sbin')}/ldd.fakechroot"
+$fakechroot_chroot_env_d/chroot={{ fakechroot_bindir }}/chroot.fakechroot
+$fakechroot_chroot_env_d/env={{ fakechroot_bindir }}/env.fakechroot
+$fakechroot_chroot_env_d/ischroot=/bin/true
+$fakechroot_chroot_env_d/ldconfig=/bin/true
+$fakechroot_chroot_env_d/ldd={{ fakechroot_bindir }}/ldd.fakechroot"
 done
 
-# Export the constructed command substitutions string.
-# FAKECHROOT_CMD_SUBST is used by fakechroot's LD_PRELOAD library
-# to determine which binaries to intercept and wrap.
-# The logic appends new substitutions to existing FAKECHROOT_CMD_SUBST,
-# separating them with colons, and trims newlines.
 FAKECHROOT_CMD_SUBST="${FAKECHROOT_CMD_SUBST:+$FAKECHROOT_CMD_SUBST:}`echo \"$fakechroot_chroot_env_cmd_subst\" | tr '\012' ':'`"
 export FAKECHROOT_CMD_SUBST
 
-# Set the default list of directories excluded from being chrooted.
-# These paths are typically virtual filesystems or device nodes that
-# should not be bind-mounted or emulated, to prevent container breakage.
-# Format: colon-separated list of paths.
-# fakechroot_exclude_path: Colon-separated list of paths to exclude from chroot emulation (i.e., bind-mounted or ignored).
-FAKECHROOT_EXCLUDE_PATH="${FAKECHROOT_EXCLUDE_PATH:-${fakechroot_exclude_path | default('/dev:/proc:/sys')}}"
+# Set the default list of directories excluded from being chrooted
+FAKECHROOT_EXCLUDE_PATH="{{ FAKECHROOT_EXCLUDE_PATH }}"
 export FAKECHROOT_EXCLUDE_PATH

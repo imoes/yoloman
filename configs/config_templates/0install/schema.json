@@ -1,97 +1,105 @@
 {
-  "feeds": {
-    "type": "list",
-    "description": "List of feed sources (XML URLs) providing 0install packages. At least one feed is recommended for package resolution."
+  "arch": {
+    "description": "Preferred architecture override (e.g., 'amd64', 'arm64'). If omitted, auto-detected.",
+    "type": "string"
   },
-  "feeds.items": {
-    "type": "object",
-    "description": "A single feed source configuration."
-  },
-  "feeds.items.url": {
-    "type": "string",
-    "description": "URL to the feed's XML manifest (e.g., 'https://example.com/app.xml')"
-  },
-  "feeds.items.name": {
-    "type": "string",
-    "description": "Optional human-readable name for the feed (for logging/annotation)."
+  "cache_dir": {
+    "description": "Override default cache directory (e.g., '/var/cache/0install.net').",
+    "type": "string"
   },
   "default_selection": {
-    "type": "list",
-    "description": "Default selection criteria to use when resolving implementations (applies globally unless overridden per-feed)."
+    "description": "Default selection criteria to use when resolving implementations (applies globally unless overridden per-feed).",
+    "type": "list"
   },
   "default_selection.items": {
-    "type": "object",
-    "description": "A single selection criterion."
+    "description": "A single selection criterion.",
+    "type": "object"
   },
   "default_selection.items.type": {
-    "type": "string",
+    "default": "version",
     "description": "Selection type: e.g., 'version', 'rating', 'age', 'trust', 'priority'.",
     "enum": [
       "version",
       "trust"
     ],
-    "default": "version"
+    "type": "string",
+    "enum_open": true
   },
   "default_selection.items.value": {
-    "type": "string",
+    "default": "stable",
     "description": "Value for the selection criterion (e.g., '>=1.2', 'stable', 'recent', 'high', 'required').",
     "enum": [
       "stable",
       "testing",
       "trusted"
     ],
-    "default": "stable"
-  },
-  "cache_dir": {
     "type": "string",
-    "default": {},
-    "description": "Override default cache directory (e.g., '/var/cache/0install.net')."
+    "enum_open": true
   },
-  "trust": {
-    "type": "list",
-    "description": "List of trusted GPG fingerprints or hashes to skip manual trust prompts."
+  "feeds": {
+    "description": "List of feed sources (XML URLs) providing 0install packages. At least one feed is recommended for package resolution.",
+    "type": "list"
   },
-  "trust.items": {
-    "type": "object",
-    "description": "A trusted key entry."
+  "feeds.items": {
+    "description": "A single feed source configuration.",
+    "type": "object"
   },
-  "trust.items.fingerprint": {
-    "type": "string",
-    "description": "GPG key fingerprint (e.g., 'A1B2C3D4E5F6...') or SHA256 hash."
+  "feeds.items.name": {
+    "description": "Optional human-readable name for the feed (for logging/annotation).",
+    "type": "string"
   },
-  "trust.items.name": {
-    "type": "string",
-    "description": "Optional human-readable name for the key owner."
-  },
-  "mirrors": {
-    "type": "list",
-    "description": "Optional list of mirror URLs for feed sources to improve availability or reduce bandwidth."
-  },
-  "mirrors.items": {
-    "type": "object",
-    "description": "Mirrors for a specific feed."
-  },
-  "mirrors.items.feed_url": {
-    "type": "string",
-    "description": "The primary feed URL these mirrors serve."
-  },
-  "mirrors.items.urls": {
-    "type": "list",
-    "description": "List of mirror URLs for the feed (e.g., CDN mirrors or regional mirrors)."
-  },
-  "network_policy": {
-    "type": "string",
-    "default": {},
-    "description": "Network behavior: 'online' (default), 'cached' (only use cached data), 'offline' (no network)."
-  },
-  "arch": {
-    "type": "string",
-    "default": {},
-    "description": "Preferred architecture override (e.g., 'amd64', 'arm64'). If omitted, auto-detected."
+  "feeds.items.url": {
+    "description": "URL to the feed's XML manifest (e.g., 'https://example.com/app.xml')",
+    "type": "string"
   },
   "isolation_level": {
+    "description": "Execution isolation: 'strict' (full sandbox), 'sandbox' (limited sandbox), 'none' (no isolation).",
     "type": "string",
-    "default": {},
-    "description": "Execution isolation: 'strict' (full sandbox), 'sandbox' (limited sandbox), 'none' (no isolation)."
+    "enum": [
+      "strict",
+      "sandbox",
+      "none"
+    ]
+  },
+  "mirrors": {
+    "description": "Optional list of mirror URLs for feed sources to improve availability or reduce bandwidth.",
+    "type": "list"
+  },
+  "mirrors.items": {
+    "description": "Mirrors for a specific feed.",
+    "type": "object"
+  },
+  "mirrors.items.feed_url": {
+    "description": "The primary feed URL these mirrors serve.",
+    "type": "string"
+  },
+  "mirrors.items.urls": {
+    "description": "List of mirror URLs for the feed (e.g., CDN mirrors or regional mirrors).",
+    "type": "list"
+  },
+  "network_policy": {
+    "description": "Network behavior: 'online' (default), 'cached' (only use cached data), 'offline' (no network).",
+    "type": "string",
+    "enum": [
+      "online",
+      "cached",
+      "offline"
+    ]
+  },
+  "trust": {
+    "description": "List of trusted GPG fingerprints or hashes to skip manual trust prompts.",
+    "type": "list"
+  },
+  "trust.items": {
+    "description": "A trusted key entry.",
+    "type": "object"
+  },
+  "trust.items.fingerprint": {
+    "description": "GPG key fingerprint (e.g., 'A1B2C3D4E5F6...') or SHA256 hash.",
+    "type": "string"
+  },
+  "trust.items.name": {
+    "description": "Optional human-readable name for the key owner.",
+    "type": "string"
   }
 }

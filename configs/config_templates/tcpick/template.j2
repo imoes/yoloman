@@ -1,0 +1,134 @@
+# tcpick command-line configuration
+# Interface to listen on (e.g., eth0)
+INTERFACE="{{ interface | default('eth0') }}"
+
+# BPF filter string to capture specific traffic (e.g., 'port 80')
+FILTER="{{ filter | default('') }}"
+
+# Output mode for rebuilding/writing streams: R, P, U, H (e.g., R for raw)
+WRITE_MODE="{{ write_mode | default('R') }}"
+
+# Output mode for displaying payload in terminal: P, R, U, H (e.g., P for printable)
+DISPLAY_MODE="{{ display_mode | default('P') }}"
+
+# Track only this many connections. 0 means unlimited.
+MAX_CONNECTIONS={{ max_connections | default(0) }}
+
+# Exit after capturing this many packets. 0 means unlimited.
+MAX_PACKETS={{ max_packets | default(0) }}
+
+# Exit after this many connections are detected as CLOSED. 0 means unlimited.
+MAX_CLOSED_CONNECTIONS={{ max_closed_connections | default(0) }}
+
+# Timeout in seconds to consider a connection expired.
+CONN_TIMEOUT={{ conn_timeout | default(600) }}
+
+# Verbosity level (0-5).
+VERBOSE={{ verbose | default(0) }}
+
+# Additional flags: a (dns), C (colors), D (dirs), p (no promisc)
+# Note: D requires a number of dirs per directory if used. 
+USE_COLORS={{ use_colors | default(false) | lower }}
+RESOLVE_HOSTS={{ resolve_hosts | default(false) | lower }}
+NO_PROMISCUOUS={{ no_promiscuous | default(false) | lower }}
+
+# Directory structure options
+CREATE_DIRS={{ create_dirs | default(false) | lower }}
+DIRS_PER_BATCH={{ dirs_per_batch | default(10) }}
+
+# Filenaming scheme: 1 or 2
+FILENAMING_SCHEME={{ filenaming_scheme | default(1) }}
+
+# Separator for displayed payloads
+USE_SEPARATOR={{ use_separator | default(false) | lower }}
+
+# Timestamp format: t (h:m:s:us), td (day-month-year), or empty
+TIMESTAMP_FORMAT="{{ timestamp_format | default('') }}"
+
+# Pipe mode: client, server, or empty
+# If set, overrides display/write modes for piping output
+PIPE_MODE="{{ pipe_mode | default('') }}"
+
+# Construct the command string
+CMD="tcpick"
+
+# Add interface
+{% if interface %}
+CMD="${CMD} -i {{ interface }}"
+{% endif %}
+
+# Add filter
+{% if filter %}
+CMD="${CMD} '{{ filter }}'"
+{% endif %}
+
+# Add verbosity
+{% if verbose != 0 %}
+CMD="${CMD} -v {{ verbose }}"
+{% endif %}
+
+# Add connection tracking limits
+{% if max_connections != 0 %}
+CMD="${CMD} -T {{ max_connections }}"
+{% endif %}
+{% if max_packets != 0 %}
+CMD="${CMD} -e {{ max_packets }}"
+{% endif %}
+{% if max_closed_connections != 0 %}
+CMD="${CMD} -E {{ max_closed_connections }}"
+{% endif %}
+
+# Add timeout
+{% if conn_timeout != 600 %}
+CMD="${CMD} -X {{ conn_timeout }}"
+{% endif %}
+
+# Add pipe mode if specified
+{% if pipe_mode == 'client' %}
+CMD="${CMD} --pipe client"
+{% elif pipe_mode == 'server' %}
+CMD="${CMD} --pipe server"
+{% endif %}
+
+# Add output/display modes if not in pipe mode
+{% if pipe_mode == '' %}
+{% if write_mode %}
+CMD="${CMD} -w{{ write_mode }}"
+{% endif %}
+{% if display_mode %}
+CMD="${CMD} -y{{ display_mode }}"
+{% endif %}
+{% endif %}
+
+# Add boolean flags
+{% if use_colors %}
+CMD="${CMD} -C"
+{% endif %}
+{% if resolve_hosts %}
+CMD="${CMD} -a"
+{% endif %}
+{% if no_promiscuous %}
+CMD="${CMD} -p"
+{% endif %}
+{% if create_dirs %}
+CMD="${CMD} -D {{ dirs_per_batch }}"
+{% endif %}
+{% if filenaming_scheme != 1 %}
+CMD="${CMD} -F{{ filenaming_scheme }}"
+{% endif %}
+{% if use_separator %}
+CMD="${CMD} --separator"
+{% endif %}
+{% if timestamp_format == 't' %}
+CMD="${CMD} -t"
+{% elif timestamp_format == 'td' %}
+CMD="${CMD} -td"
+{% endif %}
+
+# Suppress status banner (commonly used in scripts/pipe modes)
+{% if pipe_mode != '' or verbose == 0 %}
+CMD="${CMD} -S"
+{% endif %}
+
+# Echo the final command for logging or execution
+{{ CMD }}

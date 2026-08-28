@@ -1,326 +1,337 @@
 {
-  "fsid": {
-    "type": "string",
-    "default": "",
-    "description": "The cluster filesystem ID (UUID). Required. Example: '5d42928f-b53a-4f3e-8c7a-1f4e8e9f6b2a'."
-  },
-  "mon_initial_members": {
-    "type": "list",
-    "default": [],
-    "description": "List of initial monitor hostnames for bootstrap.",
-    "items": {
-      "type": "string"
-    }
-  },
-  "mon_host": {
-    "type": "list",
-    "default": [],
-    "description": "List of monitor IP addresses or hostnames (must match mon_initial_members or be resolvable).",
-    "items": {
-      "type": "string"
-    }
-  },
-  "public_network": {
-    "type": "string",
-    "default": "10.0.0.0/24",
-    "description": "CIDR notation of the public (client) network."
-  },
-  "cluster_network": {
-    "type": "string",
-    "default": "10.1.0.0/24",
-    "description": "CIDR notation of the cluster (replication) network."
-  },
-  "auth_cluster_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for cluster daemons (e.g., mon->mon, osd->osd). Usually 'cephx'.",
-    "enum": [
-      "cephx",
-      "none"
-    ]
-  },
-  "auth_service_required": {
-    "type": "string",
-    "default": "cephx",
-    "description": "Authentication required for services (e.g., MDS, RGW). Usually 'cephx'.",
-    "enum": [
-      "cephx",
-      "none"
-    ]
-  },
   "auth_client_required": {
-    "type": "string",
     "default": "cephx",
     "description": "Authentication required for clients. Usually 'cephx'.",
     "enum": [
       "cephx",
       "none"
-    ]
+    ],
+    "type": "string",
+    "enum_open": true
+  },
+  "auth_cluster_required": {
+    "default": "cephx",
+    "description": "Authentication required for cluster daemons (e.g., mon->mon, osd->osd). Usually 'cephx'.",
+    "enum": [
+      "cephx",
+      "none"
+    ],
+    "type": "string",
+    "enum_open": true
+  },
+  "auth_service_required": {
+    "default": "cephx",
+    "description": "Authentication required for services (e.g., MDS, RGW). Usually 'cephx'.",
+    "enum": [
+      "cephx",
+      "none"
+    ],
+    "type": "string",
+    "enum_open": true
+  },
+  "cluster_network": {
+    "default": "10.1.0.0/24",
+    "description": "CIDR notation of the cluster (replication) network.",
+    "type": "string"
+  },
+  "ec_profiles": {
+    "default": [],
+    "description": "Erasure code profiles for pools using erasure coding.",
+    "items": {
+      "crush_locality": {
+        "description": "CRUSH rule to constrain data chunks (e.g., 'host').",
+        "type": "string"
+      },
+      "k": {
+        "description": "Number of data chunks.",
+        "type": "number"
+      },
+      "m": {
+        "description": "Number of coding chunks.",
+        "type": "number"
+      },
+      "name": {
+        "description": "Profile name (e.g., 'erasure-code-2-1').",
+        "type": "string"
+      },
+      "plugin": {
+        "default": "jerasure",
+        "description": "Plugin (e.g., 'jerasure', 'isa', 'shec').",
+        "type": "string"
+      },
+      "ruleset_failure_domain": {
+        "description": "CRUSH failure domain (e.g., 'host', 'osd').",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "fsid": {
+    "default": "",
+    "description": "The cluster filesystem ID (UUID). Required. Example: '5d42928f-b53a-4f3e-8c7a-1f4e8e9f6b2a'.",
+    "type": "string"
   },
   "log_to_stderr": {
-    "type": "bool",
     "default": true,
-    "description": "Whether to log to standard error (console). Enable for containerized or systemd-managed setups."
+    "description": "Whether to log to standard error (console). Enable for containerized or systemd-managed setups.",
+    "type": "bool"
   },
   "log_to_syslog": {
-    "type": "bool",
     "default": false,
-    "description": "Whether to send logs to syslog. Useful for central log aggregation."
+    "description": "Whether to send logs to syslog. Useful for central log aggregation.",
+    "type": "bool"
   },
-  "osd_op_threads": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of threads per OSD for handling client operations. Higher values may improve throughput on multi-core systems."
-  },
-  "osd_max_object_name_len": {
-    "type": "number",
-    "default": 256,
-    "description": "Maximum length of an object name (bytes)."
-  },
-  "osd_max_object_namespace_len": {
-    "type": "number",
-    "default": 64,
-    "description": "Maximum length of an object namespace (bytes)."
+  "mds_instances": {
+    "default": [],
+    "description": "MDS instance definitions (e.g., for CephFS).",
+    "items": {
+      "host": {
+        "description": "Host running the MDS.",
+        "type": "string"
+      },
+      "id": {
+        "description": "MDS ID (e.g., 'a', 'b', or numeric).",
+        "type": "string"
+      },
+      "zone": {
+        "default": "",
+        "description": "Failure zone name (optional).",
+        "type": "string"
+      }
+    },
+    "type": "list"
   },
   "mds_max_mds": {
-    "type": "number",
     "default": 1,
-    "description": "Maximum number of active MDS daemons in the CephFS metadata pool. Set >1 for HA."
+    "description": "Maximum number of active MDS daemons in the CephFS metadata pool. Set >1 for HA.",
+    "type": "number"
+  },
+  "mgrs": {
+    "default": [],
+    "description": "MGR-specific overrides. Usually auto-provisioned.",
+    "items": {
+      "host": {
+        "description": "Hostname where MGR runs.",
+        "type": "string"
+      },
+      "name": {
+        "description": "MGR instance name (e.g., 'a').",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "mon_host": {
+    "default": [],
+    "description": "List of monitor IP addresses or hostnames (must match mon_initial_members or be resolvable).",
+    "items": {
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "mon_initial_members": {
+    "default": [],
+    "description": "List of initial monitor hostnames for bootstrap.",
+    "items": {
+      "type": "string"
+    },
+    "type": "list"
+  },
+  "monitors": {
+    "default": [],
+    "description": "Monitor-specific overrides. Optional \u2014 Ceph auto-generates these if not specified.",
+    "items": {
+      "addr": {
+        "description": "Monitor public address in the form 'ip:port' (e.g., '10.0.0.10:6789').",
+        "type": "string"
+      },
+      "host": {
+        "description": "Hostname or FQDN of the monitor node.",
+        "type": "string"
+      },
+      "name": {
+        "description": "Monitor instance name (e.g., 'a', 'b').",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "osd_max_object_name_len": {
+    "default": 256,
+    "description": "Maximum length of an object name (bytes).",
+    "type": "number"
+  },
+  "osd_max_object_namespace_len": {
+    "default": 64,
+    "description": "Maximum length of an object namespace (bytes).",
+    "type": "number"
+  },
+  "osd_op_threads": {
+    "default": 2,
+    "description": "Number of threads per OSD for handling client operations. Higher values may improve throughput on multi-core systems.",
+    "type": "number"
+  },
+  "osds": {
+    "default": [],
+    "description": "OSD-specific configuration. Required only when overriding defaults (e.g., dedicated journal devices).",
+    "items": {
+      "devs": {
+        "description": "List of block devices (e.g., ['/dev/sdb', '/dev/sdc']).",
+        "items": {
+          "type": "string"
+        },
+        "type": "list"
+      },
+      "host": {
+        "description": "Host where the OSD resides.",
+        "type": "string"
+      },
+      "id": {
+        "description": "OSD ID (e.g., '0', '1', or numeric string).",
+        "type": "string"
+      },
+      "journal_dev": {
+        "description": "Dedicated journal device (e.g., '/dev/nvme0n1p1'). Optional (not needed with filestore+journal file, deprecated for bluestore).",
+        "type": "string"
+      },
+      "journal_size": {
+        "default": 5120,
+        "description": "Journal size in MiB (e.g., 5120). Only used with journal_dev.",
+        "type": "number"
+      }
+    },
+    "type": "list"
+  },
+  "pools": {
+    "default": [
+      {
+        "application": "rbd",
+        "min_size": 2,
+        "name": "rbd",
+        "pg_num": 64,
+        "pgp_num": 64,
+        "size": 3
+      },
+      {
+        "min_size": 1,
+        "name": ".mgr",
+        "pg_num": 1,
+        "pgp_num": 1,
+        "size": 1
+      }
+    ],
+    "description": "List of pools with their settings. Default includes RBD and internal .mgr pool.",
+    "items": {
+      "application": {
+        "default": "generic",
+        "description": "Application marker (e.g., 'rbd', 'rgw', 'cephfs') to enable client integration.",
+        "type": "string"
+      },
+      "crush_rule": {
+        "description": "Name of CRUSH rule to use (optional, defaults to replicated_rule).",
+        "type": "string"
+      },
+      "ec_profile": {
+        "description": "Name of erasure code profile to use (required if enable_ec=true).",
+        "type": "string"
+      },
+      "enable_ec": {
+        "default": false,
+        "description": "Set to true to use erasure coding instead of replication.",
+        "type": "bool"
+      },
+      "min_size": {
+        "default": 2,
+        "description": "Minimum number of replicas required to serve I/O.",
+        "type": "number"
+      },
+      "name": {
+        "description": "Pool name (e.g., 'data', 'metadata', 'rbd').",
+        "type": "string"
+      },
+      "pg_num": {
+        "default": 64,
+        "description": "Number of placement groups (PGs). Must be a power of two or set automatically later.",
+        "type": "number"
+      },
+      "pgp_num": {
+        "default": 64,
+        "description": "Number of PGs for placement purposes (usually equals pg_num).",
+        "type": "number"
+      },
+      "size": {
+        "default": 3,
+        "description": "Number of replicas per object (e.g., 2, 3). Must be \u2265 min_size.",
+        "type": "number"
+      }
+    },
+    "type": "list"
+  },
+  "public_network": {
+    "default": "10.0.0.0/24",
+    "description": "CIDR notation of the public (client) network.",
+    "type": "string"
   },
   "rbd_default_format": {
-    "type": "number",
     "default": 2,
-    "description": "Default RBD image format (1 = legacy, 2 = modern, with layered cloning and features). Format 2 is strongly recommended."
+    "description": "Default RBD image format (1 = legacy, 2 = modern, with layered cloning and features). Format 2 is strongly recommended.",
+    "type": "number"
+  },
+  "rgw_dns_name": {
+    "source": "inferred-from-template",
+    "type": "string"
   },
   "rgw_frontends": {
-    "type": "list",
     "default": [
       "civetweb port=80"
     ],
     "description": "List of frontends for RADOS Gateway (RGW). Each entry configures the HTTP server (e.g., 'civetweb port=80', 'nginx port=443 ssl_certificate=...').",
     "items": {
       "type": "string"
-    }
-  },
-  "monitors": {
-    "type": "list",
-    "default": [],
-    "description": "Monitor-specific overrides. Optional \u2014 Ceph auto-generates these if not specified.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Monitor instance name (e.g., 'a', 'b')."
-      },
-      "host": {
-        "type": "string",
-        "description": "Hostname or FQDN of the monitor node."
-      },
-      "addr": {
-        "type": "string",
-        "description": "Monitor public address in the form 'ip:port' (e.g., '10.0.0.10:6789')."
-      }
-    }
-  },
-  "osds": {
-    "type": "list",
-    "default": [],
-    "description": "OSD-specific configuration. Required only when overriding defaults (e.g., dedicated journal devices).",
-    "items": {
-      "id": {
-        "type": "string",
-        "description": "OSD ID (e.g., '0', '1', or numeric string)."
-      },
-      "host": {
-        "type": "string",
-        "description": "Host where the OSD resides."
-      },
-      "devs": {
-        "type": "list",
-        "description": "List of block devices (e.g., ['/dev/sdb', '/dev/sdc']).",
-        "items": {
-          "type": "string"
-        }
-      },
-      "journal_dev": {
-        "type": "string",
-        "description": "Dedicated journal device (e.g., '/dev/nvme0n1p1'). Optional (not needed with filestore+journal file, deprecated for bluestore)."
-      },
-      "journal_size": {
-        "type": "number",
-        "description": "Journal size in MiB (e.g., 5120). Only used with journal_dev.",
-        "default": 5120
-      }
-    }
-  },
-  "pools": {
-    "type": "list",
-    "default": [
-      {
-        "name": "rbd",
-        "pg_num": 64,
-        "pgp_num": 64,
-        "size": 3,
-        "min_size": 2,
-        "application": "rbd"
-      },
-      {
-        "name": ".mgr",
-        "pg_num": 1,
-        "pgp_num": 1,
-        "size": 1,
-        "min_size": 1
-      }
-    ],
-    "description": "List of pools with their settings. Default includes RBD and internal .mgr pool.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Pool name (e.g., 'data', 'metadata', 'rbd')."
-      },
-      "pg_num": {
-        "type": "number",
-        "description": "Number of placement groups (PGs). Must be a power of two or set automatically later.",
-        "default": 64
-      },
-      "pgp_num": {
-        "type": "number",
-        "description": "Number of PGs for placement purposes (usually equals pg_num).",
-        "default": 64
-      },
-      "size": {
-        "type": "number",
-        "description": "Number of replicas per object (e.g., 2, 3). Must be \u2265 min_size.",
-        "default": 3
-      },
-      "min_size": {
-        "type": "number",
-        "description": "Minimum number of replicas required to serve I/O.",
-        "default": 2
-      },
-      "crush_rule": {
-        "type": "string",
-        "description": "Name of CRUSH rule to use (optional, defaults to replicated_rule)."
-      },
-      "enable_ec": {
-        "type": "bool",
-        "description": "Set to true to use erasure coding instead of replication.",
-        "default": false
-      },
-      "ec_profile": {
-        "type": "string",
-        "description": "Name of erasure code profile to use (required if enable_ec=true)."
-      },
-      "application": {
-        "type": "string",
-        "description": "Application marker (e.g., 'rbd', 'rgw', 'cephfs') to enable client integration.",
-        "default": "generic"
-      }
-    }
-  },
-  "ec_profiles": {
-    "type": "list",
-    "default": [],
-    "description": "Erasure code profiles for pools using erasure coding.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "Profile name (e.g., 'erasure-code-2-1')."
-      },
-      "plugin": {
-        "type": "string",
-        "description": "Plugin (e.g., 'jerasure', 'isa', 'shec').",
-        "default": "jerasure"
-      },
-      "k": {
-        "type": "number",
-        "description": "Number of data chunks."
-      },
-      "m": {
-        "type": "number",
-        "description": "Number of coding chunks."
-      },
-      "crush_locality": {
-        "type": "string",
-        "description": "CRUSH rule to constrain data chunks (e.g., 'host')."
-      },
-      "ruleset_failure_domain": {
-        "type": "string",
-        "description": "CRUSH failure domain (e.g., 'host', 'osd')."
-      }
-    }
-  },
-  "mgrs": {
-    "type": "list",
-    "default": [],
-    "description": "MGR-specific overrides. Usually auto-provisioned.",
-    "items": {
-      "name": {
-        "type": "string",
-        "description": "MGR instance name (e.g., 'a')."
-      },
-      "host": {
-        "type": "string",
-        "description": "Hostname where MGR runs."
-      }
-    }
-  },
-  "mds_instances": {
-    "type": "list",
-    "default": [],
-    "description": "MDS instance definitions (e.g., for CephFS).",
-    "items": {
-      "id": {
-        "type": "string",
-        "description": "MDS ID (e.g., 'a', 'b', or numeric)."
-      },
-      "host": {
-        "type": "string",
-        "description": "Host running the MDS."
-      },
-      "zone": {
-        "type": "string",
-        "description": "Failure zone name (optional).",
-        "default": ""
-      }
-    }
+    },
+    "type": "list"
   },
   "rgw_instances": {
-    "type": "list",
     "default": [
       {
-        "name": "gateway",
-        "host": "ceph-mgr01",
+        "enable_usage_log": false,
         "frontends": [
           "civetweb port=80"
         ],
-        "enable_usage_log": false
+        "host": "ceph-mgr01",
+        "name": "gateway"
       }
     ],
     "description": "RGW instance configurations for object storage.",
     "items": {
-      "name": {
-        "type": "string",
-        "description": "Instance name (e.g., 'gateway', 'api')."
-      },
-      "host": {
-        "type": "string",
-        "description": "Hostname of the RGW node."
+      "enable_usage_log": {
+        "default": false,
+        "description": "Enable access and usage logging.",
+        "type": "bool"
       },
       "frontends": {
-        "type": "list",
+        "default": [
+          "civetweb port=80"
+        ],
         "description": "Frontend configuration(s) for this instance.",
         "items": {
           "type": "string"
         },
-        "default": [
-          "civetweb port=80"
-        ]
+        "type": "list"
       },
-      "enable_usage_log": {
-        "type": "bool",
-        "description": "Enable access and usage logging.",
-        "default": false
+      "host": {
+        "description": "Hostname of the RGW node.",
+        "type": "string"
+      },
+      "name": {
+        "description": "Instance name (e.g., 'gateway', 'api').",
+        "type": "string"
       }
-    }
+    },
+    "type": "list"
+  },
+  "rgw_socket_path": {
+    "source": "inferred-from-template",
+    "type": "string"
   }
 }

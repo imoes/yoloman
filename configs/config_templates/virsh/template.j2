@@ -1,111 +1,53 @@
-# ==============================================================================
-# fence_virsh Configuration Template
-# ==============================================================================
-# This template generates the configuration file for the fence_virsh device agent,
-# used by High Availability (HA) clusters (e.g., Red Hat Cluster Suite, Pacemaker/Corosync)
-# to fence (power cycle or reset) KVM/libvirt virtual machines.
-# ==============================================================================
-
-# Name of the fence device agent.
-# Do not change this unless you are using a different agent.
+# fence_virsh configuration - main fence device definition
 fence = "virsh"
 
-# --------------------------------------------------------------------------
-# Connection Target
-# --------------------------------------------------------------------------
+# Hostname or IP address of the target VM's hypervisor (required)
+hostip = "{{ hostip }}"
 
-# Hostname or IP address of the KVM/libvirt hypervisor hosting the VM.
-# This is the address where SSH or libvirt commands will be sent.
-# Required field.
-hostip = "{{ hostip | default('') }}"
+# Username for authenticating to the hypervisor (required)
+login = "{{ login }}"
 
-# Username used to authenticate to the hypervisor.
-# This user must have appropriate privileges to manage VMs (e.g., via SSH or libvirt).
-# Required field.
-login = "{{ login | default('root') }}"
+# Password (or path to credential file) — prefer credentials file for security
+password = "{{ password | default(omit) }}"{% if password_file %}
 
-# --------------------------------------------------------------------------
-# Authentication & Credentials
-# --------------------------------------------------------------------------
+# Alternative: path to a file containing the password (recommended for production)
+password_file = "{{ password_file }}"{% endif %}
 
-# Password for the login user.
-# SECURITY WARNING: Prefer using 'password_file' or 'identity_file' in production.
-# Leaving this blank or empty if other methods are used.
-# Note: In INI-style configs for fence_virsh, omitting the key entirely is safer than
-# setting it to empty, but we provide the key with an empty default to ensure it appears
-# if explicitly requested. However, to avoid 'omit' errors when not needed, we use
-# a conditional to only write the line if the password is actually set.
-{% if password | default('') != '' %}
-password = "{{ password }}"
-{% endif %}
+# SSH private key path for key-based authentication (optional, overrides password)
+identity_file = "{{ identity_file | default(omit) }}"{% if port %}
 
-# Absolute path to a file containing the password.
-# Recommended for production environments to avoid plaintext passwords in config files.
-# Example: /etc/fence_agents/credentials
-# If set, this takes precedence over 'password' if both are provided (though typically one is used).
-{% if password_file | default('') != '' %}
-password_file = "{{ password_file }}"
-{% endif %}
+# SSH port on the hypervisor (default: 22)
+port = "{{ port }}"{% endif %}
 
-# Path to SSH private key for key-based authentication.
-# If set, this overrides password authentication.
-# Ensure the corresponding public key is in the hypervisor's authorized_keys.
-{% if identity_file | default('') != '' %}
-identity_file = "{{ identity_file }}"
-{% endif %}
+# Name of the VM to fence (must exist on hypervisor) — required for multi-VM setups
+plug = "{{ plug }}"{% if action_delay > 0 %}
 
-# --------------------------------------------------------------------------
-# Target VM Identification
-# --------------------------------------------------------------------------
+# Seconds to wait before retrying an action (default: 0)
+action_delay = "{{ action_delay }}"{% endif %}
 
-# Name of the VM (guest domain) to fence.
-# This must match the domain name defined in libvirt.
-# Required for multi-VM setups or when the default naming doesn't apply.
-{% if plug | default('') != '' %}
-plug = "{{ plug }}"
-{% endif %}
+# Number of times to retry a fence action (default: 3)
+retry = "{{ retry }}"{% if retry_timeout > 0 %}
 
-# --------------------------------------------------------------------------
-# Timing & Retries
-# --------------------------------------------------------------------------
+# Max total seconds to wait for a fence operation (overrides retry count in practice)
+retry_timeout = "{{ retry_timeout }}"{% endif %}
 
-# Maximum number of attempts to execute the fence action (e.g., off/on).
-# If the action fails, the agent will retry up to this many times.
-retry = "{{ retry | default(3) | int }}"
+# Enable/disable TLS/SSL for libvirt connection (default: 0 = disabled)
+tls = "{{ tls | lower }}"{% if tls_cert_dir %}
 
-# Maximum total time (in seconds) to wait for a fence action to complete.
-# If this timeout is reached, the fence action is considered failed, regardless of retry count.
-# Set to 0 to disable timeout checking (rely solely on retry count).
-retry_timeout = "{{ retry_timeout | default(0) | int }}"
+# Directory containing TLS certificates (implies tls=1)
+tls_cert_dir = "{{ tls_cert_dir }}"{% endif %}
 
-# Seconds to wait after sending a fence command before checking status or retrying.
-# Useful if the hypervisor needs time to process power commands.
-action_delay = "{{ action_delay | default(0) | int }}"
+# Hostname to verify in TLS certificate (optional; defaults to hostip)
+tls_hostname = "{{ tls_hostname | default(omit) }}"{% if ca_file %}
 
-# --------------------------------------------------------------------------
-# Transport & Libvirt URI
-# --------------------------------------------------------------------------
+# Path to CA certificate bundle for TLS verification
+tls_ca_file = "{{ ca_file }}"{% endif %}
 
-# Use direct libvirt URI instead of SSH transport.
-# If true (1), the agent will attempt to connect directly to the libvirt daemon using the 'uri' field.
-# If false (0/empty), SSH is used with 'hostip', 'login', etc.
-use_uri = "{{ use_uri | default(False) | bool | ternary(1, 0) }}"
+# Enable/disable use of the libvirt URI (default: 0 = use SSH; 1 = direct URI)
+use_uri = "{{ use_uri | lower }}"{% if uri %}
 
-# Libvirt connection URI (e.g., 'qemu+ssh://user@host/system').
-# Only used if use_uri is enabled.
-# Must be a valid URI understood by libvirt.
-{% if uri | default('') != '' %}
-uri = "{{ uri }}"
-{% endif %}
+# Libvirt connection URI (used only if use_uri=1)
+uri = "{{ uri }}"{% endif %}
 
-# --------------------------------------------------------------------------
-# Extra Options
-# --------------------------------------------------------------------------
-
-# Extra options to pass to fence_virsh (comma-separated).
-# Avoid unless absolutely necessary. Use explicit parameters above whenever possible.
-# Example: 'pcmk_host_list=vm1,vm2'
-# If empty, no extra options are passed.
-{% if options | default('') != '' %}
-options = "{{ options }}"
-{% endif %}
+# Optional: comma-separated list of additional options (not recommended; use explicit params instead)
+# options = "{{ options | default(omit) }}"

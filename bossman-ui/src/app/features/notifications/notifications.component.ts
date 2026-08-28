@@ -11,6 +11,7 @@ import {
   NotificationRuleDialogComponent,
   NotificationRuleDialogData,
 } from '../../shared/components/notification-rule-dialog/notification-rule-dialog.component';
+import { TimePeriodsCardComponent } from './time-periods-card.component';
 
 /** Monitor → Notifications (Block H8): manage who gets alerted on which
  * channel, and see the recent send log (sent/failed). The notifier fires
@@ -19,7 +20,7 @@ import {
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [DatePipe, MatCardModule, MatButtonModule, MatIconModule, MatSlideToggleModule],
+  imports: [DatePipe, MatCardModule, MatButtonModule, MatIconModule, MatSlideToggleModule, TimePeriodsCardComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -68,6 +69,11 @@ import {
           }
         </mat-card-content>
       </mat-card>
+
+      <!-- The "when" half of a rule: a rule with a window only fires while it is open.
+           Kept on this screen rather than a page of its own, because a window is only ever
+           read in the context of the rules that use it. -->
+      <app-time-periods-card class="bm-panel" />
 
       <mat-card class="bm-panel">
         <mat-card-header><mat-card-title>Recent notifications</mat-card-title></mat-card-header>

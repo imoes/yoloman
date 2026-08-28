@@ -1,0 +1,52 @@
+# OpenCPN Systemd Environment Configuration
+#
+# This file sets environment variables and command-line flags for the OpenCPN service.
+# It is consumed by a systemd unit file. The structure follows standard systemd [Service] syntax.
+#
+# Self-documentation:
+# - Variables are sourced from Ansible inventory/vars, with sensible defaults provided via Jinja2 `default()`.
+# - Boolean flags (no_opengl, rebuild_gl_cache, rebuild_chart_db) are evaluated to emit or omit specific CLI arguments.
+# - Paths and user accounts are explicitly configured to avoid permission issues.
+
+[Service]
+
+# OPENCPN_USER: The system user account under which the OpenCPN process runs.
+# Using a dedicated non-root user is a security best practice.
+# Schema field: openvpn_user (intended for opencpn user)
+Environment="USER={{ openvpn_user | default('opencpn') }}"
+
+# OPENCPN_LOGLEVEL: Sets the verbosity of the OpenCPN log output.
+# Allowed values: trace, debug, info, message, warning, error.
+# Default: info.
+# Schema field: log_level
+Environment="OPENCPN_LOGLEVEL={{ log_level | default('info') }}"
+
+# OPENCPN_PLUGIN_DIRS: Colon-separated list of directories where OpenCPN searches for plugin shared objects (.so).
+# Allows extending functionality by placing plugins in custom directories.
+# Default: /usr/lib/opencpn
+# Schema field: plugin_dirs
+Environment="OPENCPN_PLUGIN_DIRS={{ plugin_dirs | default('/usr/lib/opencpn') }}"
+
+# --- Command Execution Configuration ---
+
+# ExecStartPre: Ensures the configuration/data directory exists before starting.
+# OpenCPN requires this directory to store charts, routes, and settings.
+# Default: /var/lib/opencpn
+# Schema field: config_dir
+ExecStartPre=/bin/mkdir -p {{ config_dir | default('/var/lib/opencpn') }}
+
+# ExecStart: The actual command to start OpenCPN.
+# Combines environment variables with explicit command-line flags for clarity and override capability.
+#
+# Flags explanation:
+#   --loglevel: Forces log verbosity (supplements OPENCPN_LOGLEVEL env var).
+#   --configdir: Specifies the data directory (supplements OPENCPN_CONFIG_DIR env var if set elsewhere, or defaults).
+#   --no_opengl: Disables OpenGL hardware acceleration (useful for headless/terminal-only environments or bad drivers).
+#   --rebuild_gl_raster_cache: Forces rebuilding the internal graphics cache on startup (useful for debugging visual glitches).
+#   --rebuild_chart_db: Forces rescanning of chart directories and rebuilding the chart index (useful after adding new charts).
+ExecStart=/usr/bin/opencpn \
+    --loglevel={{ log_level | default('info') }} \
+    --configdir={{ config_dir | default('/var/lib/opencpn') }} \
+    {% if no_opengl | default(false) | bool %}--no_opengl {% endif %}\
+    {% if rebuild_gl_cache | default(false) | bool %}--rebuild_gl_raster_cache {% endif %}\
+    {% if rebuild_chart_db | default(false) | bool %}--rebuild_chart_db {% endif %}

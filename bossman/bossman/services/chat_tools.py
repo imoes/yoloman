@@ -82,6 +82,28 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "search_infra",
+            "description": (
+                "Search the LIVE infrastructure knowledge index across the WHOLE fleet — host "
+                "identity/health, current problems (WARN/CRIT), config drift, and network "
+                "connections — and return the most relevant facts. Use this to ground any answer "
+                "about the real infrastructure and to spot RELATIONSHIPS across hosts (e.g. 'which "
+                "hosts are CRIT', 'what does web07 talk to', 'why might db01 be failing'). Prefer "
+                "this over guessing; each fact names its host."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Natural-language search over the fleet's live state."},
+                    "top_k": {"type": "integer", "description": "How many facts to return (default 8)."},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "discover_host_checks",
             "description": (
                 "Run monitoring auto-discovery on a host: detect which checks apply and the "
@@ -160,6 +182,18 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "function": {
             "name": "host_status",
             "description": "Quick descriptor of ONE host: mode, enrollment state, online, address, tags/groups and OU. Use for a fast 'what/where is this host' before deeper triage (analyze_host) or changes.",
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "disk_layout",
+            "description": "Read a host's disks + partitions (the gparted-style Disks view), read-only: devices with size/table/sector_size, each partition's fstype/label/mountpoint/used/avail/busy and start_s/end_s sectors, free-space gaps, and LVM VGs. Use to answer disk-usage/partitioning questions or before proposing a resize/format. Editing the layout (create/format/resize/delete) is done via the MCP disk_plan_preview + disk_plan_apply tools.",
             "parameters": {
                 "type": "object",
                 "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
@@ -250,6 +284,23 @@ async def execute_tool(
 
         root = getattr(settings, "help_root", "/etc/bossman/help") if settings else "/etc/bossman/help"
         return {"query": args.get("query", ""), "results": help_svc.search_help(root, args.get("query", ""))}
+    if name == "search_infra":
+        from bossman.services import knowledge_search
+        from bossman.services.embedding_client import EmbeddingClientError, embedding_client_for
+
+        query = args.get("query", "")
+        top_k = max(1, min(int(args.get("top_k") or 8), 20))
+        hits: list = []
+        if settings is not None:  # try semantic; fall back to lexical (no vector DB needed)
+            try:
+                hits = await knowledge_search.search(session, embedding_client_for(settings), query, top_k=top_k)
+            except EmbeddingClientError:
+                hits = []
+        if not hits:
+            hits = await knowledge_search.search_lexical(session, query, top_k=top_k)
+        return {"query": query, "facts": [
+            {"kind": h.kind, "title": h.title, "text": h.text, "host_id": h.host_id,
+             "similarity": h.similarity, "retriever": h.retriever} for h in hits]}
     if name in ("discover_host_checks", "assign_host_check"):
         return await _check_tool(session, name, args, settings, client_factory)
     if name in ("analyze_host", "read_host_log"):
@@ -289,6 +340,15 @@ async def execute_tool(
             "groups": list(agent.groups or []), "ou_id": str(agent.ou_id) if agent.ou_id else None,
             "last_seen": agent.last_seen_at.isoformat() if agent.last_seen_at else None,
         }
+    if name == "disk_layout":
+        from bossman.services import disk_layout as _dl
+
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None:
+            return {"error": f"no such host {args.get('host')!r}"}
+        if client_factory is None:
+            return {"error": "disk_layout needs host access (not available in this chat context)"}
+        return await _dl.read_disk_layout(agent, client_factory, settings)
     if name == "list_problems":
         from bossman.services.monitoring import query_problems
 
@@ -421,10 +481,10 @@ async def _check_tool(session, name, args, settings, client_factory) -> dict[str
         catalog = {c["name"]: c for c in checks_library.list_checks(settings.checks_dir)}
         checks = []
         for cname, entry in catalog.items():
-            nt_path, star_path = checks_library.check_paths(settings.checks_dir, cname)
+            meta_path, star_path = checks_library.check_paths(settings.checks_dir, cname)
             try:
                 checks.append({"name": cname, "star": star_path.read_text(encoding="utf-8"),
-                               "sidecar": nt_path.read_text(encoding="utf-8"), "sidecar_format": "nt",
+                               "sidecar": meta_path.read_text(encoding="utf-8"), "sidecar_format": "yaml",
                                "options": entry.get("options", {}), "short_description": entry.get("short_description", "")})
             except OSError:
                 continue

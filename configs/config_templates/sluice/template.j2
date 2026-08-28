@@ -1,0 +1,109 @@
+# Sluice configuration for rate-controlled data flow
+
+# Path to input file. Empty or omitted means stdin.
+input_file: {{ input_file | default('', true) }}
+
+# Output destination: 'stdout' for standard output, or a file path.
+output_dest: {{ output_dest | default('stdout', true) }}
+
+# Data rate in bytes/sec. Suffixes K, M, G, T allowed (e.g., '1M', '1024K').
+rate: {{ rate | default('1M', true) }}
+
+# Read/write buffer size in bytes. Suffixes K, M, G, T, P allowed. Mutually exclusive with delay_mode.
+buffer_size: {{ buffer_size | default('', true) }}
+
+# Constant delay in seconds between writes. Mutually exclusive with buffer_size.
+delay: {{ delay | default('', true) }}
+
+# Delay mode (0-5). Only valid if delay is set.
+# 0: Read, Write, Delay
+# 1: Delay, Read, Write
+# 2: Read, Delay, Write
+# 3: Delay, Read, Delay, Write
+# 4: Read, Delay, Write, Delay
+# 5: Delay, Read, Delay, Write, Delay
+delay_mode: {{ delay_mode | default(0, true) }}
+
+# Total amount of data to process. Suffixes K, M, G, T, P allowed. Empty means until EOF.
+amount: {{ amount | default('', true) }}
+
+# Tuning shift factor for rate adjustment (-1 to 7, 0 disables dynamic adjustment).
+shift: {{ shift | default(3, true) }}
+
+# Pipe transfer size in bytes. Suffixes K, M, G, T, P allowed.
+pipe_size: {{ pipe_size | default('', true) }}
+
+# Verbose statistics frequency in seconds.
+verbose_freq: {{ verbose_freq | default(0.25, true) }}
+
+# Maximum duration in seconds. Suffixes s, m, h, d, y allowed. Empty means no limit.
+duration: {{ duration | default('', true) }}
+
+# Append to output file instead of overwriting.
+append: {{ append | default(false, true) }}
+
+# Discard data (act as sink) instead of copying.
+discard: {{ discard | default(false, true) }}
+
+# Generate random data from /dev/urandom instead of reading input.
+random: {{ random | default(false, true) }}
+
+# Generate a stream of zeros instead of reading input.
+zeros: {{ zeros | default(false, true) }}
+
+# Detect and resize buffer for overruns.
+overrun: {{ overrun | default(false, true) }}
+
+# Detect and resize buffer for underruns.
+underrun: {{ underrun | default(false, true) }}
+
+# Ignore read errors, replacing failed reads with zeros.
+ignore_errors: {{ ignore_errors | default(false, true) }}
+
+# Flush file output after each write (fsync).
+flush: {{ flush | default(false, true) }}
+
+# Show progress percentage and ETA (requires input file or amount specified).
+progress: {{ progress | default(false, true) }}
+
+# Print performance statistics to stderr on EOF.
+stats_eof: {{ stats_eof | default(false, true) }}
+
+# Warning for long bursts of underrun.
+warn_underrun: {{ warn_underrun | default(false, true) }}
+
+# PID file path. Empty means no PID file.
+pidfile: {{ pidfile | default('', true) }}
+
+# No rate control mode. Ignores all rate-related options.
+norate: {{ norate | default(false, true) }}
+
+# Build command line from options
+{% set cmd_parts = ['sluice'] %}
+{% if input_file %}{% set _ = cmd_parts.append('-I') %}{% set _ = cmd_parts.append(input_file) %}{% endif %}
+{% if output_dest != 'stdout' %}{% set _ = cmd_parts.append('-O') %}{% set _ = cmd_parts.append(output_dest) %}{% endif %}
+{% if discard %}{% set _ = cmd_parts.append('-d') %}{% endif %}
+{% if random %}{% set _ = cmd_parts.append('-R') %}{% endif %}
+{% if zeros %}{% set _ = cmd_parts.append('-z') %}{% endif %}
+{% if norate %}{% set _ = cmd_parts.append('-n') %}{% endif %}
+{% if append %}{% set _ = cmd_parts.append('-a') %}{% endif %}
+{% if flush %}{% set _ = cmd_parts.append('-F') %}{% endif %}
+{% if ignore_errors %}{% set _ = cmd_parts.append('-e') %}{% endif %}
+{% if overrun %}{% set _ = cmd_parts.append('-o') %}{% endif %}
+{% if underrun %}{% set _ = cmd_parts.append('-u') %}{% endif %}
+{% if warn_underrun %}{% set _ = cmd_parts.append('-w') %}{% endif %}
+{% if progress %}{% set _ = cmd_parts.append('-p') %}{% endif %}
+{% if stats_eof %}{% set _ = cmd_parts.append('-S') %}{% endif %}
+{% if verbose_freq != 0.25 %}{% set _ = cmd_parts.append('-f') %}{% set _ = cmd_parts.append(String(verbose_freq)) %}{% endif %}
+{% if rate and not norate %}{% set _ = cmd_parts.append('-r') %}{% set _ = cmd_parts.append(rate) %}{% endif %}
+{% if buffer_size %}{% set _ = cmd_parts.append('-i') %}{% set _ = cmd_parts.append(buffer_size) %}{% endif %}
+{% if pipe_size %}{% set _ = cmd_parts.append('-x') %}{% set _ = cmd_parts.append(pipe_size) %}{% endif %}
+{% if amount %}{% set _ = cmd_parts.append('-m') %}{% set _ = cmd_parts.append(amount) %}{% endif %}
+{% if duration %}{% set _ = cmd_parts.append('-T') %}{% set _ = cmd_parts.append(duration) %}{% endif %}
+{% if delay %}{% set _ = cmd_parts.append('-c') %}{% set _ = cmd_parts.append(delay) %}{% endif %}
+{% if delay and delay_mode != 0 %}{% set _ = cmd_parts.append('-D') %}{% set _ = cmd_parts.append(String(delay_mode)) %}{% endif %}
+{% if shift != 3 and (rate or delay) and not norate %}{% set _ = cmd_parts.append('-s') %}{% set _ = cmd_parts.append(String(shift)) %}{% endif %}
+{% if pidfile %}{% set _ = cmd_parts.append('-P') %}{% set _ = cmd_parts.append(pidfile) %}{% endif %}
+
+# Executable command
+command: {{ cmd_parts | join(' ') }}

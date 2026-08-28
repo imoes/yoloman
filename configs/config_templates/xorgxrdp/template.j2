@@ -1,0 +1,93 @@
+Section "ServerLayout"
+    # ServerLayout: Defines the X server layout, linking screens and input devices.
+    # This block sets up the primary configuration for the X11 server session.
+    Identifier "X11 Server"
+    Screen "Screen (xrdpdev)"
+    InputDevice "xrdpMouse" "CorePointer"
+    InputDevice "xrdpKeyboard" "CoreKeyboard"
+EndSection
+
+Section "ServerFlags"
+    # ServerFlags: Global server options that affect the X server's behavior.
+    Option "DefaultServerLayout" "X11 Server"
+    # Prevents VT (Virtual Terminal) switching during X11 sessions managed by xrdp.
+    # This ensures the user stays within the RDP session context.
+    Option "DontVTSwitch" "{{ dont_vtswitch | default('on') }}"
+    # Disables automatic input device addition. xrdp handles input devices explicitly.
+    Option "AutoAddDevices" "{{ auto_add_devices | default('off') }}"
+    # Disables automatic GPU addition. The GPU configuration is handled manually below.
+    Option "AutoAddGPU" "{{ auto_add_gpu | default('off') }}"
+EndSection
+
+Section "Module"
+    # Module: Loads X server extensions and drivers required for functionality.
+    Load "dbe"
+    Load "ddc"
+    Load "extmod"
+    Load "glx"
+    Load "int10"
+    Load "record"
+    Load "vbe"
+    Load "glamoregl"
+    Load "xorgxrdp"
+    Load "fb"
+EndSection
+
+Section "InputDevice"
+    # InputDevice: Defines the virtual keyboard input device for xrdp.
+    Identifier "xrdpKeyboard"
+    Driver "xrdpkeyb"
+EndSection
+
+Section "InputDevice"
+    # InputDevice: Defines the virtual mouse input device for xrdp.
+    Identifier "xrdpMouse"
+    Driver "xrdpmouse"
+EndSection
+
+Section "Monitor"
+    # Monitor: Configures the virtual monitor's timing and supported resolutions.
+    Identifier "Monitor"
+    Option "DPMS"
+    # Horizontal sync range for the virtual monitor.
+    HorizSync {{ horiz_sync | default('30-80') }}
+    # Vertical refresh range for the virtual monitor.
+    VertRefresh {{ vert_refresh | default('60-75') }}
+    # Hardcoded ModeLines for specific resolutions.
+    ModeLine "1920x1080" 138.500 1920 1968 2000 2080 1080 1083 1088 1111 +hsync -vsync
+    ModeLine "1280x720" 74.25 1280 1720 1760 1980 720 725 730 750 +HSync +VSync
+    ModeLine "1368x768" 72.25 1368 1416 1448 1528 768 771 781 790 +hsync -vsync
+    ModeLine "1600x900" 119.00 1600 1696 1864 2128 900 901 904 932 -hsync +vsync
+EndSection
+
+Section "Device"
+    # Device: Configures the video card/driver settings for hardware acceleration.
+    Identifier "Video Card (xrdpdev)"
+    Driver "xrdpdev"
+    # Path to the DRM render node for hardware acceleration.
+    Option "DRMDevice" "{{ drm_device | default('/dev/dri/renderD128') }}"
+    # Enables DRI3 extension for better performance.
+    Option "DRI3" "{{ dri3 | default('1') }}"
+    # Comma-separated list of DRM drivers allowed for hardware acceleration.
+    # Note: This is a string, not a list, despite the field name.
+    Option "DRMAllowList" "{{ drm_allow_list | default('i915 radeon') }}"
+EndSection
+
+Section "Screen"
+    # Screen: Defines the display area, depth, and available modes.
+    Identifier "Screen (xrdpdev)"
+    Device "Video Card (xrdpdev)"
+    # GPU device path, usually empty for xrdp virtual device.
+    # Only include if the variable is defined and not empty.
+    {% if gpu_device is defined and gpu_device | trim != '' %}
+    GPUDevice "{{ gpu_device | trim }}"
+    {% endif %}
+    Monitor "Monitor"
+    # Default color depth for the screen.
+    DefaultDepth {{ default_depth | default(24) }}
+    SubSection "Display"
+        Depth {{ default_depth | default(24) }}
+        # List of supported screen resolution modes.
+        Modes {{ modes | default(['640x480', '800x600', '1024x768', '1280x720', '1280x1024', '1600x900', '1920x1080']) | join(' ') }}
+    EndSubSection
+EndSection

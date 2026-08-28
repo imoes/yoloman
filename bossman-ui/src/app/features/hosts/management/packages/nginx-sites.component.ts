@@ -137,11 +137,11 @@ export class NginxSitesComponent {
     this.loading.set(true); this.msg.set(''); this.err.set('');
     // Fetch the nginx-vhost template body + schema once, and enumerate sites.
     forkJoin({
-      tpls: this.agentService.configTemplates(),
+      tpl: this.agentService.configTemplate('nginx-vhost'),
       avail: this.agentService.callTool(this.agentId(), 'find', { paths: [SITES_AVAILABLE], file_type: 'file' }),
     }).subscribe({
-      next: ({ tpls, avail }) => {
-        const tpl = tpls.templates.find((t) => t.name === 'nginx-vhost');
+      next: ({ tpl: { tpl, missing }, avail }) => {
+        if (missing) this.err.set(missing);
         this.tplBody = tpl?.template || '';
         if (tpl?.schema) this.schema.set(tpl.schema as ParamSchema);
         const availList = ((avail.result as { data?: { path: string }[] })?.data) || [];

@@ -1,86 +1,5 @@
 {
-  "vmware_sync_disabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Set to true to disable VMware Tools time sync integration. When enabled, Chrony ignores VMware time sources."
-  },
-  "vmware_no_sync_source": {
-    "type": "bool",
-    "default": false,
-    "description": "Set to true to prevent Chrony from using VMware VMtime as a time source. Useful when VMware Tools sync is enabled but Chrony should rely on NTP instead."
-  },
-  "vmware_max_diff": {
-    "type": "number",
-    "default": 10.0,
-    "description": "Maximum allowed time difference (in seconds) between VMware Tools and Chrony before rejecting VMware time sync updates."
-  },
-  "vmware_slew_disabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Set to true to disable slewvmw \u2014 i.e., Chrony will step the clock (not slew) on large VMware-initiated adjustments."
-  },
-  "vmware_log_priority": {
-    "type": "string",
-    "default": "info",
-    "description": "Priority level for VMware-related log messages (e.g., 'info', 'warn', 'err'). Set to null to disable VMware logging."
-  },
-  "chrony_log_dir": {
-    "type": "string",
-    "default": "/var/log/chrony",
-    "description": "Directory where Chrony logs are stored."
-  },
-  "chrony_log_rotate_count": {
-    "type": "number",
-    "default": 6,
-    "description": "Number of old log files to retain (chrony logrotate count)."
-  },
-  "ntp_servers": {
-    "type": "list",
-    "default": [
-      {
-        "host": "0.vmware.pool.ntp.org",
-        "iburst": true,
-        "prefer": false,
-        "key": null
-      },
-      {
-        "host": "1.vmware.pool.ntp.org",
-        "iburst": true,
-        "prefer": false,
-        "key": null
-      },
-      {
-        "host": "pool.ntp.org",
-        "iburst": true,
-        "prefer": false,
-        "key": null
-      }
-    ],
-    "description": "List of NTP servers to synchronize time with. Each entry supports iburst, prefer, and optional key.",
-    "items": {
-      "host": {
-        "type": "string",
-        "description": "Hostname or IP address of the NTP server."
-      },
-      "iburst": {
-        "type": "bool",
-        "default": true,
-        "description": "If true, send an initial burst of packets to synchronize quickly on startup."
-      },
-      "prefer": {
-        "type": "bool",
-        "default": false,
-        "description": "If true, prefer this server for synchronization."
-      },
-      "key": {
-        "type": "number|null",
-        "default": null,
-        "description": "Optional symmetric key ID for NTP authentication (must exist in keyfile). Set to null for no auth."
-      }
-    }
-  },
   "allowed_subnets": {
-    "type": "list",
     "default": [
       "192.168.0.0/16",
       "10.0.0.0/8"
@@ -88,41 +7,126 @@
     "description": "List of subnets allowed to query this Chrony server. Empty list = deny all.",
     "items": {
       "type": "string"
-    }
+    },
+    "type": "list"
   },
-  "makestep_threshold": {
-    "type": "number",
-    "default": 1.0,
-    "description": "Step the clock immediately if offset > this threshold (seconds), instead of slewing."
+  "chrony_log_dir": {
+    "default": "/var/log/chrony",
+    "description": "Directory where Chrony logs are stored.",
+    "type": "string"
   },
-  "makestep_burst": {
-    "type": "number",
-    "default": 3,
-    "description": "Number of steps to allow in quick succession (used with makestep_threshold)."
-  },
-  "maxupdateskew": {
-    "type": "number",
-    "default": 100.0,
-    "description": "Maximum acceptable clock skew (ppm) before updates are rejected. Helps avoid instability from erratic sources."
-  },
-  "stepthreshold": {
-    "type": "number",
-    "default": 0.1,
-    "description": "Minimum offset (seconds) required to trigger an initial step adjustment. 0 disables stepping."
+  "chrony_log_rotate_count": {
+    "default": 6,
+    "description": "Number of old log files to retain (chrony logrotate count).",
+    "type": "number"
   },
   "clientloglimit": {
-    "type": "string",
     "default": "1h",
-    "description": "Maximum age of client log entries (e.g., '1h' = 1 hour). Controls log growth."
+    "description": "Maximum age of client log entries (e.g., '1h' = 1 hour). Controls log growth.",
+    "type": "string"
   },
-  "time_source_path": {
-    "type": "string|null",
-    "default": null,
-    "description": "Optional hardware or virtual time source (e.g., '/dev/ptp0' or custom VMware source). Leave null for auto."
+  "leapsecmode": {
+    "source": "inferred-from-template",
+    "type": "string"
+  },
+  "makestep_burst": {
+    "default": 3,
+    "description": "Number of steps to allow in quick succession (used with makestep_threshold).",
+    "type": "number"
+  },
+  "makestep_threshold": {
+    "default": 1.0,
+    "description": "Step the clock immediately if offset > this threshold (seconds), instead of slewing.",
+    "type": "number"
+  },
+  "maxupdateskew": {
+    "default": 100.0,
+    "description": "Maximum acceptable clock skew (ppm) before updates are rejected. Helps avoid instability from erratic sources.",
+    "type": "number"
   },
   "ntp_keys": {
-    "type": "bool",
     "default": false,
-    "description": "Set to true if you use NTP authentication keys (chrony.keys file required)."
+    "description": "Set to true if you use NTP authentication keys (chrony.keys file required).",
+    "type": "bool"
+  },
+  "ntp_servers": {
+    "default": [
+      {
+        "host": "0.vmware.pool.ntp.org",
+        "iburst": true,
+        "key": null,
+        "prefer": false
+      },
+      {
+        "host": "1.vmware.pool.ntp.org",
+        "iburst": true,
+        "key": null,
+        "prefer": false
+      },
+      {
+        "host": "pool.ntp.org",
+        "iburst": true,
+        "key": null,
+        "prefer": false
+      }
+    ],
+    "description": "List of NTP servers to synchronize time with. Each entry supports iburst, prefer, and optional key.",
+    "items": {
+      "host": {
+        "description": "Hostname or IP address of the NTP server.",
+        "type": "string"
+      },
+      "iburst": {
+        "default": true,
+        "description": "If true, send an initial burst of packets to synchronize quickly on startup.",
+        "type": "bool"
+      },
+      "key": {
+        "default": null,
+        "description": "Optional symmetric key ID for NTP authentication (must exist in keyfile). Set to null for no auth.",
+        "type": "number|null"
+      },
+      "prefer": {
+        "default": false,
+        "description": "If true, prefer this server for synchronization.",
+        "type": "bool"
+      }
+    },
+    "type": "list"
+  },
+  "stepthreshold": {
+    "default": 0.1,
+    "description": "Minimum offset (seconds) required to trigger an initial step adjustment. 0 disables stepping.",
+    "type": "number"
+  },
+  "time_source_path": {
+    "default": null,
+    "description": "Optional hardware or virtual time source (e.g., '/dev/ptp0' or custom VMware source). Leave null for auto.",
+    "type": "string"
+  },
+  "vmware_log_priority": {
+    "default": "info",
+    "description": "Priority level for VMware-related log messages (e.g., 'info', 'warn', 'err'). Set to null to disable VMware logging.",
+    "type": "string"
+  },
+  "vmware_max_diff": {
+    "default": 10.0,
+    "description": "Maximum allowed time difference (in seconds) between VMware Tools and Chrony before rejecting VMware time sync updates.",
+    "type": "number"
+  },
+  "vmware_no_sync_source": {
+    "default": false,
+    "description": "Set to true to prevent Chrony from using VMware VMtime as a time source. Useful when VMware Tools sync is enabled but Chrony should rely on NTP instead.",
+    "type": "bool"
+  },
+  "vmware_slew_disabled": {
+    "default": false,
+    "description": "Set to true to disable slewvmw \u2014 i.e., Chrony will step the clock (not slew) on large VMware-initiated adjustments.",
+    "type": "bool"
+  },
+  "vmware_sync_disabled": {
+    "default": false,
+    "description": "Set to true to disable VMware Tools time sync integration. When enabled, Chrony ignores VMware time sources.",
+    "type": "bool"
   }
 }

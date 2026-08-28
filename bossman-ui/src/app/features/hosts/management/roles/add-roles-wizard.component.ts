@@ -7,7 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { from, of, catchError, map, concatMap, toArray } from 'rxjs';
-import { CatalogPackage } from '../../../../core/services/package-catalog.service';
+import { categoryByKey } from '../../../../shared/config-categories';
+import { catalogCategory, CatalogPackage } from '../../../../core/services/package-catalog.service';
 import { WizardContext, WizardRunbook, WizardService, RunbookRunResult } from '../../../../core/services/wizard.service';
 import { CheckService } from '../../../../core/services/check.service';
 import { AgentService } from '../../../../core/services/agent.service';
@@ -16,19 +17,6 @@ import { ParamFormComponent } from '../../../../shared/param-form/param-form.com
 
 // Category column ordering + display for the role browser (Miller column 1).
 const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
-const CAT_META: Record<string, { label: string; icon: string }> = {
-  web: { label: 'Web', icon: 'language' },
-  database: { label: 'Database', icon: 'storage' },
-  services: { label: 'Services', icon: 'apps' },
-  network: { label: 'Network', icon: 'lan' },
-  security: { label: 'Security', icon: 'security' },
-  storage: { label: 'Storage', icon: 'save' },
-  virtualization: { label: 'Virtualization', icon: 'dns' },
-  logging: { label: 'Logging', icon: 'article' },
-  time: { label: 'Time', icon: 'schedule' },
-  system: { label: 'System', icon: 'settings' },
-  other: { label: 'Other', icon: 'folder' },
-};
 
 export interface AddRolesWizardData {
   agentId: string;
@@ -89,11 +77,14 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                 <div class="bm-wz-mcol bm-wz-mcol--pkgs">
                   @for (r of catItems(); track r.name) {
                     <div class="bm-wz-mrole" [class.bm-wz-msel]="focus() === r.name" (click)="focus.set(r.name)">
-                      <mat-checkbox [checked]="picked().has(r.name)" [disabled]="isInstalled(r.name)"
+                      <mat-checkbox [checked]="picked().has(r.name)" [disabled]="isInstalled(r.name) || !installable(r.name)"
                         (change)="toggle(r.name)" (click)="$event.stopPropagation()" />
                       <mat-icon class="bm-wz-role-ic">{{ r.icon }}</mat-icon>
                       <div class="bm-wz-mrole-txt">
-                        <div class="bm-wz-mrole-lbl">{{ r.label }}@if (isInstalled(r.name)) { <span class="bm-wz-badge">Installed</span> }</div>
+                        <div class="bm-wz-mrole-lbl">{{ r.label }}@if (isInstalled(r.name)) { <span class="bm-wz-badge">Installed</span> }
+                          @if (!installable(r.name)) { <span class="bm-wz-badge bm-wz-badge--off">Not on {{ data.context.family }}</span> }
+                          @else if (isFallback(r.name)) { <span class="bm-wz-badge bm-wz-badge--warn">{{ familyUsed(r.name) }} name</span> }
+                        </div>
                         <div class="bm-wz-mrole-desc">{{ r.description }}</div>
                       </div>
                     </div>
@@ -103,7 +94,18 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                   @if (focused(); as r) {
                     <div class="bm-wz-desc-lbl">{{ r.label }}</div>
                     <p>{{ r.description }}</p>
-                    <div class="bm-wz-desc-pkg">Package: <code>{{ resolvedPackages(r.name) }}</code></div>
+                    @if (installable(r.name)) {
+                      <div class="bm-wz-desc-pkg">Package: <code>{{ resolvedPackages(r.name) }}</code></div>
+                      @if (userOf(r.name)) { <div class="bm-wz-desc-pkg">Runs as: <code>{{ userOf(r.name) }}</code></div> }
+                    }
+                    <!-- Sufficient reason: the family answer is never silent. An exact match says
+                         nothing because there is nothing to justify; the other three carry why. -->
+                    @if (reasonOf(r.name); as why) {
+                      <div class="bm-wz-warn" [class.bm-wz-warn--block]="!installable(r.name)">
+                        {{ why }}
+                        @if (insteadOf(r.name); as alt) { <div>Use <strong>{{ alt }}</strong> instead.</div> }
+                      </div>
+                    }
                     @if (isInstalled(r.name)) { <div class="bm-wz-desc-pkg">Status: <strong>installed</strong> — "Configure" reloads its current settings.</div> }
                     @if (!r.template) { <div class="bm-wz-warn">No configuration template yet — installs with defaults, no Configure step.</div> }
                   } @else { <p class="bm-wz-dim">Select a role to see what it does.</p> }
@@ -240,6 +242,10 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-wz-role-ic { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; margin-top: 2px; }
     .bm-wz-badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle;
       background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); }
+    /* The family answer, colour-coded by how much it is worth trusting: green "Installed" is a
+       fact, gold is a stand-in from another family, red is a positive "not here". */
+    .bm-wz-badge--warn { background: color-mix(in srgb, var(--bm-gold, #f9a825) 26%, transparent); }
+    .bm-wz-badge--off { background: color-mix(in srgb, var(--bm-red, #d0021b) 20%, transparent); }
     .bm-wz-desc { padding: 14px; }
     .bm-wz-prefill { display: flex; align-items: center; gap: 7px; font-size: 13px; margin: -6px 0 14px; padding: 7px 11px; border-radius: 6px;
       background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); }
@@ -248,6 +254,9 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
     .bm-wz-desc p { opacity: 0.8; line-height: 1.5; margin: 0 0 8px; }
     .bm-wz-desc-pkg { font-size: 12px; opacity: 0.7; }
     .bm-wz-warn { font-size: 12px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--bm-gold, #f9a825) 18%, transparent); }
+    /* A blocked action reads as blocked, not merely cautioned — the checkbox next to it is off. */
+    .bm-wz-warn--block { background: color-mix(in srgb, var(--bm-red, #d0021b) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--bm-red, #d0021b) 38%, transparent); }
     .bm-wz-dim { opacity: 0.55; }
     .bm-wz-sum { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
     .bm-wz-sum-h { font-weight: 600; margin-bottom: 6px; }
@@ -340,7 +349,10 @@ export class AddRolesWizardComponent {
       if (entry.kind === 'config') continue; // base-system files aren't installable roles
       if (q && !name.toLowerCase().includes(q) && !entry.label.toLowerCase().includes(q)
           && !(entry.description || '').toLowerCase().includes(q)) continue;
-      const cat = entry.category || 'other';
+      // Derived entries carry no category; the path->category rule lives in shared/config-categories.ts and
+      // catalogCategory() is the single reader of it, so 398 promoted entries group properly instead of all
+      // landing in "Other".
+      const cat = catalogCategory(entry);
       (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push({ ...entry, name });
     }
     return [...groups.entries()].map(([category, items]) => ({ category, items: items.sort((a, b) => a.label.localeCompare(b.label)) }));
@@ -363,12 +375,34 @@ export class AddRolesWizardComponent {
   });
   // Miller column 2: packages in the active category.
   catItems = computed(() => this.catsOrdered().find((c) => c.category === this.effectiveCat())?.items ?? []);
-  catIcon(c: string): string { return CAT_META[c]?.icon ?? 'folder'; }
-  catName(c: string): string { return CAT_META[c]?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
+  // CAT_META first (it names the wizard's own curated roles), then the shared config-category vocabulary,
+  // then the key itself. The middle step is the new one: 398 promoted entries land in categories this
+  // component never had a row for — Backup, Cloud, Cluster, Directory, Telephony — and they rendered as a
+  // generic folder while shared/config-categories.ts had a label and an icon for every one of them.
+  catIcon(c: string): string { return categoryByKey(c)?.icon ?? categoryByKey(c)?.icon ?? 'folder'; }
+  catName(c: string): string {
+    return categoryByKey(c)?.label ?? categoryByKey(c)?.label ?? (c.charAt(0).toUpperCase() + c.slice(1));
+  }
 
   catLabel(p: string): string { return this.data.catalog[p]?.label ?? p; }
   isInstalled(p: string): boolean { return p in this.data.context.installed; }
   resolvedPackages(p: string): string { return (this.data.context.catalog_resolved[p]?.packages || []).join(', '); }
+
+  // --- How the catalog answered for THIS host's family (see wizard.service.ts:FamilyMatch).
+  //
+  // The wizard used to show a package name with no indication of where it came from, because the
+  // catalog generators had written the Debian name into every family's branch — 78 of 90 redhat
+  // branches were copies, ~15 wrong (cron is cronie on RHEL, ufw does not exist there at all).
+  // Now the answer carries its own provenance, and the UI never presents a guess as a fact:
+  // `unavailable` disables the checkbox WITH its reason rather than letting an install fail later,
+  // and `fallback` stays selectable but is labelled with the family the name actually came from.
+  private res(p: string) { return this.data.context.catalog_resolved[p]; }
+  installable(p: string): boolean { return this.res(p)?.installable !== false; }
+  isFallback(p: string): boolean { return this.res(p)?.family_match === 'fallback'; }
+  familyUsed(p: string): string { return this.res(p)?.family_used ?? ''; }
+  reasonOf(p: string): string { return this.res(p)?.reason ?? ''; }
+  insteadOf(p: string): string { return this.res(p)?.instead ?? ''; }
+  userOf(p: string): string { return this.res(p)?.user ?? ''; }
   rb(p: string): WizardRunbook | undefined { return this.runbooks()[p]; }
 
   toggle(name: string): void {

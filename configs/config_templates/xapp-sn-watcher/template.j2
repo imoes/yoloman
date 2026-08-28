@@ -1,0 +1,39 @@
+# ==============================================================================
+# XApps StatusNotifier Watcher Autostart Configuration
+#
+# This template generates a .desktop file for the XApps StatusNotifierWatcher.
+# The StatusNotifierWatcher interface allows applications to expose system
+# tray icons (notifications, volume, network, etc.) in the desktop panel.
+#
+# This file should be placed in one of the standard autostart directories:
+#   - /etc/xdg/autostart/          (system-wide)
+#   - ~/.config/autostart/         (user-specific)
+#
+# Schema Fields:
+#   - name: Display name for the application entry
+#   - comment: Description of the application's purpose
+#   - exec_path: Full path to the executable binary
+#   - autostart_phase: The phase in which the application starts (e.g., Panel, Applications)
+# ==============================================================================
+
+[Desktop Entry]
+# Type of the entry. Must be Application for an executable program.
+Type=Application
+
+# The display name of the application entry.
+# Used by the desktop environment to identify the service in menus and settings.
+Name={{ name | default('xapp-sn-watcher') }}
+
+# Description of the application's purpose.
+# Displayed as a tooltip or in application details.
+Comment={{ comment | default('A service that provides the org.kde.StatusNotifierWatcher interface for XApps') }}
+
+# Full path to the executable binary.
+# This is the actual program that will be launched to provide the watcher interface.
+Exec={{ exec_path | default('/usr/lib/x86_64-linux-gnu/xapps/xapp-sn-watcher') }}
+
+# X-GNOME-Autostart-Phase
+# The phase in which the application should start.
+# 'Panel' means it starts with the panel/dock setup; 'Applications' is later.
+# Ensures the tray icon is available when the panel initializes.
+X-GNOME-Autostart-Phase={{ autostart_phase | default('Panel') }}

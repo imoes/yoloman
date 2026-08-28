@@ -25,7 +25,11 @@ import (
 
 // configsDir is where the .deb ships the bundled config catalog (codecs,
 // directives, templates, package catalog) for the standalone Server Manager.
-const configsDir = "/usr/share/agentic-mcp/configs"
+// configsDir is where the package installs the config catalog (codecs, directives, templates, and the
+// recorded projections the standalone field editor serves). A var, not a const, so a test can point it at a
+// fixture — the alternative is testing the handlers against whatever the build host happens to have
+// installed, which is not a test.
+var configsDir = "/usr/share/agentic-mcp/configs"
 
 // RegisterManagementRoutes mounts the per-host management endpoints on mux.
 // They inherit the same identity/auth wrapper as the rest of /api/v1.
@@ -46,6 +50,10 @@ func RegisterManagementRoutes(mux *http.ServeMux, cfg RESTConfig) {
 	mux.HandleFunc("GET /api/v1/virt", func(w http.ResponseWriter, r *http.Request) { mgmtVirt(w, r, cfg) })
 	// Config catalog for the Roles & Features wizard (served from the bundle).
 	mux.HandleFunc("GET /api/v1/config-templates", func(w http.ResponseWriter, r *http.Request) { mgmtConfigTemplates(w, r) })
+	// {name} and the literal /config-templates/index coexist: Go's mux resolves by SPECIFICITY, so the
+	// literal always wins regardless of registration order. (Bossman's FastAPI matches in declaration order
+	// and has to declare /index first — same two routes, two different reasons they work.)
+	mux.HandleFunc("GET /api/v1/config-templates/{name}", func(w http.ResponseWriter, r *http.Request) { mgmtConfigTemplate(w, r) })
 	mux.HandleFunc("GET /api/v1/config-codecs", func(w http.ResponseWriter, r *http.Request) { mgmtConfigCodecs(w, r) })
 	mux.HandleFunc("GET /api/v1/config-directives", func(w http.ResponseWriter, r *http.Request) { mgmtConfigDirectives(w, r) })
 	mux.HandleFunc("GET /api/v1/package-catalog", func(w http.ResponseWriter, r *http.Request) { mgmtPackageCatalog(w, r) })
@@ -321,7 +329,9 @@ func getentRows(d any) [][]string {
 	return rows
 }
 
-func mgmtUser(w http.ResponseWriter, r *http.Request, cfg RESTConfig) { mgmtAccountAction(w, r, cfg, "user") }
+func mgmtUser(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	mgmtAccountAction(w, r, cfg, "user")
+}
 func mgmtGroup(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	mgmtAccountAction(w, r, cfg, "group")
 }
@@ -430,6 +440,52 @@ func mgmtConfigCodecs(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "available": true})
 }
 
+// mgmtConfigTemplate returns ONE bundled template in full — body, schema, sample, meta.
+//
+// The route is GET /api/v1/config-templates/{name}, the SAME shape Bossman serves
+// (bossman/bossman/api/config_templates.py). The standalone console is the same Angular app pointed at the
+// agent, so one name for one thing means one client method for both; a `?name=` variant here would have been
+// a second spelling of a question that already has one.
+func mgmtConfigTemplate(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	body, schema, sample, meta := readTemplateDir(name)
+	if body == "" {
+		writeJSON(w, http.StatusNotFound, map[string]any{
+			"error": fmt.Sprintf("no bundled template named %q", name),
+			"reason": "either the name does not exist, or it is one this package withholds because " +
+				"nothing in the index or the catalog names it — see GET /api/v1/config-templates",
+		})
+		return
+	}
+	// capabilities.json too (4773 templates carry one), because Bossman's reply for the same route includes
+	// it and the standalone console is the same client. One route returning two shapes depending on who
+	// answers is the kind of difference that only surfaces as a feature quietly missing in standalone mode.
+	// Read only AFTER a non-empty body: that is proof the name already passed readTemplateDir's separator
+	// guard, so this join cannot be the one that escapes the directory.
+	caps := map[string]any{}
+	if v, ok := readBundledJSON(filepath.Join("config_templates", name, "capabilities.json")); ok {
+		if m := asMap(v); len(m) > 0 {
+			caps = m
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"name": name, "template": body, "schema": schema, "sample": sample, "meta": meta,
+		"capabilities": caps,
+	})
+}
+
+// mgmtConfigTemplates lists the bundled config templates — names and target paths, no bodies.
+//
+// It used to return every template's body, schema and sample in a single reply. Measured against the tree it
+// was reading, that is a ~36 MB JSON document built entirely in memory — for a catalog whose editor asks for
+// one path at a time (GET /api/v1/config-fields). A listing is a listing: name, target path and whether a
+// schema parsed, which is what a caller choosing a template needs. The body comes from a second call for the
+// one that was chosen.
+//
+// The counts are quoted from the manifest the build writes, because the number here is deliberately smaller
+// than Bossman's: the package ships the reachable templates, not all of them, and an operator comparing the
+// two lists should find that stated rather than have to work it out. `withheld` is not an error — it is the
+// answer to "where are the other 4424".
 func mgmtConfigTemplates(w http.ResponseWriter, _ *http.Request) {
 	root := filepath.Join(configsDir, "config_templates")
 	templates := []map[string]any{}
@@ -439,23 +495,35 @@ func mgmtConfigTemplates(w http.ResponseWriter, _ *http.Request) {
 			if !d.IsDir() {
 				continue
 			}
-			tpl := filepath.Join(root, d.Name(), "template.j2")
-			body, terr := os.ReadFile(tpl)
-			if terr != nil {
+			// A directory with no body is not a template. Statted rather than read: the listing must not
+			// pull 7 MB off the disk to answer how many there are.
+			if fi, serr := os.Stat(filepath.Join(root, d.Name(), "template.j2")); serr != nil || fi.IsDir() {
 				continue
 			}
-			entry := map[string]any{"name": d.Name(), "template": string(body)}
-			for key, fname := range map[string]string{"schema": "schema.json", "sample": "sample.json"} {
-				if v, ok := readBundledJSON(filepath.Join("config_templates", d.Name(), fname)); ok {
-					entry[key] = v
-				} else {
-					entry[key] = map[string]any{}
+			entry := map[string]any{"name": d.Name()}
+			if v, ok := readBundledJSON(filepath.Join("config_templates", d.Name(), "meta.json")); ok {
+				if m := asMap(v); len(m) > 0 {
+					entry["target_path"] = m["target_path"]
+					entry["source"] = m["source"]
 				}
 			}
 			templates = append(templates, entry)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"templates": templates})
+	out := map[string]any{
+		"templates": templates,
+		"detail":    "GET /api/v1/config-templates/{name} for a template's body and schema",
+	}
+	// `withheld` and the criterion, not a `shipped` count: the number shipped is len(templates), and a
+	// second field restating it is a second thing to keep true. What the listing cannot otherwise say is
+	// how many were left out and why.
+	if v, ok := readBundledJSON("config_templates_manifest.json"); ok {
+		if m := asMap(v); len(m) > 0 {
+			out["withheld"] = m["withheld"]
+			out["criterion"] = m["criterion"]
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // mgmtWizardContext backs the Roles & Features wizard: the host's OS family,

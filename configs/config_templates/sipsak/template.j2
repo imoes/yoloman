@@ -1,0 +1,229 @@
+# Ansible-generated command line for sipsak
+# sipsak is a SIP probe tool used for testing SIP servers and services.
+# This template generates the exact CLI invocation based on the `mode` variable.
+#
+# Variables are safely defaulted to prevent rendering errors if undefined in Ansible.
+# See the schema description for each variable's purpose.
+
+{% set _mode = mode | default('default') %}
+
+# --- Command Header ---
+{% if _mode == 'default' %}
+# Mode: default
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: Send a SIP OPTIONS (or custom request from file) to the target SIPURI.
+sipsak
+{% elif _mode == 'flood' %}
+# Mode: flood
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: Flood mode - Send OPTIONS requests at high pace.
+sipsak -F
+{% elif _mode == 'usrloc' %}
+# Mode: usrloc
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: USRLOC mode - Register users at a SIP registrar.
+sipsak -U
+{% elif _mode == 'traceroute' %}
+# Mode: traceroute
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: Traceroute mode - Trace the SIP path to the destination.
+sipsak -T
+{% elif _mode == 'randtrash' %}
+# Mode: randtrash
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: Random trash mode - Send corrupted messages to torture the parser.
+sipsak -R
+{% elif _mode == 'message' %}
+# Mode: message
+# Description: The operation mode for sipsak: default, flood, usrloc, traceroute, randtrash, message.
+# Behavior: Message mode - Send a short message (similar to SMS).
+sipsak -M
+{% endif %}
+
+# --- Global Options ---
+
+# Verbose level (-v). 0=normal, 1=verbose, 2=very verbose, 3=packet content.
+{% set _verbose = verbose | default(0) %}
+{% if _verbose > 0 %} -vvv{%- if _verbose == 3 %}v{%- endif %}{%- if _verbose > 3 %}v{%- endif %}{% endif %}
+
+# The target SIP URI (-s).
+{% set _sip_uri = sip_uri | default('sip:test@sip.example.com') %}
+{% if _sip_uri %} -s "{{ _sip_uri }}"{% endif %}
+
+# The remote port to connect to (-r).
+{% set _remote_port = remote_port | default(5060) %}
+{% if _remote_port != 5060 %} -r {{ _remote_port }}{% endif %}
+
+# From header URI (-c).
+{% set _from_uri = from_uri | default('') %}
+{% if _from_uri %} -c "{{ _from_uri }}"{% endif %}
+
+# Max-Forwards header value (-m).
+{% set _max_forwards = max_forwards | default(70) %}
+{% if _max_forwards %} -m {{ _max_forwards }}{% endif %}
+
+# SIP_T1 timer multiplier (-D).
+{% set _timeout_factor = timeout_factor | default(1) %}
+{% if _timeout_factor %} -D {{ _timeout_factor }}{% endif %}
+
+# SIP timer T1 in milliseconds (-Z).
+{% set _timer_t1 = timer_t1 | default(500) %}
+{% if _timer_t1 %} -Z {{ _timer_t1 }}{% endif %}
+
+# IP transport to use (-E): udp or tcp.
+{% set _transport = transport | default('udp') %}
+{% if _transport %} -E {{ _transport }}{% endif %}
+
+# Ignore redirects (-d).
+{% set _ignore_redirects = ignore_redirects | default(False) %}
+{% if _ignore_redirects %} -d{% endif %}
+
+# Deactivate Via line insertion (-i).
+{% set _no_via = no_via | default(False) %}
+{% if _no_via %} -i{% endif %}
+
+# Deactivate automatic CRLF insertion (-L).
+{% set _remove_crlf = remove_crlf | default(False) %}
+{% if _remove_crlf %} -L{% endif %}
+
+# Local port to use (-l). 0 means default/random.
+{% set _local_port = local_port | default(0) %}
+{% if _local_port %} -l {{ _local_port }}{% endif %}
+
+# Use same port for send/receive (-S).
+{% set _symmetric = symmetric | default(False) %}
+{% if _symmetric %} -S{% endif %}
+
+# Local IP address to bind to (-k).
+{% set _local_ip = local_ip | default('') %}
+{% if _local_ip %} -k "{{ _local_ip }}"{% endif %}
+
+# Override hostname detection (-H).
+{% set _hostname = hostname | default('') %}
+{% if _hostname %} -H "{{ _hostname }}"{% endif %}
+
+# Username for authentication (-u).
+{% set _auth_username = auth_username | default('') %}
+{% if _auth_username %} -u "{{ _auth_username }}"{% endif %}
+
+# Password for authentication (-a).
+{% set _password = password | default('') %}
+{% if _password %} -a "{{ _password }}"{% endif %}
+
+# Hex string for H(A1) digest auth (-J).
+{% set _autohash = autohash | default('') %}
+{% if _autohash %} -J "{{ _autohash }}"{% endif %}
+
+# Body content for MESSAGE requests (-B).
+{% set _message_body = message_body | default('') %}
+{% if _message_body %} -B "{{ _message_body }}"{% endif %}
+
+# Content-Disposition header value (-O).
+{% set _content_disposition = content_disposition | default('') %}
+{% if _content_disposition %} -O "{{ _content_disposition }}"{% endif %}
+
+# Additional headers string (-j). Use \n for multiple headers.
+{% set _additional_headers = additional_headers | default('') %}
+{% if _additional_headers %} -j "{{ _additional_headers }}"{% endif %}
+
+# Regular expression to match replies against (-q).
+{% set _search_regexp = search_regexp | default('') %}
+{% if _search_regexp %} -q "{{ _search_regexp }}"{% endif %}
+
+# Custom replacement string for $var$ patterns (-g).
+{% set _replace_string = replace_string | default('') %}
+{% if _replace_string %} -g "{{ _replace_string }}"{% endif %}
+
+# Enable automatic replacement of $dsthost$, $srchost$, etc. (-G).
+{% set _replace_auto = replace_auto | default(False) %}
+{% if _replace_auto %} -G{% endif %}
+
+# Filename to read SIP message from (-f).
+{% set _filename = filename | default('') %}
+{% if _filename %} -f "{{ _filename }}"{% endif %}
+
+# Use IP instead of FQDN in Via line (-n).
+{% set _numeric = numeric | default(True) %}
+{% if _numeric %} -n{% endif %}
+
+# Return Nagios compliant exit codes (-N).
+{% set _nagios_code = nagios_code | default(False) %}
+{% if _nagios_code %} -N{% endif %}
+
+# Return Nagios warn code if retransmissions exceed this (-W).
+{% set _warn_threshold = warn_threshold | default(0) %}
+{% if _warn_threshold %} -W {{ _warn_threshold }}{% endif %}
+
+# Print only timing values (-A).
+{% set _timing_only = timing_only | default(False) %}
+{% if _timing_only %} -A{% endif %}
+
+# --- Mode-Specific Options ---
+
+{% if _mode == 'flood' %}
+# Maximum number of messages in flood mode (-e).
+{% set _max_messages = max_messages | default(0) %}
+{% if _max_messages %} -e {{ _max_messages }}{% endif %}
+
+# Number of parallel processes (-P).
+{% set _processes = processes | default(1) %}
+{% if _processes %} -P {{ _processes }}{% endif %}
+
+# Note: In flood mode, replies are ignored. Source port 9 (discard) is used in Via.
+{% endif %}
+
+{% if _mode == 'usrloc' %}
+# Activate Invite cycles in usrloc mode (-I).
+{% set _invite_mode = invite_mode | default(False) %}
+{% if _invite_mode %} -I{% endif %}
+
+# Activate Message cycles in usrloc mode (-M).
+{% set _message_mode = message_mode | default(False) %}
+{% if _message_mode %} -M{% endif %}
+
+# Expires header value (-x).
+{% set _expires = expires | default(3600) %}
+{% if _expires %} -x {{ _expires }}{% endif %}
+
+# Contact header URI (-C).
+{% set _contact_uri = contact_uri | default('') %}
+{% if _contact_uri %} -C "{{ _contact_uri }}"{% endif %}
+
+# Sleep time in milliseconds before next cycle (-o).
+{% set _sleep_time = sleep_time | default(0) %}
+{% if _sleep_time %} -o {{ _sleep_time }}{% endif %}
+
+# Starting number for user name appendix in usrloc mode (-b).
+{% set _appendix_begin = appendix_begin | default(1) %}
+{% if _appendix_begin %} -b {{ _appendix_begin }}{% endif %}
+
+# Ending number for user name appendix in usrloc mode (-e). 0 uses default max.
+{% set _appendix_end = appendix_end | default(0) %}
+{% if _appendix_end %} -e {{ _appendix_end }}{% endif %}
+
+# Randomly remove old bindings in usrloc mode (-z).
+{% set _remove_bindings = remove_bindings | default(False) %}
+{% if _remove_bindings %} -z{% endif %}
+
+# Number of parallel processes (-P).
+{% set _processes = processes | default(1) %}
+{% if _processes %} -P {{ _processes }}{% endif %}
+
+{% endif %}
+
+{% if _mode == 'traceroute' %}
+# Extract IP from Warning header in traceroute mode (-w).
+{% set _extract_ip = extract_ip | default(False) %}
+{% if _extract_ip %} -w{% endif %}
+{% endif %}
+
+{% if _mode == 'randtrash' %}
+# Maximum trashed characters in randtrash mode (-t).
+{% set _max_trash_chars = max_trash_chars | default(0) %}
+{% if _max_trash_chars %} -t {{ _max_trash_chars }}{% endif %}
+
+# Number of parallel processes (-P).
+{% set _processes = processes | default(1) %}
+{% if _processes %} -P {{ _processes }}{% endif %}
+
+{% endif %}

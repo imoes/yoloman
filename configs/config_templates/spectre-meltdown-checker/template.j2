@@ -1,0 +1,188 @@
+# =============================================================================
+# Spectre-Meltdown-Checker Wrapper Configuration
+# =============================================================================
+# This file serves as a self-documenting wrapper configuration for the
+# spectre-meltdown-checker CLI tool. Since the tool is stateless and CLI-driven,
+# this configuration generates a command-line invocation or environment setup
+# suitable for integration into Ansible playbooks or systemd services.
+#
+# Variables used here are derived from the provided schema defaults.
+# All boolean flags are normalized to lowercase 'true'/'false' or shell-compatible
+# empty strings if appropriate for the target usage (here, we use explicit flags).
+# =============================================================================
+
+# Operating mode: 'live' for current kernel inspection, 'offline' for specified kernel files.
+# Default: live
+{% if mode | default('live') == "offline" %}
+# -----------------------------------------------------------------------------
+# Offline Inspection Mode
+# -----------------------------------------------------------------------------
+# When mode is 'offline', the checker operates on static kernel files rather
+# than the currently running kernel. Provide paths to the artifacts below.
+# If specific paths are not provided, they default to standard boot directory
+# structures based on the kernel_version.
+
+# Path to the kernel image file (e.g., /boot/vmlinuz-<version>)
+# Default: /boot/vmlinuz-<kernel_version>
+# If empty, falls back to /boot/vmlinuz-<kernel_version>
+kernel_image: {{ kernel_image | default('/boot/vmlinuz-' + (kernel_version | default('0.0.0'))) }}
+
+# Path to the kernel configuration file (e.g., /boot/config-<version>)
+# Default: /boot/config-<kernel_version>
+# If empty, falls back to /boot/config-<kernel_version>
+kernel_config: {{ kernel_config | default('/boot/config-' + (kernel_version | default('0.0.0'))) }}
+
+# Path to the kernel System.map file (e.g., /boot/System.map-<version>)
+# Default: /boot/System.map-<kernel_version>
+# If empty, falls back to /boot/System.map-<kernel_version>
+kernel_map: {{ kernel_map | default('/boot/System.map-' + (kernel_version | default('0.0.0'))) }}
+
+{% else %}
+# -----------------------------------------------------------------------------
+# Live Inspection Mode
+# -----------------------------------------------------------------------------
+# In 'live' mode (default), the tool inspects the currently running kernel
+# via /proc and /sys interfaces. Offline paths are ignored.
+# Mode: {{ mode | default('live') }}
+
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# General Behavior Settings
+# -----------------------------------------------------------------------------
+
+# Increase verbosity level (produce more detailed output)
+# Default: false
+# Note: In live mode or when using the wrapper, this flag enables verbose output.
+flag_verbose: {{ verbose | default(False) | ternary('--verbose', '') }}
+
+# Disable color codes in output (useful for logging/piping)
+# Default: false
+flag_no_color: {{ no_color | default(False) | ternary('--no-color', '') }}
+
+# Produce additional human-readable explanation of mitigation actions
+# Default: false
+flag_explain: {{ explain | default(False) | ternary('--explain', '') }}
+
+# -----------------------------------------------------------------------------
+# Safety and Privilege Settings
+# -----------------------------------------------------------------------------
+
+# Require stricter mitigations (IBPB, SMT disabled, L1D flush checks)
+# Warning: This may flag systems as vulnerable that are considered safe under
+# normal operating conditions. Use with caution.
+# Default: false
+flag_paranoid: {{ paranoid | default(False) | ternary('--paranoid', '') }}
+
+# Don't use the /sys interface even if present.
+# Useful if /sys is not mounted or inaccessible.
+# Default: false
+flag_no_sysfs: {{ no_sysfs | default(False) | ternary('--no-sysfs', '') }}
+
+# Allow probing for write-only MSRs (Model-Specific Registers).
+# NOTE: This can produce kernel logs (dmesg) and may have side effects on
+# some hardware. Only enable if necessary and understood.
+# Default: false
+flag_allow_msr_write: {{ allow_msr_write | default(False) | ternary('--allow-msr-write', '') }}
+
+# -----------------------------------------------------------------------------
+# Hypervisor Detection Override
+# -----------------------------------------------------------------------------
+# Override automatic hypervisor detection.
+# Options:
+#   auto  - Detect automatically (default)
+#   yes   - Assume running under a hypervisor
+#   no    - Assume bare metal
+vmm_override: {{ vmm | default('auto') }}
+flag_vmm_override: {% if vmm | default('auto') != 'auto' %}--vmm {{ vmm | default('auto') }}{% endif %}
+
+# -----------------------------------------------------------------------------
+# CPU Core Selection
+# -----------------------------------------------------------------------------
+# Interact with CPUID and MSR of a specific CPU core number (0-N) or 'all'.
+# Default: 0
+cpu_core: {{ cpu_core | default('0') }}
+flag_cpu_core: {% if cpu_core | default('0') != '0' %}--cpu-core {{ cpu_core | default('0') }}{% endif %}
+
+# -----------------------------------------------------------------------------
+# Variant Filtering
+# -----------------------------------------------------------------------------
+# List of specific Spectre/Meltdown variants to check.
+# If empty, ALL supported variants are checked.
+# Supported variants: 1, 1a, 1b, 1c, 2, 3a, 3b, l1tf, mds, mmio,
+#                     itlb_multihit, speculation_control, retbleed, sbpb
+# Output: Space-separated list of variants to pass as --variants
+variants_to_check: {{ variants | default([]) | join(' ') }}
+{% if variants | default([]) | length > 0 %}
+flag_variants: --variants {{ variants | default([]) | join(' ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# CVE Filtering
+# -----------------------------------------------------------------------------
+# List of specific CVEs to check.
+# If empty, ALL known CVEs are checked.
+# Output: Space-separated list of CVEs to pass as --cves
+cves_to_check: {{ cves | default([]) | join(' ') }}
+{% if cves | default([]) | length > 0 %}
+flag_cves: --cves {{ cves | default([]) | join(' ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Output Format
+# -----------------------------------------------------------------------------
+# Defines the structure of the checker's output.
+# Options:
+#   normal   - Human-readable text (default)
+#   json     - Machine-readable JSON
+#   nrpe     - Nagios NRPE compatible output
+#   prometheus - Prometheus exposition format
+#   short    - Short single-line summary
+output_format: {{ output_format | default('normal') }}
+{% if output_format | default('normal') != 'normal' %}
+flag_output_format: --output-format {{ output_format | default('normal') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Cross-Architecture Inspection
+# -----------------------------------------------------------------------------
+# Prefix for inspecting a kernel of a different architecture (e.g., 'arm64-'
+# when running on x86_64).
+# Default: empty (no prefix)
+arch_prefix: {{ arch_prefix | default('') }}
+
+# -----------------------------------------------------------------------------
+# CoreOS Specific
+# -----------------------------------------------------------------------------
+# Use ephemeral toolbox for inspection on CoreOS/Flatcar systems.
+# Default: false
+flag_coreos: {{ coreos | default(False) | ternary('--coreos', '') }}
+
+# -----------------------------------------------------------------------------
+# Firmware Database Update
+# -----------------------------------------------------------------------------
+# Update the local copy of CPU microcodes versions database before checking.
+# Requires network access and appropriate permissions.
+# Default: false
+flag_update_fwdb: {{ update_fwdb | default(False) | ternary('--update-fwdb', '') }}
+
+# =============================================================================
+# Generated Command Line (for reference or execution)
+# =============================================================================
+# The following line represents the full command to run spectre-meltdown-checker
+# with the configured parameters.
+#
+# spectre-meltdown-checker \
+#   {% if kernel_image | default('/boot/vmlinuz-' + (kernel_version | default('0.0.0'))) | length > 0 %}--kernel-image {{ kernel_image | default('/boot/vmlinuz-' + (kernel_version | default('0.0.0'))) }} {% endif %}
+#   {% if kernel_config | default('/boot/config-' + (kernel_version | default('0.0.0'))) | length > 0 %}--kernel-config {{ kernel_config | default('/boot/config-' + (kernel_version | default('0.0.0'))) }} {% endif %}
+#   {% if kernel_map | default('/boot/System.map-' + (kernel_version | default('0.0.0'))) | length > 0 %}--kernel-map {{ kernel_map | default('/boot/System.map-' + (kernel_version | default('0.0.0'))) }} {% endif %}
+#   {{ flag_verbose | default('') }} {{ flag_no_color | default('') }} {{ flag_explain | default('') }}
+#   {{ flag_paranoid | default('') }} {{ flag_no_sysfs | default('') }} {{ flag_allow_msr_write | default('') }}
+#   {% if vmm | default('auto') != 'auto' %}{{ flag_vmm_override | default('') }} {% endif %}
+#   {% if cpu_core | default('0') != '0' %}{{ flag_cpu_core | default('') }} {% endif %}
+#   {% if variants | default([]) | length > 0 %}{{ flag_variants | default('') }} {% endif %}
+#   {% if cves | default([]) | length > 0 %}{{ flag_cves | default('') }} {% endif %}
+#   {% if output_format | default('normal') != 'normal' %}{{ flag_output_format | default('') }} {% endif %}
+#   {% if arch_prefix | default('') | length > 0 %}--arch-prefix {{ arch_prefix | default('') }} {% endif %}
+#   {{ flag_coreos | default('') }} {{ flag_update_fwdb | default('') }}
+# =============================================================================

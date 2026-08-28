@@ -1,0 +1,27 @@
+# pyWPS WSGI Application Configuration
+# This block configures Apache's mod_wsgi to serve the pyWPS WPS application.
+# It defines the URL alias and the directory access rules for the script files.
+
+# WSGIScriptAlias: Maps a URL path prefix to the WSGI script file.
+# Requests starting with the alias path will be handled by the specified script.
+# Variable: wsgi_script_alias_path
+# Description: The URL path prefix for the WSGI application alias.
+WSGIScriptAlias {{ wsgi_script_alias_path | default('/pywps') }} {{ wsgi_script_path | default('/usr/share/pywps/wps.py') }}
+
+# <Directory> block: Defines access controls for the directory containing the WSGI script.
+# Variable: wsgi_directory_path
+# Description: The file system path to the directory containing the WSGI script.
+<Directory "{{ wsgi_directory_path | default('/usr/share/pywps') }}">
+    # AllowOverride: Prevents .htaccess files from overriding this configuration.
+    # This is a security best practice to ensure the server's config is authoritative.
+    AllowOverride None
+
+    # Options: Controls which server features are enabled for this directory.
+    # -MultiViews: Prevents content negotiation from hiding the WSGI script extension.
+    # +SymLinksIfOwnerMatch: Allows symbolic links only if the target's owner matches the link's owner.
+    Options -MultiViews +SymLinksIfOwnerMatch
+
+    # Require: Defines who is allowed to access the directory.
+    # "all granted" allows access to any client. In production, consider restricting this.
+    Require all granted
+</Directory>

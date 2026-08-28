@@ -1,0 +1,101 @@
+# QEMU System ARM Configuration Template
+# This template generates the command-line arguments for qemu-system-arm.
+# It is self-documenting: every directive is preceded by a comment describing
+# its purpose and the corresponding schema field.
+
+# --machine: Select the emulated machine type and its properties.
+# Schema: machine_type, machine_accel, smp_cpus, smp_maxcpus
+# Properties: accel, smp, etc.
+-machine {{ (machine_type | default('virt')) }},accel={{ (machine_accel | default('tcg')) }},smp={{ (smp_cpus | default(1)) }},maxcpus={{ (smp_maxcpus | default(1)) }}
+
+# --m: Set guest startup RAM size.
+# Schema: memory_size
+-m {{ (memory_size | default('128M')) }}
+
+# --drive: Define the primary hard disk image.
+# Schema: disk_image_path, disk_interface, disk_cache, disk_media
+# Parameters: file, if (interface), cache, media.
+-drive file={{ (disk_image_path | default('/var/lib/qemu/arm-disk.img')) }},if={{ (disk_interface | default('sd')) }},cache={{ (disk_cache | default('writethrough')) }},media={{ (disk_media | default('disk')) }}
+
+# --boot: Specify boot order and behavior.
+# Schema: boot_order, boot_menu_enabled, boot_strict
+# Parameters: order, once, menu, strict.
+-boot order={{ (boot_order | default('d')) }},menu={{ (boot_menu_enabled | default(False) | ternary('on','off')) }},strict={{ (boot_strict | default(False) | ternary('on','off')) }}
+
+# --kernel: Specify the kernel image for direct boot.
+# Schema: kernel_path
+-kernel {{ (kernel_path | default('/boot/vmlinuz')) }}
+
+# --append: Specify the kernel command line arguments.
+# Schema: kernel_cmdline
+# These are passed directly to the guest kernel.
+-append "{{ (kernel_cmdline | default('console=ttyAMA0,115200')) }}"
+
+# --initrd: Specify the initial RAM disk image.
+# Schema: initrd_path
+-initrd {{ (initrd_path | default('/boot/initrd.img')) }}
+
+# --display: Select the display type for the guest graphics output.
+# Schema: display_type, display_params
+# Parameters: type (gtk, sdl, vnc, none, etc.).
+{% set disp_type = (display_type | default('none')) %}
+{% set disp_params = (display_params | default('')) %}
+{% if disp_type != 'none' %}
+-display {{ disp_type }},{{ disp_params }}
+{% endif %}
+
+# --nographic: Disable graphical output and redirect serial ports to console.
+# Schema: no_graphic
+# This is a flag; if true, it overrides display options in many cases.
+{% if (no_graphic | default(True)) %}
+-nographic
+{% endif %}
+
+# --enable-kvm: Enable KVM acceleration if available.
+# Schema: enable_kvm
+# This requires the host to support KVM.
+{% if (enable_kvm | default(False)) %}
+-enable-kvm
+{% endif %}
+
+# --cpu: Select the CPU model.
+# Schema: cpu_model
+-cpu {{ (cpu_model | default('cortex-a15')) }}
+
+# --netdev: Configure the host network backend.
+# Schema: network_backends
+# Parameters: id, type (user, tap, etc.), and type-specific options.
+{% for netdev in (network_backends | default([])) %}
+-netdev {{ (netdev.type | default('user')) }},id={{ (netdev.id | default('')) }}{% for key, value in (netdev.options | default({})) | dict2items %},{{ key }}={{ value }}{% endfor %}
+{% endfor %}
+
+# --device: Add a network device connected to a netdev.
+# Schema: nics
+# Parameters: driver, netdev, mac (mac address).
+{% for nic in (nics | default([])) %}
+-device {{ (nic.driver | default('virtio-net-pci')) }},netdev={{ (nic.netdev_id | default('')) }},mac={{ (nic.mac_address | default('')) }}
+{% endfor %}
+
+# --serial: Configure serial port redirection.
+# Schema: serial_config
+# Parameters: dev (stdio, vc, none, etc.).
+-serial {{ (serial_config | default('stdio')) }}
+
+# --name: Set the name of the guest.
+# Schema: guest_name
+-name {{ (guest_name | default('qemu-arm-vm')) }}
+
+# --uuid: Set the system UUID.
+# Schema: system_uuid
+-uuid {{ (system_uuid | default('')) }}
+
+# --semihosting: Enable semihosting support for ARM targets.
+# Schema: enable_semihosting
+# This allows the guest to make system calls to the host.
+{% if (enable_semihosting | default(False)) %}
+-semihosting-config target=native,enable=on
+{% endif %}
+
+# --dtb: Specify the device tree binary file.
+# Schema: dtb_path
+-dtb {{ (dtb_path | default('')) }}

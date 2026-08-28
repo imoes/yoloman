@@ -1,0 +1,74 @@
+# ============================================================================
+# pgpgpg Configuration Template
+# ============================================================================
+# This configuration file serves as a centralized defaults store for the
+# pgpgpg wrapper utility (a wrapper around GnuPG).
+#
+# IMPORTANT NOTE ON pgpgpg ARCHITECTURE:
+# pgpgpg is primarily a command-line wrapper. It does NOT natively parse a
+# single configuration file for all options like 'encrypt=true'. Instead,
+# this template generates a configuration that would typically be sourced
+# by a wrapper script or used by a higher-level service orchestration layer
+# to inject default arguments into pgpgpg CLI invocations.
+#
+# The fields below correspond to specific GnuPG options or pgpgpg-specific
+# overrides (some of which may be ignored by the underlying GnuPG version
+# but are maintained for compatibility/auditing).
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. Identity & Signing Configuration
+# ----------------------------------------------------------------------------
+
+# The User ID to use for signing and encryption operations.
+# Corresponds to the -u or +myname argument in pgpgpg.
+# This identifies the private key to use for signatures.
+pgp_user = {{ (values | default({})).pgp_user | default('default_user') }}
+
+# ----------------------------------------------------------------------------
+# 2. Keyring Paths
+# ----------------------------------------------------------------------------
+
+# Path to the public keyring file.
+# Corresponds to the undocumented +pubring argument.
+# Used when listing keys or verifying signatures where public keys are needed.
+pubring = {{ (values | default({})).pubring | default('/usr/share/pgpgpg/pubring.gpg') }}
+
+# Path to the secret keyring file.
+# Corresponds to the undocumented +secring argument.
+# Used for operations requiring private keys (signing, decryption).
+# Ensure file permissions restrict access to the pgp_user.
+secring = {{ (values | default({})).secring | default('/etc/pgpgpg/secring.gpg') }}
+
+# Default keyring file to operate on if not specified in the command.
+# Corresponds to the [keyring] argument.
+# If both pubring and default_keyring are set, default_keyring takes precedence
+# for general operations unless explicitly overridden by CLI.
+default_keyring = {{ (values | default({})).default_keyring | default('/usr/share/pgpgpg/pubring.gpg') }}
+
+# ----------------------------------------------------------------------------
+# 3. Operational Flags
+# ----------------------------------------------------------------------------
+
+# Enable batch mode.
+# Corresponds to the undocumented +batchmode argument.
+# Note: The pgpgpg man page lists this option, but it is currently
+# ignored/unsupported by the underlying implementation.
+# Set to true for scripts to suppress interactive prompts where possible.
+batch_mode = {{ (values | default({})).batch_mode | default(False) | ternary('true', 'false') }}
+
+# Enable ASCII armor for output.
+# Corresponds to the -a or +armor argument.
+# When enabled, binary GnuPG output is encoded in ASCII text (Base64).
+# Useful for email transmission or text-based storage.
+armor = {{ (values | default({})).armor | default(False) | ternary('true', 'false') }}
+
+# ----------------------------------------------------------------------------
+# 4. Default Recipients
+# ----------------------------------------------------------------------------
+
+# List of default recipient User IDs for encryption operations.
+# Corresponds to the 'user ...' argument in pgpgpg -e.
+# Multiple recipients should be space-separated in the rendered output.
+# If empty, pgpgpg will likely prompt for recipients or fail.
+default_recipients = {{ (values | default({})).default_recipients | default([]) | join(' ') }}

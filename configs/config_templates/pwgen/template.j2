@@ -1,0 +1,134 @@
+# =============================================================================
+# pwgen Wrapper Configuration & Script Generator
+# =============================================================================
+#
+# This Jinja2 template generates a shell wrapper script that enforces consistent
+# password generation parameters for the `pwgen` utility.
+#
+# `pwgen` is primarily a CLI utility with no native persistent configuration file.
+# This template abstracts the configuration into a structured format and renders
+# a bash script that constructs the appropriate command-line flags based on the
+# provided schema values.
+#
+# The generated script uses `exec pwgen ...` to replace the shell process with
+# pwgen, ensuring correct exit codes and signal handling.
+#
+# =============================================================================
+
+# --- Configuration Defaults ---
+
+# Length of each generated password.
+# Corresponds to the positional argument [pw_length] in SYNOPSIS.
+# Default: 16 characters.
+pw_length = {{ (config | default({})).pw_length | default(16) }}
+
+# Number of passwords to generate per execution.
+# Corresponds to the positional argument [num_pw] and -N/--num-passwords option.
+# Default: 1 password.
+num_passwords = {{ (config | default({})).num_passwords | default(1) }}
+
+# Include at least one number in the generated password.
+# Corresponds to -n/--numerals.
+# Default: true.
+include_numerals = {{ (config | default({})).include_numerals | default(true) | lower }}
+
+# Include at least one uppercase letter in the generated password.
+# Corresponds to -c/--capitalize.
+# Default: true.
+include_capitals = {{ (config | default({})).include_capitals | default(true) | lower }}
+
+# Include at least one special character (symbol) in the generated password.
+# Corresponds to -y/--symbols.
+# Default: false.
+include_symbols = {{ (config | default({})).include_symbols | default(false) | lower }}
+
+# Generate completely random, hard-to-memorize passwords.
+# If false, pwgen uses a pronounceable/phonetic algorithm.
+# Corresponds to -s/--secure.
+# Default: false.
+secure_mode = {{ (config | default({})).secure_mode | default(false) | lower }}
+
+# Do not use characters that could be confused visually (e.g., l/1, 0/O).
+# Corresponds to -B/--ambiguous.
+# Default: false.
+remove_ambiguous = {{ (config | default({})).remove_ambiguous | default(false) | lower }}
+
+# Specific characters to exclude from the password pool.
+# Corresponds to -r/--remove-chars.
+# Items are individual characters joined into a single string.
+# Default: empty list.
+excluded_chars = {{ ((config | default({})).excluded_chars | default([])) | join('') }}
+
+# Print generated passwords one per line.
+# Corresponds to -1.
+# Default: true.
+one_per_line = {{ (config | default({})).one_per_line | default(true) | lower }}
+
+# =============================================================================
+# Generated Shell Wrapper Script
+# =============================================================================
+
+#!/bin/bash
+
+# Construct the options string based on boolean flags from the configuration.
+# Note: pwgen flags are additive where specified, but we map them explicitly
+# to the boolean configuration values.
+
+OPTIONS=""
+
+# Handle Numerals (-n) vs Zeroes (-0)
+# pwgen uses -n for numbers. Some older versions or specific builds might
+# use -0 for "no numbers", but standard pwgen uses -n for "include numbers".
+# If include_numerals is false, we do NOT pass -n. We assume the default
+# behavior (pronounceable) does not include numbers unless -n is present.
+{% if (config | default({})).include_numerals | default(true) %}
+OPTIONS+="-n "
+{% endif %}
+
+# Handle Capitals (-c)
+# -c forces at least one capital letter.
+{% if (config | default({})).include_capitals | default(true) %}
+OPTIONS+="-c "
+{% endif %}
+
+# Handle Symbols (-y)
+# -y forces at least one special character.
+{% if (config | default({})).include_symbols | default(false) %}
+OPTIONS+="-y "
+{% endif %}
+
+# Handle Secure Mode (-s)
+# -s forces completely random passwords (non-pronounceable).
+{% if (config | default({})).secure_mode | default(false) %}
+OPTIONS+="-s "
+{% endif %}
+
+# Handle Ambiguous Characters Removal (-B)
+# -B removes ambiguous characters like 'l' and '1'.
+{% if (config | default({})).remove_ambiguous | default(false) %}
+OPTIONS+="-B "
+{% endif %}
+
+# Handle Excluded Characters (-r)
+# -r takes a string of characters to exclude.
+{% if ((config | default({})).excluded_chars | default([]) | length) > 0 %}
+OPTIONS+="-r '{{ ((config | default({})).excluded_chars | default([])) | join('') }}' "
+{% endif %}
+
+# Handle One Per Line (-1)
+# -1 outputs one password per line.
+{% if (config | default({})).one_per_line | default(true) %}
+OPTIONS+="-1 "
+{% endif %}
+
+# =============================================================================
+# Execution
+# =============================================================================
+
+# Execute pwgen with the constructed options.
+# Arguments:
+#   $OPTIONS  : The accumulated flag string (e.g., "-n -c -1 ")
+#   {{ (config | default({})).pw_length | default(16) }} : Password length
+#   {{ (config | default({})).num_passwords | default(1) }} : Number of passwords
+
+exec pwgen $OPTIONS {{ (config | default({})).pw_length | default(16) }} {{ (config | default({})).num_passwords | default(1) }}

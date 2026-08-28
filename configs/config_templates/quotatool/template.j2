@@ -1,0 +1,45 @@
+# quotatool configuration
+# Set the filesystem (mount point or block device) to manage quotas on
+# Quotatool applies quotas to a specific mounted filesystem or block device.
+FILESYSTEM={{ filesystem | default('/home') }}
+
+# Set the quota type: 'user' for -u, 'group' for -g
+# Determines whether the quota applies to users or groups.
+QUOTA_TYPE={{ quota_type | default('user') }}
+
+# Specify the target user or group name/id
+# For numerical ids not in passwd/group, prepend ':' (e.g. ':12345')
+TARGET={{ target | default('root') }}
+
+# Set quota dimension: 'block' for -b (default), 'inode' for -i
+# Block refers to disk space usage; inode refers to file count.
+DIMENSION={{ dimension | default('block') }}
+
+# Set the hard limit for the quota
+# Supports modifiers like Kb, Mb, Gb, Tb, bytes, blocks.
+# This is the absolute maximum usage allowed.
+HARD_LIMIT={{ hard_limit | default('1.2G') }}
+
+# Set the soft limit (quota) for the quota
+# Supports modifiers like Kb, Mb, Gb, Tb, bytes, blocks.
+# This is the threshold above which the grace period begins.
+SOFT_LIMIT={{ soft_limit | default('800M') }}
+
+# Set the grace period for the quota
+# Supports modifiers like seconds, minutes, hours, days, weeks, months.
+# Can also be set to 'reset' to clear previous grace periods.
+GRACE_PERIOD={{ grace_period | default('1 week') }}
+
+# If true, only raise quotas, never lower them (-R flag)
+# This prevents accidental reduction of limits.
+# Requires boolean conversion: 'true'/'false' or 1/0.
+RAISE_ONLY={{ raise_only | default(false) | bool | lower }}
+
+# If true, perform a dry-run (-n flag) to show what would be done
+# No changes will be made to the system.
+# Requires boolean conversion: 'true'/'false' or 1/0.
+DRY_RUN={{ dry_run | default(false) | bool | lower }}
+
+# Verbosity level: 0 for quiet, 1 for verbose (-v), 2 for debug (-v -v)
+# Controls the amount of output printed to stdout.
+VERBOSITY={{ verbosity | default(0) }}

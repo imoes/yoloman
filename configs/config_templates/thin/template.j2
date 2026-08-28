@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+# INIT SCRIPT: thin
+# DESCRIPTION: System-V compatible init script for the 'thin' Ruby application server.
+#              Thin is a fast Ruby web server built on the EventMachine library.
+#              This script manages the Thin process group for a specific Ruby version.
+#
+### BEGIN INIT INFO
+# Provides:          thin
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:      2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: thin initscript
+# Description:       thin
+### END INIT INFO
+
+# Original author: Forrest Robertson
+
+# Do NOT "set -e"
+
+# Path to the thin executable
+DAEMON=/usr/bin/thin
+# Path to this init script itself
+SCRIPT_NAME=/etc/init.d/thin
+
+# Exit if the package is not installed or daemon is not executable
+[ -x "$DAEMON" ] || exit 0
+
+#
+# FUNCTION: run_action
+# EXECUTION: Runs the specified action (start/stop/restart) for Thin.
+#            It verifies the required Ruby interpreter exists before launching.
+#
+run_action() {
+        ACTION="$1"
+	
+        # Verify that the specific Ruby version binary is available on the system.
+        # This prevents failures if the Ruby version configured for Thin is not installed.
+		if [ -x /usr/bin/ruby{{ ruby_version | default('3.3') }} ]; then
+		    # Launch Thin with the specified action and configuration directory.
+		    # The configuration directory matches the Ruby version (e.g., /etc/thin3.3)
+		    /usr/bin/ruby{{ ruby_version | default('3.3') }} $DAEMON $ACTION --all /etc/thin{{ ruby_version | default('3.3') }}
+		fi
+	
+}
+
+case "$1" in
+  start)
+	run_action start
+	;;
+  stop)
+	run_action stop
+	;;
+  restart|force-reload|reload)
+	run_action restart
+	;;
+  *)
+	echo "Usage: $SCRIPT_NAME {start|stop|restart}" >&2
+	exit 3
+	;;
+esac

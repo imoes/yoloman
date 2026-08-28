@@ -3,7 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { ParamFormComponent } from '../param-form/param-form.component';
 import { ParamSchema } from '../param-form/param-form.types';
-import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from '../../core/services/resources.service';
+import { ApplyResult, ResourceGeneration, ResourceKind, ResourcePlan, ResourceRef, ResourceService } from '../../core/services/resource.service';
 import { descriptorFor } from './resource-node-registry';
 
 /**
@@ -84,7 +84,7 @@ import { descriptorFor } from './resource-node-registry';
               <span class="bm-rn-gn">#{{ g.generation }}</span>
               <span>{{ specSummary(g.spec) }}</span>
               @if (g.note) { <span class="bm-dim">· {{ g.note }}</span> }
-              <span class="bm-dim bm-rn-gt">{{ g.applied_at }}</span>
+              <span class="bm-dim bm-rn-gt">{{ g.created_at }}</span>
               <button mat-button (click)="doRollback(g.generation)" [disabled]="busy()">Rollback</button>
             </div>
           }
@@ -118,7 +118,14 @@ import { descriptorFor } from './resource-node-registry';
   `],
 })
 export class ResourceNodeComponent implements OnInit {
-  private svc = inject(ResourcesService);
+  private svc = inject(ResourceService);
+
+  /** One identity object instead of four positional arguments repeated per call —
+   *  the protocol addresses a resource by (host, kind, name, namespace). */
+  private ref(): ResourceRef {
+    return { agentId: this.agentId(), kind: this.kind() as ResourceKind,
+             name: this.name(), namespace: this.namespace() };
+  }
   agentId = input.required<string>();
   name = input.required<string>();
   kind = input<string>('docker');            // docker | helm | config | role
@@ -212,24 +219,23 @@ export class ResourceNodeComponent implements OnInit {
     const [id, k, n, ns] = [this.agentId(), this.kind(), this.name(), this.namespace()];
     // config has no /schema route — its schema rides along with observe.
     if (k !== 'config') {
-      this.svc.schema(id, k, n, ns).subscribe({
-        next: (s) => this.schema.set((s.schema || {}) as ParamSchema),
+      this.svc.schema({ agentId: id, kind: k as ResourceKind, name: n, namespace: ns }).subscribe({
+        next: (s) => this.schema.set(s ?? ({} as ParamSchema)),
         error: (e) => this.err.set(e?.error?.detail || 'schema failed'),
       });
     }
-    this.svc.observe(id, k, n, ns).subscribe({
+    this.svc.observe({ agentId: id, kind: k as ResourceKind, name: n, namespace: ns }).subscribe({
       next: (o) => {
         this.loading.set(false);
-        this.observed.set(o.observed);
-        if (o.schema) this.schema.set(o.schema as ParamSchema);
+        this.observed.set(o);
       },
       error: (e) => { this.loading.set(false); this.err.set(e?.error?.detail || 'observe failed'); },
     });
     this.loadGenerations();
   }
   private loadGenerations(): void {
-    this.svc.generations(this.agentId(), this.kind(), this.name(), this.namespace()).subscribe({
-      next: (r) => this.generations.set(r.generations || []), error: () => {},
+    this.svc.generations(this.ref()).subscribe({
+      next: (gs) => this.generations.set(gs || []), error: () => {},
     });
   }
 
@@ -255,14 +261,14 @@ export class ResourceNodeComponent implements OnInit {
 
   doPlan(): void {
     this.busy.set(true); this.msg.set(''); this.plan.set(null);
-    this.svc.plan(this.agentId(), this.kind(), this.name(), this.desired(), this.namespace()).subscribe({
+    this.svc.plan(this.ref(), this.desired()).subscribe({
       next: (p) => { this.busy.set(false); this.plan.set(p); },
       error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail || 'plan failed'); },
     });
   }
   doApply(): void {
     this.busy.set(true); this.msg.set('');
-    this.svc.apply(this.agentId(), this.kind(), this.name(), this.desired(), false, undefined, this.namespace()).subscribe({
+    this.svc.apply(this.ref(), this.desired(), false).subscribe({
       next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, this.kind() === 'role' ? 'Bound' : 'Applied'); },
       error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'apply failed'); },
     });
@@ -270,7 +276,7 @@ export class ResourceNodeComponent implements OnInit {
   /** role tier: remove this host's binding (counterpart of Bind). */
   doUnbind(): void {
     this.busy.set(true); this.msg.set('');
-    this.svc.unbind(this.agentId(), this.name()).subscribe({
+    this.svc.unbind(this.ref()).subscribe({
       next: (r) => {
         this.busy.set(false);
         if (r.ok) { this.setMsg(true, `Unbound (${r.unbound ?? 0} link${r.unbound === 1 ? '' : 's'}).`); this.plan.set(null); this.reload(); }
@@ -281,7 +287,7 @@ export class ResourceNodeComponent implements OnInit {
   }
   doRollback(gen: number): void {
     this.busy.set(true); this.msg.set('');
-    this.svc.rollback(this.agentId(), this.kind(), this.name(), gen, this.namespace()).subscribe({
+    this.svc.rollback(this.ref(), gen).subscribe({
       next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, `Rolled back to #${gen}`); },
       error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'rollback failed'); },
     });

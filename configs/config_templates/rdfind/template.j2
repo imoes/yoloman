@@ -1,0 +1,205 @@
+# ============================================================================
+# rdfind Configuration Template
+# ============================================================================
+# NOTE: rdfind is a command-line utility and does not read a static configuration
+# file. This template serves two purposes:
+# 1. It documents the available parameters and their defaults.
+# 2. It constructs the final `rdfind` command line with only non-default arguments
+#    (to keep the command concise and idempotent where possible, thoughrdfind
+#     behavior depends on the args passed).
+#
+# Variables referenced here must be defined in the Ansible inventory or role vars.
+# All variables use `| default(...)` to ensure safe rendering even if undefined.
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Scan Paths
+# --------------------------------------------------------------------------
+# List of directories or file paths to scan for duplicates.
+# Corresponds to positional arguments at the end of the rdfind command.
+# Default: [] (empty list)
+# --------------------------------------------------------------------------
+# paths_to_scan = {{ paths_to_scan | default([]) | join(' ') }}
+
+# --------------------------------------------------------------------------
+# ignore_empty
+# --------------------------------------------------------------------------
+# Whether to ignore empty files (equivalent to -minsize 1).
+# Corresponds to: -ignoreempty true|false
+# Default: true
+# --------------------------------------------------------------------------
+# ignore_empty = {{ ignore_empty | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# min_size
+# --------------------------------------------------------------------------
+# Minimum file size in bytes to consider.
+# Corresponds to: -minsize N
+# Default: 1
+# --------------------------------------------------------------------------
+# min_size = {{ min_size | default(1) }}
+
+# --------------------------------------------------------------------------
+# max_size
+# --------------------------------------------------------------------------
+# Maximum file size in bytes to consider. 0 disables this check.
+# Corresponds to: -maxsize N
+# Default: 0
+# --------------------------------------------------------------------------
+# max_size = {{ max_size | default(0) }}
+
+# --------------------------------------------------------------------------
+# follow_symlinks
+# --------------------------------------------------------------------------
+# Whether to follow symbolic links during the scan.
+# Corresponds to: -followsymlinks true|false
+# Default: false
+# --------------------------------------------------------------------------
+# follow_symlinks = {{ follow_symlinks | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# remove_ident_inode
+# --------------------------------------------------------------------------
+# Remove items with identical inode and device ID (hard links to the same file).
+# Corresponds to: -removeidentinode true|false
+# Default: true
+# --------------------------------------------------------------------------
+# remove_ident_inode = {{ remove_ident_inode | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# checksum_algorithm
+# --------------------------------------------------------------------------
+# Checksum algorithm to use for content comparison.
+# Supported values: md5, sha1, sha256, sha512.
+# Corresponds to: -checksum md5|sha1|sha256|sha512
+# Default: sha1
+# --------------------------------------------------------------------------
+# checksum_algorithm = {{ checksum_algorithm | default('sha1') }}
+
+# --------------------------------------------------------------------------
+# deterministic
+# --------------------------------------------------------------------------
+# Enable deterministic sorting for files of equal rank.
+# Corresponds to: -deterministic true|false
+# Default: true
+# --------------------------------------------------------------------------
+# deterministic = {{ deterministic | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# make_symlinks
+# --------------------------------------------------------------------------
+# Replace duplicates with symbolic links instead of deleting them.
+# Corresponds to: -makesymlinks true|false
+# Default: false
+# --------------------------------------------------------------------------
+# make_symlinks = {{ make_symlinks | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# make_hardlinks
+# --------------------------------------------------------------------------
+# Replace duplicates with hard links instead of deleting them.
+# Corresponds to: -makehardlinks true|false
+# Default: false
+# --------------------------------------------------------------------------
+# make_hardlinks = {{ make_hardlinks | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# make_results_file
+# --------------------------------------------------------------------------
+# Generate a results file listing the found duplicates.
+# Corresponds to: -makeresultsfile true|false
+# Default: true
+# --------------------------------------------------------------------------
+# make_results_file = {{ make_results_file | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# results_file_name
+# --------------------------------------------------------------------------
+# Filename for the results file (written in the current working directory).
+# Corresponds to: -outputname name
+# Default: results.txt
+# --------------------------------------------------------------------------
+# results_file_name = {{ results_file_name | default('results.txt') }}
+
+# --------------------------------------------------------------------------
+# delete_duplicates
+# --------------------------------------------------------------------------
+# Delete (unlink) duplicate files. Use with extreme caution.
+# Corresponds to: -deleteduplicates true|false
+# Default: false
+# --------------------------------------------------------------------------
+# delete_duplicates = {{ delete_duplicates | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# sleep_ms
+# --------------------------------------------------------------------------
+# Milliseconds to sleep between reading files to reduce system load.
+# Supported values: 0, 1-5, 10, 25, 50, 100.
+# Corresponds to: -sleep Xms
+# Default: 0
+# --------------------------------------------------------------------------
+# sleep_ms = {{ sleep_ms | default(0) }}
+
+# --------------------------------------------------------------------------
+# dry_run
+# --------------------------------------------------------------------------
+# Display what would be done without performing any actions.
+# Corresponds to: -dryrun true|false
+# Default: false
+# --------------------------------------------------------------------------
+# dry_run = {{ dry_run | default(false) | lower }}
+
+# ============================================================================
+# Command Construction
+# ============================================================================
+# This block generates the actual rdfind command. Only arguments that differ
+# from their schema defaults are included to keep the command clean.
+#
+# Structure:
+#   rdfind [flags] <paths>
+# ============================================================================
+
+COMMAND = rdfind \
+{% if not (ignore_empty | default(true)) %}
+  -ignoreempty false \
+{% endif %}
+{% if (min_size | default(1)) != 1 %}
+  -minsize {{ min_size | default(1) }} \
+{% endif %}
+{% if (max_size | default(0)) != 0 %}
+  -maxsize {{ max_size | default(0) }} \
+{% endif %}
+{% if (follow_symlinks | default(false)) %}
+  -followsymlinks true \
+{% endif %}
+{% if not (remove_ident_inode | default(true)) %}
+  -removeidentinode false \
+{% endif %}
+{% if (checksum_algorithm | default('sha1')) != 'sha1' %}
+  -checksum {{ checksum_algorithm | default('sha1') }} \
+{% endif %}
+{% if not (deterministic | default(true)) %}
+  -deterministic false \
+{% endif %}
+{% if (make_symlinks | default(false)) %}
+  -makesymlinks true \
+{% endif %}
+{% if (make_hardlinks | default(false)) %}
+  -makehardlinks true \
+{% endif %}
+{% if not (make_results_file | default(true)) %}
+  -makeresultsfile false \
+{% endif %}
+{% if (results_file_name | default('results.txt')) != 'results.txt' %}
+  -outputname {{ results_file_name | default('results.txt') }} \
+{% endif %}
+{% if (delete_duplicates | default(false)) %}
+  -deleteduplicates true \
+{% endif %}
+{% if (sleep_ms | default(0)) != 0 %}
+  -sleep {{ sleep_ms | default(0) }}ms \
+{% endif %}
+{% if (dry_run | default(false)) %}
+  -dryrun true \
+{% endif %}
+  {{ paths_to_scan | default([]) | join(' ') }}

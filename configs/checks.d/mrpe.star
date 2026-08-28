@@ -54,7 +54,12 @@ def _can_float(s):
     if idx >= len(s):
         return False
     saw_dot = False
-    for ch in s[idx:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for ch in s[idx:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_ch in range(idx, len(s)):
+        ch = s[_i_ch]
         if ch == ".":
             if saw_dot:
                 return False
@@ -293,7 +298,12 @@ def _can_float_simple(s):
         return False
     has_digit = False
     saw_dot = False
-    for ch in s[idx:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for ch in s[idx:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_ch in range(idx, len(s)):
+        ch = s[_i_ch]
         if ch == ".":
             if saw_dot:
                 return False
@@ -314,7 +324,12 @@ def _str_to_int(s):
         start = 1
     elif s[0] == "+":
         start = 1
-    for ch in s[start:]:
+    # BY INDEX: a Starlark string is NOT iterable, so `for ch in s[start:]:`
+    # raises "string value is not iterable" at RUNTIME — on the very line that parses a
+    # number out of device output. The stub validator only sees it when its empty-output
+    # run happens to reach here, which is why nine shipped checks carried it.
+    for _i_ch in range(start, len(s)):
+        ch = s[_i_ch]
         if "0" <= ch and ch <= "9":
             result = result * 10 + (ord(ch) - ord("0"))
         else:

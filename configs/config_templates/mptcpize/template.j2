@@ -1,0 +1,9 @@
+[Service]
+# The mptcpize command sub-action (run, enable, disable). For service definitions, 'run' is the operational mode.
+ExecStart=mptcpize {{ command | default('run') }} {{ program | default('/usr/bin/example-service') }} {{ program_args | default([]) | join(' ') }}
+
+# Enable debug dumping of TCP-to-MPTCP socket forcing messages on stderr
+{% if debug | default(false) %}
+StandardOutput=journal
+StandardError=journal
+{% endif %}

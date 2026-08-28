@@ -1,0 +1,65 @@
+# upass: Lightweight Unix password management and sync utility configuration.
+# This configuration manages user password policies, synchronization targets,
+# and local security constraints for the upass service.
+
+# General configuration section
+[general]
+# The verbosity level for logging (0-3).
+log_level = {{ log_level | default('info') }}
+
+# The path to the log file. If empty, logs go to stdout.
+log_path = {{ log_path | default('') }}
+
+# Password policy settings
+[password_policy]
+# Minimum password length.
+min_length = {{ min_length | default(8) }}
+
+# Require at least one uppercase letter.
+require_upper = {{ require_upper | default(true) | lower }}
+
+# Require at least one lowercase letter.
+require_lower = {{ require_lower | default(true) }}
+
+# Require at least one digit.
+require_digit = {{ require_digit | default(true) | lower }}
+
+# Require at least one special character.
+require_special = {{ require_special | default(false) | lower }}
+
+# Synchronization targets
+[sync]
+# Enable password synchronization across configured sources.
+enabled = {{ sync_enabled | default(false) | lower }}
+
+# List of sync sources (e.g., ldap, local, file).
+# Each source is defined as a map with 'type', 'host', 'port', etc.
+# Example structure in schema: sync_sources: [{type: ldap, host: ..., port: 389}]
+{% for source in sync_sources | default([]) %}
+[source.{{ loop.index }}]
+type = {{ source.type | default('') }}
+host = {{ source.host | default('localhost') }}
+port = {{ source.port | default(389) }}
+{% endfor %}
+
+# Security constraints
+[security]
+# Enforce password expiry (true/false).
+enforce_expiry = {{ enforce_expiry | default(true) | lower }}
+
+# Maximum password age in days.
+max_age_days = {{ max_age_days | default(90) }}
+
+# Minimum password age in days (cannot change again for this period).
+min_age_days = {{ min_age_days | default(1) }}
+
+# History: number of previous passwords to remember to prevent reuse.
+history_count = {{ history_count | default(5) }}
+
+# Local user management
+[local_users]
+# Allow management of local system users via upass.
+allow_local = {{ allow_local | default(false) | lower }}
+
+# The group name that upass-managed users should belong to.
+managed_group = {{ managed_group | default('upass_users') }}

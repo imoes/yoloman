@@ -1,0 +1,78 @@
+# =============================================================================
+# Pipectl Configuration Template
+# =============================================================================
+# This template configures 'pipectl', a utility for creating and managing
+# named pipes (FIFOs) to facilitate inter-process communication.
+#
+# Key Modes:
+#   - Output/Daemon mode (-o): Opens the named pipe and feeds its contents
+#     to a long-running daemon command via stdin.
+#   - Input mode (-i): Executes shell commands that write data into the named
+#     pipe, synchronizing if requested.
+#
+# Path Resolution:
+#   If 'path' is empty, the pipe is created in 'tmp_dir' (default /tmp) with
+#     the name: /tmp/pipectl.<UID>.<name>.pipe
+#   If 'path' is set, it is used as the absolute path to the FIFO.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Named Pipe Identifier
+# ------------------------------------------------------------------------------
+# Custom name for the named pipe.
+# Used with -n flag (e.g., -n mypipe).
+# The resulting path will be TMP/pipectl.UID.NAME.pipe if 'path' is not set.
+pipe_name: {{ name | default('default') }}
+
+# ------------------------------------------------------------------------------
+# Named Pipe Path
+# ------------------------------------------------------------------------------
+# Full path for the named pipe.
+# Used with -p flag (e.g., -p /var/run/mypipe.pipe).
+# If empty, pipectl determines the path using TMPDIR or /tmp + name.
+pipe_path: {{ path | default('') }}
+
+# ------------------------------------------------------------------------------
+# Force Overwrite
+# ------------------------------------------------------------------------------
+# Force overwrite an existing named pipe if it already exists.
+# Used with -f flag.
+# Note: Only usable with -o (output/daemon mode) to prevent blocking on
+#       a stale FIFO, though generally safer to remove stale pipes manually.
+force_overwrite: {{ force | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# File Locking
+# ------------------------------------------------------------------------------
+# Use flock(2) to synchronize writes to the pipe.
+# Used with -l flag.
+# Note: Only usable with -i (input mode) to ensure sequential writers
+#       do not corrupt pipe data.
+use_locking: {{ lock | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Temporary Directory Base
+# ------------------------------------------------------------------------------
+# Base directory for pipe creation when 'path' is not explicitly set.
+# Used as TMPDIR environment variable logic or fallback.
+# Corresponds to -d flag or TMPDIR env var.
+base_tmp_dir: {{ tmp_dir | default('/tmp') }}
+
+# ------------------------------------------------------------------------------
+# Daemon Command (Output Mode)
+# ------------------------------------------------------------------------------
+# The long-lived process to which stdin is fed.
+# Used in output mode (-o). Pipectl opens the named pipe and feeds its
+# contents to this command's stdin.
+# Example: "cat", "nc -l -p 5000", "python3 /app/server.py"
+daemon_command: {{ daemon_command | default('') }}
+
+# ------------------------------------------------------------------------------
+# Input Commands (Input Mode)
+# ------------------------------------------------------------------------------
+# List of shell commands to execute in input mode (-i).
+# Each command writes data to the named pipe.
+# Commands are executed sequentially.
+# Example: ["echo 'hello'", "echo 'world'"]
+# If empty, no input commands are defined by default.
+input_commands: {{ input_commands | default([]) | tojson }}

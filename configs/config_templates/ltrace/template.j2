@@ -1,0 +1,44 @@
+# ltrace configuration template
+#
+# This file configures the ltrace utility (library tracer).
+# ltrace intercepts and records dynamic library calls which are
+# called by an executed process, as well as signals received by
+# that process.
+#
+# See ltrace(1) for details on the configuration file format
+# and available directives.
+
+# --- Tracing Limits ---
+
+# Maximum number of system calls traced per process.
+# If the number of syscalls exceeds this value, ltrace stops tracing
+# the current process to prevent excessive resource consumption.
+# Default: 4096
+max_syscalls = {{ max_syscalls | default(4096) }}
+
+# Maximum number of stack frames traced.
+# Limits the depth of the call stack recorded for each function entry.
+# Higher values provide more context but increase memory usage.
+# Default: 1024
+max_stack = {{ max_stack | default(1024) }}
+
+# Maximum length of strings traced.
+# Strings longer than this value will be truncated in the trace output.
+# Helps control output verbosity and memory usage for large strings.
+# Default: 64
+max_str_len = {{ max_str_len | default(64) }}
+
+# Maximum depth of recursive library calls traced.
+# Prevents infinite loops or deep recursion from crashing ltrace
+# or filling the stack buffer.
+# Default: 32
+max_rec_depth = {{ max_rec_depth | default(32) }}
+
+# --- Exclusions ---
+
+# List of library names to ignore during tracing.
+# Libraries listed here are skipped entirely, reducing noise in the trace.
+# Commonly used to ignore dynamic linker and VDSO.
+# Default: ['ld.so', 'linux-gate.so']
+# Format: space-separated list of library names
+ignore_libs = {{ ignore_libs | default(['ld.so', 'linux-gate.so']) | join(' ') }}

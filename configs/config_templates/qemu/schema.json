@@ -1,185 +1,189 @@
 {
-  "enable_userns": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable user namespace mapping for unprivileged QEMU processes."
-  },
-  "user": {
-    "type": "string",
-    "default": "qemu",
-    "description": "User account to run unprivileged QEMU instances under (when enable_userns is true)."
-  },
-  "group": {
-    "type": "string",
-    "default": "qemu",
-    "description": "Group account to run unprivileged QEMU instances under (when enable_userns is true)."
-  },
-  "network_bridge": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable bridged network mode instead of user-mode (slirp) networking."
-  },
-  "network_script": {
-    "type": "string",
-    "default": "/etc/qemu/qemu-bridge-helper.sh",
-    "description": "Path to the bridge helper script for user permission checks (used with bridged networking)."
-  },
-  "network_interface": {
-    "type": "string",
-    "default": "virbr0",
-    "description": "Default bridge interface to attach VM network interfaces to (used with bridged networking)."
-  },
-  "network_driver": {
-    "type": "string",
-    "default": "user",
-    "description": "QEMU network backend driver (e.g., user, tap, bridge). Only active if bridged mode is disabled."
-  },
-  "storage_pools": {
-    "type": "list",
-    "default": [],
-    "description": "List of custom storage pools (directories) for VM disk images. If empty, falls back to default path."
-  },
-  "storage_pools.*.name": {
-    "type": "string",
-    "description": "Logical name for the storage pool."
-  },
-  "storage_pools.*.path": {
-    "type": "string",
-    "description": "Absolute filesystem path to the storage pool directory."
-  },
-  "storage_default_path": {
-    "type": "string",
-    "default": "/var/lib/libvirt/images",
-    "description": "Fallback directory for VM images when no custom pools are defined."
-  },
-  "seccomp_sandbox": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable seccomp sandboxing to restrict syscalls available to the QEMU process."
-  },
   "apparmor_profile": {
-    "type": "string",
     "default": "qemu-qemu",
-    "description": "AppArmor profile name to apply to QEMU processes (requires AppArmor kernel support). Set to empty or omit to disable."
-  },
-  "vcpu_limit": {
-    "type": "number",
-    "default": 255,
-    "description": "Maximum number of virtual CPUs per VM."
-  },
-  "memory_limit_mb": {
-    "type": "number",
-    "default": 262144,
-    "description": "Maximum RAM (in MB) per VM. 0 means unlimited."
-  },
-  "max_devices": {
-    "type": "number",
-    "default": 256,
-    "description": "Maximum number of devices allowed per VM (including disks, NICs, etc.)."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "INFO",
-    "description": "Global logging level (e.g., DEBUG, INFO, WARNING, ERROR)."
-  },
-  "log_outputs": {
-    "type": "string",
-    "default": "file:/var/log/qemu/qemu.log",
-    "description": "Comma-separated list of log destinations (e.g., file:/path, stderr)."
+    "description": "AppArmor profile name to apply to QEMU processes (requires AppArmor kernel support). Set to empty or omit to disable.",
+    "type": "string"
   },
   "audio_driver": {
-    "type": "string",
     "default": "pa",
-    "description": "Default audio backend driver (e.g., pa, alsa, oss, none)."
-  },
-  "tls_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS-encrypted remote display (VNC/SPICE)."
-  },
-  "tls_port": {
-    "type": "number",
-    "default": 61000,
-    "description": "Base TCP port for TLS-secured VNC/SPICE connections."
-  },
-  "tls_cert_dir": {
-    "type": "string",
-    "default": "/etc/pki/qemu",
-    "description": "Directory containing TLS certificates and keys (e.g., server-cert.pem, server-key.pem)."
-  },
-  "usb_redir_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable USB redirection server for client-side USB device forwarding."
-  },
-  "usb_redir_port": {
-    "type": "number",
-    "default": 8000,
-    "description": "Port for USB redirection server (if enabled)."
-  },
-  "usb_redir_filter": {
-    "type": "string",
-    "default": "",
-    "description": "Optional space-separated list of vendor:product IDs to allow (e.g., '0781:5580 0763:2080')."
-  },
-  "console_mode": {
-    "type": "string",
-    "default": "text",
-    "description": "Console display mode ('text', 'spice', 'none')."
+    "description": "Default audio backend driver (e.g., pa, alsa, oss, none).",
+    "type": "string"
   },
   "console_log_path": {
-    "type": "string",
     "default": "/var/log/qemu/console",
-    "description": "Directory to store serial/parallel console logs."
+    "description": "Directory to store serial/parallel console logs.",
+    "type": "string"
   },
-  "migration": {
-    "type": "object",
-    "default": {},
-    "description": "Settings for live VM migration. Leave empty to disable migration support."
-  },
-  "migration.host": {
+  "console_mode": {
+    "default": "text",
+    "description": "Console display mode ('text', 'spice', 'none').",
     "type": "string",
-    "default": "localhost",
-    "description": "Hostname/IP to bind migration listeners to."
-  },
-  "migration.port_min": {
-    "type": "number",
-    "default": 49152,
-    "description": "Minimum port number for migration traffic."
-  },
-  "migration.port_max": {
-    "type": "number",
-    "default": 49216,
-    "description": "Maximum port number for migration traffic."
-  },
-  "watchdog_action": {
-    "type": "string",
-    "default": "reset",
-    "description": "Action taken when the virtual watchdog timer expires (e.g., reset, shutdown, poweroff, debug)."
+    "enum": [
+      "text",
+      "spice",
+      "none"
+    ]
   },
   "default_machine_type": {
-    "type": "string",
     "default": "pc",
-    "description": "Default machine type (e.g., pc, pc-i440fx-7.2, q35) for VMs without explicit specification."
+    "description": "Default machine type (e.g., pc, pc-i440fx-7.2, q35) for VMs without explicit specification.",
+    "type": "string"
   },
   "device_hotplug": {
-    "type": "bool",
     "default": true,
-    "description": "Allow adding/removing devices to a running VM (e.g., via QMP)."
+    "description": "Allow adding/removing devices to a running VM (e.g., via QMP).",
+    "type": "bool"
+  },
+  "enable_userns": {
+    "default": false,
+    "description": "Enable user namespace mapping for unprivileged QEMU processes.",
+    "type": "bool"
+  },
+  "group": {
+    "default": "qemu",
+    "description": "Group account to run unprivileged QEMU instances under (when enable_userns is true).",
+    "type": "string"
+  },
+  "log_level": {
+    "default": "INFO",
+    "description": "Global logging level (e.g., DEBUG, INFO, WARNING, ERROR).",
+    "type": "string"
+  },
+  "log_outputs": {
+    "default": "file:/var/log/qemu/qemu.log",
+    "description": "Comma-separated list of log destinations (e.g., file:/path, stderr).",
+    "type": "string"
+  },
+  "max_devices": {
+    "default": 256,
+    "description": "Maximum number of devices allowed per VM (including disks, NICs, etc.).",
+    "type": "number"
+  },
+  "memory_limit_mb": {
+    "default": 262144,
+    "description": "Maximum RAM (in MB) per VM. 0 means unlimited.",
+    "type": "number"
+  },
+  "migration": {
+    "description": "Settings for live VM migration. Leave empty to disable migration support.",
+    "type": "object"
+  },
+  "migration.host": {
+    "default": "localhost",
+    "description": "Hostname/IP to bind migration listeners to.",
+    "type": "string"
+  },
+  "migration.port_max": {
+    "default": 49216,
+    "description": "Maximum port number for migration traffic.",
+    "type": "number"
+  },
+  "migration.port_min": {
+    "default": 49152,
+    "description": "Minimum port number for migration traffic.",
+    "type": "number"
+  },
+  "network_bridge": {
+    "default": true,
+    "description": "Enable bridged network mode instead of user-mode (slirp) networking.",
+    "type": "bool"
+  },
+  "network_driver": {
+    "default": "user",
+    "description": "QEMU network backend driver (e.g., user, tap, bridge). Only active if bridged mode is disabled.",
+    "type": "string"
+  },
+  "network_interface": {
+    "default": "virbr0",
+    "description": "Default bridge interface to attach VM network interfaces to (used with bridged networking).",
+    "type": "string"
+  },
+  "network_script": {
+    "default": "/etc/qemu/qemu-bridge-helper.sh",
+    "description": "Path to the bridge helper script for user permission checks (used with bridged networking).",
+    "type": "string"
   },
   "numa_enabled": {
-    "type": "bool",
     "default": false,
-    "description": "Enable NUMA topology exposure to guests and memory policies."
-  },
-  "numa_mode": {
-    "type": "string",
-    "default": "strict",
-    "description": "NUMA memory allocation policy (e.g., 'strict', 'interleave', 'bind')."
+    "description": "Enable NUMA topology exposure to guests and memory policies.",
+    "type": "bool"
   },
   "numa_mem_mode": {
-    "type": "string",
     "default": "interleave",
-    "description": "NUMA memory policy for guest RAM (e.g., 'interleave', 'bind', 'prefer')."
+    "description": "NUMA memory policy for guest RAM (e.g., 'interleave', 'bind', 'prefer').",
+    "type": "string"
+  },
+  "numa_mode": {
+    "default": "strict",
+    "description": "NUMA memory allocation policy (e.g., 'strict', 'interleave', 'bind').",
+    "type": "string"
+  },
+  "seccomp_sandbox": {
+    "default": true,
+    "description": "Enable seccomp sandboxing to restrict syscalls available to the QEMU process.",
+    "type": "bool"
+  },
+  "storage_default_path": {
+    "default": "/var/lib/libvirt/images",
+    "description": "Fallback directory for VM images when no custom pools are defined.",
+    "type": "string"
+  },
+  "storage_pools": {
+    "default": [],
+    "description": "List of custom storage pools (directories) for VM disk images. If empty, falls back to default path.",
+    "type": "list"
+  },
+  "storage_pools.*.name": {
+    "description": "Logical name for the storage pool.",
+    "type": "string"
+  },
+  "storage_pools.*.path": {
+    "description": "Absolute filesystem path to the storage pool directory.",
+    "type": "string"
+  },
+  "tls_cert_dir": {
+    "default": "/etc/pki/qemu",
+    "description": "Directory containing TLS certificates and keys (e.g., server-cert.pem, server-key.pem).",
+    "type": "string"
+  },
+  "tls_enabled": {
+    "default": false,
+    "description": "Enable TLS-encrypted remote display (VNC/SPICE).",
+    "type": "bool"
+  },
+  "tls_port": {
+    "default": 61000,
+    "description": "Base TCP port for TLS-secured VNC/SPICE connections.",
+    "type": "number"
+  },
+  "usb_redir_enabled": {
+    "default": false,
+    "description": "Enable USB redirection server for client-side USB device forwarding.",
+    "type": "bool"
+  },
+  "usb_redir_filter": {
+    "default": "",
+    "description": "Optional space-separated list of vendor:product IDs to allow (e.g., '0781:5580 0763:2080').",
+    "type": "string"
+  },
+  "usb_redir_port": {
+    "default": 8000,
+    "description": "Port for USB redirection server (if enabled).",
+    "type": "number"
+  },
+  "user": {
+    "default": "qemu",
+    "description": "User account to run unprivileged QEMU instances under (when enable_userns is true).",
+    "type": "string"
+  },
+  "vcpu_limit": {
+    "default": 255,
+    "description": "Maximum number of virtual CPUs per VM.",
+    "type": "number"
+  },
+  "watchdog_action": {
+    "default": "reset",
+    "description": "Action taken when the virtual watchdog timer expires (e.g., reset, shutdown, poweroff, debug).",
+    "type": "string"
   }
 }

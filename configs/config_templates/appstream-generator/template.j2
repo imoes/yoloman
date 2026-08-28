@@ -62,9 +62,9 @@
       {# Path to /etc/apt/sources.list.d/ (overrides default) #}
       "apt-sources-list-available": "{{ suite.apt_sources_list_available | default('') }}",
       {# Whether to trust APT repositories by default #}
-      "apt-trusted": {{ suite.apt_trusted | default(true) }},
+      "apt-trusted": {{ suite.apt_trusted | default(true) | lower }},
       {# Enable APT SecureApt checks #}
-      "apt-secure": {{ suite.apt_secure | default(true) }},
+      "apt-secure": {{ suite.apt_secure | default(true) | lower }},
       {# Default APT download method (http, https, ftp, file) #}
       "apt-method": "{{ suite.apt_method | default('http') }}",
       {# Username for authenticated APT access #}
@@ -82,21 +82,21 @@
       {# File-based APT proxy #}
       "apt-file-proxy": "{{ suite.apt_file_proxy | default('') }}",
       {# Ignore stale APT caches #}
-      "apt-dirty-ignore": {{ suite.apt_dirty_ignore | default(false) }},
+      "apt-dirty-ignore": {{ suite.apt_dirty_ignore | default(false) | lower }},
       {# Allow insecure (non-HTTPS) repositories #}
-      "apt-allow-insecure": {{ suite.apt_allow_insecure | default(false) }},
+      "apt-allow-insecure": {{ suite.apt_allow_insecure | default(false) | lower }},
       {# Allow weak cryptographic hashes #}
-      "apt-allow-weak": {{ suite.apt_allow_weak | default(false) }},
+      "apt-allow-weak": {{ suite.apt_allow_weak | default(false) | lower }},
       {# Allow release info changes (e.g., codename changes) #}
-      "apt-allow-releaseinfo-change": {{ suite.apt_allow_releaseinfo_change | default(false) }},
+      "apt-allow-releaseinfo-change": {{ suite.apt_allow_releaseinfo_change | default(false) | lower }},
       {# Run apt-get update before processing #}
-      "apt-update": {{ suite.apt_update | default(true) }},
+      "apt-update": {{ suite.apt_update | default(true) | lower }},
       {# Run apt-get upgrade before processing #}
-      "apt-upgrade": {{ suite.apt_upgrade | default(false) }},
+      "apt-upgrade": {{ suite.apt_upgrade | default(false) | lower }},
       {# Run apt-get dist-upgrade before processing #}
-      "apt-dist-upgrade": {{ suite.apt_dist_upgrade | default(false) }},
+      "apt-dist-upgrade": {{ suite.apt_dist_upgrade | default(false) | lower }},
       {# Run apt-get full-upgrade before processing #}
-      "apt-full-upgrade": {{ suite.apt_full_upgrade | default(false) }},
+      "apt-full-upgrade": {{ suite.apt_full_upgrade | default(false) | lower }},
       {# Directory containing additional sources.list.d entries #}
       "apt-sources-d": "{{ suite.apt_sources_d | default('/etc/apt/sources.list.d/') }}",
       {# Directory for trusted GPG key files #}
@@ -137,10 +137,10 @@
   {# Relative path under media_base_url where media files are stored #}
   "media-path": "{{ media_path | default('media') }}",
   {# Whether to remove obsolete media files during cleanup #}
-  "media-cleanup": {{ media_cleanup | default(true) }},
+  "media-cleanup": {{ media_cleanup | default(true) | lower }},
 
   {# Whether to render desktop icons with fonts embedded #}
-  "font-rendering": {{ font_rendering | default(true) }},
+  "font-rendering": {{ font_rendering | default(true) | lower }},
   {# Font size (pixels) used in icon rendering #}
   "font-size": {{ font_size | default(14) }},
   {# Font family name for icon rendering (e.g., 'sans-serif', 'serif') #}
@@ -154,10 +154,10 @@
   {# Dots per inch for font rendering #}
   "font-dpi": {{ font_dpi | default(96) }},
   {# Enable font antialiasing #}
-  "font-antialias": {{ font_antialias | default(true) }},
+  "font-antialias": {{ font_antialias | default(true) | lower }},
 
   {# Whether to scale icons and media to required sizes #}
-  "image-scaling": {{ image_scaling | default(true) }},
+  "image-scaling": {{ image_scaling | default(true) | lower }},
   {# List of target image sizes (pixels) to generate #}
   "image-sizes": [{{ image_sizes | default([128, 256, 512]) | join(", ") }}],
   {# Image format for scaled icons and screenshots #}
@@ -166,7 +166,7 @@
   "image-quality": {{ image_quality | default(90) }},
 
   {# Whether to remove stale screenshots from cache #}
-  "screenshot-cleanup": {{ screenshot_cleanup | default(true) }},
+  "screenshot-cleanup": {{ screenshot_cleanup | default(true) | lower }},
   {# Default screenshot width/height (pixels) #}
   "screenshot-size": {{ screenshot_size | default(640) }},
   {# Maximum screenshot width (pixels) #}
@@ -189,12 +189,12 @@
   "version": "{{ version | default('1.0') }}",
 
   {# Enable verbose logging #}
-  "verbose": {{ verbose | default(false) }},
+  "verbose": {{ verbose | default(false) | lower }},
   {# Enable debug output #}
-  "debug": {{ debug | default(false) }},
+  "debug": {{ debug | default(false) | lower }},
 
   {# Enable caching of processed media and metadata #}
-  "cache-enabled": {{ cache_enabled | default(true) }},
+  "cache-enabled": {{ cache_enabled | default(true) | lower }},
   {# Number of days to retain cache before cleanup #}
   "cache-expire-days": {{ cache_expire_days | default(30) }},
 
@@ -245,28 +245,28 @@
     {# MIME information file path #}
     "mime-info-file": "{{ ((hints | default({})).mime_info_file | default('/usr/share/mime/packages/freedesktop.org.xml')) }}",
     {# Merge .desktop metadata into AppData #}
-    "appdata-merge": {{ ((hints | default({})).appdata_merge | default(true)) }},
+    "appdata-merge": {{ ((hints | default({})).appdata_merge | default(true)) | lower }},
     {# Merge .desktop metadata into AppStream components #}
-    "desktop-merge": {{ ((hints | default({})).desktop_merge | default(true)) }},
+    "desktop-merge": {{ ((hints | default({})).desktop_merge | default(true)) | lower }},
     {# Create symlinks for icon cache #}
-    "icon-symlink": {{ ((hints | default({})).icon_symlink | default(true)) }},
+    "icon-symlink": {{ ((hints | default({})).icon_symlink | default(true)) | lower }},
     {# Clean up stale icon symlinks #}
-    "icon-cleanup": {{ ((hints | default({})).icon_cleanup | default(true)) }},
+    "icon-cleanup": {{ ((hints | default({})).icon_cleanup | default(true)) | lower }},
     {# Update font caches #}
-    "font-cache": {{ ((hints | default({})).font_cache | default(true)) }},
+    "font-cache": {{ ((hints | default({})).font_cache | default(true)) | lower }},
     {# Update MIME database #}
-    "mime-cache": {{ ((hints | default({})).mime_cache | default(true)) }},
+    "mime-cache": {{ ((hints | default({})).mime_cache | default(true)) | lower }},
     {# Skip icon theme processing #}
-    "icon-theme-skip": {{ ((hints | default({})).icon_theme_skip | default(false)) }},
+    "icon-theme-skip": {{ ((hints | default({})).icon_theme_skip | default(false)) | lower }},
     {# Skip metainfo file processing #}
-    "metainfo-skip": {{ ((hints | default({})).metainfo_skip | default(false)) }},
+    "metainfo-skip": {{ ((hints | default({})).metainfo_skip | default(false)) | lower }},
     {# Skip .desktop file processing #}
-    "desktop-skip": {{ ((hints | default({})).desktop_skip | default(false)) }},
+    "desktop-skip": {{ ((hints | default({})).desktop_skip | default(false)) | lower }},
     {# Skip font processing #}
-    "font-skip": {{ ((hints | default({})).font_skip | default(false)) }},
+    "font-skip": {{ ((hints | default({})).font_skip | default(false)) | lower }},
     {# Skip MIME processing #}
-    "mime-skip": {{ ((hints | default({})).mime_skip | default(false)) }},
+    "mime-skip": {{ ((hints | default({})).mime_skip | default(false)) | lower }},
     {# Skip icon processing #}
-    "icon-skip": {{ ((hints | default({})).icon_skip | default(false)) }}
+    "icon-skip": {{ ((hints | default({})).icon_skip | default(false)) | lower }}
   }
 }

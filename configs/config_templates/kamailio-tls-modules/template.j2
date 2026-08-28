@@ -1,0 +1,238 @@
+# =============================================================================
+# Kamailio TLS Configuration Template
+#
+# This configuration defines TLS profiles for Kamailio SIP server.
+# Profiles are divided into 'server' profiles (for incoming connections)
+# and 'client' profiles (for outgoing connections).
+#
+# Each profile specifies:
+# - TLS method/version
+# - Certificate verification requirements
+# - Paths to private keys, certificates, CA lists, and CRLs
+#
+# See Kamailio TLS documentation for detailed semantics of each parameter.
+# =============================================================================
+
+# ---
+# [server:default]
+# Default server profile.
+# Applied to all incoming TLS connections that do not match a more specific
+# server domain profile defined below.
+# Security: Enforces TLSv1.2+ for public internet traffic.
+# Client certificates are NOT required by default, but CAN be verified if present.
+# ---
+
+[server:default]
+# Method: Specify allowed TLS versions. TLSv1.2+ excludes legacy insecure protocols.
+method = TLSv1.2+
+
+# Verify Server Certificate:
+# Whether Kamailio verifies the certificate of the remote client (when acting as client
+# in mutual TLS) or verifies the client's certificate if presented during handshake.
+# In server context, this usually relates to verifying client certs if require_certificate=yes.
+# Default: 'no' (do not verify client certs by default).
+verify_certificate = {{ verify_certificate_server_default | default('no') }}
+
+# Require Client Certificate:
+# Whether a client MUST present a valid certificate to establish the connection.
+# Default: 'no' (anonymous TLS is allowed unless verification is explicitly required).
+require_certificate = {{ require_certificate_server_default | default('no') }}
+
+# Private Key:
+# Path to the private key file for the default server profile.
+private_key = {{ tls_server_default_private_key | default('/etc/kamailio/kamailio-selfsigned.key') }}
+
+# Certificate:
+# Path to the certificate file for the default server profile.
+certificate = {{ tls_server_default_certificate | default('/etc/kamailio/kamailio-selfsigned.pem') }}
+
+# CA List:
+# Path to the CA list file (Certificate Authority) used for verifying client certificates.
+# Uncomment and set if verify_certificate=yes and require_certificate=yes.
+# ca_list = {{ tls_server_default_ca_list | default('/etc/kamailio/tls/cacert.pem') }}
+
+# CRL:
+# Path to the Certificate Revocation List file.
+# Uncomment and set if revocation checking is desired.
+# crl = {{ tls_server_default_crl | default('/etc/kamailio/tls/crl.pem') }}
+
+
+# ---
+# [client:default]
+# Default client profile.
+# Applied to all outgoing TLS connections initiated by Kamailio that do not match
+# a more specific client domain profile defined below.
+# Security: By default, we require servers to present valid certificates.
+# ---
+
+[client:default]
+# Method: Outgoing TLS version method.
+# method = TLSv1.2+
+
+# Verify Server Certificate:
+# Whether Kamailio (acting as client) verifies the certificate of the remote server.
+# Default: 'yes' (strict verification of remote servers).
+verify_certificate = {{ verify_certificate_client_default | default('yes') }}
+
+# Require Certificate:
+# Whether a certificate is required from the server.
+# Default: 'yes' (server must present a certificate).
+require_certificate = {{ require_certificate_client_default | default('yes') }}
+
+
+# ---
+# [server:loopback]
+# Example server profile for TLS connections received from the loopback interface.
+# Use this profile if you bind a specific IP (e.g., 127.0.0.1) to this server name.
+# Security: Allows TLSv1.2+. Client certificates are not required, but if presented, they are verified.
+# Note: The original template had this commented out. It is enabled here for completeness,
+# but ensure you match the IP in Kamailio's socket configuration.
+# ---
+
+#[server:127.0.0.1:5061]
+# TLS method
+# method = TLSv1.2+
+
+# Verify certificate of the connecting client
+# verify_certificate = yes
+
+# Require client certificate
+# require_certificate = no
+
+# Private key for loopback interface
+# private_key = {{ tls_server_loopback_private_key | default('/etc/kamailio/tls/local_key.pem') }}
+
+# Certificate for loopback interface
+# certificate = {{ tls_server_loopback_certificate | default('/etc/kamailio/tls/local_cert.pem') }}
+
+# Verification depth (max depth of the certificate chain)
+# verify_depth = 3
+
+# CA list for verifying loopback client certificates
+# ca_list = {{ tls_server_loopback_ca_list | default('/etc/kamailio/tls/local_ca.pem') }}
+
+# CRL for loopback client certificates
+# crl = {{ tls_server_loopback_crl | default('/etc/kamailio/tls/local_crl.pem') }}
+
+# Server name for SNI matching
+# server_name = kamailio.org
+
+# Server ID for logging/identification
+# server_id = kamailio.org
+
+
+# ---
+# [client:example]
+# Special settings for connecting to an external SIP server (e.g., example.sip).
+# Use this profile if you have a specific peer that has known issues (e.g., expired certs)
+# or requires specific client credentials.
+# Note: The original template commented this out and used a dummy IP.
+# In practice, you would define [client:peer_ip:port] or match by domain if supported.
+# For now, we leave it as a named section that Kamailio's TLS module uses when matched.
+# ---
+
+#[client:example_peer:5061]
+# Disable verification for this specific peer if its cert is untrusted/expired
+# verify_certificate = no
+
+# Private key for client authentication
+# private_key = {{ tls_client_example_private_key | default('/etc/kamailio/tls/example_key.pem') }}
+
+# Certificate for client authentication
+# certificate = {{ tls_client_example_certificate | default('/etc/kamailio/tls/example_cert.pem') }}
+
+# CA list for verifying the server's certificate (if verification was on)
+# ca_list = {{ tls_client_example_ca_list | default('/etc/kamailio/tls/example_ca.pem') }}
+
+# CRL for checking server certificate revocation
+# crl = {{ tls_client_example_crl | default('/etc/kamailio/tls/example_crl.pem') }}
+
+# Server name for SNI
+# server_name = example.sip
+
+# Server ID
+# server_id = example.sip
+
+
+# ---
+# [server:any_domain]
+# Example server profile for listening on any IP/port.
+# Relies on SNI (Server Name Indication) to select the correct certificate.
+# Matches any domain name.
+# ---
+
+#[server:any]
+# TLS method
+# method = TLSv1.2+
+
+# Verify client certificates
+# verify_certificate = yes
+
+# Require client certificates
+# require_certificate = no
+
+# Private key for 'any' domain profile
+# private_key = {{ tls_server_any_domain_private_key | default('/etc/kamailio/tls/mysipserver_org_key.pem') }}
+
+# Certificate for 'any' domain profile
+# certificate = {{ tls_server_any_domain_certificate | default('/etc/kamailio/tls/mysipserver_org_cert.pem') }}
+
+# Verification depth
+# verify_depth = 3
+
+# CA list
+# ca_list = {{ tls_server_any_domain_ca_list | default('/etc/kamailio/tls/mysipserver_org_ca.pem') }}
+
+# CRL
+# crl = {{ tls_server_any_domain_crl | default('/etc/kamailio/tls/mysipserver_org_crl.pem') }}
+
+# SNI server name
+# server_name = mysipserver.org
+
+# SNI matching mode: 0=exact, 1=prefix, 2=domain+subdomain (approx)
+# See Kamailio docs. Mode 1 is often used for wildcard-ish matching.
+# server_name_mode = 1
+
+# Server ID
+# server_id = mysipserver.org
+
+
+# ---
+# [server:any_subdomain]
+# Example server profile for listening on any IP/port.
+# Matches only subdomains of a specific base domain.
+# ---
+
+#[server:any]
+# TLS method
+# method = TLSv1.2+
+
+# Verify client certificates
+# verify_certificate = yes
+
+# Require client certificates
+# require_certificate = no
+
+# Private key for subdomain profile
+# private_key = {{ tls_server_any_subdomain_private_key | default('/etc/kamailio/tls/mysipserver_net_key.pem') }}
+
+# Certificate for subdomain profile
+# certificate = {{ tls_server_any_subdomain_certificate | default('/etc/kamailio/tls/mysipserver_net_cert.pem') }}
+
+# Verification depth
+# verify_depth = 3
+
+# CA list
+# ca_list = {{ tls_server_any_subdomain_ca_list | default('/etc/kamailio/tls/mysipserver_net_ca.pem') }}
+
+# CRL
+# crl = {{ tls_server_any_subdomain_crl | default('/etc/kamailio/tls/mysipserver_net_crl.pem') }}
+
+# SNI server name
+# server_name = mysipserver.net
+
+# SNI matching mode: 2 typically means subdomain matching
+# server_name_mode = 2
+
+# Server ID
+# server_id = mysipserver.net

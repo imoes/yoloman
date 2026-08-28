@@ -1,0 +1,171 @@
+# =============================================================================
+# vbackup Global Configuration Template
+# =============================================================================
+# This template generates the default configuration for the vbackup service.
+# It controls global backup destinations, logging verbosity, and specific
+# module configurations for various backup strategies (tar, dpkg, database dumps,
+# file transfers, etc.).
+#
+# Variables are sourced from the Ansible role values. All references use
+# 'values.<field_name>' to ensure namespace isolation. Defaults are applied
+# inline to prevent render errors when variables are undefined.
+# =============================================================================
+
+# --- Global Settings ---
+
+# DEST_DIR: Global destination directory for backup archives.
+# This is the base path where all backup files and sub-directories will be stored.
+DEST_DIR: {{ (values | default({})).dest_dir | default('/var/backups/vbackup') }}
+
+# LOG_LEVEL: Message level: 1-19. 8 is standard informational.
+# Lower numbers indicate more verbose (debug) output. 8 is typically sufficient
+# for routine operation logs.
+LOG_LEVEL: {{ (values | default({})).log_level | default(8) }}
+
+# --- Module Configurations ---
+
+# modules: List of module configurations to be included in the backup strategy.
+# Each item is a flat map with 'priority', 'name', 'type', and module-specific
+# parameters. The order of iteration determines the execution priority if not
+# explicitly sorted by the 'priority' field within the config logic.
+{% for module in ((values | default({})).modules | default([])) %}
+
+# =============================================================================
+# Module: {{ (module | default({})).name | default('Unnamed Module') }}
+# Type: {{ (module | default({})).type | default('unknown') }}
+# Priority: {{ (module | default({})).priority | default(0) }}
+# =============================================================================
+
+{% if (module | default({})).type == 'tar' %}
+# -----------------------------------------------------------------------------
+# Tar Backup Module
+# -----------------------------------------------------------------------------
+# SOURCE: Source directory or file to backup.
+# Specifies the path to the directory or file that needs to be archived.
+SOURCE: {{ (module | default({})).source | default('') }}
+
+# EXCLUDES: Optional list of files/dirs to exclude.
+# A comma-separated list of patterns or paths to skip during the tar operation.
+# Defaults to an empty string if no excludes are defined.
+EXCLUDES: {{ ((module | default({})).excludes | default([])) | join(', ') }}
+
+{% elif (module | default({})).type == 'dpkg' %}
+# -----------------------------------------------------------------------------
+# Dpkg Backup Module
+# -----------------------------------------------------------------------------
+# FILENAME: Filename for the package list dump.
+# The name of the file containing the list of installed packages.
+FILENAME: {{ (module | default({})).filename | default('installed_packages.list') }}
+
+{% elif (module | default({})).type == 'pgsql' %}
+# -----------------------------------------------------------------------------
+# PostgreSQL Backup Module
+# -----------------------------------------------------------------------------
+# DB_NAME: Database name to backup (empty for all).
+# If left empty or defaults to empty string, the module may attempt to backup
+# all databases or require specific configuration elsewhere.
+DB_NAME: {{ (module | default({})).db_name | default('') }}
+
+# USERNAME: Username for connection.
+# The database user account used for authentication.
+USERNAME: {{ (module | default({})).username | default('') }}
+
+# HOSTNAME: Hostname for connection.
+# The hostname or IP address of the PostgreSQL server.
+HOSTNAME: {{ (module | default({})).hostname | default('localhost') }}
+
+{% elif (module | default({})).type == 'mysql' %}
+# -----------------------------------------------------------------------------
+# MySQL Backup Module
+# -----------------------------------------------------------------------------
+# DB_NAME: Database name to backup (empty for all).
+DB_NAME: {{ (module | default({})).db_name | default('') }}
+
+# USERNAME: Username for connection.
+USERNAME: {{ (module | default({})).username | default('') }}
+
+# PASSWORD: Password for connection.
+# The password for the database user. Ensure this is handled securely in Ansible.
+PASSWORD: {{ (module | default({})).password | default('') }}
+
+# HOSTNAME: Hostname for connection.
+HOSTNAME: {{ (module | default({})).hostname | default('localhost') }}
+
+{% elif (module | default({})).type == 'exec' %}
+# -----------------------------------------------------------------------------
+# Exec Backup Module
+# -----------------------------------------------------------------------------
+# COMMAND: Shell command to execute.
+# A custom shell command to run for the backup process. Use with caution.
+COMMAND: {{ (module | default({})).command | default('') }}
+
+{% elif (module | default({})).type == 'nfsmount' %}
+# -----------------------------------------------------------------------------
+# NFS Mount Module
+# -----------------------------------------------------------------------------
+# SERVER: Remote server IP or hostname.
+# The NFS server address.
+SERVER: {{ (module | default({})).server | default('') }}
+
+# REMOTE_PATH: Remote export path.
+# The path exported by the NFS server.
+REMOTE_PATH: {{ (module | default({})).remote_path | default('') }}
+
+# LOCAL_PATH: Local mount point.
+# The directory on the local system where the NFS share will be mounted.
+LOCAL_PATH: {{ (module | default({})).local_path | default('/mnt/nfs_backup') }}
+
+{% elif (module | default({})).type == 'scp' %}
+# -----------------------------------------------------------------------------
+# SCP Backup Module
+# -----------------------------------------------------------------------------
+# REMOTE_USER: Remote user.
+# The user account on the remote host for SCP transfer.
+REMOTE_USER: {{ (module | default({})).remote_user | default('') }}
+
+# REMOTE_HOST: Remote host.
+# The hostname or IP of the remote destination.
+REMOTE_HOST: {{ (module | default({})).remote_host | default('') }}
+
+# SOURCE: Local file/directory to send.
+# The local path of the data to transfer to the remote host.
+SOURCE: {{ (module | default({})).source | default('') }}
+
+# DEST: Remote destination path.
+# The path on the remote host where the data will be placed.
+DEST: {{ (module | default({})).dest | default('') }}
+
+{% elif (module | default({})).type == 'mbr' %}
+# -----------------------------------------------------------------------------
+# MBR (Master Boot Record) Backup Module
+# -----------------------------------------------------------------------------
+# OUTPUT_DIR: Output directory for MBR/Partition tables.
+# Directory where the saved MBR and partition table files will be stored.
+OUTPUT_DIR: {{ (module | default({})).output_dir | default('/var/backups/mbr') }}
+
+{% elif (module | default({})).type == 'gpg' %}
+# -----------------------------------------------------------------------------
+# GPG Encryption Module
+# -----------------------------------------------------------------------------
+# SOURCE: File/directory to encrypt.
+# The local file or directory that needs to be encrypted.
+SOURCE: {{ (module | default({})).source | default('') }}
+
+# OUTPUT: Output filename.
+# The filename for the resulting encrypted archive.
+OUTPUT: {{ (module | default({})).output | default('') }}
+
+# PASSWORD: Symmetric key password.
+# The passphrase used to encrypt the data using symmetric encryption.
+PASSWORD: {{ (module | default({})).password | default('') }}
+
+{% else %}
+# -----------------------------------------------------------------------------
+# Unknown/Custom Module: {{ (module | default({})).type | default('unknown') }}
+# -----------------------------------------------------------------------------
+# This module type is not explicitly handled in the standard template.
+# Add specific variable mappings here if this custom module requires
+# configuration parameters.
+{% endif %}
+
+{% endfor %}

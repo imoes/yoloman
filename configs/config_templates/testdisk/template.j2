@@ -1,0 +1,66 @@
+# =========================================================================
+# TestDisk Configuration Template
+# =========================================================================
+# This template generates a configuration file for TestDisk, a powerful
+# free data recovery software that helps you recover lost partitions
+# and/or make non-booting disks bootable again.
+#
+# The configuration is minimalistic, reflecting TestDisk's interactive
+# nature. Each setting corresponds to a command-line option that can
+# also be passed directly to the testdisk binary.
+# =========================================================================
+
+# =========================================================================
+# Logging Configuration
+# =========================================================================
+
+# Path to the log file created by the /log option.
+# TestDisk writes detailed operation logs here, which is essential for
+# troubleshooting recovery issues or auditing disk operations.
+# /log <path>
+LogPath: {{ log_path | default('/var/log/testdisk.log') }}
+
+# =========================================================================
+# Debug Configuration
+# =========================================================================
+
+# Whether to enable debug information output via /debug.
+# When enabled, TestDisk produces verbose internal debugging data,
+# including memory allocation and internal state changes. Useful only
+# for developers or deep troubleshooting.
+# /debug
+Debug: {{ debug_enabled | default(false) | ternary('yes', 'no') }}
+
+# =========================================================================
+# Target Device Configuration
+# =========================================================================
+
+# The device, image file (.dd or .e01), or partition to scan and repair.
+# This is the primary target for all recovery operations. It can be a
+# block device (e.g., /dev/sda), a raw image file created by dd or
+# EnCase (.dd, .e01), or a specific partition.
+# <device|image.dd|image.e01>
+TargetDevice: {{ target_device | default('/dev/sda') }}
+
+# =========================================================================
+# Partition Listing Configuration
+# =========================================================================
+
+# Whether to display current partitions via /list.
+# When enabled, TestDisk will analyze the target and list all detected
+# partition tables and partitions without performing any modifications.
+# This is a read-only operation useful for assessment.
+# /list
+ListPartitions: {{ list_partitions | default(false) | ternary('yes', 'no') }}
+
+# =========================================================================
+# Raw Sector Dump Configuration
+# =========================================================================
+
+# Whether to dump raw sectors via /dump.
+# When enabled, TestDisk extracts raw sector data from the target. This
+# can be used for forensic analysis or when standard partition recovery
+# methods fail. Use with caution as it does not modify data but can be
+# I/O intensive on large devices.
+# /dump
+DumpRawSectors: {{ dump_raw | default(false) | ternary('yes', 'no') }}

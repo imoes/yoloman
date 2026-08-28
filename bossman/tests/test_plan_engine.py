@@ -6,6 +6,7 @@ Manager.pullerFactory — every DB write here is real.
 """
 
 import uuid
+from tests.naming import owned_name
 
 import pytest
 from sqlalchemy import select
@@ -39,7 +40,7 @@ class FakeAgentClient:
 
 
 async def _make_agent(db_session) -> Agent:
-    agent = Agent(name=f"plan-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("plan"), token="tok", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
     await db_session.commit()

@@ -1,0 +1,112 @@
+# ==============================================================================
+# wsdd2 Daemon Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for the wsdd2 (Web Services
+# Dynamic Discovery) daemon. wsdd2 implements WS-Discovery over SOAP/UDP and
+# TCP, allowing devices to be discovered on a local network.
+#
+# Generated variables are assembled into WSDD2_EXECUTABLE command string.
+# All boolean options default to True unless specified otherwise in the schema.
+# ==============================================================================
+
+# Path to the wsdd2 executable binary.
+WSDD2_EXECUTABLE="/usr/sbin/wsdd2"
+
+# --------------------------------------------------------------------------
+# Daemonization
+# --------------------------------------------------------------------------
+# Fork off a child process to become a daemon.
+# When true, the daemon detaches from the controlling terminal and runs in
+# the background. When false, it stays in the foreground (useful for debugging
+# or running under a process manager that handles logging).
+WSDD2_DAEMON={% if (wsdd2 | default({})).daemon | default(true) %}-d{% else %}# no -d{% endif %}
+
+# --------------------------------------------------------------------------
+# Address Families
+# --------------------------------------------------------------------------
+# Control which IP protocols wsdd2 responds to.
+# -4: Respond to IPv4 requests.
+# -6: Respond to IPv6 requests.
+# Both can be enabled simultaneously to support dual-stack networks.
+WSDD2_ADDRESS_FAMILIES={% if (wsdd2 | default({})).ipv4 | default(true) %}-4{% else %}# no -4{% endif %} {% if (wsdd2 | default({})).ipv6 | default(true) %}-6{% else %}# no -6{% endif %}
+
+# --------------------------------------------------------------------------
+# Transport Protocols
+# --------------------------------------------------------------------------
+# Specify which transport protocols to use for WS-Discovery messages.
+# -u: Respond using UDP protocol (default for WS-Discovery).
+# -t: Respond using TCP protocol (alternative transport).
+WSDD2_PROTOCOLS={% if (wsdd2 | default({})).udp | default(true) %}-u{% else %}# no -u{% endif %} {% if (wsdd2 | default({})).tcp | default(true) %}-t{% else %}# no -t{% endif %}
+
+# --------------------------------------------------------------------------
+# Enabled Services
+# --------------------------------------------------------------------------
+# Select which discovery services to enable.
+# -l: Enable LLMNR (Link-Local Multicast Name Resolution) service.
+# -w: Enable WSDD (Web Services Dynamic Discovery) service.
+WSDD2_SERVICES={% if (wsdd2 | default({})).llmnr | default(true) %}-l{% else %}# no -l{% endif %} {% if (wsdd2 | default({})).wsdd | default(true) %}-w{% else %}# no -w{% endif %}
+
+# --------------------------------------------------------------------------
+# Debug Options: LLMNR
+# --------------------------------------------------------------------------
+# Debug verbosity for LLMNR messages.
+# -L: Print LLMNR debug messages to stdout.
+# Multiple -L flags increase verbosity levels.
+# Defaults to 1 level of verbosity if debug_llmnr is true.
+{% if (wsdd2 | default({})).debug_llmnr | default(false) %}WSDD2_DEBUG_LL{% set llmnr_level = (wsdd2 | default({})).debug_llmnr_level | default(1) %}{% if llmnr_level > 1 %}{{ llmnr_level - 1 }}{% endif %}={% if llmnr_level > 0 %}-L{% if llmnr_level > 1 %} -L{% endif %}{% else %}# no -L{% endif %}{% else %}WSDD2_DEBUG_LL={% endif %}
+
+# --------------------------------------------------------------------------
+# Debug Options: WSDD
+# --------------------------------------------------------------------------
+# Debug verbosity for WSDD messages.
+# -W: Print WSDD debug messages to stdout.
+# Multiple -W flags increase verbosity levels.
+# Defaults to 1 level of verbosity if debug_wsdd is true.
+{% if (wsdd2 | default({})).debug_wsdd | default(false) %}WSDD2_DEBUG_WS{% set wsdd_level = (wsdd2 | default({})).debug_wsdd_level | default(1) %}{% if wsdd_level > 1 %}{{ wsdd_level - 1 }}{% endif %}={% if wsdd_level > 0 %}-W{% if wsdd_level > 1 %} -W{% endif %}{% else %}# no -W{% endif %}{% else %}WSDD2_DEBUG_WS={% endif %}
+
+# --------------------------------------------------------------------------
+# Network Interface
+# --------------------------------------------------------------------------
+# Restrict wsdd2 to listen on a specific network interface.
+# If empty, wsdd2 listens on all capable interfaces (default).
+WSDD2_INTERFACE={% if (wsdd2 | default({})).interface | default('') %}-i {{ (wsdd2 | default({})).interface | default('') }}{% else %}# no -i{% endif %}
+
+# --------------------------------------------------------------------------
+# Hostname Override
+# --------------------------------------------------------------------------
+# Specify the host name string to advertise.
+# If empty, the system hostname is used (default).
+WSDD2_HOSTNAME={% if (wsdd2 | default({})).hostname | default('') %}-H {{ (wsdd2 | default({})).hostname | default('') }}{% else %}# no -H{% endif %}
+
+# --------------------------------------------------------------------------
+# NetBIOS Name Override
+# --------------------------------------------------------------------------
+# Specify the NETBIOS machine name.
+# If empty, falls back to testparm output or system hostname (default).
+WSDD2_NETBIOS_NAME={% if (wsdd2 | default({})).netbios_name | default('') %}-N {{ (wsdd2 | default({})).netbios_name | default('') }}{% else %}# no -N{% endif %}
+
+# --------------------------------------------------------------------------
+# Workgroup Override
+# --------------------------------------------------------------------------
+# Specify the workgroup name.
+# If empty, falls back to testparm output or 'WORKGROUP' (default).
+WSDD2_WORKGROUP={% if (wsdd2 | default({})).workgroup | default('') %}-G {{ (wsdd2 | default({})).workgroup | default('') }}{% else %}# no -G{% endif %}
+
+# --------------------------------------------------------------------------
+# WSDD Property Query Values
+# --------------------------------------------------------------------------
+# Comma-delimited list of 'key:val' strings to include in WSDD HTTP responses.
+# Example: "vendor:MyVendor,device:model123"
+# If empty, no -b flag is passed.
+WSDD2_PROPERTY_VALUES={% if (wsdd2 | default({})).properties | default([]) | length > 0 %}-b "{{ (wsdd2 | default({})).properties | default([]) | join(',') }}"{% else %}# no -b{% endif %}
+
+# --------------------------------------------------------------------------
+# Final Command Assembly
+# --------------------------------------------------------------------------
+# Construct the full command line for the systemd ExecStart directive.
+# Variables are space-separated; empty variables result in empty strings
+# which systemd handles gracefully as missing arguments.
+EXEC_CMD="${WSDD2_EXECUTABLE} ${WSDD2_DAEMON} ${WSDD2_ADDRESS_FAMILIES} ${WSDD2_PROTOCOLS} ${WSDD2_SERVICES} ${WSDD2_DEBUG_LL} ${WSDD2_DEBUG_WS} ${WSDD2_INTERFACE} ${WSDD2_HOSTNAME} ${WSDD2_NETBIOS_NAME} ${WSDD2_WORKGROUP} ${WSDD2_PROPERTY_VALUES}"
+
+# Output the final command for documentation or testing purposes
+echo "wsdd2 command: $EXEC_CMD"

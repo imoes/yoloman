@@ -1,0 +1,33 @@
+# ipset configuration script
+# This script recreates ip sets and adds entries based on the provided configuration.
+#
+# This template is self-documenting. Every directive is preceded by a comment
+# derived from the Ansible role schema, ensuring that a reader understands
+# what each line does without needing external documentation.
+
+{% for set_item in sets | default([]) %}
+{# sets[].name: The name of the IP set. #}
+{% set set_name = set_item.name | default('') %}
+{# sets[].type: The type of the IP set (e.g., hash:ip, hash:net, bitmap:ip, hash:ip,mac, hash:net,iface). #}
+{% set set_type = set_item.type | default('hash:ip') %}
+
+{% if set_name and set_type %}
+ipset create {{ set_name }} {{ set_type }}{% if 'hash' in set_type %} hashsize {{ set_item.hashsize | default(1024) }} maxelem {{ set_item.maxelem | default(65536) }}{% endif %}{% if set_item.timeout | default(0) > 0 %} timeout {{ set_item.timeout | default(0) }}{% endif %}{% if set_item.counters | default(false) %} counters{% endif %}{% if set_item.comment | default(false) %} comment{% endif %}
+
+{% for entry in set_item.entries | default([]) %}
+{% if entry.type == 'ip' %}
+{# Entry type 'ip': Standard IP address entry for hash:ip sets. #}
+ipset add {{ set_name }} {{ entry.value }}{% if entry.timeout | default(0) > 0 %} timeout {{ entry.timeout | default(0) }}{% endif %}{% if entry.comment | default('') %} comment "{{ entry.comment | default('') }}"{% endif %}
+{% elif entry.type == 'ip,mac' %}
+{# Entry type 'ip,mac': IP and MAC address pair for hash:ip,mac sets. #}
+ipset add {{ set_name }} {{ (entry.value | default({})).ip | default('') }},{{ (entry.value | default({})).mac | default('') }}{% if entry.timeout | default(0) > 0 %} timeout {{ entry.timeout | default(0) }}{% endif %}{% if entry.comment | default('') %} comment "{{ entry.comment | default('') }}"{% endif %}
+{% elif entry.type == 'net' %}
+{# Entry type 'net': Network entry for hash:net sets. #}
+ipset add {{ set_name }} {{ entry.value }}{% if entry.timeout | default(0) > 0 %} timeout {{ entry.timeout | default(0) }}{% endif %}{% if entry.nomatch | default(false) %} nomatch{% endif %}{% if entry.comment | default('') %} comment "{{ entry.comment | default('') }}"{% endif %}
+{% elif entry.type == 'net,iface' %}
+{# Entry type 'net,iface': Network and interface entry for hash:net,iface sets. #}
+ipset add {{ set_name }} {{ (entry.value | default({})).net | default('') }},{{ (entry.value | default({})).iface | default('') }}{% if entry.timeout | default(0) > 0 %} timeout {{ entry.timeout | default(0) }}{% endif %}{% if entry.nomatch | default(false) %} nomatch{% endif %}{% if entry.comment | default('') %} comment "{{ entry.comment | default('') }}"{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}

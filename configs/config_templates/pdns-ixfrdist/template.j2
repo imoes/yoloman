@@ -1,0 +1,119 @@
+# =============================================================================
+# pdns-ixfrdist Configuration Template
+# =============================================================================
+# This template generates the YAML configuration file for PowerDNS ixfrdist.
+# ixfrdist is a small daemon that distributes zone data via the IXFR-UDP protocol.
+# It pulls zone transfers (AXFR/IXFR) from authoritative servers and distributes
+# them to downstream consumers via IXFR over UDP.
+#
+# Schema Reference:
+# - work_dir: Directory for domain data storage.
+# - uid/gid: Privilege dropping user/group.
+# - listen_addresses: Network interfaces/addresses to bind to (UDP & TCP).
+# - allowed_acls: ACLs permitting zone transfer queries.
+# - axfr_max_records: Limit on records per zone transfer (0 = unlimited).
+# - axfr_timeout: Timeout for AXFR transactions from master.
+# - failed_soa_retry: Retry interval for initial SOA queries of unknown zones.
+# - compress: Enable EDNS0 payload size / record compression?
+# - keep: Number of historical diffs to retain per domain.
+# - tcp_in_threads: Worker threads for TCP AXFR requests from downstream.
+# - webserver_address: Address for the stats/webserver (empty = disabled).
+# - webserver_acls: ACLs for the webserver interface.
+# - domains: List of domains to redistribute with their master sources.
+# =============================================================================
+
+# The directory where the domain data is stored.
+# Note that this directory must be writable for the user or group ixfrdist runs as.
+#
+work-dir: '{{ work_dir | default("/var/lib/ixfrdist") }}'
+
+# User to drop privileges to once all listen-sockets are bound.
+# May be either a username or numerical ID.
+#
+uid: '{{ uid | default("_ixfrdist") }}'
+
+# Group to drop privileges to once all listen-sockets are bound.
+# May be either a username or numerical ID.
+#
+gid: '{{ gid | default("_ixfrdist") }}'
+
+# Listen addresses. ixfrdist will listen on both UDP and TCP.
+# When no port is specified, 53 is used.
+# When specifying ports for IPv6, use the "bracket" notation:
+#   listen:
+#     - '127.0.0.1'
+#     - '::1'
+#     - '192.0.2.3:5300'
+#     - '[2001:DB8:1234::334]:5353'
+# By default, ixfrdist listens on local loopback addresses.
+#
+listen:
+{% for listen_addr in listen_addresses | default(['127.0.0.1', '::1']) %}
+  - '{{ listen_addr }}'
+{% endfor %}
+
+# Netmasks or IP addresses of hosts that are allowed to query ixfrdist.
+# Hosts do not need a netmask. By default, only loopback addresses are allowed.
+#
+acl:
+{% for acl_entry in allowed_acls | default(['127.0.0.0/8', '::1']) %}
+  - '{{ acl_entry }}'
+{% endfor %}
+
+# Maximum number of records allowed in a single zone.
+# ixfrdist will abort the zone transfer from the master when more than this
+# number of records have been received. A value of 0 means unlimited.
+#
+axfr-max-records: {{ axfr_max_records | default(0) }}
+
+# Timeout in seconds an AXFR transaction requested by ixfrdist may take.
+# Increase this when the network to the authoritative servers is slow or the
+# domains are very large and you experience timeouts.
+#
+axfr-timeout: {{ axfr_timeout | default(20) }}
+
+# Time in seconds between retries of the SOA query for a zone we have never
+# transferred.
+#
+failed-soa-retry: {{ failed_soa_retry | default(30) }}
+
+# Whether record compression should be enabled, leading to smaller answers
+# at the cost of an increased CPU and memory usage.
+#
+compress: {{ compress | default(false) | lower }}
+
+# Amount of older copies/IXFR diffs to keep for every domain.
+#
+keep: {{ keep | default(20) }}
+
+# Number of threads to spawn for TCP connections (AXFRs) from downstream hosts.
+#
+tcp-in-threads: {{ tcp_in_threads | default(10) }}
+
+# The IP address and port where the webserver should listen.
+# Default disabled. Set to empty string to disable.
+#
+webserver-address: '{{ webserver_address | default("") }}'
+
+# The IP address(masks) that are allowed to access the webserver.
+# When not set, it defaults to 127.0.0.0/8, ::1/128
+#
+webserver-acl:
+{% for webserver_acl_entry in webserver_acls | default(['127.0.0.0/8', '::1/128']) %}
+  - '{{ webserver_acl_entry }}'
+{% endfor %}
+
+# The domains to redistribute, the 'master' and 'domains' keys are mandatory.
+# When no port is specified, 53 is used.
+# When specifying ports for IPv6, use the "bracket" notation:
+#   domains:
+#     - domain: example.com
+#       master: 192.0.2.15
+#     - domain: rpz.example
+#       master: [2001:DB8:a34:543::53]:5353
+#
+domains:
+{% for domain in domains | default([]) %}
+  - domain: {{ domain.domain }}
+    master: {{ domain.master }}
+{% endfor %}

@@ -1,0 +1,83 @@
+# =============================================================================
+# u3-tool Configuration Template
+# =============================================================================
+# This configuration file drives the u3-tool utility, which manages U3 Smart
+# Media USB flash drives. It allows for information retrieval, repartitioning,
+# and security state manipulation (enable/disable/unlock/reset) of the U3
+# partition structure on the device.
+#
+# NOTE: u3-tool is a command-line utility, not a long-running service. This
+# template serves as a parameter set for Ansible playbooks or wrapper scripts
+# that invoke `u3-tool`.
+#
+# For detailed documentation on U3 partitions and tool options, see:
+#   man u3-tool
+# =============================================================================
+
+# -------------------------------------------------------------------------
+# Device Configuration
+# -------------------------------------------------------------------------
+# Path to the U3 USB flash disk device file.
+# This must be the raw block device (e.g., /dev/sdb), NOT a partition
+# (e.g., /dev/sdb1). Ensure no partitions on this device are mounted.
+#
+# Default: /dev/sdb
+device: {{ device | default('/dev/sdb') }}
+
+# -------------------------------------------------------------------------
+# CD Image Configuration
+# -------------------------------------------------------------------------
+# Path to a CD-ROM image file (ISO 9660) to load onto the device.
+# Used in conjunction with the 'load' action (-l).
+# The image will be written to the U3 CD partition.
+#
+# Default: None (no image loaded)
+cd_image: {{ cd_image | default(None) }}
+
+# -------------------------------------------------------------------------
+# CD Partition Size Configuration
+# -------------------------------------------------------------------------
+# Size of the CD partition in bytes, used for repartitioning the device.
+# Used in conjunction with the 'repartition' action (-p).
+# This defines the capacity of the U3 CD partition.
+#
+# Default: None (preserve existing size or use default)
+cd_size: {{ cd_size | default(None) }}
+
+# -------------------------------------------------------------------------
+# Operation Action
+# -------------------------------------------------------------------------
+# The primary action to perform on the device.
+#
+# Available actions:
+#   'info'      : Display device information and current security status (-i)
+#   'dump'      : Dump all raw device information for debugging (-D)
+#   'enable'    : Enable U3 security on the device (-e)
+#   'disable'   : Disable U3 security (-d)
+#   'reset'     : Reset security, destroying private data and re-enabling (-R)
+#   'unlock'    : Unlock the secured data partition if password is known (-u)
+#   'load'      : Load a new CD image onto the CD partition (-l)
+#   'repartition': Repartition the device to adjust CD partition size (-p)
+#
+# Default: info
+action: {{ action | default('info') }}
+
+# -------------------------------------------------------------------------
+# Security Password
+# -------------------------------------------------------------------------
+# Current password for the device.
+# Required for security operations such as 'enable', 'disable', 'unlock',
+# or changing the password. If the device is not secured, this may be ignored.
+#
+# Default: None
+password: {{ password | default(None) }}
+
+# -------------------------------------------------------------------------
+# Verbose Output
+# -------------------------------------------------------------------------
+# Enable verbose output during execution.
+# When true, the tool will print detailed progress and debugging information
+# to stdout/stderr. Useful for troubleshooting operations.
+#
+# Default: false
+verbose: {{ verbose | default(false) | lower }}

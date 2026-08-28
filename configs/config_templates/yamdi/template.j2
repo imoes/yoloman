@@ -1,0 +1,60 @@
+# ==============================================================================
+# yamdi configuration file
+# ==============================================================================
+# This configuration drives the `yamdi` tool, which injects metadata into FLV (Flash Video) files.
+# It supports reading from stdin, writing to stdout, or operating on files.
+# ==============================================================================
+
+# The source FLV file to inject metadata into.
+# Use '-' to read from stdin.
+input: {{ input_file | default('-') }}
+
+# The resulting FLV file with metadata.
+# Use '-' to write to stdout.
+output: {{ output_file | default('-') }}
+
+# An XML file to store the resulting metadata information.
+# If omitted (empty), only FLV output or stdin/stdout is used; no XML is generated.
+xml_output: {{ xml_output_file | default('') }}
+
+# A temporary file to store the source FLV file if the input is read from stdin.
+# Required if input is '-' and a temporary buffer is needed for processing.
+temporary_file: {{ temporary_file | default('') }}
+
+# A string written into the 'creator' tag of the FLV metadata.
+# Defaults to 'yamdi'.
+creator: {{ creator | default('yamdi') }}
+
+# Time in milliseconds between keyframes if there is only audio.
+# Set to 0 or empty to disable adding audio-only keyframes.
+audio_interval: {{ audio_interval | default(0) }}
+
+# Add the onLastSecond event to the FLV metadata.
+# Defaults to False.
+add_last_second: {{ add_last_second | default(false) | ternary('true', 'false') }}
+
+# Add the onLastKeyframe event to the FLV metadata.
+# Defaults to False.
+add_last_keyframe: {{ add_last_keyframe | default(false) | ternary('true', 'false') }}
+
+# Strip all metadata from the input FLV before injecting new metadata.
+# If True, ignores -s and -k options related to preservation.
+# Defaults to False.
+strip_metadata: {{ strip_metadata | default(false) | ternary('true', 'false') }}
+
+# Omit the 'keyframes' tag in the XML output file.
+# Only relevant if xml_output is specified.
+# Defaults to False.
+omit_keyframes_xml: {{ omit_keyframes_xml | default(false) | ternary('true', 'false') }}
+
+# Replace the input file with the output file.
+# Requires -i and -o to be different files in the command line context,
+# though this config primarily drives the logic.
+# Defaults to False.
+replace_input: {{ replace_input | default(false) | ternary('true', 'false') }}
+
+# List of additional command-line flags to append.
+# Valid values: -s, -k, -M, -X, -w, -h, -l
+custom_flags:
+{% for flag in custom_flags | default([]) %}  - {{ flag }}
+{% endfor %}

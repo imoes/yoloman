@@ -12,8 +12,16 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from bossman.api.auth import get_current_identity
 from bossman.config import Settings, get_settings
+from bossman.db.models import Agent
+from bossman.db.session import get_session
+from bossman.services.capabilities import family_of
+from bossman.services.template_index import build_template_index
 
 router = APIRouter()
 
@@ -55,17 +63,82 @@ async def list_config_templates(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict:
-    """Every Class-B template: [{name, template, schema, sample}]. `schema`
-    drives the edit form; `template` is sent inline to the agent on apply."""
+    """Every Class-B template as [{name, target_path, source}] — NO BODIES.
+
+    It used to return each template's body, schema and sample: measured against this catalog, a 36 MB JSON
+    document assembled in memory on every call. The host page was moved off it once already (see the note on
+    /config-templates/index, "replaces a 33.7 MB download"), but seven package snapins still called it — each
+    to pull the whole catalog and then `.find()` ONE hard-coded name. They now ask for that name directly.
+
+    A listing is a listing: what a caller choosing a template needs is the name, the file it renders and why
+    the claim exists. The body comes from GET /config-templates/{name}, for the one that was chosen.
+
+    NO withheld COUNT HERE, deliberately. Bossman serves the whole tree, so there is nothing withheld to
+    report; the agent's reply carries that number because the PACKAGE ships only the reachable subset. Adding
+    a permanent "withheld: 0" to this reply would be a second place claiming to answer a question only the
+    agent has.
+    """
     root = Path(settings.config_templates_dir)
     templates = []
     if root.is_dir():
         for d in sorted(root.iterdir()):
-            if d.is_dir():
-                t = _load_template(d)
-                if t is not None:
-                    templates.append(t)
-    return {"templates": templates}
+            # is_file() rather than loading it: the listing must not read 7 MB off disk to count.
+            if not d.is_dir() or not (d / "template.j2").is_file():
+                continue
+            entry: dict = {"name": d.name}
+            meta = d / "meta.json"
+            if meta.is_file():
+                try:
+                    m = json.loads(meta.read_text())
+                except ValueError:
+                    m = {}
+                if isinstance(m, dict):
+                    entry["target_path"] = m.get("target_path")
+                    entry["source"] = m.get("source")
+            templates.append(entry)
+    return {"templates": templates,
+            "detail": "GET /api/v1/config-templates/{name} for a template's body and schema"}
+
+
+@router.get("/api/v1/config-templates/index")
+async def config_template_index(
+    family: str = "",
+    agent_id: UUID | None = None,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """{paths: {"/etc/nginx/nginx.conf": {template, source, role?}}, conflicts: [...]}.
+
+    The explicit answer to "which template renders THIS file", replacing a basename guess that resolved
+    /etc/aardvark-dns/aardvark-dns.conf to the template rendering forward.conf — and, since the write
+    path is template_render (whole file, no merge), would have written one file's content over another.
+
+    DECLARED BEFORE /{name} on purpose. FastAPI matches routes in declaration order, so the path
+    parameter below would otherwise swallow "index" and serve a 404 for a template literally named
+    index. Route order is load-bearing here, not style.
+
+    Also replaces a 33.7 MB download: the host page used to fetch every template BODY across 5460
+    directories to do a string comparison. This is path→name pairs.
+    """
+    # `agent_id` means "for this host": the family is derived HERE with family_of(facts), the same function
+    # the wizard and the capability matcher use, so the os_release sniffing exists once. Without it the index
+    # is the host-independent authoring view, which is the right answer for OU policy.
+    if agent_id is not None and not family:
+        agent = await session.get(Agent, agent_id)
+        if agent is not None:
+            family = family_of(agent.facts or {})
+    return build_template_index(
+        Path(settings.config_templates_dir).parent / "package_catalog.json",
+        settings.config_codecs_path,
+        settings.config_templates_dir,
+        family,
+        # Passed EXPLICITLY, like every other input: the builder's fallback derives the verdicts from the
+        # catalog's directory, and in the container the catalog sits at /app while the verdicts live under
+        # /app/configs. A silently-not-found verdict file withdraws nothing and looks exactly like a clean
+        # index — the one failure mode this measurement exists to prevent.
+        settings.config_path_verdicts_path,
+    )
 
 
 @router.get("/api/v1/config-templates/{name}")

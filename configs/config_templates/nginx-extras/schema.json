@@ -1,41 +1,153 @@
 {
-  "nginx_user": {
-    "type": "string",
-    "default": "www-data",
-    "description": "System user account under which NGINX worker processes run for security isolation."
+  "nginx_access_log_path": {
+    "default": "/var/log/nginx/access.log",
+    "description": "Path to the main access log file.",
+    "type": "string"
   },
-  "nginx_group": {
-    "type": "string",
-    "default": "www-data",
-    "description": "System group for NGINX worker processes."
+  "nginx_client_body_buffer_size": {
+    "default": "16k",
+    "description": "Buffer size for client request bodies before spilling to disk.",
+    "type": "string"
   },
-  "nginx_worker_processes": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker processes. Set to 'auto' for automatic CPU core detection (use 1 as safe default; advanced users may override via string)."
+  "nginx_client_max_body_size": {
+    "default": "1m",
+    "description": "Maximum allowed size of client request body (e.g., '10m' for 10 MB).",
+    "type": "string"
   },
-  "nginx_pid_file": {
-    "type": "string",
-    "default": "/run/nginx.pid",
-    "description": "Path to the PID file storing the main NGINX process ID."
+  "nginx_conf_d_path": {
+    "default": "/etc/nginx/conf.d",
+    "description": "Directory containing additional site-specific configuration files (*.conf).",
+    "type": "string"
   },
-  "nginx_error_log_path": {
-    "type": "string",
-    "default": "/var/log/nginx/error.log",
-    "description": "Path to the global error log file."
+  "nginx_custom_servers": {
+    "default": [],
+    "description": "List of custom server blocks to include inline (use for monitoring endpoints, fallback servers, or module-specific configs).",
+    "items": {
+      "description": {
+        "default": "",
+        "description": "Human-readable description of this server block.",
+        "type": "string"
+      },
+      "index": {
+        "default": [
+          "index.html",
+          "index.htm"
+        ],
+        "description": "List of index files to try in order.",
+        "type": "list"
+      },
+      "listen": {
+        "default": "80",
+        "description": "Listen address/port (e.g., '80', '[::]:443 ssl', 'unix:/var/run/nginx.sock').",
+        "type": "string"
+      },
+      "locations": {
+        "default": [],
+        "description": "List of location blocks for URL path routing.",
+        "items": {
+          "auth_basic": {
+            "default": "",
+            "description": "Enable HTTP Basic Auth; value sets the realm string.",
+            "type": "string"
+          },
+          "auth_basic_user_file": {
+            "default": "",
+            "description": "Path to .htpasswd file for auth users.",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "description": "Description of this location block.",
+            "type": "string"
+          },
+          "extra_config": {
+            "default": [],
+            "description": "Custom directives for nginx-extras modules (e.g., auth_request, limit_req, etc.).",
+            "items": {},
+            "type": "list"
+          },
+          "path": {
+            "default": "/",
+            "description": "URL path or regex pattern to match (e.g., '/api/', '^~ /static/').",
+            "type": "string"
+          },
+          "proxy_pass": {
+            "default": "",
+            "description": "Backend URL for reverse proxy (e.g., 'http://127.0.0.1:8080').",
+            "type": "string"
+          },
+          "root": {
+            "default": "",
+            "description": "Override document root for this location.",
+            "type": "string"
+          },
+          "try_files": {
+            "default": [],
+            "description": "Fallback chain for file resolution (e.g., ['$uri', '$uri/', '=404']).",
+            "type": "list"
+          }
+        },
+        "type": "list"
+      },
+      "root": {
+        "default": "",
+        "description": "Document root directory for this server.",
+        "type": "string"
+      },
+      "server_name": {
+        "default": [
+          "_"
+        ],
+        "description": "List of server names or wildcard patterns (e.g., ['example.com', '*.example.com']).",
+        "type": "list"
+      },
+      "ssl": {
+        "default": false,
+        "description": "Enable SSL/TLS for this server.",
+        "type": "bool"
+      },
+      "ssl_certificate": {
+        "default": "",
+        "description": "Path to the SSL certificate file.",
+        "type": "string"
+      },
+      "ssl_certificate_key": {
+        "default": "",
+        "description": "Path to the SSL private key file.",
+        "type": "string"
+      },
+      "ssl_ciphers": {
+        "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+        "description": "Allowed cipher suites for SSL.",
+        "type": "string"
+      },
+      "ssl_protocols": {
+        "default": [
+          "TLSv1.2",
+          "TLSv1.3"
+        ],
+        "description": "Supported SSL/TLS protocols (e.g., ['TLSv1.2', 'TLSv1.3']).",
+        "type": "list"
+      }
+    },
+    "type": "list"
+  },
+  "nginx_default_type": {
+    "default": "application/octet-stream",
+    "description": "Default MIME type for responses when type cannot be determined.",
+    "type": "string"
   },
   "nginx_error_log_level": {
-    "type": "string",
     "default": "warn",
-    "description": "Log level for errors (debug, info, notice, warn, error, crit, alert, emerg)."
+    "description": "Log level for errors (debug, info, notice, warn, error, crit, alert, emerg).",
+    "type": "string"
   },
-  "nginx_events_worker_connections": {
-    "type": "number",
-    "default": 768,
-    "description": "Maximum number of simultaneous connections each worker can handle. Higher values increase capacity but require more file descriptors."
+  "nginx_error_log_path": {
+    "default": "/var/log/nginx/error.log",
+    "description": "Path to the global error log file.",
+    "type": "string"
   },
   "nginx_events_use": {
-    "type": "string",
     "default": "epoll",
     "description": "Event notification mechanism (e.g., epoll for Linux, kqueue for BSD).",
     "enum": [
@@ -45,50 +157,31 @@
       "epoll",
       "/dev/poll",
       "event ports"
-    ]
-  },
-  "nginx_mimetypes_file": {
+    ],
     "type": "string",
-    "default": "/etc/nginx/mime.types",
-    "description": "Path to the file containing MIME type definitions."
+    "enum_open": true
   },
-  "nginx_default_type": {
-    "type": "string",
-    "default": "application/octet-stream",
-    "description": "Default MIME type for responses when type cannot be determined."
+  "nginx_events_worker_connections": {
+    "default": 768,
+    "description": "Maximum number of simultaneous connections each worker can handle. Higher values increase capacity but require more file descriptors.",
+    "type": "number"
   },
-  "nginx_access_log_path": {
-    "type": "string",
-    "default": "/var/log/nginx/access.log",
-    "description": "Path to the main access log file."
-  },
-  "nginx_sendfile": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable/disable sendfile(2) for high-performance static file delivery."
-  },
-  "nginx_tcp_nopush": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable TCP_NOPUSH (or TCP_CORK) to send full TCP packets for improved network efficiency."
-  },
-  "nginx_keepalive_timeout": {
-    "type": "number",
-    "default": 65,
-    "description": "Timeout (in seconds) for keep-alive connections with clients."
+  "nginx_group": {
+    "default": "www-data",
+    "description": "System group for NGINX worker processes.",
+    "type": "string"
   },
   "nginx_gzip_compression_level": {
-    "type": "number",
     "default": 3,
-    "description": "Gzip compression level (1\u20139). Higher = better compression but more CPU."
+    "description": "Gzip compression level (1\u20139). Higher = better compression but more CPU.",
+    "type": "number"
   },
   "nginx_gzip_min_length": {
-    "type": "number",
     "default": 256,
-    "description": "Minimum response size (bytes) required to enable gzip compression."
+    "description": "Minimum response size (bytes) required to enable gzip compression.",
+    "type": "number"
   },
   "nginx_gzip_types": {
-    "type": "list",
     "default": [
       "text/plain",
       "text/css",
@@ -97,154 +190,62 @@
       "text/xml",
       "application/xml"
     ],
-    "description": "MIME types to compress with gzip. Applies only to responses with matching Content-Type headers."
+    "description": "MIME types to compress with gzip. Applies only to responses with matching Content-Type headers.",
+    "type": "list"
   },
-  "nginx_client_max_body_size": {
-    "type": "string",
-    "default": "1m",
-    "description": "Maximum allowed size of client request body (e.g., '10m' for 10 MB)."
+  "nginx_keepalive_timeout": {
+    "default": 65,
+    "description": "Timeout (in seconds) for keep-alive connections with clients.",
+    "type": "number"
   },
-  "nginx_client_body_buffer_size": {
-    "type": "string",
-    "default": "16k",
-    "description": "Buffer size for client request bodies before spilling to disk."
-  },
-  "nginx_open_file_cache_max": {
-    "type": "number",
-    "default": 10000,
-    "description": "Maximum number of open files in the cache."
+  "nginx_mimetypes_file": {
+    "default": "/etc/nginx/mime.types",
+    "description": "Path to the file containing MIME type definitions.",
+    "type": "string"
   },
   "nginx_open_file_cache_inactive": {
-    "type": "string",
     "default": "60s",
-    "description": "Time after which cached entries become inactive if not accessed."
+    "description": "Time after which cached entries become inactive if not accessed.",
+    "type": "string"
   },
-  "nginx_open_file_cache_valid": {
-    "type": "string",
-    "default": "30s",
-    "description": "Interval for validating cached file metadata."
+  "nginx_open_file_cache_max": {
+    "default": 10000,
+    "description": "Maximum number of open files in the cache.",
+    "type": "number"
   },
   "nginx_open_file_cache_min": {
-    "type": "number",
     "default": 2,
-    "description": "Minimum number of accesses before a file is cached."
+    "description": "Minimum number of accesses before a file is cached.",
+    "type": "number"
   },
-  "nginx_conf_d_path": {
-    "type": "string",
-    "default": "/etc/nginx/conf.d",
-    "description": "Directory containing additional site-specific configuration files (*.conf)."
+  "nginx_open_file_cache_valid": {
+    "default": "30s",
+    "description": "Interval for validating cached file metadata.",
+    "type": "string"
   },
-  "nginx_custom_servers": {
-    "type": "list",
-    "default": [],
-    "description": "List of custom server blocks to include inline (use for monitoring endpoints, fallback servers, or module-specific configs).",
-    "items": {
-      "description": {
-        "type": "string",
-        "default": "",
-        "description": "Human-readable description of this server block."
-      },
-      "listen": {
-        "type": "string",
-        "default": "80",
-        "description": "Listen address/port (e.g., '80', '[::]:443 ssl', 'unix:/var/run/nginx.sock')."
-      },
-      "server_name": {
-        "type": "list",
-        "default": [
-          "_"
-        ],
-        "description": "List of server names or wildcard patterns (e.g., ['example.com', '*.example.com'])."
-      },
-      "ssl": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable SSL/TLS for this server."
-      },
-      "ssl_certificate": {
-        "type": "string",
-        "default": "",
-        "description": "Path to the SSL certificate file."
-      },
-      "ssl_certificate_key": {
-        "type": "string",
-        "default": "",
-        "description": "Path to the SSL private key file."
-      },
-      "ssl_protocols": {
-        "type": "list",
-        "default": [
-          "TLSv1.2",
-          "TLSv1.3"
-        ],
-        "description": "Supported SSL/TLS protocols (e.g., ['TLSv1.2', 'TLSv1.3'])."
-      },
-      "ssl_ciphers": {
-        "type": "string",
-        "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
-        "description": "Allowed cipher suites for SSL."
-      },
-      "root": {
-        "type": "string",
-        "default": "",
-        "description": "Document root directory for this server."
-      },
-      "index": {
-        "type": "list",
-        "default": [
-          "index.html",
-          "index.htm"
-        ],
-        "description": "List of index files to try in order."
-      },
-      "locations": {
-        "type": "list",
-        "default": [],
-        "description": "List of location blocks for URL path routing.",
-        "items": {
-          "description": {
-            "type": "string",
-            "default": "",
-            "description": "Description of this location block."
-          },
-          "path": {
-            "type": "string",
-            "default": "/",
-            "description": "URL path or regex pattern to match (e.g., '/api/', '^~ /static/')."
-          },
-          "root": {
-            "type": "string",
-            "default": "",
-            "description": "Override document root for this location."
-          },
-          "try_files": {
-            "type": "list",
-            "default": [],
-            "description": "Fallback chain for file resolution (e.g., ['$uri', '$uri/', '=404'])."
-          },
-          "proxy_pass": {
-            "type": "string",
-            "default": "",
-            "description": "Backend URL for reverse proxy (e.g., 'http://127.0.0.1:8080')."
-          },
-          "auth_basic": {
-            "type": "string",
-            "default": "",
-            "description": "Enable HTTP Basic Auth; value sets the realm string."
-          },
-          "auth_basic_user_file": {
-            "type": "string",
-            "default": "",
-            "description": "Path to .htpasswd file for auth users."
-          },
-          "extra_config": {
-            "type": "list",
-            "default": [],
-            "description": "Custom directives for nginx-extras modules (e.g., auth_request, limit_req, etc.).",
-            "items": {}
-          }
-        }
-      }
-    }
+  "nginx_pid_file": {
+    "default": "/run/nginx.pid",
+    "description": "Path to the PID file storing the main NGINX process ID.",
+    "type": "string"
+  },
+  "nginx_sendfile": {
+    "default": true,
+    "description": "Enable/disable sendfile(2) for high-performance static file delivery.",
+    "type": "bool"
+  },
+  "nginx_tcp_nopush": {
+    "default": true,
+    "description": "Enable TCP_NOPUSH (or TCP_CORK) to send full TCP packets for improved network efficiency.",
+    "type": "bool"
+  },
+  "nginx_user": {
+    "default": "www-data",
+    "description": "System user account under which NGINX worker processes run for security isolation.",
+    "type": "string"
+  },
+  "nginx_worker_processes": {
+    "default": 1,
+    "description": "Number of worker processes. Set to 'auto' for automatic CPU core detection (use 1 as safe default; advanced users may override via string).",
+    "type": "string"
   }
 }

@@ -1,0 +1,12 @@
+#{{ (daemon | default({})).conf_path | default('/etc/daemon.conf') }}
+# System-wide default options for daemon(1)
+#
+# Generic options applying to all named daemons
+# This section sets global defaults for every daemon instance defined below.
+* {{ (daemon | default({})).generic_options | default('respawn,errlog=daemon.debug') }}
+
+{% for service in services | default([], true) %}
+# {{ (service | default({})).name | default('unnamed') }} - Specific configuration for the {{ (service | default({})).name | default('unnamed') }} daemon
+# Format: name command [option=value ...]
+{{ (service | default({})).name | default('unnamed') }} {{ (service | default({})).command | default('/usr/local/bin/myapp') }} {{ (service | default({})).options | default('respawn') }}
+{% endfor %}

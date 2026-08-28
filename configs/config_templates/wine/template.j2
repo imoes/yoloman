@@ -1,0 +1,74 @@
+# =============================================================================
+# Wine Environment Configuration Template
+# =============================================================================
+# This template configures the runtime environment variables for Wine,
+# enabling it to emulate Windows applications on Linux/Unix systems.
+# The variables control the prefix location, architecture, debugging,
+# DLL loading behavior, paths, graphics, audio, and display settings.
+#
+# Each variable is documented with its purpose, accepted values, and
+# the schema default used if the variable is not provided.
+# =============================================================================
+
+# WINEPREFIX: Base directory for the Wine prefix.
+# Wine stores its registry, drive mappings, and configuration files here.
+# Must be an absolute path. If the directory does not exist, Wine will
+# create it upon first use (depending on the command executed).
+# Default: /home/user/.wine
+WINEPREFIX={{ wine_prefix | default('/home/user/.wine') }}
+
+# WINEARCH: Target Windows architecture for the prefix.
+# Valid values: 'win32' (32-bit) or 'win64' (64-bit).
+# This MUST be set at the time of prefix creation. Changing it afterwards
+# requires recreating the prefix.
+# Default: win64
+WINEARCH={{ wine_arch | default('win64') }}
+
+# WINEDEBUG: Debugging message configuration.
+# Controls which debug channels are enabled and their verbosity.
+# Syntax: [class][+|-]channel[,...]
+# Examples: 'warn+all' (warnings and all channels), 'trace+all', 'fixme-all'
+# Default: warn+all
+WINEDEBUG={{ wine_debug | default('warn+all') }}
+
+# WINEDLLOVERRIDES: DLL load order and type overrides.
+# Specifies how Wine loads specific Windows DLLs.
+# Syntax: dll=type,type[;dll=type,type...]
+# Types: 'n' (native Windows DLL), 'b' (Wine builtin DLL)
+# Example: 'comdlg32=n,b;shell32=b' means try native comdlg32 then builtin.
+# Default: comdlg32=n,b
+WINEDLLOVERRIDES={{ wine_dll_overrides | default('comdlg32=n,b') }}
+
+# WINEPATH: Additional directories to search for DLLs and executables.
+# Windows-style paths (e.g., /usr/local/windows_libs) separated by semicolons.
+# Prepended to the standard Windows PATH.
+# Default: /usr/local/windows_libs
+WINEPATH={{ wine_path | default('/usr/local/windows_libs') }}
+
+# WINE_D3D_CONFIG: Direct3D rendering configuration.
+# Passes configuration options to the Direct3D layer.
+# Key-value pairs separated by commas or semicolons.
+# Common options: renderer=gl, renderer=vulkan, VideoPciVendorID=...
+# Default: renderer=gl
+WINE_D3D_CONFIG={{ wine_d3d_config | default('renderer=gl') }}
+
+# DISPLAY: X11 display server address.
+# Determines which X11 display Wine uses for graphical output.
+# Format: :0, :1, host:0, etc.
+# Default: :0
+DISPLAY={{ display | default(':0') }}
+
+# AUDIODEV: Audio device file for input/output.
+# The character device file used by Wine for basic audio playback/recording.
+# Default: /dev/dsp
+AUDIODEV={{ audio_dev | default('/dev/dsp') }}
+
+# MIXERDEV: Mixer device file for audio level control.
+# The character device file used to control volume/mixer settings.
+# Default: /dev/mixer
+MIXERDEV={{ mixer_dev | default('/dev/mixer') }}
+
+# MIDIDEV: MIDI sequencer device file.
+# The character device file used for MIDI output.
+# Default: /dev/sequencer
+MIDIDEV={{ midi_dev | default('/dev/sequencer') }}

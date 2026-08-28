@@ -1,0 +1,80 @@
+# NZBGet Configuration File
+# Managed by automation - Self-Documenting Template
+# This template configures the NZBGet Usenet downloader.
+# It handles the main control interface, web UI, download directories,
+# and optional feed monitoring.
+
+# [Main] Section - Global settings
+
+# The operating system user to run the NZBGet process as (Linux only).
+# Leave empty to run as current user.
+User = {{ user|default('nzbget') }}
+
+# The control password for the NZBGet server.
+# Required for API and Web Interface access.
+Password = {{ password|default('tegbzn6789') }}
+
+# The IP address for the control interface to bind to.
+# Use '0.0.0.0' to listen on all interfaces, '127.0.0.1' for local only.
+BindAddress = {{ bind_address|default('127.0.0.1') }}
+
+# The TCP port for the control interface.
+ControlPort = {{ control_port|default(6789) }}
+
+# The IP address for the web interface to bind to.
+# Use '0.0.0.0' to listen on all interfaces, '127.0.0.1' for local only.
+WebInterfaceIp = {{ web_interface_ip|default('0.0.0.0') }}
+
+# The TCP port for the web interface.
+WebInterfacePort = {{ web_interface_port|default(6787) }}
+
+# Whether to enable the built-in web interface.
+# NZBGet uses 'yes'/'no' for boolean configuration values.
+EnableWebInterface = {{ enable_web_interface|default(true)|ternary('yes', 'no') }}
+
+# [Download] Section - Download queue and storage settings
+
+# The main directory where completed downloads are stored.
+DestDir = {{ dest_dir|default('/mnt/downloads/completed') }}
+
+# The temporary directory for partial downloads.
+# Used for disk space checks before finalizing downloads.
+TempDir = {{ temp_dir|default('/mnt/downloads/incomplete') }}
+
+# The maximum number of concurrent active downloads.
+MaxDownloads = {{ max_downloads|default(3) }}
+
+# [Server] Section - Network server settings
+
+# The port NZBGet listens on for incoming news server connections
+# (if acting as a news server/relay for other clients).
+IncomingPort = {{ incoming_port|default(119) }}
+
+# [Misc] Section - General behavior
+
+# The logging verbosity level (0=off, 1=warning, 2=info, 3=debug, 4=trace, 5=trace2).
+LogLevel = {{ log_level|default(1) }}
+
+# [PostProcess] Section - Automatic processing after download
+
+# Whether to enable automatic post-processing scripts.
+EnablePostProcessing = {{ enable_post_processing|default(true)|ternary('yes', 'no') }}
+
+# [Feeds] Section - Internal RSS/Atom feed reader
+
+# Whether to enable the internal feed reader.
+EnableFeeds = {{ enable_feeds|default(false)|ternary('yes', 'no') }}
+
+# List of feeds to monitor for new content.
+# Each feed requires a name, URL, and enabled status.
+{% for feed in feeds|default([]) %}
+FeedName{{ loop.index }} = {{ feed.name|default('') }}
+FeedUrl{{ loop.index }} = {{ feed.url|default('') }}
+FeedEnabled{{ loop.index }} = {{ feed.enabled|default(true)|ternary('yes', 'no') }}
+{% endfor %}
+
+# [Notifications] Section - Desktop alerts
+
+# Enable desktop notifications for download events.
+# Note: 'enable_notifications' is not in the provided schema, but included for completeness with a safe default.
+EnableNotifications = {{ enable_notifications|default('no') }}

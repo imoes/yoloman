@@ -920,7 +920,7 @@ def test_restore_vars_resolves_playbook_vars_and_mounts():
     devices/URLs/mounts restore_steps uses, as loopable vars."""
     layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
     plan = plan_restore(layout, Disk("sda", 200 * GiB))
-    v = restore_vars(layout, plan, image_url="https://b/i", hostname="web07.example.com",
+    v = restore_vars(layout, plan, image_url="https://b/i", hostname="web.example.internal",
                      network={"mode": "static", "interface": "eth0", "address": "192.0.2.60/24",
                               "gateway": "192.0.2.1", "dns": ["192.0.2.1"]})
     pe, tgt, mounts = v["pe_vars"], v["target_vars"], v["mounts"]
@@ -938,7 +938,7 @@ def test_restore_vars_resolves_playbook_vars_and_mounts():
     assert all(m["mountpoint"].startswith("/mnt/target") for m in mounts)
     # target phase: firmware resolved, network mapped to the module's shape
     assert tgt["firmware"] in ("bios", "uefi")
-    assert tgt["target_hostname"] == "web07.example.com"
+    assert tgt["target_hostname"] == "web.example.internal"
     assert tgt["network"] == {"method": "static", "name": "eth0", "address": "192.0.2.60/24",
                               "gateway": "192.0.2.1", "dns": ["192.0.2.1"]}
 

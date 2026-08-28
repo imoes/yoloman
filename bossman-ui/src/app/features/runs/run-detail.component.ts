@@ -7,6 +7,17 @@ import { PlanRunDetail } from '../../core/models/run.model';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { runStatusBadge } from '../../shared/status.util';
 
+/**
+ * One run, step by step: what a plan did on one host, and what came back.
+ *
+ * The execution side of the plan/run split — the plan is the intent, this is the evidence. Each step shows
+ * the module it called, whether it CHANGED anything and the output it produced, so a failed run says which
+ * step failed rather than only that the run did. The host links back to its own page, because the next
+ * question after "this step failed" is always "what does that host look like now".
+ *
+ * For what a host did OUTSIDE a plan — a console action, a runbook step, an AI-initiated call — the Result
+ * log is the wider record; this screen is one plan's execution.
+ */
 @Component({
   selector: 'app-run-detail',
   standalone: true,

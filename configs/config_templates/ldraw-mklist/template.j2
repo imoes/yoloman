@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Configuration for ldraw-mklist
+# Self-documenting template generated for Ansible.
+# ==============================================================================
+
+# Input directory containing the LDraw parts library.
+PARTS_INPUT_DIR="{{ parts_input_dir | default('/usr/share/ldraw') }}"
+
+# Output filename for the generated parts list.
+PARTS_OUTPUT_FILE="{{ parts_output_file | default('parts.lst') }}"
+
+# Sort the parts list by part number.
+SORT_BY_NUMBER={{ sort_by_number | default(false) | lower }}
+
+# Sort the parts list by description text.
+SORT_BY_DESCRIPTION={{ sort_by_description | default(false) | lower }}
+
+# Check for duplicate descriptions in the parts list.
+CHECK_DUPLICATES={{ check_duplicates | default(false) | lower }}
+
+# Include parts with '~Moved to xxx' in the description.
+SKIP_MOVED_PARTS={{ skip_moved_parts | default(false) | lower }}
+
+# Skip parts with a tilde (~) in the description.
+SKIP_TILDE_PARTS={{ skip_tilde_parts | default(false) | lower }}
+
+# Force completion without user prompts.
+FORCE_MODE={{ force_mode | default(false) | lower }}
+
+# Run in quiet mode, suppressing warnings and prompts.
+QUIET_MODE={{ quiet_mode | default(false) | lower }}
+
+# Use 8.3 filename format for compatibility.
+USE_8_3_NAMES={{ use_8_3_names | default(false) | lower }}
+
+# Truncate descriptions to fit within an 80-character terminal window.
+TRUNCATE_DESC_80={{ truncate_desc_80 | default(false) | lower }}
+
+# Use a ragged filename column size to fit short filenames.
+RAGGED_FILENAME={{ ragged_filename | default(false) | lower }}
+
+# Truncate long descriptions at 64 characters.
+TRUNCATE_DESC_64={{ truncate_desc_64 | default(false) | lower }}
+
+# Print verbose information for debugging.
+VERBOSE={{ verbose | default(false) | lower }}
+
+# ==============================================================================
+# Generate the command line
+# ==============================================================================
+
+# Base command
+CMD="ldraw-mklist"
+
+# Append -n if sorting by part number
+{% if sort_by_number | default(false) %}
+CMD="${CMD} -n"
+{% endif %}
+
+# Append -d if sorting by description
+{% if sort_by_description | default(false) %}
+CMD="${CMD} -d"
+{% endif %}
+
+# Append -c if checking for duplicates
+{% if check_duplicates | default(false) %}
+CMD="${CMD} -c"
+{% endif %}
+
+# Append -m if including moved parts
+{% if skip_moved_parts | default(false) %}
+CMD="${CMD} -m"
+{% endif %}
+
+# Append -~ if skipping tilde parts
+{% if skip_tilde_parts | default(false) %}
+CMD="${CMD} -~"
+{% endif %}
+
+# Append input and output file arguments
+CMD="${CMD} -i {{ parts_input_dir | default('/usr/share/ldraw') }}"
+CMD="${CMD} -o {{ parts_output_file | default('parts.lst') }}"
+
+# Append -f if force mode is enabled
+{% if force_mode | default(false) %}
+CMD="${CMD} -f"
+{% endif %}
+
+# Append -q if quiet mode is enabled
+{% if quiet_mode | default(false) %}
+CMD="${CMD} -q"
+{% endif %}
+
+# Append -8 if using 8.3 names
+{% if use_8_3_names | default(false) %}
+CMD="${CMD} -8"
+{% endif %}
+
+# Append -t if truncating descriptions to 80 chars
+{% if truncate_desc_80 | default(false) %}
+CMD="${CMD} -t"
+{% endif %}
+
+# Append -r if using ragged filename column
+{% if ragged_filename | default(false) %}
+CMD="${CMD} -r"
+{% endif %}
+
+# Append -l if truncating descriptions at 64 chars
+{% if truncate_desc_64 | default(false) %}
+CMD="${CMD} -l"
+{% endif %}
+
+# Append -v if verbose mode is enabled
+{% if verbose | default(false) %}
+CMD="${CMD} -v"
+{% endif %}
+
+# Execute the command with the constructed arguments
+exec ${CMD}

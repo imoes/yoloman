@@ -278,11 +278,11 @@ export class WebSingleConfigTreeComponent {
     this.loading.set(true); this.msg.set(''); this.err.set('');
     const p = this.profile();
     forkJoin({
-      tpls: this.agentService.configTemplates(),
+      tpl: this.agentService.configTemplate(p.template),
       cfg: this.agentService.callTool(this.agentId(), 'config', { path: p.sidecarPath, format: 'json' }),
     }).subscribe({
-      next: ({ tpls, cfg }) => {
-        const tpl = tpls.templates.find((t) => t.name === p.template);
+      next: ({ tpl: { tpl, missing }, cfg }) => {
+        if (missing) this.err.set(missing);
         this.tplBody = tpl?.template || '';
         const sch = (tpl?.schema as ParamSchema) || null;
         if (sch) this.schema.set(sch);

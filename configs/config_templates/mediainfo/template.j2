@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# ============================================================
+# MediaInfo Analysis Script
+# ============================================================
+# This script analyzes a media file using the `mediainfo` utility.
+# Configuration is driven by the following Ansible variables:
+#   - input_file: Path to the media file to analyze.
+#   - use_full_info: If true, displays full internal tag information.
+#   - use_xml: If true, outputs the result in XML format.
+#   - use_html: If true, outputs the result in HTML format.
+#   - use_inform: If true, uses a custom Inform template for output.
+#   - inform_sections: List of maps defining custom Inform sections/params.
+#   - log_file: Optional path to save the output log. Empty string means no log.
+# ============================================================
+
+# Ensure MediaInfo is installed
+if ! command -v mediainfo &> /dev/null; then
+    echo "Error: mediainfo is not installed."
+    exit 1
+fi
+
+# Input file to analyze
+# Default: /tmp/sample.mkv
+INPUT_FILE="{{ input_file | default('/tmp/sample.mkv') }}"
+
+if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "Error: File not found: $INPUT_FILE"
+    exit 1
+fi
+
+# Build Inform format string
+# Format: Section;%Param%\n
+# Example: Video;%Format%;Audio;%BitRate%\n
+# If inform_sections is empty, this results in an empty string, handled gracefully.
+INFORM_TEMPLATE="{% for section in inform_sections | default([]) %}{{ section.section }};%{{ section.param }}{% if not loop.last %}\n{% endif %}{% endfor %}"
+
+# Display information based on configuration flags
+# Priority: Full Info > XML > HTML > Inform > Standard
+if {{ use_full_info | default(false) | ternary('true', 'false') }} == "true"; then
+    echo "--- Full Information ---"
+    mediainfo --Full "$INPUT_FILE"
+elif {{ use_xml | default(false) | ternary('true', 'false') }} == "true"; then
+    echo "--- XML Output ---"
+    mediainfo --Output=XML "$INPUT_FILE"
+elif {{ use_html | default(false) | ternary('true', 'false') }} == "true"; then
+    echo "--- HTML Output ---"
+    mediainfo --Output=HTML "$INPUT_FILE"
+elif {{ use_inform | default(false) | ternary('true', 'false') }} == "true"; then
+    echo "--- Custom Inform Output ---"
+    # If INFORM_TEMPLATE is empty, mediainfo might error or output nothing; passing it anyway as configured.
+    mediainfo --Inform="$INFORM_TEMPLATE" "$INPUT_FILE"
+else
+    echo "--- Standard Output ---"
+    mediainfo "$INPUT_FILE"
+fi
+
+# Optional: Save to log file
+# If log_file is not empty, redirect the same command used above to the log file.
+{% set log_file_var = log_file | default('') %}
+{% if log_file_var %}
+    echo "--- Standard Output (Logging) ---"
+    echo "Output saved to: {{ log_file_var }}"
+    {# Replicate the logic to determine which mediainfo flags to use for the log #}
+    {% set flags = [] %}
+    {% if use_full_info | default(false) %}
+        {% set flags = flags + ['--Full'] %}
+    {% endif %}
+    {% if use_xml | default(false) %}
+        {% set flags = flags + ['--Output=XML'] %}
+    {% elif use_html | default(false) %}
+        {% set flags = flags + ['--Output=HTML'] %}
+    {% elif use_inform | default(false) %}
+        {% set flags = flags + ['--Inform=' + INFORM_TEMPLATE] %}
+    {% endif %}
+    
+    mediainfo {{ flags | join(' ') }} "$INPUT_FILE" > "{{ log_file_var }}"
+{% endif %}

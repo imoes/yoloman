@@ -1,80 +1,80 @@
 {
-  "options": {
-    "long_hostnames": false,
-    "flush_lines": 100,
-    "time_reopen": 10,
-    "use_dns": true,
-    "use_fqdn": true,
-    "add_host_name": "yes",
-    "use_time_recvd": false,
-    "perm": "0640",
-    "dir_perm": "0755",
-    "owner": "syslog",
-    "group": "adm"
+ "config_fragments": [
+  "/etc/syslog-ng/conf.d/ssl.conf",
+  "/etc/syslog-ng/conf.d/custom-rules.conf"
+ ],
+ "destinations": [
+  {
+   "group": "adm",
+   "name": "dst_file",
+   "owner": "syslog",
+   "path": "/var/log/syslog-ng/messages.log",
+   "template": "${ISODATE} ${HOST} ${MSGHDR}${MSG}\n",
+   "type": "file"
   },
-  "sources": [
+  {
+   "ip": "192.168.1.100",
+   "name": "dst_remote",
+   "port": 6514,
+   "template": "${ISODATE} ${HOST} ${MSGHDR}${MSG}\n",
+   "transport": "tls",
+   "type": "tcp"
+  }
+ ],
+ "logs": [
+  {
+   "destination": "dst_file",
+   "name": "all_messages",
+   "source": "src_syslog"
+  },
+  {
+   "destination": "dst_file",
+   "filters": [
     {
-      "name": "src_syslog",
-      "type": "syslog",
-      "ip": "0.0.0.0",
-      "port": 514,
-      "flags": [
-        "no-parse",
-        "validate-utf8"
-      ]
-    },
-    {
-      "name": "src_file",
-      "type": "file",
-      "path": "/var/log/messages",
-      "flags": [
-        "no-parse"
-      ]
-    },
-    {
-      "name": "src_local",
-      "type": "unix-stream",
-      "path": "/dev/log"
+     "expr": "match(\"error|fail|critical\" value(\"MESSAGE\"))",
+     "name": "f_errors"
     }
-  ],
-  "destinations": [
-    {
-      "name": "dst_file",
-      "type": "file",
-      "path": "/var/log/syslog-ng/messages.log",
-      "owner": "syslog",
-      "group": "adm",
-      "template": "${ISODATE} ${HOST} ${MSGHDR}${MSG}\n"
-    },
-    {
-      "name": "dst_remote",
-      "type": "tcp",
-      "ip": "192.168.1.100",
-      "port": 6514,
-      "transport": "tls",
-      "template": "${ISODATE} ${HOST} ${MSGHDR}${MSG}\n"
-    }
-  ],
-  "logs": [
-    {
-      "name": "all_messages",
-      "source": "src_syslog",
-      "destination": "dst_file"
-    },
-    {
-      "name": "messages_with_errors",
-      "source": "src_local",
-      "destination": "dst_file",
-      "filters": [
-        {
-          "name": "f_errors",
-          "expr": "match(\"error|fail|critical\" value(\"MESSAGE\"))"
-        }
-      ]
-    }
-  ],
-  "config_fragments": [
-    "/etc/syslog-ng/conf.d/ssl.conf",
-    "/etc/syslog-ng/conf.d/custom-rules.conf"
-  ]
+   ],
+   "name": "messages_with_errors",
+   "source": "src_local"
+  }
+ ],
+ "options": {
+  "add_host_name": "yes",
+  "dir_perm": "0755",
+  "flush_lines": 100,
+  "group": "adm",
+  "long_hostnames": false,
+  "owner": "syslog",
+  "perm": "0640",
+  "time_reopen": 10,
+  "use_dns": true,
+  "use_fqdn": true,
+  "use_time_recvd": false
+ },
+ "sources": [
+  {
+   "flags": [
+    "no-parse",
+    "validate-utf8"
+   ],
+   "ip": "0.0.0.0",
+   "name": "src_syslog",
+   "port": 514,
+   "type": "syslog"
+  },
+  {
+   "flags": [
+    "no-parse"
+   ],
+   "name": "src_file",
+   "path": "/var/log/messages",
+   "type": "file"
+  },
+  {
+   "name": "src_local",
+   "path": "/dev/log",
+   "type": "unix-stream"
+  }
+ ]
 }

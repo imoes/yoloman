@@ -1,0 +1,103 @@
+# ============================================================================
+# rpl Configuration Template
+# ============================================================================
+# This template generates the command-line arguments for `rpl`, a tool that
+# performs string replacement in files.
+#
+# Global Settings:
+# - default_encoding: The character encoding used for reading/writing files
+#   if not specified in individual operations. Defaults to 'utf-8'.
+#
+# Operations:
+# - operations: A list of search/replace definitions. Each operation targets
+#   specific files and replaces occurrences of old_text with new_text.
+# ============================================================================
+
+{% set default_encoding = default_encoding | default('utf-8') %}
+
+{% if default_encoding != 'utf-8' %}
+# Global default encoding for file I/O
+# Overrides the default 'utf-8' encoding for all operations unless specified per-operation.
+--encoding {{ default_encoding }}
+{% endif %}
+
+{% for op in operations | default([]) %}
+# --------------------------------------------------------------------------
+# Operation {{ loop.index }}
+# Description: Search/replace operation defined by the user.
+# Fields: old_text, new_text, files, encoding, extended_regex, ignore_case,
+#         match_case, whole_words, backup, quiet, verbose, dry_run,
+#         fixed_strings, recursive, prompt, keep_times.
+# --------------------------------------------------------------------------
+
+{% if op.encoding is defined and op.encoding %}
+# Encoding for this specific operation (overrides global default_encoding)
+--encoding {{ op.encoding }}
+{% endif %}
+
+{% if op.extended_regex is defined and op.extended_regex %}
+# Enable extended regular expressions for old_text
+--extended-regex
+{% endif %}
+
+{% if op.ignore_case is defined and op.ignore_case %}
+# Perform case-insensitive matching
+--ignore-case
+{% endif %}
+
+{% if op.match_case is defined and op.match_case %}
+# Enforce case-sensitive matching (default behavior, explicit here if set)
+--match-case
+{% endif %}
+
+{% if op.whole_words is defined and op.whole_words %}
+# Match whole words only (word boundaries are checked)
+--whole-words
+{% endif %}
+
+{% if op.backup is defined and op.backup %}
+# Create backup files before modifying originals
+--backup
+{% endif %}
+
+{% if op.quiet is defined and op.quiet %}
+# Suppress non-error output
+--quiet
+{% endif %}
+
+{% if op.verbose is defined and op.verbose %}
+# Enable verbose output for debugging
+--verbose
+{% endif %}
+
+{% if op.dry_run is defined and op.dry_run %}
+# Simulate the operation without making changes
+--dry-run
+{% endif %}
+
+{% if op.fixed_strings is defined and op.fixed_strings %}
+# Treat old_text as a fixed string, not a regex
+--fixed-strings
+{% endif %}
+
+{% if op.recursive is defined and op.recursive %}
+# Apply replacement recursively in directories
+--recursive
+{% endif %}
+
+{% if op.prompt is defined and op.prompt %}
+# Prompt for confirmation before each replacement
+--prompt
+{% endif %}
+
+{% if op.keep_times is defined and op.keep_times %}
+# Preserve original file timestamps
+--keep-times
+{% endif %}
+
+# Target files for this operation
+# These can be absolute paths or glob patterns.
+{% for f in op.files | default([]) %}
+{{ f }}
+{% endfor %}
+{% endfor %}

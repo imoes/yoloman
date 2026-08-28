@@ -1,0 +1,31 @@
+# remrun configuration wrapper
+# This template generates a shell script or documentation block representing
+# the command-line invocations for the remrun tool.
+# remrun is used to execute commands remotely, potentially with checksum verification
+# and temporary directory management.
+
+# List of remote execution scenarios. Each item in this list generates one remrun command line.
+# Structure: invocation_list is a list of maps.
+# Default to an empty list if the variable is not defined or is null.
+{% for item in (invocation_list | default([])) %}
+# ==============================================================================
+# Remote Execution: {{ loop.index }}
+# Description: {{ item.description | default('No description provided') }}
+# Destination: {{ item.destination | default('unknown') }}
+# Filename: {{ item.filename | default('unknown') }}
+# Arguments: {{ item.args | default([]) | join(' ') }}
+# ==============================================================================
+# Command:
+remrun \
+    {{ item.noop | default(false) | ternary('--noop ', '') }}\
+    {{ item.verbose | default(false) | ternary('--verbose ', '') }}\
+    {{ item.stdin | default(false) | ternary('--stdin ', '') }}\
+    --local-checksum-cmd {{ item.local_checksum_cmd | default('sha256sum') }} \
+    --remote-checksum-cmd {{ item.remote_checksum_cmd | default('sha256sum') }} \
+    {% if (item.temp_dir | default('')) %}--temp-dir {{ item.temp_dir }} {% endif %}\
+    {{ item.destination | default('') }} \
+    {{ item.filename | default('') }} \
+    {{ item.args | default([]) | join(' ') }}
+
+# End of invocation {{ loop.index }}
+{% endfor %}

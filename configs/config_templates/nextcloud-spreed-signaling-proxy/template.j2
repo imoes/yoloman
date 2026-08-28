@@ -1,0 +1,94 @@
+; nextcloud-spreed-signaling-proxy Configuration
+; Self-documented template for Nextcloud Spreed Signaling Proxy.
+; All variables use defaults derived from the schema to ensure safe rendering.
+
+[http]
+; IP and port to listen on for HTTP requests.
+; Default: 127.0.0.1:9090
+listen = {{ http_listen | default('127.0.0.1:9090') }}
+
+[app]
+; Set to true to install pprof debug handlers.
+; See https://golang.org/pkg/net/http/pprof/ for further information.
+; Default: false
+debug = {{ app_debug | default(false) | ternary('true', 'false') }}
+
+; ISO 3166 country this proxy is located at. This will be used by the signaling
+; servers to determine the closest proxy for publishers.
+; Default: DE
+country = {{ app_country | default('DE') }}
+
+; Type of token configuration for signaling servers allowed to connect, see
+; below for details. Defaults to "static".
+;
+; Possible values:
+; - static: A mapping of token id -> public key is configured below.
+; - etcd: Token information are retrieved from an etcd cluster (see below).
+; Default: static
+tokentype = {{ app_tokentype | default('static') }}
+
+[tokens]
+; Public key for the first signaling server token.
+; Default: pubkey1.pem
+server1 = {{ tokens_server1 | default('pubkey1.pem') }}
+
+; Public key for the second signaling server token.
+; Default: pubkey2.pem
+server2 = {{ tokens_server2 | default('pubkey2.pem') }}
+
+; For token type "etcd": Format of key name to retrieve the public key from,
+; "%s" will be replaced with the token id. Multiple possible formats can be
+; comma-separated.
+; Default: /signaling/proxy/tokens/%s/public-key
+keyformat = {{ etcd_keyformat | default('/signaling/proxy/tokens/%s/public-key') }}
+
+[mcu]
+; The type of the MCU to use. Currently only "janus" is supported.
+; Default: janus
+type = {{ mcu_type | default('janus') }}
+
+; The URL to the websocket endpoint of the MCU server.
+; Default: ws://localhost:8188/
+url = {{ mcu_url | default('ws://localhost:8188/') }}
+
+; The maximum bitrate per publishing stream (in bits per second).
+; Defaults to 1 mbit/sec.
+; Default: 1048576
+maxstreambitrate = {{ mcu_maxstreambitrate | default(1048576) }}
+
+; The maximum bitrate per screensharing stream (in bits per second).
+; Default is 2 mbit/sec.
+; Default: 2097152
+maxscreenbitrate = {{ mcu_maxscreenbitrate | default(2097152) }}
+
+[stats]
+; Comma-separated list of IP addresses that are allowed to access the stats
+; endpoint. Leave empty (or commented) to only allow access from "127.0.0.1".
+; Default: ''
+allowed_ips = {{ stats_allowed_ips | default('') }}
+
+[etcd]
+; Comma-separated list of static etcd endpoints to connect to.
+; Default: 127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379
+endpoints = {{ etcd_endpoints | default('127.0.0.1:2379,127.0.0.1:22379,127.0.0.1:32379') }}
+
+; DNS SRV domain to perform endpoint discovery.
+; Only used if no endpoints are configured manually.
+; Default: example.com
+discoverysrv = {{ etcd_discoverysrv | default('example.com') }}
+
+; Service name for DNS SRV discovery.
+; Default: foo
+discoveryservice = {{ etcd_discoveryservice | default('foo') }}
+
+; Path to private key for TLS authentication with etcd.
+; Default: /path/to/etcd-client.key
+clientkey = {{ etcd_clientkey | default('/path/to/etcd-client.key') }}
+
+; Path to client certificate for TLS authentication with etcd.
+; Default: /path/to/etcd-client.crt
+clientcert = {{ etcd_clientcert | default('/path/to/etcd-client.crt') }}
+
+; Path to CA certificate for TLS authentication with etcd.
+; Default: /path/to/etcd-ca.crt
+cacert = {{ etcd_cacert | default('/path/to/etcd-ca.crt') }}

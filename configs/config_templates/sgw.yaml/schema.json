@@ -1,267 +1,265 @@
 {
-  "gtpu_interfaces": {
-    "type": "list",
-    "default": [],
-    "description": "List of GTP-U interfaces (e.g., for S1-U, S5/S8)",
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Interface name (e.g., 'eth1')"
-      },
-      "ip": {
-        "type": "string",
-        "default": "",
-        "description": "IPv4/IPv6 address assigned to interface"
-      },
-      "network": {
-        "type": "string",
-        "default": "",
-        "description": "Network CIDR (e.g., '10.1.1.0/24')"
-      },
-      "mtu": {
-        "type": "number",
-        "default": 1500,
-        "description": "Maximum Transmission Unit (optional)"
-      },
-      "gateway": {
-        "type": "string",
-        "default": "",
-        "description": "Default gateway for this interface (optional)"
-      }
-    }
-  },
-  "peers": {
-    "type": "object",
-    "default": {},
-    "description": "IP addresses of connected MME and PGW nodes",
-    "items": {
-      "mme_ip": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "IP address of MME for S1-MME"
-      },
-      "pgw_ip": {
-        "type": "string",
-        "default": "127.0.0.2",
-        "description": "IP address of PGW for S5/S8 control plane"
-      },
-      "s5_gtp_ip": {
-        "type": "string",
-        "default": "127.0.0.3",
-        "description": "IP address for S5/S8 GTP-U interface"
-      }
-    }
-  },
-  "control": {
-    "type": "object",
-    "default": {},
-    "description": "SGW control plane settings",
-    "items": {
-      "gtpc_port": {
-        "type": "number",
-        "default": 2123,
-        "description": "GTP-C (control plane) listening port"
-      },
-      "gtpu_port": {
-        "type": "number",
-        "default": 2152,
-        "description": "GTP-U (user plane) listening port"
-      },
-      "node_id": {
-        "type": "string",
-        "default": "sgw1",
-        "description": "Unique identifier for this SGW node (e.g., hostname)"
-      },
-      "fqdn": {
-        "type": "string",
-        "default": "",
-        "description": "Fully Qualified Domain Name (optional, for S5/S8 identification)"
-      }
-    }
-  },
-  "limits": {
-    "type": "object",
-    "default": {},
-    "description": "Resource limits and thresholds",
-    "items": {
-      "max_bearers_per_ue": {
-        "type": "number",
-        "default": 8,
-        "description": "Maximum number of bearer connections per UE"
-      },
-      "max_ues": {
-        "type": "number",
-        "default": 50000,
-        "description": "Maximum number of concurrently active UEs"
-      },
-      "max_bearers_total": {
-        "type": "number",
-        "default": 100000,
-        "description": "Maximum total number of bearers system-wide"
-      }
-    }
-  },
-  "logging": {
-    "type": "object",
-    "default": {},
-    "description": "Logging configuration",
-    "items": {
-      "level": {
-        "type": "string",
-        "default": "info",
-        "description": "Log verbosity (e.g., debug, info, warn, error)"
-      },
-      "file": {
-        "type": "string",
-        "default": "/var/log/nextepc/sgw.log",
-        "description": "Path to log file"
-      },
-      "syslog_server": {
-        "type": "string",
-        "default": "",
-        "description": "Optional syslog server address:port (e.g., '127.0.0.1:514')"
-      }
-    }
-  },
-  "s5s8_mode": {
-    "type": "string",
-    "default": "gtp",
-    "description": "S5/S8 interface mode: 'gtp' (standard) or 'pmip' (PMIPv6)"
-  },
-  "spgwc_config": {
-    "type": "object",
-    "default": null,
-    "description": "SGW-C/SPGW-C split configuration (optional)",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable SGW-C/SPGW-C split"
-      },
-      "s11_ip": {
-        "type": "string",
-        "default": "127.0.0.4",
-        "description": "S11 interface IP for SGW-C (when in split mode)"
-      }
-    }
-  },
-  "metrics": {
-    "type": "object",
-    "default": {},
-    "description": "Prometheus-style metrics exporter settings",
-    "items": {
-      "enabled": {
-        "type": "bool",
-        "default": false,
-        "description": "Enable metrics endpoint"
-      },
-      "port": {
-        "type": "number",
-        "default": 9090,
-        "description": "Port to expose metrics (e.g., Prometheus scrape endpoint)"
-      },
-      "path": {
-        "type": "string",
-        "default": "/metrics",
-        "description": "URL path for metrics endpoint"
-      }
-    }
-  },
-  "database": {
-    "type": "object",
-    "default": {},
-    "description": "Database backend configuration for session state",
-    "items": {
-      "type": {
-        "type": "string",
-        "default": "sqlite",
-        "description": "Database type: sqlite, mysql, postgres, etc."
-      },
-      "host": {
-        "type": "string",
-        "default": "localhost",
-        "description": "Database host (ignored for sqlite)"
-      },
-      "port": {
-        "type": "number",
-        "default": 5432,
-        "description": "Database port (ignored for sqlite)"
-      },
-      "name": {
-        "type": "string",
-        "default": "nextepc_sgw",
-        "description": "Database name"
-      },
-      "user": {
-        "type": "string",
-        "default": "",
-        "description": "Database username (optional)"
-      },
-      "password": {
-        "type": "string",
-        "default": "",
-        "description": "Database password (optional)"
-      }
-    }
-  },
-  "dns_servers": {
-    "type": "object",
-    "default": null,
-    "description": "DNS servers assigned to UEs (optional)",
-    "items": {
-      "primary": {
-        "type": "string",
-        "default": "",
-        "description": "Primary DNS server (IPv4 or IPv6)"
-      },
-      "secondary": {
-        "type": "string",
-        "default": "",
-        "description": "Secondary DNS server (IPv4 or IPv6)"
-      }
-    }
-  },
   "apns": {
-    "type": "list",
     "default": [],
     "description": "APN profile configurations for subscriber services",
     "items": {
       "apn": {
-        "type": "string",
         "default": "",
-        "description": "APN name (e.g., 'internet')"
-      },
-      "paa_type": {
-        "type": "string",
-        "default": "ipv4",
-        "description": "Address allocation type: ipv4, ipv6, ipv4v6"
-      },
-      "pdn_gateway_ip": {
-        "type": "string",
-        "default": "",
-        "description": "PDN gateway IP for this APN (optional)"
-      },
-      "qci": {
-        "type": "number",
-        "default": 9,
-        "description": "QoS Class Identifier (1\u20139)"
-      },
-      "priority": {
-        "type": "number",
-        "default": 15,
-        "description": "Priority level (lower = higher priority)"
-      },
-      "max_bitrate_uplink": {
-        "type": "number",
-        "default": 100000000,
-        "description": "Max Uplink Bit Rate (bits/sec)"
+        "description": "APN name (e.g., 'internet')",
+        "type": "string"
       },
       "max_bitrate_downlink": {
-        "type": "number",
         "default": 100000000,
-        "description": "Max Downlink Bit Rate (bits/sec)"
+        "description": "Max Downlink Bit Rate (bits/sec)",
+        "type": "number"
+      },
+      "max_bitrate_uplink": {
+        "default": 100000000,
+        "description": "Max Uplink Bit Rate (bits/sec)",
+        "type": "number"
+      },
+      "paa_type": {
+        "default": "ipv4",
+        "description": "Address allocation type: ipv4, ipv6, ipv4v6",
+        "type": "string"
+      },
+      "pdn_gateway_ip": {
+        "default": "",
+        "description": "PDN gateway IP for this APN (optional)",
+        "type": "string"
+      },
+      "priority": {
+        "default": 15,
+        "description": "Priority level (lower = higher priority)",
+        "type": "number"
+      },
+      "qci": {
+        "default": 9,
+        "description": "QoS Class Identifier (1\u20139)",
+        "type": "number"
       }
-    }
+    },
+    "type": "list"
+  },
+  "control": {
+    "description": "SGW control plane settings",
+    "items": {
+      "fqdn": {
+        "default": "",
+        "description": "Fully Qualified Domain Name (optional, for S5/S8 identification)",
+        "type": "string"
+      },
+      "gtpc_port": {
+        "default": 2123,
+        "description": "GTP-C (control plane) listening port",
+        "type": "number"
+      },
+      "gtpu_port": {
+        "default": 2152,
+        "description": "GTP-U (user plane) listening port",
+        "type": "number"
+      },
+      "node_id": {
+        "default": "sgw1",
+        "description": "Unique identifier for this SGW node (e.g., hostname)",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "database": {
+    "description": "Database backend configuration for session state",
+    "items": {
+      "host": {
+        "default": "localhost",
+        "description": "Database host (ignored for sqlite)",
+        "type": "string"
+      },
+      "name": {
+        "default": "nextepc_sgw",
+        "description": "Database name",
+        "type": "string"
+      },
+      "password": {
+        "default": "",
+        "description": "Database password (optional)",
+        "type": "string"
+      },
+      "port": {
+        "default": 5432,
+        "description": "Database port (ignored for sqlite)",
+        "type": "number"
+      },
+      "type": {
+        "default": "sqlite",
+        "description": "Database type: sqlite, mysql, postgres, etc.",
+        "type": "string"
+      },
+      "user": {
+        "default": "",
+        "description": "Database username (optional)",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "dns_servers": {
+    "default": null,
+    "description": "DNS servers assigned to UEs (optional)",
+    "items": {
+      "primary": {
+        "default": "",
+        "description": "Primary DNS server (IPv4 or IPv6)",
+        "type": "string"
+      },
+      "secondary": {
+        "default": "",
+        "description": "Secondary DNS server (IPv4 or IPv6)",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "gtpu_interfaces": {
+    "default": [],
+    "description": "List of GTP-U interfaces (e.g., for S1-U, S5/S8)",
+    "items": {
+      "gateway": {
+        "default": "",
+        "description": "Default gateway for this interface (optional)",
+        "type": "string"
+      },
+      "ip": {
+        "default": "",
+        "description": "IPv4/IPv6 address assigned to interface",
+        "type": "string"
+      },
+      "mtu": {
+        "default": 1500,
+        "description": "Maximum Transmission Unit (optional)",
+        "type": "number"
+      },
+      "name": {
+        "default": "",
+        "description": "Interface name (e.g., 'eth1')",
+        "type": "string"
+      },
+      "network": {
+        "default": "",
+        "description": "Network CIDR (e.g., '10.1.1.0/24')",
+        "type": "string"
+      }
+    },
+    "type": "list"
+  },
+  "limits": {
+    "description": "Resource limits and thresholds",
+    "items": {
+      "max_bearers_per_ue": {
+        "default": 8,
+        "description": "Maximum number of bearer connections per UE",
+        "type": "number"
+      },
+      "max_bearers_total": {
+        "default": 100000,
+        "description": "Maximum total number of bearers system-wide",
+        "type": "number"
+      },
+      "max_ues": {
+        "default": 50000,
+        "description": "Maximum number of concurrently active UEs",
+        "type": "number"
+      }
+    },
+    "type": "object"
+  },
+  "logging": {
+    "description": "Logging configuration",
+    "items": {
+      "file": {
+        "default": "/var/log/nextepc/sgw.log",
+        "description": "Path to log file",
+        "type": "string"
+      },
+      "level": {
+        "default": "info",
+        "description": "Log verbosity (e.g., debug, info, warn, error)",
+        "type": "string"
+      },
+      "syslog_server": {
+        "default": "",
+        "description": "Optional syslog server address:port (e.g., '127.0.0.1:514')",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "metrics": {
+    "description": "Prometheus-style metrics exporter settings",
+    "items": {
+      "enabled": {
+        "default": false,
+        "description": "Enable metrics endpoint",
+        "type": "bool"
+      },
+      "path": {
+        "default": "/metrics",
+        "description": "URL path for metrics endpoint",
+        "type": "string"
+      },
+      "port": {
+        "default": 9090,
+        "description": "Port to expose metrics (e.g., Prometheus scrape endpoint)",
+        "type": "number"
+      }
+    },
+    "type": "object"
+  },
+  "peers": {
+    "description": "IP addresses of connected MME and PGW nodes",
+    "items": {
+      "mme_ip": {
+        "default": "127.0.0.1",
+        "description": "IP address of MME for S1-MME",
+        "type": "string"
+      },
+      "pgw_ip": {
+        "default": "127.0.0.2",
+        "description": "IP address of PGW for S5/S8 control plane",
+        "type": "string"
+      },
+      "s5_gtp_ip": {
+        "default": "127.0.0.3",
+        "description": "IP address for S5/S8 GTP-U interface",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "s5s8_mode": {
+    "default": "gtp",
+    "description": "S5/S8 interface mode: 'gtp' (standard) or 'pmip' (PMIPv6)",
+    "type": "string",
+    "enum": [
+      "gtp",
+      "pmip"
+    ]
+  },
+  "spgwc_config": {
+    "default": null,
+    "description": "SGW-C/SPGW-C split configuration (optional)",
+    "items": {
+      "enabled": {
+        "default": false,
+        "description": "Enable SGW-C/SPGW-C split",
+        "type": "bool"
+      },
+      "s11_ip": {
+        "default": "127.0.0.4",
+        "description": "S11 interface IP for SGW-C (when in split mode)",
+        "type": "string"
+      }
+    },
+    "type": "object"
   }
 }

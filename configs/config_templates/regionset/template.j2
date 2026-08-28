@@ -1,0 +1,27 @@
+# regionset configuration template
+# This file is used to set default parameters for the regionset utility.
+# Note: regionset is primarily a command-line tool and does not have a standard persistent
+# configuration file like a daemon. However, for automation or wrapper scripts,
+# the following parameters are commonly used.
+
+# The device path to the DVD drive (e.g., /dev/sr0, /dev/dvd)
+# Schema description: The path to the block device of the DVD drive.
+# Man page reference: regionset [device]
+dvd_device: {{ dvd_device | default('/dev/sr0') }}
+
+# The region code to set the DVD drive to.
+# Valid values are 1-6 and 'ALL'.
+# Schema description: The region code to set the drive to (1-6) or 'ALL'.
+# Man page reference: region/zone setting
+# Note: Changing regions has a limited number of attempts (usually 5).
+dvd_region: {{ dvd_region | default('1') }}
+
+# Verbosity mode. If true, the tool will output detailed information about the drive's current state.
+# Schema description: Enable verbose output from the regionset utility.
+# Man page reference: regionset (displays state by default, this flag controls extra info)
+verbose: {{ verbose | default(false) | lower }}
+
+# If true, the tool will attempt to change the region automatically without prompting for confirmation.
+# Use with caution as region changes are irreversible until reset.
+# Schema description: Automatically apply region changes without interactive confirmation.
+force_change: {{ force_change | default(false) | lower }}

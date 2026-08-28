@@ -1,183 +1,63 @@
-# Zabbix Agent Configuration
-# This file configures the Zabbix agent daemon (zabbix_agentd).
-# It defines how the agent connects to the Zabbix server, how it listens for
-# incoming connections, and optional security/TLS settings.
+# Server address(es) that are allowed to connect to this agent
+Server={{ server }}
 
-# ---------------------------------------------------------------------------
-# Server Communication
-# ---------------------------------------------------------------------------
+# Comma-separated list of IP addresses (or hostnames) that are allowed to send passive checks
+ServerActive={{ server_active | default(server) }}
 
-# Comma-separated list of Zabbix server IP addresses (or hostnames) allowed
-# to connect to this agent for passive checks.
-# The agent will accept checks only from these sources.
-# Default: 127.0.0.1 (localhost)
-Server={{ server | default('127.0.0.1') }}
+# Hostname as registered on the Zabbix server
+Hostname={{ hostname }}
 
-# Comma-separated list of Zabbix server IP addresses (or hostnames) for
-# active checks. The agent will periodically send collected data to these
-# servers. If empty, the agent defaults to the value of `Server`.
-# Default: '' (falls back to Server)
-ServerActive={{ server_active | default(server) | default('127.0.0.1') }}
+# Enable active checks if true (requires ServerActive)
+{% if enable_active_checks %}EnableActive=1{% else %}EnableActive=0{% endif %}
 
-# Unique hostname of this host as configured on the Zabbix server.
-# This must match the hostname defined in the Zabbix frontend for the host.
-# Default: Value of ansible_hostname if available, else 'Zabbix server'
-Hostname={{ hostname | default(ansible_hostname | default('Zabbix server')) }}
+# Refresh interval (seconds) for active checks list
+RefreshActiveChecks={{ refresh_active_checks }}
 
-# ---------------------------------------------------------------------------
-# Active Check Settings
-# ---------------------------------------------------------------------------
+# Buffer for sending unsent data (seconds)
+BufferSend={{ buffer_send }}
 
-# Enable sending active checks to the server.
-# Requires `ServerActive` to be configured.
-# 1 = Enabled, 0 = Disabled
-# Default: True
-{% if enable_active_checks | default(true) %}
-EnableActive=1
-{% else %}
-EnableActive=0
-{% endif %}
+# Max number of unsent lines in buffer before truncation
+BufferSize={{ buffer_size }}
 
-# Interval (seconds) between active checks refresh.
-# The agent queries the server for the list of items to check at this interval.
-# Minimum value is 10 seconds.
-# Default: 120
-RefreshActiveChecks={{ refresh_active_checks | default(120) }}
+# Max number of concurrent connections for passive checks
+MaxConnections={{ max_connections }}
 
-# ---------------------------------------------------------------------------
-# Buffer Settings
-# ---------------------------------------------------------------------------
+# Timeout for agent operations (seconds)
+Timeout={{ timeout }}
 
-# Time (seconds) to wait before sending unsent data to the server.
-# Data accumulated in the buffer is sent after this timeout or when BufferSize
-# is reached, whichever comes first.
-# Default: 60
-BufferSend={{ buffer_send | default(60) }}
+# Include additional config files (e.g., userparams.d/*.conf)
+Include={{ include_dir }}/*.conf
 
-# Maximum number of unsent data lines to buffer.
-# If the buffer reaches this size, the oldest entries are dropped to prevent
-# memory exhaustion during network outages.
-# Default: 100
-BufferSize={{ buffer_size | default(100) }}
+# Log level: 0 (basic), 1 (info), 2 (notice), 3 (warning), 4 (error) — default is 1
+LogRemoteCommands={{ log_remote_commands }}
 
-# ---------------------------------------------------------------------------
-# Connection and Timeout Settings
-# ---------------------------------------------------------------------------
+# Enable remote commands execution (disabled by default for security)
+{% if enable_remote_commands %}AllowRemoteCommands=1{% else %}AllowRemoteCommands=0{% endif %}
 
-# Maximum number of simultaneous incoming connections for passive checks.
-# If exceeded, the agent rejects new connections.
-# Default: 100
-MaxConnections={{ max_connections | default(100) }}
-
-# Timeout (seconds) for processing a request.
-# Used for both passive checks and active check operations.
-# Default: 3
-Timeout={{ timeout | default(3) }}
-
-# ---------------------------------------------------------------------------
-# Include Directory
-# ---------------------------------------------------------------------------
-
-# Directory containing additional `.conf` files with user parameters and settings.
-# Files matching the glob pattern are included and parsed after this main config.
-# Default: '/etc/zabbix/zabbix_agentd.d'
-Include={{ include_dir | default('/etc/zabbix/zabbix_agentd.d') }}/*.conf
-
-# ---------------------------------------------------------------------------
-# Logging and Security
-# ---------------------------------------------------------------------------
-
-# Log level for remote commands execution (0–4).
-# 0 = No logging, 1 = Basic, 2 = Info, 3 = Warning, 4 = Error/Debug.
-# Higher values increase logging verbosity for troubleshooting.
-# Note: This primarily affects logging of remote command executions.
-# Default: 0 (Disabled)
-LogRemoteCommands={{ log_remote_commands | default(0) }}
-
-# Allow the server to execute arbitrary commands on this agent.
-# DISABLED by default for security reasons.
-# 1 = Enabled (allow remote commands), 0 = Disabled (deny).
-# Default: False
-{% if enable_remote_commands | default(false) %}
-AllowRemoteCommands=1
-{% else %}
-AllowRemoteCommands=0
-{% endif %}
-
-# ---------------------------------------------------------------------------
-# TLS/PSK Encryption Settings
-# ---------------------------------------------------------------------------
-
-# Enable TLS encryption for agent communications.
-# Requires Zabbix server with TLS support and PSK configuration.
-# Default: False
-{% if tls_enable | default(false) %}
-# TLS Connection Mode: 'psk' for Pre-Shared Key encryption.
+# Enable TLS support (requires Zabbix >= 5.0)
+{% if tls_enable %}
 TLSConnect=psk
-
-# TLS Accept Mode: 'psk' allows incoming connections via PSK.
 TLSAccept=psk
-
-# PSK Identity string used in the TLS-PSK handshake.
-# Must be unique and match the configuration on the Zabbix server.
-# Default: 'PSK default identity'
-TLSPSKIdentity={{ psk_identity | default('PSK default identity') }}
-
-# Path to the PSK file containing the shared secret key.
-# The file must exist and have strict permissions (e.g., 600).
-# Default: '/etc/zabbix/psk/zabbix_agentd.psk'
-TLSPSKFile={{ psk_file | default('/etc/zabbix/psk/zabbix_agentd.psk') }}
+TLSPSKIdentity={{ psk_identity }}
+TLSPSKFile={{ psk_file }}
 {% endif %}
 
-# ---------------------------------------------------------------------------
-# Custom User Parameters
-# ---------------------------------------------------------------------------
-
-# List of custom user-defined parameters.
-# Each entry defines a UserParameter line in the config.
-# Structure: list of dicts with 'name', 'description', 'enabled', 'key', 'command'.
-{% if user_parameters | default([]) | length > 0 %}
-{% for up in user_parameters | default([]) %}
+# Custom user parameters (if any) — defined via user_parameters list
+{% for up in user_parameters %}
 {% if up.enabled | default(true) %}
-# {{ up.name | default('Custom user parameter') }}: {{ up.description | default('') }}
+# {{ up.name }}: {{ up.description | default('Custom user parameter') }}
 UserParameter={{ up.key }},{{ up.command }}
 {% endif %}
 {% endfor %}
-{% endif %}
 
-# ---------------------------------------------------------------------------
-# Debugging
-# ---------------------------------------------------------------------------
+# Optional: Debug level (0–5); only enable temporarily for troubleshooting
+{% if debug_level is defined %}DebugLevel={{ debug_level }}{% endif %}
 
-# Optional: Debug level (0–5).
-# Only enable temporarily for troubleshooting.
-# 0 = Basic, 1 = Info, 2 = Warning, 3 = Error, 4 = Debug, 5 = Extensive Debug.
-# Note: This setting can override LogRemoteCommands verbosity.
-{% if debug_level is defined %}
-DebugLevel={{ debug_level }}
-{% endif %}
+# Optional: Listen port (default: 10050)
+ListenPort={{ listen_port }}
 
-# ---------------------------------------------------------------------------
-# Listen Settings (Passive Check Listener)
-# ---------------------------------------------------------------------------
+# Optional: Listen IP (default: 0.0.0.0); set to 127.0.0.1 to restrict to localhost only
+ListenIP={{ listen_ip }}
 
-# Port to listen on for incoming agent connections (passive checks).
-# The agent binds to this port to accept check requests from the server.
-# Default: 10050
-ListenPort={{ listen_port | default(10050) }}
-
-# IP address(es) to bind to for listening.
-# Use '0.0.0.0' to listen on all interfaces, or '127.0.0.1' for localhost only.
-# Default: '0.0.0.0'
-ListenIP={{ listen_ip | default('0.0.0.0') }}
-
-# ---------------------------------------------------------------------------
-# Process Management
-# ---------------------------------------------------------------------------
-
-# Number of pre-forked agent processes to start.
-# These processes handle passive check requests.
-# Set to 0 to disable passive checks entirely.
-# Typical values: 1–3.
-# Default: 3
-StartAgents={{ start_agents | default(3) }}
+# Optional: Start agents (number of pre-forked instances); 1–3 typical
+StartAgents={{ start_agents }}

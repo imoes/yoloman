@@ -1,0 +1,21 @@
+# Configuration for ltunify (Logitech Unifying Tool)
+# See ltunify(1) man page for details.
+# This file drives the ltunify utility via an Ansible template.
+
+# Path to the Logitech Unifying receiver device node
+# Corresponds to the -d option in ltunify(1).
+# Default: /dev/hidraw0
+devpath: {{ (ltunify | default({})).devpath | default('/dev/hidraw0') }}
+
+# Default timeout in seconds for the 'pair' command.
+# Must be between 1 and 255. 0 defaults to 30s.
+# Default: 30
+pair_timeout: {{ (ltunify | default({})).pair_timeout | default(30) }}
+
+# List of devices to unpair.
+# Each item is a flat object with an 'id' field corresponding to the device index or name.
+# Default: []
+unpair_devices:
+{% for device in ((ltunify | default({})).unpair_devices | default([])) %}
+  - unpair {{ device.id | default('') }}
+{% endfor %}

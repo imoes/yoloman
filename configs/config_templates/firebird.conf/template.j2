@@ -21,7 +21,7 @@ CachedPages = {{ cached_pages | default(2048) }}
 SecurityDatabase = {{ security_database | default('/etc/firebird/3.0/security2.fdb') }}
 
 # Allow remote clients to connect over TCP/IP. Set false for local-only use.
-RemoteAccess = {{ remote_access | default(True) }}
+RemoteAccess = {{ remote_access | default(True) | lower }}
 
 # Default directory used when CREATE DATABASE is given a relative path.
 DefaultDatabasePath = {{ default_database_path | default('/var/lib/firebird/data') }}
@@ -51,10 +51,10 @@ AuthServer = {{ auth_server | default(['Srp', 'Legacy_Auth']) | join(', ') }}
 AuthClient = {{ auth_client | default(['Srp', 'Legacy_Auth']) | join(', ') }}
 
 # Allow database users to be created via SQL (e.g., CREATE USER).
-AllowUserCreation = {{ allow_user_creation | default(False) }}
+AllowUserCreation = {{ allow_user_creation | default(False) | lower }}
 
 # Enable automatic creation of shadow files for database durability.
-AllowShadowCreation = {{ allow_shadow_creation | default(True) }}
+AllowShadowCreation = {{ allow_shadow_creation | default(True) | lower }}
 
 # Database encryption algorithm: 'none' (disabled), 'aes128', or 'aes256'.
 DatabaseEncryption = {{ database_encryption | default('none') }}
@@ -69,19 +69,19 @@ TempDirectory = {{ temp_directory | default('/tmp/firebird') }}
 SQLDialect = {{ sql_dialect | default(3) }}
 
 # Enable automatic cleanup of unused database segments.
-AutoCleanup = {{ auto_cleanup | default(True) }}
+AutoCleanup = {{ auto_cleanup | default(True) | lower }}
 
 # Seconds to wait for a lock before raising an error.
 LockTimeout = {{ lock_timeout | default(30) }}
 
 # Enable shared memory for local connections (faster; disable for NFS-only setups).
-UseSharedMemory = {{ use_shared_memory | default(True) }}
+UseSharedMemory = {{ use_shared_memory | default(True) | lower }}
 
 # Number of pages to read ahead per I/O for sequential scans.
 ReadAheadPages = {{ read_ahead_pages | default(32) }}
 
 # Enable DNS reverse lookups to log hostnames instead of IPs in connection logs.
-ReverseDnsLookup = {{ reverse_dns_lookup | default(False) }}
+ReverseDnsLookup = {{ reverse_dns_lookup | default(False) | lower }}
 
 # IP addresses to bind to (empty = all). Use IPv6 in brackets if needed.
 # Firebird expects a comma-separated string here.
@@ -100,10 +100,10 @@ MaxTransactionCount = {{ max_transaction_count | default(256) }}
 AliasesFile = {{ aliases_file | default('/etc/firebird/aliases.conf') }}
 
 # Allow environment variable FIREBIRD_CONF to override firebird.conf path.
-AllowConfigOverrides = {{ allow_config_overrides | default(True) }}
+AllowConfigOverrides = {{ allow_config_overrides | default(True) | lower }}
 
 # Enable database-level tracing (requires Firebird 4.0+ and plugin).
-DatabaseTrace = {{ database_trace | default(False) }}
+DatabaseTrace = {{ database_trace | default(False) | lower }}
 
 # Number of I/O worker threads (Linux uses POSIX AIO; usually 1 is sufficient).
 IOWorkerThreads = {{ io_worker_threads | default(1) }}
@@ -112,10 +112,10 @@ IOWorkerThreads = {{ io_worker_threads | default(1) }}
 WorkerTimeout = {{ worker_timeout | default(300) }}
 
 # Enable remote gstat queries (for monitoring tools).
-RemoteGstatEnabled = {{ remote_gstat_enabled | default(False) }}
+RemoteGstatEnabled = {{ remote_gstat_enabled | default(False) | lower }}
 
 # Enable remote service queries via isql and similar tools.
-RemoteSqlEnabled = {{ remote_sql_enabled | default(False) }}
+RemoteSqlEnabled = {{ remote_sql_enabled | default(False) | lower }}
 
 # Directory for external functions (UDFs).
 ExternalFunctionPath = {{ external_function_path | default('/usr/firebird/UDF') }}
@@ -127,7 +127,7 @@ ExternalTablePath = {{ external_table_path | default('/var/lib/firebird/external
 MessageLength = {{ message_length | default(8192) }}
 
 # Enable full-text search support (requires plugin).
-FullTextSearchEnabled = {{ full_text_search_enabled | default(False) }}
+FullTextSearchEnabled = {{ full_text_search_enabled | default(False) | lower }}
 
 # List of plugins to load. Each has name, library, enabled flag, and optional description.
 # Format: PluginName = LibraryName
@@ -146,16 +146,16 @@ SysdbaPassword = {{ sysdba_password | default('') }}
 ConnectionLog = {{ connection_log | default('none') }}
 
 # Cache encryption key in memory (only if database encryption is enabled).
-CacheEncryptionKey = {{ cache_encryption_key | default(False) }}
+CacheEncryptionKey = {{ cache_encryption_key | default(False) | lower }}
 
 # Max prepared statements per connection.
 MaxPreparedStatements = {{ max_prepared_statements | default(100) }}
 
 # Log query execution plans (requires QueryLogging = 'plan' or 'all').
-PlanLogging = {{ plan_logging | default(False) }}
+PlanLogging = {{ plan_logging | default(False) | lower }}
 
 # Enable client-side automatic reconnection (driver-specific feature).
-AutoReconnectEnabled = {{ auto_reconnect_enabled | default(False) }}
+AutoReconnectEnabled = {{ auto_reconnect_enabled | default(False) | lower }}
 
 # Reconnection attempt timeout in seconds.
 ReconnectTimeout = {{ reconnect_timeout | default(10) }}
@@ -164,7 +164,7 @@ ReconnectTimeout = {{ reconnect_timeout | default(10) }}
 ReconnectMaxRetries = {{ reconnect_max_retries | default(3) }}
 
 # Enable SSL/TLS for remote connections (Firebird 4.0+).
-SslEnabled = {{ ssl_enabled | default(False) }}
+SslEnabled = {{ ssl_enabled | default(False) | lower }}
 
 # Path to SSL certificate (PEM format).
 SslCertFile = {{ ssl_cert_file | default('/etc/firebird/ssl/server.crt') }}
@@ -180,10 +180,10 @@ SslCaFile = {{ ssl_ca_file | default('/etc/firebird/ssl/ca.crt') }}
 SslVersions = {{ (ssl_versions | default(['TLSv1.2', 'TLSv1.3'])) | join(', ') }}
 
 # Enable certificate revocation checking (CRL/OCSP).
-SslVerifyCerts = {{ ssl_verify_certs | default(False) }}
+SslVerifyCerts = {{ ssl_verify_certs | default(False) | lower }}
 
 # Enable FIPS-compliant cryptographic operations.
-FipsEnabled = {{ fips_enabled | default(False) }}
+FipsEnabled = {{ fips_enabled | default(False) | lower }}
 
 # Path to external authentication role mapping file.
 RoleMappingFile = {{ role_mapping_file | default('/etc/firebird/role_mapping.conf') }}
@@ -192,13 +192,13 @@ RoleMappingFile = {{ role_mapping_file | default('/etc/firebird/role_mapping.con
 MaxFetchBufferSize = {{ max_fetch_buffer_size | default(1000) }}
 
 # Enable database statistics collection for monitoring.
-StatsEnabled = {{ stats_enabled | default(False) }}
+StatsEnabled = {{ stats_enabled | default(False) | lower }}
 
 # Path for statistics log (if enabled).
 StatsLogPath = {{ stats_log_path | default('/var/log/firebird/stats.log') }}
 
 # Automatically create shadow files on database creation.
-ShadowAutoCreate = {{ shadow_auto_create | default(True) }}
+ShadowAutoCreate = {{ shadow_auto_create | default(True) | lower }}
 
 # Maximum number of shadow files per database.
 ShadowMaxCount = {{ shadow_max_count | default(10) }}
@@ -207,16 +207,16 @@ ShadowMaxCount = {{ shadow_max_count | default(10) }}
 ShadowDirectory = {{ shadow_directory | default('/var/lib/firebird/shadows') }}
 
 # Log backup operations (gfix -backup, gbak).
-BackupLogging = {{ backup_logging | default(True) }}
+BackupLogging = {{ backup_logging | default(True) | lower }}
 
 # Run garbage collection during idle periods.
-IdleGcEnabled = {{ idle_gc_enabled | default(False) }}
+IdleGcEnabled = {{ idle_gc_enabled | default(False) | lower }}
 
 # Interval (seconds) between idle GC runs (0 = disabled).
 IdleGcInterval = {{ idle_gc_interval | default(300) }}
 
 # Use Linux HugeTLB for large caches (requires system config).
-UseHugePages = {{ use_huge_pages | default(False) }}
+UseHugePages = {{ use_huge_pages | default(False) | lower }}
 
 # Huge page size in MB (0 = kernel default).
 HugePageSize = {{ huge_page_size | default(0) }}

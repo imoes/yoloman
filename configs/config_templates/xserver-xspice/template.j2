@@ -1,0 +1,251 @@
+Section "Device"
+    Identifier "XSPICE"
+    Driver "spiceqxl"
+
+    # ======================================================================
+    # Network and security options
+    # ======================================================================
+
+    # Do not require a client password.
+    # When True, no password is required for Spice client connections.
+    # default: False
+    Option "SpiceDisableTicketing" "{{ spice_disable_ticketing | default('False') | lower }}"
+
+    # Set the password required to connect to the Spice server.
+    # Only applies if SpiceDisableTicketing is False. Leave empty to disable password.
+    # default: (empty)
+    Option "SpicePassword" "{{ spice_password | default('') }}"
+
+    # Enable usage of SASL supported by the spice-gtk client.
+    # Allows SASL authentication for enhanced security.
+    # default: False
+    Option "SpiceSasl" "{{ spice_sasl | default('False') | lower }}"
+
+    # Use Spice's regular unencrypted port.
+    # Specify 0 to disable the unencrypted port. One of SpicePort or SpiceTlsPort must be specified.
+    # default: 5900
+    Option "SpicePort" "{{ spice_port | default('5900') }}"
+
+    # Use a TLS (encrypted) port.
+    # Specify 0 to disable the encrypted port. One of SpicePort or SpiceTlsPort must be specified.
+    # default: 5900
+    Option "SpiceTlsPort" "{{ spice_tls_port | default('5900') }}"
+
+    # Set the directory where the CA certificate, server key and server certificate are searched for TLS.
+    # QEMU uses predefined names in this directory: cacert.pem, server-key.pem, server-cert.pem.
+    # default: (empty)
+    Option "SpiceX509Dir" "{{ spice_x509_dir | default('') }}"
+
+    # Set the CA certificate file location for TLS.
+    # default: (empty)
+    Option "SpiceCacertFile" "{{ spice_cacert_file | default('') }}"
+
+    # Set the server key file location for TLS.
+    # default: (empty)
+    Option "SpiceX509KeyFile" "{{ spice_x509_key_file | default('') }}"
+
+    # Set the server key's password for TLS.
+    # default: (empty)
+    Option "SpiceX509KeyPassword" "{{ spice_x509_key_password | default('') }}"
+
+    # Set the server certificate file location for TLS.
+    # default: (empty)
+    Option "SpiceX509CertFile" "{{ spice_x509_cert_file | default('') }}"
+
+    # Set the server DH (Diffie-Hellman) file location for TLS.
+    # default: (empty)
+    Option "SpiceDhFile" "{{ spice_dh_file | default('') }}"
+
+    # Set the TLS ciphers preference order.
+    # default: (empty)
+    Option "SpiceTlsCiphers" "{{ spice_tls_ciphers | default('') }}"
+
+    # Listen to a specific interface.
+    # Empty means listen on all interfaces (0.0.0.0).
+    # default: (empty)
+    Option "SpiceAddr" "{{ spice_addr | default('') }}"
+
+    # Set to True to only listen on IPv4 interfaces.
+    # default: False
+    Option "SpiceIPV4Only" "{{ spice_ipv4_only | default('False') | lower }}"
+
+    # Set to True to only listen on IPv6 interfaces.
+    # default: False
+    Option "SpiceIPV6Only" "{{ spice_ipv6_only | default('False') | lower }}"
+
+    # If set, the Spice server will exit when the first client disconnects.
+    # Useful for ephemeral sessions.
+    # default: True
+    Option "SpiceExitOnDisconnect" "{{ spice_exit_on_disconnect | default('True') | lower }}"
+
+
+    # ======================================================================
+    # Monitor configuration options
+    # ======================================================================
+
+    # The number of heads (virtual monitors) to allocate by default.
+    # default: 4
+    Option "NumHeads" "{{ num_heads | default('4') }}"
+
+
+    # ======================================================================
+    # Compression options
+    # ======================================================================
+
+    # Set zlib glz wan compression.
+    # Options: auto, never, always. Optimized for WAN bandwidth.
+    # default: auto
+    Option "SpiceZlibGlzWanCompression" "{{ spice_zlib_glz_wan_compression | default('auto') }}"
+
+    # Set jpeg wan compression.
+    # Options: auto, never, always. Optimized for WAN bandwidth.
+    # default: auto
+    Option "SpiceJpegWanCompression" "{{ spice_jpeg_wan_compression | default('auto') }}"
+
+    # Set image compression.
+    # Options: off, auto_glz, auto_lz, quic, glz, lz.
+    # default: auto_glz
+    Option "SpiceImageCompression" "{{ spice_image_compression | default('auto_glz') }}"
+
+    # If non zero, render operations to frame buffer and transmit changed rectangles at this rate.
+    # This can dramatically reduce network bandwidth for some use cases.
+    # default: 10
+    Option "SpiceDeferredFPS" "{{ spice_deferred_fps | default('10') }}"
+
+    # Set the streaming video method.
+    # Options: filter, off, all.
+    # default: filter
+    Option "SpiceStreamingVideo" "{{ spice_streaming_video | default('filter') }}"
+
+    # Sets a semicolon-separated list of preferred video codecs.
+    # Each takes the form encoder:codec. Default is spice:mjpeg.
+    # default: (empty)
+    Option "SpiceVideoCodecs" "{{ spice_video_codecs | default('') }}"
+
+    # Enable caching of images directly written with uxa->put_image.
+    # default: True
+    Option "EnableImageCache" "{{ enable_image_cache | default('True') | lower }}"
+
+    # Enable caching of images created by uxa->prepare_access.
+    # default: True
+    Option "EnableFallbackCache" "{{ enable_fallback_cache | default('True') | lower }}"
+
+    # Enable the use of off-screen surfaces.
+    # default: True
+    Option "EnableSurfaces" "{{ enable_surfaces | default('True') | lower }}"
+
+
+    # ======================================================================
+    # Xspice-specific buffer options
+    # ======================================================================
+
+    # Buffer Size notes:
+    #  The following buffer sizes are used for Xspice only.
+    #  If you are using the DFPS mode, surface ram is not used,
+    #  and you can set it to 1.
+    #  Otherwise, the surface buffer should be at least as large
+    #   as the frame buffer, and probably a multiple like 8.
+    #  The command buffer ram should also be substantially larger
+    #   than the frame buffer, and note that the frame buffer occupies
+    #   the front of the command buffer.  Hence, our default size
+    #   is a command buffer 7x the size of the frame buffer.
+    #  If you see 'Out of memory' errors in your xorg.log, you probably need
+    #   to increase the surface or command buffer sizes.
+
+    # The amount of surface buffer ram, in megabytes, to allocate.
+    # default: 128
+    Option "SurfaceBufferSize" "{{ surface_buffer_size | default('128') }}"
+
+    # The amount of command buffer ram, in megabytes, to allocate.
+    # default: 128
+    Option "CommandBufferSize" "{{ command_buffer_size | default('128') }}"
+
+    # The amount of frame buffer ram, in megabytes, to reserve.
+    # This is reserved out of the CommandBuffer RAM.
+    # This governs the maximum size the X screen can be.
+    # default: 16
+    Option "FrameBufferSize" "{{ frame_buffer_size | default('16') }}"
+
+
+    # ======================================================================
+    # VDAgent options
+    # ======================================================================
+
+    # Whether or not to accept Vdagent connections.
+    # Vdagent provides features like clipboard sharing and automatic resizing.
+    # default: False
+    Option "SpiceVdagentEnabled" "{{ spice_vdagent_enabled | default('False') | lower }}"
+
+    # Default path to listen for agent virtual io connections.
+    # default: /tmp/xspice-virtio
+    Option "SpiceVdagentVirtioPath" "{{ spice_vdagent_virtio_path | default('/tmp/xspice-virtio') }}"
+
+    # Default path to listen for agent uinput connections.
+    # default: /tmp/xspice-uinput
+    Option "SpiceVdagentUinputPath" "{{ spice_vdagent_uinput_path | default('/tmp/xspice-uinput') }}"
+
+    # Default user id to set for the Virtio and Uinput sockets.
+    # Note: both uid and gid must be given for either to take effect.
+    # default: 0
+    Option "SpiceVdagentUid" "{{ spice_vdagent_uid | default('0') }}"
+
+    # Default group id to set for the Virtio and Uinput sockets.
+    # Note: both uid and gid must be given for either to take effect.
+    # default: 0
+    Option "SpiceVdagentGid" "{{ spice_vdagent_gid | default('0') }}"
+
+    # Set Spice Agent Mouse - Use Agent mouse if an agent connects.
+    # default: True
+    Option "SpiceAgentMouse" "{{ spice_agent_mouse | default('True') | lower }}"
+
+    # Set Spice Playback compression.
+    # default: True
+    Option "SpicePlaybackCompression" "{{ spice_playback_compression | default('True') | lower }}"
+
+    # Disable copy and paste.
+    # default: False
+    Option "SpiceDisableCopyPaste" "{{ spice_disable_copy_paste | default('False') | lower }}"
+
+    # If a directory is given, any file in that directory will be read
+    # for audio data to be sent to the client.
+    # default: /tmp/
+    Option "SpicePlaybackFIFODir" "{{ spice_playback_fifo_dir | default('/tmp/') }}"
+
+    # A unix domain name for a unix domain socket to communicate with
+    # a spiceccid smartcard driver.
+    # default: /tmp/spice.pcsc.comm
+    Option "SpiceSmartCardFile" "{{ spice_smartcard_file | default('/tmp/spice.pcsc.comm') }}"
+EndSection
+
+Section "InputDevice"
+    Identifier "XSPICE POINTER"
+    Driver     "xspice pointer"
+EndSection
+
+Section "InputDevice"
+    Identifier "XSPICE KEYBOARD"
+    Driver     "xspice keyboard"
+EndSection
+
+Section "Monitor"
+    Identifier    "Configured Monitor"
+EndSection
+
+Section "Screen"
+    Identifier     "XSPICE Screen"
+    Monitor        "Configured Monitor"
+    Device        "XSPICE"
+    DefaultDepth    24
+EndSection
+
+Section "ServerLayout"
+    Identifier "XSPICE Example"
+    Screen "XSPICE Screen"
+    InputDevice "XSPICE KEYBOARD"
+    InputDevice "XSPICE POINTER"
+EndSection
+
+# Prevent udev from loading vmmouse in a vm and crashing.
+Section "ServerFlags"
+    Option "AutoAddDevices" "False"
+EndSection

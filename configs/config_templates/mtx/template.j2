@@ -1,0 +1,55 @@
+# =========================================================================
+# mtx (Media Changer Tool) Configuration
+# =========================================================================
+# This template configures the `mtx` utility, which is used to control
+# SCSI media changers (robotics libraries) for tape drives and optical
+# jukeboxes.
+#
+# The rendered output is a key-value configuration file compatible with
+# mtx's default behavior or wrapper scripts that parse this format.
+#
+# Variable Mapping (Ansible Host/Vault):
+#   - scsi_device : Path to the SCSI generic device (e.g., /dev/sg0)
+#   - nobarcode   : Boolean; suppress barcode reading if hardware supports it
+#   - invert      : Boolean; flip media orientation during load/unload
+#   - noattach    : Boolean; force standard API instead of 'ATTACHED' API
+#   - commands    : List of maps {'command': str, 'args': list[str]}
+# =========================================================================
+
+# The SCSI generic device node for the media changer.
+# Corresponds to the -f <scsi-generic-device> argument.
+# Example: /dev/sg0, /dev/sg1
+SCSI_DEVICE: {{ scsi_device | default('/dev/sg0') }}
+
+# Force the loader to not request barcodes even if capable.
+# Corresponds to the nobarcode option.
+# When true, mtx skips barcode retrieval operations.
+NOBARCODE: {{ nobarcode | default(false) | lower }}
+
+# Invert (flip) media before insertion/return.
+# Corresponds to the invert option.
+# When true, the media changer flips the cartridge orientation
+# before inserting it into the drive or returning it to storage.
+INVERT: {{ invert | default(false) | lower }}
+
+# Force regular media changer API even if 'ATTACHED' API is reported.
+# Corresponds to the noattach option.
+# Use this if the media changer incorrectly reports support for the
+# ATTACHED API but fails when using it.
+NOATTACH: {{ noattach | default(false) | lower }}
+
+# List of robotics control commands to execute with mtx.
+# Each item is a map containing 'command' (string) and optional 'args' (list of strings).
+# Supported commands: status, inventory, load, unload, transfer, exchange,
+#                     first, last, previous, next, position, eject, inquiry, version.
+COMMANDS:
+{% set cmds = commands | default([]) %}
+{% for cmd in cmds %}
+# Command: {{ cmd.command }}
+{% if cmd.args is defined and cmd.args %}
+# Args: {{ cmd.args | join(' ') }}
+- {{ cmd.command }} {{ cmd.args | join(' ') }}
+{% else %}
+- {{ cmd.command }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,42 @@
+# ==============================================================================
+# uchardet Configuration Template
+# ==============================================================================
+# Package: uchardet / libuchardet
+# Description: uchardet is a command-line utility for character encoding detection.
+#              This template generates environment variables that control the behavior
+#              of the underlying libuchardet library or wrapper scripts, as libuchardet
+#              itself does not read a standard configuration file.
+# ==============================================================================
+
+{% if uchardet is defined %}
+
+# ------------------------------------------------------------------------------
+# Global uchardet Configuration Block
+# ------------------------------------------------------------------------------
+# The 'uchardet' variable is expected to be a mapping/dict containing tuning parameters.
+# If not provided, defaults below will be used.
+
+# Default character set to assume if detection fails.
+# Valid values are usually standard encoding names like 'UTF-8', 'ASCII', 'ISO-8859-1', etc.
+# See uchardet(1) man page for supported encodings.
+# Environment Variable: UCHARDET_DEFAULT_CHARSET
+export UCHARDET_DEFAULT_CHARSET={{ uchardet.default_charset | default('UTF-8') | string }}
+
+# Enable verbose output for debugging detection issues.
+# When true, libuchardet may print diagnostic information to stderr.
+# Environment Variable: UCHARDET_VERBOSE
+export UCHARDET_VERBOSE={{ uchardet.verbose | default(false) | ternary('true', 'false') }}
+
+# List of fallback encodings to try if primary detection is ambiguous.
+# This is a space-separated list of encoding names.
+# Environment Variable: UCHARDET_FALLBACK_ENCODINGS
+# Note: If the list is empty or undefined, this variable will be set to an empty string.
+export UCHARDET_FALLBACK_ENCODINGS={{ uchardet.fallback_encodings | default([]) | join(' ') }}
+
+{% else %}
+
+# No 'uchardet' configuration block provided. Using system/library defaults.
+# To customize, define the 'uchardet' variable in your playbook/role with the
+# keys: default_charset, verbose, fallback_encodings.
+
+{% endif %}

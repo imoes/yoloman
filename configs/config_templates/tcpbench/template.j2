@@ -1,0 +1,156 @@
+# TCPBENCH Client Configuration Template
+# This script generates and executes a tcpbench command in client mode.
+# All variables are sourced from the Ansible inventory/role defaults.
+
+# =============================================================================
+# Binary Path
+# =============================================================================
+# Path to the tcpbench executable.
+# Default: /usr/local/bin/tcpbench
+BIN={{ bin_path | default('/usr/local/bin/tcpbench') }}
+
+# =============================================================================
+# Connection Target
+# =============================================================================
+# Hostname or IP address of the remote tcpbench server.
+# Default: 127.0.0.1
+SERVER_HOST={{ server_host | default('127.0.0.1') }}
+
+# Port number for the test stream.
+# Default: 12345
+PORT={{ port | default(12345) }}
+
+# Protocol to use for the test stream.
+# Valid values: 'tcp' or 'udp'.
+# Default: tcp
+PROTO={{ proto | default('tcp') }}
+
+# IP version enforcement for the connection.
+# '4' for IPv4, '6' for IPv6, empty for auto-detect.
+# Default: '' (empty)
+IP_VERSION={{ ip_version | default('') }}
+
+# =============================================================================
+# Connection Parameters
+# =============================================================================
+# Number of concurrent connections to open (TCP only).
+# Default: 1
+NUM_CONNECTIONS={{ num_connections | default(1) }}
+
+# Duration of the benchmark in seconds.
+# 0 indicates an infinite/running test.
+# Default: 0
+DURATION={{ duration | default(0) }}
+
+# Statistics reporting interval in milliseconds.
+# 0 disables periodic output.
+# Default: 1000
+INTERVAL={{ interval | default(1000) }}
+
+# Size of the internal read/write buffer in bytes.
+# Default: 262144
+BUF_SIZE={{ buf_size | default(262144) }}
+
+# Source IP address to bind packets to.
+# Empty string uses system default routing.
+# Default: '' (empty)
+SOURCE_ADDR={{ source_addr | default('') }}
+
+# Socket buffer size in bytes.
+# 0 uses the system default socket buffer size.
+# Default: 0
+SOCK_BUF_SIZE={{ sock_buf_size | default(0) }}
+
+# =============================================================================
+# Advanced Options
+# =============================================================================
+# Type of Service (TOS) or DS Code Point value/keyword.
+# Examples: 'throughput', 'lowdelay', 'cs0'.
+# Empty string uses default TOS.
+# Default: '' (empty)
+TOS_KEYWORD={{ tos_keyword | default('') }}
+
+# Enable verbose output.
+# Converted to '1' (true) or '0' (false) for shell comparison.
+# Default: False
+VERBOSE={{ verbose | default(False) | bool | ternary(1, 0) }}
+
+# Kernel variables to monitor (comma-separated).
+# TCP only. Empty string disables monitoring.
+# Default: '' (empty)
+K_VARS={{ k_vars | default('') }}
+
+# =============================================================================
+# Command Construction
+# =============================================================================
+
+# Base command initialization with the binary path
+COMMAND="${BIN}"
+
+# Add UDP flag if protocol is not TCP
+{% if proto | default('tcp') == 'udp' %}
+    COMMAND="${COMMAND} -u"
+{% endif %}
+
+# Add IP version flags (4 or 6)
+{% if ip_version | default('') == '4' %}
+    COMMAND="${COMMAND} -4"
+{% elif ip_version | default('') == '6' %}
+    COMMAND="${COMMAND} -6"
+{% endif %}
+
+# Add verbose flag if enabled (1)
+{% if (verbose | default(False) | bool) %}
+    COMMAND="${COMMAND} -v"
+{% endif %}
+
+# Add port number (if non-empty/standard)
+{% if port | default(12345) != '' %}
+    COMMAND="${COMMAND} -p {{ port | default(12345) }}"
+{% endif %}
+
+# Add duration flag (if greater than 0)
+{% if duration | default(0) > 0 %}
+    COMMAND="${COMMAND} -t {{ duration | default(0) }}"
+{% endif %}
+
+# Add interval flag (if not the default 1000ms)
+{% if interval | default(1000) != 1000 %}
+    COMMAND="${COMMAND} -r {{ interval | default(1000) }}"
+{% endif %}
+
+# Add buffer size flag (if not the default 262144)
+{% if buf_size | default(262144) != 262144 %}
+    COMMAND="${COMMAND} -B {{ buf_size | default(262144) }}"
+{% endif %}
+
+# Add source address binding flag (if provided)
+{% if source_addr | default('') != '' %}
+    COMMAND="${COMMAND} -b {{ source_addr | default('') }}"
+{% endif %}
+
+# Add number of connections flag (TCP only, if not 1)
+{% if proto | default('tcp') == 'tcp' and (num_connections | default(1)) != 1 %}
+    COMMAND="${COMMAND} -n {{ num_connections | default(1) }}"
+{% endif %}
+
+# Add socket buffer size flag (if not system default 0)
+{% if sock_buf_size | default(0) != 0 %}
+    COMMAND="${COMMAND} -S {{ sock_buf_size | default(0) }}"
+{% endif %}
+
+# Add TOS flag (if provided)
+{% if tos_keyword | default('') != '' %}
+    COMMAND="${COMMAND} -T {{ tos_keyword | default('') }}"
+{% endif %}
+
+# Add kernel variables flag (TCP only, if provided)
+{% if proto | default('tcp') == 'tcp' and (k_vars | default('')) != '' %}
+    COMMAND="${COMMAND} -k {{ k_vars | default('') }}"
+{% endif %}
+
+# Append the target server host as the final argument
+COMMAND="${COMMAND} {{ server_host | default('127.0.0.1') }}"
+
+# Execute the constructed command
+exec ${COMMAND}

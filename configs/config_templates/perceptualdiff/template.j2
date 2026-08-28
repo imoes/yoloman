@@ -1,0 +1,110 @@
+# ==============================================================================
+# perceptualdiff Comparison Configuration Template
+#
+# This template generates the command-line arguments for the 'perceptualdiff'
+# utility, which compares two images pixel-by-pixel to detect visual differences.
+#
+# Self-Documenting: Every variable uses an inline default to prevent
+# 'undefined variable' errors in Ansible/Jinja2.
+# ==============================================================================
+
+# --- Image Locations ---
+
+# base_dir: The base directory where the images are located.
+# Default: '/tmp/images'
+# This variable is used to construct the full path for the images below.
+{% set _base_dir = base_dir | default('/tmp/images') %}
+
+# image1: The filename of the first image to compare.
+# Default: 'img_a.png'
+# Resolved relative to base_dir unless absolute.
+{% set _image1 = image1 | default('img_a.png') %}
+
+# image2: The filename of the second image to compare.
+# Default: 'img_b.png'
+# Resolved relative to base_dir unless absolute.
+{% set _image2 = image2 | default('img_b.png') %}
+
+# --- Comparison Parameters ---
+
+# fov: Field of view in degrees.
+# Range: [0.1, 89.9]. Controls the camera perspective model for comparison.
+# Default: 45.0
+{% set _fov = fov | default(45.0) %}
+
+# threshold: Number of pixels below which differences are ignored.
+# If the number of differing pixels is less than this value, the images are
+# considered identical.
+# Default: 0
+{% set _threshold = threshold | default(0) %}
+
+# gamma: Value to convert RGB into linear space.
+# Used for perceptual correctness in color comparison.
+# Default: 2.2
+{% set _gamma = gamma | default(2.2) %}
+
+# luminance: White luminance in cdm^-2.
+# Sets the white point luminance for the comparison model.
+# Default: 100.0
+{% set _luminance = luminance | default(100.0) %}
+
+# luminance_only: Only consider luminance; ignore chroma (color) in the comparison.
+# If true, color differences are disregarded.
+# Default: False
+{% if luminance_only | default(false) %}
+--luminance-only
+{% endif %}
+
+# color_factor: How much of color to use in the comparison.
+# Range: [0.0, 1.0]. 0.0 ignores color, 1.0 uses full color weight.
+# Default: 1.0
+{% set _color_factor = color_factor | default(1.0) %}
+
+# down_sample: How many powers of two to down sample the image.
+# Reduces resolution by 2^n to improve performance on large images.
+# Default: 0
+{% set _down_sample = down_sample | default(0) %}
+
+# scale_images: Scale images to match each other's dimensions.
+# If true, images are scaled to be the same size before comparison.
+# Default: False
+{% if scale_images | default(false) %}
+--scale
+{% endif %}
+
+# sum_errors: Print a sum of the luminance and color differences.
+# Outputs a single aggregate error score.
+# Default: False
+{% if sum_errors | default(false) %}
+--sum-errors
+{% endif %}
+
+# output_file: Write difference to the file o.
+# If specified, the resulting diff image is saved to this path.
+# Default: '' (empty, no output file)
+{% if output_file | default('') %}
+--output {{ output_file | default('') }}
+{% endif %}
+
+# verbose: Turn on verbose mode.
+# Enables detailed logging of the comparison process to stderr.
+# Default: False
+{% if verbose | default(false) %}
+--verbose
+{% endif %}
+
+# --- Constructed Command Arguments ---
+# The actual arguments passed to perceptualdiff.
+# Format: perceptualdiff <base_dir>/<image1> <base_dir>/<image2> [flags]
+
+# Primary images
+{{ _base_dir }}/{{ _image1 }}
+{{ _base_dir }}/{{ _image2 }}
+
+# Numeric flags
+--fov {{ _fov }}
+--threshold {{ _threshold }}
+--gamma {{ _gamma }}
+--luminance {{ _luminance }}
+--color-factor {{ _color_factor }}
+--down-sample {{ _down_sample }}

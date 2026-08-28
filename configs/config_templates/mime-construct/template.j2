@@ -1,0 +1,57 @@
+#!/bin/sh
+# ==============================================================================
+# mime-construct Command Invocation Script
+# ==============================================================================
+# This template generates a shell script to invoke `mime-construct`.
+# It is NOT a configuration file in the traditional sense, but a parameterized
+# command line generator. Each variable corresponds to a command-line flag.
+#
+# Variables are sourced from the Ansible inventory or role defaults.
+# All variables use .|default(...) to ensure safe rendering even if undefined.
+# ==============================================================================
+
+mime-construct \
+  # --to: Primary recipient email address.
+  --to "{{ to | default('user@example.com') }}" \
+  # --subject: Subject line of the email message.
+  --subject "{{ subject | default('Test Message') }}" \
+  # --string: The main text body content of the first part of the message.
+  --string "{{ body | default('This is the message body.') }}" \
+{% for header in headers | default([]) %}
+  # --header: Additional arbitrary header line (e.g., 'X-Custom: Value').
+  --header "{{ header }}" \
+{% endfor %}
+{% if bcc | default([]) | length > 0 %}
+  # --bcc: Blind carbon copy recipients (space-separated list).
+  --bcc "{{ bcc | default([]) | join(' ') }}" \
+{% endif %}
+{% if cc | default([]) | length > 0 %}
+  # --cc: Carbon copy recipients (space-separated list).
+  --cc "{{ cc | default([]) | join(' ') }}" \
+{% endif %}
+{% if debug | default(False) | bool %}
+  # --debug: Enable debug output from mime-construct.
+  --debug \
+{% endif %}
+{% if output | default(True) | bool %}
+  # --output: Print the constructed message to stdout instead of sending it.
+  --output \
+{% endif %}
+{% if multipart | default('multipart/mixed') | trim | length > 0 %}
+  # --multipart: Specify the multipart content type (e.g., multipart/mixed).
+  --multipart "{{ multipart | default('multipart/mixed') }}" \
+{% endif %}
+{% if prelude | default('') | trim | length > 0 %}
+  # --prelude: Text to prepend to the multipart message body.
+  --prelude "{{ prelude | default('') }}" \
+{% endif %}
+{% for attach in attachments | default([]) %}
+  # --file-attach: Path to a file to attach. mime-construct handles type detection.
+  # Note: 'attach' is expected to be a string (path) or an object with a 'path' key.
+  # If it's a string, we use it directly; if it's an object, we take 'path'.
+{% set attach_path = attach if attach is string else attach.path | default('') %}
+{% if attach_path | trim | length > 0 %}
+  --file-attach "{{ attach_path }}" \
+{% endif %}
+{% endfor %}
+  ;

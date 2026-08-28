@@ -1,0 +1,43 @@
+# vcsh configuration file
+# This file is sourced by vcsh to set environment variables controlling its behavior.
+# See manpage vcsh(1) CONFIG section for details.
+#
+# This template is self-documenting. Every directive above explains what it does
+# and what value is used if the variable is not provided by the playbook.
+
+# Location indicator for gitattributes files.
+# 'none' disables maintenance. Other values enable it.
+# Default: none
+export VCSH_GITATTRIBUTES="{{ vcs_gitattributes | default('none') }}"
+
+# Mode for seeding .gitignore files.
+# 'exact' seeds tracked files, 'recursive' descends directories, 'none' disables.
+# Default: exact
+export VCSH_GITIGNORE="{{ vcs_gitignore_mode | default('exact') }}"
+
+# Interpretation of VCSH_BASE.
+# 'absolute' uses absolute paths, 'relative' uses paths relative to GIT_DIR.
+# Default: absolute
+export VCSH_WORKTREE="{{ vcs_worktree_type | default('absolute') }}"
+
+# Enable debug mode for verbose logging.
+# Default: False (disabled)
+# Note: vcsh may expect '1' or 'true' for enabled, but we pass the boolean
+# as stringified value. If vcsh requires specific casing, adjust accordingly.
+# Here we pass the string representation of the boolean.
+export VCSH_DEBUG="{{ vcs_debug | default(false) | lower }}"
+
+# Custom directory for storing vcsh repositories.
+# Defaults to $XDG_CONFIG_HOME/vcsh/repo.d.
+# Default: '' (empty, let vcsh use its default)
+export VCSH_REPO_D="{{ vcs_repo_d | default('') }}"
+
+# Custom directory for active hooks.
+# Defaults to $XDG_CONFIG_HOME/vcsh/hooks-enabled.
+# Default: '' (empty, let vcsh use its default)
+export VCSH_HOOK_D="{{ vcs_hook_d | default('') }}"
+
+# Custom base directory for checked out files.
+# Defaults to $HOME.
+# Default: '' (empty, let vcsh use its default)
+export VCSH_BASE="{{ vcs_base | default('') }}"

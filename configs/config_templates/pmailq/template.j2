@@ -1,0 +1,53 @@
+#!/bin/bash
+# ==============================================================================
+# pmailq configuration script
+#
+# This script generates and executes the `pmailq` command with filters
+# for listing, parsing, or deleting mail queue entries. It is self-documenting:
+# every directive is preceded by its schema description.
+#
+# Variables are safely defaulted to schema defaults so the script never fails
+# due to missing Ansible variables.
+# ==============================================================================
+
+# The base command to execute
+CMD="pmailq"
+
+# Action: The command action to perform: list, parse, or del.
+# Defaults to 'list' if not specified.
+CMD="${CMD} {{ action | default('list') }}"
+
+# Email pattern filter: Wildcard pattern to match recipient email addresses.
+# If empty string, no filter is applied.
+{% if email_pattern | default('') %}
+CMD="${CMD} -e \"{{ email_pattern | default('') | string }}\""
+{% endif %}
+
+# Message pattern filter: Wildcard pattern to match server error messages.
+# If empty string, no filter is applied.
+{% if msg_pattern | default('') %}
+CMD="${CMD} -m \"{{ msg_pattern | default('') | string }}\""
+{% endif %}
+
+# Lower size bound in bytes: Lower bound for message size in bytes.
+# Defaults to 0 (no lower bound) if not specified.
+CMD="${CMD} -l {{ size_lower | default(0) }}"
+
+# Upper size bound in bytes: Upper bound for message size in bytes (0 for no upper limit).
+# Defaults to 0 if not specified.
+CMD="${CMD} -u {{ size_upper | default(0) }}"
+
+# Select active entries: If true, select only active queue entries.
+# If false or not specified, no filtering on status is applied.
+{% if select_active | default(false) | bool %}
+CMD="${CMD} -a"
+{% endif %}
+
+# Select on-hold entries: If true, select only on-hold queue entries.
+# If false or not specified, no filtering on hold status is applied.
+{% if select_hold | default(false) | bool %}
+CMD="${CMD} -o"
+{% endif %}
+
+# Execute the command
+exec ${CMD}

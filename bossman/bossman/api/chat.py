@@ -82,6 +82,7 @@ async def _build_backend(
             hermes_base_url or settings.openrouter_base_url,
             model or hermes_model or settings.openrouter_model,
             settings.openrouter_token,
+            name=OPENROUTER,
         )
     home = chat_home.home_for(settings.chat_home_root, username)
     if backend_name == CLAUDE_CLI:

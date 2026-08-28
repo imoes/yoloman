@@ -1,0 +1,57 @@
+# Tokei Configuration File
+# https://github.com/XAMPPRocky/tokei
+#
+# This configuration file controls the behavior of the tokei code counter tool.
+# It uses a TOML-like format (though often interpreted loosely or via specific parsers).
+# All variables use Jinja2 defaults to ensure valid output even if not provided by Ansible.
+
+# Sort output by the specified column (files, lines, blanks, code, comments)
+# Default: 'lines'
+{{ "sort" }} = "{{ sort_by | default('lines') }}"
+
+# Filter output to only include these language types, comma-separated
+# Default: '' (empty means all languages)
+{{ "type" }} = "{{ language_filter | default('') }}"
+
+# Output format for serialization (cbor, json, yaml)
+# Default: 'json'
+{{ "output" }} = "{{ output_format | default('json') }}"
+
+# Number formatting style (plain, commas, dots, underscores)
+# Default: 'plain'
+{{ "num_format" }} = "{{ number_format | default('plain') }}"
+
+# Show statistics for individual files
+# If true, tokei will list stats per file rather than just aggregates.
+# Default: False
+{{ "files" }} = {{ show_files | default(False) | lower }}
+
+# Count hidden files (files starting with a dot)
+# If true, hidden files are included in the count.
+# Default: False
+{{ "hidden" }} = {{ count_hidden | default(False) | lower }}
+
+# Do not respect ignore files (.gitignore, .ignore, etc.)
+# If true, tokei will ignore .gitignore and similar files.
+# Default: False
+{{ "no_ignore" }} = {{ no_ignore_files | default(False) | lower }}
+
+# Ignore all files & directories matching these patterns
+# Supports .gitignore style patterns.
+# Default: [] (empty list)
+{% for pattern in (exclude_patterns | default([])) %}
+{{ "exclude" }} = ["{{ pattern }}"]
+{% endfor %}
+
+# Input file to combine with current run (path or "stdin")
+# Useful for incremental or combined statistics.
+# Default: '' (empty means no input file)
+{% if input_file | default('') %}
+{{ "input" }} = "{{ input_file | default('') }}"
+{% endif %}
+
+# Paths to analyze
+# Default: ['.'] (current directory)
+{% for path in (input_paths | default(['.'])) %}
+{{ "input_path" }} = "{{ path }}"
+{% endfor %}

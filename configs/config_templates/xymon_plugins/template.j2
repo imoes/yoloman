@@ -2,24 +2,15 @@
 # Each line defines a plugin command, its interval, and optional environment or options
 
 # Global default timeout for plugins (seconds)
-# Sets the maximum time a plugin is allowed to run before being killed.
-# Default is 60 seconds.
 DEFAULTTIMEOUT=60
 
 # Global default retry count for failed plugins
-# Number of times to retry a plugin if it fails or returns an unexpected status.
-# Default is 1.
 DEFAULTRETRIES=1
 
 # Enable verbose logging for plugin execution (true/false)
-# Enable verbose logging for plugin execution (helps debugging but increases log volume).
-DEBUG={{ debug | default(false) | ternary('true', 'false') }}
+DEBUG={% if debug %}true{% else %}false{% endif %}
 
-# List of client-side Xymon plugins to launch with their configuration.
-# Each plugin entry defines: name, interval, env vars, command, and arguments.
-{% for plugin in plugins | default([]) %}
-# {{ plugin.name | default('unnamed_plugin') }}: {{ plugin.description | default('No description provided.') }}
-# Format: [NAME] [INTERVAL] [ENV_VARS] CMD [ARGS]
-# If 'enabled' is false, the plugin line is commented out (disabled).
-{% if plugin.enabled | default(true) %}{{ plugin.name | default('unnamed_plugin') }}{% else %}#{{ plugin.name | default('unnamed_plugin') }}{% endif %} {% if plugin.interval is defined %}{{ plugin.interval }}{% else %}300{% endif %} {% if plugin.env is defined %}{{ plugin.env | default([]) | join(' ') }}{% endif %}{{ plugin.cmd }}{% if plugin.args is defined %} {{ plugin.args | default([]) | join(' ') }}{% endif %}
+{% for plugin in plugins %}
+# {{ plugin.name }}: {{ plugin.description }}
+{% if plugin.enabled | default(true) %}{{ plugin.name }}{% else %}#{{ plugin.name }}{% endif %} {% if plugin.interval is defined %}{{ plugin.interval }}{% else %}300{% endif %} {% if plugin.env is defined %}{{ plugin.env | join(' ') }}{% endif %}{{ plugin.cmd }}{% if plugin.args is defined %} {{ plugin.args | join(' ') }}{% endif %}
 {% endfor %}

@@ -1,0 +1,41 @@
+# Syncthingtray configuration file
+# Location: /etc/syncthingtray/config.ini (or user-specific equivalent depending on distro/package)
+#
+# This configuration file controls the behavior of the Syncthingtray application,
+# which manages the Syncthing daemon via a local API and Web UI.
+#
+# Sections:
+#   [general] - Network binding and API port settings
+#   [ui]      - Embedded Web UI access and authentication
+#   [tray]    - System tray icon behavior and startup visibility
+
+[general]
+# Network interface address to bind the local sync API and Web UI to.
+# Use '127.0.0.1' for local-only access (secure), or '0.0.0.0' to listen on all interfaces.
+listen_address = {{ listen_address | default('127.0.0.1') }}
+
+# The TCP port number for the Syncthing local API and Web UI.
+# Default 8384 is the standard port for Syncthing services.
+port = {{ port | default(8384) }}
+
+[ui]
+# Whether to enable the embedded web interface within the Syncthingtray application.
+# Set to 'false' to disable the built-in GUI and rely on external access or headless operation.
+enabled = {{ ui_enabled | default(true) | lower }}
+
+# Username for authenticating access to the Web UI.
+# Leave empty for no authentication (not recommended if exposed on network).
+username = {{ ui_username | default('') }}
+
+# Password for authenticating access to the Web UI.
+# Leave empty if username is empty.
+password = {{ ui_password | default('') }}
+
+[tray]
+# Whether to display the application icon in the system tray when the session starts.
+# Set to 'false' to run the service headless without tray notification.
+show_on_startup = {{ tray_show_on_startup | default(true) | lower }}
+
+# Whether the Syncthingtray application window should start minimized to the tray.
+# Useful for unattended systems or users who prefer silent background operation.
+minimized_on_startup = {{ tray_minimized_on_startup | default(false) | lower }}

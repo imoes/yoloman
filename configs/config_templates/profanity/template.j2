@@ -1,0 +1,37 @@
+# Profanity XMPP Client Configuration
+# This file is auto-generated. Do not edit manually.
+# See profanity(1) and https://profanity-im.github.io/reference.html
+
+# log_level: Logging level: DEBUG, INFO, WARN, or ERROR.
+log {{ log_level | default('INFO') }}
+
+# log_file: Path to the log file. Empty or default uses stdout if not specified in template logic, but here we parametrize the path.
+{% if log_file | default('/var/log/profanity/profanity.log') %}
+log_file {{ log_file | default('/var/log/profanity/profanity.log') }}
+{% endif %}
+
+# theme: Name of the theme installed in $XDG_CONFIG_HOME/profanity/themes.
+theme {{ theme | default('default') }}
+
+# accounts: List of XMPP accounts to configure.
+{% for account in accounts | default([]) %}
+    # accounts.username: Username (JID) for the XMPP account.
+    # accounts.server: Server address for the XMPP account.
+    # accounts.password: Password for the XMPP account. Note: Proficiency usually handles this securely, but for config generation we parametrize the value.
+    # accounts.auto_join: Whether to auto-join groupchats stored in bookmarks for this account.
+    account {{ (account | default({})).username | default('') }}
+    server {{ (account | default({})).server | default('') }}
+    password {{ (account | default({})).password | default('') }}
+    {% if (account | default({})).auto_join | default(False) %}
+    # Auto-join groupchats defined in bookmarks
+    auto_join
+    {% endif %}
+{% endfor %}
+
+# keybindings: List of keybindings to override/add.
+# These are appended to the default keybindings
+{% for item in keybindings | default([]) | default([]) %}
+    # keybindings.key: Key sequence (e.g., 'M-q').
+    # keybindings.action: Profanity command to execute.
+    bind "{{ (item | default({})).key | default('') }}": "{{ (item | default({})).action | default('') }}"
+{% endfor %}

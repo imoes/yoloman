@@ -1,0 +1,43 @@
+# pgcli configuration wrapper script
+# This script generates the command to launch pgcli with the specified parameters.
+
+# Generate the pgcli command line
+COMMAND="pgcli"
+
+{% if dbname %}
+# Database name to connect to (d/--dbname)
+COMMAND="{{ COMMAND }} -d {{ dbname }}"
+{% endif %}
+
+{% if username %}
+# User name to connect to the postgres database (U/--user)
+COMMAND="{{ COMMAND }} -U {{ username }}"
+{% endif %}
+
+{% if host %}
+# Host address of the postgres database (h/--host)
+COMMAND="{{ COMMAND }} -h {{ host }}"
+{% endif %}
+
+{% if port %}
+# Port number at which the postgres instance is listening (p/--port)
+COMMAND="{{ COMMAND }} -p {{ port }}"
+{% endif %}
+
+{% if force_password_prompt %}
+# Force password prompt (W/--password)
+COMMAND="{{ COMMAND }} --password"
+{% endif %}
+
+{% if no_password %}
+# Never prompt for password (w/--no-password)
+COMMAND="{{ COMMAND }} --no-password"
+{% endif %}
+
+{% if pgclirc_path %}
+# Location of pgclirc file (--pgclirc)
+COMMAND="{{ COMMAND }} --pgclirc {{ pgclirc_path }}"
+{% endif %}
+
+# Execute the command
+exec {{ COMMAND }}

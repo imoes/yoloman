@@ -76,6 +76,25 @@ def test_metadata_name_mismatch_rejected(tmp_path):
         checks_library.submit_check(tmp_path, _VALIDATOR, "other_name", _META, _GOOD_CHECK, {})
 
 
+def test_clean_check_description_strips_translator_boilerplate():
+    # Boilerplate-only descriptions become a clean sentence from the short desc.
+    assert checks_library.clean_check_description(
+        "Checkmk check 'lnx_if' (service: Interface %s), translated to a "
+        "read-only on-host Starlark check module.",
+        "Interface %s",
+    ) == "Monitors Interface on this host."
+    # The newer "Monitoring check … read-only on-host Starlark check." variant too.
+    assert checks_library.clean_check_description(
+        "Monitoring check 'foo' (service: Pressure %s) — read-only on-host Starlark check.",
+        "Pressure %s",
+    ) == "Monitors Pressure on this host."
+    # A real description (no boilerplate) is returned verbatim, period intact.
+    real = "Aggregate health of ALL systemd service units. It reports Failed counts."
+    assert checks_library.clean_check_description(real, "Systemd Service Summary") == real
+    # No description at all → a sentence from the short description.
+    assert checks_library.clean_check_description("", "Uptime") == "Monitors Uptime on this host."
+
+
 def test_invalid_star_not_stored(tmp_path):
     _skip_if_no_validator()
     # Wrong main() arity is a hard parse+lint failure (`ok` false) — the

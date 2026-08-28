@@ -1,0 +1,86 @@
+# ==============================================================================
+# Slowloris Configuration Template
+#
+# This template generates a configuration file for `slowloris`, a tool used to
+# test web server resilience against slow HTTP denial-of-service attacks.
+# It defines connection parameters, proxy settings, and behavioral options.
+#
+# WARNING: This tool is for authorized security testing only. Unauthorized
+# use against systems you do not own or have explicit permission to test is
+# illegal and unethical.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Target Host
+# The hostname or IP address of the target web server.
+# ------------------------------------------------------------------------------
+HOST={{ host | default('127.0.0.1') }}
+
+# ------------------------------------------------------------------------------
+# Target Port
+# The port number on which the target web server is listening.
+# ------------------------------------------------------------------------------
+PORT={{ port | default(80) }}
+
+# ------------------------------------------------------------------------------
+# Number of Simultaneous Sockets
+# The number of parallel connections to maintain against the target.
+# Higher values may cause faster saturation but increase local resource usage.
+# ------------------------------------------------------------------------------
+SOCKETS={{ sockets | default(100) }}
+
+# ------------------------------------------------------------------------------
+# HTTPS Protocol Switch
+# If enabled, the tool will attempt an SSL/TLS handshake instead of plain HTTP.
+# ------------------------------------------------------------------------------
+{% if https | default(False) %}
+USE_HTTPS=true
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Randomized User-Agent Headers
+# If enabled, a random User-Agent string is generated for each connection
+# to mimic different browsers and potentially bypass basic bot detection.
+# ------------------------------------------------------------------------------
+{% if random_user_agents | default(False) %}
+RANDOM_USER_AGENTS=true
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Verbose Logging
+# If enabled, detailed execution information is printed to standard output.
+# Useful for debugging connection issues.
+# ------------------------------------------------------------------------------
+{% if verbose | default(False) %}
+VERBOSE=true
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Sleep Interval
+# Time in seconds to wait between sending partial headers for each socket.
+# A value of 0 means no delay (maximum aggressiveness).
+# Non-zero values slow down the attack but may be more resilient to timeouts.
+# ------------------------------------------------------------------------------
+{% if sleep_interval | default(0) != 0 %}
+SLEEP_INTERVAL={{ sleep_interval | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# SOCKS5 Proxy Configuration
+# These directives are only active if USE_PROXY is conceptually enabled
+# (controlled by the 'use_proxy' boolean below).
+#
+# Note: This template writes proxy settings into the config file regardless
+# of the `use_proxy` flag to ensure they are available if the application
+# reads the file directly, but standard slowloris clients may require
+# command-line flags instead. Adjust based on the specific client implementation.
+# ------------------------------------------------------------------------------
+{% if use_proxy | default(False) %}
+PROXY_HOST={{ proxy_host | default('127.0.0.1') }}
+PROXY_PORT={{ proxy_port | default(1080) }}
+{% else %}
+# Proxy is disabled.
+# To enable, set use_proxy to true.
+# PROXY_HOST={{ proxy_host | default('127.0.0.1') }}
+# PROXY_PORT={{ proxy_port | default(1080) }}
+{% endif %}

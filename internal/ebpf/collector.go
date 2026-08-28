@@ -199,8 +199,8 @@ type Collector struct {
 	// Per-interval TCP-connect outcome + retransmit counters (reset each
 	// Snapshot, same pattern as the histograms above). Derived from the
 	// existing event stream — no BPF change.
-	connSuccess uint64 // SYN_SENT → ESTABLISHED
-	connFailed  uint64 // SYN_SENT → CLOSE (refused/reset/timed-out)
+	connSuccess  uint64 // SYN_SENT → ESTABLISHED
+	connFailed   uint64 // SYN_SENT → CLOSE (refused/reset/timed-out)
 	retransCount uint64 // tcp:tcp_retransmit_skb fires
 
 	edgeSink EdgeSink

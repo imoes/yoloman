@@ -1,0 +1,45 @@
+# sshpass command-line execution wrapper
+# This template generates shell variables containing the full sshpass invocation.
+# Password sources are mutually exclusive: direct (-p), file (-f), or environment (-e).
+# Environment variable SSHPASS is used if default_use_env is true and no direct/file password is set.
+
+# The plaintext password to pass via -p option. Highly discouraged for security reasons. Leave empty to use other methods.
+# Using direct password (Least Secure) if provided and no file password is set.
+# Note: The variable default_password is used directly here for the -p flag.
+{% if default_password | default('') and not default_password_file | default('') %}
+SSHPASS={{ default_password | default('') | quote }}
+CMD="sshpass -p '{{ default_password | default('') | quote }}' {{ command | default('ssh user@host.example.com') }}"
+{% elif default_password_file | default('') %}
+# Password source: file
+# Path to a file containing the password (first line). Used via -f option. File should have restricted permissions (e.g., 0400).
+# Using password file (More Secure)
+CMD="sshpass -f '{{ default_password_file | default('') | quote }}' {{ command | default('ssh user@host.example.com') }}"
+{% elif default_use_env | default(True) %}
+# Password source type: environment
+# If true, uses the -e flag to read password from the SSHPASS environment variable. Recommended over -p.
+# Using environment variable (Secure)
+CMD="sshpass -e {{ command | default('ssh user@host.example.com') }}"
+{% else %}
+# Default: Read from stdin (if no password options set)
+CMD="{{ command | default('ssh user@host.example.com') }}"
+{% endif %}
+
+# Common SSH options
+# If false, adds -o StrictHostKeyChecking=no to the ssh command. Warning: this is insecure.
+{% if strict_host_key_checking | default(False) is sameas false %}
+SSH_OPT="-o StrictHostKeyChecking=no"
+{% else %}
+SSH_OPT=""
+{% endif %}
+
+# If true, adds -v flag to sshpass for verbose output to stderr.
+{% if verbose | default(False) %}
+VERBOSE_OPT="-v"
+{% else %}
+VERBOSE_OPT=""
+{% endif %}
+
+# Final Command Construction
+# Note: sshpass options must precede the command
+# This block reconstructs the exact logic above to ensure consistency in the final command string.
+FINAL_CMD="sshpass {{ VERBOSE_OPT | default('') }} {% if default_password | default('') and not default_password_file | default('') %}-p '{{ default_password | default('') | quote }}' {% elif default_password_file | default('') %}-f '{{ default_password_file | default('') | quote }}' {% elif default_use_env | default(True) %}-e {% endif %}{{ command | default('ssh user@host.example.com') }} {{ SSH_OPT | default('') }}"

@@ -1,129 +1,126 @@
 {
-  "main": {
-    "type": "object",
-    "default": {},
-    "description": "Main LemonLDAP::NG FastCGI server configuration",
-    "properties": {
-      "log_level": {
-        "type": "string",
-        "default": "info",
-        "description": "Global log verbosity: debug, info, notice, warning, error, critical, alert, emerg"
-      },
-      "config_storage": {
-        "type": "object",
-        "default": {
-          "type": "File",
-          "options": {
-            "dirname": "/etc/lemonldap-ng/conf"
-          }
-        },
-        "description": "Configuration storage backend (e.g., File, JSON, YAML, DBI, Redis)"
-      },
-      "session_storage": {
-        "type": "object",
-        "default": {
-          "type": "Apache::Session::File",
-          "options": {
-            "directory": "/var/lib/lemonldap-ng/sessions"
-          }
-        },
-        "description": "Session storage backend and its options"
-      },
-      "portal_url": {
-        "type": "string",
-        "default": "https://auth.example.com",
-        "description": "Public-facing URL of the LemonLDAP::NG portal (e.g., for redirect URIs)"
-      },
-      "management_url": {
-        "type": "string",
-        "default": "",
-        "description": "Optional management portal URL (if separate from main portal)"
-      },
-      "request_timeout": {
-        "type": "number",
-        "default": 30,
-        "description": "Timeout (seconds) for external requests (e.g., configuration backend queries)"
-      }
-    }
+ "fastcgi": {
+  "description": "FastCGI-specific deployment parameters",
+  "properties": {
+   "graceful_reload": {
+    "default": true,
+    "description": "Enable graceful reload on SIGHUP (recommended for zero-downtime updates)",
+    "type": "boolean"
+   },
+   "group": {
+    "default": "lemonldap-ng",
+    "description": "System group to drop privileges to",
+    "type": "string"
+   },
+   "pid_file": {
+    "default": "/run/lemonldap-ng-fastcgi.pid",
+    "description": "Path to store the FastCGI process ID file (disable with empty string)",
+    "type": "string"
+   },
+   "ports": {
+    "default": [
+     9090
+    ],
+    "description": "List of TCP ports to listen on for FastCGI connections",
+    "items": {
+     "maximum": 65535,
+     "minimum": 1,
+     "type": "number"
+    },
+    "type": "list"
+   },
+   "sockets": {
+    "default": [],
+    "description": "List of Unix socket paths to bind to (for local proxying, e.g., via nginx)",
+    "items": {
+     "pattern": "^/[^\\s]+$",
+     "type": "string"
+    },
+    "type": "list"
+   },
+   "user": {
+    "default": "lemonldap-ng",
+    "description": "System user to drop privileges to (must exist)",
+    "type": "string"
+   },
+   "workers": {
+    "default": 2,
+    "description": "Number of worker processes (0 means dynamic, use 0 for production with systemd socket activation)",
+    "type": "number"
+   }
   },
-  "fastcgi": {
-    "type": "object",
-    "default": {},
-    "description": "FastCGI-specific deployment parameters",
-    "properties": {
-      "workers": {
-        "type": "number",
-        "default": 2,
-        "description": "Number of worker processes (0 means dynamic, use 0 for production with systemd socket activation)"
-      },
-      "ports": {
-        "type": "list",
-        "default": [
-          9090
-        ],
-        "description": "List of TCP ports to listen on for FastCGI connections",
-        "items": {
-          "type": "number",
-          "minimum": 1,
-          "maximum": 65535
-        }
-      },
-      "sockets": {
-        "type": "list",
-        "default": [],
-        "description": "List of Unix socket paths to bind to (for local proxying, e.g., via nginx)",
-        "items": {
-          "type": "string",
-          "pattern": "^/[^\\s]+$"
-        }
-      },
-      "user": {
-        "type": "string",
-        "default": "lemonldap-ng",
-        "description": "System user to drop privileges to (must exist)"
-      },
-      "group": {
-        "type": "string",
-        "default": "lemonldap-ng",
-        "description": "System group to drop privileges to"
-      },
-      "pid_file": {
-        "type": "string",
-        "default": "/run/lemonldap-ng-fastcgi.pid",
-        "description": "Path to store the FastCGI process ID file (disable with empty string)"
-      },
-      "graceful_reload": {
-        "type": "boolean",
-        "default": true,
-        "description": "Enable graceful reload on SIGHUP (recommended for zero-downtime updates)"
-      }
-    }
+  "type": "object"
+ },
+ "logger": {
+  "description": "Logging backend configuration",
+  "properties": {
+   "backend": {
+    "default": "Apache::Log::Real",
+    "description": "Logging backend module (e.g., File, Console, Syslog)",
+    "type": "string"
+   },
+   "file": {
+    "default": "/var/log/lemonldap-ng/fastcgi.log",
+    "description": "Log file path (used when backend is File)",
+    "type": "string"
+   },
+   "format": {
+    "default": "",
+    "description": "Custom log format (e.g., '%t %p %m %s %u %a')",
+    "type": "string"
+   },
+   "level": {
+    "default": "",
+    "description": "Logger-specific verbosity (overrides main.logLevel if set)",
+    "type": "string"
+   }
   },
-  "logger": {
-    "type": "object",
-    "default": {},
-    "description": "Logging backend configuration",
-    "properties": {
-      "backend": {
-        "type": "string",
-        "default": "Apache::Log::Real",
-        "description": "Logging backend module (e.g., File, Console, Syslog)"
-      },
-      "level": {
-        "type": "string",
-        "default": "",
-        "description": "Logger-specific verbosity (overrides main.logLevel if set)"
-      },
-      "format": {
-        "type": "string",
-        "default": "",
-        "description": "Custom log format (e.g., '%t %p %m %s %u %a')"
-      },
-      "file": {
-        "type": "string",
-        "default": "/var/log/lemonldap-ng/fastcgi.log",
-        "description": "Log file path (used when backend is File)"
-      }
-    }
-  }
+  "type": "object"
+ },
+ "main": {
+  "description": "Main LemonLDAP::NG FastCGI server configuration",
+  "properties": {
+   "config_storage": {
+    "default": {
+     "options": {
+      "dirname": "/etc/lemonldap-ng/conf"
+     },
+     "type": "File"
+    },
+    "description": "Configuration storage backend (e.g., File, JSON, YAML, DBI, Redis)",
+    "type": "object"
+   },
+   "log_level": {
+    "default": "info",
+    "description": "Global log verbosity: debug, info, notice, warning, error, critical, alert, emerg",
+    "type": "string"
+   },
+   "management_url": {
+    "default": "",
+    "description": "Optional management portal URL (if separate from main portal)",
+    "type": "string"
+   },
+   "portal_url": {
+    "default": "https://auth.example.com",
+    "description": "Public-facing URL of the LemonLDAP::NG portal (e.g., for redirect URIs)",
+    "type": "string"
+   },
+   "request_timeout": {
+    "default": 30,
+    "description": "Timeout (seconds) for external requests (e.g., configuration backend queries)",
+    "type": "number"
+   },
+   "session_storage": {
+    "default": {
+     "options": {
+      "directory": "/var/lib/lemonldap-ng/sessions"
+     },
+     "type": "Apache::Session::File"
+    },
+    "description": "Session storage backend and its options",
+    "type": "object"
+   }
+  },
+  "type": "object"
+ }
 }

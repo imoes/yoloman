@@ -20,16 +20,25 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, AgentObservedState, ConfigPolicy, HostConfigResource, HostGroup, OUNode
+from bossman.db.models import (
+    DEFAULT_TENANT_ID,
+    Agent,
+    AgentObservedState,
+    ConfigPolicy,
+    HostConfigResource,
+    HostGroup,
+    OperationLog,
+    OUNode,
+)
 from bossman.services.compiler import affected_agent_ids
-from bossman.services.config_desired import effective_resources, resource_dict
+from bossman.services.config_desired import effective_resources, resource_dict, is_flat
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.cve_collect import collect_host
@@ -60,6 +69,14 @@ async def _agent_with_address(session: AsyncSession, agent_id: UUID) -> Agent:
 class ToolCallRequest(BaseModel):
     # The tool's own params; dry_run is honored by write modules themselves.
     params: dict[str, Any] = {}
+    # HOW LONG THE CALLER IS PREPARED TO WAIT, because 30 seconds is wrong for a whole class of tools.
+    #
+    # Measured on the Windows agent: `windows_feature` installing IIS or SNMP takes minutes, and every call
+    # came back as `request failed: ` with an EMPTY message — the client timeout, which reads exactly like a
+    # dead host. The default stays 30s (a read should never need more, and a hung agent must not hold a
+    # request open), and a caller that knows better says so. Capped at 30 minutes: beyond that the answer is
+    # not a longer timeout, it is a job — see docs/windows-management.md §9.
+    timeout_seconds: float | None = Field(default=None, gt=0, le=1800)
 
 
 @router.get("/api/v1/agents/{agent_id}/tools")
@@ -98,6 +115,10 @@ async def call_agent_tool_route(
     502 with the agent's message."""
     agent = await _agent_with_address(session, agent_id)
     client = client_factory(agent, settings)
+    if body.timeout_seconds:
+        # Set on the CLIENT rather than passed through: the timeout belongs to the transport, and every call
+        # this client makes for this request should honour the same patience.
+        client._timeout = body.timeout_seconds  # noqa: SLF001 — one construction path, see client_for
     try:
         result = await client.call_tool(tool_name, body.params)
     except AgentClientError as exc:
@@ -178,7 +199,7 @@ def _merge_values(old: dict | None, new: dict | None, fmt: str | None) -> dict:
     apply only touches the keys it sends). keyvalue merges flat (keys may
     contain dots); nested formats merge deep. null values are kept — they mean
     "managed absent"."""
-    if fmt in (None, "keyvalue") or not isinstance(old, dict):
+    if is_flat(fmt) or not isinstance(old, dict):
         return {**(old or {}), **(new or {})}
     out = dict(old or {})
     for k, v in (new or {}).items():
@@ -195,7 +216,7 @@ def remove_desired_key(row: Any, key: str) -> dict | None:
     None when the key isn't managed. Nested formats navigate a dot-path and
     prune empty parents; the caller persists (or deletes the emptied row)."""
     values = dict(row.values or {})
-    if row.type != "template_render" and (row.config_format not in (None, "keyvalue")) and "." in key:
+    if row.type != "template_render" and not is_flat(row.config_format) and "." in key:
         parts = key.split(".")
         node = values
         for p in parts[:-1]:
@@ -410,6 +431,197 @@ async def get_agent_config_drift(
     }
 
 
+@router.get("/api/v1/agents/{agent_id}/policy-conflicts")
+async def get_agent_policy_conflicts(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Where THIS system's declared registry values collide with WINDOWS' OWN POLICY TERRITORY.
+
+    The sentence this endpoint exists to produce: *"Something else holds AUOptions = 3, this policy declares 4,
+    the policy area wins — your convergence will write ours and find it reverted, on every pass."* Without it
+    that is a mystery an operator watches for weeks: the value keeps reverting and nothing says why.
+
+    Reads both sides out of what is already stored, so it contacts no host: ours from the GPO-resolved config
+    resources (group < OU < site < host, with the per-key winner), Windows' from
+    `facts.group_policy.policy_area_values` — the values sitting in the Group-Policy-owned registry subtrees,
+    refreshed every six hours by the poller.
+
+    WHAT THE OTHER SIDE IS, exactly, because the report's honesty depends on it: measured on the test host,
+    `gpresult /X` names WHICH GPOs applied and which extensions ran and carries no per-setting data at all. So
+    the comparison is against the registry area both authorities write to — a DIFFERING value is evidence of a
+    foreign authority (we would have written ours), an EQUAL value is evidence of nothing and is reported as
+    `same_value`, never as "Group Policy agrees". `imposed_source` travels with the report so no consumer has
+    to guess how strong the claim is.
+
+    FOUR OUTCOMES, and three of them are not conflicts: `overridden` (the finding), `same_value` (nothing
+    contradicts us), `in_gp_scope` (nobody claims that name yet, and the next refresh can), `ours_alone`
+    (counted only). A report that called all four a conflict would teach people to close it."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+
+    from bossman.services import registry_policy
+
+    facts = agent.facts or {}
+    policy = facts.get("group_policy") or {}
+    declared = registry_policy.declared_values(await effective_resources(session, agent))
+    report = registry_policy.conflicts(
+        declared,
+        # `settings` is what the 0.1.x Windows agent called the same read; accepted until no such agent is
+        # enrolled, so an un-updated host still gets a report instead of a silent zero.
+        policy.get("policy_area_values") or policy.get("settings") or [],
+        policy.get("policy_area_source") or registry_policy.IMPOSED_SOURCE_AREA,
+    )
+    return {
+        "agent_id": str(agent.id),
+        "os_family": facts.get("os_family"),
+        # WHY AN EMPTY REPORT IS EMPTY, said out loud. "0 conflicts" on a Linux host, on a host whose policy
+        # has never been read, and on a host with nothing declared are three different statements, and only
+        # one of them is good news.
+        "applicable": facts.get("os_family") == "windows",
+        "policy_read_at": policy.get("read_at"),
+        "policy_error": policy.get("error"),
+        **report,
+    }
+
+
+# ---- The result log: what hosts DID, and what came back ----
+#
+# THE OUTCOME VOCABULARY IS FIXED AND EXHAUSTIVE, listed once here so a filter cannot silently mean something
+# else than the log stores. Each one is a different thing that happened, and collapsing any two of them makes a
+# real question unanswerable:
+#
+#   changed        the host is different now
+#   unchanged      it was already as asked (the idempotence claim, and the thing a second run must report)
+#   planned        a dry run — a preview, which neither changed the host nor found it already correct
+#   refused        the TARGET said no, with its own words in `error` (a fact about the host)
+#   error          the AGENT broke (a fact about us)
+#   timed-out      the caller stopped waiting; the operation MAY HAVE COMPLETED — measured, one install did
+#   unknown-module a call for a tool this host does not have
+#   gap            OURS, not a host's: records fell out of the agent's ring before we collected them
+OPERATION_OUTCOMES = ("changed", "unchanged", "planned", "refused", "error", "timed-out", "unknown-module", "gap")
+
+
+def _operation_row(row: OperationLog, agent_name: str | None = None) -> dict[str, Any]:
+    return {
+        "id": str(row.id),
+        "record_id": row.record_id,
+        "agent_id": str(row.agent_id),
+        "host": agent_name,
+        "boot_id": row.boot_id,
+        "seq": row.seq,
+        "module": row.module,
+        "outcome": row.outcome,
+        "dry_run": row.dry_run,
+        "changed": row.changed,
+        "params": row.params,
+        "identity": row.identity,
+        "started_at": row.started_at.isoformat() if row.started_at else None,
+        "duration_ms": row.duration_ms,
+        "message": row.message,
+        "evidence": row.evidence,
+        "error": row.error,
+        "collected_at": row.collected_at.isoformat() if row.collected_at else None,
+    }
+
+
+@router.get("/api/v1/operations")
+async def list_operations(
+    host: str | None = None,
+    agent_id: UUID | None = None,
+    module: str | None = None,
+    outcome: str | None = None,
+    since: datetime | None = None,
+    changed_only: bool = False,
+    limit: int = Query(default=200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """WHAT THE FLEET DID — every collected operation record, newest first.
+
+    The fleet-wide half of the result log (docs/windows-management.md §8 milestone 9). The agent keeps its own
+    ring and answers for itself; this answers questions no single host can — "which hosts refused this",
+    "what changed in the last hour", "did that install ever complete anywhere".
+
+    Filters are ANDed and every one is optional. `outcome` is validated against the fixed vocabulary rather
+    than passed through, because a typo that silently matches nothing reads exactly like "it never happened".
+    """
+    if outcome and outcome not in OPERATION_OUTCOMES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown outcome {outcome!r}; it is one of {', '.join(OPERATION_OUTCOMES)}",
+        )
+
+    query = select(OperationLog, Agent.name).join(Agent, Agent.id == OperationLog.agent_id)
+    if agent_id:
+        query = query.where(OperationLog.agent_id == agent_id)
+    if host:
+        query = query.where(Agent.name == host)
+    if module:
+        query = query.where(OperationLog.module == module)
+    if outcome:
+        query = query.where(OperationLog.outcome == outcome)
+    if since:
+        query = query.where(OperationLog.started_at >= since)
+    if changed_only:
+        # THE WRITES ONLY. `changed is true` and not `outcome != unchanged`: a refusal did not change the host
+        # either, and a reader asking "what changed" must not be handed the things that did not.
+        query = query.where(OperationLog.changed.is_(True))
+    # started_at can be null (a gap marker has none) — order by collection so such a row still lands in place.
+    query = query.order_by(OperationLog.started_at.desc().nullslast(),
+                           OperationLog.collected_at.desc()).limit(limit)
+
+    rows = (await session.execute(query)).all()
+    return {
+        "count": len(rows),
+        # WHAT WAS ASKED, echoed back. A list of 200 rows out of 4000 looks identical to a complete answer
+        # unless the query and its limit come with it.
+        "query": {"host": host, "agent_id": str(agent_id) if agent_id else None, "module": module,
+                  "outcome": outcome, "since": since.isoformat() if since else None,
+                  "changed_only": changed_only, "limit": limit},
+        "outcomes": list(OPERATION_OUTCOMES),
+        "operations": [_operation_row(row, name) for row, name in rows],
+    }
+
+
+@router.get("/api/v1/agents/{agent_id}/operations")
+async def list_agent_operations(
+    agent_id: UUID,
+    module: str | None = None,
+    outcome: str | None = None,
+    limit: int = Query(default=200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """One host's result log, newest first — the same records the host itself keeps, plus the ones its ring has
+    already discarded. Coverage is stated rather than implied: `collected_range` says which of the agent's own
+    sequence numbers we hold, so "no records" and "we never collected any" are distinguishable."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+
+    inner = await list_operations(agent_id=agent_id, module=module, outcome=outcome, limit=limit,
+                                 session=session, _identity=_identity)
+    span = (await session.execute(
+        select(OperationLog.boot_id, func.min(OperationLog.seq), func.max(OperationLog.seq), func.count())
+        .where(OperationLog.agent_id == agent_id)
+        .group_by(OperationLog.boot_id)
+        .order_by(func.max(OperationLog.collected_at).desc())
+    )).all()
+    return {
+        **inner,
+        "host": agent.name,
+        # One entry per agent PROCESS: sequence numbers restart with the agent, so a single range would merge
+        # two unrelated numberings into one meaningless span.
+        "collected_range": [
+            {"boot_id": boot, "first_seq": int(lo), "last_seq": int(hi), "records": int(n)}
+            for boot, lo, hi, n in span
+        ],
+    }
+
+
 @router.get("/api/v1/agents/{agent_id}/config-desired")
 async def get_agent_config_desired(
     agent_id: UUID,
@@ -604,10 +816,72 @@ async def get_agent_logs(
     _identity=Depends(require_manage_agent),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Block J4b — the host's journald log, via the read-only `journal`
-    module (`journalctl -o json`). Filters map 1:1 to the module's params."""
+    """Block J4b — the host's system log: journald on Linux, the Windows event log on Windows.
+
+    ONE SCREEN, TWO LOG SYSTEMS, and the branch is here rather than in the agent. The alternative was a
+    Windows module answering to the name `journal`, which would have been a lie in the one place a reader
+    checks what they are looking at — journald and the event log are not the same thing wearing two names
+    (one has units and syslog priorities, the other channels and five levels). So the Windows agent keeps
+    `windows_eventlog` under its own name, and this endpoint maps the screen's filters onto whichever log the
+    host actually has, then returns ONE entry shape so the panel needs no branch:
+
+        time / message         both have them
+        unit                   the event PROVIDER on Windows — the thing that produced the line
+        priority               the LEVEL NAME (critical, error, warning, information, verbose)
+        channel, event_id      Windows-only, carried for the ones that have them
+
+    `log_source` says which log answered, because "no entries" from a journal and from an event log are
+    different facts and the screen should be able to say which.
+    """
     agent = await _agent_with_address(session, agent_id)
-    params: dict[str, Any] = {"lines": lines, "boot": boot}
+    windows = ((agent.facts or {}).get("os_family") or "").lower() == "windows"
+    client = client_factory(agent, settings)
+
+    if windows:
+        params: dict[str, Any] = {"max_events": lines}
+        # The screen's `unit` box means "narrow this to one producer"; on Windows that is the provider.
+        if unit:
+            params["provider"] = unit
+        # A syslog priority is not a Windows level. Mapped rather than passed: 0-3 (emerg..err) are Windows'
+        # error and critical, 4 is warning, anything higher includes information. A number nobody translated
+        # would have filtered on a level that does not exist and returned nothing at all.
+        if priority:
+            params["levels"] = _windows_levels_for(priority)
+        if since:
+            params["since"] = since
+        if grep:
+            params["contains"] = grep
+        try:
+            result = await client.call_tool("windows_eventlog", params)
+        except AgentClientError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        data = ((result or {}).get("data") if isinstance(result, dict) else None) or {}
+        entries = [
+            {
+                "time": event.get("time"),
+                "message": event.get("message"),
+                "unit": event.get("provider"),
+                "priority": event.get("level_name"),
+                "channel": event.get("log"),
+                # The module calls it `id` (Windows' own Event ID). Reading a key that does not exist gave
+                # every entry event_id: null, which reads as "this log has no event ids" — the field is the
+                # first thing anyone searches an event log by.
+                "event_id": event.get("id"),
+            }
+            for event in data.get("events") or []
+        ]
+        return {
+            "agent_id": str(agent.id),
+            "log_source": "windows-eventlog",
+            "entries": entries,
+            "count": data.get("count") or len(entries),
+            # TRUNCATION TRAVELS. The module says when its answer is a floor rather than a total, and dropping
+            # that here would turn "at least 200 errors" into "200 errors" on the way to the reader.
+            "capped": bool(data.get("capped")),
+            "by_level": data.get("by_level") or {},
+        }
+
+    params = {"lines": lines, "boot": boot}
     if unit:
         params["unit"] = unit
     if priority:
@@ -616,14 +890,39 @@ async def get_agent_logs(
         params["since"] = since
     if grep:
         params["grep"] = grep
-    client = client_factory(agent, settings)
     try:
         result = await client.call_tool("journal", params)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     data = (result or {}).get("data") if isinstance(result, dict) else None
     data = data or {}
-    return {"agent_id": str(agent.id), "entries": data.get("entries") or [], "count": data.get("count") or 0}
+    return {"agent_id": str(agent.id), "log_source": "journald",
+            "entries": data.get("entries") or [], "count": data.get("count") or 0}
+
+
+#: Syslog priority (or name) → the Windows event levels that mean the same thing. Windows has five levels and
+#: syslog eight, so the mapping is INCLUSIVE and upward: asking for "warning" gets warning and everything
+#: worse, which is what a log reader filtering by severity means. Anything unrecognised returns the module's
+#: own default rather than an empty filter, because a typo must not silently answer "no problems".
+_SYSLOG_TO_WINDOWS = {
+    "0": "critical", "emerg": "critical", "panic": "critical",
+    "1": "critical", "alert": "critical",
+    "2": "critical", "crit": "critical",
+    "3": "error", "err": "error", "error": "error",
+    "4": "warning", "warn": "warning", "warning": "warning",
+    "5": "information", "notice": "information",
+    "6": "information", "info": "information", "information": "information",
+    "7": "verbose", "debug": "verbose", "verbose": "verbose",
+}
+_WINDOWS_LEVEL_ORDER = ("critical", "error", "warning", "information", "verbose")
+
+
+def _windows_levels_for(priority: str) -> str:
+    floor = _SYSLOG_TO_WINDOWS.get((priority or "").strip().lower())
+    if floor is None:
+        return "critical,error,warning"
+    cut = _WINDOWS_LEVEL_ORDER.index(floor)
+    return ",".join(_WINDOWS_LEVEL_ORDER[: cut + 1])
 
 
 # ---- /var/log file logs (read-only, path-jailed logfiles module) ----------

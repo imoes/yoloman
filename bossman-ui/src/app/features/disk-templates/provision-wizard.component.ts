@@ -9,6 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork, VmHost, VmPlacement } from '../../core/services/images.service';
 import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
 import { RoleBindingsComponent } from '../hosts/management/roles/role-bindings.component';
+import { categoryByKey } from '../../shared/config-categories';
 
 /** Roles whose size a grow policy adjusts; the rest (esp/boot/swap) stay fixed — same set as the page. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
@@ -16,19 +17,6 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 // Catalog category ordering + labels/icons — kept identical to the Management "Add roles and features"
 // wizard (add-roles-wizard.component.ts) so this Miller-column browser looks exactly the same.
 const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
-const CAT_META: Record<string, { label: string; icon: string }> = {
-  web: { label: 'Web', icon: 'language' },
-  database: { label: 'Database', icon: 'storage' },
-  services: { label: 'Services', icon: 'apps' },
-  network: { label: 'Network', icon: 'lan' },
-  security: { label: 'Security', icon: 'security' },
-  storage: { label: 'Storage', icon: 'save' },
-  virtualization: { label: 'Virtualization', icon: 'dns' },
-  logging: { label: 'Logging', icon: 'article' },
-  time: { label: 'Time', icon: 'schedule' },
-  system: { label: 'System', icon: 'settings' },
-  other: { label: 'Other', icon: 'folder' },
-};
 
 interface DeployStepResult { label: string; ok: boolean; error?: string; }
 
@@ -689,8 +677,12 @@ export class ProvisionWizardComponent implements OnInit {
     this.pickedRoles.set(s);
   }
 
-  catIcon(c: string): string { return CAT_META[c]?.icon ?? 'folder'; }
-  catName(c: string): string { return CAT_META[c]?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
+  // ONE VOCABULARY, ONE LOOKUP. This kept its own CAT_META of 11 categories while
+  // shared/config-categories.ts already had 19 with labels and icons — so Backup, Cloud, Cluster, Directory
+  // and Telephony rendered as a generic folder here while the config editors showed their real icon. The
+  // shared table's own comment had been naming this for a while.
+  catIcon(c: string): string { return categoryByKey(c)?.icon ?? 'folder'; }
+  catName(c: string): string { return categoryByKey(c)?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
   /** The Debian-family packages a catalog role installs — shown in the detail column (no host context here). */
   rolePackages(name: string): string { return (this.catalog()[name]?.families?.debian?.packages ?? []).join(', ') || name; }
 

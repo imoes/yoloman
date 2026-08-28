@@ -102,3 +102,41 @@ async def query_series(
         )
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# What counts as a MEASURABLE metric — the one exclusion rule, used by every catalog.
+#
+# There were two, and they disagreed: the fleet-wide /metric-catalog skipped `check_*_state`
+# ("a check's own 0/1/2/3 output, not a measurable metric you'd threshold") but kept
+# `process_*`, while the per-agent /agents/{id}/metrics skipped `process_*` but kept
+# `check_*_state`. Each excluded exactly what the other included, so "which metrics exist?"
+# had two answers — and the chart editor's picker showed 8 of its first entries as the noise
+# the other endpoint deliberately removes.
+#
+# Both exclusions are right for both callers, which is why one rule can serve both:
+#   check_<name>_state  a check's verdict (0/1/2/3). Plotting or thresholding it says nothing
+#                       that the check's own state does not already say.
+#   process_*           per-PID history: hundreds of ephemeral series with their own endpoint
+#                       and their own chart. In a metric picker they are noise, not choice.
+
+
+def is_measurable(name: str) -> bool:
+    """Whether this metric name belongs in a catalog a human picks from."""
+    if name.startswith("check_") and name.endswith("_state"):
+        return False
+    if name.startswith("process_"):
+        return False
+    return True
+
+
+#: SQL-side form of the same rule, for queries that filter in the database. Kept next to
+#: `is_measurable` so the two cannot drift — if you add a class here, add it there.
+def measurable_sql_filter(column):
+    """`column NOT LIKE 'process_%' AND NOT (column LIKE 'check_%' AND column LIKE '%_state')`"""
+    from sqlalchemy import and_, not_
+
+    return and_(
+        not_(column.like("process_%")),
+        not_(and_(column.like("check_%"), column.like("%_state"))),
+    )

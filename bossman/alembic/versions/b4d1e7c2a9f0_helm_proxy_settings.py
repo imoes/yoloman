@@ -21,7 +21,7 @@ down_revision = "a2c3d4e5f6b7"
 branch_labels = None
 depends_on = None
 
-_DEFAULT_NO_PROXY = ".example.com,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local"
+_DEFAULT_NO_PROXY = ".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local"
 
 
 def upgrade() -> None:

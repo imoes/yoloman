@@ -1,0 +1,213 @@
+# =============================================================================
+# Partimage Batch Mode Configuration Template
+#
+# This file is consumed by 'partimage' when invoked with the -B (batch) flag.
+# It defines automatic responses to interactive dialog prompts and sets
+# various operational flags for image creation, restoration, and verification.
+#
+# Source of truth: Ansible variables mapped from the schema fields.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Section: Batch Mode Dialog Patterns
+# Description: List of batch mode dialog patterns and responses. Each item is a map with
+#              'pattern' (glob pattern) and 'response' (button text or value).
+# Co
+# -----------------------------------------------------------------------------
+# Variable: batch_patterns (list of maps)
+# Schema: List of batch mode dialog patterns and responses. Each item is a map with
+#         'pattern' (glob pattern) and 'response' (button text or value).
+# Note: batch_patterns is a list of mappings. We iterate the list directly.
+{% for item in (batch_patterns | default([])) %}
+# Pattern: {{ (item | default({})).pattern | default('') }}
+# Response: {{ (item | default({})).response | default('') }}
+{{ (item | default({})).pattern | default('') }}={{ (item | default({})).response | default('') }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Section: Compression Level
+# Description: Compression algorithm and level for the image file.
+#              0 = no compression, 1 = gzip, 2 = bzip2.
+#              Corresponds to the command-line flag: -z <level>
+# -----------------------------------------------------------------------------
+# Variable: compress_level (int | None)
+{% if compress_level | default(None) is not none %}z{{ compress_level | int }}
+{% else %}# No compression specified (default behavior)
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Overwrite Existing Image
+# Description: If true, overwrites an existing image file without prompting.
+#              Corresponds to the command-line flag: --overwrite
+# -----------------------------------------------------------------------------
+# Variable: overwrite (bool | None)
+{% if overwrite | default(false) | bool %}--overwrite
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Image Description
+# Description: If true, skips asking for a description text for the image file.
+#              Corresponds to the command-line flag: --nodesc
+# -----------------------------------------------------------------------------
+# Variable: no_description (bool | None)
+{% if no_description | default(false) | bool %}--nodesc
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Volume Splitting
+# Description: Splits the image into multiple volumes of the specified size.
+#              Size is in Kilobytes (KB).
+#              Corresponds to the command-line flag: -V <size_kb>
+# -----------------------------------------------------------------------------
+# Variable: volume_size_kb (int | None)
+{% if volume_size_kb | default(None) is not none %}-V {{ volume_size_kb | int }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Post-Finish Action
+# Description: Defines what the system does after a successful operation.
+#              0 = wait, 1 = halt, 2 = reboot, 3 = quit.
+#              Corresponds to the command-line flag: -f <code>
+# -----------------------------------------------------------------------------
+# Variable: finish_action (int | None)
+{% if finish_action | default(None) is not none %}-f {{ finish_action | int }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Batch Mode Enabler
+# Description: Forces partimage to run in batch mode (non-interactive).
+#              This flag is almost always required for automation.
+#              Corresponds to the command-line flag: --batch
+# -----------------------------------------------------------------------------
+--batch
+
+# -----------------------------------------------------------------------------
+# Section: Wait for Volume Confirmation
+# Description: If true, waits for user confirmation after each volume change
+#              during split image operations.
+#              Corresponds to the command-line flag: --waitvol
+# -----------------------------------------------------------------------------
+# Variable: wait_vol (bool | None)
+{% if wait_vol | default(false) | bool %}--waitvol
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Disk Synchronization
+# Description: If true, skips syncing disks at the end of the operation.
+#              WARNING: This is dangerous as it may leave data in buffers.
+#              Corresponds to the command-line flag: --nosync
+# -----------------------------------------------------------------------------
+# Variable: no_sync (bool | None)
+{% if no_sync | default(false) | bool %}--nosync
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: MBR Backup
+# Description: If true, skips creating a backup of the Master Boot Record.
+#              Corresponds to the command-line flag: --nombr
+# -----------------------------------------------------------------------------
+# Variable: no_mbr (bool | None)
+{% if no_mbr | default(false) | bool %}--nombr
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Partition Check
+# Description: If true, skips checking the partition consistency before saving/restoring.
+#              Corresponds to the command-line flag: --nocheck
+# -----------------------------------------------------------------------------
+# Variable: no_check (bool | None)
+{% if no_check | default(false) | bool %}--nocheck
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Erase Empty Blocks
+# Description: If true, erases empty blocks on restore by writing zero bytes.
+#              Corresponds to the command-line flag: --erase
+# -----------------------------------------------------------------------------
+# Variable: erase (bool | None)
+{% if erase | default(false) | bool %}--erase
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Mounted Partition Allowance
+# Description: If true, allows operating on a mounted partition (dangerous).
+#              Corresponds to the command-line flag: --allowmnt
+# -----------------------------------------------------------------------------
+# Variable: allow_mnt (bool | None)
+{% if allow_mnt | default(false) | bool %}--allowmnt
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Simulation Mode
+# Description: If true, runs a simulation of the restoration mode without
+#              writing to disk.
+#              Corresponds to the command-line flag: --simulate
+# -----------------------------------------------------------------------------
+# Variable: simulate (bool | None)
+{% if simulate | default(false) | bool %}--simulate
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Debug Level
+# Description: Sets the debug verbosity level. Higher values produce more
+#              diagnostic output to stderr.
+#              Corresponds to the command-line flag: -g <level>
+# -----------------------------------------------------------------------------
+# Variable: debug_level (int | None)
+{% if debug_level | default(None) is not none %}-g {{ debug_level | int }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Server Address (Network Mode)
+# Description: The IP address or hostname of the Partimage server for
+#              network-based operations.
+#              Corresponds to the command-line flag: -s <address>
+# -----------------------------------------------------------------------------
+# Variable: server_addr (string | None)
+{% if server_addr | default(None) is not none %}-s {{ server_addr | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Server Port (Network Mode)
+# Description: The TCP port the Partimage server is listening on.
+#              Corresponds to the command-line flag: -p <port>
+# -----------------------------------------------------------------------------
+# Variable: server_port (int | None)
+{% if server_port | default(None) is not none %}-p {{ server_port | int }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: SSL Disabled
+# Description: If true, disables SSL/TLS encryption for network communication.
+#              Corresponds to the command-line flag: --nossl
+# -----------------------------------------------------------------------------
+# Variable: no_ssl (bool | None)
+{% if no_ssl | default(false) | bool %}--nossl
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Authentication Username
+# Description: The username used to authenticate with the Partimage server.
+#              Corresponds to the command-line flag: -U <user>
+# -----------------------------------------------------------------------------
+# Variable: username (string | None)
+{% if username | default(None) is not none %}-U {{ username | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Authentication Password
+# Description: The password used to authenticate with the Partimage server.
+#              Corresponds to the command-line flag: -P <pass>
+# -----------------------------------------------------------------------------
+# Variable: password (string | None)
+{% if password | default(None) is not none %}-P {{ password | string }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Section: Automatic Mount Options
+# Description: Options passed to the mount command during automatic restoration.
+#              Corresponds to the command-line flag: -a <options>
+# -----------------------------------------------------------------------------
+# Variable: automnt_options (string | None)
+{% if automnt_options | default(None) is not none %}-a '{{ automnt_options | string }}'
+{% endif %}

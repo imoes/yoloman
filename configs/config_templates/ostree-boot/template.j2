@@ -1,0 +1,32 @@
+# Copyright (C) 2013 Colin Walters <walters@verbum.org>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser Public
+# License along with this library. If not, see <https://www.gnu.org/licenses/>.
+
+# ==============================================================================
+# ostree-boot configuration fragment (dracut)
+# ==============================================================================
+# This file is consumed by dracut to augment the initramfs image used for
+# ostree-based systems. It controls which dracut modules are loaded and whether
+# build artifacts are stripped for reproducibility.
+
+# Space-separated list of dracut modules to add for ostree boot support.
+# Common modules include 'ostree', 'systemd', 'network', etc.
+# Default: 'ostree systemd ' (note the trailing space is safe for concatenation)
+add_dracutmodules+=" {{ ostree_dracut_modules | default('ostree systemd ') }} "
+
+# Whether to enable reproducible build settings.
+# When true, dracut attempts to produce bit-identical initramfs images
+# across builds given the same inputs. This aids in auditing and verification.
+# Default: true
+reproducible={{ ostree_reproducible | default(true) | lower }}

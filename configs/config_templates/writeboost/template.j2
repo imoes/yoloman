@@ -1,0 +1,51 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides: writeboost
+# Required-Start: $local_fs
+# Required-Stop: $local_fs
+# Should-Start: $syslog
+# Should-Stop: $syslog
+# X-Start-Before: cryptdisks
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start the writeboost mapper
+# Description: (dm-)writeboost is a log-structured cache for Linux
+### END INIT INFO
+
+# The name of the service as referenced in log messages and script paths.
+DAEMON=/usr/sbin/writeboost
+NAME={{ name | default('writeboost') }}
+
+# Exit if executable is not installed
+[ -x $DAEMON ] || exit 0
+
+# Load the VERBOSE setting and other rcS variables
+[ -f /etc/default/rcS ] && . /etc/default/rcS
+
+# define LSB log_* functions.
+. /lib/lsb/init-functions
+
+case "$1" in
+    start)
+        log_action_begin_msg "$NAME: mapping devices"
+        $DAEMON
+        log_action_end_msg 0
+    ;;
+    stop)
+        log_action_begin_msg "$NAME: un-mapping devices"
+        $DAEMON -u
+        log_action_end_msg 0
+    ;;
+    reload|force-reload|restart)
+        $0 stop
+        $0 start
+    ;;
+    status)
+        ## return status 0 if process is running.
+        status_of_proc "$DAEMON" "$NAME"
+    ;;
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
+    ;;
+esac

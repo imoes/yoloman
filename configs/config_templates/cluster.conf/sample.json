@@ -1,136 +1,157 @@
 {
-  "cluster_name": "prod-cluster",
-  "config_version": 25,
-  "cman": {
-    "transport": "udp",
-    "secauth": "1",
-    "totem_version": "2",
-    "token": 10000,
-    "consensus_timeout": 1000,
-    "two_node": false,
-    "token_retransmit": 400,
-    "token_retransmits_before_loss": 10,
-    "join": 100,
-    "join_retransmit": 50,
-    "max_messages": 20,
-    "max_network_delay": 50,
-    "miss_count": 5,
-    "rrp_mode": "active",
-    "rrp_problem_timeout": 3000,
-    "rrp_active": "eth1",
-    "rrp_transport": "udp"
+ "cluster_name": "prod-cluster",
+ "cman": {
+  "consensus_timeout": 1000,
+  "join": 100,
+  "join_retransmit": 50,
+  "max_messages": 20,
+  "max_network_delay": 50,
+  "miss_count": 5,
+  "rrp_active": "eth1",
+  "rrp_mode": "active",
+  "rrp_problem_timeout": 3000,
+  "rrp_transport": "udp",
+  "secauth": "1",
+  "token": 10000,
+  "token_retransmit": 400,
+  "token_retransmits_before_loss": 10,
+  "totem_version": "2",
+  "transport": "udp",
+  "two_node": false
+ },
+ "cman_conf": {
+  "consensus_timeout": "",
+  "expected_votes": "",
+  "join": "",
+  "join_retransmit": "",
+  "keyfile": "",
+  "max_messages": "",
+  "max_network_delay": "",
+  "miss_count": "",
+  "rrp_active": "",
+  "rrp_mode": "",
+  "rrp_problem_timeout": "",
+  "rrp_transport": "",
+  "secauth": "",
+  "token": "",
+  "token_retransmit": "",
+  "token_retransmits_before_loss": "",
+  "totem_version": "",
+  "transport": "",
+  "two_node": ""
+ },
+ "config_version": 25,
+ "global_fencedevices": [],
+ "nodes": [
+  {
+   "fence_methods": [
+    {
+     "devices": [
+      "ipmi-node1"
+     ],
+     "name": "primary"
+    }
+   ],
+   "fencedevices": [
+    {
+     "agent": "fence_ipmilan",
+     "name": "ipmi-node1",
+     "options": {
+      "auth": "md5",
+      "ipaddr": "192.168.1.101",
+      "login": "admin",
+      "password": "secret123"
+     }
+    }
+   ],
+   "id": 1,
+   "name": "node1.example.com"
   },
-  "nodes": [
+  {
+   "fence_methods": [
     {
-      "name": "node1.example.com",
-      "id": 1,
-      "fencedevices": [
-        {
-          "name": "ipmi-node1",
-          "agent": "fence_ipmilan",
-          "options": {
-            "ipaddr": "192.168.1.101",
-            "login": "admin",
-            "password": "secret123",
-            "auth": "md5"
-          }
-        }
-      ],
-      "fence_methods": [
-        {
-          "name": "primary",
-          "devices": [
-            "ipmi-node1"
-          ]
-        }
-      ]
-    },
+     "devices": [
+      "ipmi-node2"
+     ],
+     "name": "primary"
+    }
+   ],
+   "fencedevices": [
     {
-      "name": "node2.example.com",
-      "id": 2,
-      "fencedevices": [
-        {
-          "name": "ipmi-node2",
-          "agent": "fence_ipmilan",
-          "options": {
-            "ipaddr": "192.168.1.102",
-            "login": "admin",
-            "password": "secret456",
-            "auth": "md5"
-          }
-        }
-      ],
-      "fence_methods": [
-        {
-          "name": "primary",
-          "devices": [
-            "ipmi-node2"
-          ]
-        }
-      ]
+     "agent": "fence_ipmilan",
+     "name": "ipmi-node2",
+     "options": {
+      "auth": "md5",
+      "ipaddr": "192.168.1.102",
+      "login": "admin",
+      "password": "secret456"
+     }
     }
-  ],
-  "global_fencedevices": [],
-  "rm": {
-    "pacemaker_startup": "1",
-    "pacemaker_wait_for_all": true,
-    "shutdown_timeout": 300,
-    "resources": [
-      {
-        "type": "ocf:heartbeat:IPaddr2",
-        "id": "vip-web",
-        "attrs": {
-          "ip": "10.0.0.100",
-          "cidr_netmask": "24",
-          "nic": "eth0"
-        }
-      },
-      {
-        "type": "ocf:heartbeat:Filesystem",
-        "id": "fs-data",
-        "attrs": {
-          "device": "/dev/disk/by-uuid/a1b2c3d4",
-          "directory": "/data",
-          "fstype": "xfs"
-        },
-        "meta": {
-          "resource-stickiness": "100"
-        }
-      }
-    ],
-    "groups": [
-      {
-        "id": "web-group",
-        "preferred_node": "node1.example.com",
-        "priority": 100,
-        "resources": [
-          "vip-web",
-          "fs-data"
-        ]
-      }
-    ],
-    "failover_domains": [
-      {
-        "id": "web-domain",
-        "ordered": true,
-        "restricted": true,
-        "preferred_node": "node1.example.com",
-        "nodes": [
-          {
-            "name": "node1.example.com",
-            "priority": 1
-          },
-          {
-            "name": "node2.example.com",
-            "priority": 2
-          }
-        ]
-      }
-    ],
-    "dlm_lockspace": {
-      "name": "gfs",
-      "plocks": true,
-      "num_plocks": 1024
-    }
+   ],
+   "id": 2,
+   "name": "node2.example.com"
   }
+ ],
+ "rm": {
+  "dlm_lockspace": {
+   "name": "gfs",
+   "num_plocks": 1024,
+   "plocks": true
+  },
+  "failover_domains": [
+   {
+    "id": "web-domain",
+    "nodes": [
+     {
+      "name": "node1.example.com",
+      "priority": 1
+     },
+     {
+      "name": "node2.example.com",
+      "priority": 2
+     }
+    ],
+    "ordered": true,
+    "preferred_node": "node1.example.com",
+    "restricted": true
+   }
+  ],
+  "groups": [
+   {
+    "id": "web-group",
+    "preferred_node": "node1.example.com",
+    "priority": 100,
+    "resources": [
+     "vip-web",
+     "fs-data"
+    ]
+   }
+  ],
+  "pacemaker_startup": "1",
+  "pacemaker_wait_for_all": true,
+  "resources": [
+   {
+    "attrs": {
+     "cidr_netmask": "24",
+     "ip": "10.0.0.100",
+     "nic": "eth0"
+    },
+    "id": "vip-web",
+    "type": "ocf:heartbeat:IPaddr2"
+   },
+   {
+    "attrs": {
+     "device": "/dev/disk/by-uuid/a1b2c3d4",
+     "directory": "/data",
+     "fstype": "xfs"
+    },
+    "id": "fs-data",
+    "meta": {
+     "resource-stickiness": "100"
+    },
+    "type": "ocf:heartbeat:Filesystem"
+   }
+  ],
+  "shutdown_timeout": 300
+ }
 }

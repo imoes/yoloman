@@ -1,0 +1,186 @@
+# ==============================================================================
+# PuTTY Session Configuration Launcher
+# ==============================================================================
+#
+# This Jinja2 template generates a shell command line that launches `putty`
+# with the specified session parameters. It is designed to be idempotent and
+# self-documenting: every option is preceded by a comment explaining its
+# purpose, matching the schema description.
+#
+# Variables are sourced from the Ansible inventory/vars and are given safe
+# defaults to prevent rendering errors if optional fields are omitted.
+# ==============================================================================
+
+putty \
+# ==============================================================================
+# General / Appearance
+# ==============================================================================
+
+# X display name to use for opening the PuTTY window. Leave empty for default.
+{% if display | default('') %}--display={{ display | default('') }} \
+{% endif %}
+
+# Font name for normal text. e.g., 'fixed', 'Monospace 10'.
+{% if font_name | default('fixed') %}-fn={{ font_name | default('fixed') }} \
+{% endif %}
+
+# Font name for bold text. Ignored if BoldAsColour is 1.
+{% if font_bold | default('') %}-fb={{ font_bold | default('') }} \
+{% endif %}
+
+# Font name for double-width characters (CJK).
+{% if font_double_width | default('') %}-fw={{ font_double_width | default('') }} \
+{% endif %}
+
+# Terminal window size in rows and columns. e.g., '80x24'. Leave empty to use default.
+{% if geometry | default('') %}-geometry={{ geometry | default('') }} \
+{% endif %}
+
+# Number of lines of scrollback to save.
+-sl={{ scrollback_lines | default(2000) }} \
+
+# Foreground color for normal text. Supports X11 color names or hex.
+{% if foreground_color | default('black') %}-fg={{ foreground_color | default('black') }} \
+{% endif %}
+
+# Background color for normal text. Supports X11 color names or hex.
+{% if background_color | default('white') %}-bg={{ background_color | default('white') }} \
+{% endif %}
+
+# Foreground color for bold text (if BoldAsColour is 1 or 2).
+{% if bold_foreground_color | default('red') %}-bfg={{ bold_foreground_color | default('red') }} \
+{% endif %}
+
+# Background color for bold reverse-video text.
+{% if bold_background_color | default('') %}-bbg={{ bold_background_color | default('') }} \
+{% endif %}
+
+# Foreground color for text under the cursor.
+{% if cursor_foreground_color | default('black') %}-cfg={{ cursor_foreground_color | default('black') }} \
+{% endif %}
+
+# Background color for text under the cursor (cursor color).
+{% if cursor_background_color | default('yellow') %}-cbg={{ cursor_background_color | default('yellow') }} \
+{% endif %}
+
+# Initial title of the terminal window.
+-title={{ window_title | default('PuTTY') }} \
+
+# Whether to display the scroll bar.
+{% if show_scrollbar | default(true) %}-sb{% else %}-sb-{% endif %} \
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+
+# Path to file for logging all terminal output.
+{% if log_file | default('') %}-log={{ log_file | default('') }} \
+{% endif %}
+
+# Path to file for logging decoded SSH protocol details.
+{% if ssh_log_file | default('') %}-sshlog={{ ssh_log_file | default('') }} \
+{% endif %}
+
+# Path to file for logging raw SSH encrypted packet data.
+{% if ssh_raw_log_file | default('') %}-sshrawlog={{ ssh_raw_log_file | default('') }} \
+{% endif %}
+
+# Discard existing log file if it exists.
+{% if overwrite_log | default(false) %}-logoverwrite{% else %}-no-logoverwrite{% endif %} \
+
+# Append to existing log file if it exists.
+{% if append_log | default(false) %}-logappend{% else %}-no-logappend{% endif %} \
+
+# ==============================================================================
+# Session Behavior
+# ==============================================================================
+
+# Character set encoding for the session (e.g., UTF-8, ISO-8859-1).
+-cs={{ charset | default('UTF-8') }} \
+
+# Enable NetHack keypad mode.
+{% if enable_nethack | default(false) %}-nethack{% endif %} \
+
+# Name of a saved PuTTY session to load.
+{% if saved_session | default('') %}-load={{ saved_session | default('') }} \
+{% endif %}
+
+# Connection protocol: ssh, telnet, rlogin, supdup, raw, serial.
+{% if protocol | default('ssh') %}-{{ protocol | default('ssh') }}{% endif %} \
+
+# Command string to use as a proxy (supports %host and %port).
+{% if proxy_command | default('') %}-proxycmd={{ proxy_command | default('') }} \
+{% endif %}
+
+# Username for login.
+{% if username | default('') %}-l={{ username | default('') }}{% endif %} \
+
+# ==============================================================================
+# Port Forwarding
+# ==============================================================================
+
+# List of local port forwarding rules. Format: 'srcport:desthost:destport'.
+{% for fwd in local_forwards | default([]) %}
+-L={{ fwd }} \
+{% endfor %}
+
+# List of remote port forwarding rules. Format: 'srcport:desthost:destport'.
+{% for fwd in remote_forwards | default([]) %}
+-R={{ fwd }} \
+{% endfor %}
+
+# Port number to listen on for dynamic port forwarding (SOCKS).
+{% if dynamic_port | default('') %}-D={{ dynamic_port | default('') }}{% endif %} \
+
+# ==============================================================================
+# Connection / Network
+# ==============================================================================
+
+# Port number to connect to on the remote host.
+-P={{ port | default(22) }} \
+
+# Force IPv4 (4) or IPv6 (6). Leave empty for auto.
+{% if force_ip_version | default('') %}-{{ force_ip_version | default('') }} \
+{% endif %}
+
+# ==============================================================================
+# SSH Options
+# ==============================================================================
+
+# Enable SSH agent forwarding.
+# Prioritize enable over disable if both are set (though logically exclusive).
+{% if enable_agent_forwarding | default(false) %}-A{% elif disable_agent_forwarding | default(false) %}-a{% endif %} \
+
+# Enable X11 forwarding.
+{% if enable_x11_forwarding | default(false) %}-X{% elif disable_x11_forwarding | default(false) %}-x{% endif %} \
+
+# Allocate a pseudo-terminal at the server end.
+{% if enable_pseudo_terminal | default(true) %}-t{% elif disable_pseudo_terminal | default(false) %}-T{% endif %} \
+
+# Enable zlib-style compression.
+{% if enable_compression | default(false) %}-C{% endif %} \
+
+# SSH protocol version to use: 1 or 2.
+{% if ssh_protocol_version | default('2') %}-{{ ssh_protocol_version | default('2') }}{% endif %} \
+
+# Path to the private key file (PPK format).
+{% if key_file | default('') %}-i={{ key_file | default('') }}{% endif %} \
+
+# Don't try to use an authentication agent.
+{% if no_agent | default(false) %}-noagent{% endif %} \
+
+# Allow use of an authentication agent (override saved session).
+{% if allow_agent | default(false) %}-agent{% endif %} \
+
+# Disconnect from servers that accept authentication without challenge.
+{% if no_trivial_auth | default(false) %}-no-trivial-auth{% endif %} \
+
+# List of acceptable host keys (fingerprints or base64 blobs).
+{% for key in acceptable_hostkeys | default([]) %}
+-hostkey={{ key }}{% endfor %} \
+
+# Serial port configuration string. e.g., '9600,n,8,1'.
+{% if serial_config | default('') %}-sercfg={{ serial_config | default('') }}{% endif %} \
+
+# The hostname or IP address of the remote server to connect to.
+{{ host | default('') }}

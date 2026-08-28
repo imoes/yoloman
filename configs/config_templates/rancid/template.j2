@@ -1,0 +1,14 @@
+# Cron entries for RANCID (Router and Network Configuration Difier).
+# These entries schedule the automated configuration backup and log cleanup.
+
+# Run the configuration differ (rancid-run) hourly.
+# Schema field: crontab_rancid_run
+# Description: Crontab entry to run the config differ hourly.
+# Default: '1 * * * * rancid /usr/bin/rancid-run'
+{{ crontab_rancid_run | default('1 * * * * rancid /usr/bin/rancid-run') }}
+
+# Clean out configuration differ logs older than 2 days.
+# Schema field: crontab_rancid_cleanup
+# Description: Crontab entry to clean out config differ logs older than 2 days.
+# Default: '50 23 * * * rancid find /var/log/rancid -type f -mtime +2 -exec rm {} \\;'
+{{ crontab_rancid_cleanup | default('50 23 * * * rancid find /var/log/rancid -type f -mtime +2 -exec rm {} \\;') }}

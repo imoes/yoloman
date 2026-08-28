@@ -5,6 +5,7 @@ mocked, consistent with every other services/ test in this project.
 """
 
 import uuid
+from tests.naming import owned_name
 
 import jwt
 import pytest
@@ -95,7 +96,7 @@ def test_hash_api_token_is_deterministic():
 
 
 async def test_authenticate_user_success(db_session):
-    user = new_bossman_user(f"alice-{uuid.uuid4().hex[:8]}", "s3cret!", role="operator")
+    user = new_bossman_user(owned_name("alice"), "s3cret!", role="operator")
     db_session.add(user)
     await db_session.flush()
 
@@ -107,7 +108,7 @@ async def test_authenticate_user_success(db_session):
 
 
 async def test_authenticate_user_wrong_password_fails(db_session):
-    user = new_bossman_user(f"bob-{uuid.uuid4().hex[:8]}", "s3cret!")
+    user = new_bossman_user(owned_name("bob"), "s3cret!")
     db_session.add(user)
     await db_session.flush()
 

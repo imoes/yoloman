@@ -1,0 +1,65 @@
+# =============================================================================
+# ifupdown - System Interface Configuration Template
+# =============================================================================
+# This template generates the configuration file for ifupdown, a set of scripts
+# used to configure network interfaces on Debian/Ubuntu-based systems.
+# The file is typically located at /etc/network/if-updown.conf.
+# =============================================================================
+
+# --- Global Behavior ---
+
+# Set to 'no' to skip interfaces configuration on boot
+# If set to 'no', the system will not attempt to bring up any interfaces defined
+# in /etc/network/interfaces during the boot sequence. This is useful for
+# headless systems or containers where network configuration is handled externally.
+# Expected values: 'yes' or 'no'
+CONFIGURE_INTERFACES={{ configure_interfaces | default('yes') | lower }}
+
+# --- Exclusions ---
+
+# Don't configure these interfaces. Shell wildcards supported.
+# Specifies a space-separated list of interface names or shell wildcards (e.g., 'eth*' or 'lo')
+# that should be excluded from configuration by ifupdown, even if they are marked as auto.
+# Example: 'docker0 veth*'
+# This variable is expected to be a list of strings; it is joined into a space-separated string.
+EXCLUDE_INTERFACES={{ exclude_interfaces | default([]) | join(' ') | trim }}
+
+# --- Verbosity ---
+
+# Set to 'yes' to enable additional verbosity
+# When enabled, ifupdown scripts will print detailed information about their actions
+# to stdout/stderr, which is helpful for debugging network connectivity issues.
+# Expected values: 'yes' or 'no'
+VERBOSE={{ verbose | default('no') | lower }}
+
+# --- Online State Detection ---
+
+# Method to wait for the network to become online.
+# This determines how dependent services wait for the network stack to be ready.
+# Available methods:
+#   - ifup:   Wait for the 'ifup' command to have successfully configured an interface.
+#             This is the default and most standard behavior.
+#   - route:  Wait for a specific routing entry (default gateway or specific route) to appear.
+#   - ping:   Wait for an IPv4 address to respond to ICMP echo requests.
+#   - ping6:  Wait for an IPv6 address to respond to ICMP echo requests.
+#   - none:   Do not wait; assume the network is immediately available.
+WAIT_ONLINE_METHOD={{ wait_online_method | default('ifup') | lower }}
+
+# Interface to wait for.
+# Used in conjunction with WAIT_ONLINE_METHOD=ifup.
+# Specifies the name of the interface to wait for. If left empty, ifupdown waits for
+# all interfaces marked as 'auto' in /etc/network/interfaces, or if none are defined,
+# it waits for at least one interface that comes up via hotplug (e.g., DHCP).
+WAIT_ONLINE_IFACE={{ wait_online_iface | default('') | trim }}
+
+# Address to wait for.
+# Used in conjunction with WAIT_ONLINE_METHOD=route, ping, or ping6.
+# - For 'route': Specifies the destination address for the route. If empty, waits for a
+#   default gateway (0.0.0.0/0).
+# - For 'ping'/'ping6': Specifies the target IP address to ping.
+WAIT_ONLINE_ADDRESS={{ wait_online_address | default('') | trim }}
+
+# Timeout in seconds for waiting for the network to come online.
+# The maximum time ifupdown will wait for the condition specified by
+# WAIT_ONLINE_METHOD to be met before proceeding.
+WAIT_ONLINE_TIMEOUT={{ wait_online_timeout | default(300) }}

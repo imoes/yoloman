@@ -1,0 +1,175 @@
+# ==============================================================================
+# Slurm Configuration File (slurm.conf)
+# ==============================================================================
+# This file configures the Slurm Workload Manager.
+# It is generated from a Jinja2 template enriched with self-documenting comments
+# derived from the schema definitions.
+#
+# Global Cluster Settings
+# These directives control the behavior of the slurmctld (controller) daemon.
+# ==============================================================================
+
+# ==============================================================================
+# Cluster Identity and Communication
+# ==============================================================================
+
+# Global cluster settings controlling the Slurm controller daemon behavior and storage.
+# Defaults to None (unspecified).
+# Note: This field is a container for sub-keys. It is not emitted as a literal config line itself.
+# {{ cluster | default({}) }}
+
+# ==============================================================================
+# Cluster Identity and Communication (Detailed)
+# ==============================================================================
+
+# Hostname or IP of the node running the Slurm controller daemon (slurmctld).
+# Defaults to 'localhost' if not specified.
+ControlMachine={{ (cluster | default({})).control_machine | default('localhost') }}
+
+# Port number for slurmctld communication.
+# Defaults to 6817.
+ControlPort={{ (cluster | default({})).control_port | default(6817) }}
+
+# ==============================================================================
+# Daemon Debugging and Logging
+# ==============================================================================
+
+# Verbosity level for Slurm daemon logs.
+# Options: ERROR, WARNING, INFO, DEBUG, DEBUG1, DEBUG2, DEBUG3, DEBUG4, DEBUG5, DEBUG6.
+# Defaults to 'INFO'.
+DebugLevel={{ (cluster | default({})).debug_level | default('INFO') }}
+
+# ==============================================================================
+# Plugin Configuration
+# ==============================================================================
+
+# Directory containing Slurm plugin modules (.so files).
+# Defaults to '/usr/lib/slurm'.
+PluginDir={{ (cluster | default({})).plugin_dir | default('/usr/lib/slurm') }}
+
+# ==============================================================================
+# Slurm Controller (slurmctld) Parameters
+# ==============================================================================
+
+# Comma-separated list of slurmctld parameter flags.
+# Supported flags include 'enforce_job_id', 'cron_enabled', etc.
+# Defaults to ['enforce_job_id', 'cron_enabled'].
+SlurmctldParameters={{ (cluster | default({})).slurmctld_parameters | default(['enforce_job_id', 'cron_enabled']) | join(',') }}
+
+# ==============================================================================
+# Job Credentials
+# ==============================================================================
+
+# Path to the private key for job credential validation.
+# Defaults to '/etc/slurm/private.key'.
+JobCredentialPrivateKey={{ (cluster | default({})).private_key_path | default('/etc/slurm/private.key') }}
+
+# Path to the public key for job credential validation.
+# Defaults to '/etc/slurm/public.key'.
+JobCredentialPublicKey={{ (cluster | default({})).public_key_path | default('/etc/slurm/public.key') }}
+
+# ==============================================================================
+# Accounting Storage
+# ==============================================================================
+
+# Type of accounting storage backend.
+# 'accounting_storage/slurmdbd' uses the centralized Slurm Database Daemon (slurmdbd).
+# Defaults to 'accounting_storage/slurmdbd'.
+AccountingStorageType={{ (cluster | default({})).accounting_storage_type | default('accounting_storage/slurmdbd') }}
+
+# ==============================================================================
+# Slurm Database Daemon (slurmdbd) Connection
+# ==============================================================================
+
+# Hostname of the SlurmDBD server for accounting.
+# Defaults to 'localhost'.
+AccountingStorageHost={{ (cluster | default({})).accounting_storage_host | default('localhost') }}
+
+# Port number for SlurmDBD connection.
+# Defaults to 6819.
+AccountingStoragePort={{ (cluster | default({})).accounting_storage_port | default(6819) }}
+
+# User ID used to connect to SlurmDBD for authentication.
+# Defaults to 'slurm'.
+AccountingStorageUser={{ (cluster | default({})).accounting_storage_user | default('slurm') }}
+
+# ==============================================================================
+# Daemon Execution User
+# ==============================================================================
+
+# System user under which Slurm daemons run.
+# Defaults to 'slurm'.
+SlurmUser={{ (cluster | default({})).slurm_user | default('slurm') }}
+
+# ==============================================================================
+# Authentication (Munge)
+# ==============================================================================
+
+# Path to the Munge authentication key file.
+# Used for secure inter-node communication.
+# Defaults to '/etc/munge/munge.key'.
+MungeKeyPath={{ (cluster | default({})).munge_key_path | default('/etc/munge/munge.key') }}
+
+# ==============================================================================
+# Scheduler Parameters
+# ==============================================================================
+
+# Comma-separated list of scheduler parameters.
+# 'fairshare' enables fair-share scheduling algorithm.
+# Defaults to ['fairshare'].
+SchedParameters={{ (cluster | default({})).sched_parameters | default(['fairshare']) | join(',') }}
+
+# ==============================================================================
+# Network and Messaging
+# ==============================================================================
+
+# Timeout in seconds for internal Slurm messages.
+# Defaults to 300.
+MessageTimeout={{ (cluster | default({})).message_timeout | default(300) }}
+
+# ==============================================================================
+# Network Switch Configuration
+# ==============================================================================
+
+# Type of network switch plugin to load.
+# 'switch/none' indicates no special switch plugin is required.
+# Defaults to 'switch/none'.
+SwitchType={{ (cluster | default({})).switch_type | default('switch/none') }}
+
+# ==============================================================================
+# Task Plugin Configuration
+# ==============================================================================
+
+# List of task plugins to load (e.g., for resource management like cgroups).
+# 'task/cgroup' is the standard plugin for Linux cgroup isolation.
+# Defaults to ['task/cgroup'].
+TaskPlugin={{ (cluster | default({})).task_plugin | default(['task/cgroup']) | join(',') }}
+
+# ==============================================================================
+# Power Management Plugin
+# ==============================================================================
+
+# List of power management plugins to load.
+# An empty list disables power management plugins.
+# Defaults to an empty list.
+PowerPlugin={{ (cluster | default({})).power_plugin | default([]) | join(',') }}
+
+# ==============================================================================
+# Compute Node Definitions
+# ==============================================================================
+
+# This section generates NodeName directives for each compute node defined
+# in the `nodes` list from the schema.
+{% for node in nodes | default([]) %}
+NodeName={{ node.name | default('node001') }} NodeAddr={{ node.address | default('10.0.0.1') }} CPUs={{ node.cpus | default(4) }} State=UNKNOWN
+{% endfor %}
+
+# ==============================================================================
+# Partition Definitions
+# ==============================================================================
+
+# This section generates PartitionName directives for each partition defined
+# in the `partitions` list from the schema.
+{% for partition in partitions | default([]) %}
+PartitionName={{ partition.name | default('default') }} Nodes={{ partition.node_list | default('*') }} State=UP MaxTime=INFINITE DefMemPerCPU={{ partition.def_mem_per_cpu | default(1024) }}
+{% endfor %}

@@ -1,0 +1,68 @@
+{# ============================================================================ #}
+{# Podget Configuration Template                                                  #}
+{# This template configures podget: a script to automatically download podcasts   #}
+{# from RSS feeds. It manages library directories, cleanup policies, feed lists, #}
+{# and logging verbosity.                                                         #}
+{#                                                                                #}
+{# This file is self-documenting. Every directive is preceded by a comment that  #}
+{# explains its purpose, its corresponding CLI flag, and the schema default.      #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Basic Directory Settings                                                     #}
+{# ---------------------------------------------------------------------------- #}
+
+{# library_dir: Directory to store downloaded podcast files. #}
+{# Default: /var/lib/podget #}
+{# CLI flag: -l <DIRECTORY> | --library <DIRECTORY> #}
+library={{ library_dir | default('/var/lib/podget') }}
+
+{# config_dir: Directory that configuration files are stored in. #}
+{# Default: /etc/podget #}
+{# CLI flag: -d <DIRECTORY> | --dir_config <DIRECTORY> #}
+dir_config={{ config_dir | default('/etc/podget') }}
+
+{# session_dir: Directory that session files are stored in. #}
+{# Default: /run/podget #}
+{# CLI flag: --dir_session <DIRECTORY> #}
+dir_session={{ session_dir | default('/run/podget') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Cleanup Settings                                                             #}
+{# ---------------------------------------------------------------------------- #}
+
+{# cleanup_days: Number of days to keep files. Cleanup will remove anything #}
+{# older than this value. #}
+{# Default: 7 #}
+{# CLI flag: --cleanup_days <NUMBER> #}
+cleanup_days={{ cleanup_days | default(7) }}
+
+{# cleanup_enabled: Enable automatic cleanup with every run. #}
+{# 1 to enable, 0 to disable. #}
+{# Default: True #}
+{# CLI flag: cleanup=1 in podgetrc #}
+cleanup={{ cleanup_enabled | default(true) | ternary(1, 0) }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Verbosity / Logging Settings                                                 #}
+{# ---------------------------------------------------------------------------- #}
+
+{# verbosity_level: Set verbosity level (0-4). #}
+{# 0 is silent, suitable for cron jobs. #}
+{# 1 = verbose, 4 = debug #}
+{# Default: 0 #}
+{# CLI flag: --verbosity <LEVEL> or -v/-vv/-vvv/-vvvv #}
+verbosity={{ verbosity_level | default(0) }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Feed Configuration                                                           #}
+{# ---------------------------------------------------------------------------- #}
+
+{# feeds: List of feeds to monitor. #}
+{# Each feed is an object with 'url', 'category', 'name', and optional 'options'. #}
+{# Format per line: url category name [options...] #}
+{# Corresponds to the contents of the 'serverlist' file. #}
+{# Default: [] (empty list) #}
+{% for feed in feeds | default([]) %}
+{{ feed.url | default('') }} {{ feed.category | default('') }} {{ feed.name | default('') }} {% if feed.options is defined and feed.options is iterable %}{% for opt in feed.options %}{{ opt }} {% endfor %}{% endif %}
+{% endfor %}

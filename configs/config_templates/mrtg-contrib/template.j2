@@ -1,0 +1,50 @@
+# MRTG Main Configuration File
+# Generated from mrtg-contrib guidelines and MRTG reference.
+# This template defines global defaults and target-specific monitoring blocks.
+
+# Global Work Directory
+# The directory where MRTG stores its RRRD/log data and generated HTML/images.
+# @see mrtg-reference
+# working_dir: default='/var/www/mrtg'
+WorkingDir: {{ working_dir | default('/var/www/mrtg') }}
+
+# Global Language
+# Language code for MRTG messages and generated pages. See mrtg-contrib for translation guidelines.
+# @see mrtg-contrib (Translations)
+# language: default='en'
+Language: {{ language | default('en') }}
+
+# Global Refresh Interval
+# How often MRTG performs data collection (in seconds). Typical value is 300.
+# @see mrtg (Features)
+# refresh_interval: default=300
+Refresh: {{ refresh_interval | default(300) }}
+
+# Global Options
+# Enable growthmega for MB display and unpickling for safe data handling.
+# @see mrtg-reference
+Options[_]: growright, bits
+
+# --- Target Definitions ---
+# Each target block monitors a specific SNMP-enabled device or script.
+# targets: default=[]
+{% for target in targets | default([]) %}
+
+# Target: {{ target.id }}
+# Monitors {{ target.id }}
+# Each target represents a device or metric source.
+# @see mrtg (Targets)
+Target[{{ target.id | default('default') }}]: {{ target.target_expr | default('1|2|3|4@localhost') }}
+MaxBytes[{{ target.id | default('default') }}]: {{ target.max_bytes | default(1000000) }}
+Title[{{ target.id | default('default') }}]: {{ target.title | default('MRTG Target ' ~ (target.id | default('default'))) }}
+PageTop[{{ target.id | default('default') }}]: <h1>{{ target.title | default('MRTG Target ' ~ (target.id | default('default'))) }}</h1>
+
+# Optional: Y-Axis scaling
+# Sets gauge for the y-axis scaling of the target.
+# @see mrtg (Options)
+YOptions[{{ target.id | default('default') }}]: gauge
+
+# Optional: Warning thresholds
+# If current value exceeds these, MRTG can log warnings.
+# MaxWarn[{{ target.id | default('default') }}]: {{ target.max_warn | default('N/A') }}
+{% endfor %}

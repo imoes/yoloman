@@ -1,0 +1,24 @@
+# Vacation auto-reply message content
+# This file serves as the body and headers for the automatic vacation response.
+#
+# Schema fields:
+# - from_address (string): The email address listed in the From header of the vacation reply.
+# - display_name (string): The display name associated with the from_address.
+# - subject (string): The subject line for the auto-reply message.
+# - message_body (string): The main body text of the vacation auto-reply message.
+
+# From: The sender's email address and optional display name.
+# Format: From: <email> (<display_name>)
+From: {{ from_address | default('user@example.com') }}{% if display_name | default('Vacation Auto-Responder') | length > 0 %} ({{ display_name | default('Vacation Auto-Responder') }}){% endif %}
+
+# Subject: The subject line for the auto-reply message.
+Subject: {{ subject | default('I am on vacation') }}
+
+# MIME-Version: Version of the MIME protocol used for the message.
+MIME-Version: 1.0
+
+# Content-Type: Specifies the media type and character encoding of the message body.
+Content-Type: text/plain; charset=UTF-8
+
+# Message Body: The main text of the vacation auto-reply message.
+{{ message_body | default('Thank you for your email. I am currently out of the office and will not be checking email regularly. I will respond to your message upon my return.') }}

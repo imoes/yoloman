@@ -1,0 +1,55 @@
+# Prometheus Squid Exporter systemd service configuration
+# This template generates the ARGS environment variable for the
+# prometheus-squid-exporter systemd unit.
+#
+# Variables:
+#   squid_hostname   (string) Hostname of the Squid proxy server to scrape metrics from.
+#   squid_port       (int)    Port of the Squid proxy server to read metrics from.
+#   listen_address   (string) Address and Port to bind exporter, in host:port format.
+#   metrics_path     (string) Metrics path to expose prometheus metrics.
+#   squid_login      (string) Login to squid service if required.
+#   squid_password   (string) Password to squid service if required.
+#   squid_pidfile    (string) Optional path to the squid PID file for additional metrics.
+#   extra_args       (string) Any additional arguments to pass to the exporter.
+
+# --- Squid Connection Settings ---
+# Hostname of the Squid proxy server to scrape metrics from.
+# Defaults to 'localhost' if not specified.
+ARGS="
+  -squid-hostname {{ (squid_hostname | default('localhost')) | string }} \
+
+# Port of the Squid proxy server to read metrics from.
+# Defaults to 3128 (standard Squid HTTP port) if not specified.
+  -squid-port {{ (squid_port | default(3128)) | int }} \
+
+# --- Exporter Listening Settings ---
+# Address and Port to bind exporter, in host:port format.
+# Defaults to ':9301' (all interfaces) if not specified.
+  -listen {{ (listen_address | default(':9301')) | string }} \
+
+# Metrics path to expose prometheus metrics.
+# Defaults to '/metrics' if not specified.
+  -metrics-path {{ (metrics_path | default('/metrics')) | string }} \
+
+# --- Squid Authentication & Extras ---
+# Login to squid service if required.
+# Leave empty if no authentication is needed.
+  -squid-login {{ (squid_login | default('')) | string }} \
+
+# Password to squid service if required.
+# Leave empty if no authentication is needed.
+  -squid-password {{ (squid_password | default('')) | string }} \
+
+# Optional path to the squid PID file for additional metrics.
+# Leave empty if PID file monitoring is not required.
+  -squid-pidfile {{ (squid_pidfile | default('')) | string }} \
+
+# Fixed flags for the exporter.
+# These enable service time extraction and proxy header usage.
+  -extractservicetimes \
+  -squid-use-proxy-header \
+
+# Any additional arguments to pass to the exporter.
+# Use this for advanced tuning or custom flags.
+{{ extra_args | default('') | string }}
+"

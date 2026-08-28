@@ -1,0 +1,29 @@
+# Ansible-generated /etc/fstab
+# This file defines the filesystem mount table for the system.
+# See fstab(5) for details on the format and options.
+
+# ==============================================================================
+# Root Filesystem Definition
+# ==============================================================================
+# The root device, mount point, type, and options for the system root.
+# Defaults ensure a safe boot configuration for ext4-based root partitions.
+
+# <file system> <mount point> <type> <options> <dump> <pass>
+{{ root_device | default('/dev/sda1') }} {{ root_mountpoint | default('/') }} {{ root_type | default('ext4') }} {{ root_options | default('errors=remount-ro') }} 0 0
+
+# ==============================================================================
+# Additional Filesystem Entries
+# ==============================================================================
+# Iterates over the 'filesystems' list to generate additional mount entries.
+# Each item must provide: description, device, mountpoint, fstype, options, dump, passno.
+
+{% for fs in filesystems | default([]) %}
+# {{ fs.description | default('No description provided') }}
+# Device: {{ fs.device | default('UNKNOWN') }}
+# Mount Point: {{ fs.mountpoint | default('UNKNOWN') }}
+# Filesystem Type: {{ fs.fstype | default('UNKNOWN') }}
+# Mount Options: {{ fs.options | default('defaults') }}
+# Dump Flag: {{ fs.dump | default('0') }}
+# Pass Number: {{ fs.passno | default('0') }}
+{{ fs.device | default('') }} {{ fs.mountpoint | default('') }} {{ fs.fstype | default('') }} {{ fs.options | default('defaults') }} {{ fs.dump | default('0') }} {{ fs.passno | default('0') }}
+{% endfor %}

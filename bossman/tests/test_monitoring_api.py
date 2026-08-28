@@ -5,6 +5,7 @@ and tests/test_agents_api.py for the pattern this mirrors).
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -17,7 +18,7 @@ from bossman.services.auth import new_api_token
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"mon-api-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("mon-api"),
         "token": "tok",
         "mode": "standalone",
         "enrollment_state": "enrolled",
@@ -55,11 +56,12 @@ async def _make_service(db_session, agent, **overrides) -> Service:
 async def _make_api_token(db_session, name="mon-caller"):
     row, raw = new_api_token(name)
     db_session.add(row)
+    await db_session.flush()  # the grant references this token by uid — it must exist first
     # Block M: not testing the host ACL here — a wildcard grant keeps this
     # token past require_manage_agent on the per-host management routes.
     from bossman.db.models import AccessGrant
 
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, subject_token_id=row.id, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw
@@ -568,7 +570,11 @@ async def test_update_agent_groups(db_session):
         )
 
     assert resp.status_code == 200
-    assert resp.json()["groups"] == ["webservers", "prod"]
+    # Sorted, not insertion-ordered: agents.groups is a PROJECTION of the membership rows
+    # (services/host_membership.project_agent_groups), so two hosts in the same groups have equal
+    # arrays and any drift between the two stores is visible. Membership is a set; the order it
+    # was typed in is not part of the fact.
+    assert sorted(resp.json()["groups"]) == ["prod", "webservers"]
 
     await db_session.delete(api_token)
     await _cleanup(db_session, agent)
@@ -651,7 +657,7 @@ async def test_fleet_hosts_shows_satellite_with_parent_link(db_session):
     proxy = await _make_agent(db_session, mode="proxy")
     api_token, raw = await _make_api_token(db_session)
     satellite = Agent(
-        name=f"sat-{uuid.uuid4().hex[:8]}",
+        name=owned_name("sat"),
         token="",
         mode="satellite",
         enrollment_state="enrolled",

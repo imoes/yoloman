@@ -1,0 +1,57 @@
+# ==============================================================================
+# spawn-fcgi Configuration Template
+# ==============================================================================
+# This template configures spawn-fcgi, a generic FastCGI server launcher.
+# It manages the lifecycle (user/group, children count, PID file) and
+# the binding interface (Unix socket or TCP) for a FastCGI application.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# Every variable uses | default(D) to ensure safe rendering even if omitted.
+
+# Absolute path to the FastCGI application binary (e.g., php-cgi).
+FCGI_APPLICATION={{ fcgi_app | default('/usr/bin/php-cgi') }}
+
+# Working directory to change to before spawning the application.
+FCGI_CHDIR={{ chdir | default('/') }}
+
+# ------------------------------------------------------------------
+# Network Binding Configuration
+# ------------------------------------------------------------------
+
+# Path to the Unix domain socket to bind to. If empty, TCP binding is used.
+FCGI_SOCKET_PATH={{ socket_path | default('') }}
+
+# IPv4/IPv6 address to bind to for TCP connections.
+# Only used if FCGI_SOCKET_PATH is empty.
+FCGI_TCP_HOST={{ tcp_host | default('127.0.0.1') }}
+
+# TCP port to bind to.
+# Only used if FCGI_SOCKET_PATH is empty.
+FCGI_TCP_PORT={{ tcp_port | default(9000) }}
+
+# File mode of the Unix domain socket (octal integer).
+# Only used if FCGI_SOCKET_PATH is set.
+FCGI_SOCKET_MODE={{ socket_mode | default('0660') }}
+
+# Umask to set for the spawned process.
+FCGI_UMASK={{ umask | default('0000') }}
+
+# Number of requests a child process handles before it dies.
+# Helps prevent memory leaks in long-running FastCGI apps.
+FCGI_MAX_REQUESTS={{ max_requests | default(500) }}
+
+# User ID (username) to change to.
+FCGI_USER={{ user | default('www-data') }}
+
+# Group ID (groupname) to change to.
+FCGI_GROUP={{ group | default('www-data') }}
+
+# Path to the PID file for the spawned master process.
+FCGI_PIDFILE={{ pidfile | default('/var/run/spawn-fcgi.pid') }}
+
+# Number of children to fork initially.
+FCGI_CHILDREN={{ children | default(1) }}
+
+# Additional arguments to pass to the FastCGI application.
+# Quoted to handle spaces in arguments safely.
+FCGI_EXTRA_OPTIONS="{{ extra_options | default('') }}"

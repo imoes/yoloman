@@ -11,12 +11,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import require_manage_agent
+from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
 from bossman.db.models import Agent
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
+from bossman.services import resources
 from bossman.services.resources.config_file import ConfigResource
 from bossman.services.resources.docker_container import DockerContainerResource
 from bossman.services.resources.helm_release import HelmReleaseResource
@@ -47,24 +48,78 @@ async def _docker_resource(agent_id: UUID, name: str, session, settings, client_
     return DockerContainerResource(session, agent, client_factory, settings, name)
 
 
-@router.get("/api/v1/agents/{agent_id}/resources/docker/{name}/schema")
-async def docker_schema(
-    agent_id: UUID, name: str,
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _docker_resource(agent_id, name, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": r.schema()}
+
+async def _read(kind: str, verb: str, **kw) -> dict[str, Any]:
+    """Build the resource and run a read verb, translating the service's own errors
+    into HTTP. The service raises LookupError/RuntimeError subclasses and never knows
+    about HTTP; this is the one place that maps them — and it passes the message
+    through, so a refusal keeps naming its reason."""
+    try:
+        resource = await resources.build(kind, **kw)
+        return await resources.read_verb(kind, verb, resource)
+    except resources.NoSuchResource as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except resources.ResourceUnreachable as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    except ValueError as exc:                     # unknown kind / not a read verb
+        raise HTTPException(status_code=400, detail=str(exc)) from None
 
 
-@router.get("/api/v1/agents/{agent_id}/resources/docker/{name}/observe")
-async def docker_observe(
-    agent_id: UUID, name: str,
+@router.get("/api/v1/resource-kinds")
+async def resource_kinds(_identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """What kinds exist and how each one behaves — the registry as plain data.
+
+    The UI used to hard-code this and got it wrong: it built a `/schema` URL for every
+    kind including `config`, which has no such endpoint (docs/logik-audit.md area 7).
+    Deriving the capabilities from here means the client cannot disagree with the
+    server about what a kind can do — there is one source of truth, and it is the one
+    the routes themselves use.
+    """
+    return {"kinds": resources.as_dict()}
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/{kind}/{name}/{verb}")
+async def resource_read(
+    agent_id: UUID, kind: str, name: str, verb: str,
+    namespace: str = Query("default"),
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    r = await _docker_resource(agent_id, name, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "observed": await r.observe()}
+    """The READ half of the four-verb contract, for every kind — `schema`, `observe`
+    and `generations`.
+
+    This used to be seventeen near-identical routes (six kinds x three verbs, minus
+    config's missing schema). The paths are unchanged; what changed is that the
+    per-kind differences now come from `services/resources`' registry instead of from
+    copies: which schema method a kind has, whether it needs a reachable host, whether
+    its observe carries a schema, whether its history has a scope. See
+    docs/logik-audit.md area 7 for why the duplication was the actual defect.
+
+    `config` is addressed by a filesystem path rather than a name segment, so it has
+    its own route below.
+    """
+    if verb not in resources.READ_VERBS:
+        raise HTTPException(status_code=400, detail=(
+            f"{verb!r} is not a read verb — expected one of: {', '.join(resources.READ_VERBS)}"))
+    return await _read(kind, verb, agent_id=agent_id, name=name, session=session,
+                       settings=settings, client_factory=client_factory, identity=identity,
+                       namespace=namespace)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/config/{verb}")
+async def config_read(
+    agent_id: UUID, verb: str, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """`config`'s read verbs. Separate only because its instance is a filesystem path,
+    which cannot ride in a URL segment unescaped — the reason is declared as
+    `addressed_by='path'` in the registry rather than implied by this route existing."""
+    if verb not in resources.READ_VERBS:
+        raise HTTPException(status_code=400, detail=(
+            f"{verb!r} is not a read verb — expected one of: {', '.join(resources.READ_VERBS)}"))
+    return await _read("config", verb, agent_id=agent_id, name=path, session=session,
+                       settings=settings, client_factory=client_factory, identity=identity)
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/docker/{name}/plan")
@@ -86,16 +141,6 @@ async def docker_apply(
     r = await _docker_resource(agent_id, name, session, settings, client_factory)
     spec = body.model_dump(exclude={"dry_run", "note"})
     return await r.apply(spec, dry_run=body.dry_run, note=body.note)
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/docker/{name}/generations")
-async def docker_generations(
-    agent_id: UUID, name: str,
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _docker_resource(agent_id, name, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "generations": await r.generations()}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/docker/{name}/rollback")
@@ -125,28 +170,6 @@ async def _helm_resource(agent_id: UUID, name: str, namespace: str, session, set
     return HelmReleaseResource(session, agent, client_factory, settings, name, namespace=namespace or "default")
 
 
-@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/schema")
-async def helm_schema(
-    agent_id: UUID, name: str, namespace: str = Query("default"),
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": await r.schema_async()}
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/observe")
-async def helm_observe(
-    agent_id: UUID, name: str, namespace: str = Query("default"),
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
-    # schema first: it derives the per-value fields (and the flatten index observe uses)
-    schema = await r.schema_async()
-    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
-
-
 @router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/plan")
 async def helm_plan(
     agent_id: UUID, name: str, body: HelmSpec, namespace: str = Query("default"),
@@ -165,16 +188,6 @@ async def helm_apply(
 ) -> dict[str, Any]:
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/generations")
-async def helm_generations(
-    agent_id: UUID, name: str, namespace: str = Query("default"),
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "generations": await r.generations()}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/rollback")
@@ -204,19 +217,6 @@ async def _config_resource(agent_id: UUID, path: str, session, settings, client_
     return ConfigResource(session, agent, client_factory, settings, path)
 
 
-@router.get("/api/v1/agents/{agent_id}/resources/config/observe")
-async def config_observe(
-    agent_id: UUID, path: str = Query(...),
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _config_resource(agent_id, path, session, settings, client_factory)
-    # schema_async first: it derives the per-directive fields from the observed
-    # values (and caches the flatten index observe() needs anyway).
-    schema = await r.schema_async()
-    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
-
-
 @router.post("/api/v1/agents/{agent_id}/resources/config/plan")
 async def config_plan(
     agent_id: UUID, body: ConfigSpec, path: str = Query(...),
@@ -235,16 +235,6 @@ async def config_apply(
 ) -> dict[str, Any]:
     r = await _config_resource(agent_id, path, session, settings, client_factory)
     return await r.apply(body.model_dump(exclude={"dry_run"}), dry_run=body.dry_run)
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/config/generations")
-async def config_generations(
-    agent_id: UUID, path: str = Query(...),
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _config_resource(agent_id, path, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "scope": "host", "generations": await r.generations()}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/config/rollback")
@@ -288,26 +278,6 @@ async def _role_resource(agent_id: UUID, name: str, session, settings, client_fa
     return r
 
 
-@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/schema")
-async def role_schema(
-    agent_id: UUID, name: str,
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
-    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": await r.schema_async()}
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/observe")
-async def role_observe(
-    agent_id: UUID, name: str,
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
-    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": await r.schema_async()}
-
-
 @router.post("/api/v1/agents/{agent_id}/resources/role/{name}/plan")
 async def role_plan(
     agent_id: UUID, name: str, body: RoleSpec,
@@ -327,17 +297,6 @@ async def role_apply(
 ) -> dict[str, Any]:
     r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
-
-
-@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/generations")
-async def role_generations(
-    agent_id: UUID, name: str,
-    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
-    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
-) -> dict[str, Any]:
-    """Applied parameter sets (rollback points). Per-step execution audit is in Runs."""
-    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
-    return {"resource_key": r.resource_key, "generations": await r.generations()}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/role/{name}/rollback")
@@ -363,3 +322,87 @@ async def role_unbind(
     — unbind those at their own scope."""
     r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.unbind()
+
+
+# --- Package + Service tiers (same four-verb contract) --------------------
+# New generic Resource kinds with no bespoke tab of their own — managed entirely
+# in the host Resources inspector. Adding a kind is exactly this: an adapter
+# (services/resources/*) + these six routes.
+
+from bossman.services.resources.package_resource import PackageResource  # noqa: E402
+from bossman.services.resources.service_resource import ServiceResource  # noqa: E402
+
+
+class PackageSpec(BaseModel):
+    state: str = "present"  # present | absent | latest
+
+
+class PackageApplyBody(PackageSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+class ServiceSpec(BaseModel):
+    enabled: bool | None = None
+    state: str | None = None  # started | stopped | restarted | reloaded
+
+
+class ServiceApplyBody(ServiceSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+def _pkg_resource(agent, session, settings, client_factory, name: str) -> PackageResource:
+    return PackageResource(session, agent, client_factory, settings, name)
+
+
+def _svc_resource(agent, session, settings, client_factory, name: str) -> ServiceResource:
+    return ServiceResource(session, agent, client_factory, settings, name)
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/plan")
+async def package_plan(agent_id: UUID, name: str, body: PackageSpec, session: AsyncSession = Depends(get_session),
+                       settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                       client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.plan(body.model_dump())
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/apply")
+async def package_apply(agent_id: UUID, name: str, body: PackageApplyBody, session: AsyncSession = Depends(get_session),
+                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/package/{name}/rollback")
+async def package_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
+                           settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                           client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.rollback(body.generation)
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/plan")
+async def service_plan(agent_id: UUID, name: str, body: ServiceSpec, session: AsyncSession = Depends(get_session),
+                       settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                       client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.plan(body.model_dump(exclude_none=True))
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/apply")
+async def service_apply(agent_id: UUID, name: str, body: ServiceApplyBody, session: AsyncSession = Depends(get_session),
+                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}, exclude_none=True), dry_run=body.dry_run, note=body.note)
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/service/{name}/rollback")
+async def service_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
+                           settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
+                           client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
+    return await r.rollback(body.generation)

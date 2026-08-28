@@ -1,0 +1,48 @@
+# =============================================================================
+# PGXN Client Configuration Template
+# =============================================================================
+# This template configures the pgxnclient tool, which is a client for the
+# PostgreSQL Extension Network (PGXN). It handles downloading, building,
+# and installing PostgreSQL extensions from PGXN repositories.
+#
+# The configuration format is a simple key=value file, typically located at
+# ~/.config/pgxnclient/config or /etc/pgxnclient.conf depending on distribution.
+# All variables are strictly typed according to their schema defaults.
+# =============================================================================
+
+# --- PGXN Index Configuration ---
+
+# The base URL for the PGXN API index.
+# This determines which repository pgxnclient queries for available extensions.
+# Change this to a local mirror or alternative repository if needed.
+# Schema: pgxn_index (string, default: 'https://api.pgxn.org/')
+pgxn_index={{ pgxn_index | default('https://api.pgxn.org/') }}
+
+# --- HTTP Client Configuration ---
+
+# The User-Agent header string to use for HTTP requests.
+# This identifies the client software to the remote server.
+# Useful for logging on the server side or for API rate-limiting policies.
+# Schema: user_agent (string, default: 'pgxnclient/1.3.2')
+user_agent={{ user_agent | default('pgxnclient/1.3.2') }}
+
+# The maximum time in seconds to wait for an HTTP request to complete.
+# If the server does not respond within this window, the request is aborted.
+# Set to 0 for infinite timeout (not recommended).
+# Schema: http_timeout (int, default: 30)
+http_timeout={{ http_timeout | default(30) }}
+
+# --- Cache Configuration ---
+
+# The directory path used for caching downloaded extension metadata.
+# pgxnclient stores manifests and downloaded files here to avoid redundant
+# network requests. Ensure this directory exists and is writable by the user.
+# Schema: cache_dir (string, default: '/tmp/pgxnclient-cache')
+cache_dir={{ cache_dir | default('/tmp/pgxnclient-cache') }}
+
+# --- Debugging / Logging Configuration ---
+
+# If true, enables verbose logging output to stderr.
+# Useful for debugging connection issues or inspecting HTTP traffic.
+# Schema: verbose (boolean, default: False)
+verbose={{ verbose | default(false) | lower }}

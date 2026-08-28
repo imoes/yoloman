@@ -1,0 +1,38 @@
+# Metastore configuration for automatic metadata management
+# This template configures the 'metastore' utility which handles file/directory
+# metadata snapshots and restoration (save, apply, compare, dump).
+
+# The operation to perform: save, apply, compare, or dump
+# Default: save
+action: {{ action | default('save') }}
+
+# Enable verbose output for debugging
+# Default: false
+verbose: {{ verbose | default(false) | lower }}
+
+# Include modification time in metadata comparison or application
+# Default: false
+include_mtime: {{ include_mtime | default(false) | lower }}
+
+# Recreate empty directories during apply action
+# Default: false
+recreate_empty_dirs: {{ recreate_empty_dirs | default(false) | lower }}
+
+# Remove empty directories missing from metadata during apply action
+# Default: false
+remove_empty_dirs: {{ remove_empty_dirs | default(false) | lower }}
+
+# Do not omit .git directories from processing
+# Default: false
+preserve_git: {{ preserve_git | default(false) | lower }}
+
+# Custom path for the metadata file; empty string uses default ./.metadata
+# Default: '' (empty)
+metadata_file: {{ metadata_file | default('') }}
+
+# List of directory paths to process; empty list uses current directory
+# Default: [] (empty)
+directories:
+{% for dir in directories | default([]) %}
+  - {{ dir }}
+{% endfor %}

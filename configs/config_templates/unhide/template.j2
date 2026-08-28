@@ -1,0 +1,44 @@
+# ==============================================================================
+# unhide configuration template
+# ==============================================================================
+# This template generates a configuration file for `unhide`, a tool used to
+# detect hidden processes, ports, and files on a Linux system.
+#
+# Variables map directly to command-line flags. See unhide(8) for details.
+# ==============================================================================
+
+# Space-separated list of tests to run.
+# Examples: 'sys proc', 'quick reverse', 'sys procall brute reverse'.
+# Default tests are 'sys' and 'proc' if not specified.
+# See unhide(8) TEST_LIST for available tests.
+test_list = {{ test_list | default(['sys', 'proc']) | join(' ') }}
+
+# If true, adds the -d flag.
+# Performs a double check in the brute test to avoid false positives.
+double_check_brute = {{ double_check_brute | default(False) | lower }}
+
+# If true, adds the -f flag.
+# Writes a log file named 'unhide-linux.log' in the current working directory.
+# Note: In a service context, the 'current directory' may vary;
+# this flag primarily enables the logging feature itself.
+log_file_enabled = {{ log_file_enabled | default(False) | lower }}
+
+# If true, adds the -m flag.
+# Performs more checks. This implies verbose mode (-v).
+more_checks = {{ more_checks | default(False) | lower }}
+
+# If true, adds the -r flag.
+# Uses an alternate version of the sysinfo check in standard tests.
+alternate_sysinfo = {{ alternate_sysinfo | default(False) | lower }}
+
+# If true, adds the -v flag.
+# Enables verbose output, displaying warning messages.
+verbose = {{ verbose | default(False) | lower }}
+
+# If true, adds the -u flag.
+# Writes to stdout without buffering.
+unbuffered_stdout = {{ unbuffered_stdout | default(False) | lower }}
+
+# If true, adds the -H flag.
+# Provides slightly more human-friendly output formatting.
+human_friendly = {{ human_friendly | default(False) | lower }}

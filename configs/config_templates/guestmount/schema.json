@@ -1,165 +1,163 @@
 {
+  "blocksize": {
+    "default": 512,
+    "description": "Sector size in bytes (e.g., 512 or 4096). Default is 512.",
+    "type": "number"
+  },
+  "connect_uri": {
+    "default": "",
+    "description": "Libvirt URI to connect to (e.g., qemu:///system)",
+    "type": "string"
+  },
+  "dir_cache_timeout": {
+    "default": 60,
+    "description": "Directory cache timeout in seconds. Default is 60.",
+    "type": "number"
+  },
   "disks": {
-    "type": "list",
     "default": [],
-    "description": "List of disk image paths to add (required unless -d/-i used); each item is a path string. Example: [\"/var/lib/libvirt/images/win10.qcow2\"]"
-  },
-  "mounts": {
-    "type": "list",
-    "default": [],
-    "description": "List of mount specifications; each entry has dev (required), optional mountpoint, options, fstype"
-  },
-  "mounts.items.dev": {
-    "type": "string",
-    "default": "",
-    "description": "Device path (e.g., /dev/sda1, /dev/VG/LV, or /dev/disk/by-uuid/...)",
-    "enum": [
-      "/dev/sda1",
-      "/dev/VG/LV"
-    ]
-  },
-  "mounts.items.mountpoint": {
-    "type": "string",
-    "default": "",
-    "description": "Guest mountpoint (e.g., /, /boot). If omitted, defaults to /"
-  },
-  "mounts.items.options": {
-    "type": "string",
-    "default": "",
-    "description": "Mount options (e.g., acl,user_xattr). If omitted, uses default (empty or ro)"
-  },
-  "mounts.items.fstype": {
-    "type": "string",
-    "default": "",
-    "description": "Filesystem driver (e.g., ext3, ntfs)"
-  },
-  "mounts.items.description": {
-    "type": "string",
-    "default": "",
-    "description": "Optional human-readable description comment"
-  },
-  "ro": {
-    "type": "bool",
-    "default": true,
-    "description": "Mount read-only (true) or read-write (false)"
+    "description": "List of disk image paths to add (required unless -d/-i used); each item is a path string. Example: [\"/var/lib/libvirt/images/win10.qcow2\"]",
+    "type": "list"
   },
   "domain": {
-    "type": "string",
     "default": "",
-    "description": "Libvirt domain name or UUID to use (requires -i for auto-mount)"
+    "description": "Libvirt domain name or UUID to use (requires -i for auto-mount)",
+    "type": "string"
   },
-  "inspector": {
-    "type": "bool",
+  "echo_keys": {
     "default": false,
-    "description": "Enable inspection to auto-detect guest mounts"
+    "description": "Echo key input (not recommended in production)",
+    "type": "bool"
   },
-  "fuse_opts": {
-    "type": "list",
-    "default": [],
-    "description": "List of extra FUSE -o options (e.g., [{\"name\":\"allow_other\"}])"
-  },
-  "fuse_opts.items.name": {
-    "type": "string",
-    "default": "",
-    "description": "FUSE option name (required)"
-  },
-  "fuse_opts.items.value": {
-    "type": "string",
-    "default": "",
-    "description": "FUSE option value (optional)"
-  },
-  "fuse_opts.items.description": {
-    "type": "string",
-    "default": "",
-    "description": "Optional human-readable description"
-  },
-  "blocksize": {
-    "type": "number",
-    "default": 512,
-    "description": "Sector size in bytes (e.g., 512 or 4096). Default is 512."
+  "fd": {
+    "default": 0,
+    "description": "File descriptor for signaling readiness",
+    "type": "number"
   },
   "format": {
-    "type": "string",
-    "default": "",
     "description": "Force image format (raw, qcow2, vmdk, etc.)",
     "enum": [
       "raw",
       "qcow2"
-    ]
+    ],
+    "type": "string"
   },
-  "trace": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable tracing of libguestfs calls"
+  "fuse_opts": {
+    "default": [],
+    "description": "List of extra FUSE -o options (e.g., [{\"name\":\"allow_other\"}])",
+    "type": "list"
   },
-  "verbose": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable verbose output"
-  },
-  "pid_file": {
-    "type": "string",
+  "fuse_opts.items.description": {
     "default": "",
-    "description": "Path to write guestmount worker PID for safe shutdown"
+    "description": "Optional human-readable description",
+    "type": "string"
+  },
+  "fuse_opts.items.name": {
+    "default": "",
+    "description": "FUSE option name (required)",
+    "type": "string"
+  },
+  "fuse_opts.items.value": {
+    "default": "",
+    "description": "FUSE option value (optional)",
+    "type": "string"
+  },
+  "inspector": {
+    "default": false,
+    "description": "Enable inspection to auto-detect guest mounts",
+    "type": "bool"
   },
   "keys": {
-    "type": "list",
     "default": [],
-    "description": "List of key definitions for LUKS devices"
-  },
-  "keys.items.target": {
-    "type": "string",
-    "default": "",
-    "description": "Device target: /dev/sda1, UUID=..., or 'all'"
+    "description": "List of key definitions for LUKS devices",
+    "type": "list"
   },
   "keys.items.kind": {
-    "type": "string",
-    "default": "",
     "description": "Key source type: 'key', 'file', or 'clevis'",
     "enum": [
       "key",
       "file",
       "clevis"
-    ]
+    ],
+    "type": "string"
   },
   "keys.items.source": {
-    "type": "string",
     "default": "",
-    "description": "Key string, file path, or 'clevis'"
+    "description": "Key string, file path, or 'clevis'",
+    "type": "string"
   },
-  "dir_cache_timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Directory cache timeout in seconds. Default is 60."
-  },
-  "no_fork": {
-    "type": "bool",
-    "default": false,
-    "description": "Do not fork into background (for captive use)"
-  },
-  "no_sync": {
-    "type": "bool",
-    "default": false,
-    "description": "Disable sync on unmount"
-  },
-  "fd": {
-    "type": "number",
-    "default": 0,
-    "description": "File descriptor for signaling readiness"
-  },
-  "echo_keys": {
-    "type": "bool",
-    "default": false,
-    "description": "Echo key input (not recommended in production)"
+  "keys.items.target": {
+    "default": "",
+    "description": "Device target: /dev/sda1, UUID=..., or 'all'",
+    "type": "string"
   },
   "keys_from_stdin": {
-    "type": "bool",
     "default": false,
-    "description": "Read keys from stdin"
+    "description": "Read keys from stdin",
+    "type": "bool"
   },
-  "connect_uri": {
-    "type": "string",
+  "mounts": {
+    "default": [],
+    "description": "List of mount specifications; each entry has dev (required), optional mountpoint, options, fstype",
+    "type": "list"
+  },
+  "mounts.items.description": {
     "default": "",
-    "description": "Libvirt URI to connect to (e.g., qemu:///system)"
+    "description": "Optional human-readable description comment",
+    "type": "string"
+  },
+  "mounts.items.dev": {
+    "description": "Device path (e.g., /dev/sda1, /dev/VG/LV, or /dev/disk/by-uuid/...)",
+    "enum": [
+      "/dev/sda1",
+      "/dev/VG/LV"
+    ],
+    "type": "string",
+    "enum_open": true
+  },
+  "mounts.items.fstype": {
+    "default": "",
+    "description": "Filesystem driver (e.g., ext3, ntfs)",
+    "type": "string"
+  },
+  "mounts.items.mountpoint": {
+    "default": "",
+    "description": "Guest mountpoint (e.g., /, /boot). If omitted, defaults to /",
+    "type": "string"
+  },
+  "mounts.items.options": {
+    "default": "",
+    "description": "Mount options (e.g., acl,user_xattr). If omitted, uses default (empty or ro)",
+    "type": "string"
+  },
+  "no_fork": {
+    "default": false,
+    "description": "Do not fork into background (for captive use)",
+    "type": "bool"
+  },
+  "no_sync": {
+    "default": false,
+    "description": "Disable sync on unmount",
+    "type": "bool"
+  },
+  "pid_file": {
+    "default": "",
+    "description": "Path to write guestmount worker PID for safe shutdown",
+    "type": "string"
+  },
+  "ro": {
+    "default": true,
+    "description": "Mount read-only (true) or read-write (false)",
+    "type": "bool"
+  },
+  "trace": {
+    "default": false,
+    "description": "Enable tracing of libguestfs calls",
+    "type": "bool"
+  },
+  "verbose": {
+    "default": false,
+    "description": "Enable verbose output",
+    "type": "bool"
   }
 }

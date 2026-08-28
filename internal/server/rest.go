@@ -96,13 +96,20 @@ type RESTConfig struct {
 	// cmd/agentic-mcpd/http.go's MCP bearer-auth wiring, built via
 	// config.Config.TokenEntries().
 	Tokens []authz.TokenEntry
-	// ACL, Sessions, and PAMAuth are all optional (nil disables the
+	// ACL, Sessions, and PasswordAuth are all optional (nil disables the
 	// corresponding feature): with ACL nil, only the write gate applies
-	// (pre-step-8 behavior); with PAMAuth/Sessions nil, /api/v1/auth/login
-	// is unavailable and only the bearer token authenticates.
-	ACL      *authz.ACL
-	Sessions *authz.SessionStore
-	PAMAuth  *authz.PAMAuthenticator
+	// (pre-step-8 behavior); with PasswordAuth/Sessions nil,
+	// /api/v1/auth/login is unavailable and only the bearer token
+	// authenticates.
+	//
+	// PasswordAuth is an INTERFACE, not the PAM type, because there are two
+	// ways to check a local password and the build decides which exists:
+	// real libpam under CGO, pam_unix's unix_chkpwd helper in the static
+	// packaged binary (see authz.NewPasswordLogin). The login endpoint must
+	// not know or care.
+	ACL          *authz.ACL
+	Sessions     *authz.SessionStore
+	PasswordAuth authz.PasswordAuthenticator
 
 	// EBPF is optional (nil if unsupported/disabled on this host — see
 	// docs/plan.md's graceful-degradation requirement); when set, the
@@ -206,7 +213,8 @@ func withIdentity(cfg RESTConfig, next http.Handler) http.Handler {
 		// enroll_secret (see handleEnroll) — there is no bearer token or
 		// session yet at the point a caller is trying to bootstrap trust,
 		// same reasoning as the /api/v1/auth/login bypass below.
-		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/enroll" {
+		if r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/methods" ||
+			r.URL.Path == "/api/v1/enroll" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -259,6 +267,12 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		handleLogin(w, r, cfg)
 	})
+	// What this host can actually authenticate, asked BEFORE a form is shown. Without it the standalone UI
+	// offers a username/password box on a host that has no password backend at all (no PAM in the static
+	// build, no unix_chkpwd installed) and the operator learns it only from a failed attempt.
+	mux.HandleFunc("GET /api/v1/auth/methods", func(w http.ResponseWriter, r *http.Request) {
+		handleAuthMethods(w, r, cfg)
+	})
 
 	mux.HandleFunc("GET /api/v1/proc", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"resources": ProcResourceNames()})
@@ -298,6 +312,11 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	// Server-as-a-document: plan/apply/rollback with generation history.
+	// GET /api/v1/audit — THE RESULT LOG, asked of the host directly. A read, so it answers on a
+	// read-only agent: the write gate governs changing the host, not asking what happened to it. Bossman
+	// collects it fleet-wide (services/poller.py), and the shape is the C# agent's field for field so one
+	// collector reads both.
+	mux.HandleFunc("GET /api/v1/audit", func(w http.ResponseWriter, r *http.Request) { handleAudit(w, r) })
 	mux.HandleFunc("GET /api/v1/state/observed", func(w http.ResponseWriter, r *http.Request) { handleStateObserved(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/plan", func(w http.ResponseWriter, r *http.Request) { handleStatePlan(w, r, cfg) })
 	mux.HandleFunc("POST /api/v1/state/apply", func(w http.ResponseWriter, r *http.Request) { handleStateApply(w, r, cfg) })
@@ -390,6 +409,9 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	// Per-host management surface (network/services/logs/accounts/storage/
 	// updates/virt + config catalog) so the reused fleet UI works standalone.
 	RegisterManagementRoutes(mux, cfg)
+	// The field-spec surface the host Configuration tab reads (config-fields, config-generated,
+	// config-templates/index) — served from recorded artifacts so no rule lives twice.
+	RegisterConfigFieldRoutes(mux)
 
 	// Interactive web shell (Proxmox-style): a PTY running /bin/login, over a
 	// WebSocket. Behind withIdentity + the outer mTLS wrapper; Bossman proxies
@@ -401,9 +423,47 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	return withIdentity(cfg, mux)
 }
 
+// handleAuthMethods reports how a human can sign in to THIS host, so the UI can state the reason instead of
+// failing an attempt. `password` is true only when a backend exists and is usable; `group`, when set, is the
+// membership the login additionally requires — the answer to "why was I refused with the right password".
+func handleAuthMethods(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
+	available := cfg.PasswordAuth != nil && cfg.Sessions != nil && cfg.PasswordAuth.Available()
+	out := map[string]any{
+		"password": available,
+		"token":    cfg.Token != "" || len(cfg.Tokens) > 0,
+	}
+	if !available {
+		out["password_unavailable_reason"] = passwordUnavailableReason(cfg)
+	}
+	if g, ok := cfg.PasswordAuth.(*authz.GroupRequired); ok && g.Group != "" {
+		out["group"] = g.Group
+		// Root is exempt from the group, always (see authz.GroupRequired) — stated here because a screen that
+		// says "members of yoloadmin may sign in" while root also can is telling half the rule, and the empty
+		// group on a fresh install makes root the only way in.
+		out["superuser_exempt"] = true
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// passwordUnavailableReason names WHICH precondition is missing. "not configured" covers three different
+// situations for the operator — pam.enabled false, no session store, no helper on the host — and each has a
+// different fix.
+func passwordUnavailableReason(cfg RESTConfig) string {
+	switch {
+	case cfg.PasswordAuth == nil:
+		return "password login is disabled in the agent configuration (pam.enabled)"
+	case cfg.Sessions == nil:
+		return "no session store is configured, so a login could not issue a token"
+	case !cfg.PasswordAuth.Available():
+		return "no password backend on this host: this binary is built without PAM and unix_chkpwd " +
+			"(libpam-modules on Debian, pam on EL) is not installed"
+	}
+	return ""
+}
+
 func handleLogin(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
-	if cfg.PAMAuth == nil || cfg.Sessions == nil {
-		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("PAM login is not configured"))
+	if cfg.PasswordAuth == nil || cfg.Sessions == nil || !cfg.PasswordAuth.Available() {
+		writeError(w, http.StatusServiceUnavailable, fmt.Errorf("%s", passwordUnavailableReason(cfg)))
 		return
 	}
 	var body struct {
@@ -414,7 +474,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("decoding JSON body: %w", err))
 		return
 	}
-	identity, err := cfg.PAMAuth.Authenticate(body.Username, body.Password)
+	identity, err := cfg.PasswordAuth.Authenticate(body.Username, body.Password)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, fmt.Errorf("login failed"))
 		return
@@ -631,7 +691,11 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 
 	if m, ok := cfg.ModReg.Get(name); ok {
 		if m.Writes() && !cfg.Write {
-			writeError(w, http.StatusForbidden, fmt.Errorf("tool %q is disabled (write=false)", name))
+			err := fmt.Errorf("tool %q is disabled (write=false)", name)
+			// A closed write gate is a REFUSAL BY THIS HOST and belongs in the log: "the tool was never
+			// called" and "nothing happened" look identical an hour later, and only one of them is true.
+			cfg.Audit.LogRefusal(identity, name, audit.OutcomeRefused, params, start, err)
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 		if !authorizeTool(w, r, cfg, name, m.Writes()) {
@@ -646,7 +710,11 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		// merge, template_render, …). Absent/false keeps always-apply.
 		dryRun, _ := params["dry_run"].(bool)
 		res, err := m.Run(r.Context(), params, dryRun)
-		cfg.Audit.LogCall(identity, name, m.Writes(), res.Changed, params, start, err)
+		// THE RESULT LOG, from the one place every module call passes through. The journal line still
+		// happens (LogResult writes both); what is added is the evidence — the module's own Data block —
+		// and the dry-run/refused/timed-out distinction a boolean cannot carry.
+		cfg.Audit.LogResult(identity, name, m.Writes(), dryRun, res.Changed, res.Msg, res.Data,
+			params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -672,7 +740,10 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 			return
 		}
 		res, err := t.Run(r.Context(), cfg.ModReg, cfg.Policy, params, false)
-		cfg.Audit.LogCall(identity, name, writes, res.Changed, params, start, err)
+		// A task is a composed module and lands in the same log: the question "what happened on this host"
+		// must not have an answer that depends on whether the caller used a task or its parts.
+		cfg.Audit.LogResult(identity, name, writes, false, res.Changed, res.Msg, res.Data,
+			params, start, err)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, err)
 			return
@@ -681,7 +752,12 @@ func handleToolCall(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 		return
 	}
 
-	writeError(w, http.StatusNotFound, fmt.Errorf("unknown tool %q", name))
+	// A call for a tool this host does not have. Recorded, and the reason it is worth a record: the FIRST
+	// use of the Windows result log found exactly this — Bossman polling `package_facts` on an agent that
+	// had no such module, every cycle for a week, silently caught on both ends.
+	err := fmt.Errorf("unknown tool %q", name)
+	cfg.Audit.LogRefusal(identity, name, audit.OutcomeUnknown, params, start, err)
+	writeError(w, http.StatusNotFound, err)
 }
 
 func decodePipelineStages(raw any) ([][]string, error) {
@@ -786,4 +862,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// handleAudit serves the operation-log ring: everything after a cursor, optionally
+// one module or one outcome.
+func handleAudit(w http.ResponseWriter, r *http.Request) {
+	var sinceSeq *int64
+	if raw := r.URL.Query().Get("since_seq"); raw != "" {
+		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			sinceSeq = &parsed
+		} else {
+			// A malformed cursor is refused rather than treated as "from the beginning":
+			// silently re-sending the whole ring would look like a working collector that
+			// never advances.
+			writeError(w, http.StatusBadRequest, fmt.Errorf("since_seq: %q is not a number", raw))
+			return
+		}
+	}
+	limit := 0
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, _ = strconv.Atoi(raw)
+	}
+	writeJSON(w, http.StatusOK, audit.ReadPage(sinceSeq, r.URL.Query().Get("module"),
+		r.URL.Query().Get("outcome"), limit))
 }

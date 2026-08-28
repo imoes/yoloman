@@ -1,126 +1,127 @@
 {
-  "broker_id": "localhost",
-  "broker_name": "localhost",
-  "use_shutdown_hooks": true,
-  "delete_all_messages_on_startup": false,
-  "use_jmx": false,
-  "management_context": {
-    "enabled": false,
-    "create_connector": false,
-    "connector_port": 1099,
-    "jmx_domain_name": "org.apache.activemq"
-  },
-  "persistence": {
-    "type": "kahaDB",
-    "kaha_directory": "/var/lib/activemq/data/kahadb",
-    "kaha_journal_max_file_length": "32mb",
-    "kaha_index_cache_size": 10000,
-    "kaha_index_wire_format": "V2",
-    "kaha_checkpoint_interval": 5000,
-    "kaha_checkpoint_lock_wait": 1,
-    "jdbc_data_source_id": "",
-    "jdbc_create_tables_on_startup": true,
-    "jdbc_max_connections": 4,
-    "jdbc_lock_keep_period": 100
-  },
-  "network_connectors": [],
-  "transport_connectors": [
-    {
-      "name": "openwire",
-      "uri": "tcp://0.0.0.0:61616?maximumConnections=1000&wireFormat.maxFrameSize=104857600",
-      "discovery_uri": "",
-      "enabled": true,
-      "update_uris_url": ""
-    },
-    {
-      "name": "stomp",
-      "uri": "stomp://0.0.0.0:61613",
-      "discovery_uri": "",
-      "enabled": true,
-      "update_uris_url": ""
-    }
-  ],
-  "system_usage": {
-    "memory_limit": "1024mb",
-    "store_limit": "100gb",
-    "temp_limit": "50gb"
-  },
-  "destination_policies": [
-    {
-      "queue_pattern": ">",
-      "topic_pattern": "",
-      "memory_limit": "256mb",
-      "producer_flow_control": true,
-      "max_audit_messages": 10000,
-      "max_consumers_to_audit": 100,
-      "max_producers_to_audit": 100,
-      "delayed_dispatch_checking": false,
-      "dispatch_policy": "",
-      "dead_letter_strategy": "",
-      "pause_producer_support": false
-    },
-    {
-      "queue_pattern": "MY.QUEUE.>",
-      "topic_pattern": "",
-      "memory_limit": "512mb",
-      "producer_flow_control": true,
-      "max_audit_messages": 50000,
-      "max_consumers_to_audit": 200,
-      "max_producers_to_audit": 200,
-      "delayed_dispatch_checking": true,
-      "dispatch_policy": "",
-      "dead_letter_strategy": "",
-      "pause_producer_support": true
-    }
-  ],
-  "authorization": {
-    "enabled": true,
-    "users": [
-      {
-        "username": "admin",
-        "password": "admin",
-        "groups": [
-          "admins",
-          "users"
-        ]
-      },
-      {
-        "username": "appuser",
-        "password": "secret",
-        "groups": [
-          "users"
-        ]
-      }
+ "authorization": {
+  "authorization_entries": [
+   {
+    "admin": [
+     "admins"
     ],
-    "authorization_entries": [
-      {
-        "queue_pattern": "MY.QUEUE.>",
-        "topic_pattern": "",
-        "subject": "",
-        "read": [
-          "users"
-        ],
-        "write": [
-          "users"
-        ],
-        "admin": [
-          "admins"
-        ]
-      }
+    "queue_pattern": "MY.QUEUE.>",
+    "read": [
+     "users"
     ],
-    "temp_authorization_entries": [
-      {
-        "topic_pattern": "TEMP.>",
-        "read": [
-          "users"
-        ],
-        "write": [
-          "users"
-        ],
-        "admin": [
-          "admins"
-        ]
-      }
+    "subject": "",
+    "topic_pattern": "",
+    "write": [
+     "users"
     ]
+   }
+  ],
+  "enabled": true,
+  "temp_authorization_entries": [
+   {
+    "admin": [
+     "admins"
+    ],
+    "read": [
+     "users"
+    ],
+    "topic_pattern": "TEMP.>",
+    "write": [
+     "users"
+    ]
+   }
+  ],
+  "users": [
+   {
+    "groups": [
+     "admins",
+     "users"
+    ],
+    "password": "admin",
+    "username": "admin"
+   },
+   {
+    "groups": [
+     "users"
+    ],
+    "password": "secret",
+    "username": "appuser"
+   }
+  ]
+ },
+ "broker_id": "localhost",
+ "broker_name": "localhost",
+ "delete_all_messages_on_startup": false,
+ "destination_policies": [
+  {
+   "dead_letter_strategy": "",
+   "delayed_dispatch_checking": false,
+   "dispatch_policy": "",
+   "max_audit_messages": 10000,
+   "max_consumers_to_audit": 100,
+   "max_producers_to_audit": 100,
+   "memory_limit": "256mb",
+   "pause_producer_support": false,
+   "producer_flow_control": true,
+   "queue_pattern": ">",
+   "topic_pattern": ""
+  },
+  {
+   "dead_letter_strategy": "",
+   "delayed_dispatch_checking": true,
+   "dispatch_policy": "",
+   "max_audit_messages": 50000,
+   "max_consumers_to_audit": 200,
+   "max_producers_to_audit": 200,
+   "memory_limit": "512mb",
+   "pause_producer_support": true,
+   "producer_flow_control": true,
+   "queue_pattern": "MY.QUEUE.>",
+   "topic_pattern": ""
   }
+ ],
+ "management_context": {
+  "connector_port": 1099,
+  "create_connector": false,
+  "enabled": false,
+  "jmx_domain_name": "org.apache.activemq"
+ },
+ "network_connectors": [],
+ "persistence": {
+  "jdbc_create_tables_on_startup": true,
+  "jdbc_data_source_id": "",
+  "jdbc_lock_keep_period": 100,
+  "jdbc_max_connections": 4,
+  "kaha_checkpoint_interval": 5000,
+  "kaha_checkpoint_lock_wait": 1,
+  "kaha_directory": "/var/lib/activemq/data/kahadb",
+  "kaha_index_cache_size": 10000,
+  "kaha_index_wire_format": "V2",
+  "kaha_journal_max_file_length": "32mb",
+  "type": "kahaDB"
+ },
+ "start_destination_policy": "",
+ "system_usage": {
+  "memory_limit": "1024mb",
+  "store_limit": "100gb",
+  "temp_limit": "50gb"
+ },
+ "transport_connectors": [
+  {
+   "discovery_uri": "",
+   "enabled": true,
+   "name": "openwire",
+   "update_uris_url": "",
+   "uri": "tcp://0.0.0.0:61616?maximumConnections=1000&wireFormat.maxFrameSize=104857600"
+  },
+  {
+   "discovery_uri": "",
+   "enabled": true,
+   "name": "stomp",
+   "update_uris_url": "",
+   "uri": "stomp://0.0.0.0:61613"
+  }
+ ],
+ "use_jmx": false,
+ "use_shutdown_hooks": true
 }

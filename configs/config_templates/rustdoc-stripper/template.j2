@@ -1,0 +1,88 @@
+# ==============================================================================
+# rustdoc-stripper Configuration
+#
+# This template generates a configuration file for `rustdoc-stripper`, a tool
+# that strips and extracts Rust documentation comments for use with rustdoc
+# or other tooling.
+#
+# Fields are sourced from the Ansible variable schema defined for this role.
+# All variables have sensible defaults applied inline to ensure idempotent
+# and safe rendering.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Directory to scan
+# Schema: dir (string)
+# Description: The directory path to work on. Defaults to current directory ('.').
+# Corresponds to CLI flag: -d | --dir [directory]
+# ------------------------------------------------------------------------------
+Directory: {{ dir | default('.') }}
+
+# ------------------------------------------------------------------------------
+# Comment output file
+# Schema: comment_file (string)
+# Description: Specify the file where you want to save/load doc comments.
+# Corresponds to CLI flag: -o | --comment-file [filename]
+# ------------------------------------------------------------------------------
+CommentFile: {{ comment_file | default('comments.md') }}
+
+# ------------------------------------------------------------------------------
+# Ignored files
+# Schema: ignored_files (list)
+# Description: List of filenames/patterns to ignore when stripping files.
+# Can be repeated in the source schema; rendered here as a YAML-safe list.
+# Corresponds to CLI flag: -i | --ignore [filename]
+# ------------------------------------------------------------------------------
+IgnoredFiles:
+{% for item in ignored_files | default([]) %}
+- {{ item }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Verbose mode
+# Schema: verbose (boolean)
+# Description: Activate verbose mode for detailed output.
+# Corresponds to CLI flag: -v | --verbose
+# ------------------------------------------------------------------------------
+Verbose: {{ verbose | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Force mode
+# Schema: force (boolean)
+# Description: Remove confirmation demands; proceed automatically.
+# Corresponds to CLI flag: -f | --force
+# ------------------------------------------------------------------------------
+Force: {{ force | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Ignore macros
+# Schema: ignore_macros (boolean)
+# Description: Ignore macros in hierarchy so only macros with doc comments appear.
+# Corresponds to CLI flag: -m | --ignore-macros
+# ------------------------------------------------------------------------------
+IgnoreMacros: {{ ignore_macros | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Ignore doc commented
+# Schema: ignore_doc_commented (boolean)
+# Description: When regenerating, stored doc comments won't be regenerated if already present.
+# Corresponds to CLI flag: -x | --ignore-doc-commented
+# ------------------------------------------------------------------------------
+IgnoreDocCommented: {{ ignore_doc_commented | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# No file output
+# Schema: no_file_output (boolean)
+# Description: Display doc comments directly on stdout instead of saving to a file.
+# Corresponds to CLI flag: -n | --no-file-output
+# ------------------------------------------------------------------------------
+NoFileOutput: {{ no_file_output | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Mode of operation
+# Schema: mode (string)
+# Description: Operation mode: 'strip' to create doc comments file, 'regenerate' to
+# recreate files from doc comments file.
+# Corresponds to CLI flag: -s | --strip and -g | --regenerate
+# ------------------------------------------------------------------------------
+Mode: {{ mode | default('strip') }}

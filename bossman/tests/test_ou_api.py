@@ -4,6 +4,7 @@ subtree and rejects a cycle. Real HTTP + real Postgres (db_session fixture).
 """
 
 import uuid
+from tests.naming import owned_name, run_suffix
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -13,7 +14,7 @@ from bossman.services.auth import new_api_token
 
 
 async def _api_token(db_session):
-    row, raw = new_api_token(f"ou-test-{uuid.uuid4().hex[:6]}")
+    row, raw = new_api_token(owned_name("ou-test"))
     db_session.add(row)
     await db_session.commit()
     return row, raw
@@ -31,7 +32,7 @@ async def _cleanup_ous(db_session, *names_like):
 
 async def test_move_ou_rewrites_subtree_paths(db_session):
     _tok, raw = await _api_token(db_session)
-    sfx = uuid.uuid4().hex[:6]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         a = client.post("/api/v1/ou", json={"name": f"A-{sfx}"}, headers=_h(raw)).json()
         b = client.post("/api/v1/ou", json={"name": f"B-{sfx}", "parent_id": a["id"]}, headers=_h(raw)).json()
@@ -54,7 +55,7 @@ async def test_move_ou_rewrites_subtree_paths(db_session):
 
 async def test_move_into_own_subtree_rejected(db_session):
     _tok, raw = await _api_token(db_session)
-    sfx = uuid.uuid4().hex[:6]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         a = client.post("/api/v1/ou", json={"name": f"A-{sfx}"}, headers=_h(raw)).json()
         b = client.post("/api/v1/ou", json={"name": f"B-{sfx}", "parent_id": a["id"]}, headers=_h(raw)).json()
@@ -67,7 +68,7 @@ async def test_move_into_own_subtree_rejected(db_session):
 
 async def test_move_to_root(db_session):
     _tok, raw = await _api_token(db_session)
-    sfx = uuid.uuid4().hex[:6]
+    sfx = run_suffix()
     with TestClient(create_app()) as client:
         a = client.post("/api/v1/ou", json={"name": f"A-{sfx}"}, headers=_h(raw)).json()
         b = client.post("/api/v1/ou", json={"name": f"B-{sfx}", "parent_id": a["id"]}, headers=_h(raw)).json()

@@ -1,0 +1,33 @@
+;; -*-emacs-lisp-;
+;;
+;; Emacs startup file for the Debian GNU/Linux mailutils-mh package
+;;
+;; Self-documented configuration for mailutils-mh.
+;; This file configures Emacs (specifically MH-E) to locate the GNU mailutils MH tools.
+
+;; Check if the mu-mh inc binary exists at the expected path.
+;; If it does not, warn the user that the package might have been removed without purging.
+;; Variable: mu_mh_bin
+;; Description: The path to the mu-mh inc binary.
+;; Default: '/usr/bin/mu-mh/inc'
+(if (not (file-exists-p "{{ mu_mh_bin | default('/usr/bin/mu-mh/inc') }}"))
+    (message "Package mailutils-mh removed but not purged.  Skipping setup.")
+
+  ;; This sets up Emacs20's and Emacs21's MH-E to use GNU mailutils MH.
+  ;; The MH-E Debian package (> 8.0) will find us (or nmh) on its own.
+
+  ;; Configure mh-progs: The directory or path to the MH programs.
+  ;; Usually set to the directory containing the binary defined by mu_mh_bin.
+  ;; Here we use the binary path directly as per the original template's logic,
+  ;; though typically mh-progs points to the directory. The original template
+  ;; assigned the variable mu_mh_bin to mh-progs.
+  (setq mh-progs "{{ mu_mh_bin | default('/usr/bin/mu-mh/inc') }}"
+
+        ;; Configure mh-lib: The path to the mailutils MH library directory.
+        ;; Variable: mh_lib_path
+        ;; Description: The path to the mailutils MH library directory.
+        ;; Default: '/usr/share/mailutils/mh'
+        mh-lib "{{ mh_lib_path | default('/usr/share/mailutils/mh') }}"
+
+        ;; Configure mh-lib-progs: Points to the same programs directory as mh-progs.
+        mh-lib-progs mh-progs))

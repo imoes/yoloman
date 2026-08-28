@@ -1,0 +1,184 @@
+# ==============================================================================
+# nfstrace Configuration Template
+# ==============================================================================
+# This template generates command-line arguments for nfstrace.
+# nfstrace is a tool for tracing NFS traffic, dumping packets, or analyzing
+# captured traffic files.
+#
+# Variables used:
+#   mode:            Running mode (live, dump, drain, stat).
+#   interface:       Network interface to listen on.
+#   filtration:      BPF filter expression.
+#   snaplen:         Max captured packet length in bytes.
+#   timeout:         Read timeout in milliseconds.
+#   bsize:           Capture buffer size in MBytes.
+#   promisc:         Enable promiscuous mode.
+#   direction:       Packet capture direction (in, out, inout).
+#   modules:         List of analysis module objects {path, options}.
+#   input_file:      Path to input file for stat mode.
+#   output_file:     Path to output file for dump mode.
+#   log_file:        Path to log file.
+#   command:         Shell command to execute on dumped files.
+#   dump_size:       Max size of dumping file portion in MBytes.
+#   msg_header:      Truncate RPC messages to this limit in bytes.
+#   qcapacity:       Initial capacity of the RPC message queue.
+#   trace:           Print collected NFSv3/v4 procedures.
+#   drop_root_user:  Username to drop privileges to.
+#   verbose:         Verbosity level (0, 1, 2).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Mode of operation
+# ------------------------------------------------------------------------------
+--mode={{ mode|default('live') }}
+
+# ------------------------------------------------------------------------------
+# Network interface to capture from
+# Required for live and dump modes.
+# If omitted in live/dump, nfstrace may fail or use a default.
+# ------------------------------------------------------------------------------
+{% if interface is defined and interface %}
+--interface={{ interface }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# BPF filter expression
+# Used to filter packets at the kernel level for efficiency.
+# Default filters common NFS ports (TCP 2049, TCP 445).
+# ------------------------------------------------------------------------------
+--filtration='{{ filtration|default("port 2049 or port 445") }}'
+
+# ------------------------------------------------------------------------------
+# Snaplen: Maximum length of captured raw packet in bytes
+# Must be between 1 and 65535. Larger values capture more header data.
+# ------------------------------------------------------------------------------
+--snaplen={{ snaplen|default(65535) }}
+
+# ------------------------------------------------------------------------------
+# Read timeout in milliseconds
+# How long nfstrace waits for packets when in drain or stat mode, or when
+# waiting for new data in live mode if the buffer is empty.
+# ------------------------------------------------------------------------------
+--timeout={{ timeout|default(100) }}
+
+# ------------------------------------------------------------------------------
+# Capture buffer size in MBytes
+# Size of the operating system capture buffer. Larger buffers reduce packet
+# loss during high-throughput NFS traffic.
+# ------------------------------------------------------------------------------
+--bsize={{ bsize|default(20) }}
+
+# ------------------------------------------------------------------------------
+# Promiscuous mode
+# When true, puts the interface into promiscuous mode to capture all packets
+# visible on the network segment, not just those destined for this host.
+# ------------------------------------------------------------------------------
+{% if promisc is defined and promisc %}
+--promisc
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Packet direction
+# Controls which direction of traffic is captured: 'in', 'out', or 'inout'.
+# 'in' captures packets coming into the interface, 'out' for going out.
+# ------------------------------------------------------------------------------
+--direction={{ direction|default('inout') }}
+
+# ------------------------------------------------------------------------------
+# Analysis modules
+# Loads specific Python/C modules to analyze the traced NFS data.
+# Format: --analysis=path#options
+#   path: Path to the module file (.so or .py).
+#   options: Optional key=value or comma-separated arguments passed to the module.
+# If empty (default), standard trace behavior is applied.
+# ------------------------------------------------------------------------------
+{% if modules is defined and modules %}
+{% for module in modules %}
+--analysis={{ module.path }}{% if module.options %}#{{ module.options }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Input file for stat mode
+# Path to a PCAP file to analyze in 'stat' mode instead of live capture.
+# ------------------------------------------------------------------------------
+{% if input_file is defined and input_file %}
+--ifile={{ input_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Output file for dump mode
+# Path to write the captured packets to in 'dump' mode.
+# ------------------------------------------------------------------------------
+{% if output_file is defined and output_file %}
+--ofile={{ output_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Log file path
+# Path to write log messages to. If omitted, logs go to stderr.
+# ------------------------------------------------------------------------------
+{% if log_file is defined and log_file %}
+--log={{ log_file }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Shell command to execute
+# If specified, this shell command is executed for each dumped file (in dump
+# mode) or each processed packet/file (depending on implementation).
+# The command receives arguments as needed by the specific nfstrace version.
+# ------------------------------------------------------------------------------
+{% if command is defined and command %}
+--command='{{ command }}'
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Dump size limit in MBytes
+# Limits the size of the output file in dump mode. 0 means no limit.
+# Useful for preventing disk exhaustion during long captures.
+# ------------------------------------------------------------------------------
+{% if dump_size is defined and dump_size != 0 %}
+--dump-size={{ dump_size }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# RPC message header truncation limit in bytes
+# RPC messages larger than this limit will be truncated before being passed
+# to analysis modules. This reduces memory usage and processing time.
+# ------------------------------------------------------------------------------
+--msg-header={{ msg_header|default(512) }}
+
+# ------------------------------------------------------------------------------
+# Queue capacity for RPC messages
+# Initial capacity of the internal queue used to buffer RPC messages.
+# Higher values improve throughput at the cost of memory.
+# ------------------------------------------------------------------------------
+--qcapacity={{ qcapacity|default(4096) }}
+
+# ------------------------------------------------------------------------------
+# Trace/Print NFS procedures
+# When true, nfstrace prints the collected NFSv3 or NFSv4 procedure names
+# and arguments to stdout/log. Useful for debugging and auditing.
+# ------------------------------------------------------------------------------
+{% if trace is defined and trace %}
+--trace
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Drop root privileges
+# Username to switch to after opening the capture device and binding sockets.
+# This improves security by running the main analysis loop as a non-root user.
+# Note: The process still needs root to capture, but drops privileges for
+# the analysis phase if possible.
+# ------------------------------------------------------------------------------
+{% if drop_root_user is defined and drop_root_user %}
+--droproot={{ drop_root_user }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Verbosity level
+# 0: Minimal output (errors only).
+# 1: Standard output (warnings and info).
+# 2: Debug output (detailed packet info).
+# ------------------------------------------------------------------------------
+--verbose={{ verbose|default(1) }}

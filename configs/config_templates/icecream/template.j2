@@ -1,0 +1,46 @@
+# icecream configuration file
+# Self-documented Jinja2 template for Ansible.
+# Variables default to schema defaults if not provided by the role variables.
+
+# User-Agent header value sent to the stream server
+# --user-agent=AGENT
+user_agent = "{{ (config | default({})).user_agent | default('icecream/1.3') }}"
+
+# If true, output the stream to stdout instead of a file
+# --stdout
+output_to_stdout = {{ (config | default({})).stdout | default(false) | lower }}
+
+# If true, enable verbose logging to stderr
+# -v, --verbose
+verbose = {{ (config | default({})).verbose | default(false) | lower }}
+
+# If true, suppress normal output messages
+# -q, --quiet
+quiet = {{ (config | default({})).quiet | default(false) | lower }}
+
+# If true, split the stream into individual tracks based on playlist metadata
+# -t, --tracks
+split_tracks = {{ (config | default({})).split_tracks | default(false) | lower }}
+
+# Filename pattern for saved streams. Supports strftime format codes.
+# --name=NAME
+output_filename = "{{ (config | default({})).output_filename | default('stream_%Y_%m_%d_%H%M%S.mp3') }}"
+
+# Stop downloading after N kb/mb/min/songs. Empty string means no limit.
+# --stop=N[units]
+stop_limit = "{{ (config | default({})).stop_limit | default('') }}"
+
+# If true, turn on syncing (required for some mpeg players)
+# --sync
+sync = {{ (config | default({})).sync | default(false) | lower }}
+
+# If true, enable debug output
+# --debug
+debug = {{ (config | default({})).debug | default(false) | lower }}
+
+# List of stream URLs (icecast, shoutcast, m3u, pls) to download
+# One URL per line.
+streams:
+{% for url in (config | default({})).streams | default([]) %}
+- {{ url }}
+{% endfor %}

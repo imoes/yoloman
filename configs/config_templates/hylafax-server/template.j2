@@ -1,0 +1,26 @@
+#!/bin/sh
+
+test -f /usr/sbin/xferfaxstats || exit 0
+
+# Generate HylaFAX's monthly fax statistics
+#
+# This script generates two reports for faxes received during the past month:
+# 1. One ordered by the destination fax number.
+# 2. One ordered by the sender.
+#
+# Variables:
+#   spool_log_file: Path to the HylaFAX fax log file (default: /var/spool/hylafax/log/xferfaxlog).
+#   email_address:  Email address to send monthly fax statistics to (default: faxmaster).
+#   log_rotation_count: Number of log files to keep during rotation (default: 5).
+
+# Check if the log file exists before proceeding.
+test -f {{ spool_log_file | default('/var/spool/hylafax/log/xferfaxlog') }} || exit 0
+
+# Send statistics by destination fax number to the configured email address.
+/usr/sbin/xferfaxstats -dest -since `date +%D -d'-1 month'` 2>&1 | mail -s "Monthly fax stats - by destination" {{ email_address | default('faxmaster') }}
+
+# Send statistics by sender fax number to the configured email address.
+/usr/sbin/xferfaxstats -send -since `date +%D -d'-1 month'` 2>&1 | mail -s "Monthly fax stats - by sender" {{ email_address | default('faxmaster') }}
+
+# Rotate the fax log file, keeping the specified number of old log files.
+savelog -c {{ log_rotation_count | default(5) }} {{ spool_log_file | default('/var/spool/hylafax/log/xferfaxlog') }} >/dev/null

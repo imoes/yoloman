@@ -1,0 +1,80 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          {{ provides | default('mysqmail-postfix-logger') }}
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      mysql
+# Should-Stop:       mysql
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('A MySQL traffic logger for the Postfix SMTP') }}
+# Description:       {{ description | default("This is a (very small) daemon will log all SMTP traffic\n                    to SQL, splitting the information by domains and\n                    users for the from and to field, so it's then very\n                    easy to count all the SMTP traffic for a given\n                    domain name.") }}
+### END INIT INFO
+
+# Short descriptive name of the daemon, used in log messages.
+DESC="{{ desc | default('MySQMail postfix logger') }}"
+
+# Base name of the daemon, executable, and PID file.
+NAME={{ name | default('mysqmail-postfix-logger') }}
+
+# Full path to the daemon executable.
+DAEMON=/usr/sbin/${NAME}
+
+# Path to the PID file.
+PID_FILE=/var/run/${NAME}.pid
+
+# Path to the configuration file.
+PATH_CONF_FILE=/etc/{{ conf_file_base | default('mysqmail') }}.conf
+
+# Ensure the configuration file exists; exit silently if missing.
+if ! [ -f "${PATH_CONF_FILE}" ] ; then
+	echo "${PATH_CONF_FILE} not present: exiting silently"
+	exit 0
+fi
+
+# Ensure the daemon binary is executable; exit with error if not.
+if [ ! -x ${DAEMON} ] ; then
+	echo "${DAEMON} not executable or not present!"
+	exit 1
+fi
+
+# Source LSB init functions for logging helpers.
+. /lib/lsb/init-functions
+
+RET=0
+case "$1" in
+start)
+	# Start the daemon if the PID file does not already exist.
+	if [ ! -f ${PID_FILE} ] ; then
+		log_daemon_msg "Starting ${DESC}" "${NAME}"
+		start-stop-daemon -S --quiet -p ${PID_FILE} --exec ${DAEMON}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} already exists: not starting ${DAEMON}"
+	fi
+	exit ${RET}
+;;
+stop)
+	# Stop the daemon if the PID file exists.
+	if [ -f ${PID_FILE} ] ; then
+		log_daemon_msg "Stopping ${DESC}" "${NAME}"
+		start-stop-daemon -K --quiet -p ${PID_FILE}
+		RET=$?
+		log_end_msg $?
+	else
+		echo "${PID_FILE} doesn't exist: not stoping ${DAEMON}"
+	fi
+;;
+restart | reload | force-reload)
+	# Restart logic: stop then start.
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
+	exit 1
+esac
+
+exit 0

@@ -1,0 +1,32 @@
+# =============================================================================
+# media-types configuration file
+# =============================================================================
+# This file configures the MIME type handling and logging for the media-types
+# service. It is self-documenting: every directive is preceded by a comment
+# derived from the schema description.
+# =============================================================================
+
+# primary_type: The default MIME type used for unspecified content.
+# Specifies the fallback Content-Type when the system cannot determine the
+# MIME type of a file or stream.
+primary_type: {{ primary_type|default('text/plain') }}
+
+# categories: List of media categories (e.g., Communication, Arts, Computing) to support.
+# A YAML list of high-level categories the service recognizes.
+# If empty (the default), no specific categories are enforced.
+categories:
+{%- if categories is defined %}
+{%- for category in categories %}
+  - {{ category|trim }}
+{%- endfor %}
+{%- else %}
+  []
+{%- endif %}
+
+# debug_mode: Enable debug logging when true.
+# Boolean flag. When true, enables verbose logging for troubleshooting.
+debug_mode: {{ debug_mode|default(false)|lower }}
+
+# log_path: Path to the application log file.
+# The absolute path to the file where the application writes its logs.
+log_path: {{ log_path|default('/var/log/media-types.log') }}

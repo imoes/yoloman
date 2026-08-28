@@ -1,0 +1,53 @@
+# ==============================================================================
+# vrfy(1) configuration file
+# ==============================================================================
+# This file configures the behavior of the `vrfy` command, which is used to
+# verify whether a mail address exists. It defines relay hosts for various
+# special address classes and default command-line options.
+#
+# Syntax: KEY=VALUE
+# See vrfy(1) man page for details.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# VRFY_LOCALHOST
+# Description: Nearest host running sendmail for local address verification.
+#              Used when verifying local user addresses.
+# Default: 'localhost'
+# ------------------------------------------------------------------------------
+VRFY_LOCALHOST={{ vrfy_localhost | default('localhost') }}
+
+# ------------------------------------------------------------------------------
+# VRFY_UUCPRELAY
+# Description: Host contacted for .uucp addresses.
+#              Used to relay verification requests to UUCP gateways.
+# Default: 'localhost'
+# ------------------------------------------------------------------------------
+VRFY_UUCPRELAY={{ vrfy_uucp_relay | default('localhost') }}
+
+# ------------------------------------------------------------------------------
+# VRFY_BITNETRELAY
+# Description: Host contacted for .bitnet and .earn addresses.
+#              Used to relay verification requests to BITNET/EARNet gateways.
+# Default: 'localhost'
+# ------------------------------------------------------------------------------
+VRFY_BITNETRELAY={{ vrfy_bitnet_relay | default('localhost') }}
+
+# ------------------------------------------------------------------------------
+# VRFY_SINGLERELAY
+# Description: Host contacted for single unqualified hostnames.
+#              If a hostname has no domain component, it is relayed here
+#              for verification.
+# Default: 'localhost'
+# ------------------------------------------------------------------------------
+VRFY_SINGLERELAY={{ vrfy_single_relay | default('localhost') }}
+
+# ------------------------------------------------------------------------------
+# VRFY_DEFAULTS
+# Description: List of default command-line options.
+#              These flags are evaluated before any arguments provided on
+#              the command line. Supported flags include verbosity levels
+#              (-v, -vv, -vvv), debugging (-d, -dd, -ddd), and others (-a, -l, -s, -e).
+# Default: [] (empty list, resulting in an empty string)
+# ------------------------------------------------------------------------------
+VRFY_DEFAULTS="{{ vrfy_defaults | default([]) | join(' ') }}"

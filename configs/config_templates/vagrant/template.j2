@@ -1,0 +1,74 @@
+# Vagrant Configuration
+# Global defaults for Vagrant operations
+# This file serves as a reference and documentation for Vagrant settings.
+# See `man vagrant` and `vagrant global-status` for details.
+
+# VAGRANT_HOME
+# Description: The base directory for Vagrant data including boxes, plugins, and state.
+# This path is used to store downloaded boxes, plugins, and the global state file.
+VAGRANT_HOME: {{ (vagrant_home | default('/home/vagrant/.vagrant.d')) | tojson }}
+
+# PLUGINS
+# Description: List of installed Vagrant plugin names.
+# Note: Vagrant does not parse this file to enable/disable plugins.
+# Plugins are managed via the command line: `vagrant plugin install <name>`
+# This section is informational only, documenting the expected state.
+# Plugins are physically stored in {{ (vagrant_home | default('/home/vagrant/.vagrant.d')) }}/plugins.
+PLUGINS: {{ (plugins | default([])) | join(', ') }}
+
+# DEFAULT_PROVIDER
+# Description: The default provider used when no provider is specified in Vagrantfile.
+# Options: virtualbox, vmware, docker, hyperv, libvirt
+# Can be overridden per-machine or via `vagrant up --provider=<provider>`
+DEFAULT_PROVIDER: {{ (default_provider | default('virtualbox')) | tojson }}
+
+# PORT_FORWARDING
+# Description: Default port forwarding rules for VMs.
+# Format: A mapping or string representing host_port -> guest_port mappings.
+# Example: 2222 -> 22 (SSH)
+# This configures the default behavior for `config.vm.forward_port` if not explicitly set.
+PORT_FORWARDING: {{ (port_forwarding | default({'2222': '22'})) | tojson }}
+
+# SSH_USER
+# Description: The username used to SSH into VMs.
+# This user is typically created automatically by the box or provisioner.
+SSH_USER: {{ (ssh_user | default('vagrant')) | tojson }}
+
+# SSH_PRIVATE_KEY_PATH
+# Description: Path to the private key file used for SSH authentication.
+# Vagrant typically generates an insecure key for testing purposes.
+# Use `vagrant ssh-config` to see the actual key path for a running machine.
+SSH_PRIVATE_KEY_PATH: {{ (ssh_private_key_path | default('~/.vagrant.d/insecure_private_key')) | tojson }}
+
+# SSH_ENABLE_PUBKEY_AUTH
+# Description: Enable public key authentication for SSH connections.
+# Set to false to disable pubkey auth (not recommended for security reasons).
+SSH_ENABLE_PUBKEY_AUTH: {{ (ssh_enable_pubkey_auth | default(true)) | tojson }}
+
+# BOX_CATALOG_URL
+# Description: URL to the box catalog for fetching new boxes.
+# Vagrant uses this source to discover and download box images.
+# Vagrant fetches boxes from this source if not specified in Vagrantfile.
+BOX_CATALOG_URL: {{ (box_catalog_url | default('https://vagrantcloud.com/boxes')) | tojson }}
+
+# PROVISION_TIMEOUT
+# Description: Timeout in seconds for provisioning scripts.
+# If provisioning takes longer than this, Vagrant will abort the provisioner.
+PROVISION_TIMEOUT: {{ (provision_timeout | default(3600)) | tojson }}
+
+# LOG_LEVEL
+# Description: Logging verbosity level.
+# Options: debug, info, warn, error, fatal
+# Higher verbosity provides more detail for troubleshooting.
+LOG_LEVEL: {{ (log_level | default('info')) | tojson }}
+
+# SHOW_WELCOME_MESSAGE
+# Description: Show the welcome message when Vagrant starts.
+# Set to false to suppress the initial informational banner.
+SHOW_WELCOME_MESSAGE: {{ (show_welcome_message | default(true)) | tojson }}
+
+# STATUS_FORMAT
+# Description: Output format for `vagrant status` command.
+# Options: json, human-readable
+# Affects how Vagrant displays the state of managed machines.
+STATUS_FORMAT: {{ (status_format | default('json')) | tojson }}

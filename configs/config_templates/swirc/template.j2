@@ -1,0 +1,59 @@
+# Swirc Configuration File
+# See swirc.conf(5) for details
+#
+# This configuration file controls the behavior of the swirc IRC client.
+# It is divided into sections: server connection, user identity, connection behavior,
+# and file paths. Variables are sourced from Ansible host/group variables or defaults.
+
+# =============================================================================
+# Server connection settings
+# =============================================================================
+[server]
+# Hostname or IP address of the IRC server to connect to.
+server = {{ server_host | default('irc.libera.chat') }}
+# Port number for the server connection. Use 6697 for TLS, 7326 for ICB.
+port = {{ server_port | default(6667) }}
+# Password for the server or NickServ identification. Leave empty if not used.
+password = {{ server_password | default('') }}
+
+# =============================================================================
+# User identity settings
+# =============================================================================
+[user]
+# The nickname the user will use on the IRC network.
+nickname = {{ nickname | default('swirc_user') }}
+# The username part of the user@host identification.
+username = {{ username | default('swirc_user') }}
+# The real name (Rline) displayed by the client.
+realname = {{ realname | default('Swirc User') }}
+
+# =============================================================================
+# Connection behavior
+# =============================================================================
+[connection]
+# List of channel names to join automatically upon connection.
+# Expected to be a list; rendered as a comma-separated string.
+join_channels = {{ join_channels | default(['#test']) | join(',') }}
+# If true, restricts connections to IPv4 only (-4 flag).
+use_ipv4 = {{ use_ipv4 | default(false) | lower }}
+# If true, restricts connections to IPv6 only (-6 flag).
+use_ipv6 = {{ use_ipv6 | default(false) | lower }}
+# If true, forces TLS encryption for the connection (-S flag).
+force_tls = {{ force_tls | default(false) | lower }}
+# If true, disables TLS peer certificate verification (-R flag).
+no_tls_verify = {{ no_tls_verify | default(false) | lower }}
+# If true, permanently disables SASL authentication (-P flag).
+no_sasl = {{ no_sasl | default(false) | lower }}
+# If true, disables all IRCv3 extensions (-X flag).
+no_ircc3 = {{ no_ircc3 | default(false) | lower }}
+# If true, prevents swirc from changing terminal color definitions (-C flag).
+no_color_change = {{ no_color_change | default(false) | lower }}
+
+# =============================================================================
+# Theme and Logs
+# =============================================================================
+[paths]
+# Path to the theme configuration file.
+theme_file = {{ theme_file | default('~/.swirc/default.thm') }}
+# Path to the error log file.
+error_log = {{ error_log | default('~/.swirc/log/error.log') }}

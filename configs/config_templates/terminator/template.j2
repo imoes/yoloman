@@ -1,0 +1,137 @@
+# Terminator Configuration File
+# See terminator_config(5) for details on all available options.
+# This file is managed by Ansible; do not edit manually.
+
+[global]
+# Enable or disable DBus inter-process communication.
+# When True, Terminator can communicate with other instances via DBus.
+dbus_enabled = {{ dbus_enabled | default(true) | lower }}
+
+# Debug level: 0=off, 1=on, 2=enable python debugger.
+# Useful for troubleshooting startup or behavior issues.
+debug = {{ debug | default(0) }}
+
+# Comma-separated list of classes to debug.
+# If debug > 0, only these classes will emit debug logs.
+# Leave empty to debug all classes.
+debug_classes = {{ debug_classes | default('') }}
+
+# Comma-separated list of methods to debug.
+# If debug > 0, only these methods will emit debug logs.
+# Leave empty to debug all methods.
+debug_methods = {{ debug_methods | default('') }}
+
+# Path to this configuration file.
+# Usually not changed; used by Terminator to locate its config.
+config_path = {{ config_path | default('~/.config/terminator/config') }}
+
+# Name of the profile to use by default when opening a new window/tab.
+# Must match a [profile] section name defined below.
+default_profile = {{ default_profile | default('default') }}
+
+# Default window title.
+# Can include format codes for dynamic titles (e.g., hostname, directory).
+# See terminator_config(5) for supported format codes.
+window_title = {{ window_title | default('Terminator') }}
+
+# Custom icon name or 'disabled'.
+# Set to 'disabled' to use the application's default icon.
+# Otherwise, specify a valid icon name from the current icon theme.
+icon_name = {{ icon_name | default('disabled') }}
+
+# Directory for saving and loading window layouts.
+# Layouts allow saving specific terminal arrangements for quick restoration.
+layouts_dir = {{ layouts_dir | default('~/.local/share/terminator/layouts') }}
+
+# Keybindings configuration.
+# Map of keybinding action names to keyboard combinations.
+# Example: {'split_h': 'Ctrl+Shift+O', 'new_tab': 'Ctrl+Shift+T'}
+# Leave empty or omit to use Terminator's defaults.
+[keybindings]
+{% set _keybindings = keybindings | default({}) %}
+{% for key, binding in _keybindings | dict2items %}
+# Keybinding: {{ key }}
+{{ key }} = {{ binding.value }}
+{% endfor %}
+
+# Profiles configuration.
+# Each profile defines terminal appearance and behavior settings.
+# Define profiles below and reference them via default_profile or layouts.
+[profiles]
+# Profiles is a list of dictionaries. We iterate over the list directly.
+# Each profile item is a dictionary mapping settings to values.
+{% for profile_item in profiles | default([]) %}
+{% if profile_item.name is defined %}
+# Profile: {{ profile_item.name }}
+[{{ profile_item.name }}]
+
+# Color scheme (ansi colors).
+# Can be a built-in scheme name (e.g., 'default', 'Tango', 'Solarized')
+# or a custom string of 16 hex color codes.
+color_scheme = {{ profile_item.color_scheme | default('default') }}
+
+# Background type.
+# Options: 'solid', 'transparent', 'image'.
+background_type = {{ profile_item.background_type | default('transparent') }}
+
+# Background image path.
+# Only used if background_type is set to 'image'.
+background_image = {{ profile_item.background_image | default('') }}
+
+# Background darkening percentage.
+# Value between 0 and 1. Only effective if background_type is 'image' or 'transparent'.
+# 0 = fully transparent, 1 = fully opaque.
+background_darkness = {{ profile_item.background_darkness | default(0.95) }}
+
+# Font family and size.
+# Example: 'Monospace 10'.
+cursor_font = {{ profile_item.cursor_font | default('Monospace 10') }}
+
+# Allow bold text to use bright colors.
+# If True, bold text uses the bright variant of the color scheme.
+bold_is_bright = {{ profile_item.bold_is_bright | default(true) | lower }}
+
+# Command to run in the terminal.
+# Use 'system-default' to use the system default shell.
+# Can be set to a specific command like '/bin/bash -l'.
+cmd = {{ profile_item.cmd | default('system-default') }}
+
+# Working directory for the terminal.
+# Options: 'current' (start in current dir), 'home' (start in home),
+# or an absolute path.
+working_dir = {{ profile_item.working_dir | default('current') }}
+
+# Show titlebar.
+# If True, the window titlebar is visible.
+show_titlebar = {{ profile_item.show_titlebar | default(true) | lower }}
+
+# Show scrollbar.
+# Options: 'true', 'false', 'right'.
+# 'right' forces the scrollbar to the right side.
+show_scrollbar = {{ profile_item.show_scrollbar | default(false) | lower }}
+
+# Cursor shape.
+# Options: 'block', 'ibeam', 'underline'.
+cursor_shape = {{ profile_item.cursor_shape | default('block') }}
+
+# Copy text keybinding for this profile.
+# Overrides global keybindings if set.
+copy_text = {{ profile_item.copy_text | default('') }}
+
+# Paste text keybinding for this profile.
+# Overrides global keybindings if set.
+paste_text = {{ profile_item.paste_text | default('') }}
+
+{% endif %}
+{% endfor %}
+
+# Layouts configuration.
+# Define terminal arrangements (groups, splits, profiles).
+# See terminator_config(5) for layout syntax examples.
+[layouts]
+{% set _layouts = layouts | default({}) %}
+{% for name, content in _layouts | dict2items %}
+# Layout: {{ name }}
+[{{ name }}]
+{{ content.value | default('') | indent(2) }}
+{% endfor %}

@@ -1,0 +1,63 @@
+# ==============================================================================
+# yubihsm-auth Configuration Template
+# ==============================================================================
+# This file is used by wrapper scripts or systemd units to pass arguments to the
+# yubihsm-auth binary. It defines the operational parameters for interacting
+# with a YubiHSM2 device.
+#
+# SELF-DOCUMENTING: Every variable below includes its schema description as a
+# comment. All variables use |default(...) to ensure safe rendering even if
+# the Ansible variable is undefined.
+# ==============================================================================
+
+# Action to perform: calculate, change-mgmkey, delete, list, put, reset, retries, version, get-challenge, get-pubkey
+# Default: list
+ACTION={{ action | default('list') }}
+
+# Management key (Admin Access Code). Hex string required for privileged operations.
+# Default: '00000000000000000000000000000000'
+MGMKEY={{ mgmkey | default('00000000000000000000000000000000') }}
+
+# New management key. Required only when action is 'change-mgmkey'.
+# Default: '' (empty)
+NEW_MGMKEY={{ new_mgmkey | default('') }}
+
+# Credential password (User Access Code). Hex string used to authenticate with the device.
+# Default: '' (empty)
+CREDPWD={{ credpwd | default('') }}
+
+# Credential label. Optional filter for specific credentials.
+# Default: '' (empty)
+LABEL={{ label | default('') }}
+
+# Reader name to filter by. Limits operations to a specific YubiHSM device reader.
+# Default: '' (empty/unspecified)
+READER={{ reader | default('') }}
+
+# Touch required: 'off' or 'on'. Controls physical button touch requirement.
+# Default: 'off'
+TOUCH={{ touch | default('off') }}
+
+# Session keys calculation context. Used for deriving session keys.
+# Default: '' (empty)
+CONTEXT={{ context | default('') }}
+
+# Verbosity level. Integer from 0 (quiet) to higher values for debug output.
+# Default: 0
+VERBOSE={{ verbose | default(0) }}
+
+# Derivation password for PBKDF2 mode. Used to derive encryption/MAC keys.
+# Default: '' (empty)
+DERIVATION_PASSWORD={{ derivation_password | default('') }}
+
+# Explicit encryption key. Hex string for explicit key mode (overrides derivation).
+# Default: '' (empty)
+ENCKEY={{ enckey | default('') }}
+
+# Explicit MAC key. Hex string for explicit key mode (overrides derivation).
+# Default: '' (empty)
+MACKEY={{ mackey | default('') }}
+
+# Private key for asymmetric mode. Hex string or file path reference depending on wrapper.
+# Default: '' (empty)
+PRIVKEY={{ privkey | default('') }}

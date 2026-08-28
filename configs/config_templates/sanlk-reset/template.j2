@@ -1,0 +1,77 @@
+# sanlk-reset Configuration Template
+# This template generates the command-line arguments for the `sanlk-reset` utility.
+# `sanlk-reset` is a CLI tool used to manage sanlock lockspaces, typically invoked by watchdogs or external services.
+
+# ACTION: Specifies the primary action to perform.
+# Valid values: reset, reg, end, clear.
+# Default: reset
+ACTION={{ action_type | default('reset') }}
+
+# LOCKSPACE_NAME: The name of the sanlock lockspace to target.
+# This is used in the command syntax `lockspace:host_id`.
+# Default: sanlock_lockspace
+LOCKSPACE_NAME={{ lockspace_name | default('sanlock_lockspace') }}
+
+# TARGET_HOST_ID: The host ID of the target host in the lockspace.
+# This identifies which host is being reset or managed.
+# Default: 1
+TARGET_HOST_ID={{ target_host_id | default(1) }}
+
+# GENERATION: The generation number of the host.
+# Used to prevent stale reset commands on restarted hosts.
+# Set to 0 to disable generation checking.
+# Default: 0
+GENERATION={{ generation | default(0) }}
+
+# SYSRQ_REBOOT: Enable use of /proc/sysrq-trigger to reboot the target host.
+# When true (1), the tool attempts a hard reboot via sysrq.
+# When false (0), this flag is omitted.
+# Default: true
+SYSRQ_REBOOT={{ sysrq_reboot | default(true) | int }}
+
+# RESOURCE_MODE: Use resource leases to protect storage during the reset process.
+# When true (1), resource leases are utilized for safety.
+# When false (0), this flag is omitted.
+# Default: false
+RESOURCE_MODE={{ resource_mode | default(false) | int }}
+
+# NATIVE_TIMEOUT: Native timeout value in seconds.
+# Set to 0 to disable the native timeout.
+# Default: 0
+NATIVE_TIMEOUT={{ native_timeout | default(0) }}
+
+# Constructed Command Line
+# This section constructs the final `sanlk-reset` command string based on the action type.
+# Note: In a real deployment, this would be the ExecStart or command argument in a systemd unit.
+
+{% set _action = action_type | default('reset') %}
+{% set _lockspace = lockspace_name | default('sanlock_lockspace') %}
+{% set _host_id = target_host_id | default(1) %}
+{% set _gen = generation | default(0) %}
+{% set _sysrq = sysrq_reboot | default(true) | bool %}
+{% set _rmode = resource_mode | default(false) | bool %}
+{% set _timeout = native_timeout | default(0) %}
+
+{% set cmd = 'sanlk-reset ' + _action %}
+{% if _action == 'reset' %}
+  {% set cmd = cmd + ' ' + _lockspace + ':' + (_host_id | string) %}
+  {% if _gen != 0 %}
+    {% set cmd = cmd + ' --generation ' + (_gen | string) %}
+  {% endif %}
+{% endif %}
+{% if _action == 'reset' or _action == 'reg' %}
+  {% if _sysrq %}
+    {% set cmd = cmd + ' --sysrq-reboot 1' %}
+  {% endif %}
+{% endif %}
+{% if _action == 'reset' %}
+  {% if _rmode %}
+    {% set cmd = cmd + ' --resource-mode 1' %}
+  {% endif %}
+  {% if _timeout != 0 %}
+    {% set cmd = cmd + ' --native-timeout ' + (_timeout | string) %}
+  {% endif %}
+{% endif %}
+
+# Final Command
+CMD={{ cmd }}

@@ -1,131 +1,58 @@
-# ==============================================================================
-# websockify Configuration Template
-# ==============================================================================
-# This template generates a websockify configuration file.
-# websockify is a WebSocket-to-TCP proxy, often used to expose
-# VNC, RDP, or other TCP services over WebSocket.
-# ==============================================================================
+# WebSocket-to-TCP proxy configuration for websockify
+# Listen address (IP or hostname); use '0.0.0.0' to bind all interfaces
+bind_address: {{ bind_address }}
 
-# --- Network Binding ---
+# Port to listen for WebSocket connections
+bind_port: {{ bind_port }}
 
-# IP address or hostname to bind the WebSocket proxy to.
-# Use '0.0.0.0' to listen on all interfaces.
-# Default: 127.0.0.1
-bind_address: {{ (bind_address | default('127.0.0.1')) | string }}
+# Target host to proxy connections to
+target_host: {{ target_host }}
 
-# Port number to listen for incoming WebSocket connections.
-# Default: 6080
-bind_port: {{ bind_port | default(6080) | int }}
+# Target port to proxy connections to
+target_port: {{ target_port }}
 
-# --- Backend Target (Single-Target Mode) ---
+# SSL/TLS: path to certificate chain (optional, enables HTTPS/WSS)
+# If present, websockify will serve WSS (secure WebSocket) traffic
+ssl_target: {{ ssl_target | lower }}
+ssl_cert: {{ ssl_cert }}
+ssl_key: {{ ssl_key }}
 
-# Backend host to which WebSocket traffic will be proxied.
-# Used in single-target mode.
-# Default: localhost
-target_host: {{ (target_host | default('localhost')) | string }}
+# Optional: certificate authority bundle for client verification (mTLS)
+ssl_ca: {{ ssl_ca }}
 
-# Backend port to proxy to (e.g., VNC 5900, RDP 3389).
-# Used in single-target mode.
-# Default: 5900
-target_port: {{ target_port | default(5900) | int }}
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: {{ log_level }}
 
-# --- SSL/TLS Configuration ---
+# Log output file (leave empty to log to stdout)
+log_file: {{ log_file }}
 
-# Enable WSS (secure WebSocket) by presenting TLS to clients.
-# Requires ssl_cert and ssl_key to be set.
-# Default: False
-ssl_target: {{ ssl_target | default(false) | bool }}
+# Idle timeout in seconds (close connection after this inactivity)
+idle_timeout: {{ idle_timeout }}
 
-# Path to SSL/TLS certificate file (PEM format).
-# Required if ssl_target is true.
-# Default: '' (empty)
-ssl_cert: {{ (ssl_cert | default('')) | string }}
+# Enable TCP keepalive for backend connections
+tcp_keepalive: {{ tcp_keepalive | lower }}
 
-# Path to SSL/TLS private key file (PEM format).
-# Required if ssl_target is true.
-# Default: '' (empty)
-ssl_key: {{ (ssl_key | default('')) | string }}
-
-# Path to CA bundle (PEM format) for mutual TLS client authentication.
-# Optional.
-# Default: '' (empty)
-ssl_ca: {{ (ssl_ca | default('')) | string }}
-
-# --- Logging ---
-
-# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
-# Default: INFO
-log_level: {{ (log_level | default('INFO')) | upper }}
-
-# Path to log file. If empty, logs to stdout (or stderr in some builds).
-# Default: '' (empty)
-log_file: {{ (log_file | default('')) | string }}
-
-# --- Connection Management ---
-
-# Seconds of inactivity before closing idle WebSocket or backend connections.
-# Default: 600
-idle_timeout: {{ idle_timeout | default(600) | int }}
-
-# Enable TCP keepalive probes to backend connections to detect dead peers.
-# Default: True
-tcp_keepalive: {{ tcp_keepalive | default(true) | bool }}
-
-# --- Security / CORS ---
-
-# List of allowed HTTP origins for CORS.
-# If empty, all origins are permitted (not recommended for production).
-{% for origin in (allowed_origins | default([])) %}
-origin: {{ origin | string }}
+# List of origins allowed to connect (CORS). Empty list = allow all
+{% for origin in allowed_origins %}origin: {{ origin }}
 {% endfor %}
 
-# --- Routing (Multi-Target Mode) ---
-
-# List of path-based routing rules.
-# Use when proxying multiple backends on different paths.
-# Format in config: route: path=host:port
-# Example: route: /vnc1=localhost:5900
-{% for route in (routes | default([])) %}
-{% if route is mapping %}
-# Route rule: {{ route.get('path', '/') }} -> {{ route.get('target_host', 'localhost') }}:{{ route.get('target_port', 5900) }}
-route: {{ route.get('path', '/') }}={{ route.get('target_host', 'localhost') }}:{{ route.get('target_port', 5900) }}
-{% else %}
-# Raw route string: {{ route | string }}
-route: {{ route | string }}
-{% endif %}
+# List of allowed paths (if proxying multiple backends via path routing)
+# Format: path=host:port (e.g., /vnc=localhost:5900)
+{% for route in routes %}route: {{ route.path }}={{ route.target_host }}:{{ route.target_port }}
 {% endfor %}
 
-# --- Daemonization ---
+# Run as daemon (background process)
+daemonize: {{ daemonize | lower }}
 
-# Run websockify as a background daemon process.
-# Requires root privileges to bind low ports if necessary.
-# Default: False
-daemonize: {{ daemonize | default(false) | bool }}
+# PID file path (used only if daemonize=true)
+pidfile: {{ pidfile }}
 
-# File path to write the daemon process PID.
-# Used only if daemonize is true.
-# Default: /var/run/websockify.pid
-pidfile: {{ (pidfile | default('/var/run/websockify.pid')) | string }}
+# Run as specific user/group (requires root initially)
+user: {{ user }}
+group: {{ group }}
 
-# --- Privilege Dropping ---
+# Enable compression (permessage-deflate)
+compression: {{ compression | lower }}
 
-# System user to drop privileges to after startup.
-# Requires root initially.
-# Default: websockify
-user: {{ (user | default('websockify')) | string }}
-
-# System group to drop privileges to after startup.
-# Requires root initially.
-# Default: websockify
-group: {{ (group | default('websockify')) | string }}
-
-# --- WebSocket Settings ---
-
-# Enable permessage-deflate compression for WebSocket messages.
-# May reduce bandwidth usage at the cost of CPU.
-# Default: False
-compression: {{ compression | default(false) | bool }}
-
-# URL path prefix for the WebSocket endpoint (e.g., '/ws' or '/proxy').
-# Default: /
-ws_path: {{ (ws_path | default('/')) | string }}
+# WebSocket path (URL path for the WebSocket endpoint, e.g., /ws or /proxy)
+ws_path: {{ ws_path }}

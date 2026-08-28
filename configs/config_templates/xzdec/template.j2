@@ -1,0 +1,42 @@
+# ==============================================================================
+# xzdec Configuration Template
+# ==============================================================================
+# This template generates a wrapper script or environment configuration to control
+# xzdec behavior via command-line arguments. xzdec itself is a command-line utility
+# that decompresses .xz or .lzma files to stdout and does not read a dedicated
+# configuration file. This template provides a structured way to pass parameters
+# to the xzdec binary.
+# ==============================================================================
+
+# [General] Path to the xzdec executable binary.
+# Specifies which xzdec binary to invoke. Defaults to the standard system path.
+BINARY_PATH = {{ (values | default({})).binary_path | default('/usr/bin/xzdec') }}
+
+# [Behavior] Strict mode flag.
+# If true, enables double-quiet mode (-qq) to suppress error messages and warnings.
+# Corresponds to the -qq (--quiet --quiet) option in xzdec.
+STRICT_MODE = {{ (values | default({})).strict_mode | default(false) | lower }}
+
+# [Input] List of file paths to decompress.
+# These files will be passed as arguments to xzdec. xzdec decompresses them sequentially to the output destination.
+# If empty, xzdec will attempt to read from stdin.
+INPUT_FILES = {{ (values | default({})).input_files | default([]) | tojson }}
+
+# [Output] Optional path to redirect decompressed output to a file.
+# If empty or omitted, the decompressed output is written to stdout.
+OUTPUT_FILE = {{ (values | default({})).output_file | default('') }}
+
+# [Execution] Command to run xzdec with the configured options.
+# This block constructs the actual shell command based on the settings above.
+# If an output file is specified, stdout is redirected to that file.
+# If strict mode is enabled, the -qq flag is appended.
+{% set _binary = (values | default({})).binary_path | default('/usr/bin/xzdec') %}
+{% set _strict = (values | default({})).strict_mode | default(false) %}
+{% set _files = (values | default({})).input_files | default([]) %}
+{% set _output = (values | default({})).output_file | default('') %}
+{% set _files_str = _files | join(' ') %}
+{% if _output %}
+EXEC_CMD = "{{ _binary }}" {% if _strict %}-qq {% endif %}{{ _files_str }} > {{ _output }}
+{% else %}
+EXEC_CMD = "{{ _binary }}" {% if _strict %}-qq {% endif %}{{ _files_str }}
+{% endif %}

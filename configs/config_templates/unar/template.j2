@@ -1,0 +1,139 @@
+# unar command-line configuration template
+# Generated for service: unar
+
+# [output_directory]
+# The directory to write the contents of the archive to. Defaults to the current directory.
+# -o, -output-directory
+{% if output_directory is defined %}
+OUTPUT_DIRECTORY={{ output_directory }}
+{% else %}
+OUTPUT_DIRECTORY="."
+{% endif %}
+
+# [force_overwrite]
+# Always overwrite files when a file to be unpacked already exists on disk.
+# -f, -force-overwrite
+{% if force_overwrite %}
+FORCE_OVERWRITE="-f"
+{% else %}
+FORCE_OVERWRITE=""
+{% endif %}
+
+# [force_rename]
+# Always rename files when a file to be unpacked already exists on disk.
+# -r, -force-rename
+{% if force_rename %}
+FORCE_RENAME="-r"
+{% else %}
+FORCE_RENAME=""
+{% endif %}
+
+# [force_skip]
+# Always skip files when a file to be unpacked already exists on disk.
+# -s, -force-skip
+{% if force_skip %}
+FORCE_SKIP="-s"
+{% else %}
+FORCE_SKIP=""
+{% endif %}
+
+# [force_directory]
+# Always create a containing directory for the contents of the unpacked archive.
+# -d, -force-directory
+{% if force_directory %}
+FORCE_DIRECTORY="-d"
+{% else %}
+FORCE_DIRECTORY=""
+{% endif %}
+
+# [no_directory]
+# Never create a containing directory for the contents of the unpacked archive.
+# -D, -no-directory
+{% if no_directory %}
+NO_DIRECTORY="-D"
+{% else %}
+NO_DIRECTORY=""
+{% endif %}
+
+# [password]
+# The password to use for decrypting protected archives.
+# -p, -password
+{% if password is defined and password != "" %}
+PASSWORD="{{ password }}"
+{% else %}
+PASSWORD=""
+{% endif %}
+
+# [encoding]
+# The encoding to use for filenames in the archive, when it is not known.
+# -e, -encoding
+{% if encoding is defined %}
+ENCODING="-e {{ encoding }}"
+{% else %}
+ENCODING=""
+{% endif %}
+
+# [password_encoding]
+# The encoding to use for the password for the archive.
+# -E, -password-encoding
+{% if password_encoding is defined %}
+PASSWORD_ENCODING="-E {{ password_encoding }}"
+{% else %}
+PASSWORD_ENCODING=""
+{% endif %}
+
+# [indexes]
+# Instead of specifying the files to list as filenames, specify them as indexes.
+# -i, -indexes
+{% if indexes %}
+INDEXES="-i"
+{% else %}
+INDEXES=""
+{% endif %}
+
+# [no_recursion]
+# Do not attempt to extract archives contained in other archives.
+# -nr, -no-recursion
+{% if no_recursion %}
+NO_RECURSION="-nr"
+{% else %}
+NO_RECURSION=""
+{% endif %}
+
+# [copy_time]
+# Copy the file modification time from the archive file to the containing directory.
+# -t, -copy-time
+{% if copy_time %}
+COPY_TIME="-t"
+{% else %}
+COPY_TIME=""
+{% endif %}
+
+# [forks]
+# How to handle Mac OS resource forks. visible, hidden, or skip.
+# -k, -forks
+{% if forks is defined %}
+FORKS="-k {{ forks }}"
+{% else %}
+FORKS="-k visible"
+{% endif %}
+
+# [quiet]
+# Run in quiet mode.
+# -q, -quiet
+{% if quiet %}
+QUIET="-q"
+{% else %}
+QUIET=""
+{% endif %}
+
+# [archive_path]
+# The archive file to process.
+ARCHIVE_PATH={{ archive_path }}
+
+# [files_to_extract]
+# Specific files or wildcard patterns to extract.
+FILES_TO_EXTRACT="{{ files_to_extract|join(' ') }}"
+
+# Constructed Command
+COMMAND=unar {{ FORCE_OVERWRITE }} {{ FORCE_RENAME }} {{ FORCE_SKIP }} {{ FORCE_DIRECTORY }} {{ NO_DIRECTORY }} {{ PASSWORD }} {{ ENCODING }} {{ PASSWORD_ENCODING }} {{ INDEXES }} {{ NO_RECURSION }} {{ COPY_TIME }} {{ FORKS }} {{ QUIET }} {{ OUTPUT_DIRECTORY }} {{ ARCHIVE_PATH }} {{ FILES_TO_EXTRACT }}

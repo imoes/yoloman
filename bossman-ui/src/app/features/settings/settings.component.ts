@@ -14,6 +14,9 @@ import { ChatService } from '../../core/services/chat.service';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } from '../../core/models/chat.model';
 import { EnrollInfo } from '../../core/models/enroll.model';
+import { AgentUpdatesComponent } from './agent-updates.component';
+import { InfraKnowledgeComponent } from './infra-knowledge.component';
+import { MeasurementDisplayComponent } from './measurement-display.component';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -29,7 +32,7 @@ import { EnrollInfo } from '../../core/models/enroll.model';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent, MeasurementDisplayComponent],
   template: `
     <div class="bm-page">
       <h1>Settings</h1>
@@ -85,7 +88,7 @@ import { EnrollInfo } from '../../core/models/enroll.model';
                     matInput
                     rows="4"
                     [(ngModel)]="deployHosts"
-                    placeholder="newhost1.test.example.com&#10;newhost2.test.example.com"
+                    placeholder="host.example.internal&#10;host5.example.internal"
                     [disabled]="deploying()"
                   ></textarea>
                 </mat-form-field>
@@ -111,6 +114,14 @@ import { EnrollInfo } from '../../core/models/enroll.model';
           }
         </mat-card-content>
       </mat-card>
+
+      <app-infra-knowledge />
+
+      <app-agent-updates />
+
+      <!-- How a measured value is shown: state names/colours and value maps. Presentation
+           only — neither changes the four states or any threshold. -->
+      <app-measurement-display />
 
       <mat-card class="bm-catalog-card">
         <mat-card-header>
@@ -260,13 +271,13 @@ import { EnrollInfo } from '../../core/models/enroll.model';
           <div class="bm-llm-row">
             <mat-form-field appearance="outline" class="bm-llm-wide">
               <mat-label>HTTP proxy</mat-label>
-              <input matInput [(ngModel)]="helmHttpProxy" placeholder="http://proxy.example.com:80" />
+              <input matInput [(ngModel)]="helmHttpProxy" placeholder="http://proxy.example.internal:80" />
             </mat-form-field>
           </div>
           <div class="bm-llm-row">
             <mat-form-field appearance="outline" class="bm-llm-wide">
               <mat-label>No-proxy (comma-separated)</mat-label>
-              <input matInput [(ngModel)]="helmNoProxy" placeholder=".example.com,localhost,10.0.0.0/8,.svc" />
+              <input matInput [(ngModel)]="helmNoProxy" placeholder=".example.internal,localhost,10.0.0.0/8,.svc" />
             </mat-form-field>
           </div>
           <p class="bm-dim">

@@ -1,0 +1,51 @@
+# uuid(1) configuration for bulk generation or deterministic naming
+# This template generates the command-line arguments for the `uuid` utility.
+
+# Output format: BIN, STR, or SIV (defaults to STR)
+# BIN: Binary output; STR: Standard string representation; SIV: Sortable ID version (UUIDv7-like)
+uuid {{ format | default('STR') }} \
+{#
+  Path to output file. If empty, defaults to stdout.
+  If specified, the --output flag is used with the quoted path.
+#}
+{% if outfile | default('') != '' %}
+  --output {{ outfile | default('') }} \
+{% endif %}
+{#
+  Number of UUIDs to generate.
+  The --number flag specifies the count.
+#}
+  --number {{ count | default(1) }} \
+{#
+  UUID version to generate:
+  1: Time-based (MAC address)
+  3: MD5 hash
+  4: Random
+  5: SHA-1 hash
+  6: Time-based ordered (MAC address)
+  7: Time-based random (UUIDv7)
+#}
+  --version {{ version | default(4) }} \
+{#
+  Namespace for version 3/5 UUIDs.
+  Valid values: uuid, nil, max, ns:DNS, ns:URL, ns:OID, ns:X500, or a literal UUID string.
+  Only used if version is 3 or 5.
+#}
+  --namespace {{ namespace | default('ns:DNS') }} \
+{#
+  Name data for version 3/5 UUIDs.
+  Used with the namespace to generate a deterministic UUID.
+#}
+  --name {{ name | default('example.com') }} \
+{#
+  Ignore host MAC for v1/v6.
+  If true, a random node ID is used instead of the local MAC address.
+  Only relevant for version 1 and 6.
+#}
+  --ignore-mac {{ ignore_mac | default(False) | lower }} \
+{#
+  Independent generation for v1.
+  If true, disables monotonic increment for version 1 UUIDs.
+  Useful for parallel generation to avoid collisions if MACs are not unique or random.
+#}
+  --independent {{ independent | default(False) | lower }}

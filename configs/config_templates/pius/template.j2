@@ -1,0 +1,76 @@
+[pius]
+
+# The primary key ID to sign with. Required.
+signer_keyid = {{ signer_keyid | default('YOUR_SIGNER_KEY_ID') }}
+
+# Force GnuPG to use this exact keyid to sign. Optional.
+{% if force_signer_keyid is defined %}
+force_signer_keyid = {{ force_signer_keyid }}
+{% endif %}
+
+# Path to the GnuPG binary.
+gpg_path = {{ gpg_path | default('/usr/bin/gpg2') }}
+
+# Path to the keyring file to sign.
+keyring = {{ keyring | default('~/.gnupg/pubring.gpg') }}
+
+# Directory to put signed keys in.
+out_dir = {{ out_dir | default('/tmp/pius_out') }}
+
+# Directory to put temporary stuff in.
+temp_dir = {{ temp_dir | default('/tmp/pius_tmp') }}
+
+# Policy URL to include in each signature.
+{% if policy_url is defined %}
+policy_url = {{ policy_url }}
+{% endif %}
+
+# Sign all keys on the keyring. Requires -r.
+sign_all_keys = {{ sign_all_keys | default(false) | lower }}
+
+# Import unsigned keys into default keyring.
+import_keys = {{ import_keys | default(false) | lower }}
+
+# Encrypt output files with respective keys.
+encrypt_outfiles = {{ encrypt_outfiles | default(false) | lower }}
+
+# Do not sort the keyring by name.
+no_sort_keyring = {{ no_sort_keyring | default(false) | lower }}
+
+# Do not use PGP/Mime when sending email.
+no_pgp_mime = {{ no_pgp_mime | default(false) | lower }}
+
+# Email address to use as the sender.
+{% if from_email is defined %}
+from_email = {{ from_email }}
+{% endif %}
+
+# Hostname of the SMTP server.
+mail_host = {{ mail_host | default('localhost') }}
+
+# Port of the SMTP server.
+mail_port = {{ mail_port | default(587) }}
+
+# Username to authenticate to the SMTP server.
+{% if mail_user is defined %}
+mail_user = {{ mail_user }}
+{% endif %}
+
+# Do not use STARTTLS when talking to the SMTP server.
+no_mail_tls = {{ no_mail_tls | default(false) | lower }}
+
+# Override email address to send to (debugging).
+{% if override_email is defined %}
+override_email = {{ override_email }}
+{% endif %}
+
+# Path to file containing email body text.
+{% if mail_text_file is defined %}
+mail_text_file = {{ mail_text_file }}
+{% endif %}
+
+# Enable debugging output.
+debug = {{ debug | default(false) | lower }}
+
+# Be more verbose.
+verbose = {{ verbose | default(false) | lower }}

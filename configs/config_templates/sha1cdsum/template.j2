@@ -1,0 +1,66 @@
+# ==============================================================================
+# sha1cdsum Configuration Template
+# ==============================================================================
+# This file configures the sha1cdsum utility. Each directive corresponds to
+# a command-line flag. See the sha1cdsum(1) man page for detailed semantics.
+# All boolean flags default to False unless explicitly overridden.
+# ==============================================================================
+
+# --binary: Enable binary mode for reading input files.
+# Normally sha1cdsum assumes text mode on some platforms; this forces binary
+# interpretation to ensure checksums match regardless of line-ending translation.
+BINARY_MODE={{ binary_mode | default(false) | lower }}
+
+# --check: Enable check mode to verify checksums against provided sums.
+# Instead of generating a checksum, sha1cdsum reads a file containing expected
+# checksums and verifies the current files against them.
+CHECK_MODE={{ check_mode | default(false) | lower }}
+
+# --tag: Create BSD-style checksum output lines.
+# BSD-style lines include the filename and a mode indicator (* for binary,
+# space for text) in a format compatible with older BSD sums utilities.
+BSD_STYLE={{ bsd_style | default(false) | lower }}
+
+# --text: Explicitly set text mode for reading input files.
+# Overrides the default binary mode interpretation. Useful when dealing with
+# files that contain line endings that should not be translated during checksumming.
+TEXT_MODE={{ text_mode | default(false) | lower }}
+
+# --zero: End each output line with NUL instead of newline.
+# The output lines are terminated by a NUL byte (\0) rather than a newline.
+# This also disables file name escaping to allow arbitrary characters in filenames.
+ZERO_TERM={{ zero_term | default(false) | lower }}
+
+# --ignore-missing: Do not fail or report status for missing files during check.
+# In check mode, if a file listed in the input checksum file does not exist,
+# this flag suppresses the error and prevents the utility from exiting with a
+# failure status code.
+IGNORE_MISSING={{ ignore_missing | default(false) | lower }}
+
+# --quiet: Do not print OK for each successfully verified file.
+# In check mode, by default sha1cdsum prints "filename: OK" for every file
+# that verifies correctly. This suppresses those success messages.
+QUIET={{ quiet | default(false) | lower }}
+
+# --status: Do not output anything, only return status code.
+# Produces no stdout output. The exit status indicates success (0) or failure
+# (non-zero) based on the verification result.
+STATUS_ONLY={{ status_only | default(false) | lower }}
+
+# --strict: Exit non-zero for improperly formatted checksum lines.
+# If a line in the checksum input file does not match the expected format
+# (hash, whitespace, mode, filename), this flag causes sha1cdsum to exit
+# with an error code rather than skipping the line.
+STRICT={{ strict | default(false) | lower }}
+
+# --warn: Warn about improperly formatted checksum lines.
+# If a line in the checksum input file is malformed, sha1cdsum prints a
+# warning message to stderr but continues processing other lines.
+WARN={{ warn | default(false) | lower }}
+
+# --files: List of input files to process or check.
+# One file per line, prefixed with a dash and a space.
+# If empty, sha1cdsum may read from stdin or use default behavior.
+FILES=
+{% for file in (files | default([])) %}- {{ file }}
+{% endfor %}

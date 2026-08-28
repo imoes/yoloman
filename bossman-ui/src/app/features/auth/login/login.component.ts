@@ -29,7 +29,15 @@ import { AuthService } from '../../../core/auth/auth.service';
         <div class="bm-login-logo">
           <img src="assets/bossman.jpg" alt="Bossman — Fleet Commander" />
         </div>
+        <p class="bm-beta-note"><strong>Beta.</strong> Pre-1.0: interfaces and stored formats can still
+          change between versions. Not yet a promise you should build a change process on.</p>
         <mat-card-content>
+          <!-- FIRST RUN. Asked before anything is offered: an installation with no account cannot be logged
+               into, and showing a password prompt there is asking a question that has no answer. -->
+          @if (needsSetup) {
+            <p class="bm-setup-lead"><strong>Welcome.</strong> This installation has no account yet — create
+              the first administrator.</p>
+          }
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <mat-form-field appearance="outline" class="bm-full-width">
               <mat-label>Username</mat-label>
@@ -37,8 +45,16 @@ import { AuthService } from '../../../core/auth/auth.service';
             </mat-form-field>
             <mat-form-field appearance="outline" class="bm-full-width">
               <mat-label>Password</mat-label>
-              <input matInput type="password" formControlName="password" autocomplete="current-password" />
+              <input matInput type="password" formControlName="password"
+                     [autocomplete]="needsSetup ? 'new-password' : 'current-password'" />
+              @if (needsSetup) { <mat-hint>At least 12 characters.</mat-hint> }
             </mat-form-field>
+            @if (needsSetup) {
+              <mat-form-field appearance="outline" class="bm-full-width">
+                <mat-label>Repeat password</mat-label>
+                <input matInput type="password" formControlName="repeat" autocomplete="new-password" />
+              </mat-form-field>
+            }
             @if (error) {
               <p class="bm-error">{{ error }}</p>
             }
@@ -52,7 +68,7 @@ import { AuthService } from '../../../core/auth/auth.service';
               @if (loading) {
                 <mat-spinner diameter="20"></mat-spinner>
               } @else {
-                Sign in
+                {{ needsSetup ? 'Create administrator' : 'Sign in' }}
               }
             </button>
           </form>
@@ -102,6 +118,21 @@ import { AuthService } from '../../../core/auth/auth.service';
         margin-bottom: 8px;
         font-size: 13px;
       }
+      .bm-beta-note {
+        margin: 0 22px 6px;
+        padding: 7px 9px;
+        border-radius: 6px;
+        border-left: 3px solid var(--bm-gold, #f5c518);
+        background: rgba(245, 197, 24, 0.09);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .bm-setup-lead {
+        margin: 0 0 14px;
+        font-size: 13px;
+        line-height: 1.5;
+        opacity: 0.85;
+      }
     `,
   ],
 })
@@ -113,25 +144,66 @@ export class LoginComponent {
 
   loading = false;
   error = '';
+  /** True while this installation has no account at all — then this page CREATES the first administrator
+   * instead of asking for a password nobody can have. Starts false: showing a setup form to someone who
+   * merely lost their connection would invite them to try creating an account that already exists. */
+  needsSetup = false;
 
   form = this.fb.group({
     username: ['', Validators.required],
     password: ['', Validators.required],
+    // Only used in setup mode, and enabled there — a disabled control is excluded from form.invalid, which
+    // is exactly what makes the same form serve both jobs.
+    repeat: [''],
   });
+
+  constructor() {
+    this.auth.needsSetup().subscribe({
+      next: (r) => {
+        this.needsSetup = r.needs_setup;
+        if (r.needs_setup) {
+          this.form.controls.password.addValidators(Validators.minLength(12));
+          this.form.controls.repeat.addValidators(Validators.required);
+          this.form.controls.password.updateValueAndValidity();
+          this.form.controls.repeat.updateValueAndValidity();
+        }
+      },
+      // An older Bossman has no /auth/setup. Offering the login form is the right guess there — it is what
+      // that version could do — rather than blocking the page because a new endpoint is missing.
+      error: () => { this.needsSetup = false; },
+    });
+  }
 
   onSubmit(): void {
     if (this.form.invalid) return;
+    const { username, password, repeat } = this.form.value;
+    if (this.needsSetup && password !== repeat) {
+      // Checked HERE and not on the server: the server sees one password and cannot know it was mistyped.
+      this.error = 'The two passwords do not match';
+      return;
+    }
     this.loading = true;
     this.error = '';
-    const { username, password } = this.form.value;
 
-    this.auth.login(username!, password!).subscribe({
+    const request = this.needsSetup
+      ? this.auth.setup(username!, password!)
+      : this.auth.login(username!, password!);
+
+    request.subscribe({
       next: () => {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
         this.router.navigateByUrl(returnUrl || '/fleet');
       },
-      error: () => {
-        this.error = 'Invalid username or password';
+      error: (e: { status?: number; error?: { detail?: string } }) => {
+        if (this.needsSetup) {
+          // 409 means somebody else finished the setup between the page loading and this submit. Saying
+          // "invalid credentials" there would be a lie about what happened.
+          this.error = e?.status === 409
+            ? 'This installation now has an account — reload and sign in.'
+            : (e?.error?.detail || 'Could not create the administrator');
+        } else {
+          this.error = 'Invalid username or password';
+        }
         this.loading = false;
       },
     });

@@ -1,0 +1,43 @@
+# slbackup log rotation configuration
+# Generated from Ansible variables; self-documenting and safe for reuse.
+#
+# Log files are stored under: /var/log/<slbackup_log_dir>/
+#
+# Variables:
+#   slbackup_log_dir                  - Directory path for slbackup log files (default: 'slbackup')
+#   slbackup_log_file                 - Filename for the main slbackup log (default: 'slbackup.log')
+#   slbackup_log_rotate_count         - Number of rotated log files to keep for the main log (default: 12)
+#   slbackup_run_scripts_log_file     - Filename for the run scripts log (default: 'run_scripts.log')
+#   slbackup_run_scripts_log_rotate_count - Number of rotated log files to keep for the run scripts log (default: 12)
+
+# --- Main slbackup log rotation ---
+# Rotates the main log file defined by slbackup_log_file.
+# Path: /var/log/<slbackup_log_dir>/<slbackup_log_file>
+/var/log/{{ slbackup_log_dir | default('slbackup') }}/{{ slbackup_log_file | default('slbackup.log') }} {
+    # Rotate logs on a monthly basis
+    monthly
+    # Do not error if the log file is missing
+    missingok
+    # Compress rotated log files to save disk space
+    compress
+    # Do not rotate empty log files
+    notifempty
+    # Keep this many rotated log files before deleting oldest
+    rotate {{ slbackup_log_rotate_count | default(12) }}
+}
+
+# --- Run scripts log rotation ---
+# Rotates the log file for run scripts defined by slbackup_run_scripts_log_file.
+# Path: /var/log/<slbackup_log_dir>/<slbackup_run_scripts_log_file>
+/var/log/{{ slbackup_log_dir | default('slbackup') }}/{{ slbackup_run_scripts_log_file | default('run_scripts.log') }} {
+    # Rotate logs on a monthly basis
+    monthly
+    # Do not error if the log file is missing
+    missingok
+    # Compress rotated log files to save disk space
+    compress
+    # Do not rotate empty log files
+    notifempty
+    # Keep this many rotated log files before deleting oldest
+    rotate {{ slbackup_run_scripts_log_rotate_count | default(12) }}
+}

@@ -1,3 +1,4 @@
+import { BM_GREEN, BM_GOLD, BM_RED, BM_UNKNOWN } from './bm-colors';
 export type BadgeStatus = 'ok' | 'warn' | 'crit' | 'unknown';
 
 /** Same status semantics as the Go node agent's own internal/webui
@@ -41,4 +42,18 @@ export function serviceStateBadge(state: string): BadgeStatus {
     default:
       return 'unknown';
   }
+}
+
+/** A service state as a COLOUR, for dots and chart strokes.
+ *
+ * Lives here with the other state→presentation mappings rather than inside host-detail, where it was
+ * a private method: the Services tab, the Configuration tab's threshold builder and the process list
+ * all ask the same question, and three private copies is how two of them end up disagreeing about
+ * what UNKNOWN looks like. Moved for the same reason serviceMetricSpec was.
+ *
+ * Unknown states fall back to the UNKNOWN colour rather than to a default that would read as OK — an
+ * unrecognised state must not look healthy.
+ */
+export function availabilityColor(state: string): string {
+  return { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN }[state] ?? BM_UNKNOWN;
 }

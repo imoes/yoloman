@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Executable wrapper script for the openmsx service to pass command-line arguments.
+# The service unit passes arguments to this script.
+
+# Args for openmsx command.
+# Default: ['-machine', 'MSX2', '-cart', '/usr/share/openmsx/roms/FamicomTurbo.rom']
+# Common options include -machine, -cart, -diska, -cassetteplayer, etc.
+openmsx \
+{% for arg in args | default(['-machine', 'MSX2', '-cart', '/usr/share/openmsx/roms/FamicomTurbo.rom']) %}
+  {{ arg }} \
+{% endfor %}
+  # Trailing slash handled by shell if no args remain
+
+# Display mode for openmsx.
+# Default: 'fullscreen'
+# Supported values include 'fullscreen', 'windowed', 'borderless', etc.
+# Note: This is an env-var or CLI flag passed separately in the service unit,
+# not part of the args list here, but documented for context.
+# display_mode: {{ display_mode | default('fullscreen') }}
