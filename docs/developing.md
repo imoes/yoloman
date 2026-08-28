@@ -48,14 +48,14 @@ name* on both. Where it does not — `registry`, `windows_feature`, `iis` — it
 | `windows-agent/` | The Windows agent: `.Core` (contracts), `.Modules` (the modules), `.Windows` (WMI, the PowerShell bridge), `.Host` (the service), `.Tests`, `packaging/` (MSI + install scripts). |
 | `bossman/bossman/api/` | 75 routers — the HTTP surface. One file per subject; the file name matches the tag in [the API reference](api-reference.md). |
 | `bossman/bossman/services/` | 123 modules of actual logic. The poller, the monitoring loop, the resource objects, the schema derivation, the remediation engine. **Endpoints stay thin; logic goes here.** |
-| `bossman/bossman/models/` | SQLAlchemy models. Timescale hypertables for metrics. |
+| `bossman/bossman/db/` | `models.py` (SQLAlchemy models, Timescale hypertables for metrics) and the session factory. |
 | `bossman/alembic/` | Migrations. **One lineage, one head** — check with `alembic heads` before adding one. |
 | `bossman-ui/src/app/features/` | 43 feature folders, grouped into workspaces by the shell. Angular 20, signals, `@if`/`@for`. |
 | `configs/` | The catalogues: `checks.d/` (1432 Starlark checks), `config_codecs.json` (14599 file paths), `config_directives.json` (2130), `config_templates/` (5475 dirs), `mmc_snapins.json` (19 snap-ins). |
 | `bin/` | `starlark-check` — the validator to run before pushing any check. `agentic-mcpd` — a built agent. |
 | `scripts/` | Batch pipelines and the documentation generators. |
 | `deploy/` | The compose stack, the PXE image, the container files. |
-| `docs/` | This. 42 pages, plus the generated ones and the published site. |
+| `docs/` | This. One design document per subject, plus the generated pages and the published site. |
 
 **Truth lives in exactly one place per fact**, and that place is usually not the one you would guess:
 
@@ -186,10 +186,13 @@ commented with exactly the mistakes its author made.
 ### An endpoint
 
 A router in `bossman/bossman/api/`, thin; the logic in `services/`. **Write a docstring** — it becomes the
-description in [the API reference](api-reference.md), and 201 of the 481 operations still have none, which is
-the single easiest documentation improvement available in this repository — the first 33 were written by reading
-the handler and *verifying* every claim against the code, which is the only way this is worth doing: four of
-those first drafts asserted behaviour the code does not have. Tag it with the group it belongs
+description in [the API reference](api-reference.md), which counts how many handlers still have none and says
+so on its own first page. That number is deliberately not repeated here: one fact, one place, or the two
+disagree the next time someone writes a docstring.
+
+Writing one is not a formality. The batch that closed the first 33 did it by reading each handler and
+*verifying* every sentence against the code, and four of those first drafts asserted behaviour the code does
+not have. Tag it with the group it belongs
 to; if the group is new, add its one-line description to `TAG_BLURBS` in
 `scripts/generate-api-reference.py`.
 
@@ -215,12 +218,15 @@ break the build with a confusing error, and a filter bound to a plain field type
 docker compose -p agentic-mcp up -d --build            # add a service name to limit it
 # NEVER `docker cp` a file into a running container: it is lost on the next recreate and it hides drift.
 
-# Bossman tests — use the host venv, not `uv run` inside the container.
-.venv-host/bin/python -m pytest bossman/tests -x -q    # 176 test files
-# The database-backed tests DO run: BOSSMAN_DATABASE_URL points at 127.0.0.1:55433. If they look like
-# "environmental failures", that is a wrong default, not an excuse — running them has found real bugs.
+# Bossman tests. Note BOTH details: the venv lives under bossman/, not at the repo root, and the database
+# URL must be PASSED — the built-in default points at localhost:5432, which is not the stack's database.
+cd bossman && env BOSSMAN_DATABASE_URL="postgresql+asyncpg://bossman:bossman@127.0.0.1:55433/bossman" \
+    .venv-host/bin/python -m pytest tests -q
+# Without that variable ~13 tests fail with ConnectionRefusedError. They are NOT "environmental failures":
+# with it they pass, and running them has found real bugs. Use `uv run` inside the container and you break
+# the host venv the batch services depend on.
 
-go test ./...                                          # the Go agent, 152 test files
+go test ./...                                          # the Go agent, 152 test files (verified: all compile)
 cd bossman-ui && npx ng build                          # must be green before any UI commit
 
 bin/starlark-check -strict configs/checks.d/<name>.star # before pushing a check

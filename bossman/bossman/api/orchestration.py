@@ -104,6 +104,21 @@ async def _get_plan_or_404(session: AsyncSession, plan_id: UUID) -> Orchestratio
 async def list_plans(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[PlanOut]:
+    """Every orchestration plan — and note which kind of "plan" this is.
+
+    This API has **two unrelated things called a plan**, and confusing them is the
+    most likely mistake here:
+
+    - **An orchestration plan (this one)** is *desired state*: a stable named handle
+      (`docker_host`, `postgres_cluster`) whose content lives in immutable versions
+      and which takes effect by being **linked** to a scope. Nothing runs when you
+      create one. Types: role, cluster, deployment, remediation, maintenance,
+      bootstrap.
+    - **A runbook plan (`GET /api/v1/plans`)** is a step list you *execute* against a
+      host — "take plan X, run it against host Y". That one has a `/run`.
+
+    Soft-deleted plans are excluded; the deletion is recorded, not erased.
+    """
     rows = (
         await session.scalars(
             select(OrchestrationPlan).where(
@@ -118,6 +133,8 @@ async def list_plans(
 async def get_plan(
     plan_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanOut:
+    """One orchestration plan with its current version pointer and its links.
+    404 when there is no such id or it has been deleted."""
     plan = await _get_plan_or_404(session, plan_id)
     return await PlanOut.build(session, plan)
 
@@ -126,6 +143,14 @@ async def get_plan(
 async def create_plan(
     body: PlanIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanOut:
+    """Create the named handle. It does nothing until it has content and a link.
+
+    `plan_type` must be one of role, cluster, deployment, remediation, maintenance,
+    bootstrap (422 otherwise), and the name must be unique (409). What a plan *does*
+    lives in its versions — `POST .../versions` — and *where* it applies lives in its
+    links. A plan with neither is inert on purpose: it exists so a link can point at a
+    name that will not change when the content does.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     if body.plan_type not in _PLAN_TYPES:
@@ -157,6 +182,13 @@ class PlanPatchIn(BaseModel):
 async def update_plan(
     plan_id: UUID, body: PlanPatchIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanOut:
+    """Rename or re-describe a plan. **Metadata only, deliberately.**
+
+    This endpoint cannot touch the plan's versions or entries. Editing a label is the
+    most common reason to open a policy, and if that same call could carry content, a
+    client that sent a partial body would silently drop the plan's steps. Content
+    changes go through `POST .../versions`, which adds a new immutable version.
+    """
     plan = await _get_plan_or_404(session, plan_id)
     if body.display_name is not None:
         plan.display_name = body.display_name
@@ -187,6 +219,16 @@ async def create_plan_version(
 async def delete_plan(
     plan_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a plan, its versions and its links, then recompile.
+
+    The links go with it (`ON DELETE CASCADE`), so every host that had this plan
+    through any scope loses it — which is a change to those hosts' desired state, and
+    the tenant is recompiled immediately rather than at the next cycle so
+    `GET .../desired-state` never shows a plan that no longer exists.
+
+    This is not reversible through the API. To stop a plan applying somewhere without
+    losing it, delete the **link** instead.
+    """
     plan = await _get_plan_or_404(session, plan_id)
     await session.delete(plan)  # versions + links are ON DELETE CASCADE
     await session.commit()
@@ -250,6 +292,13 @@ async def _affected(session: AsyncSession, link: OrchestrationPlanLink) -> list[
 async def list_plan_links(
     plan_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[PlanLinkOut]:
+    """Where this plan applies: one row per scope it is linked to.
+
+    A link carries its own status — `active`, `pending_approval` or `rejected` — so
+    this is also the answer to "why is this plan not on that host": the link may exist
+    and be waiting for approval. Both are shown; a pending link is not hidden, because
+    an invisible pending change is indistinguishable from no change at all.
+    """
     await _get_plan_or_404(session, plan_id)
     rows = (await session.scalars(select(OrchestrationPlanLink).where(OrchestrationPlanLink.plan_id == plan_id))).all()
     return [PlanLinkOut.from_model(link) for link in rows]
@@ -338,6 +387,16 @@ async def create_plan_link(
 async def approve_plan_link(
     plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanLinkOut:
+    """Approve a pending link — the moment desired state actually starts applying.
+
+    Sets the link `active` and **immediately recompiles every affected host**, so the
+    change is visible in `GET .../desired-state` before this call returns rather than
+    at the next cycle.
+
+    **409 when the link is not `pending_approval`.** Approving an already-active link
+    is not a harmless no-op question — it means the caller believes something is
+    waiting that is not, and answering "fine" would confirm a wrong belief.
+    """
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
@@ -355,6 +414,14 @@ async def approve_plan_link(
 async def reject_plan_link(
     plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> PlanLinkOut:
+    """Reject a pending link: it stays as a `rejected` row and applies to nothing.
+
+    Rejected rather than deleted, on purpose — "someone decided against this" is a
+    fact worth keeping, and a link that vanished would leave the next person to
+    propose the same thing with no idea it had already been refused.
+
+    409 when the link is not `pending_approval`, for the same reason as approve.
+    """
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
@@ -369,6 +436,12 @@ async def reject_plan_link(
 async def delete_plan_link(
     plan_id: UUID, link_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Unlink the plan from this scope and recompile the affected hosts.
+
+    The plan itself survives; only this binding goes. Hosts that also receive the plan
+    through another scope keep it — so a delete here can change nothing at all, and
+    the recompile is what tells you which it was.
+    """
     link = await session.get(OrchestrationPlanLink, link_id)
     if link is None or link.plan_id != plan_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on plan {plan_id}")
@@ -413,6 +486,17 @@ class CompiledStateOut(BaseModel):
 async def get_agent_desired_state(
     agent_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> CompiledStateOut:
+    """What this host is *supposed* to look like: the compiled desired state.
+
+    The result of folding every plan link, template link, policy and threshold that
+    reaches this host, in precedence order, into one document. This is the **rule**
+    side; what the host actually looks like is the observed state, read elsewhere.
+    Keeping the two apart is the point — a screen that mixed them could not answer
+    "is this host converged".
+
+    Always current: creating, approving or deleting a link recompiles the affected
+    hosts before returning, so this never serves a state that is one cycle behind.
+    """
     result = await compile_host_desired_state(session, agent_id)
     if result is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")
