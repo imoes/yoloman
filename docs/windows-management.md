@@ -419,7 +419,34 @@ closed enumeration this project spent a week learning to recognise in prose.
    dashes (both scripts carry a BOM and say why), and `Invoke-RestMethod` under 5.1 could not reach the local
    agent at all while curl from another machine got 200 — so the installer's health probe uses curl.exe from
    system32 and, where that is absent, says "port only" instead of claiming a health check happened.
-   The MSI itself (7b) remains: what exists is repeatable and idempotent, not yet a package Windows tracks.
+   **7b, the MSI: authored, and blocked on a Windows build host — measured, not assumed.** `packaging/
+   agent.wxs` and `packaging/build-msi.py` are complete: the package installs the service with its
+   configuration passed on the msiexec command line (into the SERVICE's own environment, never machine-wide),
+   creates the state directory and LEAVES IT on uninstall (dropping it would turn "reinstall" into
+   "re-enrol"), upgrades in place rather than beside, and refuses to install on anything older than Server
+   2016 rather than failing later. It deliberately does not enrol (the agent does that when it starts with
+   BOSSMAN_URL) and does not open the firewall (the agent does that itself, since only the process knows which
+   port it was configured with).
+
+   The harvester generates 590 components over 22 directories with GUIDs DERIVED FROM THE PATH — stable across
+   builds, which is what makes an upgrade replace files instead of installing a second copy — and leaves out
+   52 localisation files on purpose: 9.5 MB of .NET's own translated error messages in a service whose output
+   is read by a server and an AI, where a German exception inside an English record is harder to act on, not
+   easier.
+
+   What is missing is a Windows build step. `wix` runs on Linux and says "all behavior after this point is
+   undefined", and it means it: three attempts failed on the tool's own path validation, each inconsistently —
+   File/@Source rejected the backslashes WiX exists for; Component/@Subdirectory rejected 20 of ~40 values
+   while accepting others of identical shape; Directory/@Name rejected every name containing a dot
+   (`Microsoft.PowerShell.Host`) while accepting `net9.0`. Shipping installers from a toolchain that declares
+   its own behaviour undefined is not a trade worth making. Also worth a decision before anyone automates it:
+   **WiX v6 and up require accepting the Open Source Maintenance Fee agreement**; v5.0.2 is the last version
+   under MS-RL, and that is what the script pins.
+
+   `packaging/verify-msi.ps1` is the acceptance test, and the package is UNVERIFIED until it passes: install
+   silently, service Running AND /healthz answering (two different claims), the entry in Programs and Features
+   with the built version, a second install that upgrades in place with one product and one service, an
+   uninstall that removes service, binaries and entry — and a state directory that survives it.
 
 8. ~~**The declared-registry resource + the GP conflict report.**~~ — **DONE 2026-08-27.** A registry value is
    a first-class desired-state resource (`type: "registry"`, one value per row, per-key `source` from the
