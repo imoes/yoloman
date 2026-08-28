@@ -355,13 +355,50 @@ closed enumeration this project spent a week learning to recognise in prose.
    longer pass as success; and the module fails when the state after the call does not match the request —
    the same "the exit code is a claim, the state is the evidence" rule `package` had from the start and this
    module shipped without.
-5. **The snapins**, in the order the fleet needs them: IIS → DHCP → DNS → SMB → scheduled tasks → firewall.
-   Each one's FieldSpec generated from `Get-Command`, so the console is typed on the first try.
+5. ~~**The snapins**, in the order the fleet needs them: IIS → DHCP → DNS → SMB → scheduled tasks → firewall.~~
+   — **DONE 2026-08-28**, and they arrived inside a rebuilt **MMC console** rather than as six separate
+   screens: a console tree, a result list with columns per node and actions on the selected row, all declared
+   in `configs/mmc_snapins.json` (19 snap-ins, each naming its MMC counterpart on a Windows host). The fields
+   are not generated from `Get-Command` as planned but from each MODULE's own `input_schema`, which every agent
+   already publishes in `GET /api/v1/tools` — the same information, from the authority that has to accept the
+   call, so a create dialog cannot offer a parameter the module would refuse.
+
+   Five new modules under it, each verified on the host: `scheduled_task` (156 tasks; not called `cron`, since
+   a cron entry is five fields and a task is triggers + principal + conditions + settings), `share` (SMB
+   shares, and every read says it shows the SHARE list and not the folder's NTFS list — the stricter of the two
+   wins), `windows_firewall_rule` (296 rules with their ports joined in; `effect` is action AND enabled AND
+   profiles together), `windows_iis` (sites + bindings + pools in one read, because "what serves on port 80"
+   spans all three — proven by a created site answering HTTP 403 on 8099), `windows_dns` (a zone created, a
+   record added, and `dig` resolving it from another machine).
+
+   **Six defects the second run or the real host found**, each now a comment where it happened:
+   `[int]$info.LastTaskResult` OVERFLOWS (Windows returned 2147942402 and one unlucky task killed the whole
+   inventory); `-RepetitionInterval` without `-RepetitionDuration` repeats for ONE DAY (an interval task would
+   have quietly stopped); principals are LOCALISED — `-ReadAccess "Everyone"` fails on a German host where the
+   account is *Jeder*, so well-known principals now resolve through their SID (Everyone is S-1-1-0 everywhere)
+   and the idempotence check compares through the same translation; Windows stores `10.32.0.0/16` as
+   `10.32.0.0/255.255.0.0`, so a firewall rule reported "changed" forever; a `-Write` install produced a
+   read-only agent because PowerShell binds `,` looser than `+` in an array literal; and the tool endpoint
+   flattened arrays with `ToString()`, so every list parameter of every module arrived as JSON text.
+
+   **DHCP is the exception, on purpose.** Its read path, dry-run plans and refusals are verified on the host;
+   creating an ACTIVE scope is not. This host sits on a real network, an active scope answers every
+   DHCPDISCOVER on its segment, and that is an operator's decision. A new scope is therefore created INACTIVE
+   unless activation is stated, and the read reports authorization with what it MEANS — the same flag makes a
+   server refuse to serve on a domain network and serve happily on a workgroup one.
 6. **The generated wrappers.** Tier-2 modules that are a thin shell over one cmdlet family are declared in a
    table (module name, cmdlets, key parameters, idempotence rule) and generated, because 40 hand-written
    near-identical modules is 40 chances to spell `state` differently.
 7. **MSI packaging of the agent itself** + service registration — the milestone 6 of `windows-agent.md`, and
    the thing that makes all of the above installable rather than copied.
+
+   **7a is DONE 2026-08-27: the service.** `UseWindowsService` plus an idempotent `install-agent.ps1` /
+   `uninstall-agent.ps1`, proven with a real reboot (host up 20:25:30, agent process 20:25:35, unattended).
+   Two things the host taught: powershell.exe 5.1 reads a BOM-less UTF-8 file as ANSI and dies on the em
+   dashes (both scripts carry a BOM and say why), and `Invoke-RestMethod` under 5.1 could not reach the local
+   agent at all while curl from another machine got 200 — so the installer's health probe uses curl.exe from
+   system32 and, where that is absent, says "port only" instead of claiming a health check happened.
+   The MSI itself (7b) remains: what exists is repeatable and idempotent, not yet a package Windows tracks.
 
 8. ~~**The declared-registry resource + the GP conflict report.**~~ — **DONE 2026-08-27.** A registry value is
    a first-class desired-state resource (`type: "registry"`, one value per row, per-key `source` from the
