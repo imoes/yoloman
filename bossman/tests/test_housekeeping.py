@@ -18,6 +18,15 @@ from bossman.db.models import Agent, Notification
 from bossman.services.housekeeping import run_housekeeping
 
 
+
+#: What run_housekeeping sweeps. THE ONE LIST — tests/test_admin_api.py asserts against these too, and it
+#: held a second copy that was three sweeps out of date, so the same exact-set assertion was red there while
+#: it was green here. Adding a sweep means adding it here, once.
+ALWAYS_SWEEPS = {"notifications", "plan_runs", "host_edges", "process_series_stale", "metric_series_orphans"}
+#: These appear only when the operator has set a run-retention window (0 = keep forever), so an exact-set
+#: assertion has to allow their absence rather than demand it.
+OPTIONAL_SWEEPS = {"runbook_runs", "audit_log"}
+
 async def _make_agent(db_session) -> Agent:
     agent = Agent(name=owned_name("hk"), token="tok", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
@@ -89,11 +98,5 @@ async def test_run_housekeeping_covers_exactly_its_own_tables(db_session):
 
     deleted = await run_housekeeping(db_session, settings, now)
 
-    # host_edges, runbook_runs and audit_log were added to the sweep and NOT to this list, so this test has
-    # been red for as long as they have existed — an exact-set assertion only protects the contract if the
-    # list is kept. runbook_runs/audit_log appear only when the operator has set a run-retention window
-    # (0 = keep forever), which is why they are conditional here rather than unconditional above.
-    expected = {"notifications", "plan_runs", "host_edges", "process_series_stale", "metric_series_orphans"}
-    optional = {"runbook_runs", "audit_log"}
-    assert set(deleted.keys()) - optional == expected
-    assert set(deleted.keys()) <= expected | optional
+    assert set(deleted.keys()) - OPTIONAL_SWEEPS == ALWAYS_SWEEPS
+    assert set(deleted.keys()) <= ALWAYS_SWEEPS | OPTIONAL_SWEEPS

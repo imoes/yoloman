@@ -54,7 +54,14 @@ async def test_backends_endpoint(db_session):
         resp = client.get("/api/v1/chat/backends", headers=_headers(raw))
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body["backends"]) == {"claude_cli", "codex", "hermes_web"}
+    # Asserted against the SOURCE of the list, not a copy of it. The literal set here omitted
+    # `openrouter` from the day that backend was added, so this test was red while the endpoint was
+    # correct — the third exact-set assertion in this suite to rot the same way. The contract worth
+    # testing is "the endpoint offers exactly what chat_backend declares", and that cannot drift.
+    from bossman.services.chat_backend import BACKENDS
+
+    assert set(body["backends"]) == set(BACKENDS)
+    assert body["default"] in BACKENDS
     await db_session.delete(api_token)
     await db_session.commit()
 

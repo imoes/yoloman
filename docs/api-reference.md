@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **316 carry a description** written in the handler
-itself; **165 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **325 carry a description** written in the handler
+itself; **156 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -944,11 +944,19 @@ Known keys+values for the rule-conditions editor's live search: host tag groups 
 
 #### `GET /api/v1/ou`
 
-List Ou Nodes. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The whole OU tree, flat, ordered by its materialized path.
+
+An organisational unit is the AD-style hierarchy a host sits at **exactly one** node of. It is what checks, configuration, notifications and orchestration links are inherited through, in the order global < group < OU < site < host.
+
+Ordering by `path` means the flat list is already in tree order, so a client can render the hierarchy without a second query or a recursive one. Soft-deleted nodes are excluded — the deletion is recorded, not erased.
 
 #### `POST /api/v1/ou`
 
-Create Ou Node. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create an OU under `parent_id`, or at the root when that is omitted.
+
+**409 when a sibling already has this name.** Two children of one parent with the same name would make the materialized path ambiguous, and a path that identifies two nodes cannot be used for inheritance.
+
+The node's `path` and its ltree key are computed from the ancestry **at write time** rather than resolved on read. Reads of the tree therefore need no recursive query — the cost of a move is paid once, by the writer.
 
 The JSON body carries:
 
@@ -957,7 +965,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/ou/{ou_id}`
 
-Delete Ou Node. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete an empty OU. It must be empty in both senses.
+
+**409 while it still has child OUs**, and **409 while any host is placed in it** — each with the sentence saying which. Neither is a cascade candidate: deleting a subtree would silently remove inheritance from hosts nobody named, and re-placing hosts is a decision, not a side effect of tidying the tree. Move the children and the hosts first.
 
 In the path:
 
@@ -977,7 +987,9 @@ The JSON body carries:
 
 #### `GET /api/v1/ou/{ou_id}/ancestry`
 
-Get Ou Ancestry. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The chain from the root down to this node.
+
+This *is* the inheritance order for everything scoped to an OU: each ancestor's policies apply, the nearer node wins, and this list is the sequence a client should show when explaining why a host has an effective value. Asking for it separately beats deriving it from paths, because the server resolves it the same way the policy compiler does.
 
 In the path:
 
@@ -3731,7 +3743,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/saved-searches/{search_id}`
 
-Delete Saved Search. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a saved search.
+
+**204 whether or not it existed** — a delete states an end condition that holds either way, and a 404 would make a retry look like a failure.
+
+A saved search is **tenant-scoped and shared** by everyone in the tenant, not private to whoever made it; `created_by` records the author but confers no ownership. So this removes it for your colleagues too, and the endpoint does not ask whether you were the author.
 
 In the path:
 
@@ -3739,7 +3755,11 @@ In the path:
 
 #### `GET /api/v1/search`
 
-Unified Search. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The omnibox: hosts, host groups and services for one query, capped per type.
+
+A grouped preview for a live dropdown, not a result set — `limit` caps **each** type (default 8) and `counts` says how many exist beyond what is shown. Host rows carry the worst-state rollup so the dropdown can show severity without a second call.
+
+**An empty query returns nothing here**, deliberately: an omnibox with an empty box should offer no dropdown. Note that the paginated views below do the opposite with the same input — see `search_hosts`. The query grammar is in `services/search.py` and is shared with the result views, so search and manual filtering cannot disagree.
 
 Query parameters:
 
@@ -3748,7 +3768,7 @@ Query parameters:
 
 #### `GET /api/v1/search/host-groups`
 
-Search Host Groups. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Host groups whose names match the query. Flat names, capped by `limit`.
 
 Query parameters:
 
@@ -3757,7 +3777,11 @@ Query parameters:
 
 #### `GET /api/v1/search/hosts`
 
-Search Hosts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Hosts matching the query, paginated, with the unpaginated `total`.
+
+**An empty query matches EVERY host** — the opposite of the omnibox, which returns nothing for the same input. Both are right for their surface (a filter panel with nothing typed shows the fleet; a dropdown with nothing typed shows no menu), and a caller carrying an assumption from one to the other gets it exactly backwards. Send a query, or mean "all".
+
+Infrastructure agents are excluded, as everywhere a *host* is listed: the silent SNMP/SSH poller is not a monitored host. Each row carries the worst-state rollup of its services.
 
 Query parameters:
 
@@ -3767,7 +3791,11 @@ Query parameters:
 
 #### `GET /api/v1/search/services`
 
-Search Services. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Service checks matching the query, fleet-wide and paginated.
+
+The list `/api/v1/problems` cannot give you: **every** matching service with its state, not only the ones that are not OK. That is the difference between asking "how is this check doing everywhere" and "what is broken".
+
+Each row carries its host's name, criticality and site, so a caller does not need to join against the fleet listing to sort or group by them. An empty query matches everything, as in `search_hosts`.
 
 Query parameters:
 

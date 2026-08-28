@@ -94,11 +94,11 @@ async def create_user(
 ) -> dict[str, Any]:
     """Create an account. Two roles exist: `admin` and `operator` (422 for anything else).
 
-        **The role is not the host ACL.** `admin` bypasses the per-host check entirely; `operator` may
-        manage nothing until an access grant says otherwise. Creating an operator therefore creates
-        someone who can log in and see, and change nothing — which is the intended starting point, not
-        an oversight.
-        """
+    **The role is not the host ACL.** `admin` bypasses the per-host check entirely; `operator` may
+    manage nothing until an access grant says otherwise. Creating an operator therefore creates
+    someone who can log in and see, and change nothing — which is the intended starting point, not
+    an oversight.
+    """
     if body.role not in _ROLES:
         raise HTTPException(status_code=422, detail=f"role must be one of: {', '.join(_ROLES)}")
     if not body.username.strip() or not body.password:
@@ -118,10 +118,10 @@ async def update_user(
 ) -> dict[str, Any]:
     """Change a role or a password; omitted fields stay as they are.
 
-        Note what a role change does immediately: promoting to `admin` grants management of every host
-        at once, because admin bypasses the grant check rather than being given grants. There is no
-        per-host trace of that promotion in the grant table — the audit trail is where it is recorded.
-        """
+    Note what a role change does immediately: promoting to `admin` grants management of every host
+    at once, because admin bypasses the grant check rather than being given grants. There is no
+    per-host trace of that promotion in the grant table — the audit trail is where it is recorded.
+    """
     u = await session.scalar(select(BossmanUser).where(BossmanUser.username == username))
     if u is None:
         raise HTTPException(status_code=404, detail=f"no such user {username!r}")
@@ -139,12 +139,12 @@ async def update_user(
 async def delete_user(username: str, session: AsyncSession = Depends(get_session), admin=Depends(require_admin)) -> None:
     """Delete an account.
 
-        **409 when it is your own** — an admin who deletes themselves could leave an installation with
-        no administrator and no way back in. 404 when there is no such user.
+    **409 when it is your own** — an admin who deletes themselves could leave an installation with
+    no administrator and no way back in. 404 when there is no such user.
 
-        Their access grants are subject-referenced by username, so a new account created with the same
-        name would inherit them. Delete the grants too unless that is what you want.
-        """
+    Their access grants are subject-referenced by username, so a new account created with the same
+    name would inherit them. Delete the grants too unless that is what you want.
+    """
     u = await session.scalar(select(BossmanUser).where(BossmanUser.username == username))
     if u is None:
         raise HTTPException(status_code=404, detail=f"no such user {username!r}")
@@ -165,10 +165,10 @@ class CreateTokenRequest(BaseModel):
 async def list_tokens(session: AsyncSession = Depends(get_session), _admin=Depends(require_admin)) -> dict[str, Any]:
     """Every API token, by name and creation time, with whether it has been revoked.
 
-        **The secret is not here and cannot be recovered** — only its hash is stored. A revoked token
-        stays in this list rather than disappearing: "this token existed and was revoked" is a
-        different fact from "no such token", and an audit entry referring to it must stay explainable.
-        """
+    **The secret is not here and cannot be recovered** — only its hash is stored. A revoked token
+    stays in this list rather than disappearing: "this token existed and was revoked" is a
+    different fact from "no such token", and an audit entry referring to it must stay explainable.
+    """
     rows = (await session.scalars(select(ApiToken).order_by(ApiToken.name))).all()
     return {
         "tokens": [
@@ -185,14 +185,14 @@ async def create_token(
 ) -> dict[str, Any]:
     """Mint an API token. **The secret is returned exactly once, in this response.**
 
-        Only its hash is stored, so there is no endpoint that can show it again — if it is lost, revoke
-        the token and mint another.
+    Only its hash is stored, so there is no endpoint that can show it again — if it is lost, revoke
+    the token and mint another.
 
-        **Names are not unique**, and that matters more than it looks: a grant binds to the token's
-        UID, not to its name, so two tokens called `ci` are two different subjects. Creating a
-        duplicate name is allowed and makes the *grants* ambiguous to read, which is why
-        `POST /api/v1/access-grants` refuses to bind by an ambiguous name (409).
-        """
+    **Names are not unique**, and that matters more than it looks: a grant binds to the token's
+    UID, not to its name, so two tokens called `ci` are two different subjects. Creating a
+    duplicate name is allowed and makes the *grants* ambiguous to read, which is why
+    `POST /api/v1/access-grants` refuses to bind by an ambiguous name (409).
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name required")
     row, raw = new_api_token(body.name.strip())
@@ -207,10 +207,10 @@ async def create_token(
 async def revoke_token(token_id: UUID, session: AsyncSession = Depends(get_session), _admin=Depends(require_admin)) -> None:
     """Revoke a token: it stops authenticating immediately and stays in the list, stamped.
 
-        Not a delete. Its grants are left in place — revoking authentication and removing authorisation
-        are two separate acts, and a grant whose token is revoked is inert but still visible, which is
-        what lets someone answer "what was this token allowed to do".
-        """
+    Not a delete. Its grants are left in place — revoking authentication and removing authorisation
+    are two separate acts, and a grant whose token is revoked is inert but still visible, which is
+    what lets someone answer "what was this token allowed to do".
+    """
     from datetime import datetime, timezone
 
     t = await session.get(ApiToken, token_id)
@@ -251,14 +251,14 @@ def _grant_out(g: AccessGrant) -> dict[str, Any]:
 async def list_grants(session: AsyncSession = Depends(get_session), _admin=Depends(require_admin)) -> dict[str, Any]:
     """Every access grant in the server: who may manage what.
 
-        A grant is `(subject, scope)` — the subject being a user (by username) or an api_token (by its
-        UID), the scope being `all`, one `host`, or one `host_group`. Admin users hold no grants and can
-        do everything, so this table is not the complete answer to "who can reach this host"; it is the
-        complete answer for everyone who is not an admin.
+    A grant is `(subject, scope)` — the subject being a user (by username) or an api_token (by its
+    UID), the scope being `all`, one `host`, or one `host_group`. Admin users hold no grants and can
+    do everything, so this table is not the complete answer to "who can reach this host"; it is the
+    complete answer for everyone who is not an admin.
 
-        `subject_token_id` is shown because it, not `subject_ref`, decides authorisation for a token —
-        two grants can carry the same name and belong to different tokens, one of them possibly dead.
-        """
+    `subject_token_id` is shown because it, not `subject_ref`, decides authorisation for a token —
+    two grants can carry the same name and belong to different tokens, one of them possibly dead.
+    """
     rows = (await session.scalars(select(AccessGrant).order_by(AccessGrant.subject_ref))).all()
     return {"grants": [_grant_out(g) for g in rows]}
 
@@ -269,14 +269,14 @@ async def create_grant(
 ) -> dict[str, Any]:
     """Grant management rights: `all`, one host, or one host group.
 
-        422 when the scope's own target is missing (`host` needs `agent_id`, `host_group` needs
-        `host_group_id`) — a grant that names a scope without its object would be silently unusable.
+    422 when the scope's own target is missing (`host` needs `agent_id`, `host_group` needs
+    `host_group_id`) — a grant that names a scope without its object would be silently unusable.
 
-        **An api_token grant binds to the token's UID, and an ambiguous name is refused (409)** rather
-        than resolved by guessing. It was name-bound once, and that measurably applied one grant to
-        every token sharing the name (28 of them for a single name). An authorisation must not depend
-        on which of several rows a query happened to return first.
-        """
+    **An api_token grant binds to the token's UID, and an ambiguous name is refused (409)** rather
+    than resolved by guessing. It was name-bound once, and that measurably applied one grant to
+    every token sharing the name (28 of them for a single name). An authorisation must not depend
+    on which of several rows a query happened to return first.
+    """
     if body.subject_kind not in _SUBJECT_KINDS:
         raise HTTPException(status_code=422, detail=f"subject_kind must be one of: {', '.join(_SUBJECT_KINDS)}")
     if body.scope not in _SCOPES:
@@ -323,10 +323,10 @@ async def create_grant(
 async def delete_grant(grant_id: UUID, session: AsyncSession = Depends(get_session), _admin=Depends(require_admin)) -> None:
     """Revoke a grant. Takes effect on the next request — nothing is cached.
 
-        404 when there is no such grant. If the subject also holds a wider grant (`scope: all`, or a
-        group containing the host), removing this one changes nothing; `GET /api/v1/access-grants` is
-        how you check that before assuming access is gone.
-        """
+    404 when there is no such grant. If the subject also holds a wider grant (`scope: all`, or a
+    group containing the host), removing this one changes nothing; `GET /api/v1/access-grants` is
+    how you check that before assuming access is gone.
+    """
     g = await session.get(AccessGrant, grant_id)
     if g is None:
         raise HTTPException(status_code=404, detail="no such grant")

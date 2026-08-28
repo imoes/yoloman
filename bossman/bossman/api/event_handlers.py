@@ -211,17 +211,17 @@ class HandlerMeta(BaseModel):
 @router.get("/api/v1/event-handlers/meta", response_model=HandlerMeta)
 async def event_handler_meta(_i: Identity = Depends(get_current_identity)) -> HandlerMeta:
     """The vocabularies a handler can be built from, with the reason for the one restriction
-        that surprises people.
+    that surprises people.
 
-        `bodies` (runbook, script), `locations` (managed, local), `interpreters` — a closed list on
-        purpose, because free text would let someone name a binary the host does not have and it
-        would fail only when an event fires — and the directory a managed script is deployed to.
+    `bodies` (runbook, script), `locations` (managed, local), `interpreters` — a closed list on
+    purpose, because free text would let someone name a binary the host does not have and it
+    would fail only when an event fires — and the directory a managed script is deployed to.
 
-        `local_no_parameters_reason` is the sentence a form should show instead of inventing its own:
-        Bossman does not have a local script's contents, so it cannot say which parameters it takes.
-        The event context (host, service, state, value) is passed regardless — that is the fact which
-        caused the run, not a parameter.
-        """
+    `local_no_parameters_reason` is the sentence a form should show instead of inventing its own:
+    Bossman does not have a local script's contents, so it cannot say which parameters it takes.
+    The event context (host, service, state, value) is passed regardless — that is the fact which
+    caused the run, not a parameter.
+    """
     return HandlerMeta(
         bodies=list(_BODIES), locations=list(_LOCATIONS), interpreters=list(_INTERPRETERS),
         handler_dir=eh.HANDLER_DIR,
@@ -241,9 +241,9 @@ async def list_event_handlers(
 ) -> list[EventHandlerOut]:
     """Every event handler — the reusable *actions* that rules perform.
 
-        Each row carries `used_by_rules`, the number of rules pointing at it, so a caller can see
-        what a change or a delete would affect before attempting either.
-        """
+    Each row carries `used_by_rules`, the number of rules pointing at it, so a caller can see
+    what a change or a delete would affect before attempting either.
+    """
     rows = (await session.scalars(select(EventHandler).order_by(EventHandler.name))).all()
     return [EventHandlerOut.of(h, used_by_rules=await _rule_count(session, h.id)) for h in rows]
 
@@ -256,18 +256,18 @@ async def create_event_handler(
 ) -> EventHandlerOut:
     """Create a handler: a runbook, or a script Bossman either deploys or finds on the host.
 
-        Every refusal names its reason instead of surfacing a constraint name. The forbidden
-        combinations are already impossible in the schema; this layer explains them:
+    Every refusal names its reason instead of surfacing a constraint name. The forbidden
+    combinations are already impossible in the schema; this layer explains them:
 
-        - a **runbook** handler cannot be `local` — a runbook is a document in Bossman's database, so
-          there is nothing on the host to point at — and its runbook must exist now;
-        - a **local** script cannot declare parameters, because Bossman does not have its body and so
-          cannot describe what it accepts;
-        - a **managed** script needs its source, because Bossman deploys it before every run.
+    - a **runbook** handler cannot be `local` — a runbook is a document in Bossman's database, so
+      there is nothing on the host to point at — and its runbook must exist now;
+    - a **local** script cannot declare parameters, because Bossman does not have its body and so
+      cannot describe what it accepts;
+    - a **managed** script needs its source, because Bossman deploys it before every run.
 
-        Re-deployed on **every** run rather than copied once: a host holding an older copy than the
-        one Bossman displays would be two truths for one body.
-        """
+    Re-deployed on **every** run rather than copied once: a host holding an older copy than the
+    one Bossman displays would be two truths for one body.
+    """
     await _validate(body, session)
     handler = EventHandler(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, created_by=identity.name)
     _apply(handler, body)
@@ -308,13 +308,13 @@ async def update_event_handler(
 ) -> EventHandlerOut:
     """Replace a handler — with a real concurrency check, unlike some of its neighbours.
 
-        Send `If-Match` with the `version` from a previous read; a stale version is refused, so two
-        people editing the same handler cannot silently overwrite each other. (Check rules carry a
-        `version` that nothing verifies. The difference is deliberate here and an inconsistency
-        there.)
+    Send `If-Match` with the `version` from a previous read; a stale version is refused, so two
+    people editing the same handler cannot silently overwrite each other. (Check rules carry a
+    `version` that nothing verifies. The difference is deliberate here and an inconsistency
+    there.)
 
-        Validation is the same as on create, and the name must stay unique (409).
-        """
+    Validation is the same as on create, and the name must stay unique (409).
+    """
     handler = await _get_or_404(session, handler_id)
     check_if_match(request, EventHandlerOut.of(handler).version)
     await _validate(body, session)
@@ -335,10 +335,10 @@ async def delete_event_handler(
 ) -> None:
     """Delete a handler, unless a rule still points at it.
 
-        **409 naming how many rules stand in the way**, rather than the foreign-key error the
-        database would raise: deleting it would leave a rule that fires and does nothing, which is
-        worse than a handler that cannot be deleted. Point those rules elsewhere first.
-        """
+    **409 naming how many rules stand in the way**, rather than the foreign-key error the
+    database would raise: deleting it would leave a rule that fires and does nothing, which is
+    worse than a handler that cannot be deleted. Point those rules elsewhere first.
+    """
     handler = await _get_or_404(session, handler_id)
     used = await _rule_count(session, handler_id)
     if used:

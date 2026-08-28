@@ -268,6 +268,22 @@ Every one of these was found by running against a real host, and every one had a
   its output.
 - **An agent cannot uninstall itself through itself** — the call dies with the service. Use a second channel.
 - **`wix` on Linux declares its own behaviour undefined and proves it.** The MSI is built on a Windows host.
+- **Three reconciler tests cannot pass while the stack is up, and it is not their fault.** There is one
+  database, and the running `bossman` container attaches a reconciler to it that `LISTEN`s on
+  `bossman_outbox`. `enqueue_policy_event` emits a `pg_notify` on commit *by design*, so the live worker
+  wakes instantly, takes the row `FOR UPDATE`, and the test's own `process_outbox_once` — which uses `SKIP
+  LOCKED` — sees nothing. Measured: the row satisfies both predicates (`pending`, `available_at` 21 ms in
+  the past) and the query returns 0 rows; `pg_stat_activity` shows the listener and a second backend `idle
+  in transaction`. The concurrent compile of the same fresh agent is also why a `compiled_host_state`
+  generation-1 unique violation appears in the same file. Do not "fix" these tests by weakening the
+  assertions.
+- **Adding a parent row and a child row in one session inserts them in the wrong order.** This codebase
+  declares foreign keys **without** `relationship()` on purpose — async lazy loads raise `MissingGreenlet`,
+  so ORM traversal is avoided throughout — which means SQLAlchemy's unit of work has *no dependency edge*
+  between the two mappers and is free to insert the child first. So: `await session.flush()` after the
+  parent, before anything references it. Measured outside pytest — an `ApiToken` and an `AccessGrant`
+  pointing at it, added together with no flush, raise `ForeignKeyViolationError` every time. A client-side
+  generated id makes the *value* available early and says nothing about insert order.
 
 ---
 

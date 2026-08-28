@@ -195,6 +195,15 @@ Each of these was invisible until a real host was in front of it:
 - **The MSI build needs a Windows host.** `wix` on Linux declares its own behaviour undefined and proved it —
   three inconsistent path-validation failures. The build now runs on the test host; a Windows CI runner is the
   durable answer.
+- **Three tests in `test_reconciler.py` cannot pass while the dev stack is running.** Not a product defect
+  and not a flaky test: there is one database, and the live `bossman` container attaches a reconciler that
+  `LISTEN`s on `bossman_outbox`. `enqueue_policy_event` sends a `pg_notify` on commit deliberately, so the
+  live worker wakes first, takes the outbox row `FOR UPDATE`, and the test's `process_outbox_once` (`SKIP
+  LOCKED`) gets nothing. Measured: the row is `pending` with `available_at` 21 ms in the past, both
+  predicates hold, the query returns 0 rows, and `pg_stat_activity` shows the listener plus a second
+  backend `idle in transaction`. The `compiled_host_state` generation-1 unique violation in the same file
+  is the same race, compiling the same fresh agent twice. The fix is a database without a live reconciler
+  attached — a decision about the single-database setup, not something to paper over in the assertions.
 - **An event rule's `mode` field is inert, and the API does not say so.** `mode: auto|propose` is validated
   strictly on write, stored, and returned — and **nothing in the engine reads it** (verified: zero reads of
   `policy.mode` anywhere in `bossman/`). The real gate is `autonomy: propose|auto_verify`, which

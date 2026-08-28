@@ -84,15 +84,16 @@ async def test_run_housekeeping_now_returns_deleted_counts(db_session):
 
     assert resp.status_code == 200
     body = resp.json()
-    # Same set as run_housekeeping's own contract test (tests/test_housekeeping.py): it grew
-    # from two entries to four as real sweeps were added (per-process series pruning, and the
-    # orphaned metric_series sweep that cleans up after a time-bounded agent delete).
-    assert set(body["deleted"].keys()) == {
-        "notifications",
-        "plan_runs",
-        "process_series_stale",
-        "metric_series_orphans",
-    }
+    # The sweep list lives in ONE place (tests/test_housekeeping.py) and is imported here. This
+    # assertion used to hold its own copy and was three sweeps out of date — host_edges,
+    # runbook_runs and audit_log had been added to the sweep and not to the copy, so the endpoint
+    # test was red while the service test was green. Two copies of one fact is the defect; the
+    # missing entries were only the symptom.
+    from tests.test_housekeeping import ALWAYS_SWEEPS, OPTIONAL_SWEEPS
+
+    keys = set(body["deleted"].keys())
+    assert keys - OPTIONAL_SWEEPS == ALWAYS_SWEEPS
+    assert keys <= ALWAYS_SWEEPS | OPTIONAL_SWEEPS
 
     await db_session.delete(api_token)
     await db_session.commit()
