@@ -103,6 +103,14 @@ class RemediationPolicyOut(BaseModel):
 @router.get("/api/v1/event-rules", response_model=list[RemediationPolicyOut])
 @router.get("/api/v1/remediation-policies", response_model=list[RemediationPolicyOut], deprecated=True, include_in_schema=False)
 async def list_remediation_policies(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Every event rule: what fires, where it applies, and what it is allowed to do.
+
+        Newest first. A rule ties a **trigger** (a check entering a hard problem state, plus optional
+        conditions and a scope) to an **action** (a runbook or an event handler) and to the
+        **guardrails** that decide whether that action may run unattended.
+
+        Read `autonomy`, not `mode` — see the create endpoint for why that matters.
+        """
     rows = (await session.scalars(select(RemediationPolicy).order_by(RemediationPolicy.created_at.desc()))).all()
     return [RemediationPolicyOut.of(p) for p in rows]
 
@@ -161,6 +169,31 @@ async def create_remediation_policy(
     body: RemediationPolicyIn, session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
 ):
+    """Create an event rule — and the one thing to get right here is autonomy.
+
+        **Exactly one action**: either `runbook_name` or `event_handler_id`, never both and never
+        neither (422). The reference is resolved now rather than when an event fires, because the
+        moment a fix is needed is the worst moment to learn its runbook was renamed away.
+
+        **`autonomy` is the real gate; `mode` is inert.** `mode: auto|propose` is still validated and
+        stored — and nothing in the engine reads it (docs/closed-loop-remediation.md records that
+        `autonomy` replaced it semantically). A rule with `mode: "auto"` and `autonomy: "propose"`
+        will only ever propose. Both fields stay in the payload for callers that still send them;
+        only `autonomy` decides.
+
+        A fix runs unattended only if **every** one of these holds, and each No is reported as the
+        reason the proposal is waiting for a human:
+
+        1. the server-wide autonomy kill-switch is on (it is off by default),
+        2. the rule is `enabled`,
+        3. `autonomy` is `auto_verify`,
+        4. the host is not production, or `allow_prod` is set,
+        5. fewer than `max_per_hour` runs for this rule on this host in the last hour,
+        6. fewer than `max_blast_radius` hosts touched by this rule in this cycle.
+
+        `verify` + `verify_after_s` re-check the service afterwards; `rollback_runbook` is what runs
+        when that verification fails. Every attempt — applied, proposed or refused — is recorded.
+        """
     if body.scope_type not in ("global", "ou", "group", "host"):
         raise HTTPException(422, "scope_type must be global|ou|group|host")
     if body.mode not in ("auto", "propose"):
@@ -239,6 +272,15 @@ async def update_remediation_policy(
 @router.delete("/api/v1/remediation-policies/{policy_id}", status_code=204, deprecated=True, include_in_schema=False)
 async def delete_remediation_policy(policy_id: UUID, session: AsyncSession = Depends(get_session),
                                     _i: Identity = Depends(get_current_identity)):
+    """Delete an event rule.
+
+        **204 whether or not it existed.** A delete states a desired end condition, and that
+        condition holds either way; a 404 would make a retry look like a failure.
+
+        Its run history survives, but the link does not: `remediation_runs.policy_id` is
+        `ON DELETE SET NULL`, so past runs keep *what* ran (`action`, as `kind:name`) and lose *which
+        rule* caused it. To stop a rule firing without losing that, set `enabled: false` instead.
+        """
     p = await session.get(RemediationPolicy, policy_id)
     if p is not None:
         await session.delete(p)
