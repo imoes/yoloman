@@ -3,7 +3,7 @@
 A worked example, start to finish, with the traps named. Everything here was done on the real fleet on
 2026-08-28; the screenshots are of that run.
 
-The example check is [`configs/checks.d/yoloman_agent_selfcheck.star`](../configs/checks.d/yoloman_agent_selfcheck.star)
+The example check is [`configs/checks.d/yoloman_agent_selfcheck.star`](https://github.com/imoes/yoloman/blob/main/configs/checks.d/yoloman_agent_selfcheck.star)
 — hand-written, unlike the ~1400 translated Checkmk checks beside it, and deliberately small enough to read in
 one sitting.
 
