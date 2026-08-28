@@ -1,8 +1,8 @@
 # Documentation
 
 GitHub shows this file when you browse the folder; **[index.html](index.html)** is the same entry point as a
-page, for when this folder is served (GitHub Pages, or opened locally). Both exist on purpose: a repository
-view renders markdown and shows HTML as source, so the folder needs a readable index either way.
+page. This folder IS served: **https://imoes.github.io/yoloman/** (GitHub Pages, from `main`). Both files exist on purpose — a
+repository view renders markdown and shows HTML as source, so the folder needs a readable index either way.
 
 ## Start here
 

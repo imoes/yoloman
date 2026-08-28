@@ -19,18 +19,18 @@
 
 | | |
 |---|---|
-| **[The presentation](docs/index.html)** | What yoloman and Bossman are, in one page, with screenshots. The landing page of the documentation. |
+| **[The presentation](https://imoes.github.io/yoloman/)** | What yoloman and Bossman are, in one page, with screenshots — live at `imoes.github.io/yoloman`. |
 | **[CHANGELOG.md](CHANGELOG.md)** | What is new, what changed, what was fixed — and, in its own section, **what is still missing**. |
-| **[Every screen](docs/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
+| **[Every screen](https://imoes.github.io/yoloman/frontend-presentation.html)** | All 54 screens, grouped as the product groups them, each described by its own source. |
 | **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform, generated from what the agents publish. Machine-readable beside each: [.json](docs/modules-windows.json) |
 | **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
 
-> **On the two HTML pages above:** GitHub renders `README.md` on a repository page and shows an `.html` file
-> as *source code* — so [docs/index.html](docs/index.html) and
-> [docs/frontend-presentation.html](docs/frontend-presentation.html) only display as pages when they are
-> served: either through **GitHub Pages** (from this repository's `/docs` folder — not enabled yet) or by
-> opening the file locally. That is why the presentation below lives in this README as well: the page GitHub
-> actually shows has to carry it.
+> **The presentation is live: [imoes.github.io/yoloman](https://imoes.github.io/yoloman/)** — GitHub Pages
+> serves this repository's `/docs` folder from `main`.
+>
+> Why both: GitHub renders `README.md` on a repository page and shows an `.html` file as *source code*, so
+> [docs/index.html](docs/index.html) only displays as a page when it is served. The presentation therefore
+> lives in this README as well — the page GitHub itself shows has to carry it.
 
 ## What it looks like
 
