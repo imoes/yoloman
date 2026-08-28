@@ -121,6 +121,15 @@ and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
+**`GET /api/v1/me` no longer claims rights the server refuses.** It selected an API token's access
+grants by **name** while the host ACL selected them by the token's **UID** — so a token sharing a name
+with a granted one was told `scope: all` and then refused with 403 by every route that acts. Measured on
+the running server before the fix (two tokens named the same, one grant): `/me` → `["all"]`, the
+manage-gated call → 403. Both paths now go through one predicate (`grant_filter` in `services/auth.py`),
+so they cannot disagree again, and a regression test fails if the old behaviour returns — verified by
+reintroducing it. Grants also expose `subject_token_id` now, because that, not the name, is what decides
+authorisation, and two grants can carry the same `subject_ref` with one of them bound to a dead token.
+
 - **The Logs screen reads the event log on Windows** and journald on Linux, through one endpoint and one entry
   shape. A syslog priority is *translated* to Windows levels (0–2 → critical, 3 → error, 4 → warning,
   inclusively upward), not passed through — an untranslated number filtered on a level that does not exist and

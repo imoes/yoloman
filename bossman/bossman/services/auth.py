@@ -151,6 +151,38 @@ class Identity:
     token_id: object | None = None  # only set for kind == "api_token"
 
 
+def grant_filter(identity: Identity) -> tuple | None:
+    """The one predicate that decides which grants belong to a caller.
+
+    THE ONLY PLACE THIS IS DECIDED. It used to be written twice — here for enforcement, and again in
+    `GET /api/v1/me` for display — and the two disagreed: `/me` matched an api_token's grants by NAME
+    while this check matched by the token's UID. Measured on the running server: create two tokens
+    called `x`, grant scope=all to the name, and the SECOND token's `/me` reported "scope: all" while
+    every manage-gated route answered 403. A view contradicting the enforcement is worse than no view,
+    because the reader has no way to tell which of the two is lying.
+
+    Returns None when the caller can hold no grants at all, which the callers must treat as "none"
+    rather than "unfiltered" — an empty filter would select every grant in the table.
+    """
+    if identity.kind == "api_token":
+        if identity.token_id is None:
+            # No uid means this identity was built by something that predates the switch from
+            # name matching — refused rather than silently falling back to the thing being removed.
+            return None
+        return (AccessGrant.subject_kind == "api_token", AccessGrant.subject_token_id == identity.token_id)
+    # A user is still identified by username: there is no separate uid to point at, and usernames
+    # are unique where token names are not.
+    return (AccessGrant.subject_kind == identity.kind, AccessGrant.subject_ref == identity.name)
+
+
+async def grants_of(session: AsyncSession, identity: Identity) -> list[AccessGrant]:
+    """Every grant this caller actually holds — the rows `grant_filter` selects, and nothing else."""
+    where = grant_filter(identity)
+    if where is None:
+        return []
+    return list((await session.scalars(select(AccessGrant).where(*where))).all())
+
+
 async def user_can_manage_agent(session: AsyncSession, identity: Identity, agent_id) -> bool:
     """Block M authorization: may this caller MANAGE this host?
 
@@ -159,18 +191,7 @@ async def user_can_manage_agent(session: AsyncSession, identity: Identity, agent
     scope='host_group' where the host is a member → yes. Otherwise no."""
     if identity.kind == "user" and identity.role == "admin":
         return True
-    # An api_token is matched by its UID, a user by its username. The name was the reference for
-    # both until it was measured granting rights across tokens that merely shared a name; a
-    # username is still the identity for a user, because there is no separate uid to point at.
-    if identity.kind == "api_token":
-        if identity.token_id is None:
-            # No uid means this identity was built by something that predates the change — refused
-            # rather than silently falling back to name matching, which is what is being removed.
-            return False
-        where = (AccessGrant.subject_kind == "api_token", AccessGrant.subject_token_id == identity.token_id)
-    else:
-        where = (AccessGrant.subject_kind == identity.kind, AccessGrant.subject_ref == identity.name)
-    grants = (await session.scalars(select(AccessGrant).where(*where))).all()
+    grants = await grants_of(session, identity)
     group_ids: list = []
     for g in grants:
         if g.scope == "all":
