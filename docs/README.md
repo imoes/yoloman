@@ -10,7 +10,7 @@ view renders markdown and shows HTML as source, so the folder needs a readable i
 |---|---|
 | [index.html](index.html) | The presentation: what yoloman and Bossman are, with screenshots. **A page — needs serving.** |
 | [frontend-presentation.html](frontend-presentation.html) | Every screen (54) in five workspaces, each described by its own source. **A page.** |
-| [../CHANGELOG.md](../CHANGELOG.md) | What is new, changed, fixed — and what is still missing. |
+| [CHANGELOG.md](https://github.com/imoes/yoloman/blob/main/CHANGELOG.md) | What is new, changed, fixed — and what is still missing. |
 
 ## Reference — for people, and for machines
 
