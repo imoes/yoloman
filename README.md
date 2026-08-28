@@ -25,6 +25,44 @@
 | **[Windows modules](docs/modules-windows.md)** · **[Linux modules](docs/modules-linux.md)** | The action plane per platform, generated from what the agents publish. Machine-readable beside each: [.json](docs/modules-windows.json) |
 | **[Writing a check](docs/checks-authoring.md)** | A worked example from empty file to a service state on a host. |
 
+> **On the two HTML pages above:** GitHub renders `README.md` on a repository page and shows an `.html` file
+> as *source code* — so [docs/index.html](docs/index.html) and
+> [docs/frontend-presentation.html](docs/frontend-presentation.html) only display as pages when they are
+> served: either through **GitHub Pages** (from this repository's `/docs` folder — not enabled yet) or by
+> opening the file locally. That is why the presentation below lives in this README as well: the page GitHub
+> actually shows has to carry it.
+
+## What it looks like
+
+Three screens from the running system, taken while this was written.
+
+![The management console showing a Windows host's services](docs/screenshots/mmc-console-services.png)
+
+*The management console: MMC's snap-in tree rebuilt — tree on the left, result list in the middle, actions on
+the selected row. 195 services from a Windows host; the same tree serves a Debian one, and the snap-ins it
+cannot offer say why.*
+
+![The result log listing operations with their outcomes](docs/screenshots/result-log.png)
+
+*The result log: what hosts **did**, and what came back — not the audit log, which records what was asked of
+the server. A request and its effect are two facts, and only the second answers "did that install work".*
+
+![Assigning a check to a scope, with its generated parameter form](docs/screenshots/assign-check-dialog.png)
+
+*Assigning a check to an OU. The parameter form is generated from the check's own metadata, and nothing is
+written until the staged changes are applied together.*
+
+## What it does
+
+| | |
+|---|---|
+| **Monitoring that says why** | Checks run on the host and become services with state, value and a sentence. 1432 checks available, most translated from Checkmk; writing your own is two files and one validation command. |
+| **Configuration as values, not text** | Config files are parsed by a codec into values, merged per key with the winning scope recorded, and written back — with generations and rollback. 2484 file grammars, 3272 described fields. |
+| **Windows managed as Windows** | Roles and features, scheduled tasks, shares, firewall rules, IIS, DNS, DHCP, the event log, Group Policy — 34 modules, each idempotent and previewable. Windows' own words pass through: install state has seven values, a restart is *yes/no/maybe*. |
+| **A console you already know** | MMC's snap-in tree: 19 snap-ins over any managed host, Linux included, declared as JSON. Create dialogs are generated from each module's own schema, so a form cannot offer a parameter the module would refuse. |
+| **A record of what was done** | Every module call leaves an operation record: parameters, verdict, evidence, who asked. Eight outcomes that are never collapsed — a dry run is not a no-op, a refusal is not a crash, and *timed-out* may have completed. |
+| **Bare metal to running host** | PXE-boot a machine, image it, write its identity and network in, and let it come up already enrolled — with roles as desired state rather than a one-time script. |
+
 A self-contained Linux fleet-management stack that hands your servers' **monitoring**,
 **observability**, and **configuration management** to an AI — over [MCP](https://modelcontextprotocol.io)
 (stdio or Streamable HTTP) and a plain REST API. No Ansible, no SSH agent, no Python runtime on the
