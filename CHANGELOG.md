@@ -73,6 +73,12 @@ finding with the sentence an operator needs; both at 4 → `same_value`, never a
 under every other check. Assigned via OU / Policy with its generated parameter form, staged, applied, and
 verified: `OK, 0.208 ms` on the first cycle.
 
+**A published site: [imoes.github.io/yoloman](https://imoes.github.io/yoloman/)** — GitHub Pages serving `/docs`
+from `main`, so the presentation and the screen list are pages rather than source listings. Verified after
+publishing: both pages, all three screenshots and every link answer 200. Links that leave the site do so on
+purpose and say why — Pages serves only `/docs` and does not render markdown, so `.md` documents point at
+GitHub's rendered view.
+
 **Documentation that cannot go stale:** [Windows modules](docs/modules-windows.md) and
 [Linux modules](docs/modules-linux.md) generated from the agents' own tool listings, and
 [an HTML presentation of every screen](docs/frontend-presentation.html) — 54 screens in five workspaces, each
