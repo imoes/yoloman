@@ -188,6 +188,12 @@ var modules = new ModuleRegistry(writeEnabled)
     // windows_iis: sites, bindings and pools together, because none of them answers "what serves on port 80"
     // alone. Refuses when IIS is installed without its management tools, naming the feature that is missing.
     .Add(new AgenticMcp.Agent.Windows.IisModule())
+    // windows_dns: the DNS SERVER's zones and records — not what this host resolves, which is a different
+    // question and a different answer.
+    .Add(new AgenticMcp.Agent.Windows.DnsServerModule())
+    // windows_dhcp: the one module here that hands out addresses to machines other than this one, which is
+    // why a new scope is created INACTIVE unless the caller says otherwise.
+    .Add(new AgenticMcp.Agent.Windows.DhcpServerModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())

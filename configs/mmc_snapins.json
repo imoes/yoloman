@@ -1018,6 +1018,235 @@
       ]
     },
     {
+      "id": "dns",
+      "title": "DNS",
+      "mmc_equivalent": "dnsmgmt.msc",
+      "icon": "dns",
+      "description": "The DNS SERVER's own zones — not what this host resolves, which is a different question. Each zone says who may change it: a secondary zone's data is transferred from its master and cannot be edited here.",
+      "requires": [
+        {
+          "module": "windows_dns"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "zones",
+          "title": "Forward and reverse zones",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_dns",
+            "params": {},
+            "rows": "zones"
+          },
+          "sort": "name",
+          "columns": [
+            {
+              "key": "name",
+              "title": "Zone",
+              "width": 250
+            },
+            {
+              "key": "zone_type",
+              "title": "Type",
+              "badge": true,
+              "width": 110
+            },
+            {
+              "key": "record_count",
+              "title": "Records",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "ad_integrated",
+              "title": "AD-integrated",
+              "badge": true,
+              "width": 130
+            },
+            {
+              "key": "dynamic_update",
+              "title": "Dynamic update",
+              "width": 150
+            },
+            {
+              "key": "writable_reason",
+              "title": "Who may change it",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "delete",
+              "title": "Delete zone (with every record)",
+              "icon": "delete",
+              "tool": "windows_dns",
+              "params": {
+                "object": "zone",
+                "zone": "{row.name}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-zone",
+              "title": "New primary zone…",
+              "icon": "add",
+              "tool": "windows_dns",
+              "prefill": {
+                "object": "zone",
+                "state": "present"
+              },
+              "dry_run_first": true
+            },
+            {
+              "id": "new-record",
+              "title": "New record…",
+              "icon": "add_link",
+              "tool": "windows_dns",
+              "prefill": {
+                "object": "record",
+                "state": "present",
+                "type": "A",
+                "ttl_seconds": 3600
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dhcp",
+      "title": "DHCP",
+      "mmc_equivalent": "dhcpmgmt.msc",
+      "icon": "router",
+      "description": "The DHCP server's scopes. This is the one snap-in whose writes affect machines other than this host, so a new scope is created INACTIVE unless activation is stated, and every scope row says plainly whether it answers clients and how many addresses are left.",
+      "requires": [
+        {
+          "module": "windows_dhcp"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "scopes",
+          "title": "Scopes",
+          "source": {
+            "kind": "tool",
+            "tool": "windows_dhcp",
+            "params": {},
+            "rows": "scopes"
+          },
+          "sort": "id",
+          "columns": [
+            {
+              "key": "id",
+              "title": "Scope",
+              "width": 150
+            },
+            {
+              "key": "name",
+              "title": "Name",
+              "width": 180
+            },
+            {
+              "key": "answers",
+              "title": "Answers clients",
+              "badge": true,
+              "width": 170
+            },
+            {
+              "key": "start_range",
+              "title": "From",
+              "width": 140
+            },
+            {
+              "key": "end_range",
+              "title": "To",
+              "width": 140
+            },
+            {
+              "key": "subnet_mask",
+              "title": "Mask",
+              "width": 140
+            },
+            {
+              "key": "lease_hours",
+              "title": "Lease (h)",
+              "numeric": true,
+              "width": 100
+            },
+            {
+              "key": "capacity_note",
+              "title": "Addresses",
+              "grow": true
+            }
+          ],
+          "actions": [
+            {
+              "id": "deactivate",
+              "title": "Deactivate scope",
+              "icon": "pause",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "inactive"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "inactive"
+              }
+            },
+            {
+              "id": "activate",
+              "title": "Activate scope",
+              "icon": "play_arrow",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "active"
+              },
+              "confirm": true,
+              "hide_when": {
+                "field": "state",
+                "equals": "active"
+              }
+            },
+            {
+              "id": "delete",
+              "title": "Delete scope (with its leases)",
+              "icon": "delete",
+              "tool": "windows_dhcp",
+              "params": {
+                "object": "scope",
+                "scope": "{row.id}",
+                "state": "absent"
+              },
+              "confirm": true
+            }
+          ],
+          "node_actions": [
+            {
+              "id": "new-scope",
+              "title": "New scope…",
+              "icon": "add",
+              "tool": "windows_dhcp",
+              "prefill": {
+                "object": "scope",
+                "state": "present",
+                "lease_duration_hours": 8
+              },
+              "dry_run_first": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "features",
       "title": "Roles and Features",
       "mmc_equivalent": "ServerManager.exe",
