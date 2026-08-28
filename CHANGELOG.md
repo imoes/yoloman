@@ -79,13 +79,32 @@ publishing: both pages, all three screenshots and every link answer 200. Links t
 purpose and say why — Pages serves only `/docs` and does not render markdown, so `.md` documents point at
 GitHub's rendered view.
 
-**Documentation that cannot go stale:** [Windows modules](docs/modules-windows.md) and
-[Linux modules](docs/modules-linux.md) generated from the agents' own tool listings, and
-[an HTML presentation of every screen](docs/frontend-presentation.html) — 54 screens in five workspaces, each
-description taken from the component's own source comment — a [landing page](docs/index.html) that says what
-the product is (and that it is vibe coded and in development) before it lists features, and the same module
-references **machine-readable** beside the human ones ([.json](docs/modules-windows.json)), generated in one
-pass so the two cannot disagree.
+**Documentation that cannot go stale, and that an AI can work from.** All of it prose, all of it generated
+from the running system except the one page that is deliberately hand-written:
+
+- **[The developer guide](docs/developing.md)** — what the system is, where truth lives for each kind of
+  fact, the **nine contracts** that must not be broken (idempotence, the target's own words unmapped, nothing
+  vanishing silently, a refusal naming its reason, the two configuration write paths, values-not-text,
+  policy precedence, no `max_tokens`, one name per thing), how to add a module / check / endpoint / snap-in,
+  the twelve traps that already cost real time here, and a closing section addressed to a **language model**
+  working in the repository.
+- **[The HTTP API, endpoint by endpoint](docs/api-reference.md)** — all **481 operations in 68 groups**, each
+  group opening with one sentence saying what it is *for*, each endpoint with its parameters described in
+  words. Generated from a **running** server's `/openapi.json`, not from the source, because a route the
+  router never included does not exist for a caller — a measurement that caught exactly that twice. It also
+  reports its own gap: **234 of the 481 handlers carry no docstring**, and those are marked as such rather
+  than padded with invented prose.
+- **[Windows modules](docs/modules-windows.md)** and **[Linux modules](docs/modules-linux.md)** from the
+  agents' own tool listings, **[every screen](docs/frontend-presentation.html)** (54, in five workspaces,
+  each description taken from the component's own source comment), and a
+  [landing page](https://imoes.github.io/yoloman/) that says what the product is — and that it is vibe coded
+  and in development — before it lists features.
+
+**The JSON copies were dropped.** Each module reference used to ship twice, markdown "for people" and JSON
+"for machines". That was a misunderstanding of the machine reader: a model needs to know what a module or an
+endpoint is *for*, what it refuses, and which of two similar ones is right — `{"type": "string"}` answers none
+of those, while the prose page answers all three. The second file could only repeat the first less readably
+and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
