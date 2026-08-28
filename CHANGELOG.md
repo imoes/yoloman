@@ -42,6 +42,12 @@ reboot (host up 20:25:30, agent process 20:25:35, unattended) and with the packa
 one product and one service, an uninstall that removes service/binaries/entry, and a state directory that
 survives it. The test host now runs the MSI-installed agent and Bossman polls it.
 
+Getting the package built at all needed a Windows build host, because `wix` on Linux declares its own behaviour
+undefined and proved it. So the test host was made into one **through the agent**: the corporate proxy
+configured with the `environment` module (machine-wide variables) and `netsh winhttp` (for services), then the
+.NET SDK and WiX installed over it. The first time this system set up its own build host — and the reason the
+MSI is verified rather than merely authored.
+
 **The management console — MMC's snap-in tree, for every managed host** (`/mmc`, 19 snap-ins declared in
 [configs/mmc_snapins.json](configs/mmc_snapins.json)). Console tree, result list, actions on the selected row;
 each snap-in names its MMC counterpart on Windows (services.msc, lusrmgr.msc, eventvwr.msc, diskmgmt.msc,
@@ -61,11 +67,6 @@ no, `error` is the agent breaking, and **`timed-out` may have completed**.
 and which were denied and why; `GET /api/v1/agents/{id}/policy-conflicts` compares our declared registry
 values against Windows' policy territory. Verified: `AUOptions` declared 4 and held 3 out of band → one
 finding with the sentence an operator needs; both at 4 → `same_value`, never a conflict.
-
-**A verified MSI, built on Windows.** The package's own acceptance test passes all seven checks on the test
-host, and the host now runs the MSI-installed agent. Getting there needed the host to reach the internet: the
-proxy was configured **through the agent** (`environment` module for the machine-wide variables, `netsh winhttp`
-for services), which is the first time the system configured its own build host.
 
 **A hand-written check, assigned through the UI** ([the guide](docs/checks-authoring.md)):
 `yoloman_agent_selfcheck` measures how fast a host's own agent port accepts a local connection — the floor
