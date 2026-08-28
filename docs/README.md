@@ -43,6 +43,12 @@ by hand.
 The rest of this folder is design documents, one per subject. They carry the reasoning; the generated pages
 carry the current facts.
 
+## When a link 404s
+
+[404.html](404.html) says *why*, per case: the two deleted JSON references, a `.md` that is served raw
+rather than rendered, or something that was never here. A 404 that gives no reason leaves a reader unable to
+tell "removed on purpose" from "never existed", and both of those are answers.
+
 ## Why `.nojekyll` is here
 
 GitHub Pages runs Jekyll by default, which ignores files and folders whose names begin with `_` and can

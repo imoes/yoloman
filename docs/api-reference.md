@@ -24,8 +24,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **280 carry a description** written in the handler
-itself; **201 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **290 carry a description** written in the handler
+itself; **191 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -2032,7 +2032,11 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/agents/{agent_id}/desired-state`
 
-Get Agent Desired State. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What this host is *supposed* to look like: the compiled desired state.
+
+The result of folding every plan link, template link, policy and threshold that reaches this host, in precedence order, into one document. This is the **rule** side; what the host actually looks like is the observed state, read elsewhere. Keeping the two apart is the point — a screen that mixed them could not answer "is this host converged".
+
+Always current: creating, approving or deleting a link recompiles the affected hosts before returning, so this never serves a state that is one cycle behind.
 
 In the path:
 
@@ -2073,11 +2077,19 @@ Every link awaiting human approval, tenant-wide — the review queue an admin (o
 
 #### `GET /api/v1/orchestration/plans`
 
-List Plans. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every orchestration plan — and note which kind of "plan" this is.
+
+This API has **two unrelated things called a plan**, and confusing them is the most likely mistake here:
+
+- **An orchestration plan (this one)** is *desired state*: a stable named handle (`docker_host`, `postgres_cluster`) whose content lives in immutable versions and which takes effect by being **linked** to a scope. Nothing runs when you create one. Types: role, cluster, deployment, remediation, maintenance, bootstrap. - **A runbook plan (`GET /api/v1/plans`)** is a step list you *execute* against a host — "take plan X, run it against host Y". That one has a `/run`.
+
+Soft-deleted plans are excluded; the deletion is recorded, not erased.
 
 #### `POST /api/v1/orchestration/plans`
 
-Create Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create the named handle. It does nothing until it has content and a link.
+
+`plan_type` must be one of role, cluster, deployment, remediation, maintenance, bootstrap (422 otherwise), and the name must be unique (409). What a plan *does* lives in its versions — `POST .../versions` — and *where* it applies lives in its links. A plan with neither is inert on purpose: it exists so a link can point at a name that will not change when the content does.
 
 The JSON body carries:
 
@@ -2089,7 +2101,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/orchestration/plans/{plan_id}`
 
-Delete Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a plan, its versions and its links, then recompile.
+
+The links go with it (`ON DELETE CASCADE`), so every host that had this plan through any scope loses it — which is a change to those hosts' desired state, and the tenant is recompiled immediately rather than at the next cycle so `GET .../desired-state` never shows a plan that no longer exists.
+
+This is not reversible through the API. To stop a plan applying somewhere without losing it, delete the **link** instead.
 
 In the path:
 
@@ -2097,7 +2113,7 @@ In the path:
 
 #### `GET /api/v1/orchestration/plans/{plan_id}`
 
-Get Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One orchestration plan with its current version pointer and its links. 404 when there is no such id or it has been deleted.
 
 In the path:
 
@@ -2105,7 +2121,9 @@ In the path:
 
 #### `PATCH /api/v1/orchestration/plans/{plan_id}`
 
-Update Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename or re-describe a plan. **Metadata only, deliberately.**
+
+This endpoint cannot touch the plan's versions or entries. Editing a label is the most common reason to open a policy, and if that same call could carry content, a client that sent a partial body would silently drop the plan's steps. Content changes go through `POST .../versions`, which adds a new immutable version.
 
 In the path:
 
@@ -2118,7 +2136,9 @@ The JSON body carries:
 
 #### `GET /api/v1/orchestration/plans/{plan_id}/links`
 
-List Plan Links. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Where this plan applies: one row per scope it is linked to.
+
+A link carries its own status — `active`, `pending_approval` or `rejected` — so this is also the answer to "why is this plan not on that host": the link may exist and be waiting for approval. Both are shown; a pending link is not hidden, because an invisible pending change is indistinguishable from no change at all.
 
 In the path:
 
@@ -2149,7 +2169,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/orchestration/plans/{plan_id}/links/{link_id}`
 
-Delete Plan Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Unlink the plan from this scope and recompile the affected hosts.
+
+The plan itself survives; only this binding goes. Hosts that also receive the plan through another scope keep it — so a delete here can change nothing at all, and the recompile is what tells you which it was.
 
 In the path:
 
@@ -2158,7 +2180,11 @@ In the path:
 
 #### `POST /api/v1/orchestration/plans/{plan_id}/links/{link_id}/approve`
 
-Approve Plan Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Approve a pending link — the moment desired state actually starts applying.
+
+Sets the link `active` and **immediately recompiles every affected host**, so the change is visible in `GET .../desired-state` before this call returns rather than at the next cycle.
+
+**409 when the link is not `pending_approval`.** Approving an already-active link is not a harmless no-op question — it means the caller believes something is waiting that is not, and answering "fine" would confirm a wrong belief.
 
 In the path:
 
@@ -2167,7 +2193,11 @@ In the path:
 
 #### `POST /api/v1/orchestration/plans/{plan_id}/links/{link_id}/reject`
 
-Reject Plan Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Reject a pending link: it stays as a `rejected` row and applies to nothing.
+
+Rejected rather than deleted, on purpose — "someone decided against this" is a fact worth keeping, and a link that vanished would leave the next person to propose the same thing with no idea it had already been refused.
+
+409 when the link is not `pending_approval`, for the same reason as approve.
 
 In the path:
 
