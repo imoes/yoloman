@@ -32,7 +32,11 @@ async def _agent(db_session, *, ou=None, tags=None):
 
 
 async def _group(db_session, *members):
-    g = HostGroup(id=uuid4(), tenant_id=TENANT, name=f"g-{_sfx()}", ou_id=None)
+    # No ou_id: a host group is deliberately PLACELESS (72196b28 dropped host_groups.ou_id and
+    # everything built on it). This helper kept passing it and every test using it has been red
+    # since — SQLAlchemy rejects an unknown keyword, so the failure was a TypeError, not a wrong
+    # result, which is why nothing about groups looked broken.
+    g = HostGroup(id=uuid4(), tenant_id=TENANT, name=f"g-{_sfx()}")
     db_session.add(g)
     await db_session.flush()
     for m in members:

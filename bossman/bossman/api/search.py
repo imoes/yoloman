@@ -101,6 +101,17 @@ async def unified_search(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> UnifiedSearchResponse:
+    """The omnibox: hosts, host groups and services for one query, capped per type.
+
+    A grouped preview for a live dropdown, not a result set — `limit` caps **each** type
+    (default 8) and `counts` says how many exist beyond what is shown. Host rows carry the
+    worst-state rollup so the dropdown can show severity without a second call.
+
+    **An empty query returns nothing here**, deliberately: an omnibox with an empty box should
+    offer no dropdown. Note that the paginated views below do the opposite with the same input —
+    see `search_hosts`. The query grammar is in `services/search.py` and is shared with the
+    result views, so search and manual filtering cannot disagree.
+    """
     node = search_svc.parse_query(q)
     if node is None:
         return UnifiedSearchResponse(hosts=[], host_groups=[], services=[], counts={"host": 0, "host_group": 0, "service": 0})
@@ -142,6 +153,16 @@ async def search_hosts(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> HostSearchResponse:
+    """Hosts matching the query, paginated, with the unpaginated `total`.
+
+    **An empty query matches EVERY host** — the opposite of the omnibox, which returns nothing for
+    the same input. Both are right for their surface (a filter panel with nothing typed shows the
+    fleet; a dropdown with nothing typed shows no menu), and a caller carrying an assumption from
+    one to the other gets it exactly backwards. Send a query, or mean "all".
+
+    Infrastructure agents are excluded, as everywhere a *host* is listed: the silent SNMP/SSH
+    poller is not a monitored host. Each row carries the worst-state rollup of its services.
+    """
     node = search_svc.parse_query(q)
     hosts = await search_svc.search_hosts(session, node, limit=limit, offset=offset)
     total = await search_svc.count_hosts(session, node)
@@ -159,6 +180,16 @@ async def search_services(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ServiceSearchResponse:
+    """Service checks matching the query, fleet-wide and paginated.
+
+    The list `/api/v1/problems` cannot give you: **every** matching service with its state, not
+    only the ones that are not OK. That is the difference between asking "how is this check doing
+    everywhere" and "what is broken".
+
+    Each row carries its host's name, criticality and site, so a caller does not need to join
+    against the fleet listing to sort or group by them. An empty query matches everything, as in
+    `search_hosts`.
+    """
     node = search_svc.parse_query(q)
     rows = await search_svc.search_services(session, node, limit=limit, offset=offset)
     total = await search_svc.count_services(session, node)
@@ -180,6 +211,7 @@ async def search_host_groups(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict:
+    """Host groups whose names match the query. Flat names, capped by `limit`."""
     node = search_svc.parse_query(q)
     return {"host_groups": await search_svc.search_groups(session, node, limit=limit)}
 
@@ -269,5 +301,14 @@ async def delete_saved_search(
     search_id: UUID,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> None:
+    """Delete a saved search.
+
+    **204 whether or not it existed** — a delete states an end condition that holds either way, and
+    a 404 would make a retry look like a failure.
+
+    A saved search is **tenant-scoped and shared** by everyone in the tenant, not private to
+    whoever made it; `created_by` records the author but confers no ownership. So this removes it
+    for your colleagues too, and the endpoint does not ask whether you were the author.
+    """
     await session.execute(sa_delete(SavedSearch).where(SavedSearch.id == search_id))
     await session.commit()

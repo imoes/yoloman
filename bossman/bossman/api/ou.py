@@ -97,6 +97,16 @@ async def _get_ou_or_404(session: AsyncSession, ou_id: UUID) -> OUNode:
 async def list_ou_nodes(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[OUNodeOut]:
+    """The whole OU tree, flat, ordered by its materialized path.
+
+    An organisational unit is the AD-style hierarchy a host sits at **exactly one** node of. It is
+    what checks, configuration, notifications and orchestration links are inherited through, in the
+    order global < group < OU < site < host.
+
+    Ordering by `path` means the flat list is already in tree order, so a client can render the
+    hierarchy without a second query or a recursive one. Soft-deleted nodes are excluded — the
+    deletion is recorded, not erased.
+    """
     rows = (
         await session.scalars(
             select(OUNode).where(OUNode.tenant_id == DEFAULT_TENANT_ID, OUNode.deleted_at.is_(None)).order_by(OUNode.path)
@@ -109,6 +119,16 @@ async def list_ou_nodes(
 async def create_ou_node(
     body: OUNodeIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> OUNodeOut:
+    """Create an OU under `parent_id`, or at the root when that is omitted.
+
+    **409 when a sibling already has this name.** Two children of one parent with the same name
+    would make the materialized path ambiguous, and a path that identifies two nodes cannot be used
+    for inheritance.
+
+    The node's `path` and its ltree key are computed from the ancestry **at write time** rather than
+    resolved on read. Reads of the tree therefore need no recursive query — the cost of a move is
+    paid once, by the writer.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     parent_path = ""
@@ -241,6 +261,13 @@ async def patch_ou_node(
 async def delete_ou_node(
     ou_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete an empty OU. It must be empty in both senses.
+
+    **409 while it still has child OUs**, and **409 while any host is placed in it** — each with the
+    sentence saying which. Neither is a cascade candidate: deleting a subtree would silently remove
+    inheritance from hosts nobody named, and re-placing hosts is a decision, not a side effect of
+    tidying the tree. Move the children and the hosts first.
+    """
     node = await _get_ou_or_404(session, ou_id)
     child = await session.scalar(select(OUNode.id).where(OUNode.parent_id == ou_id))
     if child is not None:
@@ -256,6 +283,13 @@ async def delete_ou_node(
 async def get_ou_ancestry(
     ou_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[OUNodeOut]:
+    """The chain from the root down to this node.
+
+    This *is* the inheritance order for everything scoped to an OU: each ancestor's policies apply,
+    the nearer node wins, and this list is the sequence a client should show when explaining why a
+    host has an effective value. Asking for it separately beats deriving it from paths, because the
+    server resolves it the same way the policy compiler does.
+    """
     await _get_ou_or_404(session, ou_id)
     chain = await resolve_ou_ancestry(session, ou_id)
     return [OUNodeOut.from_model(n) for n in chain]
