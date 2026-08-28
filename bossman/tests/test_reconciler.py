@@ -6,11 +6,12 @@ test here. The push itself is exercised with a fake AgentClient so no socket
 is opened. See tests/conftest.py.
 """
 
+import pytest
 import uuid
 from tests.naming import owned_name
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from bossman.config import Settings
 from bossman.db.models import (
@@ -108,7 +109,35 @@ async def _drain(db_session):
 # Reconciler push pipeline
 
 
+async def _live_reconciler_attached(session) -> str | None:
+    """Is another process already draining the outbox of THIS database?
+
+    These three tests enqueue an outbox row and then call process_outbox_once themselves. That only
+    works if nobody else gets there first — and enqueue_policy_event emits a `pg_notify` on commit BY
+    DESIGN, so a running Bossman wakes instantly, takes the row FOR UPDATE, and this test's SKIP
+    LOCKED query returns nothing. Measured while the dev stack was up: the row is pending with
+    available_at 21 ms in the past, both predicates hold, and the query selects 0 rows.
+
+    So the tests ask first. A named skip beats a red test that means "your dev stack is running": the
+    failure it produced said `assert 0 >= 1`, which reads like a broken reconciler and is not one.
+    Against a database with no listener — CI, or a stopped stack — they run normally.
+    """
+    listeners = await session.scalar(text(
+        "select count(*) from pg_stat_activity "
+        "where datname = current_database() and pid <> pg_backend_pid() "
+        "and query like '%LISTEN%bossman_outbox%'"
+    ))
+    if listeners:
+        return (f"{listeners} live reconciler(s) LISTEN on bossman_outbox in this database — they take "
+                "the outbox row before this test can (pg_notify wakes them on commit, FOR UPDATE SKIP "
+                "LOCKED hides it from us). Stop the stack or use a database of your own to run this.")
+    return None
+
+
 async def test_enqueue_then_process_pushes_and_acks(db_session):
+    busy = await _live_reconciler_attached(db_session)
+    if busy:
+        pytest.skip(busy)
     settings = Settings()
     agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["docker_daemon"])
@@ -144,6 +173,9 @@ async def test_enqueue_then_process_pushes_and_acks(db_session):
 
 
 async def test_process_outbox_idempotent_no_second_push(db_session):
+    busy = await _live_reconciler_attached(db_session)
+    if busy:
+        pytest.skip(busy)
     settings = Settings()
     agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["x"])
@@ -168,6 +200,9 @@ async def test_process_outbox_idempotent_no_second_push(db_session):
 
 
 async def test_push_failure_records_nack(db_session):
+    busy = await _live_reconciler_attached(db_session)
+    if busy:
+        pytest.skip(busy)
     settings = Settings()
     agent = await _agent(db_session)
     plan = await _plan_linked_to_host(db_session, agent, ["docker_daemon"])

@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **325 carry a description** written in the handler
-itself; **156 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **338 carry a description** written in the handler
+itself; **143 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -2268,7 +2268,9 @@ The selectable AI backends + the configured default — powers the UI's backend 
 
 #### `GET /api/v1/chat/dashboard`
 
-Get Generated Dashboard. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The dashboard this user's chat generated for them, if there is one.
+
+Generated content, kept separate from the hand-arranged dashboards (`/api/v1/dashboards`): a model-authored layout must not be mistaken for one a person built, and neither should overwrite the other.
 
 #### `POST /api/v1/chat/dashboard/generate`
 
@@ -2281,7 +2283,9 @@ The JSON body carries:
 
 #### `POST /api/v1/chat/oauth/claude/complete`
 
-Claude Complete. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Finish the Claude login with the code the user pasted back.
+
+As with Codex, the credentials land in the user's server-side chat home and no token is returned to the client.
 
 The JSON body carries:
 
@@ -2290,11 +2294,17 @@ The JSON body carries:
 
 #### `POST /api/v1/chat/oauth/claude/start`
 
-Claude Start. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Begin the Claude login flow; returns the URL to visit and what to send back.
+
+The counterpart is `.../claude/complete`, not a poll: this flow hands the user a code rather than waiting on the provider.
 
 #### `POST /api/v1/chat/oauth/codex/poll/{session_id}`
 
-Codex Poll. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Ask whether that authorisation has completed yet.
+
+On success the credentials are written into **this user's** chat home on the server and the response is `{"status": "authorized"}` and nothing else — **the tokens are never returned to the client.** A browser that never receives a token cannot leak one.
+
+Any other status is returned as the provider gave it, so a caller can distinguish "still waiting" from "denied" instead of retrying a decision that has already been made. 400 when the flow itself is invalid or expired.
 
 In the path:
 
@@ -2302,7 +2312,9 @@ In the path:
 
 #### `POST /api/v1/chat/oauth/codex/start`
 
-Codex Start. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Begin the OAuth device flow for the Codex backend. Returns what the user must visit.
+
+Poll `.../codex/poll/{session_id}` afterwards. 502 when the provider itself cannot be reached — a distinct case from a rejected authorisation, which the poll reports.
 
 #### `GET /api/v1/chat/oauth/status`
 
@@ -2310,11 +2322,15 @@ Which backends this user is logged in for. hermes_web is server-side (no per-use
 
 #### `GET /api/v1/chat/prefs`
 
-Get Prefs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This user's chat preferences, with the server's defaults filled in where unset.
+
+Every field answers as "what would be used right now": an unset `default_backend` reads as the server's configured one rather than as `null`, so a caller never has to know the fallback rules to display the effective value. `models` maps a backend to the model chosen for it.
 
 #### `PATCH /api/v1/chat/prefs`
 
-Set Prefs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change chat preferences; omitted fields stay as they are.
+
+`models` is **merged**, not replaced — setting the model for one backend does not forget the others. 422 when `default_backend` is not a known backend.
 
 The JSON body carries:
 
@@ -2325,11 +2341,15 @@ The JSON body carries:
 
 #### `GET /api/v1/chat/sessions`
 
-List Sessions. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This user's chat sessions, **most recently active first** (not most recently created).
+
+Sessions are per-user and not shared; another user's session is invisible rather than forbidden. Each row carries its message count, so a client need not fetch a transcript to show how long a conversation is.
 
 #### `POST /api/v1/chat/sessions`
 
-Create Session. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Start a chat session, pinned to one backend for its lifetime.
+
+The backend comes from the body, else this user's preference, else the server default; it must be one of the known backends (422). **It cannot be changed afterwards** — see `send_message` for why a session is pinned rather than re-selectable per message.
 
 The JSON body carries:
 
@@ -2338,7 +2358,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/chat/sessions/{sid}`
 
-Delete Session. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a session and its messages. Only your own; 404 for anything else.
 
 In the path:
 
@@ -2346,7 +2366,7 @@ In the path:
 
 #### `PATCH /api/v1/chat/sessions/{sid}`
 
-Rename Session. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change a session's label. The transcript and the pinned backend are untouched.
 
 In the path:
 
@@ -2358,7 +2378,9 @@ The JSON body carries:
 
 #### `GET /api/v1/chat/sessions/{sid}/history`
 
-Session History. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The full transcript of one session, in sequence order.
+
+Only the caller's own sessions (404 otherwise — not 403, because whether someone else's session id exists is not this caller's business). The system prompt is **not** part of the transcript: it is injected per request and never stored, so it can be improved without rewriting history.
 
 In the path:
 
@@ -2366,7 +2388,15 @@ In the path:
 
 #### `POST /api/v1/chat/sessions/{sid}/message`
 
-Send Message. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Send a turn and stream the answer back as server-sent events.
+
+**The session's backend is authoritative.** A `backend` in the body is accepted only if it matches the session's; otherwise **409**, naming the pin. Letting a per-request field redirect a pinned session is how a conversation ends up half-answered by two different models, each unaware of the other's turns.
+
+What happens in order: the user's turn is persisted first (so a crash mid-answer cannot lose the question), the whole transcript is loaded, and a **non-persisted** system prompt is prepended. That prompt is not stored on purpose — it can be improved without rewriting what people actually said.
+
+With an agentic backend the model may **call fleet tools**, executed in-process against a session held open for the whole loop. Those calls do what they say: they are the same actions the UI performs, subject to the same authorisation as the caller. This endpoint is therefore a write surface, whatever it looks like.
+
+422 for empty content, for an unknown backend, or when the backend cannot be built (missing credentials, unreachable endpoint) — the message says which.
 
 In the path:
 
