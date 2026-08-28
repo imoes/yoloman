@@ -186,6 +186,18 @@ Each of these was invisible until a real host was in front of it:
 - **The MSI build needs a Windows host.** `wix` on Linux declares its own behaviour undefined and proved it —
   three inconsistent path-validation failures. The build now runs on the test host; a Windows CI runner is the
   durable answer.
+- **An event rule's `mode` field is inert, and the API does not say so.** `mode: auto|propose` is validated
+  strictly on write, stored, and returned — and **nothing in the engine reads it** (verified: zero reads of
+  `policy.mode` anywhere in `bossman/`). The real gate is `autonomy: propose|auto_verify`, which
+  docs/closed-loop-remediation.md already recorded as its replacement. A rule set to `mode: "auto"` with
+  `autonomy: "propose"` will only ever propose, and the strict validation is the strongest possible signal
+  that the field matters. Documented at both endpoints for now; **removing it or making it an alias of
+  `autonomy` is an API change and an operator's decision**, not a tidy-up.
+- **A check rule's `version` is not enforced.** It is a content hash for change detection and no route
+  verifies it, so two editors saving the same rule do not collide — the second write wins silently. Event
+  handlers do it properly with `If-Match`; the inconsistency is real and now stated in both docstrings.
+- **Nothing prunes `resource_generations`.** Every resource apply adds a row and none are ever removed. The
+  30-generation cap that exists belongs to the docker desired-state model and does not apply here.
 - Snap-ins for what has no module yet: printers, certificates, local security policy, Windows Update.
 
 ---

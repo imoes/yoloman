@@ -24,8 +24,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **290 carry a description** written in the handler
-itself; **191 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **299 carry a description** written in the handler
+itself; **182 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -2535,11 +2535,19 @@ Query parameters:
 
 #### `GET /api/v1/event-handlers`
 
-List Event Handlers. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every event handler — the reusable *actions* that rules perform.
+
+Each row carries `used_by_rules`, the number of rules pointing at it, so a caller can see what a change or a delete would affect before attempting either.
 
 #### `POST /api/v1/event-handlers`
 
-Create Event Handler. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a handler: a runbook, or a script Bossman either deploys or finds on the host.
+
+Every refusal names its reason instead of surfacing a constraint name. The forbidden combinations are already impossible in the schema; this layer explains them:
+
+- a **runbook** handler cannot be `local` — a runbook is a document in Bossman's database, so there is nothing on the host to point at — and its runbook must exist now; - a **local** script cannot declare parameters, because Bossman does not have its body and so cannot describe what it accepts; - a **managed** script needs its source, because Bossman deploys it before every run.
+
+Re-deployed on **every** run rather than copied once: a host holding an older copy than the one Bossman displays would be two truths for one body.
 
 The JSON body carries:
 
@@ -2557,11 +2565,17 @@ The JSON body carries:
 
 #### `GET /api/v1/event-handlers/meta`
 
-Event Handler Meta. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The vocabularies a handler can be built from, with the reason for the one restriction that surprises people.
+
+`bodies` (runbook, script), `locations` (managed, local), `interpreters` — a closed list on purpose, because free text would let someone name a binary the host does not have and it would fail only when an event fires — and the directory a managed script is deployed to.
+
+`local_no_parameters_reason` is the sentence a form should show instead of inventing its own: Bossman does not have a local script's contents, so it cannot say which parameters it takes. The event context (host, service, state, value) is passed regardless — that is the fact which caused the run, not a parameter.
 
 #### `DELETE /api/v1/event-handlers/{handler_id}`
 
-Delete Event Handler. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a handler, unless a rule still points at it.
+
+**409 naming how many rules stand in the way**, rather than the foreign-key error the database would raise: deleting it would leave a rule that fires and does nothing, which is worse than a handler that cannot be deleted. Point those rules elsewhere first.
 
 In the path:
 
@@ -2569,7 +2583,7 @@ In the path:
 
 #### `GET /api/v1/event-handlers/{handler_id}`
 
-Get Event Handler. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One handler, with the number of rules using it. 404 when there is no such id.
 
 In the path:
 
@@ -2577,7 +2591,11 @@ In the path:
 
 #### `PUT /api/v1/event-handlers/{handler_id}`
 
-Update Event Handler. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a handler — with a real concurrency check, unlike some of its neighbours.
+
+Send `If-Match` with the `version` from a previous read; a stale version is refused, so two people editing the same handler cannot silently overwrite each other. (Check rules carry a `version` that nothing verifies. The difference is deliberate here and an inconsistency there.)
+
+Validation is the same as on create, and the name must stay unique (409).
 
 In the path:
 
@@ -2615,11 +2633,25 @@ Query parameters:
 
 #### `GET /api/v1/event-rules`
 
-List Remediation Policies. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every event rule: what fires, where it applies, and what it is allowed to do.
+
+Newest first. A rule ties a **trigger** (a check entering a hard problem state, plus optional conditions and a scope) to an **action** (a runbook or an event handler) and to the **guardrails** that decide whether that action may run unattended.
+
+Read `autonomy`, not `mode` — see the create endpoint for why that matters.
 
 #### `POST /api/v1/event-rules`
 
-Create Remediation Policy. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create an event rule — and the one thing to get right here is autonomy.
+
+**Exactly one action**: either `runbook_name` or `event_handler_id`, never both and never neither (422). The reference is resolved now rather than when an event fires, because the moment a fix is needed is the worst moment to learn its runbook was renamed away.
+
+**`autonomy` is the real gate; `mode` is inert.** `mode: auto|propose` is still validated and stored — and nothing in the engine reads it (docs/closed-loop-remediation.md records that `autonomy` replaced it semantically). A rule with `mode: "auto"` and `autonomy: "propose"` will only ever propose. Both fields stay in the payload for callers that still send them; only `autonomy` decides.
+
+A fix runs unattended only if **every** one of these holds, and each No is reported as the reason the proposal is waiting for a human:
+
+1. the server-wide autonomy kill-switch is on (it is off by default), 2. the rule is `enabled`, 3. `autonomy` is `auto_verify`, 4. the host is not production, or `allow_prod` is set, 5. fewer than `max_per_hour` runs for this rule on this host in the last hour, 6. fewer than `max_blast_radius` hosts touched by this rule in this cycle.
+
+`verify` + `verify_after_s` re-check the service afterwards; `rollback_runbook` is what runs when that verification fails. Every attempt — applied, proposed or refused — is recorded.
 
 The JSON body carries:
 
@@ -2645,7 +2677,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/event-rules/{policy_id}`
 
-Delete Remediation Policy. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete an event rule.
+
+**204 whether or not it existed.** A delete states a desired end condition, and that condition holds either way; a 404 would make a retry look like a failure.
+
+Its run history survives, but the link does not: `remediation_runs.policy_id` is `ON DELETE SET NULL`, so past runs keep *what* ran (`action`, as `kind:name`) and lose *which rule* caused it. To stop a rule firing without losing that, set `enabled: false` instead.
 
 In the path:
 
