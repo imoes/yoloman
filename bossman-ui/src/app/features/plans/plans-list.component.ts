@@ -5,6 +5,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { PlanService } from '../../core/services/plan.service';
 import { Plan } from '../../core/models/plan.model';
 
+/**
+ * Plans: the runbooks Bossman holds, as a list.
+ *
+ * A PLAN IS THE INTENT, a run is one execution of it — the same distinction the whole product keeps between a
+ * rule and its instances. This screen is the intent side: what may be run, with its parameters, from a
+ * library that is the same for every host. Which hosts a plan has actually been run against, and how it went,
+ * is the Runs screen; that split is deliberate, because "we have a patch plan" and "the patch plan ran on
+ * these forty hosts" are different claims and merging them into one list is how the second gets assumed.
+ */
 @Component({
   selector: 'app-plans-list',
   standalone: true,
