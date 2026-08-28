@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **305 carry a description** written in the handler
-itself; **176 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **316 carry a description** written in the handler
+itself; **165 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -3480,11 +3480,19 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/access-grants`
 
-List Grants. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every access grant in the server: who may manage what.
+
+A grant is `(subject, scope)` — the subject being a user (by username) or an api_token (by its UID), the scope being `all`, one `host`, or one `host_group`. Admin users hold no grants and can do everything, so this table is not the complete answer to "who can reach this host"; it is the complete answer for everyone who is not an admin.
+
+`subject_token_id` is shown because it, not `subject_ref`, decides authorisation for a token — two grants can carry the same name and belong to different tokens, one of them possibly dead.
 
 #### `POST /api/v1/access-grants`
 
-Create Grant. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Grant management rights: `all`, one host, or one host group.
+
+422 when the scope's own target is missing (`host` needs `agent_id`, `host_group` needs `host_group_id`) — a grant that names a scope without its object would be silently unusable.
+
+**An api_token grant binds to the token's UID, and an ambiguous name is refused (409)** rather than resolved by guessing. It was name-bound once, and that measurably applied one grant to every token sharing the name (28 of them for a single name). An authorisation must not depend on which of several rows a query happened to return first.
 
 The JSON body carries:
 
@@ -3496,7 +3504,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/access-grants/{grant_id}`
 
-Delete Grant. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Revoke a grant. Takes effect on the next request — nothing is cached.
+
+404 when there is no such grant. If the subject also holds a wider grant (`scope: all`, or a group containing the host), removing this one changes nothing; `GET /api/v1/access-grants` is how you check that before assuming access is gone.
 
 In the path:
 
@@ -3504,11 +3514,17 @@ In the path:
 
 #### `GET /api/v1/api-tokens`
 
-List Tokens. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every API token, by name and creation time, with whether it has been revoked.
+
+**The secret is not here and cannot be recovered** — only its hash is stored. A revoked token stays in this list rather than disappearing: "this token existed and was revoked" is a different fact from "no such token", and an audit entry referring to it must stay explainable.
 
 #### `POST /api/v1/api-tokens`
 
-Create Token. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Mint an API token. **The secret is returned exactly once, in this response.**
+
+Only its hash is stored, so there is no endpoint that can show it again — if it is lost, revoke the token and mint another.
+
+**Names are not unique**, and that matters more than it looks: a grant binds to the token's UID, not to its name, so two tokens called `ci` are two different subjects. Creating a duplicate name is allowed and makes the *grants* ambiguous to read, which is why `POST /api/v1/access-grants` refuses to bind by an ambiguous name (409).
 
 The JSON body carries:
 
@@ -3516,7 +3532,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/api-tokens/{token_id}`
 
-Revoke Token. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Revoke a token: it stops authenticating immediately and stays in the list, stamped.
+
+Not a delete. Its grants are left in place — revoking authentication and removing authorisation are two separate acts, and a grant whose token is revoked is inert but still visible, which is what lets someone answer "what was this token allowed to do".
 
 In the path:
 
@@ -3524,15 +3542,23 @@ In the path:
 
 #### `GET /api/v1/me`
 
-Whoami. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Who am I, and what may I manage — the one route any authenticated caller may hit.
+
+Returns the caller's kind (`user` or `api_token`), name, role, whether they are an admin, and the access grants they actually hold. The UI gates its admin surfaces on this.
+
+**The grants are selected by the same predicate the enforcement uses** (`grant_filter`), which was not always true: this route matched an api_token's grants by NAME while the host ACL matched by the token's UID, so a token sharing a name with a granted one was told it had `scope: all` and then refused with 403 by every route that acts. A view that contradicts the enforcement is worse than no view, because the reader cannot tell which one is lying.
+
+An admin sees `is_admin: true` and may hold no grants at all — admin bypasses the grant check entirely, so an empty list here does not mean an admin can do nothing. That asymmetry is why `is_admin` is its own field rather than something a client infers from the grants.
 
 #### `GET /api/v1/users`
 
-List Users. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every account in this server, with its role. Admin only, like everything here except `/me`.
 
 #### `POST /api/v1/users`
 
-Create User. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create an account. Two roles exist: `admin` and `operator` (422 for anything else).
+
+**The role is not the host ACL.** `admin` bypasses the per-host check entirely; `operator` may manage nothing until an access grant says otherwise. Creating an operator therefore creates someone who can log in and see, and change nothing — which is the intended starting point, not an oversight.
 
 The JSON body carries:
 
@@ -3542,7 +3568,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/users/{username}`
 
-Delete User. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete an account.
+
+**409 when it is your own** — an admin who deletes themselves could leave an installation with no administrator and no way back in. 404 when there is no such user.
+
+Their access grants are subject-referenced by username, so a new account created with the same name would inherit them. Delete the grants too unless that is what you want.
 
 In the path:
 
@@ -3550,7 +3580,9 @@ In the path:
 
 #### `PATCH /api/v1/users/{username}`
 
-Update User. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change a role or a password; omitted fields stay as they are.
+
+Note what a role change does immediately: promoting to `admin` grants management of every host at once, because admin bypasses the grant check rather than being given grants. There is no per-host trace of that promotion in the grant table — the audit trail is where it is recorded.
 
 In the path:
 

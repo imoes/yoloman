@@ -181,3 +181,46 @@ async def test_create_grant_validation(db_session):
         r = client.post("/api/v1/access-grants", json={"subject_kind": "user", "subject_ref": "x", "scope": "host"}, headers=_h(_jwt(admin)))
         assert r.status_code == 422  # scope=host requires agent_id
     await db_session.commit()
+
+
+async def test_me_cannot_claim_a_grant_the_acl_refuses(db_session):
+    """/me and the host ACL must select grants by the SAME rule.
+
+    They did not: /me matched an api_token's grants by NAME while user_can_manage_agent matched by
+    the token's UID. Measured on the running server before the fix — two tokens called `x`, a
+    scope=all grant on the name, and the SECOND token was told "scope: all" by /me and then refused
+    with 403 by every route that acts. Whichever way that disagreement is resolved, the two views
+    must not be able to disagree again, which is why both now go through grant_filter.
+    """
+    a = await _agent(db_session)
+    name = owned_name("dup")
+    first, first_raw = new_api_token(name)
+    second, second_raw = new_api_token(name)      # same name, different uid — names are not unique
+    db_session.add_all([first, second])
+    await db_session.flush()
+    grant = AccessGrant(subject_kind="api_token", subject_ref=name,
+                        subject_token_id=first.id, scope="all")
+    db_session.add(grant)
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        granted = client.get("/api/v1/me", headers=_h(first_raw))
+        other = client.get("/api/v1/me", headers=_h(second_raw))
+        assert granted.status_code == 200 and other.status_code == 200
+        # The token the grant is bound to sees it; the same-named one does not.
+        assert [g["scope"] for g in granted.json()["grants"]] == ["all"]
+        assert other.json()["grants"] == []
+        # And the binding that decides this is visible rather than implied.
+        assert granted.json()["grants"][0]["subject_token_id"] == str(first.id)
+
+    # The enforcement agrees with both answers — that is the property under test.
+    assert await user_can_manage_agent(
+        db_session, Identity(kind="api_token", name=name, token_id=first.id), a.id) is True
+    assert await user_can_manage_agent(
+        db_session, Identity(kind="api_token", name=name, token_id=second.id), a.id) is False
+
+    await db_session.delete(grant)
+    for row in (first, second):
+        await db_session.delete(row)
+    await db_session.delete(a)
+    await db_session.commit()
