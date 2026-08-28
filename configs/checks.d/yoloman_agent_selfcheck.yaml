@@ -1,0 +1,31 @@
+name: yoloman_agent_selfcheck
+fqcn: yoloman.agent_selfcheck
+collection: yoloman
+short_description: Agent self-check
+description: >-
+  How fast the host's own agent port accepts a local TCP connection — the floor under every other check, since
+  every check's latency includes this one's. Measured from the host against 127.0.0.1, so it says something
+  about the agent and not about the network to Bossman. HAND-WRITTEN, unlike the 1400 translated Checkmk checks
+  around it: it exists so the authoring path has a worked example a person can read in one sitting, and it is
+  the reference for what `ctx` actually offers (probe/facts/run — there is no clock). Needs no credentials and
+  cannot change anything, so it is safe on every host in the fleet.
+options:
+  port:
+    type: number
+    default: 8051
+    description: >-
+      The agent's own listening port on this host. 8051 is the Go agent's default; the Windows agent is often
+      on 8451.
+  warn_ms:
+    type: number
+    default: 50
+    description: Warn when the local connection to the agent's port takes at least this many milliseconds.
+  crit_ms:
+    type: number
+    default: 500
+    description: Crit when it takes at least this many milliseconds.
+writes: false
+runtime: starlark
+source: handwritten
+kind: check
+execution: local
