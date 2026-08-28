@@ -24,8 +24,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **247 carry a description** written in the handler
-itself; **234 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **280 carry a description** written in the handler
+itself; **201 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -1100,7 +1100,11 @@ The fleet: enrolled hosts, their facts, their modules, and the calls that reach 
 
 #### `GET /api/v1/agents`
 
-List Agents. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every host in the fleet, with its facts, its state and its addresses.
+
+This is the call that maps a host **name** to the **agent id** the rest of the API is addressed by. Names are not unique over a fleet's lifetime; an endpoint that took a name would act on the wrong host after a rebuild.
+
+One deliberate omission: **infrastructure agents are not listed.** The silent poller that reaches SNMP and SSH devices ("selecta") is an agent in the database and not a monitored host, so it would appear as a host that never has any of the things a host has. It is filtered here rather than in the UI, so every client sees the same fleet.
 
 #### `POST /api/v1/agents/mass-update/facets`
 
@@ -1134,7 +1138,9 @@ In the path:
 
 #### `GET /api/v1/agents/{agent_id}`
 
-Get Agent. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One host: its facts, its enrollment state, its addresses and its versions.
+
+404 when there is no such id — including for an infrastructure agent's id, which `list_agents` does not return either.
 
 In the path:
 
@@ -1236,7 +1242,11 @@ The JSON body carries:
 
 #### `GET /api/v1/agents/{agent_id}/metrics`
 
-Get Agent Metrics. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This host's metrics: the catalogue, or the points of one series.
+
+**Two modes in one endpoint, and the parameter decides which.** Without `metric` you get the *catalogue* — which series this host has ever reported, so a caller can find out what is measurable before asking for numbers. With `metric` you get that series' points, optionally from `since` onwards.
+
+The catalogue is what a host *has reported*, not what it *could* report: a series appears once the first sample arrives and stays afterwards. For the newest sample of every series in one call, use `.../metrics/latest` instead of fanning out one request per name.
 
 In the path:
 
@@ -1362,7 +1372,11 @@ In the path:
 
 #### `GET /api/v1/agents/{agent_id}/services`
 
-List Agent Services. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every check result for one host, as service states.
+
+One row per check assigned to this host: its state, its message, its metrics and when it last ran. A host that has just been enrolled legitimately returns an empty list — no checks are assigned yet, which is different from all checks passing.
+
+404 when the agent id does not exist.
 
 In the path:
 
@@ -1396,11 +1410,19 @@ Query parameters:
 
 #### `GET /api/v1/check-rules`
 
-List Check Rules. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every check policy: which check is assigned where, with which parameters.
+
+A rule is the *intension* — the declaration "hosts in this scope run this check with these thresholds". The service states it produces are the extension. Keep the two apart when reading this: a rule can exist while no host matches it, and that is not an error.
+
+One rule can be linked to several OUs; both its primary scope and its additional OU links are folded into `ou_ids` here, deduplicated, so a caller does not have to join two tables to see a rule's real reach. For which rule actually *wins* on a given host — the precedence global < group < OU < site < host, with the reason — ask `GET /api/v1/agents/{agent_id}/effective-thresholds` instead.
 
 #### `POST /api/v1/check-rules`
 
-Create Check Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Assign a check to a scope with its parameters.
+
+The scope is what makes this a policy rather than a per-host setting: global, a host group, an OU, a site or a single host. Overlapping rules are legitimate and resolved by precedence (global < group < OU < site < host) rather than rejected — a narrower scope is how an exception is expressed.
+
+The parameters are validated against the check's own declared options, so a rule cannot carry a parameter the check would refuse. Nothing runs on a host until the assignment reaches it on the next cycle; the check is pushed to the agent and, if the agent rejects it, the resulting service says so rather than reporting a stale result.
 
 The JSON body carries:
 
@@ -1427,7 +1449,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/check-rules/{rule_id}`
 
-Delete Check Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Remove a check policy.
+
+The check stops being assigned through this rule; hosts that matched it lose the service on the next cycle. Hosts that also match another rule keep it, with that rule's parameters — which may differ, so a delete can change thresholds rather than remove a check.
 
 In the path:
 
@@ -1435,7 +1459,7 @@ In the path:
 
 #### `PATCH /api/v1/check-rules/{rule_id}`
 
-Patch Check Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change individual fields of a check policy; anything you omit stays as it is. This is the safe one for a partial edit — see PUT for why.
 
 In the path:
 
@@ -1450,7 +1474,11 @@ The JSON body carries:
 
 #### `PUT /api/v1/check-rules/{rule_id}`
 
-Update Check Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a check policy wholesale.
+
+Every field is taken from the body, so a field you omit is *cleared*, not kept — use PATCH when you mean to change one thing.
+
+Note what this does *not* do: the `version` a rule carries in its representation is a content hash for change detection, and **nothing here checks it**. Two editors saving the same rule will not collide; the second write wins silently.
 
 In the path:
 
@@ -1502,7 +1530,9 @@ In the path:
 
 #### `GET /api/v1/downtimes`
 
-List Downtimes. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Planned outage windows: scheduled, past and running.
+
+`active_only=true` narrows it to windows covering this moment, which is the set that is actually suppressing anything right now. Without `agent_id` you get the whole fleet's.
 
 Query parameters:
 
@@ -1511,7 +1541,11 @@ Query parameters:
 
 #### `POST /api/v1/downtimes`
 
-Create Downtime Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Declare a planned outage window, so what happens in it is not a problem.
+
+A downtime covers one host (`agent_id`), optionally one `service_name` — omit it and the whole host is covered. During the window its services keep measuring and keep their real states; what changes is that they are left out of the problem list and the notification path.
+
+422 when the window makes no sense (an end at or before its start); 404 when there is no such host. A downtime is not retroactive: a window in the past changes nothing about the notifications that already went out, because rewriting whether an alarm "should have" fired would falsify the record.
 
 The JSON body carries:
 
@@ -1523,7 +1557,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/downtimes/{downtime_id}`
 
-Delete Downtime. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Remove a downtime window. If it is running, its host's services return to the problem list immediately — with their current states, not the states they had when the window opened.
 
 In the path:
 
@@ -1539,7 +1573,13 @@ Query parameters:
 
 #### `GET /api/v1/fleet/summary`
 
-Fleet Summary Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The fleet in numbers: hosts by state, services by state, what needs attention.
+
+The overview's top row, and read the axes carefully because they differ:
+
+- **Hosts are counted by enrollment state**, not by health — pending, enrolled and the rest. A host's health is a rollup of its services, and this number is not that. - **Services are counted by monitoring state** across the four: OK, WARN, CRIT, UNKNOWN. - **Open problems** is the narrower number an operator acts on: non-OK, *not* acknowledged and *not* under a downtime. It is deliberately smaller than WARN + CRIT + UNKNOWN, and the difference is the work someone has already taken.
+
+Every value is a count of rows that exist right now — not a rate, not an average.
 
 #### `GET /api/v1/metric-catalog`
 
@@ -1547,7 +1587,13 @@ Every distinct metric actually collected across the fleet (from the `metrics` hy
 
 #### `GET /api/v1/problems`
 
-List Problems. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Everything currently not OK in the fleet — the problem list.
+
+WARN, CRIT and UNKNOWN services, **most recently changed state first**, filterable by state, host name, acknowledgement and host tag. That ordering is deliberate: what just broke is what an operator has not seen yet.
+
+**Services under an active downtime are excluded unless you ask for them** (`include_downtime=true`). That is the point of a downtime: a planned outage is not a problem, and a problem list that shows it teaches operators to ignore the list. They are excluded, never deleted — the service still has its state, and the downtime is why it is not here.
+
+UNKNOWN is a state, not a gap: it means the check could not produce a verdict, and the service's message says why (no data yet, the check was refused, the check itself failed). Do not read it as OK.
 
 Query parameters:
 
@@ -1579,7 +1625,7 @@ In the path:
 
 #### `DELETE /api/v1/services/{service_id}/acknowledge`
 
-Unacknowledge Service Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Take the acknowledgement back — the problem returns to the notification path with its comment and history intact. Used when whoever took it cannot finish it.
 
 In the path:
 
@@ -1587,7 +1633,13 @@ In the path:
 
 #### `POST /api/v1/services/{service_id}/acknowledge`
 
-Acknowledge Service Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Acknowledge a problem: someone has seen it and is dealing with it.
+
+An acknowledgement does not change the state — the service stays CRIT, because it still is CRIT. It records that a human took it, with their name, their comment and the time, and it takes the service out of the notification path so the next escalation step does not fire. That separation is the point: suppressing the alarm must not be the same act as claiming the problem is gone.
+
+`expire_after_minutes` makes it lapse by itself, which is what you want for "I'll look at this after lunch" — an acknowledgement that never expires is how a real problem gets forgotten.
+
+It is also cleared automatically on the next **confirmed (hard) state change** — a recovery *or* a fresh problem onset. Both are new occurrences, and a stale acknowledgement carrying over into one would silence something nobody has looked at. A soft flicker does not clear it.
 
 In the path:
 
@@ -1609,7 +1661,11 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `POST /api/v1/agents/{agent_id}/resources/config/apply`
 
-Config Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Write the declared keys to the file — by merge, so foreign keys survive.
+
+**`dry_run` defaults to `true`.** With `dry_run: false`, the agent parses the file, overlays exactly the keys in `values`, and serialises it back: keys nobody declared are left as they were, including comments where the codec preserves them. That is the whole point of the merge path — a whole-file render would silently destroy anything it did not know about.
+
+A key set to `null` is *removed* rather than written empty, which is a different statement about the file and is why the value model allows it.
 
 In the path:
 
@@ -1628,7 +1684,11 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/config/plan`
 
-Config Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What would change in this configuration file, key by key.
+
+The file is addressed by `path` in the query string, not by a name segment — a filesystem path cannot ride in a URL segment unescaped. The body's `values` are the keys you want to declare; the plan shows them against what the host's file holds now.
+
+Which of the two write paths applies is decided by the file's **codec**, not by the caller: a file this system can parse is written by merge, one it cannot is written by whole-file render from a template. Ask `GET /api/v1/config-fields?path=…` to find out which, along with the fields this file actually has.
 
 In the path:
 
@@ -1646,7 +1706,11 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/config/rollback`
 
-Config Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Restore this file to an earlier generation of declared values.
+
+`generation` comes from `GET .../generations?path=…`. What is restored is the declaration, then re-merged — so keys the host gained from elsewhere in the meantime are still not touched.
+
+Two limits worth knowing. Generations here are kept **without any retention limit**: nothing prunes `resource_generations`, so the table grows with every apply. (There *is* a 30-generation cap in this system, but it belongs to the separate docker desired-state model — `services/docker_desired.py`, pruned on discover — and it does not apply to this table. Do not assume one from the other.) And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
 
 In the path:
 
@@ -1675,7 +1739,11 @@ Query parameters:
 
 #### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/apply`
 
-Docker Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Bring the container to the spec in the body — and note the default.
+
+**`dry_run` defaults to `true`.** A caller that omits it gets the plan and no change, which is the safe direction for a default to fail in, but it also means a naive "apply" reports success while having done nothing. Send `dry_run: false` when you mean it.
+
+A successful non-dry apply records a **generation**: the spec that was applied, with the optional `note`. That is what `rollback` reverts to and what `GET .../generations` lists — the container is recreated from the spec rather than patched, so anything not in the spec is not preserved.
 
 In the path:
 
@@ -1694,7 +1762,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/plan`
 
-Docker Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What would change about this container, without touching it.
+
+Returns the diff between the container as it runs now and the spec in the body: image, published ports, environment, volumes, restart policy. Nothing is written, so this is safe to call on anything at any time — and it is the call to make before `apply`, because a plan is reviewable and an apply is not.
 
 In the path:
 
@@ -1711,7 +1781,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/docker/{name}/rollback`
 
-Docker Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Recreate the container from an earlier generation's spec.
+
+`generation` is a number from `GET .../generations`. This is a real revert, not a forward-converge: the stored spec is applied as it was. What it cannot restore is anything that was never part of the spec — data in an anonymous volume, or a manual `docker exec` change — because a generation records the declaration, not the container's contents.
 
 In the path:
 
@@ -1724,7 +1796,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/apply`
 
-Helm Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Install or upgrade the release to the chart and values in the body.
+
+**`dry_run` defaults to `true`** here too — see `docker_apply` for why that matters. A non-dry apply records a generation (chart + values + note), which is what `rollback` targets. Helm keeps its own revision history as well; the generation recorded here is Bossman's, and the two are not the same numbering.
 
 In the path:
 
@@ -1744,7 +1818,7 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/plan`
 
-Helm Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What this release would become: the chart and values in the body against the release as installed. Reads only. `namespace` defaults to `default`.
 
 In the path:
 
@@ -1762,7 +1836,7 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/helm/{name}/rollback`
 
-Helm Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Re-apply an earlier generation's chart and values. `generation` comes from `GET .../generations` — it is Bossman's number, not Helm's revision.
 
 In the path:
 
@@ -1779,7 +1853,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/package/{name}/apply`
 
-Package Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Install, remove or upgrade the package. **`dry_run` defaults to `true`.**
+
+Reaches the host's own package manager through the `package` module, so it is idempotent for `present` and `absent`: applying twice equals applying once, and the response says `changed: false` when nothing had to happen. A generation is recorded so `rollback` can restore the previous declared state — that restores the *declaration* (`present`/`absent`/version), not the exact binary contents of a repository that has moved on.
 
 In the path:
 
@@ -1794,7 +1870,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/package/{name}/plan`
 
-Package Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What installing, removing or upgrading this package would do on this host.
+
+`state` is `present`, `absent` or `latest`. `latest` is not idempotent in the way the other two are — it means "whatever the repository currently offers", so it can change on a host that nobody touched, and a plan for it is only true for as long as the repository stays put.
 
 In the path:
 
@@ -1807,7 +1885,7 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/package/{name}/rollback`
 
-Package Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Re-apply this package's previous declared state from `GET .../generations`. Restores the declaration, not a snapshot: if the repository now offers a different version, `present` will install that one.
 
 In the path:
 
@@ -1820,7 +1898,11 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/role/{name}/apply`
 
-Role Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Bind this role to the host — desired state, not an immediate run.
+
+A role is an OrchestrationPlan of type `role`; binding it means the host is *supposed* to have it, and the binding converges when the host next checks in. That is why this works on a host with no address at all, including a bare-metal machine that has not booted yet: the binding is database state.
+
+Two defaults to know. **`dry_run` defaults to `true`**, so an apply that omits it changes nothing. And **`require_approval` defaults to `true`**: the binding is created `pending_approval` and does nothing until someone approves it, unless approval is waived here or global YOLO mode is on. The gate is deliberate — see the remediation guardrails for the same pattern.
 
 In the path:
 
@@ -1871,7 +1953,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/service/{name}/apply`
 
-Service Apply. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Set the service's boot-enablement and/or run state. **`dry_run` defaults to `true`.**
+
+`enabled` and `state` are separate declarations and either may be omitted: a unit can legitimately be enabled and stopped, or running and disabled, and this endpoint will not quietly make them agree. Note that `restarted` and `reloaded` are *actions*, not states — they are never idempotent, and the response reports `changed: true` every time because that is what happened.
 
 In the path:
 
@@ -1887,7 +1971,7 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/service/{name}/plan`
 
-Service Plan. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What would change about this service unit: whether it is enabled at boot (`enabled`) and whether it is running (`state`: started, stopped, restarted, reloaded). Only the fields you send are considered — the two are independent, and a plan that assumed the missing one would be inventing a declaration.
 
 In the path:
 
@@ -1901,7 +1985,7 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/resources/service/{name}/rollback`
 
-Service Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Re-apply this unit's previous declared enablement and run state from `GET .../generations`. A rollback of `restarted` re-runs the restart, since there is no earlier state to return to — the response says so.
 
 In the path:
 
@@ -4794,7 +4878,11 @@ Logging in. Everything else needs the bearer token this returns.
 
 #### `POST /api/v1/auth/login`
 
-Login. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Log in and get the bearer token everything else needs.
+
+Send `{"username", "password"}`; the response carries `access_token`, which goes into `Authorization: Bearer <token>` on every other call in this API. Only this endpoint and `/healthz` work without one.
+
+A failed attempt is recorded in the audit trail with the source IP (action `auth.login_failed`) — a login that nobody can see failing is a login nobody can see being attacked.
 
 The JSON body carries:
 

@@ -92,8 +92,21 @@ from the running system except the one page that is deliberately hand-written:
   group opening with one sentence saying what it is *for*, each endpoint with its parameters described in
   words. Generated from a **running** server's `/openapi.json`, not from the source, because a route the
   router never included does not exist for a caller — a measurement that caught exactly that twice. It also
-  reports its own gap: **234 of the 481 handlers carry no docstring**, and those are marked as such rather
-  than padded with invented prose.
+  reports its own gap: **201 of the 481 handlers carry no docstring**, and those are marked as such rather
+  than padded with invented prose. **33 were written in the same pass** — the whole four-verb resource plane
+  (docker, helm, config, package, service, role), login, the fleet listing, and the monitoring endpoints an
+  operator lives in — each by reading the handler and *verifying* every claim against the code. Four of those
+  first drafts asserted behaviour the code does not have, and finding them is the argument for the exercise:
+  - `dry_run` **defaults to `true`** on every resource apply, so an apply that omits it reports success and
+    changes nothing. Now said at every one of them.
+  - A config rollback keeps **unlimited** generations — nothing prunes `resource_generations`. The
+    30-generation cap that exists belongs to the *docker* desired-state model and does not apply here; the
+    draft had claimed it did.
+  - Check-rule `PUT` carries a `version`, and **nothing checks it** — two editors do not collide, the second
+    write wins silently. The draft had called it optimistic concurrency.
+  - An acknowledgement is cleared on the next **confirmed (hard) state change**, recovery *or* fresh onset,
+    not "when the service recovers" — which is the more useful fact, because it is what stops a stale ack
+    from silencing a new problem.
 - **[Windows modules](docs/modules-windows.md)** and **[Linux modules](docs/modules-linux.md)** from the
   agents' own tool listings, **[every screen](docs/frontend-presentation.html)** (54, in five workspaces,
   each description taken from the component's own source comment), and a

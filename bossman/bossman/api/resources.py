@@ -128,6 +128,13 @@ async def docker_plan(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """What would change about this container, without touching it.
+
+    Returns the diff between the container as it runs now and the spec in the body:
+    image, published ports, environment, volumes, restart policy. Nothing is written,
+    so this is safe to call on anything at any time — and it is the call to make
+    before `apply`, because a plan is reviewable and an apply is not.
+    """
     r = await _docker_resource(agent_id, name, session, settings, client_factory)
     return await r.plan(body.model_dump())
 
@@ -138,6 +145,18 @@ async def docker_apply(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Bring the container to the spec in the body — and note the default.
+
+    **`dry_run` defaults to `true`.** A caller that omits it gets the plan and no
+    change, which is the safe direction for a default to fail in, but it also means a
+    naive "apply" reports success while having done nothing. Send `dry_run: false`
+    when you mean it.
+
+    A successful non-dry apply records a **generation**: the spec that was applied,
+    with the optional `note`. That is what `rollback` reverts to and what
+    `GET .../generations` lists — the container is recreated from the spec rather than
+    patched, so anything not in the spec is not preserved.
+    """
     r = await _docker_resource(agent_id, name, session, settings, client_factory)
     spec = body.model_dump(exclude={"dry_run", "note"})
     return await r.apply(spec, dry_run=body.dry_run, note=body.note)
@@ -149,6 +168,14 @@ async def docker_rollback(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Recreate the container from an earlier generation's spec.
+
+    `generation` is a number from `GET .../generations`. This is a real revert, not a
+    forward-converge: the stored spec is applied as it was. What it cannot restore is
+    anything that was never part of the spec — data in an anonymous volume, or a
+    manual `docker exec` change — because a generation records the declaration, not
+    the container's contents.
+    """
     r = await _docker_resource(agent_id, name, session, settings, client_factory)
     return await r.rollback(body.generation)
 
@@ -176,6 +203,8 @@ async def helm_plan(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """What this release would become: the chart and values in the body against the
+    release as installed. Reads only. `namespace` defaults to `default`."""
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.plan(body.model_dump())
 
@@ -186,6 +215,13 @@ async def helm_apply(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Install or upgrade the release to the chart and values in the body.
+
+    **`dry_run` defaults to `true`** here too — see `docker_apply` for why that
+    matters. A non-dry apply records a generation (chart + values + note), which is
+    what `rollback` targets. Helm keeps its own revision history as well; the
+    generation recorded here is Bossman's, and the two are not the same numbering.
+    """
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
 
@@ -196,6 +232,8 @@ async def helm_rollback(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Re-apply an earlier generation's chart and values. `generation` comes from
+    `GET .../generations` — it is Bossman's number, not Helm's revision."""
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.rollback(body.generation)
 
@@ -223,6 +261,19 @@ async def config_plan(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """What would change in this configuration file, key by key.
+
+    The file is addressed by `path` in the query string, not by a name segment — a
+    filesystem path cannot ride in a URL segment unescaped. The body's `values` are
+    the keys you want to declare; the plan shows them against what the host's file
+    holds now.
+
+    Which of the two write paths applies is decided by the file's **codec**, not by
+    the caller: a file this system can parse is written by merge, one it cannot is
+    written by whole-file render from a template. Ask
+    `GET /api/v1/config-fields?path=…` to find out which, along with the fields this
+    file actually has.
+    """
     r = await _config_resource(agent_id, path, session, settings, client_factory)
     return await r.plan(body.model_dump())
 
@@ -233,6 +284,17 @@ async def config_apply(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Write the declared keys to the file — by merge, so foreign keys survive.
+
+    **`dry_run` defaults to `true`.** With `dry_run: false`, the agent parses the
+    file, overlays exactly the keys in `values`, and serialises it back: keys nobody
+    declared are left as they were, including comments where the codec preserves
+    them. That is the whole point of the merge path — a whole-file render would
+    silently destroy anything it did not know about.
+
+    A key set to `null` is *removed* rather than written empty, which is a different
+    statement about the file and is why the value model allows it.
+    """
     r = await _config_resource(agent_id, path, session, settings, client_factory)
     return await r.apply(body.model_dump(exclude={"dry_run"}), dry_run=body.dry_run)
 
@@ -243,6 +305,22 @@ async def config_rollback(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Restore this file to an earlier generation of declared values.
+
+    `generation` comes from `GET .../generations?path=…`. What is restored is the
+    declaration, then re-merged — so keys the host gained from elsewhere in the
+    meantime are still not touched.
+
+    Two limits worth knowing. Generations here are kept **without any retention
+    limit**: nothing prunes `resource_generations`, so the table grows with every
+    apply. (There *is* a 30-generation cap in this system, but it belongs to the
+    separate docker desired-state model — `services/docker_desired.py`, pruned on
+    discover — and it does not apply to this table. Do not assume one from the
+    other.) And this endpoint always merges; the `exact`
+    write mode the underlying `config` module offers (file holds exactly these keys,
+    nothing else) is not reachable here, deliberately, because a resource whose
+    rollback could delete undeclared keys would not be safe to roll back.
+    """
     r = await _config_resource(agent_id, path, session, settings, client_factory)
     return await r.rollback(body.generation)
 
@@ -295,6 +373,19 @@ async def role_apply(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Bind this role to the host — desired state, not an immediate run.
+
+    A role is an OrchestrationPlan of type `role`; binding it means the host is
+    *supposed* to have it, and the binding converges when the host next checks in.
+    That is why this works on a host with no address at all, including a bare-metal
+    machine that has not booted yet: the binding is database state.
+
+    Two defaults to know. **`dry_run` defaults to `true`**, so an apply that omits it
+    changes nothing. And **`require_approval` defaults to `true`**: the binding is
+    created `pending_approval` and does nothing until someone approves it, unless
+    approval is waived here or global YOLO mode is on. The gate is deliberate — see
+    the remediation guardrails for the same pattern.
+    """
     r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
 
@@ -364,6 +455,13 @@ def _svc_resource(agent, session, settings, client_factory, name: str) -> Servic
 async def package_plan(agent_id: UUID, name: str, body: PackageSpec, session: AsyncSession = Depends(get_session),
                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """What installing, removing or upgrading this package would do on this host.
+
+    `state` is `present`, `absent` or `latest`. `latest` is not idempotent in the way
+    the other two are — it means "whatever the repository currently offers", so it
+    can change on a host that nobody touched, and a plan for it is only true for as
+    long as the repository stays put.
+    """
     r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.plan(body.model_dump())
 
@@ -372,6 +470,15 @@ async def package_plan(agent_id: UUID, name: str, body: PackageSpec, session: As
 async def package_apply(agent_id: UUID, name: str, body: PackageApplyBody, session: AsyncSession = Depends(get_session),
                         settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                         client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """Install, remove or upgrade the package. **`dry_run` defaults to `true`.**
+
+    Reaches the host's own package manager through the `package` module, so it is
+    idempotent for `present` and `absent`: applying twice equals applying once, and
+    the response says `changed: false` when nothing had to happen. A generation is
+    recorded so `rollback` can restore the previous declared state — that restores
+    the *declaration* (`present`/`absent`/version), not the exact binary contents of
+    a repository that has moved on.
+    """
     r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
 
@@ -380,6 +487,9 @@ async def package_apply(agent_id: UUID, name: str, body: PackageApplyBody, sessi
 async def package_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
                            settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                            client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """Re-apply this package's previous declared state from `GET .../generations`.
+    Restores the declaration, not a snapshot: if the repository now offers a
+    different version, `present` will install that one."""
     r = _pkg_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.rollback(body.generation)
 
@@ -388,6 +498,10 @@ async def package_rollback(agent_id: UUID, name: str, body: RollbackBody, sessio
 async def service_plan(agent_id: UUID, name: str, body: ServiceSpec, session: AsyncSession = Depends(get_session),
                        settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                        client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """What would change about this service unit: whether it is enabled at boot
+    (`enabled`) and whether it is running (`state`: started, stopped, restarted,
+    reloaded). Only the fields you send are considered — the two are independent, and
+    a plan that assumed the missing one would be inventing a declaration."""
     r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.plan(body.model_dump(exclude_none=True))
 
@@ -396,6 +510,15 @@ async def service_plan(agent_id: UUID, name: str, body: ServiceSpec, session: As
 async def service_apply(agent_id: UUID, name: str, body: ServiceApplyBody, session: AsyncSession = Depends(get_session),
                         settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                         client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """Set the service's boot-enablement and/or run state. **`dry_run` defaults to
+    `true`.**
+
+    `enabled` and `state` are separate declarations and either may be omitted: a unit
+    can legitimately be enabled and stopped, or running and disabled, and this
+    endpoint will not quietly make them agree. Note that `restarted` and `reloaded`
+    are *actions*, not states — they are never idempotent, and the response reports
+    `changed: true` every time because that is what happened.
+    """
     r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.apply(body.model_dump(exclude={"dry_run", "note"}, exclude_none=True), dry_run=body.dry_run, note=body.note)
 
@@ -404,5 +527,8 @@ async def service_apply(agent_id: UUID, name: str, body: ServiceApplyBody, sessi
 async def service_rollback(agent_id: UUID, name: str, body: RollbackBody, session: AsyncSession = Depends(get_session),
                            settings: Settings = Depends(get_settings), _i=Depends(require_manage_agent),
                            client_factory=Depends(get_client_factory)) -> dict[str, Any]:
+    """Re-apply this unit's previous declared enablement and run state from
+    `GET .../generations`. A rollback of `restarted` re-runs the restart, since there
+    is no earlier state to return to — the response says so."""
     r = _svc_resource(await _agent_with_address(session, agent_id), session, settings, client_factory, name)
     return await r.rollback(body.generation)
