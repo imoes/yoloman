@@ -194,6 +194,12 @@ var modules = new ModuleRegistry(writeEnabled)
     // windows_dhcp: the one module here that hands out addresses to machines other than this one, which is
     // why a new scope is created INACTIVE unless the caller says otherwise.
     .Add(new AgenticMcp.Agent.Windows.DhcpServerModule())
+    // The first three modules built on DeclarativeModule (the shared read→compare→plan→apply→verify
+    // skeleton): a subclass is twenty lines instead of four hundred, and none of them can disagree with
+    // another about what "already as declared" means.
+    .Add(new AgenticMcp.Agent.Windows.TimeZoneModule())
+    .Add(new AgenticMcp.Agent.Windows.EnvironmentVariableModule())
+    .Add(new AgenticMcp.Agent.Windows.PendingRebootModule())
     .Add(new AgenticMcp.Agent.Windows.GroupPolicyModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogModule())
     .Add(new AgenticMcp.Agent.Windows.EventLogChannelsModule())

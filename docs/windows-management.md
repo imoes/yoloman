@@ -386,9 +386,30 @@ closed enumeration this project spent a week learning to recognise in prose.
    DHCPDISCOVER on its segment, and that is an operator's decision. A new scope is therefore created INACTIVE
    unless activation is stated, and the read reports authorization with what it MEANS — the same flag makes a
    server refuse to serve on a domain network and serve happily on a workgroup one.
-6. **The generated wrappers.** Tier-2 modules that are a thin shell over one cmdlet family are declared in a
-   table (module name, cmdlets, key parameters, idempotence rule) and generated, because 40 hand-written
-   near-identical modules is 40 chances to spell `state` differently.
+6. ~~**The generated wrappers.**~~ — **REPLACED, 2026-08-28, by a shared skeleton.** The instinct was right
+   and the mechanism was wrong, and the eight hand-written modules are the evidence: MEASURED at 379–554
+   lines each, every one repeats the same seven steps (resolve dry_run → read → compare into steps → report
+   unchanged → return the plan → apply → re-read and verify), and NOT ONE of them turned out to be a thin
+   shell over a cmdlet. Each needed a Windows-specific fact a generator would not have known — a task result
+   that overflows `[int]`, localised principals, a CIDR Windows rewrites as a netmask, a repetition that
+   lasts one day without an explicit duration, two bulk queries instead of one per row. Generated modules
+   would have been uniform AND wrong.
+
+   So the SKELETON is shared (`DeclarativeModule`) and each module keeps its own knowledge. A subclass is
+   about twenty lines: `ReadAsync`, `CompareAsync`, `BuildScript`. The verification after an apply — re-read,
+   re-compare, fail if the host still differs — is in the base BY CONSTRUCTION, so no module can forget the
+   rule that cost `windows_capability` a false "installed".
+
+   First three on it, all verified on the host: `timezone` (refuses an IANA name with the Windows id named,
+   because the two vocabularies are not interchangeable), `environment` (scope REQUIRED — a machine variable
+   is visible to every service and a user variable to one account, and there is no safe default), and
+   `pending_reboot` (read-only: Windows records a pending reboot in FOUR unrelated places and a check that
+   read one of them would answer "no" to a host that is waiting).
+
+   The eight existing modules have NOT been migrated onto the base yet, and that is stated rather than left
+   implicit: each is verified against the real host, and rewriting a working host-tested module without the
+   host in front of you is a regression taken for tidiness. They migrate one at a time, each with its
+   verification re-run.
 7. **MSI packaging of the agent itself** + service registration — the milestone 6 of `windows-agent.md`, and
    the thing that makes all of the above installable rather than copied.
 
