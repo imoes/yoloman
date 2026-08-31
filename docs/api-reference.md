@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **338 carry a description** written in the handler
-itself; **143 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **339 carry a description** written in the handler
+itself; **142 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -1474,7 +1474,13 @@ In the path:
 
 #### `PATCH /api/v1/check-rules/{rule_id}`
 
-Change individual fields of a check policy; anything you omit stays as it is. This is the safe one for a partial edit — see PUT for why.
+Change individual fields of a check policy; anything you omit stays as it is.
+
+Use this rather than PUT for a partial edit — PUT clears what it does not carry.
+
+Send `If-Match` with the `version` from a previous read and a stale version is refused with **412**, exactly as on PUT. Omit the header and the write goes through: the guarantee is that a client which sends it cannot clobber a concurrent change, not that every client must.
+
+This guard was missing here while PUT had it, which is the wrong way round — a partial edit is where a lost update is most likely, because two people changing *different* fields of one rule both believe they are safe.
 
 In the path:
 
@@ -1493,7 +1499,7 @@ Replace a check policy wholesale.
 
 Every field is taken from the body, so a field you omit is *cleared*, not kept — use PATCH when you mean to change one thing.
 
-Note what this does *not* do: the `version` a rule carries in its representation is a content hash for change detection, and **nothing here checks it**. Two editors saving the same rule will not collide; the second write wins silently.
+Send `If-Match` with the `version` from a previous read: a stale version is refused with **412**, so two editors cannot silently overwrite each other. Omitting the header is allowed and skips the check — the guarantee is for clients that send it.
 
 In the path:
 
@@ -4305,7 +4311,9 @@ In the path:
 
 #### `PATCH /api/v1/notification-rules/{rule_id}`
 
-Patch Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change individual fields of a notification rule; anything you omit stays as it is.
+
+`If-Match` is honoured here as on PUT — a stale `version` is refused with **412**, and omitting the header skips the check. It was enforced on PUT and not here, and a partial edit is precisely where two people changing different fields both assume they are safe.
 
 In the path:
 

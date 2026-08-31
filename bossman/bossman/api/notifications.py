@@ -187,11 +187,19 @@ class NotificationRulePatch(BaseModel):
 
 @router.patch("/api/v1/notification-rules/{rule_id}", response_model=NotificationRuleOut)
 async def patch_notification_rule(
-    rule_id: UUID, body: NotificationRulePatch, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+    rule_id: UUID, body: NotificationRulePatch, request: Request,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> NotificationRuleOut:
+    """Change individual fields of a notification rule; anything you omit stays as it is.
+
+    `If-Match` is honoured here as on PUT — a stale `version` is refused with **412**, and omitting
+    the header skips the check. It was enforced on PUT and not here, and a partial edit is precisely
+    where two people changing different fields both assume they are safe.
+    """
     rule = await session.get(NotificationRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
+    check_if_match(request, NotificationRuleOut.from_model(rule).with_version().version)
     if body.enforced is not None:
         rule.enforced = body.enforced
     if body.enabled is not None:

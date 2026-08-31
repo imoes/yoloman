@@ -121,6 +121,17 @@ and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
+**`If-Match` now guards the PARTIAL edits too — and a claim in this changelog was wrong.** The previous
+entry said "a check rule's `version` is not enforced". It was: `PUT /api/v1/check-rules/{id}` had honoured
+`If-Match` all along, and the grep behind that claim looked for a 409 while the code answers **412**. What
+was actually missing is narrower and worse placed: **both `PATCH` routes** — check rules and notification
+rules — took a partial edit with no version check while every `PUT` in the API had one. That is the wrong way
+round, because a partial edit is where a lost update is most likely: two people changing *different* fields
+of one rule each believe they are safe, and neither was warned. Both now call the same
+`api/etag.py:check_if_match` the PUTs use — a stale version is refused with 412 and told to re-read, no
+header still writes (the guarantee is for clients that send one, not a new requirement). Both tests were
+checked by removing each guard in turn and watching the matching test fail.
+
 **An event rule's `mode` now does what its name says.** `mode: auto|propose` was validated strictly,
 stored, and read by **nothing** — the engine gates on `autonomy: propose|auto_verify` alone, so a rule set
 to `mode: "auto"` only ever proposed. It is now an alias, and the direction of its fallback is the whole
@@ -218,9 +229,6 @@ Each of these was invisible until a real host was in front of it:
   backend `idle in transaction`. The `compiled_host_state` generation-1 unique violation in the same file
   is the same race, compiling the same fresh agent twice. The fix is a database without a live reconciler
   attached — a decision about the single-database setup, not something to paper over in the assertions.
-- **A check rule's `version` is not enforced.** It is a content hash for change detection and no route
-  verifies it, so two editors saving the same rule do not collide — the second write wins silently. Event
-  handlers do it properly with `If-Match`; the inconsistency is real and now stated in both docstrings.
 - **Nothing prunes `resource_generations`.** Every resource apply adds a row and none are ever removed. The
   30-generation cap that exists belongs to the docker desired-state model and does not apply here.
 - Snap-ins for what has no module yet: printers, certificates, local security policy, Windows Update.
