@@ -136,6 +136,12 @@ async def _validate(body: NotificationRuleIn, session: AsyncSession) -> None:
 async def list_notification_rules(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[NotificationRuleOut]:
+    """Every notification rule: who gets told about what, and after how long.
+
+    A rule binds a scope (global, OU, group, host) and an optional check filter to a **channel** and
+    a target, with the escalation chain that follows if nobody acknowledges. Like check rules, these
+    are the *intension* — a rule can exist while nothing has ever matched it.
+    """
     rules = (await session.scalars(select(NotificationRule).order_by(NotificationRule.created_at.desc()))).all()
     return [NotificationRuleOut.from_model(r).with_version() for r in rules]
 
@@ -144,6 +150,24 @@ async def list_notification_rules(
 async def create_notification_rule(
     body: NotificationRuleIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> NotificationRuleOut:
+    """Create a notification rule.
+
+    What is checked, each with its reason in the message: the `channel` is one of the known senders,
+    `min_state` is a real state, `target` is not empty, a referenced OU or time period exists, and a
+    scope carries its required companion field (an `ou` scope needs an `ou_id`). References are
+    resolved **now** rather than when an alarm fires, which is the worst moment to learn that an OU
+    was renamed away.
+
+    What is NOT checked: whether `target` suits `channel`. They are validated separately, so an email
+    address in a webhook rule is accepted here and fails at dispatch — visible in the notification
+    log rather than at the moment of the mistake.
+
+    `escalate_after_minutes` puts the chain on the rule itself, so "who is told next, and when" reads
+    out of one row instead of a second object.
+
+    Nothing is sent by creating a rule: the dispatcher acts on state changes, and a rule that matches
+    nothing today may match tomorrow.
+    """
     await _validate(body, session)
     rule = NotificationRule(**body.model_dump())
     session.add(rule)
@@ -160,6 +184,11 @@ async def update_notification_rule(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> NotificationRuleOut:
+    """Replace a notification rule wholesale — an omitted field is cleared, not kept.
+
+    Honours `If-Match` with the `version` from a previous read (**412** when stale). Use PATCH for a
+    partial edit.
+    """
     rule = await session.get(NotificationRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
@@ -218,6 +247,14 @@ async def patch_notification_rule(
 async def delete_notification_rule(
     rule_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a notification rule.
+
+    Notifications it already sent stay in the log: `notifications.rule_id` is `ON DELETE SET NULL`
+    (verified against the live schema), so each message keeps its channel, target and outcome and
+    **loses the pointer to the rule that caused it**. The record of who was told what must survive the
+    rule; the explanation of *why* does not survive this call. To keep both, disable the rule instead
+    of deleting it.
+    """
     rule = await session.get(NotificationRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
@@ -244,6 +281,12 @@ async def list_notifications(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[NotificationOut]:
+    """What was actually sent: the notification log.
+
+    The *extension* to the rules above — one entry per dispatched message, with its channel, target
+    and outcome. This is where "did anyone get told" is answered, and it is deliberately separate
+    from the rules: a rule that exists proves nothing about a message that arrived.
+    """
     rows = (await session.scalars(select(Notification).order_by(Notification.created_at.desc()).limit(limit))).all()
     return [
         NotificationOut(

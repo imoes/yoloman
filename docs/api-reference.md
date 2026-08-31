@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **360 carry a description** written in the handler
-itself; **121 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **378 carry a description** written in the handler
+itself; **103 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -532,7 +532,9 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/images`
 
-List Images. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Golden images available for bare-metal installation, by name.
+
+An image is a captured disk (partclone, per partition) plus what is known about it: its size, the source host it came from, and its grow policy. Capturing one runs on the source host through its agent; installing one is a **restore job** against a netbooted target.
 
 #### `POST /api/v1/images`
 
@@ -568,7 +570,7 @@ In the path:
 
 #### `GET /api/v1/images/{image_id}`
 
-Get Image. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One image with its partitions and provenance. 404 when there is no such id.
 
 In the path:
 
@@ -705,7 +707,9 @@ The JSON body carries:
 
 #### `GET /api/v1/provisioning/templates`
 
-List Deployment Templates. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Provisioning profiles: the answers a netbooted machine needs before it can install.
+
+A template carries what cannot be discovered from the hardware — hostname pattern, network, which image, which roles to converge afterwards. It is *desired state for a machine that does not exist yet*, which is why it lives here rather than on an agent: there is no host to ask.
 
 #### `POST /api/v1/provisioning/templates`
 
@@ -723,7 +727,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/provisioning/templates/{template_id}`
 
-Delete Deployment Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a provisioning profile.
+
+Machines already installed from it are unaffected — they exist independently of the paper they were built from. A restore job that has not checked in yet loses its answers, so delete a profile only when nothing is waiting to boot against it.
 
 In the path:
 
@@ -731,7 +737,9 @@ In the path:
 
 #### `GET /api/v1/provisioning/vm-hosts`
 
-List Vm Hosts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Registered hypervisors this system can create VMs on, by name.
+
+A VM host is where `POST /api/v1/provisioning/vms` puts a new machine — the credentials live with the entry, and the MAC the creation returns is what a PXE profile is then keyed on.
 
 #### `POST /api/v1/provisioning/vm-hosts`
 
@@ -747,7 +755,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/provisioning/vm-hosts/{host_id}`
 
-Delete Vm Host. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Forget a hypervisor.
+
+**Nothing on the hypervisor itself is touched** — VMs created through it keep running, and this only removes Bossman's ability to create more there. Deleting the entry is not a way to clean up machines.
 
 In the path:
 
@@ -813,7 +823,11 @@ In the path:
 
 #### `GET /api/v1/restore-jobs`
 
-List Restore Jobs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Installations in flight and finished, newest first.
+
+A restore job is one image written to one machine. Its **plan is computed at check-in, not at creation**, because the target disk is unknown until the machine boots and says what it has — which is why the job carries its computed steps: a retry repeats exactly what was attempted, and a failure names the step rather than a line number.
+
+The target authenticates with the shared `netboot_secret` from its kernel command line, not with a token or a certificate: at that moment it has no identity beyond its MAC address.
 
 #### `POST /api/v1/restore-jobs`
 
@@ -4326,11 +4340,21 @@ Channels and escalation: who is told, how, and after how long.
 
 #### `GET /api/v1/notification-rules`
 
-List Notification Rules. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every notification rule: who gets told about what, and after how long.
+
+A rule binds a scope (global, OU, group, host) and an optional check filter to a **channel** and a target, with the escalation chain that follows if nobody acknowledges. Like check rules, these are the *intension* — a rule can exist while nothing has ever matched it.
 
 #### `POST /api/v1/notification-rules`
 
-Create Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a notification rule.
+
+What is checked, each with its reason in the message: the `channel` is one of the known senders, `min_state` is a real state, `target` is not empty, a referenced OU or time period exists, and a scope carries its required companion field (an `ou` scope needs an `ou_id`). References are resolved **now** rather than when an alarm fires, which is the worst moment to learn that an OU was renamed away.
+
+What is NOT checked: whether `target` suits `channel`. They are validated separately, so an email address in a webhook rule is accepted here and fails at dispatch — visible in the notification log rather than at the moment of the mistake.
+
+`escalate_after_minutes` puts the chain on the rule itself, so "who is told next, and when" reads out of one row instead of a second object.
+
+Nothing is sent by creating a rule: the dispatcher acts on state changes, and a rule that matches nothing today may match tomorrow.
 
 The JSON body carries:
 
@@ -4357,7 +4381,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/notification-rules/{rule_id}`
 
-Delete Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a notification rule.
+
+Notifications it already sent stay in the log: `notifications.rule_id` is `ON DELETE SET NULL` (verified against the live schema), so each message keeps its channel, target and outcome and **loses the pointer to the rule that caused it**. The record of who was told what must survive the rule; the explanation of *why* does not survive this call. To keep both, disable the rule instead of deleting it.
 
 In the path:
 
@@ -4382,7 +4408,9 @@ The JSON body carries:
 
 #### `PUT /api/v1/notification-rules/{rule_id}`
 
-Update Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a notification rule wholesale — an omitted field is cleared, not kept.
+
+Honours `If-Match` with the `version` from a previous read (**412** when stale). Use PATCH for a partial edit.
 
 In the path:
 
@@ -4413,7 +4441,9 @@ The JSON body carries:
 
 #### `GET /api/v1/notifications`
 
-List Notifications. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What was actually sent: the notification log.
+
+The *extension* to the rules above — one entry per dispatched message, with its channel, target and outcome. This is where "did anyone get told" is answered, and it is deliberately separate from the rules: a rule that exists proves nothing about a message that arrived.
 
 Query parameters:
 
@@ -4430,11 +4460,17 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/rollouts`
 
-List Rollouts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every staged rollout, with its wave plan and its live per-wave progress.
+
+A rollout is one runbook applied to many hosts **in waves** — a canary first, then rings — with a health gate between them. `progress` grows one entry per completed wave and carries that wave's health verdict, so this is also the answer to "why did it stop".
 
 #### `POST /api/v1/rollouts`
 
-Create Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Plan the waves. **Nothing runs until `/start`.**
+
+The scope (host, group, ou, global) is expanded to hosts now and frozen into a wave plan, so a host added to the group afterwards is not silently pulled into a running rollout. `by_ou` builds one wave per OU subtree instead of by ring, and requires `scope_type=ou` with an `ou_id` (422).
+
+Two refusals worth expecting: **422 when the scope matched no hosts**, and 422 when an OU subtree has no placed, reachable hosts. A rollout over an empty set would report success having done nothing.
 
 The JSON body carries:
 
@@ -4456,7 +4492,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/rollouts/{rollout_id}`
 
-Delete Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a rollout and its recorded progress.
+
+**204 whether or not it existed.** Note what this does not do: it does not stop a running one — abort it first, or the executor keeps working through the waves of a plan nobody can watch any more.
 
 In the path:
 
@@ -4464,7 +4502,7 @@ In the path:
 
 #### `GET /api/v1/rollouts/{rollout_id}`
 
-Get Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One rollout: its waves, which wave is current, and each finished wave's health verdict. 404 when there is no such id.
 
 In the path:
 
@@ -4472,7 +4510,11 @@ In the path:
 
 #### `POST /api/v1/rollouts/{rollout_id}/abort`
 
-Abort Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Ask the rollout to stop. **It stops at the next wave boundary, not instantly.**
+
+This sets the status to `aborted`; the executor reads that status before each wave and returns when it sees it. A wave already in flight therefore **finishes** — its hosts are mid-runbook and killing that would leave them half-applied, which is worse than one more wave.
+
+Accepted while `running`, `pending` or `paused`, and a no-op otherwise: aborting a finished rollout changes nothing and is not an error worth raising.
 
 In the path:
 
@@ -4480,7 +4522,11 @@ In the path:
 
 #### `POST /api/v1/rollouts/{rollout_id}/start`
 
-Start Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Start the rollout. Returns immediately; the waves run server-side.
+
+**409 when it is already running** — starting twice would run two wave sequences over the same hosts. Follow it with `GET` on this rollout rather than expecting a result here.
+
+What happens per wave: run the runbook on the wave's hosts, wait `health_gate.wait_seconds` for state to settle, optionally run a functional test runbook, then gate. The gate compares against a **pre-wave baseline of CRIT hosts**, so only NEW damage counts — a host that was already broken does not block the rollout, and a wave that breaks something does. A failed gate sets the rollout `aborted` and the remaining waves do not run.
 
 In the path:
 

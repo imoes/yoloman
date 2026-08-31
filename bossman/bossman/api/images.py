@@ -152,6 +152,12 @@ async def list_images(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ImageOut]:
+    """Golden images available for bare-metal installation, by name.
+
+    An image is a captured disk (partclone, per partition) plus what is known about it: its size, the
+    source host it came from, and its grow policy. Capturing one runs on the source host through its
+    agent; installing one is a **restore job** against a netbooted target.
+    """
     rows = (await session.scalars(select(DiskImage).order_by(DiskImage.name))).all()
     return [ImageOut.from_model(i) for i in rows]
 
@@ -162,6 +168,7 @@ async def get_image(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ImageOut:
+    """One image with its partitions and provenance. 404 when there is no such id."""
     return ImageOut.from_model(await _image_or_404(session, image_id))
 
 
@@ -295,6 +302,12 @@ class DeploymentTemplateOut(BaseModel):
 async def list_deployment_templates(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> list[DeploymentTemplateOut]:
+    """Provisioning profiles: the answers a netbooted machine needs before it can install.
+
+    A template carries what cannot be discovered from the hardware — hostname pattern, network,
+    which image, which roles to converge afterwards. It is *desired state for a machine that does not
+    exist yet*, which is why it lives here rather than on an agent: there is no host to ask.
+    """
     rows = (await session.scalars(select(DeploymentTemplate).order_by(DeploymentTemplate.name))).all()
     return [DeploymentTemplateOut.from_model(t) for t in rows]
 
@@ -331,6 +344,12 @@ async def delete_deployment_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> None:
+    """Delete a provisioning profile.
+
+    Machines already installed from it are unaffected — they exist independently of the paper they
+    were built from. A restore job that has not checked in yet loses its answers, so delete a profile
+    only when nothing is waiting to boot against it.
+    """
     t = await session.get(DeploymentTemplate, template_id)
     if t is not None:
         await session.delete(t)
@@ -374,6 +393,11 @@ def _vault() -> Vault:
 async def list_vm_hosts(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> list[VmHostOut]:
+    """Registered hypervisors this system can create VMs on, by name.
+
+    A VM host is where `POST /api/v1/provisioning/vms` puts a new machine — the credentials live with
+    the entry, and the MAC the creation returns is what a PXE profile is then keyed on.
+    """
     rows = (await session.scalars(select(VmHost).order_by(VmHost.name))).all()
     return [VmHostOut.from_model(h) for h in rows]
 
@@ -414,6 +438,12 @@ async def delete_vm_host(
     host_id: UUID,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> None:
+    """Forget a hypervisor.
+
+    **Nothing on the hypervisor itself is touched** — VMs created through it keep running, and this
+    only removes Bossman's ability to create more there. Deleting the entry is not a way to clean up
+    machines.
+    """
     row = await session.get(VmHost, host_id)
     if row is not None:
         await session.delete(row)
@@ -852,6 +882,16 @@ async def list_restore_jobs(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[RestoreJobOut]:
+    """Installations in flight and finished, newest first.
+
+    A restore job is one image written to one machine. Its **plan is computed at check-in, not at
+    creation**, because the target disk is unknown until the machine boots and says what it has —
+    which is why the job carries its computed steps: a retry repeats exactly what was attempted, and
+    a failure names the step rather than a line number.
+
+    The target authenticates with the shared `netboot_secret` from its kernel command line, not with
+    a token or a certificate: at that moment it has no identity beyond its MAC address.
+    """
     rows = (await session.scalars(select(RestoreJob).order_by(RestoreJob.created_at.desc()))).all()
     return [RestoreJobOut.from_model(j) for j in rows]
 
