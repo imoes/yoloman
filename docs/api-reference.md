@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **378 carry a description** written in the handler
-itself; **103 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **395 carry a description** written in the handler
+itself; **86 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -3199,11 +3199,17 @@ In the path:
 
 #### `GET /api/v1/runbooks`
 
-List Runbooks. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The runbook library: step lists in the NT document format, by name.
+
+A runbook is a document, not a schedule and not a binding — it does nothing until something runs it against a host (`POST /api/v1/plans/{name}/run`, a scheduler entry, an event rule, or a role compiled from one).
 
 #### `POST /api/v1/runbooks`
 
-Create Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Store a runbook. The document is **linted before it is accepted**, not at run time.
+
+What the lint catches is the **document's shape**: a malformed step, a missing required key, a structure the engine cannot walk — 422 with the parser's own message.
+
+What it does NOT catch, and this is the part worth knowing: whether a step's module exists on the target, or whether its parameters are ones that module accepts. Those are properties of a host and of an agent build, not of the document, and they surface on the first run. `POST /api/v1/plans/{name}/run` with `dry_run` (its default) is where you find them without changing anything.
 
 The JSON body carries:
 
@@ -3240,7 +3246,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/runbooks/{runbook_id}`
 
-Delete Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a runbook.
+
+**Check what points at it first.** An event rule or a scheduler entry naming a deleted runbook becomes a rule that fires and does nothing — those references are resolved by name at write time, so this call cannot see them.
 
 In the path:
 
@@ -3248,7 +3256,7 @@ In the path:
 
 #### `GET /api/v1/runbooks/{runbook_id}`
 
-Get Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One runbook with its steps. 404 when there is no such id.
 
 In the path:
 
@@ -3256,7 +3264,9 @@ In the path:
 
 #### `PUT /api/v1/runbooks/{runbook_id}`
 
-Update Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a runbook's document, linted as on create.
+
+Anything already running keeps the version it started with; a role compiled from this runbook is not recompiled by this call. Editing the source of something that has been used is not the same as changing what was done.
 
 In the path:
 
@@ -4142,11 +4152,19 @@ Software compliance: which hosts hold a version they should not.
 
 #### `GET /api/v1/compliance-rules`
 
-List Rules. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Software-compliance rules: which packages must be present, which must not.
+
+A rule names `required` and `forbidden` package specs for a scope (global, host, group, ou), with a severity. A spec may carry a **version constraint** — `openssl>=3.0`, `log4j<2.17` — parsed and compared by version, not by string, so `2.9` is correctly older than `2.17`.
+
+These are the rules; `.../results` is what hosts actually hold.
 
 #### `POST /api/v1/compliance-rules`
 
-Create Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a compliance rule.
+
+`required` and `forbidden` are lists of package specs, each `name` or `name<op>version` with op one of `<`, `<=`, `=`/`==`, `>=`, `>`. A spec without an operator means "any version" for required, and "at all" for forbidden.
+
+Evaluation is what the `compliance_loop` does on a cycle against each host's reported installed packages — creating a rule does not itself check anything. Use `.../evaluate` when you want the answer now.
 
 The JSON body carries:
 
@@ -4162,7 +4180,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/compliance-rules/{rule_id}`
 
-Delete Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a compliance rule.
+
+Its results go with it — a drift report for a rule nobody can read is not evidence of anything. Disable the rule instead if the findings still matter.
 
 In the path:
 
@@ -4170,7 +4190,9 @@ In the path:
 
 #### `PUT /api/v1/compliance-rules/{rule_id}`
 
-Update Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a compliance rule. An omitted field is cleared, not kept.
+
+Existing results are not rewritten: they record what a host held when it was evaluated against the rule as it was then. The next evaluation replaces them. 404 for an unknown id.
 
 In the path:
 
@@ -4190,7 +4212,11 @@ The JSON body carries:
 
 #### `POST /api/v1/compliance-rules/{rule_id}/evaluate`
 
-Evaluate Now. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Evaluate this rule immediately and return the result.
+
+Reads each in-scope host's **reported** installed packages rather than asking the hosts now, so the answer is as fresh as the last inventory poll — a host that has not checked in since an install still looks the way it did then. That is why the response carries the evaluation time.
+
+404 for an unknown rule. This is the same evaluation the periodic loop performs; running it by hand does not change the schedule.
 
 In the path:
 
@@ -4198,7 +4224,9 @@ In the path:
 
 #### `GET /api/v1/compliance-rules/{rule_id}/results`
 
-Rule Results. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Per-host drift for this rule: who violates it, and with what.
+
+One entry per evaluated host, each listing the specs that failed — a missing required package, a version below the constraint, or a forbidden one found. A host with no entry is not silently compliant: it may simply not have been evaluated, which the evaluation time tells you.
 
 In the path:
 
@@ -4540,11 +4568,15 @@ Subnet-scoped policy: a site is a set of CIDRs, and a host belongs to one by its
 
 #### `GET /api/v1/policy-sites`
 
-List Sites. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Policy sites — a scope defined by **subnets**, not by membership.
+
+A host belongs to a site when its primary IP falls inside one of the site's CIDRs, so membership is derived and needs no per-host bookkeeping: move a machine to another network and its site follows. Sites sit in the precedence chain **global < group < OU < site < host**, and each lives inside an OU for tree placement.
 
 #### `POST /api/v1/policy-sites`
 
-Create Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a site. 422 for an empty name, 409 when the name is taken.
+
+Its subnets decide which hosts it covers — a site with none covers nothing, which is a valid intermediate state rather than an error.
 
 The JSON body carries:
 
@@ -4555,7 +4587,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/policy-sites/{site_id}`
 
-Delete Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a site.
+
+Policies and links scoped to it go with it (`ON DELETE CASCADE`), so hosts inside its subnets lose whatever that site contributed. They keep everything from the other scopes — global, group, OU and their own — which is why a delete here usually changes less than it looks.
+
+Not immediate on the hosts: see `replace_site_subnets` for when a membership change lands.
 
 In the path:
 
@@ -4563,7 +4599,9 @@ In the path:
 
 #### `PATCH /api/v1/policy-sites/{site_id}`
 
-Patch Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change individual fields of a site; anything omitted stays as it is.
+
+Re-placing it in another OU is checked here (422 for an OU that does not exist), because a site hanging off nothing would drop out of the tree the precedence chain walks.
 
 In the path:
 
@@ -4575,7 +4613,7 @@ The JSON body carries:
 
 #### `PUT /api/v1/policy-sites/{site_id}`
 
-Update Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a site's fields wholesale — an omitted field is cleared. Use PATCH for one field.
 
 In the path:
 
@@ -4590,7 +4628,11 @@ The JSON body carries:
 
 #### `PUT /api/v1/policy-sites/{site_id}/subnets`
 
-Replace Site Subnets. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace the site's CIDRs — which silently changes **which hosts it covers**.
+
+Every CIDR is validated (422 naming the bad one) so a typo cannot create a site that matches nothing while looking configured.
+
+**When it takes effect:** not at once. Unlike an orchestration link — which recompiles the affected hosts before returning — a subnet change alters *derived* membership, and no host is named at the moment of the write. The convergence sweep (`converge_once`, and `POST /api/v1/config-sync/run` to force it) recompiles every host and pushes what changed, which is exactly the case its own docstring calls "mutations whose endpoint never enqueued a policy event". So this is eventually consistent by design; if you need it now, run the sweep.
 
 In the path:
 

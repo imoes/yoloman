@@ -87,6 +87,14 @@ def _validate(body: ComplianceRuleIn) -> None:
 
 @router.get("/api/v1/compliance-rules", response_model=list[ComplianceRuleOut])
 async def list_rules(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Software-compliance rules: which packages must be present, which must not.
+
+    A rule names `required` and `forbidden` package specs for a scope (global, host, group, ou), with
+    a severity. A spec may carry a **version constraint** — `openssl>=3.0`, `log4j<2.17` — parsed and
+    compared by version, not by string, so `2.9` is correctly older than `2.17`.
+
+    These are the rules; `.../results` is what hosts actually hold.
+    """
     rows = (await session.scalars(select(ComplianceRule).order_by(ComplianceRule.created_at.desc()))).all()
     return [ComplianceRuleOut.of(r) for r in rows]
 
@@ -94,6 +102,16 @@ async def list_rules(session: AsyncSession = Depends(get_session), _i: Identity 
 @router.post("/api/v1/compliance-rules", response_model=ComplianceRuleOut)
 async def create_rule(body: ComplianceRuleIn, session: AsyncSession = Depends(get_session),
                       identity: Identity = Depends(get_current_identity)):
+    """Create a compliance rule.
+
+    `required` and `forbidden` are lists of package specs, each `name` or `name<op>version` with op
+    one of `<`, `<=`, `=`/`==`, `>=`, `>`. A spec without an operator means "any version" for
+    required, and "at all" for forbidden.
+
+    Evaluation is what the `compliance_loop` does on a cycle against each host's reported installed
+    packages — creating a rule does not itself check anything. Use `.../evaluate` when you want the
+    answer now.
+    """
     _validate(body)
     r = ComplianceRule(
         tenant_id=DEFAULT_TENANT_ID, name=body.name, enabled=body.enabled, scope_type=body.scope_type,
@@ -109,6 +127,11 @@ async def create_rule(body: ComplianceRuleIn, session: AsyncSession = Depends(ge
 @router.put("/api/v1/compliance-rules/{rule_id}", response_model=ComplianceRuleOut)
 async def update_rule(rule_id: UUID, body: ComplianceRuleIn, session: AsyncSession = Depends(get_session),
                       _i: Identity = Depends(get_current_identity)):
+    """Replace a compliance rule. An omitted field is cleared, not kept.
+
+    Existing results are not rewritten: they record what a host held when it was evaluated against
+    the rule as it was then. The next evaluation replaces them. 404 for an unknown id.
+    """
     r = await session.get(ComplianceRule, rule_id)
     if r is None:
         raise HTTPException(404, "no such rule")
@@ -124,6 +147,11 @@ async def update_rule(rule_id: UUID, body: ComplianceRuleIn, session: AsyncSessi
 @router.delete("/api/v1/compliance-rules/{rule_id}", status_code=204)
 async def delete_rule(rule_id: UUID, session: AsyncSession = Depends(get_session),
                       _i: Identity = Depends(get_current_identity)):
+    """Delete a compliance rule.
+
+    Its results go with it — a drift report for a rule nobody can read is not evidence of anything.
+    Disable the rule instead if the findings still matter.
+    """
     r = await session.get(ComplianceRule, rule_id)
     if r is not None:
         await session.delete(r)
@@ -133,6 +161,15 @@ async def delete_rule(rule_id: UUID, session: AsyncSession = Depends(get_session
 @router.post("/api/v1/compliance-rules/{rule_id}/evaluate")
 async def evaluate_now(rule_id: UUID, session: AsyncSession = Depends(get_session),
                        settings: Settings = Depends(get_settings), _i: Identity = Depends(get_current_identity)):
+    """Evaluate this rule immediately and return the result.
+
+    Reads each in-scope host's **reported** installed packages rather than asking the hosts now, so
+    the answer is as fresh as the last inventory poll — a host that has not checked in since an
+    install still looks the way it did then. That is why the response carries the evaluation time.
+
+    404 for an unknown rule. This is the same evaluation the periodic loop performs; running it by
+    hand does not change the schedule.
+    """
     r = await session.get(ComplianceRule, rule_id)
     if r is None:
         raise HTTPException(404, "no such rule")
@@ -142,6 +179,12 @@ async def evaluate_now(rule_id: UUID, session: AsyncSession = Depends(get_sessio
 @router.get("/api/v1/compliance-rules/{rule_id}/results", response_model=list[ComplianceResultOut])
 async def rule_results(rule_id: UUID, session: AsyncSession = Depends(get_session),
                        _i: Identity = Depends(get_current_identity)):
+    """Per-host drift for this rule: who violates it, and with what.
+
+    One entry per evaluated host, each listing the specs that failed — a missing required package, a
+    version below the constraint, or a forbidden one found. A host with no entry is not silently
+    compliant: it may simply not have been evaluated, which the evaluation time tells you.
+    """
     rows = (await session.execute(
         select(ComplianceResult, Agent.name)
         .join(Agent, Agent.id == ComplianceResult.agent_id)

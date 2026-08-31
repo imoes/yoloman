@@ -77,6 +77,13 @@ async def _get_site_or_404(session: AsyncSession, site_id: UUID) -> Site:
 async def list_sites(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[SiteOut]:
+    """Policy sites — a scope defined by **subnets**, not by membership.
+
+    A host belongs to a site when its primary IP falls inside one of the site's CIDRs, so membership
+    is derived and needs no per-host bookkeeping: move a machine to another network and its site
+    follows. Sites sit in the precedence chain **global < group < OU < site < host**, and each lives
+    inside an OU for tree placement.
+    """
     rows = (
         await session.scalars(
             select(Site).where(Site.tenant_id == DEFAULT_TENANT_ID, Site.deleted_at.is_(None)).order_by(Site.name)
@@ -89,6 +96,11 @@ async def list_sites(
 async def create_site(
     body: SiteIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> SiteOut:
+    """Create a site. 422 for an empty name, 409 when the name is taken.
+
+    Its subnets decide which hosts it covers — a site with none covers nothing, which is a valid
+    intermediate state rather than an error.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     site = Site(
@@ -108,6 +120,7 @@ async def create_site(
 async def update_site(
     site_id: UUID, body: SiteIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> SiteOut:
+    """Replace a site's fields wholesale — an omitted field is cleared. Use PATCH for one field."""
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     site = await _get_site_or_404(session, site_id)
@@ -132,6 +145,11 @@ class SitePatch(BaseModel):
 async def patch_site(
     site_id: UUID, body: SitePatch, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> SiteOut:
+    """Change individual fields of a site; anything omitted stays as it is.
+
+    Re-placing it in another OU is checked here (422 for an OU that does not exist), because a site
+    hanging off nothing would drop out of the tree the precedence chain walks.
+    """
     site = await _get_site_or_404(session, site_id)
     if body.ou_id is not None:
         if await session.get(OUNode, body.ou_id) is None:
@@ -145,6 +163,14 @@ async def patch_site(
 async def delete_site(
     site_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a site.
+
+    Policies and links scoped to it go with it (`ON DELETE CASCADE`), so hosts inside its subnets
+    lose whatever that site contributed. They keep everything from the other scopes — global, group,
+    OU and their own — which is why a delete here usually changes less than it looks.
+
+    Not immediate on the hosts: see `replace_site_subnets` for when a membership change lands.
+    """
     site = await _get_site_or_404(session, site_id)
     await session.delete(site)  # config_policies.site_id / links.site_id are ON DELETE CASCADE
     await session.commit()
@@ -158,6 +184,18 @@ class SubnetsIn(BaseModel):
 async def replace_site_subnets(
     site_id: UUID, body: SubnetsIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> SiteOut:
+    """Replace the site's CIDRs — which silently changes **which hosts it covers**.
+
+    Every CIDR is validated (422 naming the bad one) so a typo cannot create a site that matches
+    nothing while looking configured.
+
+    **When it takes effect:** not at once. Unlike an orchestration link — which recompiles the
+    affected hosts before returning — a subnet change alters *derived* membership, and no host is
+    named at the moment of the write. The convergence sweep (`converge_once`, and
+    `POST /api/v1/config-sync/run` to force it) recompiles every host and pushes what changed, which
+    is exactly the case its own docstring calls "mutations whose endpoint never enqueued a policy
+    event". So this is eventually consistent by design; if you need it now, run the sweep.
+    """
     site = await _get_site_or_404(session, site_id)
     site.subnets = _validate_cidrs(body.cidrs)
     await session.commit()
