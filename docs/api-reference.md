@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **395 carry a description** written in the handler
-itself; **86 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **415 carry a description** written in the handler
+itself; **66 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -2854,11 +2854,13 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/blueprints`
 
-List Blueprints. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Blueprints: a reusable bundle of declared state, ready to apply to a new host.
+
+Where a template bundles *check rules*, a blueprint bundles what a host should **be** — packages, services, configuration, roles — so a new machine can be brought to a known shape in one act. It compiles to a playbook; it is not itself a running thing.
 
 #### `POST /api/v1/blueprints`
 
-Create Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a blueprint. Applying it is a separate act — this only writes the definition.
 
 The JSON body carries:
 
@@ -2914,7 +2916,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/blueprints/{bp_id}`
 
-Delete Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a blueprint. Hosts built from it keep everything it gave them — they exist independently of the definition, which is the whole point of compiling it once.
 
 In the path:
 
@@ -2922,7 +2924,7 @@ In the path:
 
 #### `GET /api/v1/blueprints/{bp_id}`
 
-Get Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One blueprint with its declared state. 404 for an unknown id.
 
 In the path:
 
@@ -2930,7 +2932,9 @@ In the path:
 
 #### `PUT /api/v1/blueprints/{bp_id}`
 
-Update Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a blueprint's definition.
+
+Hosts already built from it are **not** revisited: a blueprint is the paper a machine was built from, and editing the paper does not rebuild the machine. Re-apply it deliberately if that is what you want.
 
 In the path:
 
@@ -4240,11 +4244,15 @@ Metric series for plotting: what exists, and the points in a time range.
 
 #### `GET /api/v1/graphs`
 
-List Graphs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Saved multi-host graphs: a named chart combining metrics from several hosts.
+
+Unlike a dashboard widget — which is ad-hoc, per-user and lives in a layout — a graph is a reusable object with its own identity, editable in one place and referable from several.
 
 #### `POST /api/v1/graphs`
 
-Create Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a graph from a list of (host, metric) items.
+
+The items are resolved when the graph is *drawn* (`GET .../data`), not now, so a graph may legitimately name a metric a host has not reported yet. At draw time **every item returns a series**, and one with nothing behind it returns an empty one rather than being omitted — so a host that stopped reporting shows as a flat gap in the legend instead of quietly disappearing from the chart.
 
 The JSON body carries:
 
@@ -4257,7 +4265,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/graphs/{graph_id}`
 
-Delete Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a graph. The metric series it drew are untouched — a graph is a view, and deleting it loses the arrangement, not the measurements.
 
 In the path:
 
@@ -4265,7 +4273,7 @@ In the path:
 
 #### `GET /api/v1/graphs/{graph_id}`
 
-Get Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One graph's definition — its items and axis settings, not its data. 404 for an unknown id.
 
 In the path:
 
@@ -4273,7 +4281,7 @@ In the path:
 
 #### `PUT /api/v1/graphs/{graph_id}`
 
-Update Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a graph's definition wholesale; an omitted field is cleared, not kept.
 
 In the path:
 
@@ -4308,11 +4316,15 @@ Named sets of hosts, used wherever a policy or a rollout needs a target.
 
 #### `GET /api/v1/host-groups`
 
-List Host Groups. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Host groups — a first-class, many-to-many set of hosts, and **placeless** on purpose.
+
+A group has no position in the OU tree: a host has one *location* (its OU) and many *properties*, and a group is a property. That is what lets a group cut across the tree, and it is why the former `ou_id` on this object was removed rather than kept "for convenience".
+
+Distinct from the legacy flat `Agent.groups` string list, which is a **projection** this API maintains — see `replace_host_group_members` for why that matters.
 
 #### `POST /api/v1/host-groups`
 
-Create Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a host group. Empty until members are set; an empty group matches no rule.
 
 The JSON body carries:
 
@@ -4321,7 +4333,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/host-groups/{group_id}`
 
-Delete Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a group, and take its name out of every former member's projection.
+
+The membership rows cascade, but that is not enough: rule matching reads the projected `agents.groups` array, so a former member would keep matching a group that no longer exists. The members are collected **before** the delete and re-projected after — and their *other* groups are adopted first, while this one still exists, because adopting afterwards would see this group's name in the arrays with no row behind it and re-create the very group being deleted.
+
+Rules scoped to this group stop matching anything. They are not deleted: a policy whose scope vanished is still a policy someone wrote.
 
 In the path:
 
@@ -4329,7 +4345,9 @@ In the path:
 
 #### `PUT /api/v1/host-groups/{group_id}`
 
-Update Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename or re-describe a group.
+
+A rename also re-derives the projected `agents.groups` array of every member, because rule matching reads that array rather than the membership rows. Renaming the row alone would leave every member matching the old name.
 
 In the path:
 
@@ -4342,7 +4360,11 @@ The JSON body carries:
 
 #### `PUT /api/v1/host-groups/{group_id}/members`
 
-Replace Host Group Members. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace the group's membership wholesale — hosts not in the list are removed from it.
+
+422 naming any agent id that does not exist, checked before anything is written, so a typo cannot half-apply a membership change.
+
+**Two things are written, not one.** The membership rows AND the projected `agents.groups` array that rule matching actually reads. Writing only the rows — which this endpoint used to do — left a host displayed as a member that the group's own rules did not match. That is the kind of defect that looks like a monitoring gap for weeks.
 
 In the path:
 
@@ -4650,11 +4672,19 @@ Aggregation: many technical states rolled into one service that a non-operator u
 
 #### `GET /api/v1/business-services`
 
-List Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Business services: one state rolled up from many technical ones.
+
+A member is a **scope selector** (host, group, OU, global, optionally filtered by service name) rather than a fixed list, so a host joining a group joins the aggregate too. `logic` is `all` (worst-of — every member matters) or `any` (redundancy — one healthy member is enough).
+
+The rolled-up status and the per-member breakdown are recomputed on a cycle; the breakdown is what makes the rollup explainable rather than a colour nobody can trace.
 
 #### `POST /api/v1/business-services`
 
-Create Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create an aggregate — and it is evaluated immediately, in the same transaction.
+
+So the response already carries a real state rather than a placeholder that resolves on the next cycle. `logic: all` means the aggregate is as bad as its worst member; `logic: any` means it is healthy while at least one member is.
+
+Choosing between them is a statement about the *system*, not a display preference: `any` on a non-redundant service reports healthy while half of it is down.
 
 The JSON body carries:
 
@@ -4666,7 +4696,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/business-services/{bs_id}`
 
-Delete Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete an aggregate. Its member services are untouched: an aggregate is a view over them, not a container of them.
 
 In the path:
 
@@ -4674,7 +4704,9 @@ In the path:
 
 #### `PUT /api/v1/business-services/{bs_id}`
 
-Update Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace an aggregate's members or logic. Omitted fields are cleared.
+
+The state is recomputed on the next cycle rather than here — use `.../evaluate` if you need the new definition's verdict now.
 
 In the path:
 
@@ -4690,7 +4722,9 @@ The JSON body carries:
 
 #### `POST /api/v1/business-services/{bs_id}/evaluate`
 
-Evaluate Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Recompute this aggregate now and return the result.
+
+Reads the member services' **current stored states** — it does not re-run any check, so the answer is as fresh as the last monitoring cycle. 404 for an unknown id. Running this by hand does not change the periodic schedule.
 
 In the path:
 

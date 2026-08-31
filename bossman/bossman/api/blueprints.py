@@ -86,12 +86,19 @@ class BlueprintOut(BaseModel):
 
 @router.get("/api/v1/blueprints", response_model=list[BlueprintOut])
 async def list_blueprints(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Blueprints: a reusable bundle of declared state, ready to apply to a new host.
+
+    Where a template bundles *check rules*, a blueprint bundles what a host should **be** — packages,
+    services, configuration, roles — so a new machine can be brought to a known shape in one act. It
+    compiles to a playbook; it is not itself a running thing.
+    """
     rows = (await session.scalars(select(Blueprint).order_by(Blueprint.name))).all()
     return [BlueprintOut.of(b) for b in rows]
 
 
 @router.get("/api/v1/blueprints/{bp_id}", response_model=BlueprintOut)
 async def get_blueprint(bp_id: UUID, session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """One blueprint with its declared state. 404 for an unknown id."""
     b = await session.get(Blueprint, bp_id)
     if b is None:
         raise HTTPException(404, "no such blueprint")
@@ -101,6 +108,7 @@ async def get_blueprint(bp_id: UUID, session: AsyncSession = Depends(get_session
 @router.post("/api/v1/blueprints", response_model=BlueprintOut)
 async def create_blueprint(body: BlueprintIn, session: AsyncSession = Depends(get_session),
                            identity: Identity = Depends(get_current_identity)):
+    """Create a blueprint. Applying it is a separate act — this only writes the definition."""
     b = Blueprint(tenant_id=DEFAULT_TENANT_ID, name=body.name, description=body.description,
                   status=body.status, path=body.path or "", services=body.services or [], created_by=identity.name)
     session.add(b)
@@ -112,6 +120,12 @@ async def create_blueprint(body: BlueprintIn, session: AsyncSession = Depends(ge
 @router.put("/api/v1/blueprints/{bp_id}", response_model=BlueprintOut)
 async def update_blueprint(bp_id: UUID, body: BlueprintIn, session: AsyncSession = Depends(get_session),
                            _i: Identity = Depends(get_current_identity)):
+    """Replace a blueprint's definition.
+
+    Hosts already built from it are **not** revisited: a blueprint is the paper a machine was built
+    from, and editing the paper does not rebuild the machine. Re-apply it deliberately if that is
+    what you want.
+    """
     b = await session.get(Blueprint, bp_id)
     if b is None:
         raise HTTPException(404, "no such blueprint")
@@ -124,6 +138,8 @@ async def update_blueprint(bp_id: UUID, body: BlueprintIn, session: AsyncSession
 
 @router.delete("/api/v1/blueprints/{bp_id}", status_code=204)
 async def delete_blueprint(bp_id: UUID, session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Delete a blueprint. Hosts built from it keep everything it gave them — they exist
+    independently of the definition, which is the whole point of compiling it once."""
     b = await session.get(Blueprint, bp_id)
     if b is not None:
         await session.delete(b)
