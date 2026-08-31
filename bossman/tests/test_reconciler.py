@@ -130,7 +130,8 @@ async def _live_reconciler_attached(session) -> str | None:
     if listeners:
         return (f"{listeners} live reconciler(s) LISTEN on bossman_outbox in this database — they take "
                 "the outbox row before this test can (pg_notify wakes them on commit, FOR UPDATE SKIP "
-                "LOCKED hides it from us). Stop the stack or use a database of your own to run this.")
+                "LOCKED hides it from us). To run this: `docker compose -p agentic-mcp stop bossman`, "
+                "run the file, then `start bossman` (docs/developing.md, section 6).")
     return None
 
 
