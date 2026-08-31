@@ -121,6 +121,18 @@ and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
+**Resource generations are capped at 30, and a pruned rollback target says it was pruned.** Nothing ever
+removed a row from `resource_generation`: every resource apply added one and none were deleted, so a resource
+applied on a cycle grew the table without bound. Honestly measured before the change: **one row, one
+resource** — this prevents a problem rather than cleaning one up, and the rows being small is exactly why it
+would have gone unnoticed until it did not. The cap is the same 30 the docker desired-state model uses, and
+pruning happens **in the same transaction as the insert**, so a crash cannot lose the new generation or
+delete history for one that was never written. Numbering keeps climbing (1…35 with 30 rows kept) because a
+reused generation number would point a stored rollback reference at a different spec. And a rollback to a
+dropped generation answers *"generation 3 has been pruned — only the newest 30 are kept and the oldest still
+held is 7"* instead of "no such generation": a trimmed history and a typo are different problems, and this
+project's rule is that nothing vanishes silently.
+
 **`If-Match` now guards the PARTIAL edits too — and a claim in this changelog was wrong.** The previous
 entry said "a check rule's `version` is not enforced". It was: `PUT /api/v1/check-rules/{id}` had honoured
 `If-Match` all along, and the grep behind that claim looked for a 409 while the code answers **412**. What
@@ -229,8 +241,6 @@ Each of these was invisible until a real host was in front of it:
   backend `idle in transaction`. The `compiled_host_state` generation-1 unique violation in the same file
   is the same race, compiling the same fresh agent twice. The fix is a database without a live reconciler
   attached — a decision about the single-database setup, not something to paper over in the assertions.
-- **Nothing prunes `resource_generations`.** Every resource apply adds a row and none are ever removed. The
-  30-generation cap that exists belongs to the docker desired-state model and does not apply here.
 - Snap-ins for what has no module yet: printers, certificates, local security policy, Windows Update.
 
 ---

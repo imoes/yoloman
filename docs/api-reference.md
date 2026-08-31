@@ -1731,7 +1731,7 @@ Restore this file to an earlier generation of declared values.
 
 `generation` comes from `GET .../generations?path=…`. What is restored is the declaration, then re-merged — so keys the host gained from elsewhere in the meantime are still not touched.
 
-Two limits worth knowing. Generations here are kept **without any retention limit**: nothing prunes `resource_generations`, so the table grows with every apply. (There *is* a 30-generation cap in this system, but it belongs to the separate docker desired-state model — `services/docker_desired.py`, pruned on discover — and it does not apply to this table. Do not assume one from the other.) And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
+Two limits worth knowing. **Only the newest 30 generations are kept** per resource, the same cap the docker desired-state model uses, pruned in the same transaction as the insert. A rollback to a generation that has been dropped says so — "pruned, the oldest still held is N" rather than "no such generation", because a trimmed history and a typo are different problems. And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
 
 In the path:
 

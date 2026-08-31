@@ -94,5 +94,5 @@ class ServiceResource:
     async def rollback(self, generation: int) -> dict[str, Any]:
         spec = await base.get_generation_spec(self._session, self.resource_key, generation)
         if spec is None:
-            return {"ok": False, "error": f"no generation {generation} for {self.name}"}
+            return await base.no_such_generation(self._session, self.resource_key, generation, self.name)
         return await self.apply(spec, dry_run=False, note=f"rollback to gen {generation}")
