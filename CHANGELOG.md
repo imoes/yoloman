@@ -121,6 +121,20 @@ and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
+**An event rule's `mode` now does what its name says.** `mode: auto|propose` was validated strictly,
+stored, and read by **nothing** — the engine gates on `autonomy: propose|auto_verify` alone, so a rule set
+to `mode: "auto"` only ever proposed. It is now an alias, and the direction of its fallback is the whole
+safety of it: `mode` defaults to `"auto"` in the payload while `autonomy` defaults to `"propose"`, so
+deriving from a *defaulted* `mode` would have promoted **every** rule that sends neither field from "suggest
+a fix" to "apply it unattended". `model_fields_set` distinguishes sent from defaulted; `autonomy` wins when
+both are sent (the UI's own create form sends `mode: "auto"` beside `autonomy: "propose"`, and refusing that
+pair would break a screen for a contradiction it never intended); and the response **derives** `mode` from
+`autonomy`, so a row written before the alias cannot report two answers to one question. Verified live in
+five cases: neither field → propose, `mode: auto` alone → auto_verify, contradictory pair → propose, and a
+`PUT` without either field does **not** escalate. The regression tests fail if the naive alias returns —
+checked by reintroducing it. The UI stops sending `mode` (it never had a control for it, only a help string
+that was never rendered).
+
 **`GET /api/v1/me` no longer claims rights the server refuses.** It selected an API token's access
 grants by **name** while the host ACL selected them by the token's **UID** — so a token sharing a name
 with a granted one was told `scope: all` and then refused with 403 by every route that acts. Measured on
@@ -204,13 +218,6 @@ Each of these was invisible until a real host was in front of it:
   backend `idle in transaction`. The `compiled_host_state` generation-1 unique violation in the same file
   is the same race, compiling the same fresh agent twice. The fix is a database without a live reconciler
   attached — a decision about the single-database setup, not something to paper over in the assertions.
-- **An event rule's `mode` field is inert, and the API does not say so.** `mode: auto|propose` is validated
-  strictly on write, stored, and returned — and **nothing in the engine reads it** (verified: zero reads of
-  `policy.mode` anywhere in `bossman/`). The real gate is `autonomy: propose|auto_verify`, which
-  docs/closed-loop-remediation.md already recorded as its replacement. A rule set to `mode: "auto"` with
-  `autonomy: "propose"` will only ever propose, and the strict validation is the strongest possible signal
-  that the field matters. Documented at both endpoints for now; **removing it or making it an alias of
-  `autonomy` is an API change and an operator's decision**, not a tidy-up.
 - **A check rule's `version` is not enforced.** It is a content hash for change detection and no route
   verifies it, so two editors saving the same rule do not collide — the second write wins silently. Event
   handlers do it properly with `If-Match`; the inconsistency is real and now stated in both docstrings.

@@ -38,6 +38,46 @@ from bossman.db.session import get_session
 router = APIRouter()
 
 
+#: `mode` and `autonomy` say the same thing in two vocabularies. These two functions are the whole
+#: translation, in one place, so the two can never drift again.
+_AUTONOMY_OF_MODE = {"auto": "auto_verify", "propose": "propose"}
+_MODE_OF_AUTONOMY = {"auto_verify": "auto", "propose": "propose"}
+
+
+def _mode_of(autonomy: str) -> str:
+    """`autonomy` in `mode`'s words. Anything unrecognised reads as `propose`, the safe half: a value
+    nobody knows must not be reported as "this acts on its own"."""
+    return _MODE_OF_AUTONOMY.get(autonomy, "propose")
+
+
+def _resolve_autonomy(body: "RemediationPolicyIn") -> str:
+    """Which autonomy this write means — `mode` is an alias, and the direction of the fallback is the
+    whole safety of it.
+
+    `mode` DEFAULTS to "auto" in this payload while `autonomy` defaults to "propose". So deriving
+    autonomy from a `mode` the caller never sent would silently promote every rule that omits both
+    fields from "suggest a fix" to "apply it unattended" — the one direction a default must never
+    fail in. `model_fields_set` is what distinguishes sent from defaulted, and it is the reason this
+    is a function rather than one line at each call site.
+
+    The order, therefore:
+      1. `autonomy` sent -> it wins, always. It is the field the engine reads.
+      2. only `mode` sent -> translate it. The alias now does what its name says.
+      3. neither sent -> `propose`.
+
+    Both sent and disagreeing is NOT an error: the UI's own create form sends `mode: "auto"` next to
+    `autonomy: "propose"` (event-rules.component.ts), and refusing that would break the screen for a
+    contradiction it did not intend. `autonomy` wins and the response reports `mode` derived from it,
+    so the answer is never ambiguous about what will happen.
+    """
+    sent = body.model_fields_set
+    if "autonomy" in sent:
+        return body.autonomy
+    if "mode" in sent:
+        return _AUTONOMY_OF_MODE.get(body.mode, "propose")
+    return body.autonomy
+
+
 class RemediationPolicyIn(BaseModel):
     name: str
     match_service_name: str = ""  # "" = any check
@@ -54,7 +94,10 @@ class RemediationPolicyIn(BaseModel):
     event_handler_id: UUID | None = None
     params: dict = {}
     max_per_hour: int = 3
-    mode: str = "auto"            # auto | propose (legacy)
+    #: ALIAS for `autonomy`, kept because callers send it. `auto` means `autonomy=auto_verify`,
+    #: `propose` means `propose` — but only when the caller SENT it and did not send `autonomy`
+    #: (see `_resolve_autonomy`). It used to be read by nothing at all.
+    mode: str = "auto"
     enabled: bool = True
     # closed-loop verify (Phase 1) + autonomy (Phase 2)
     verify: bool = True
@@ -94,7 +137,10 @@ class RemediationPolicyOut(BaseModel):
             ou_id=p.ou_id, host_group_id=p.host_group_id, agent_id=p.agent_id, conditions=p.conditions or {},
             runbook_name=p.runbook_name, event_handler_id=p.event_handler_id, params=p.params or {},
             max_per_hour=p.max_per_hour,
-            mode=p.mode, enabled=p.enabled, verify=p.verify, verify_after_s=p.verify_after_s,
+            # `mode` is DERIVED from autonomy, never read from the column. A stored row written
+            # before mode became an alias can carry "auto" while its autonomy says "propose", and
+            # reporting that pair would hand the reader two answers to one question.
+            mode=_mode_of(p.autonomy), enabled=p.enabled, verify=p.verify, verify_after_s=p.verify_after_s,
             autonomy=p.autonomy, allow_prod=p.allow_prod, max_blast_radius=p.max_blast_radius,
             rollback_runbook=p.rollback_runbook,
         )
@@ -109,7 +155,8 @@ async def list_remediation_policies(session: AsyncSession = Depends(get_session)
     conditions and a scope) to an **action** (a runbook or an event handler) and to the
     **guardrails** that decide whether that action may run unattended.
 
-    Read `autonomy`, not `mode` — see the create endpoint for why that matters.
+    `mode` is an alias of `autonomy` and is derived from it here, so a row written before that was
+    true still reports one answer rather than two. See the create endpoint for the write rules.
     """
     rows = (await session.scalars(select(RemediationPolicy).order_by(RemediationPolicy.created_at.desc()))).all()
     return [RemediationPolicyOut.of(p) for p in rows]
@@ -175,11 +222,20 @@ async def create_remediation_policy(
     neither (422). The reference is resolved now rather than when an event fires, because the
     moment a fix is needed is the worst moment to learn its runbook was renamed away.
 
-    **`autonomy` is the real gate; `mode` is inert.** `mode: auto|propose` is still validated and
-    stored — and nothing in the engine reads it (docs/closed-loop-remediation.md records that
-    `autonomy` replaced it semantically). A rule with `mode: "auto"` and `autonomy: "propose"`
-    will only ever propose. Both fields stay in the payload for callers that still send them;
-    only `autonomy` decides.
+    **`autonomy` decides; `mode` is its alias.** Sending only `mode: "auto"` now means
+    `autonomy: "auto_verify"` — until 2026-08-31 it meant nothing at all, because the engine read
+    only `autonomy`. Three rules, and the middle one is the safety:
+
+    - `autonomy` sent -> it wins, whatever `mode` says. The response reports `mode` derived from
+      it, so the two can never disagree in an answer.
+    - only `mode` sent -> translated.
+    - **neither sent -> `propose`.** `mode` defaults to `"auto"` in this payload, so deriving from
+      a defaulted `mode` would promote every rule that omits both fields to unattended action. A
+      default may only fail toward asking a human.
+
+    Both sent and contradictory is accepted rather than refused: the UI's own create form sends
+    `mode: "auto"` beside `autonomy: "propose"`, and a 422 would break a screen for a
+    contradiction it never intended.
 
     A fix runs unattended only if **every** one of these holds, and each No is reported as the
     reason the proposal is waiting for a human:
@@ -209,8 +265,11 @@ async def create_remediation_policy(
         # runbook, and NULL is the absence of a handler.
         runbook_name=(body.runbook_name or "") if body.event_handler_id is None else "",
         event_handler_id=body.event_handler_id, params=body.params or {},
-        max_per_hour=body.max_per_hour, mode=body.mode, enabled=body.enabled,
-        verify=body.verify, verify_after_s=body.verify_after_s, autonomy=body.autonomy,
+        max_per_hour=body.max_per_hour, enabled=body.enabled,
+        # ONE value, written into both columns: `autonomy` is what the engine reads and `mode` is
+        # its alias, so storing them independently is how they came to disagree in the first place.
+        mode=_mode_of(_resolve_autonomy(body)), verify=body.verify,
+        verify_after_s=body.verify_after_s, autonomy=_resolve_autonomy(body),
         allow_prod=body.allow_prod, max_blast_radius=body.max_blast_radius, rollback_runbook=body.rollback_runbook,
         created_by=identity.name,
     )
@@ -255,11 +314,13 @@ async def update_remediation_policy(
     p.event_handler_id = body.event_handler_id
     p.params = body.params or {}
     p.max_per_hour = body.max_per_hour
-    p.mode = body.mode
+    # One resolution, both columns — and NOT a second `p.autonomy = body.autonomy` further down,
+    # which is what stood here and would have undone the alias four lines later.
+    p.autonomy = _resolve_autonomy(body)
+    p.mode = _mode_of(p.autonomy)
     p.enabled = body.enabled
     p.verify = body.verify
     p.verify_after_s = body.verify_after_s
-    p.autonomy = body.autonomy
     p.allow_prod = body.allow_prod
     p.max_blast_radius = body.max_blast_radius
     p.rollback_runbook = body.rollback_runbook

@@ -1,7 +1,7 @@
 # The HTTP API, endpoint by endpoint
 
 > **GENERATED** by `scripts/generate-api-reference.py` from a *running* server's `/openapi.json`, on
-> 2026-08-28. Do not edit by hand — the next run overwrites it. It is generated from the running server
+> 2026-08-31. Do not edit by hand — the next run overwrites it. It is generated from the running server
 > rather than from the source because a route that the router never included does not exist for a
 > caller, and measuring instead of reading the source caught exactly that twice here.
 
@@ -2712,7 +2712,7 @@ Every event rule: what fires, where it applies, and what it is allowed to do.
 
 Newest first. A rule ties a **trigger** (a check entering a hard problem state, plus optional conditions and a scope) to an **action** (a runbook or an event handler) and to the **guardrails** that decide whether that action may run unattended.
 
-Read `autonomy`, not `mode` — see the create endpoint for why that matters.
+`mode` is an alias of `autonomy` and is derived from it here, so a row written before that was true still reports one answer rather than two. See the create endpoint for the write rules.
 
 #### `POST /api/v1/event-rules`
 
@@ -2720,7 +2720,11 @@ Create an event rule — and the one thing to get right here is autonomy.
 
 **Exactly one action**: either `runbook_name` or `event_handler_id`, never both and never neither (422). The reference is resolved now rather than when an event fires, because the moment a fix is needed is the worst moment to learn its runbook was renamed away.
 
-**`autonomy` is the real gate; `mode` is inert.** `mode: auto|propose` is still validated and stored — and nothing in the engine reads it (docs/closed-loop-remediation.md records that `autonomy` replaced it semantically). A rule with `mode: "auto"` and `autonomy: "propose"` will only ever propose. Both fields stay in the payload for callers that still send them; only `autonomy` decides.
+**`autonomy` decides; `mode` is its alias.** Sending only `mode: "auto"` now means `autonomy: "auto_verify"` — until 2026-08-31 it meant nothing at all, because the engine read only `autonomy`. Three rules, and the middle one is the safety:
+
+- `autonomy` sent -> it wins, whatever `mode` says. The response reports `mode` derived from it, so the two can never disagree in an answer. - only `mode` sent -> translated. - **neither sent -> `propose`.** `mode` defaults to `"auto"` in this payload, so deriving from a defaulted `mode` would promote every rule that omits both fields to unattended action. A default may only fail toward asking a human.
+
+Both sent and contradictory is accepted rather than refused: the UI's own create form sends `mode: "auto"` beside `autonomy: "propose"`, and a 422 would break a screen for a contradiction it never intended.
 
 A fix runs unattended only if **every** one of these holds, and each No is reported as the reason the proposal is waiting for a human:
 

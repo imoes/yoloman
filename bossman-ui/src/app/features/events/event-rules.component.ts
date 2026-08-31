@@ -24,7 +24,6 @@ import { WizardService } from '../../core/services/wizard.service';
 /** One sentence per guardrail. A number without its consequence is a setting nobody can judge. */
 const GUARDRAIL_TEXT = {
   max_per_hour: 'At most this many runs per host per hour. The limit exists so a problem that keeps re-firing cannot turn into a restart loop.',
-  mode: 'auto acts when the trigger fires; propose only records a suggestion for someone to apply.',
   autonomy: 'propose means a human applies every run. auto_verify applies automatically when the guardrails below pass, then re-checks and escalates or rolls back — and a global kill-switch must be on as well.',
   allow_prod: 'Without this, auto_verify refuses on hosts marked production (criticality or an env tag).',
   max_blast_radius: 'How many hosts one triggering event may act on automatically. Above it, the run waits for a human.',
@@ -37,7 +36,7 @@ function emptyDraft(): EventRuleInput {
     name: '', match_service_name: '', scope_type: 'global',
     ou_id: null, host_group_id: null, agent_id: null, conditions: {},
     runbook_name: '', event_handler_id: null, params: {},
-    max_per_hour: 3, mode: 'auto', enabled: true,
+    max_per_hour: 3, enabled: true,
     verify: true, verify_after_s: 60, autonomy: 'propose',
     allow_prod: false, max_blast_radius: 1, rollback_runbook: null,
   };
@@ -539,7 +538,7 @@ export class EventRulesComponent implements OnInit {
       conditions: { ...(r.conditions || {}) },
       runbook_name: r.runbook_name, event_handler_id: r.event_handler_id,
       params: { ...(r.params || {}) },
-      max_per_hour: r.max_per_hour, mode: r.mode, enabled: r.enabled,
+      max_per_hour: r.max_per_hour, enabled: r.enabled,
       verify: r.verify, verify_after_s: r.verify_after_s, autonomy: r.autonomy,
       allow_prod: r.allow_prod, max_blast_radius: r.max_blast_radius,
       rollback_runbook: r.rollback_runbook,

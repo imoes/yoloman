@@ -37,6 +37,9 @@ export interface EventRule {
   /** Values for the handler's declared parameters. Only Bossman configures these. */
   params: Record<string, unknown>;
   max_per_hour: number;
+  /** DERIVED by the server from `autonomy`, and read-only here. It is an alias in the API: sending
+   * only `mode` sets the autonomy, but `autonomy` wins when both are sent — so a client that sends
+   * both is asking the same question twice, which is why the input type below drops it. */
   mode: RuleMode;
   enabled: boolean;
   verify: boolean;
@@ -47,7 +50,10 @@ export interface EventRule {
   rollback_runbook: string | null;
 }
 
-export type EventRuleInput = Omit<EventRule, 'id'>;
+/** What a client SENDS. `mode` is omitted deliberately: it is an alias of `autonomy` that the
+ * server derives for the response, and sending both meant this screen asked for `mode: "auto"`
+ * beside `autonomy: "propose"` on every create. */
+export type EventRuleInput = Omit<EventRule, 'id' | 'mode'>;
 
 /** One recorded run — the observation point for "what happened and why".
  *
