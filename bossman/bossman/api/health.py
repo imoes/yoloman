@@ -9,4 +9,6 @@ router = APIRouter()
 
 @router.get("/healthz")
 async def healthz() -> str:
+    """Is this server alive. **No token needed** — the only endpoint besides login that answers
+    unauthenticated, because a liveness probe cannot hold a credential."""
     return "ok"

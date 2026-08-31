@@ -30,6 +30,12 @@ async def host_capabilities(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """What this host **provides** and what it **requires** — the lego model's two halves.
+
+    Derived from what is installed and configured rather than declared by hand, so it answers "what
+    could use this host" without anyone maintaining a list — and it goes stale exactly as fast as the
+    host's inventory does, which the timestamp tells you.
+    """
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent not found")
@@ -55,6 +61,11 @@ async def providers(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """Who provides a capability, fleet-wide: one row per host that can satisfy it.
+
+    The answer to "where can this run" before anything is placed. An empty result is a real answer,
+    not an error.
+    """
     hosts = await C.find_providers(session, settings, capability, [backend] if backend else [])
     roles = C.roles_providing(settings, capability, backend or None)
     return {"capability": capability, "backend": backend or None, "providers": hosts, "roles": roles}
@@ -67,6 +78,11 @@ async def match(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """Match requirements against providers and say **why** each candidate fits or does not.
+
+    The reason is the point: a matcher that returned only winners could not be argued with, and a
+    placement decision has to be explainable to whoever is paged about it later.
+    """
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent not found")

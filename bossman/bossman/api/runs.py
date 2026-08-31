@@ -76,6 +76,11 @@ async def list_runs(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[PlanRunOut]:
+    """Executions, newest first, whatever started them — a plan, a runbook, a schedule, a rollout.
+
+    One place to answer "what has this system been doing", which is why the kind of thing that
+    started a run is a field rather than a separate endpoint per source.
+    """
     stmt = select(PlanRun)
     if agent_id is not None:
         stmt = stmt.where(PlanRun.agent_id == agent_id)
@@ -94,6 +99,7 @@ async def get_run(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> PlanRunDetailOut:
+    """One execution with its per-step results and per-host outcomes. 404 for an unknown id."""
     run = await session.get(PlanRun, run_id, options=[selectinload(PlanRun.steps)])
     if run is None:
         raise HTTPException(status_code=404, detail=f"no such plan run {run_id}")

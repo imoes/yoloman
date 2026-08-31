@@ -144,6 +144,29 @@ of one rule each believe they are safe, and neither was warned. Both now call th
 header still writes (the guarantee is for clients that send one, not a new requirement). Both tests were
 checked by removing each guard in turn and watching the matching test fail.
 
+**Every one of the 481 API operations is now described.** The reference counted its own gap — 234 handlers
+without a docstring when it was first generated — and that number is what closed it: 143 descriptions written
+in this pass, in batches, each claim checked against the code or the database before it went in. The page
+still counts, so the next endpoint added without a docstring shows up in it.
+
+Nine claims of my own fell over while being checked, and each correction is in the endpoint's own
+documentation: a check rule's `version` **was** enforced on PUT all along (the grep behind "not enforced"
+looked for a 409 while the code answers 412) — what was missing is both **PATCH** routes, now fixed; a
+runbook's lint validates the document's *shape* and not module existence; `channel` and `target` on a
+notification rule are validated **separately**, so an email address in a webhook rule is accepted and fails
+at dispatch; a graph whose host disappears returns an **empty series** rather than dropping the line; and
+saved searches are tenant-shared rather than per-user. Also corrected in passing: a comment claiming
+`POST /api/v1/enroll` is "only mounted when enroll_secret is configured" — enrolment is open and it is mounted
+unconditionally, which a live 422 confirms.
+
+**The flaky monitoring test is fixed, and it was competing with real policy.** One arbitrary test in
+`test_monitoring.py` failed per full-suite run — a different one each time, each passing in isolation. Cause:
+its helper created a **global** check rule for `CPU load`/`cpu_pct`, and the shared database also holds real
+non-default global and site rules for exactly that pair (measured: 80/95 global, 70/90 site, grading ten live
+hosts). Whichever won depended on resolution order. The test rules are now scoped to each test's own host, so
+they win by precedence without touching the live policy — which stays, because it is somebody's monitoring
+and not test residue.
+
 **An event rule's `mode` now does what its name says.** `mode: auto|propose` was validated strictly,
 stored, and read by **nothing** — the engine gates on `autonomy: propose|auto_verify` alone, so a rule set
 to `mode: "auto"` only ever proposed. It is now an alias, and the direction of its fallback is the whole

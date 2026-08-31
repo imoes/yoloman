@@ -111,6 +111,13 @@ async def list_devices(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[DeviceOut]:
+    """Agent-less devices: switches, printers, PDUs and SSH-only hosts.
+
+    Each is polled **on its behalf** by the co-located poller agent — `snmp` (target plus community
+    or v3 credentials) or `ssh` (target plus user and secret). They appear as hosts with services, so
+    a switch's problem is acknowledged the same way a server's is; what differs is who does the
+    measuring.
+    """
     agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
     return [_to_out(a, await _device_checks(session, a.id)) for a in agents if _is_device(a)]
 
@@ -122,6 +129,12 @@ async def create_device(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> DeviceOut:
+    """Register an agent-less device to be polled by the poller agent.
+
+    Secrets are stored with the device and **never returned** — a read reports only whether one is
+    set. 409 when a host or device of that name already exists: two things answering to one name is
+    how a check ends up polling the wrong box.
+    """
     name = body.name.strip()
     target = body.target.strip()
     if body.kind not in _KINDS:
@@ -179,6 +192,8 @@ async def delete_device(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict:
+    """Forget a device. Nothing is touched on the device itself — this stops the polling and
+    removes its services, and the switch keeps switching."""
     device = await session.get(Agent, device_id)
     if device is None or not _is_device(device):
         raise HTTPException(status_code=404, detail="no such device")

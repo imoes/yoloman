@@ -51,6 +51,12 @@ async def index_chunk_route(
     embedding_client: EmbeddingClient = Depends(get_embedding_client),
     _identity=Depends(get_current_identity),
 ) -> IndexChunkResponse:
+    """Index a piece of text into the retrieval memory the chat and the remediation reasoning read.
+
+    An embedding is computed through the configured endpoint and stored with the text, so the same
+    passage indexed twice with a different model is two different rows — the model is part of what
+    makes an embedding comparable.
+    """
     indexed = await index_chunk(
         session,
         embedding_client,
@@ -92,6 +98,12 @@ async def similar_chunks_route(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> SimilarChunksResponse:
+    """The nearest indexed passages to a query, by embedding distance.
+
+    Similarity is not relevance: this returns what is close in the embedding space, which is why the
+    distance comes back with each row instead of a ranking presented as an answer. Nothing here is
+    filtered by who may see it.
+    """
     threshold = body.threshold if body.threshold is not None else settings.chunk_similarity_threshold
     candidates = await find_similar_chunks(
         session, embedding_client, source_text=body.source_text, top_k=body.top_k, threshold=threshold

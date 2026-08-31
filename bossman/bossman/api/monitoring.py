@@ -365,6 +365,12 @@ async def get_service_history(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ServiceHistoryPointOut]:
+    """This service's confirmed state changes over time.
+
+    **Hard changes only**: a soft flicker that never became a confirmed state is deliberately absent,
+    so the timeline shows what an operator would have been told about rather than every wobble the
+    poller saw. That is also why an availability figure computed from this is stable.
+    """
     rows = await service_state_history(session, agent_id, service_name, limit=limit)
     return [ServiceHistoryPointOut(time=r.time, state=r.state, value=r.value) for r in rows]
 
@@ -398,6 +404,13 @@ async def get_service_availability(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> AvailabilityOut:
+    """How much of the asked-for period this service spent in each state.
+
+    Computed from the confirmed (hard) state history, so it agrees with the timeline rather than
+    telling a second story. Time before the service's first record is **not** counted as OK — a
+    period nobody measured is not availability, and reporting it as uptime would be flattering
+    rather than true.
+    """
     end = datetime.now(timezone.utc)
     start = end - timedelta(hours=hours)
     report = await compute_availability(session, agent_id, service_name, start, end)

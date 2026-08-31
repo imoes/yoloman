@@ -148,6 +148,12 @@ async def get_config_template(
     _identity=Depends(get_current_identity),
 ) -> dict:
     # Guard against path traversal — a template name is a single dir label.
+    """One template's body, schema and sample values, by name.
+
+    Separate from the listing on purpose: the listing used to return **every** body — about 36 MB —
+    while each of its seven callers wanted one. The list now carries names and target paths, and this
+    returns the ~8 KB a caller actually opens.
+    """
     if "/" in name or name in ("", ".", ".."):
         raise HTTPException(status_code=422, detail="invalid template name")
     t = _load_template(Path(settings.config_templates_dir) / name)

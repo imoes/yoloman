@@ -54,6 +54,12 @@ async def list_events(
     session: AsyncSession = Depends(get_session),
     _i: Identity = Depends(get_current_identity),
 ):
+    """Passively received events: syslog messages and SNMP traps, as they arrived.
+
+    Raw, before they are anything else — an event is not a problem, has no host ACL applied to its
+    origin, and may name a device this fleet does not know. Turning one into a service state or an
+    action is what event *rules* do.
+    """
     stmt = select(Event).order_by(Event.received_at.desc()).limit(limit)
     if kind:
         stmt = stmt.where(Event.kind == kind)
@@ -70,6 +76,11 @@ async def list_events(
 @router.post("/api/v1/events/{event_id}/ack", response_model=EventOut)
 async def ack_event(event_id: UUID, session: AsyncSession = Depends(get_session),
                     _i: Identity = Depends(get_current_identity)):
+    """Acknowledge an event: someone has seen it.
+
+    It stays in the console with the acknowledgement recorded, rather than disappearing — an event
+    that vanishes when noticed cannot be counted afterwards.
+    """
     e = await session.get(Event, event_id)
     if e is None:
         raise HTTPException(404, "no such event")

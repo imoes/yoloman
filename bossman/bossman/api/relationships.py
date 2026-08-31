@@ -110,6 +110,11 @@ async def list_relationships(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> RelationshipsOut:
+    """Declared dependencies between objects — what explains an outage by its cause.
+
+    Distinct from the topology graph: that is measured traffic, this is stated intent. Keeping them
+    apart is deliberate, because "these two talk" and "this one needs that one" are different claims.
+    """
     where = [HostEdge.src_agent_id == agent_id] if agent_id is not None else []
 
     # GROUPED IN THE DATABASE, not in Python: the point is to not transfer 28 203 rows, and loading them

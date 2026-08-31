@@ -57,6 +57,16 @@ async def list_audit(
     session: AsyncSession = Depends(get_session),
     _admin: Identity = Depends(require_admin),
 ):
+    """Who did what in **this server** — the request-side trail.
+
+    One entry per authenticated mutating call: the actor from the bearer, the target from the path,
+    the outcome from the status, plus login successes and failures. Filterable by actor, category,
+    status, free text and time.
+
+    Not the same as the **result log** (`/api/v1/operations`), and the difference matters: this records
+    what was *asked of Bossman*, that records what *hosts did*. A request that was accepted and an
+    action that worked are two facts, and only the second answers "did that install succeed".
+    """
     stmt = select(AuditLog).order_by(AuditLog.at.desc(), AuditLog.id.desc())
     if actor:
         stmt = stmt.where(AuditLog.actor == actor)
@@ -117,6 +127,8 @@ async def scan_external_audit(
 
 @router.get("/api/v1/audit/stats")
 async def audit_stats(session: AsyncSession = Depends(get_session), _admin: Identity = Depends(require_admin)):
+    """Counts over the audit trail — per actor, category and outcome — for the period asked for.
+    The overview above the list, so "unusually many refusals today" is visible without paging."""
     total = await session.scalar(select(func.count()).select_from(AuditLog)) or 0
     by_cat = (await session.execute(
         select(AuditLog.category, func.count()).group_by(AuditLog.category)

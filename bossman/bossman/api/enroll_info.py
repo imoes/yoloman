@@ -6,10 +6,15 @@ can't create a new run": with zero enrolled hosts, the run dialog's host
 picker has nothing to show, and enrollment was CLI-only with no
 discoverable command in the UI).
 
-Deliberately a separate, ALWAYS-mounted router from api/enroll.py's own
-POST /api/v1/enroll (which is only mounted when enroll_secret is
-configured, see main.py) — so the Settings page gets a real, informative
-"not configured yet" response instead of a bare 404 either way.
+Deliberately a separate router from api/enroll.py's own POST /api/v1/enroll,
+so the Settings page gets a real, informative "not configured yet" response
+instead of a bare 404.
+
+(The parenthesis that used to stand here said POST /api/v1/enroll is "only
+mounted when enroll_secret is configured". That stopped being true when
+enrolment became open: main.py mounts it unconditionally, and a live POST
+answers 422 for an empty body rather than 404. Corrected 2026-08-31 —
+a comment describing a condition that no longer exists is worse than none.)
 """
 
 from __future__ import annotations
@@ -38,6 +43,12 @@ async def enroll_info(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> EnrollInfoResponse:
+    """Whether enrolment is usable, and the exact command to run.
+
+    Returns the `agentic-mcpd register` line for *this* instance, so adding a host does not require
+    knowing the CLI. Always answers — a "not configured" state is a real answer, and a 404 would look
+    like a broken server.
+    """
     deploy_configured = bool(settings.deploy_ssh_user and settings.agent_deb_path)
 
     # Enrollment is open (no secret) — always available. The manual one-liner

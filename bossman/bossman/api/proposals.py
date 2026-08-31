@@ -88,6 +88,12 @@ async def reject_proposal(
     session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """Reject a change proposal: it stays as a rejected row and applies to nothing.
+
+    Rejected rather than deleted, on purpose — "someone decided against this" is a fact worth
+    keeping, and a proposal that vanished would leave the next person to propose the same fix with no
+    idea it had already been refused. The reasoning that produced it stays attached.
+    """
     try:
         p = await proposals_svc.reject(session, proposal_id, identity.name)
     except ValueError as exc:

@@ -14,9 +14,10 @@ and its docstring. A hand-written list of 481 operations would be wrong within a
 router never included does not exist for a caller, and the same measurement caught exactly that twice in this
 repository's history.
 
-WHAT IT CANNOT DO, said on the page rather than papered over: an endpoint whose handler has no docstring gets
-its summary (FastAPI derives that from the function name) and nothing more. Those are listed as such, so the
-gap is visible and closeable instead of silently reading as "nothing more to know".
+WHAT IT CANNOT INVENT, and says so rather than papering over: an endpoint whose handler has no docstring gets
+its summary (FastAPI derives that from the function name) and nothing more. Those are marked as such on the
+page, and the page counts them — which is what closed the gap: 234 of 481 undocumented when this script was
+written, 0 on 2026-08-31. The count stays, because the next endpoint added without a docstring appears in it.
 
     ./generate-api-reference.py --bossman http://localhost:8123 --user admin --password …
 """
@@ -284,9 +285,18 @@ def build(spec: dict, counts: dict) -> str:
         "   `refused`). Those two are different events and must not be collapsed: the first means the request",
         "   was wrong, the second means the host said no.",
         "",
-        f"Of the {total} operations, **{total - undocumented} carry a description** written in the handler",
-        f"itself; **{undocumented} carry only a summary** and are marked as such below rather than being",
-        "quietly padded with invented prose. That number is the honest measure of how documented this API is.",
+        # The self-report. It was 234-of-481 undocumented when this page was first generated, which is
+        # exactly why the number is printed: a gap that counts itself gets closed. Now that it can
+        # reach zero, the sentence has to read correctly there too — a page that says "0 carry only a
+        # summary" of itself is the kind of small wrongness that makes a reader doubt the rest.
+        (f"**Every one of the {total} operations carries a description** written in the handler itself. "
+         "This page counted its own gap while there was one — it reached zero on 2026-08-31 — and the "
+         "count stays here because the next endpoint added without a docstring will show up in it."
+         if undocumented == 0 else
+         f"Of the {total} operations, **{total - undocumented} carry a description** written in the "
+         f"handler itself; **{undocumented} carry only a summary** and are marked as such below rather "
+         "than being quietly padded with invented prose. That number is the honest measure of how "
+         "documented this API is."),
         "",
         "### Related pages",
         "",
