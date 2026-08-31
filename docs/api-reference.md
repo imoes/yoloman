@@ -27,8 +27,8 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **339 carry a description** written in the handler
-itself; **142 carry only a summary** and are marked as such below rather than being
+Of the 481 operations, **360 carry a description** written in the handler
+itself; **121 carry only a summary** and are marked as such below rather than being
 quietly padded with invented prose. That number is the honest measure of how documented this API is.
 
 ### Related pages
@@ -3426,11 +3426,13 @@ Configuration templates — whole-file renders for configuration a codec cannot 
 
 #### `GET /api/v1/template-groups`
 
-List Template Groups. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Template groups — the folders templates are filed under, by name.
+
+Organisational only: a group does not link to hosts and changes nothing about what is monitored. What applies where is decided by a template's **links** (`.../links`).
 
 #### `POST /api/v1/template-groups`
 
-Create Template Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a template group. 422 for an empty name, 409 when one already has it.
 
 The JSON body carries:
 
@@ -3438,7 +3440,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/template-groups/{group_id}`
 
-Delete Template Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a template group.
+
+The templates filed under it are **not** deleted — a folder disappearing must not take the monitoring policy with it. They lose their group, which is a display property.
 
 In the path:
 
@@ -3446,11 +3450,17 @@ In the path:
 
 #### `GET /api/v1/templates`
 
-List Templates. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every template, by name, each with its rules, its nesting and its links.
+
+A template is a **named, reusable bundle of check rules** that is *live-linked* to host groups: editing it re-materialises the CheckRule rows of every group linked to it, and of every ancestor template that nests it. That is the whole idea — a link is a standing relationship, not a one-time copy — and it is why the write endpoints below do more than they look like they do.
 
 #### `POST /api/v1/templates`
 
-Create Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a template: its rules, and optionally the templates it nests.
+
+Nesting is checked here rather than discovered later: a template cannot nest **itself**, and every nested id must exist (422 with the reason). A cycle would make the effective rule set undefined, and a missing id would silently contribute nothing.
+
+Creating one changes nothing on any host — a template acts only once it is linked to a group. 422 for an empty name, 409 when the name is taken.
 
 The JSON body carries:
 
@@ -3462,7 +3472,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/templates/{template_id}`
 
-Delete Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a template, and with it every rule it generated.
+
+`check_rules.template_id`, its own rule and nesting rows, and its links are all `ON DELETE CASCADE` — so the monitoring those links produced **stops**, on every host in every linked group. Ancestor templates that nested this one are re-materialised afterwards so their effective rule set reflects the loss rather than keeping orphaned copies.
+
+There is no undo. To stop a template applying to one group, delete that **link** instead.
 
 In the path:
 
@@ -3470,7 +3484,7 @@ In the path:
 
 #### `GET /api/v1/templates/{template_id}`
 
-Get Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One template with its rules, the templates it nests, and the groups it is linked to. 404 when there is no such id.
 
 In the path:
 
@@ -3478,7 +3492,13 @@ In the path:
 
 #### `PUT /api/v1/templates/{template_id}`
 
-Update Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a template's rules and nesting — and re-materialise everything linked to it.
+
+**Replace-all, not a diff**: the rules and nested ids you send become the whole set, so a field you omit is dropped. That matches the editing shape of the check-rule and graph dialogs (the whole form is submitted), and it is why a partial payload is the wrong tool here.
+
+Then the live part: **every host group linked to this template gets its CheckRule rows rebuilt**, and so does every group linked to an ancestor template that nests this one. The blast radius of an edit is therefore "every host in every linked group, transitively" — read `.../links` and the nesting before saving.
+
+422 for an empty name or a bad nesting reference, 409 for a duplicate name.
 
 In the path:
 
@@ -3494,7 +3514,9 @@ The JSON body carries:
 
 #### `GET /api/v1/templates/{template_id}/links`
 
-List Template Links. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Which host groups this template is linked to — its actual reach.
+
+Read this before editing or deleting the template: these are the groups whose CheckRule rows are rebuilt on every change, and "how many hosts is that" is a question only the group can answer.
 
 In the path:
 
@@ -3502,7 +3524,11 @@ In the path:
 
 #### `POST /api/v1/templates/{template_id}/links`
 
-Create Template Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Link the template to a host group — and materialise its rules there immediately.
+
+This is where a template starts monitoring something. Every rule in the template (including the rules of templates it nests) becomes a CheckRule row scoped to that group, owned by this template: a direct edit of such a row is refused, because the next materialisation would overwrite it.
+
+422 when the host group is missing from the body, 409 when the link already exists — linking twice is not a stronger link and would double-materialise the same rules.
 
 In the path:
 
@@ -3514,7 +3540,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/templates/{template_id}/links/{link_id}`
 
-Delete Template Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Unlink the template from a group and remove the rules it put there.
+
+Dematerialisation is the point: the CheckRule rows this link created are deleted, so the group stops being monitored by this template. Rules the group has from another template or from its own policies are untouched.
+
+404 when the link is not on this template — including when it exists on a different one, which is a different mistake and would otherwise silently do nothing.
 
 In the path:
 
@@ -3653,7 +3683,9 @@ The overview numbers, and the dashlets a user has arranged.
 
 #### `GET /api/v1/dashboard-widgets`
 
-List Dashboard Widgets. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Your widgets — all of them, or one dashboard's.
+
+Without `dashboard_id` this returns **every** widget you own across every dashboard; with it, only that dashboard's. The path form below (`/dashboards/{id}/widgets`) is the same question asked the other way and returns the same rows — it exists because a client that already holds a dashboard id should not have to build a query string, not because the two differ.
 
 Query parameters:
 
@@ -3661,7 +3693,11 @@ Query parameters:
 
 #### `POST /api/v1/dashboard-widgets`
 
-Create Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Add a widget to a dashboard.
+
+`widget_type` must be one of the known types (**422** listing them) — a free-text type would produce a widget that renders as nothing and reports no error. Position and size are the caller's: the UI drags them, and the server stores what it is told.
+
+The widget belongs to you; it does not become visible to other operators.
 
 The JSON body carries:
 
@@ -3676,7 +3712,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/dashboard-widgets/{widget_id}`
 
-Delete Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Remove a widget from your dashboard. 404 when it is not yours.
 
 In the path:
 
@@ -3684,7 +3720,11 @@ In the path:
 
 #### `PATCH /api/v1/dashboard-widgets/{widget_id}`
 
-Update Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Move, resize, retitle, reconfigure or hide a widget; omitted fields stay as they are.
+
+`hidden` is a widget that stays in the layout without drawing — deleting and re-adding it would lose its position and its configuration, which is why hiding is its own state rather than an absence.
+
+404 when the widget is not yours.
 
 In the path:
 
@@ -3703,7 +3743,11 @@ The JSON body carries:
 
 #### `GET /api/v1/dashboard-widgets/{widget_id}/data`
 
-Get Dashboard Widget Data. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The numbers this widget draws, scoped by its dashboard's filter context.
+
+Looked up across **all** of your dashboards rather than only the default one — widgets on a non-default dashboard used to get no data at all, which looked like a broken widget rather than a lookup that never reached it.
+
+The data is computed per request; nothing is cached here. What it means depends on the widget type, and the dashboard's `context` (host, site, group) narrows it — so the same widget on two dashboards with different contexts legitimately answers differently.
 
 In the path:
 
@@ -3711,11 +3755,17 @@ In the path:
 
 #### `GET /api/v1/dashboards`
 
-List Dashboards Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This operator's dashboards. **Everything here is per-user, not shared.**
+
+A new user always has one: the default dashboard is created on the way out of this call rather than by a migration or a first-login hook, so an empty list can only mean "someone deleted them all" and never "the account was set up wrong".
+
+Another operator's dashboard is invisible rather than forbidden — see the 404s below.
 
 #### `POST /api/v1/dashboards`
 
-Create Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a dashboard for this operator.
+
+`source` records where it came from — a person arranging widgets or the chat generating a layout — and `prompt` keeps the request a generated one was built from. That is the difference between a layout someone can explain and one that merely exists: the generated dashboards live in the same table and must stay distinguishable from hand-built ones.
 
 The JSON body carries:
 
@@ -3725,7 +3775,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/dashboards/{dashboard_id}`
 
-Delete Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete one of your dashboards and its widgets. 404 when it is not yours.
 
 In the path:
 
@@ -3733,7 +3783,11 @@ In the path:
 
 #### `PATCH /api/v1/dashboards/{dashboard_id}`
 
-Update Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename a dashboard or change its filter context; omitted fields stay as they are.
+
+The `context` is what the whole dashboard's widgets are scoped by — set a host or a site here and every widget on it answers for that scope, rather than each widget carrying its own copy of the same filter.
+
+404 for a dashboard that is not yours: the answer to "does someone else's id exist" is not this caller's business.
 
 In the path:
 
@@ -3747,7 +3801,7 @@ The JSON body carries:
 
 #### `GET /api/v1/dashboards/{dashboard_id}/widgets`
 
-List Widgets Of Dashboard. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One dashboard's widgets. The same answer as `GET /api/v1/dashboard-widgets?dashboard_id=…`, addressed by path — one implementation serves both, so they cannot drift apart.
 
 In the path:
 

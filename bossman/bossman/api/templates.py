@@ -57,6 +57,11 @@ class TemplateGroupOut(TemplateGroupIn):
 async def list_template_groups(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[TemplateGroupOut]:
+    """Template groups — the folders templates are filed under, by name.
+
+    Organisational only: a group does not link to hosts and changes nothing about what is monitored.
+    What applies where is decided by a template's **links** (`.../links`).
+    """
     rows = (await session.scalars(select(TemplateGroup).order_by(TemplateGroup.name))).all()
     return [TemplateGroupOut.from_model(g) for g in rows]
 
@@ -65,6 +70,7 @@ async def list_template_groups(
 async def create_template_group(
     body: TemplateGroupIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> TemplateGroupOut:
+    """Create a template group. 422 for an empty name, 409 when one already has it."""
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     group = TemplateGroup(name=body.name)
@@ -81,6 +87,11 @@ async def create_template_group(
 async def delete_template_group(
     group_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a template group.
+
+    The templates filed under it are **not** deleted — a folder disappearing must not take the
+    monitoring policy with it. They lose their group, which is a display property.
+    """
     group = await session.get(TemplateGroup, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail=f"no such template group {group_id}")
@@ -182,6 +193,13 @@ async def _reject_self_and_missing_nesting(session: AsyncSession, template_id: U
 async def list_templates(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[TemplateOut]:
+    """Every template, by name, each with its rules, its nesting and its links.
+
+    A template is a **named, reusable bundle of check rules** that is *live-linked* to host groups:
+    editing it re-materialises the CheckRule rows of every group linked to it, and of every ancestor
+    template that nests it. That is the whole idea — a link is a standing relationship, not a
+    one-time copy — and it is why the write endpoints below do more than they look like they do.
+    """
     rows = (await session.scalars(select(Template).order_by(Template.name))).all()
     return [await _build_template_out(session, t) for t in rows]
 
@@ -190,6 +208,8 @@ async def list_templates(
 async def get_template(
     template_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> TemplateOut:
+    """One template with its rules, the templates it nests, and the groups it is linked to.
+    404 when there is no such id."""
     template = await _get_template_or_404(session, template_id)
     return await _build_template_out(session, template)
 
@@ -198,6 +218,15 @@ async def get_template(
 async def create_template(
     body: TemplateIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> TemplateOut:
+    """Create a template: its rules, and optionally the templates it nests.
+
+    Nesting is checked here rather than discovered later: a template cannot nest **itself**, and
+    every nested id must exist (422 with the reason). A cycle would make the effective rule set
+    undefined, and a missing id would silently contribute nothing.
+
+    Creating one changes nothing on any host — a template acts only once it is linked to a group.
+    422 for an empty name, 409 when the name is taken.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     _validate_rules(body.rules)
@@ -232,6 +261,19 @@ async def update_template(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> TemplateOut:
+    """Replace a template's rules and nesting — and re-materialise everything linked to it.
+
+    **Replace-all, not a diff**: the rules and nested ids you send become the whole set, so a field
+    you omit is dropped. That matches the editing shape of the check-rule and graph dialogs (the
+    whole form is submitted), and it is why a partial payload is the wrong tool here.
+
+    Then the live part: **every host group linked to this template gets its CheckRule rows rebuilt**,
+    and so does every group linked to an ancestor template that nests this one. The blast radius of
+    an edit is therefore "every host in every linked group, transitively" — read `.../links` and the
+    nesting before saving.
+
+    422 for an empty name or a bad nesting reference, 409 for a duplicate name.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     _validate_rules(body.rules)
@@ -274,6 +316,15 @@ async def delete_template(
     # check_rules.template_id/template_rules.template_id/template_nesting/
     # template_links are all ON DELETE CASCADE — deleting the template
     # removes every rule it generated, its own rule/nesting/link rows.
+    """Delete a template, and with it every rule it generated.
+
+    `check_rules.template_id`, its own rule and nesting rows, and its links are all
+    `ON DELETE CASCADE` — so the monitoring those links produced **stops**, on every host in every
+    linked group. Ancestor templates that nested this one are re-materialised afterwards so their
+    effective rule set reflects the loss rather than keeping orphaned copies.
+
+    There is no undo. To stop a template applying to one group, delete that **link** instead.
+    """
     template = await _get_template_or_404(session, template_id)
     ancestors = await find_ancestor_template_ids(session, template_id)
     await session.delete(template)
@@ -307,6 +358,11 @@ class TemplateLinkOut(TemplateLinkIn):
 async def list_template_links(
     template_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[TemplateLinkOut]:
+    """Which host groups this template is linked to — its actual reach.
+
+    Read this before editing or deleting the template: these are the groups whose CheckRule rows are
+    rebuilt on every change, and "how many hosts is that" is a question only the group can answer.
+    """
     await _get_template_or_404(session, template_id)
     rows = (await session.scalars(select(TemplateLink).where(TemplateLink.template_id == template_id))).all()
     return [TemplateLinkOut.from_model(link) for link in rows]
@@ -319,6 +375,16 @@ async def create_template_link(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> TemplateLinkOut:
+    """Link the template to a host group — and materialise its rules there immediately.
+
+    This is where a template starts monitoring something. Every rule in the template (including the
+    rules of templates it nests) becomes a CheckRule row scoped to that group, owned by this
+    template: a direct edit of such a row is refused, because the next materialisation would
+    overwrite it.
+
+    422 when the host group is missing from the body, 409 when the link already exists — linking
+    twice is not a stronger link and would double-materialise the same rules.
+    """
     await _get_template_or_404(session, template_id)
     if not body.host_group.strip():
         raise HTTPException(status_code=422, detail="host_group is required")
@@ -343,6 +409,15 @@ async def delete_template_link(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> None:
+    """Unlink the template from a group and remove the rules it put there.
+
+    Dematerialisation is the point: the CheckRule rows this link created are deleted, so the group
+    stops being monitored by this template. Rules the group has from another template or from its
+    own policies are untouched.
+
+    404 when the link is not on this template — including when it exists on a different one, which
+    is a different mistake and would otherwise silently do nothing.
+    """
     link = await session.get(TemplateLink, link_id)
     if link is None or link.template_id != template_id:
         raise HTTPException(status_code=404, detail=f"no such link {link_id} on template {template_id}")
