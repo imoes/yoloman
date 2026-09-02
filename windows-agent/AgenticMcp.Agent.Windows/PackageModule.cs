@@ -89,7 +89,18 @@ public sealed class PackageModule : IModule
             ["arguments"] = new Dictionary<string, object>
             {
                 ["type"] = "string",
-                ["description"] = "The installer's own switches, space-separated (e.g. \"/S /v/qn\").",
+                ["description"] = "The installer's own switches for INSTALLING, space-separated (e.g. "
+                                  + "\"/S /v/qn\"). Not used when state is absent — see "
+                                  + "uninstall_arguments.",
+            },
+            ["uninstall_arguments"] = new Dictionary<string, object>
+            {
+                ["type"] = "string",
+                ["description"] = "Switches appended to the product's own UninstallString when state is "
+                                  + "absent. Separate from `arguments` because the two are different "
+                                  + "commands: a recipe carrying /S for a silent install made the removal "
+                                  + "run \"reg delete <key> /f /S\", which Windows refuses as invalid "
+                                  + "syntax. Most products need nothing here.",
             },
             ["success_codes"] = new Dictionary<string, object>
             {
@@ -209,7 +220,9 @@ public sealed class PackageModule : IModule
 
         var codes = ParseCodes(Str(parameters, "success_codes") ?? "0,3010");
         var arguments = Str(parameters, "arguments") ?? "";
-        var run = await WindowsPackaging.Execute(provider, wantPresent, name, path, arguments, codes, ct);
+        var uninstallArguments = Str(parameters, "uninstall_arguments") ?? "";
+        var run = await WindowsPackaging.Execute(provider, wantPresent, name, path, arguments, codes, ct,
+            uninstallArguments);
         data["command"] = run.Command;
         data["exit_code"] = run.ExitCode;
         data["output"] = run.Output;
@@ -325,7 +338,11 @@ public sealed class PackageModule : IModule
         Directory.CreateDirectory(directory);
         var target = Path.Combine(directory, Path.GetFileName(new Uri(url).LocalPath));
 
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+        // NOT `new HttpClient()`: that one uses HttpClient.DefaultProxy, which cannot read a CIDR entry in
+        // NO_PROXY. Measured on the host — an installer at http://10.32.28.130:8099/… inside the bypass
+        // list's own 10.32.0.0/16 was proxied anyway and came back 503, while curl.exe on the same host with
+        // the same environment got 200. See ProxyPolicy for the whole measurement.
+        using var http = ProxyPolicy.CreateFleetHttpClient(TimeSpan.FromMinutes(30));
         var bytes = await http.GetByteArrayAsync(url, ct);
         var actual = Convert.ToHexStringLower(SHA256.HashData(bytes));
         data["source_url"] = url;

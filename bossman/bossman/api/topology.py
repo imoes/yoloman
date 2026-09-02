@@ -73,6 +73,13 @@ async def topology_graph(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """How hosts talk to each other, as **measured** rather than as drawn.
+
+    Edges come from observed connections, and non-enrolled destinations are synthesised as their own
+    nodes with a service hint from the port — otherwise a real host's traffic, which is mostly to
+    things outside the fleet, produced a graph with zero edges. The busiest are kept and the number
+    dropped is logged rather than silently truncated.
+    """
     now = time.monotonic()
     if not refresh and _cache["graph"] is not None and (now - _cache["at"]) < _CACHE_TTL_S:
         return _cache["graph"]

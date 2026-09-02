@@ -53,7 +53,9 @@ appears in the fleet and is polled on the next cycle.
 ## Publishing for Windows
 
 ```bash
-dotnet publish windows-agent/AgenticMcp.Agent.Host -r win-x64 -c Release
+# -f is REQUIRED: the Host multi-targets net10.0 and net10.0-windows, and publish refuses to guess.
+# The service on Windows is the -windows flavour (that is the one that carries the WMI collector).
+dotnet publish windows-agent/AgenticMcp.Agent.Host -f net10.0-windows -r win-x64 -c Release
 ```
 
 Self-contained single-file, so the target needs no runtime install. The MSI that registers it as a service

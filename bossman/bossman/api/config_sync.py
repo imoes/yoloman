@@ -61,6 +61,12 @@ async def status(
     settings: Settings = Depends(get_settings),
     _i: Identity = Depends(get_current_identity),
 ):
+    """Which hosts are behind on their desired state, and by how much.
+
+    Compares each host's compiled generation against what it last **acked**. A host ahead of its ack
+    has a change waiting; one that never acked has never received anything. Two different states, both
+    named rather than shown as an empty row.
+    """
     st = getattr(request.app.state, "converge_stats", None)
     return SyncStatus(
         enabled=settings.config_sync_enabled,
@@ -80,5 +86,11 @@ async def run_now(
     client_factory=Depends(get_client_factory),
     _admin: Identity = Depends(require_admin),
 ):
+    """Force the convergence sweep now instead of waiting for the cycle.
+
+    Recompiles every host's desired state and pushes to any whose generation is ahead of its ack —
+    which is also how a change made through an endpoint that enqueues no event reaches the hosts (a
+    policy site's subnets, for instance). Idempotent: an up-to-date, acked host is skipped.
+    """
     run = await reconciler.converge_once(session, settings, client_factory=client_factory)
     return SyncRunResult(checked=run.checked, pushed=run.pushed, failed=run.failed)

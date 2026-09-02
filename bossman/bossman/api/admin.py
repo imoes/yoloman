@@ -69,6 +69,11 @@ async def get_diagnostics(
     housekeeping_stats: HousekeepingStats = Depends(get_housekeeping_stats),
     _identity=Depends(get_current_identity),
 ) -> DiagnosticsOut:
+    """A snapshot of this server's own health: versions, loop timings, queue depths, database state.
+
+    About Bossman, not about the fleet — the place to look when the fleet's numbers are stale and you
+    need to know whether the poller, the reconciler or the database is the reason.
+    """
     summary = await fleet_summary(session)
     pool = request.app.state.engine.pool
     return DiagnosticsOut(
@@ -104,6 +109,12 @@ async def set_log_level(
     body: LogLevelRequest,
     _identity=Depends(get_current_identity),
 ) -> LogLevelOut:
+    """Change this process's log level at runtime, without a restart.
+
+    422 for anything outside the standard levels. **It does not persist**: a restart returns to the
+    configured level, which is the safe direction — a DEBUG left on by accident would otherwise
+    outlive the debugging session and fill a disk.
+    """
     level = body.level.upper()
     if level not in _VALID_LEVELS:
         raise HTTPException(status_code=422, detail=f"level must be one of {_VALID_LEVELS}")
@@ -122,6 +133,13 @@ async def run_housekeeping_now(
     housekeeping_stats: HousekeepingStats = Depends(get_housekeeping_stats),
     _identity=Depends(get_current_identity),
 ) -> HousekeepingRunOut:
+    """Run the retention sweeps now and report what each one deleted.
+
+    The same sweeps the periodic job performs — notifications, plan runs, host edges, stale
+    per-process series, orphaned metric series, and the run/audit windows when a retention period is
+    configured. The reply is a count per sweep, so "nothing was deleted" is visible as zeros rather
+    than as silence.
+    """
     now = datetime.now(timezone.utc)
     deleted = await run_housekeeping(session, settings, now)
     housekeeping_stats.last_run_at = now

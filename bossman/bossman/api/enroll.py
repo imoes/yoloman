@@ -43,6 +43,21 @@ async def handle_enroll(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> EnrollResponseBody:
+    """An agent registers itself. **Enrolment is OPEN: there is no shared secret.**
+
+    The agent sends its name, token and address and receives Bossman's public key, which it **pins**
+    — from then on Bossman authenticates itself with the matching private key over mTLS. An
+    `enroll_secret` in the body is accepted for wire-compatibility with the generic client and
+    **ignored**.
+
+    So the trust model is plainly: whoever can reach this endpoint can add a host, and it is mounted
+    unconditionally. The authenticated way to add one is the server-driven SSH deploy
+    (`POST /api/v1/enroll/deploy`), where Bossman dials out; this is the manual convenience, and the
+    reason this path is worth firewalling.
+
+    Note the direction of every later call: the agent never dials in again — Bossman connects to the
+    agent, which is why one firewall rule (Bossman → agent) is enough.
+    """
     if not body.name:
         raise HTTPException(status_code=400, detail="name must not be empty")
     if not body.token:

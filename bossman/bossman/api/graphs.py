@@ -113,6 +113,11 @@ async def _get_graph_or_404(session: AsyncSession, graph_id: UUID) -> Graph:
 async def list_graphs(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[GraphOut]:
+    """Saved multi-host graphs: a named chart combining metrics from several hosts.
+
+    Unlike a dashboard widget — which is ad-hoc, per-user and lives in a layout — a graph is a
+    reusable object with its own identity, editable in one place and referable from several.
+    """
     rows = (await session.scalars(select(Graph).options(_WITH_ITEMS).order_by(Graph.name))).all()
     return [GraphOut.from_model(g) for g in rows]
 
@@ -121,6 +126,7 @@ async def list_graphs(
 async def get_graph(
     graph_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> GraphOut:
+    """One graph's definition — its items and axis settings, not its data. 404 for an unknown id."""
     return GraphOut.from_model(await _get_graph_or_404(session, graph_id))
 
 
@@ -128,6 +134,14 @@ async def get_graph(
 async def create_graph(
     body: GraphIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> GraphOut:
+    """Create a graph from a list of (host, metric) items.
+
+    The items are resolved when the graph is *drawn* (`GET .../data`), not now, so a graph may
+    legitimately name a metric a host has not reported yet. At draw time **every item returns a
+    series**, and one with nothing behind it returns an empty one rather than being omitted — so a
+    host that stopped reporting shows as a flat gap in the legend instead of quietly disappearing
+    from the chart.
+    """
     _validate(body)
     graph = Graph(
         name=body.name, graph_type=body.graph_type, y_axis_mode=body.y_axis_mode,
@@ -151,6 +165,7 @@ async def update_graph(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> GraphOut:
+    """Replace a graph's definition wholesale; an omitted field is cleared, not kept."""
     _validate(body)
     graph = await _get_graph_or_404(session, graph_id)
     graph.name = body.name
@@ -175,6 +190,8 @@ async def update_graph(
 async def delete_graph(
     graph_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a graph. The metric series it drew are untouched — a graph is a view, and deleting
+    it loses the arrangement, not the measurements."""
     graph = await _get_graph_or_404(session, graph_id)
     await session.delete(graph)
     await session.commit()

@@ -22,7 +22,15 @@ def test_diff_specs_create_update_noop():
 def _resource(monkeypatch, observed, gen_store):
     """A DockerContainerResource with docker + generation store faked in memory."""
     agent = types.SimpleNamespace(id="a1", name="docker-test")
-    r = DockerContainerResource(session=object(), agent=agent, client_factory=lambda a, s: None,
+
+    class _Session:
+        """Answers only what these tests reach: `scalar`, used by base.no_such_generation to find
+        the oldest generation still held so a PRUNED target reads differently from one that never
+        existed. Backed by the same in-memory store as the rest of this harness."""
+        async def scalar(self, _stmt):
+            return min((g["generation"] for g in gen_store), default=None)
+
+    r = DockerContainerResource(session=_Session(), agent=agent, client_factory=lambda a, s: None,
                                 settings=None, name="web")
 
     async def fake_inspect(a, cf, s):
@@ -94,6 +102,19 @@ async def test_rollback_reapplies_old_spec_as_new_generation(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_rollback_missing_generation(monkeypatch):
+    """Nothing stored at all: the answer is "no generation", not "pruned"."""
     r = _resource(monkeypatch, None, [])
     out = await r.rollback(9)
     assert out["ok"] is False and "no generation 9" in out["error"]
+    assert "pruned" not in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_rollback_to_a_pruned_generation_says_pruned(monkeypatch):
+    """A generation BELOW the oldest one still held was dropped to make room, and saying "no such
+    generation" for it would make a trimmed history look like a typo."""
+    r = _resource(monkeypatch, None, [{"generation": 7, "spec": {}, "note": None},
+                                      {"generation": 8, "spec": {}, "note": None}])
+    out = await r.rollback(3)
+    assert out["ok"] is False
+    assert "pruned" in out["error"] and "oldest still held is 7" in out["error"]

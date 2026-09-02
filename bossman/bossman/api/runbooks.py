@@ -159,6 +159,12 @@ async def purge_runbook_runs(
 
 @router.get("/api/v1/runbooks")
 async def list_runbooks(session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """The runbook library: step lists in the NT document format, by name.
+
+    A runbook is a document, not a schedule and not a binding — it does nothing until something runs
+    it against a host (`POST /api/v1/plans/{name}/run`, a scheduler entry, an event rule, or a role
+    compiled from one).
+    """
     rows = (await session.scalars(select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID).order_by(Runbook.name))).all()
     return {"runbooks": [{"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "",
                           "updated_at": r.updated_at.isoformat() if r.updated_at else None} for r in rows]}
@@ -166,6 +172,7 @@ async def list_runbooks(session: AsyncSession = Depends(get_session), _identity=
 
 @router.get("/api/v1/runbooks/{runbook_id}")
 async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """One runbook with its steps. 404 when there is no such id."""
     r = await session.get(Runbook, runbook_id)
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")
@@ -176,6 +183,17 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
 
 @router.post("/api/v1/runbooks")
 async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(get_session), identity: Identity = Depends(get_current_identity)) -> dict[str, Any]:
+    """Store a runbook. The document is **linted before it is accepted**, not at run time.
+
+    What the lint catches is the **document's shape**: a malformed step, a missing required key, a
+    structure the engine cannot walk — 422 with the parser's own message.
+
+    What it does NOT catch, and this is the part worth knowing: whether a step's module exists on the
+    target, or whether its parameters are ones that module accepts. Those are properties of a host
+    and of an agent build, not of the document, and they surface on the first run. `POST
+    /api/v1/plans/{name}/run` with `dry_run` (its default) is where you find them without changing
+    anything.
+    """
     try:
         doc = _to_doc(body)
     except nt_runbook.NTRunbookError as exc:
@@ -193,6 +211,12 @@ async def create_runbook(body: SaveRunbookBody, session: AsyncSession = Depends(
 
 @router.put("/api/v1/runbooks/{runbook_id}")
 async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """Replace a runbook's document, linted as on create.
+
+    Anything already running keeps the version it started with; a role compiled from this runbook is
+    not recompiled by this call. Editing the source of something that has been used is not the same
+    as changing what was done.
+    """
     r = await session.get(Runbook, runbook_id)
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")
@@ -211,6 +235,12 @@ async def update_runbook(runbook_id: UUID, body: SaveRunbookBody, session: Async
 
 @router.delete("/api/v1/runbooks/{runbook_id}", status_code=204)
 async def delete_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)) -> None:
+    """Delete a runbook.
+
+    **Check what points at it first.** An event rule or a scheduler entry naming a deleted runbook
+    becomes a rule that fires and does nothing — those references are resolved by name at write
+    time, so this call cannot see them.
+    """
     r = await session.get(Runbook, runbook_id)
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")

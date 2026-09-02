@@ -71,6 +71,14 @@ async def list_dashboards_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> list[DashboardOut]:
+    """This operator's dashboards. **Everything here is per-user, not shared.**
+
+    A new user always has one: the default dashboard is created on the way out of this call rather
+    than by a migration or a first-login hook, so an empty list can only mean "someone deleted them
+    all" and never "the account was set up wrong".
+
+    Another operator's dashboard is invisible rather than forbidden — see the 404s below.
+    """
     await ensure_default_dashboard(session, identity.name)  # new users always have one
     return [DashboardOut.from_model(d) for d in await list_dashboards(session, identity.name)]
 
@@ -81,6 +89,13 @@ async def create_dashboard_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DashboardOut:
+    """Create a dashboard for this operator.
+
+    `source` records where it came from — a person arranging widgets or the chat generating a layout
+    — and `prompt` keeps the request a generated one was built from. That is the difference between
+    a layout someone can explain and one that merely exists: the generated dashboards live in the
+    same table and must stay distinguishable from hand-built ones.
+    """
     dash = await create_dashboard(session, identity.name, name=body.name, source=body.source, prompt=body.prompt)
     return DashboardOut.from_model(dash)
 
@@ -92,6 +107,15 @@ async def update_dashboard_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DashboardOut:
+    """Rename a dashboard or change its filter context; omitted fields stay as they are.
+
+    The `context` is what the whole dashboard's widgets are scoped by — set a host or a site here
+    and every widget on it answers for that scope, rather than each widget carrying its own copy of
+    the same filter.
+
+    404 for a dashboard that is not yours: the answer to "does someone else's id exist" is not this
+    caller's business.
+    """
     dash = await update_dashboard(
         session, identity.name, dashboard_id,
         name=body.name, is_default=body.is_default, context=body.context,
@@ -107,6 +131,7 @@ async def delete_dashboard_route(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> None:
+    """Delete one of your dashboards and its widgets. 404 when it is not yours."""
     if not await delete_dashboard(session, identity.name, dashboard_id):
         raise HTTPException(status_code=404, detail=f"no such dashboard {dashboard_id}")
 
@@ -171,6 +196,13 @@ async def list_dashboard_widgets(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> list[DashboardWidgetOut]:
+    """Your widgets — all of them, or one dashboard's.
+
+    Without `dashboard_id` this returns **every** widget you own across every dashboard; with it,
+    only that dashboard's. The path form below (`/dashboards/{id}/widgets`) is the same question
+    asked the other way and returns the same rows — it exists because a client that already holds a
+    dashboard id should not have to build a query string, not because the two differ.
+    """
     widgets = await list_widgets(session, identity.name, dashboard_id)
     return [DashboardWidgetOut.from_model(w) for w in widgets]
 
@@ -182,6 +214,9 @@ async def list_widgets_of_dashboard(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> list[DashboardWidgetOut]:
+    """One dashboard's widgets. The same answer as
+    `GET /api/v1/dashboard-widgets?dashboard_id=…`, addressed by path — one implementation serves
+    both, so they cannot drift apart."""
     widgets = await list_widgets(session, identity.name, dashboard_id)
     return [DashboardWidgetOut.from_model(w) for w in widgets]
 
@@ -192,6 +227,14 @@ async def create_dashboard_widget(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DashboardWidgetOut:
+    """Add a widget to a dashboard.
+
+    `widget_type` must be one of the known types (**422** listing them) — a free-text type would
+    produce a widget that renders as nothing and reports no error. Position and size are the
+    caller's: the UI drags them, and the server stores what it is told.
+
+    The widget belongs to you; it does not become visible to other operators.
+    """
     if body.widget_type not in WIDGET_TYPES_ALL:
         raise HTTPException(status_code=422, detail=f"widget_type must be one of {WIDGET_TYPES_ALL}")
     widget = await create_widget(
@@ -216,6 +259,14 @@ async def update_dashboard_widget(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> DashboardWidgetOut:
+    """Move, resize, retitle, reconfigure or hide a widget; omitted fields stay as they are.
+
+    `hidden` is a widget that stays in the layout without drawing — deleting and re-adding it would
+    lose its position and its configuration, which is why hiding is its own state rather than an
+    absence.
+
+    404 when the widget is not yours.
+    """
     widget = await update_widget(
         session,
         identity.name,
@@ -240,6 +291,7 @@ async def delete_dashboard_widget(
     session: AsyncSession = Depends(get_session),
     identity=Depends(get_current_identity),
 ) -> None:
+    """Remove a widget from your dashboard. 404 when it is not yours."""
     deleted = await delete_widget(session, identity.name, widget_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"no such widget {widget_id}")
@@ -253,6 +305,16 @@ async def get_dashboard_widget_data(
 ) -> dict[str, Any]:
     # Look the widget up directly (any of the user's dashboards), not just the
     # default one — otherwise widgets on non-default dashboards get no data.
+    """The numbers this widget draws, scoped by its dashboard's filter context.
+
+    Looked up across **all** of your dashboards rather than only the default one — widgets on a
+    non-default dashboard used to get no data at all, which looked like a broken widget rather than
+    a lookup that never reached it.
+
+    The data is computed per request; nothing is cached here. What it means depends on the widget
+    type, and the dashboard's `context` (host, site, group) narrows it — so the same widget on two
+    dashboards with different contexts legitimately answers differently.
+    """
     widget = await session.get(DashboardWidget, widget_id)
     if widget is None or widget.username != identity.name:
         raise HTTPException(status_code=404, detail=f"no such widget {widget_id}")

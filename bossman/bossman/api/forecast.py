@@ -53,6 +53,13 @@ async def capacity(
     settings: Settings = Depends(get_settings),
     _i: Identity = Depends(get_current_identity),
 ):
+    """Where filesystems are heading: soonest-to-fill first, fleet-wide.
+
+    A least-squares fit over each series' own history, projected to the threshold — "disk full in N
+    days". A trend is an extrapolation, not a promise: it assumes the recent past continues, which is
+    exactly what a step change breaks (a new database, a log rotation that stopped). The growth per
+    day is returned beside the date so a reader can judge that.
+    """
     rows = await fc.capacity_forecast(
         session, settings, metric=metric, threshold=threshold,
         lookback_days=lookback_days, warn_days=warn_days, crit_days=crit_days,
@@ -70,6 +77,8 @@ async def agent_forecast(
     settings: Settings = Depends(get_settings),
     _i: Identity = Depends(get_current_identity),
 ):
+    """The same projection for one host's series. Empty where a series has too few points to fit —
+    an absent forecast rather than a confident line through two dots."""
     fs = await fc.forecast_metric(session, settings, agent_id, metric, threshold, lookback_days)
     return [
         ForecastOut(

@@ -212,6 +212,13 @@ async def delete_assignment(
     session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
 ) -> None:
+    """Unassign a check from its scope.
+
+    The hosts that matched it lose the service on the next cycle — the service row is not deleted
+    here, so a stale state is not left behind claiming to be current. A host that also matches
+    another assignment of the same check keeps it, with **that** assignment's parameters, which may
+    differ.
+    """
     a = await session.get(CheckAssignment, assignment_id)
     if a is None:
         raise HTTPException(status_code=404, detail="no such assignment")

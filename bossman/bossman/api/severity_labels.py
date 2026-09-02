@@ -44,6 +44,12 @@ class SeverityLabelUpdate(BaseModel):
 async def list_severity_labels(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[SeverityLabelOut]:
+    """What this installation calls each severity — the words an operator reads.
+
+    Renaming a severity changes the label, never the state: `CRIT` stays `CRIT` in the data, in the
+    API and in every rule. A label that changed the meaning would make two installations
+    incomparable.
+    """
     rows = (await session.scalars(select(SeverityLabel))).all()
     return [SeverityLabelOut.from_model(r) for r in rows]
 
@@ -55,6 +61,11 @@ async def update_severity_label(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> SeverityLabelOut:
+    """Rename one severity's label. The state name itself is not editable.
+
+    `CRIT` stays `CRIT` in the data, the API and every rule — only the word an operator reads changes.
+    A rename that altered the meaning would make two installations incomparable.
+    """
     if state not in _STATES:
         raise HTTPException(status_code=422, detail=f"state must be one of {_STATES}")
     if not body.label.strip():

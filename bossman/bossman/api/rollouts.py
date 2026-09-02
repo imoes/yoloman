@@ -77,6 +77,12 @@ class RolloutOut(BaseModel):
 
 @router.get("/api/v1/rollouts", response_model=list[RolloutOut])
 async def list_rollouts(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Every staged rollout, with its wave plan and its live per-wave progress.
+
+    A rollout is one runbook applied to many hosts **in waves** — a canary first, then rings — with a
+    health gate between them. `progress` grows one entry per completed wave and carries that wave's
+    health verdict, so this is also the answer to "why did it stop".
+    """
     rows = (await session.scalars(select(Rollout).order_by(Rollout.created_at.desc()))).all()
     return [RolloutOut.of(r) for r in rows]
 
@@ -84,6 +90,8 @@ async def list_rollouts(session: AsyncSession = Depends(get_session), _i: Identi
 @router.get("/api/v1/rollouts/{rollout_id}", response_model=RolloutOut)
 async def get_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
                       _i: Identity = Depends(get_current_identity)):
+    """One rollout: its waves, which wave is current, and each finished wave's health verdict.
+    404 when there is no such id."""
     r = await session.get(Rollout, rollout_id)
     if r is None:
         raise HTTPException(404, "no such rollout")
@@ -93,6 +101,16 @@ async def get_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_sess
 @router.post("/api/v1/rollouts", response_model=RolloutOut)
 async def create_rollout(body: RolloutIn, session: AsyncSession = Depends(get_session),
                          identity: Identity = Depends(get_current_identity)):
+    """Plan the waves. **Nothing runs until `/start`.**
+
+    The scope (host, group, ou, global) is expanded to hosts now and frozen into a wave plan, so a
+    host added to the group afterwards is not silently pulled into a running rollout. `by_ou` builds
+    one wave per OU subtree instead of by ring, and requires `scope_type=ou` with an `ou_id` (422).
+
+    Two refusals worth expecting: **422 when the scope matched no hosts**, and 422 when an OU subtree
+    has no placed, reachable hosts. A rollout over an empty set would report success having done
+    nothing.
+    """
     if body.scope_type not in ("host", "group", "ou", "global"):
         raise HTTPException(422, "scope_type must be host|group|ou|global")
     if body.by_ou:
@@ -136,6 +154,17 @@ async def start_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_se
                         settings: Settings = Depends(get_settings),
                         session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
                         client_factory=Depends(get_client_factory), _i: Identity = Depends(get_current_identity)):
+    """Start the rollout. Returns immediately; the waves run server-side.
+
+    **409 when it is already running** — starting twice would run two wave sequences over the same
+    hosts. Follow it with `GET` on this rollout rather than expecting a result here.
+
+    What happens per wave: run the runbook on the wave's hosts, wait `health_gate.wait_seconds` for
+    state to settle, optionally run a functional test runbook, then gate. The gate compares against a
+    **pre-wave baseline of CRIT hosts**, so only NEW damage counts — a host that was already broken
+    does not block the rollout, and a wave that breaks something does. A failed gate sets the rollout
+    `aborted` and the remaining waves do not run.
+    """
     r = await session.get(Rollout, rollout_id)
     if r is None:
         raise HTTPException(404, "no such rollout")
@@ -152,6 +181,15 @@ async def start_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_se
 @router.post("/api/v1/rollouts/{rollout_id}/abort", response_model=RolloutOut)
 async def abort_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
                         _i: Identity = Depends(get_current_identity)):
+    """Ask the rollout to stop. **It stops at the next wave boundary, not instantly.**
+
+    This sets the status to `aborted`; the executor reads that status before each wave and returns
+    when it sees it. A wave already in flight therefore **finishes** — its hosts are mid-runbook and
+    killing that would leave them half-applied, which is worse than one more wave.
+
+    Accepted while `running`, `pending` or `paused`, and a no-op otherwise: aborting a finished
+    rollout changes nothing and is not an error worth raising.
+    """
     r = await session.get(Rollout, rollout_id)
     if r is None:
         raise HTTPException(404, "no such rollout")
@@ -165,6 +203,12 @@ async def abort_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_se
 @router.delete("/api/v1/rollouts/{rollout_id}", status_code=204)
 async def delete_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
                          _i: Identity = Depends(get_current_identity)):
+    """Delete a rollout and its recorded progress.
+
+    **204 whether or not it existed.** Note what this does not do: it does not stop a running one —
+    abort it first, or the executor keeps working through the waves of a plan nobody can watch any
+    more.
+    """
     r = await session.get(Rollout, rollout_id)
     if r is not None:
         await session.delete(r)

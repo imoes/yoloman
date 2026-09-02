@@ -61,6 +61,12 @@ def _err(exc: vm_lab.VmLabError) -> HTTPException:
 
 @router.post("/api/v1/vm/install", response_model=str)
 async def vm_install(body: InstallIn, _identity=Depends(get_current_identity)) -> str:
+    """Install a disk template from an ISO in the nested-virt lab.
+
+    Drives QEMU inside the pxe container; the UI attaches a noVNC console to watch it. **503 when the
+    lab is not configured** (`BOSSMAN_PXE_CONTAINER` empty) rather than 500 — a deployment without
+    the pxe profile degrades cleanly instead of looking broken.
+    """
     try:
         return await vm_lab.install(body.name, body.iso, body.disk, body.disk_gib)
     except vm_lab.VmLabError as exc:
@@ -69,6 +75,11 @@ async def vm_install(body: InstallIn, _identity=Depends(get_current_identity)) -
 
 @router.post("/api/v1/vm/pxe-test", response_model=str)
 async def vm_pxe_test(body: PxeTestIn, _identity=Depends(get_current_identity)) -> str:
+    """Boot a lab VM against the real PXE path, end to end.
+
+    This is the rehearsal for bare-metal provisioning: same boot chain, same profile lookup, same
+    imaging steps, on a machine nobody minds. 503 when the lab is not configured.
+    """
     try:
         return await vm_lab.pxe_test(body.name, body.mac, body.disk, body.disk_gib)
     except vm_lab.VmLabError as exc:
@@ -77,6 +88,7 @@ async def vm_pxe_test(body: PxeTestIn, _identity=Depends(get_current_identity)) 
 
 @router.get("/api/v1/vm", response_model=list[VmOut])
 async def vm_list(_identity=Depends(get_current_identity)) -> list[dict]:
+    """Lab VMs and their state. 503 when the lab is not configured."""
     try:
         return await vm_lab.list_vms()
     except vm_lab.VmLabError as exc:
@@ -85,6 +97,8 @@ async def vm_list(_identity=Depends(get_current_identity)) -> list[dict]:
 
 @router.post("/api/v1/vm/{name}/stop", response_model=str)
 async def vm_stop(name: str, _identity=Depends(get_current_identity)) -> str:
+    """Stop a lab VM. Stopping one that is already stopped is not an error — the end state is what
+    was asked for. 503 when the lab is not configured."""
     try:
         return await vm_lab.stop(name)
     except vm_lab.VmLabError as exc:

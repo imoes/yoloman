@@ -63,7 +63,31 @@ def identifier(relative: str) -> str:
     return "f_" + safe[-52:] + "_" + uuid.uuid5(GUID_NAMESPACE, relative).hex[:6]
 
 
-def harvest(publish: pathlib.Path) -> str:
+def read_file_list(listing: pathlib.Path) -> list[pathlib.Path]:
+    r"""Relative paths from a text listing, one per line.
+
+    WHY THIS EXISTS. The build is split across two machines and always was: `wix` only works on Windows
+    (measured — off Windows it declares its own behaviour undefined and proved it three ways), and the build
+    host has no Python. So harvesting happens where Python is and `wix build` happens where the files are,
+    and the only thing that has to travel between them is the file LIST — the harvester never opens a file,
+    it only needs paths, because the component GUIDs are derived from the path.
+
+    Producing the listing on the build host:
+
+        Get-ChildItem <publish> -Recurse -File | Resolve-Path -Relative | %{ $_ -replace '^\.\\','' } > files.txt
+
+    Until this option existed, the split was done by hand each time and left no trace — which is how a
+    documented build step became one nobody could repeat.
+    """
+    out: list[pathlib.Path] = []
+    for line in listing.read_text().splitlines():
+        entry = line.strip().strip('"').replace("\\", "/")
+        if entry and entry not in ALREADY_PACKAGED:
+            out.append(pathlib.PurePosixPath(entry))  # type: ignore[arg-type]
+    return out  # type: ignore[return-value]
+
+
+def harvest(publish: pathlib.Path, listing: pathlib.Path | None = None) -> str:
     """The <Fragment> with a real Directory tree and one component per file.
 
     A NESTED <Directory> TREE, not the newer Component/@Subdirectory attribute. Subdirectory is tidier and it
@@ -72,8 +96,10 @@ def harvest(publish: pathlib.Path) -> str:
     an inconsistency rather than an error. The Directory tree is the form WiX has supported since v3 and it
     does not go near that validation.
     """
-    files: list[pathlib.Path] = [p.relative_to(publish) for p in sorted(publish.rglob("*"))
-                                 if p.is_file() and str(p.relative_to(publish)) not in ALREADY_PACKAGED]
+    files: list[pathlib.Path] = (
+        sorted(read_file_list(listing), key=str) if listing is not None
+        else [p.relative_to(publish) for p in sorted(publish.rglob("*"))
+              if p.is_file() and str(p.relative_to(publish)) not in ALREADY_PACKAGED])
 
     # THE SATELLITE TRANSLATIONS ARE LEFT OUT, and it is a choice rather than a workaround: 13 locale folders
     # and 9.5 MB of .NET's own localised error messages, in a service whose messages are read by a server and
@@ -144,23 +170,42 @@ def harvest(publish: pathlib.Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--publish", required=True, type=pathlib.Path,
-                        help="the `dotnet publish` output directory")
+                        help="the `dotnet publish` output directory (a PATH ON THE BUILD HOST when "
+                             "--file-list is used: it goes into the .wxs as PublishDir and is never read here)")
     parser.add_argument("--version", required=True, help="the package version, e.g. 0.2.0")
-    parser.add_argument("--out", required=True, type=pathlib.Path, help="the .msi to write")
+    parser.add_argument("--out", type=pathlib.Path, help="the .msi to write (not needed with --wxs-only)")
     parser.add_argument("--wix", default="wix", help="the wix executable")
+    parser.add_argument("--file-list", type=pathlib.Path,
+                        help="harvest from this listing of relative paths instead of walking --publish. For "
+                             "the split build: the list comes from the machine that has the files, this runs "
+                             "where Python is. See read_file_list.")
+    parser.add_argument("--wxs-only", action="store_true",
+                        help="write payload.generated.wxs and stop, without calling wix. The other half of "
+                             "the split build — `wix build` then runs on the Windows host.")
     args = parser.parse_args()
 
-    publish = args.publish.resolve()
-    if not (publish / "AgenticMcp.Agent.Host.exe").is_file():
+    publish = args.publish if args.file_list else args.publish.resolve()
+    if args.file_list is None and not (publish / "AgenticMcp.Agent.Host.exe").is_file():
         print(f"no AgenticMcp.Agent.Host.exe in {publish} — point --publish at a published agent",
               file=sys.stderr)
+        return 2
+    if not args.wxs_only and args.out is None:
+        print("--out is required unless --wxs-only is given", file=sys.stderr)
         return 2
 
     here = pathlib.Path(__file__).resolve().parent
     fragment = here / "payload.generated.wxs"
-    fragment.write_text(harvest(publish))
-    files = sum(1 for _ in publish.rglob("*") if _.is_file())
-    print(f"harvested {files} file(s) from {publish}")
+    fragment.write_text(harvest(publish, args.file_list))
+    files = (len(read_file_list(args.file_list)) if args.file_list
+             else sum(1 for _ in publish.rglob("*") if _.is_file()))
+    print(f"harvested {files} file(s) from {'the listing ' + str(args.file_list) if args.file_list else publish}")
+    if args.wxs_only:
+        # The wxs is the deliverable of this half. Naming the next command means the split does not have to
+        # be remembered.
+        print(f"wrote {fragment} — now on the Windows build host:\n"
+              f"  wix build agent.wxs payload.generated.wxs -arch x64 -ext WixToolset.Util.wixext "
+              f"-d PublishDir={publish} -d AgentVersion={args.version} -o agentic-mcp-agent.msi")
+        return 0
 
     command = [
         args.wix, "build",

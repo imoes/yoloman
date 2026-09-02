@@ -124,6 +124,12 @@ async def wizard_context(
     _identity=Depends(get_current_identity),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Everything the package wizard needs for one host in a single call.
+
+    The catalogue entries that apply, what the host already has, and which templates bind to it — so
+    the wizard opens with one round trip instead of fanning out. Read-only: it computes what *could*
+    be configured and changes nothing.
+    """
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="agent not found")

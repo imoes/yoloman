@@ -365,6 +365,12 @@ async def get_service_history(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ServiceHistoryPointOut]:
+    """This service's confirmed state changes over time.
+
+    **Hard changes only**: a soft flicker that never became a confirmed state is deliberately absent,
+    so the timeline shows what an operator would have been told about rather than every wobble the
+    poller saw. That is also why an availability figure computed from this is stable.
+    """
     rows = await service_state_history(session, agent_id, service_name, limit=limit)
     return [ServiceHistoryPointOut(time=r.time, state=r.state, value=r.value) for r in rows]
 
@@ -398,6 +404,13 @@ async def get_service_availability(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> AvailabilityOut:
+    """How much of the asked-for period this service spent in each state.
+
+    Computed from the confirmed (hard) state history, so it agrees with the timeline rather than
+    telling a second story. Time before the service's first record is **not** counted as OK — a
+    period nobody measured is not availability, and reporting it as uptime would be flattering
+    rather than true.
+    """
     end = datetime.now(timezone.utc)
     start = end - timedelta(hours=hours)
     report = await compute_availability(session, agent_id, service_name, start, end)
@@ -899,9 +912,9 @@ async def update_check_rule(
     Every field is taken from the body, so a field you omit is *cleared*, not kept —
     use PATCH when you mean to change one thing.
 
-    Note what this does *not* do: the `version` a rule carries in its representation
-    is a content hash for change detection, and **nothing here checks it**. Two
-    editors saving the same rule will not collide; the second write wins silently.
+    Send `If-Match` with the `version` from a previous read: a stale version is refused
+    with **412**, so two editors cannot silently overwrite each other. Omitting the
+    header is allowed and skips the check — the guarantee is for clients that send it.
     """
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
@@ -966,14 +979,26 @@ class CheckRulePatch(BaseModel):
 async def patch_check_rule(
     rule_id: UUID,
     body: CheckRulePatch,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> CheckRuleOut:
     """Change individual fields of a check policy; anything you omit stays as it is.
-    This is the safe one for a partial edit — see PUT for why."""
+
+    Use this rather than PUT for a partial edit — PUT clears what it does not carry.
+
+    Send `If-Match` with the `version` from a previous read and a stale version is refused with
+    **412**, exactly as on PUT. Omit the header and the write goes through: the guarantee is that a
+    client which sends it cannot clobber a concurrent change, not that every client must.
+
+    This guard was missing here while PUT had it, which is the wrong way round — a partial edit is
+    where a lost update is most likely, because two people changing *different* fields of one rule
+    both believe they are safe.
+    """
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    check_if_match(request, CheckRuleOut.from_model(rule).with_version().version)
     if rule.template_id is not None:
         raise HTTPException(
             status_code=409,

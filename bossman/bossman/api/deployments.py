@@ -181,6 +181,8 @@ async def list_deployments(
 async def get_deployment(
     deployment_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """One rollout-to-a-host record: which generation went there and what came back.
+    404 for an unknown id."""
     dep = await session.get(DeploymentRun, deployment_id)
     if dep is None:
         raise HTTPException(status_code=404, detail="no such deployment")

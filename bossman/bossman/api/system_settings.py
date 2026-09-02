@@ -67,6 +67,12 @@ async def _get_or_seed(session: AsyncSession) -> SystemSettings:
 async def get_yolo_mode(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> SystemSettingsOut:
+    """Is the global approval gate open? Read this before trusting any "pending approval" claim.
+
+    With YOLO mode **off** (the default) a new policy or orchestration link starts
+    `pending_approval` and does nothing until a human approves it. With it **on**, links become
+    `active` immediately — the gate is bypassed fleet-wide, not per object.
+    """
     settings = await _get_or_seed(session)
     return _out(settings)
 
@@ -81,6 +87,15 @@ async def set_yolo_mode(
     session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
 ) -> SystemSettingsOut:
+    """Open or close the global approval gate. **This is the widest-reaching switch in the API.**
+
+    `enabled: true` means every subsequently created policy link applies at once, everywhere, with no
+    human step. It does not retroactively approve what is already pending, and it does not lower any
+    of the remediation guardrails — those have their own kill-switch.
+
+    Deliberately **human-only**: no MCP tool exposes a write here, so a model cannot open its own
+    gate. Who flipped it is recorded on the row.
+    """
     settings = await _get_or_seed(session)
     settings.yolo_mode = body.enabled
     settings.updated_by = identity.name

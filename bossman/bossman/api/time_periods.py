@@ -131,6 +131,12 @@ async def list_time_periods(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[TimePeriodOut]:
+    """Reusable "when" objects — the named windows notification rules refer to.
+
+    A period is weekday ranges plus date exceptions plus excluded periods. Naming it once and
+    referring to it beats repeating "Mon-Fri 08:00-18:00" in every rule, which is how two rules end
+    up disagreeing about business hours.
+    """
     specs = await _all_specs(session)
     zone_name = get_settings().time_period_timezone
     now = datetime.now(timezone.utc)
@@ -147,6 +153,15 @@ async def create_time_period(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> TimePeriodOut:
+    """Create a time period. **The definition is validated on write, not on use.**
+
+    A `tuseday` typo or a malformed span is refused here with the reason. The alternative is a stored
+    period that silently never matches — and a notification that never fires is the hardest failure
+    to notice, because nothing appears.
+
+    A span crossing midnight (22:00-02:00) is accepted and understood as crossing; it is not a
+    mistake.
+    """
     await _validate(body, session)
     period = TimePeriod(
         name=body.name.strip(), alias=body.alias,
@@ -173,6 +188,11 @@ async def update_time_period(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> TimePeriodOut:
+    """Replace a period's definition, validated as on create.
+
+    Rules referring to it change behaviour immediately — that is the point of a shared object, and
+    the reason to check who refers to it before widening a window.
+    """
     period = await session.get(TimePeriod, period_id)
     if period is None:
         raise HTTPException(status_code=404, detail="no such time period")
@@ -208,6 +228,11 @@ async def delete_time_period(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> None:
+    """Delete a time period.
+
+    A notification rule pointing at a period that no longer exists loses its window — check what
+    refers to it first, since this call cannot see those references.
+    """
     period = await session.get(TimePeriod, period_id)
     if period is None:
         raise HTTPException(status_code=404, detail="no such time period")

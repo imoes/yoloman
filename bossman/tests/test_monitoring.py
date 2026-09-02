@@ -310,7 +310,19 @@ async def _make_agent(db_session, **overrides) -> Agent:
     return agent
 
 
-async def _make_rule(db_session, **overrides) -> CheckRule:
+async def _make_rule(db_session, agent=None, **overrides) -> CheckRule:
+    """A check rule for one test — scoped to `agent` unless the test asks for another scope.
+
+    IT USED TO DEFAULT TO GLOBAL, and that made this file flaky: the shared database also holds real,
+    non-default global and site rules for the same service+metric (measured: "CPU load"/cpu_pct at
+    80/95 global and 70/90 site, grading ten live hosts). Whichever rule won depended on resolution
+    order, so ONE arbitrary test in this file failed per full-suite run — a different one each time,
+    each passing in isolation.
+
+    Binding to the test's own host makes it win by precedence (host beats site beats global) without
+    touching the live policy those rules represent. Tests that exercise precedence still pass
+    `scope_type` explicitly and are unaffected.
+    """
     fields = {
         "service_name": "CPU load",
         "metric": "cpu_pct",
@@ -321,6 +333,9 @@ async def _make_rule(db_session, **overrides) -> CheckRule:
         "scope_value": None,
         "enabled": True,
     }
+    if agent is not None and "scope_type" not in overrides:
+        fields["scope_type"] = "host"
+        fields["scope_value"] = agent.name
     fields.update(overrides)
     rule = CheckRule(**fields)
     db_session.add(rule)
@@ -406,7 +421,7 @@ async def _cleanup(db_session, agent, *rules):
 
 async def test_evaluate_host_creates_service_with_ok_state(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, agent=agent)
     await _write_metric(db_session, agent, "cpu_pct", 50.0)
 
     services = await evaluate_host(db_session, agent)
@@ -423,7 +438,7 @@ async def test_evaluate_host_creates_service_with_ok_state(db_session):
 
 async def test_evaluate_host_records_history_on_state_change(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=1)
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 50.0)
 
     await evaluate_host(db_session, agent)
@@ -452,7 +467,7 @@ async def test_evaluate_host_records_history_on_state_change(db_session):
 
 async def test_evaluate_host_does_not_record_history_when_state_unchanged(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=1)
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 50.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -476,7 +491,7 @@ async def test_evaluate_host_does_not_record_history_when_state_unchanged(db_ses
 
 async def test_evaluate_host_clears_acknowledgement_on_state_change(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=1)
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 99.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -518,7 +533,7 @@ async def test_evaluate_host_host_rule_overrides_group_rule_for_real(db_session)
 
 async def test_evaluate_host_unknown_when_no_metric_ever_polled(db_session):
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, agent=agent)
 
     services = await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -554,7 +569,7 @@ async def test_soft_then_hard_debounce_and_problems_filter(db_session):
     recurred max_attempts times, then hard (a real problem). query_problems
     only surfaces hard states."""
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=3)  # 3 consecutive CRITs → hard
+    rule = await _make_rule(db_session, agent=agent, max_attempts=3)  # 3 consecutive CRITs → hard
 
     for expected_type, expected_attempt in [("soft", 1), ("soft", 2), ("hard", 3), ("hard", 3)]:
         await _write_metric(db_session, agent, "cpu_pct", 99.0)
@@ -587,7 +602,7 @@ async def test_hysteresis_holds_state_until_recovery_threshold_cleared(db_sessio
     warn_threshold but hasn't cleared the stricter recovery threshold holds
     at the previous problem state instead of flipping to OK."""
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=1, warn_threshold=80.0, crit_threshold=95.0, recovery_threshold=70.0)
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1, warn_threshold=80.0, crit_threshold=95.0, recovery_threshold=70.0)
 
     await _write_metric(db_session, agent, "cpu_pct", 90.0)  # WARN (immediately hard, max_attempts=1)
     await evaluate_host(db_session, agent)
@@ -616,7 +631,7 @@ async def test_evaluate_host_stamps_agent_tags_for_notification_routing(db_sessi
     _notify_agent_name — collect_and_dispatch reads both to build a
     NotifyEvent for NotificationRule.tag_filter matching."""
     agent = await _make_agent(db_session, tags={"env": "prod"})
-    rule = await _make_rule(db_session, max_attempts=1)
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1)
     await _write_metric(db_session, agent, "cpu_pct", 99.0)
 
     updated = await evaluate_host(db_session, agent)
@@ -634,6 +649,7 @@ async def test_composite_condition_and_logic_requires_both_metrics_to_trip(db_se
     agent = await _make_agent(db_session)
     rule = await _make_rule(
         db_session,
+        agent=agent,
         metric="cpu_pct",
         max_attempts=1,
         warn_threshold=80.0,
@@ -665,6 +681,7 @@ async def test_composite_condition_or_logic_fires_on_either_metric(db_session):
     agent = await _make_agent(db_session)
     rule = await _make_rule(
         db_session,
+        agent=agent,
         metric="cpu_pct",
         max_attempts=1,
         warn_threshold=80.0,
@@ -689,6 +706,7 @@ async def test_composite_condition_skipped_when_primary_metric_unknown(db_sessio
     agent = await _make_agent(db_session)
     rule = await _make_rule(
         db_session,
+        agent=agent,
         metric="cpu_pct",
         max_attempts=1,
         extra_conditions=[{"metric": "load1", "comparison": "gt", "crit_threshold": 8.0}],
@@ -710,7 +728,7 @@ async def test_multi_label_series_collapse_to_one_service_and_keep_notify(db_ses
     hard-onset notify intent — not process it twice, the second pass
     clobbering _notify_event to None."""
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, service_name="Memory", metric="mem_used_pct", comparison="ge",
+    rule = await _make_rule(db_session, agent=agent, service_name="Memory", metric="mem_used_pct", comparison="ge",
                             warn_threshold=10.0, crit_threshold=20.0, max_attempts=1)
     # Two distinct label-sets, neither a mount — both map to service "Memory".
     await _write_metric(db_session, agent, "mem_used_pct", 95.0, labels={"src": "pull"})
@@ -738,7 +756,7 @@ async def test_flapping_flag_set_on_frequent_changes(db_session):
     """Block H7: a service that changes hard state many times in the window
     gets is_flapping set."""
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, max_attempts=1)  # every change is immediately hard
+    rule = await _make_rule(db_session, agent=agent, max_attempts=1)  # every change is immediately hard
 
     for value in [99.0, 10.0, 99.0, 10.0, 99.0, 10.0]:
         await _write_metric(db_session, agent, "cpu_pct", value)
@@ -763,11 +781,17 @@ async def test_disk_rule_fans_out_per_mount_with_override(db_session):
     await _write_metric(db_session, agent, "disk_used_pct", 40.0, labels={"mount": "/home"})
     # Global default: warn 80 / crit 90 → /var is WARN.
     default_rule = await _make_rule(
-        db_session, service_name="Disk", metric="disk_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
+        db_session,
+        # Host-scoped like every rule in this file: what this test exercises is LABEL pinning (the
+        # override below is pinned to one mount), not scope precedence — and a global rule here
+        # competed with the fleet's real policy for the same service+metric.
+        agent=agent,
+        service_name="Disk", metric="disk_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
     )
     # Mount-pinned override for /var: warn 95 → /var back to OK.
     override = await _make_rule(
         db_session,
+        agent=agent,
         service_name="Disk",
         metric="disk_used_pct",
         comparison="ge",
@@ -794,7 +818,12 @@ async def test_ingest_agent_check_yields_to_owning_rule(db_session):
     agent's built-in reading for that name is ignored (no fight)."""
     agent = await _make_agent(db_session)
     rule = await _make_rule(
-        db_session, service_name="Memory", metric="mem_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
+        db_session,
+        # Host-scoped like every rule in this file: what this test exercises is LABEL pinning (the
+        # override below is pinned to one mount), not scope precedence — and a global rule here
+        # competed with the fleet's real policy for the same service+metric.
+        agent=agent,
+        service_name="Memory", metric="mem_used_pct", comparison="ge", warn_threshold=80.0, crit_threshold=90.0
     )
     await _write_metric(db_session, agent, "mem_used_pct", 50.0)  # OK per the rule
     await evaluate_host(db_session, agent)
@@ -857,7 +886,7 @@ async def test_timed_acknowledgement_expires(db_session):
     from datetime import timedelta
 
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, agent=agent)
     await _write_metric(db_session, agent, "cpu_pct", 99.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
@@ -1005,7 +1034,7 @@ async def test_evaluate_host_reports_no_data_instead_of_the_last_known_value(db_
     when the host was not reached, and the value was fetched with no age bound at all.
     """
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, agent=agent)
     old = datetime.now(timezone.utc) - timedelta(days=26)
     await _write_metric(db_session, agent, "cpu_pct", 50.0, when=old)
 
@@ -1025,7 +1054,7 @@ async def test_evaluate_host_reports_no_data_instead_of_the_last_known_value(db_
 async def test_evaluate_host_still_judges_a_fresh_value(db_session):
     """The other half: normal operation must not be turned into UNKNOWN."""
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session)
+    rule = await _make_rule(db_session, agent=agent)
     await _write_metric(
         db_session, agent, "cpu_pct", 99.0, when=datetime.now(timezone.utc) - timedelta(seconds=100)
     )
@@ -1050,7 +1079,7 @@ async def test_stale_fan_out_keeps_its_mount_identity(db_session):
     an extra service to hide it.
     """
     agent = await _make_agent(db_session)
-    rule = await _make_rule(db_session, service_name="Disk", metric="disk_used_pct")
+    rule = await _make_rule(db_session, agent=agent, service_name="Disk", metric="disk_used_pct")
     old = datetime.now(timezone.utc) - timedelta(days=3)
     await _write_metric(db_session, agent, "disk_used_pct", 41.0, when=old, labels={"mount": "/"})
     await _write_metric(db_session, agent, "disk_used_pct", 62.0, when=old, labels={"mount": "/var"})

@@ -43,6 +43,14 @@ async def handle_deploy(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> DeployResponseBody:
+    """Install and enrol an agent over SSH — the authenticated way to add a host.
+
+    Bossman connects out, installs the package and registers the agent, so the target never has to
+    reach the open enrolment endpoint. The SSH credentials are used for this session and not stored.
+
+    Reports its own "not configured" state as a **400** rather than a 404, so a caller can tell "this
+    server cannot do SSH deploys" from "no such endpoint".
+    """
     try:
         agent = await deploy_and_enroll(
             session, settings, body.host, port=body.port, write=body.write

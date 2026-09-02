@@ -1,7 +1,7 @@
 # The HTTP API, endpoint by endpoint
 
 > **GENERATED** by `scripts/generate-api-reference.py` from a *running* server's `/openapi.json`, on
-> 2026-08-28. Do not edit by hand — the next run overwrites it. It is generated from the running server
+> 2026-08-31. Do not edit by hand — the next run overwrites it. It is generated from the running server
 > rather than from the source because a route that the router never included does not exist for a
 > caller, and measuring instead of reading the source caught exactly that twice here.
 
@@ -27,9 +27,7 @@ Three things hold everywhere and are not repeated per endpoint:
    `refused`). Those two are different events and must not be collapsed: the first means the request
    was wrong, the second means the host said no.
 
-Of the 481 operations, **338 carry a description** written in the handler
-itself; **143 carry only a summary** and are marked as such below rather than being
-quietly padded with invented prose. That number is the honest measure of how documented this API is.
+**Every one of the 481 operations carries a description** written in the handler itself. This page counted its own gap while there was one — it reached zero on 2026-08-31 — and the count stays here because the next endpoint added without a docstring will show up in it.
 
 ### Related pages
 
@@ -532,7 +530,9 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/images`
 
-List Images. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Golden images available for bare-metal installation, by name.
+
+An image is a captured disk (partclone, per partition) plus what is known about it: its size, the source host it came from, and its grow policy. Capturing one runs on the source host through its agent; installing one is a **restore job** against a netbooted target.
 
 #### `POST /api/v1/images`
 
@@ -568,7 +568,7 @@ In the path:
 
 #### `GET /api/v1/images/{image_id}`
 
-Get Image. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One image with its partitions and provenance. 404 when there is no such id.
 
 In the path:
 
@@ -705,7 +705,9 @@ The JSON body carries:
 
 #### `GET /api/v1/provisioning/templates`
 
-List Deployment Templates. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Provisioning profiles: the answers a netbooted machine needs before it can install.
+
+A template carries what cannot be discovered from the hardware — hostname pattern, network, which image, which roles to converge afterwards. It is *desired state for a machine that does not exist yet*, which is why it lives here rather than on an agent: there is no host to ask.
 
 #### `POST /api/v1/provisioning/templates`
 
@@ -723,7 +725,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/provisioning/templates/{template_id}`
 
-Delete Deployment Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a provisioning profile.
+
+Machines already installed from it are unaffected — they exist independently of the paper they were built from. A restore job that has not checked in yet loses its answers, so delete a profile only when nothing is waiting to boot against it.
 
 In the path:
 
@@ -731,7 +735,9 @@ In the path:
 
 #### `GET /api/v1/provisioning/vm-hosts`
 
-List Vm Hosts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Registered hypervisors this system can create VMs on, by name.
+
+A VM host is where `POST /api/v1/provisioning/vms` puts a new machine — the credentials live with the entry, and the MAC the creation returns is what a PXE profile is then keyed on.
 
 #### `POST /api/v1/provisioning/vm-hosts`
 
@@ -747,7 +753,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/provisioning/vm-hosts/{host_id}`
 
-Delete Vm Host. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Forget a hypervisor.
+
+**Nothing on the hypervisor itself is touched** — VMs created through it keep running, and this only removes Bossman's ability to create more there. Deleting the entry is not a way to clean up machines.
 
 In the path:
 
@@ -813,7 +821,11 @@ In the path:
 
 #### `GET /api/v1/restore-jobs`
 
-List Restore Jobs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Installations in flight and finished, newest first.
+
+A restore job is one image written to one machine. Its **plan is computed at check-in, not at creation**, because the target disk is unknown until the machine boots and says what it has — which is why the job carries its computed steps: a retry repeats exactly what was attempted, and a failure names the step rather than a line number.
+
+The target authenticates with the shared `netboot_secret` from its kernel command line, not with a token or a certificate: at that moment it has no identity beyond its MAC address.
 
 #### `POST /api/v1/restore-jobs`
 
@@ -1399,7 +1411,9 @@ In the path:
 
 #### `GET /api/v1/agents/{agent_id}/services/{service_name}/availability`
 
-Get Service Availability. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+How much of the asked-for period this service spent in each state.
+
+Computed from the confirmed (hard) state history, so it agrees with the timeline rather than telling a second story. Time before the service's first record is **not** counted as OK — a period nobody measured is not availability, and reporting it as uptime would be flattering rather than true.
 
 In the path:
 
@@ -1412,7 +1426,9 @@ Query parameters:
 
 #### `GET /api/v1/agents/{agent_id}/services/{service_name}/history`
 
-Get Service History. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This service's confirmed state changes over time.
+
+**Hard changes only**: a soft flicker that never became a confirmed state is deliberately absent, so the timeline shows what an operator would have been told about rather than every wobble the poller saw. That is also why an availability figure computed from this is stable.
 
 In the path:
 
@@ -1474,7 +1490,13 @@ In the path:
 
 #### `PATCH /api/v1/check-rules/{rule_id}`
 
-Change individual fields of a check policy; anything you omit stays as it is. This is the safe one for a partial edit — see PUT for why.
+Change individual fields of a check policy; anything you omit stays as it is.
+
+Use this rather than PUT for a partial edit — PUT clears what it does not carry.
+
+Send `If-Match` with the `version` from a previous read and a stale version is refused with **412**, exactly as on PUT. Omit the header and the write goes through: the guarantee is that a client which sends it cannot clobber a concurrent change, not that every client must.
+
+This guard was missing here while PUT had it, which is the wrong way round — a partial edit is where a lost update is most likely, because two people changing *different* fields of one rule both believe they are safe.
 
 In the path:
 
@@ -1493,7 +1515,7 @@ Replace a check policy wholesale.
 
 Every field is taken from the body, so a field you omit is *cleared*, not kept — use PATCH when you mean to change one thing.
 
-Note what this does *not* do: the `version` a rule carries in its representation is a content hash for change detection, and **nothing here checks it**. Two editors saving the same rule will not collide; the second write wins silently.
+Send `If-Match` with the `version` from a previous read: a stale version is refused with **412**, so two editors cannot silently overwrite each other. Omitting the header is allowed and skips the check — the guarantee is for clients that send it.
 
 In the path:
 
@@ -1725,7 +1747,7 @@ Restore this file to an earlier generation of declared values.
 
 `generation` comes from `GET .../generations?path=…`. What is restored is the declaration, then re-merged — so keys the host gained from elsewhere in the meantime are still not touched.
 
-Two limits worth knowing. Generations here are kept **without any retention limit**: nothing prunes `resource_generations`, so the table grows with every apply. (There *is* a 30-generation cap in this system, but it belongs to the separate docker desired-state model — `services/docker_desired.py`, pruned on discover — and it does not apply to this table. Do not assume one from the other.) And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
+Two limits worth knowing. **Only the newest 30 generations are kept** per resource, the same cap the docker desired-state model uses, pruned in the same transaction as the insert. A rollback to a generation that has been dropped says so — "pruned, the oldest still held is N" rather than "no such generation", because a trimmed history and a typo are different problems. And this endpoint always merges; the `exact` write mode the underlying `config` module offers (file holds exactly these keys, nothing else) is not reachable here, deliberately, because a resource whose rollback could delete undeclared keys would not be safe to roll back.
 
 In the path:
 
@@ -2712,7 +2734,7 @@ Every event rule: what fires, where it applies, and what it is allowed to do.
 
 Newest first. A rule ties a **trigger** (a check entering a hard problem state, plus optional conditions and a scope) to an **action** (a runbook or an event handler) and to the **guardrails** that decide whether that action may run unattended.
 
-Read `autonomy`, not `mode` — see the create endpoint for why that matters.
+`mode` is an alias of `autonomy` and is derived from it here, so a row written before that was true still reports one answer rather than two. See the create endpoint for the write rules.
 
 #### `POST /api/v1/event-rules`
 
@@ -2720,7 +2742,11 @@ Create an event rule — and the one thing to get right here is autonomy.
 
 **Exactly one action**: either `runbook_name` or `event_handler_id`, never both and never neither (422). The reference is resolved now rather than when an event fires, because the moment a fix is needed is the worst moment to learn its runbook was renamed away.
 
-**`autonomy` is the real gate; `mode` is inert.** `mode: auto|propose` is still validated and stored — and nothing in the engine reads it (docs/closed-loop-remediation.md records that `autonomy` replaced it semantically). A rule with `mode: "auto"` and `autonomy: "propose"` will only ever propose. Both fields stay in the payload for callers that still send them; only `autonomy` decides.
+**`autonomy` decides; `mode` is its alias.** Sending only `mode: "auto"` now means `autonomy: "auto_verify"` — until 2026-08-31 it meant nothing at all, because the engine read only `autonomy`. Three rules, and the middle one is the safety:
+
+- `autonomy` sent -> it wins, whatever `mode` says. The response reports `mode` derived from it, so the two can never disagree in an answer. - only `mode` sent -> translated. - **neither sent -> `propose`.** `mode` defaults to `"auto"` in this payload, so deriving from a defaulted `mode` would promote every rule that omits both fields to unattended action. A default may only fail toward asking a human.
+
+Both sent and contradictory is accepted rather than refused: the UI's own create form sends `mode: "auto"` beside `autonomy: "propose"`, and a 422 would break a screen for a contradiction it never intended.
 
 A fix runs unattended only if **every** one of these holds, and each No is reported as the reason the proposal is waiting for a human:
 
@@ -2830,11 +2856,13 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/blueprints`
 
-List Blueprints. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Blueprints: a reusable bundle of declared state, ready to apply to a new host.
+
+Where a template bundles *check rules*, a blueprint bundles what a host should **be** — packages, services, configuration, roles — so a new machine can be brought to a known shape in one act. It compiles to a playbook; it is not itself a running thing.
 
 #### `POST /api/v1/blueprints`
 
-Create Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a blueprint. Applying it is a separate act — this only writes the definition.
 
 The JSON body carries:
 
@@ -2890,7 +2918,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/blueprints/{bp_id}`
 
-Delete Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a blueprint. Hosts built from it keep everything it gave them — they exist independently of the definition, which is the whole point of compiling it once.
 
 In the path:
 
@@ -2898,7 +2926,7 @@ In the path:
 
 #### `GET /api/v1/blueprints/{bp_id}`
 
-Get Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One blueprint with its declared state. 404 for an unknown id.
 
 In the path:
 
@@ -2906,7 +2934,9 @@ In the path:
 
 #### `PUT /api/v1/blueprints/{bp_id}`
 
-Update Blueprint. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a blueprint's definition.
+
+Hosts already built from it are **not** revisited: a blueprint is the paper a machine was built from, and editing the paper does not rebuild the machine. Re-apply it deliberately if that is what you want.
 
 In the path:
 
@@ -3087,7 +3117,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/check-assignments/{assignment_id}`
 
-Delete Assignment. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Unassign a check from its scope.
+
+The hosts that matched it lose the service on the next cycle — the service row is not deleted here, so a stale state is not left behind claiming to be current. A host that also matches another assignment of the same check keeps it, with **that** assignment's parameters, which may differ.
 
 In the path:
 
@@ -3175,11 +3207,17 @@ In the path:
 
 #### `GET /api/v1/runbooks`
 
-List Runbooks. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The runbook library: step lists in the NT document format, by name.
+
+A runbook is a document, not a schedule and not a binding — it does nothing until something runs it against a host (`POST /api/v1/plans/{name}/run`, a scheduler entry, an event rule, or a role compiled from one).
 
 #### `POST /api/v1/runbooks`
 
-Create Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Store a runbook. The document is **linted before it is accepted**, not at run time.
+
+What the lint catches is the **document's shape**: a malformed step, a missing required key, a structure the engine cannot walk — 422 with the parser's own message.
+
+What it does NOT catch, and this is the part worth knowing: whether a step's module exists on the target, or whether its parameters are ones that module accepts. Those are properties of a host and of an agent build, not of the document, and they surface on the first run. `POST /api/v1/plans/{name}/run` with `dry_run` (its default) is where you find them without changing anything.
 
 The JSON body carries:
 
@@ -3216,7 +3254,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/runbooks/{runbook_id}`
 
-Delete Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a runbook.
+
+**Check what points at it first.** An event rule or a scheduler entry naming a deleted runbook becomes a rule that fires and does nothing — those references are resolved by name at write time, so this call cannot see them.
 
 In the path:
 
@@ -3224,7 +3264,7 @@ In the path:
 
 #### `GET /api/v1/runbooks/{runbook_id}`
 
-Get Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One runbook with its steps. 404 when there is no such id.
 
 In the path:
 
@@ -3232,7 +3272,9 @@ In the path:
 
 #### `PUT /api/v1/runbooks/{runbook_id}`
 
-Update Runbook. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a runbook's document, linted as on create.
+
+Anything already running keeps the version it started with; a role compiled from this runbook is not recompiled by this call. Editing the source of something that has been used is not the same as changing what was done.
 
 In the path:
 
@@ -3416,11 +3458,13 @@ Configuration templates — whole-file renders for configuration a codec cannot 
 
 #### `GET /api/v1/template-groups`
 
-List Template Groups. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Template groups — the folders templates are filed under, by name.
+
+Organisational only: a group does not link to hosts and changes nothing about what is monitored. What applies where is decided by a template's **links** (`.../links`).
 
 #### `POST /api/v1/template-groups`
 
-Create Template Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a template group. 422 for an empty name, 409 when one already has it.
 
 The JSON body carries:
 
@@ -3428,7 +3472,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/template-groups/{group_id}`
 
-Delete Template Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a template group.
+
+The templates filed under it are **not** deleted — a folder disappearing must not take the monitoring policy with it. They lose their group, which is a display property.
 
 In the path:
 
@@ -3436,11 +3482,17 @@ In the path:
 
 #### `GET /api/v1/templates`
 
-List Templates. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every template, by name, each with its rules, its nesting and its links.
+
+A template is a **named, reusable bundle of check rules** that is *live-linked* to host groups: editing it re-materialises the CheckRule rows of every group linked to it, and of every ancestor template that nests it. That is the whole idea — a link is a standing relationship, not a one-time copy — and it is why the write endpoints below do more than they look like they do.
 
 #### `POST /api/v1/templates`
 
-Create Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a template: its rules, and optionally the templates it nests.
+
+Nesting is checked here rather than discovered later: a template cannot nest **itself**, and every nested id must exist (422 with the reason). A cycle would make the effective rule set undefined, and a missing id would silently contribute nothing.
+
+Creating one changes nothing on any host — a template acts only once it is linked to a group. 422 for an empty name, 409 when the name is taken.
 
 The JSON body carries:
 
@@ -3452,7 +3504,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/templates/{template_id}`
 
-Delete Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a template, and with it every rule it generated.
+
+`check_rules.template_id`, its own rule and nesting rows, and its links are all `ON DELETE CASCADE` — so the monitoring those links produced **stops**, on every host in every linked group. Ancestor templates that nested this one are re-materialised afterwards so their effective rule set reflects the loss rather than keeping orphaned copies.
+
+There is no undo. To stop a template applying to one group, delete that **link** instead.
 
 In the path:
 
@@ -3460,7 +3516,7 @@ In the path:
 
 #### `GET /api/v1/templates/{template_id}`
 
-Get Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One template with its rules, the templates it nests, and the groups it is linked to. 404 when there is no such id.
 
 In the path:
 
@@ -3468,7 +3524,13 @@ In the path:
 
 #### `PUT /api/v1/templates/{template_id}`
 
-Update Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a template's rules and nesting — and re-materialise everything linked to it.
+
+**Replace-all, not a diff**: the rules and nested ids you send become the whole set, so a field you omit is dropped. That matches the editing shape of the check-rule and graph dialogs (the whole form is submitted), and it is why a partial payload is the wrong tool here.
+
+Then the live part: **every host group linked to this template gets its CheckRule rows rebuilt**, and so does every group linked to an ancestor template that nests this one. The blast radius of an edit is therefore "every host in every linked group, transitively" — read `.../links` and the nesting before saving.
+
+422 for an empty name or a bad nesting reference, 409 for a duplicate name.
 
 In the path:
 
@@ -3484,7 +3546,9 @@ The JSON body carries:
 
 #### `GET /api/v1/templates/{template_id}/links`
 
-List Template Links. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Which host groups this template is linked to — its actual reach.
+
+Read this before editing or deleting the template: these are the groups whose CheckRule rows are rebuilt on every change, and "how many hosts is that" is a question only the group can answer.
 
 In the path:
 
@@ -3492,7 +3556,11 @@ In the path:
 
 #### `POST /api/v1/templates/{template_id}/links`
 
-Create Template Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Link the template to a host group — and materialise its rules there immediately.
+
+This is where a template starts monitoring something. Every rule in the template (including the rules of templates it nests) becomes a CheckRule row scoped to that group, owned by this template: a direct edit of such a row is refused, because the next materialisation would overwrite it.
+
+422 when the host group is missing from the body, 409 when the link already exists — linking twice is not a stronger link and would double-materialise the same rules.
 
 In the path:
 
@@ -3504,7 +3572,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/templates/{template_id}/links/{link_id}`
 
-Delete Template Link. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Unlink the template from a group and remove the rules it put there.
+
+Dematerialisation is the point: the CheckRule rows this link created are deleted, so the group stops being monitored by this template. Rules the group has from another template or from its own policies are untouched.
+
+404 when the link is not on this template — including when it exists on a different one, which is a different mistake and would otherwise silently do nothing.
 
 In the path:
 
@@ -3643,7 +3715,9 @@ The overview numbers, and the dashlets a user has arranged.
 
 #### `GET /api/v1/dashboard-widgets`
 
-List Dashboard Widgets. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Your widgets — all of them, or one dashboard's.
+
+Without `dashboard_id` this returns **every** widget you own across every dashboard; with it, only that dashboard's. The path form below (`/dashboards/{id}/widgets`) is the same question asked the other way and returns the same rows — it exists because a client that already holds a dashboard id should not have to build a query string, not because the two differ.
 
 Query parameters:
 
@@ -3651,7 +3725,11 @@ Query parameters:
 
 #### `POST /api/v1/dashboard-widgets`
 
-Create Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Add a widget to a dashboard.
+
+`widget_type` must be one of the known types (**422** listing them) — a free-text type would produce a widget that renders as nothing and reports no error. Position and size are the caller's: the UI drags them, and the server stores what it is told.
+
+The widget belongs to you; it does not become visible to other operators.
 
 The JSON body carries:
 
@@ -3666,7 +3744,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/dashboard-widgets/{widget_id}`
 
-Delete Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Remove a widget from your dashboard. 404 when it is not yours.
 
 In the path:
 
@@ -3674,7 +3752,11 @@ In the path:
 
 #### `PATCH /api/v1/dashboard-widgets/{widget_id}`
 
-Update Dashboard Widget. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Move, resize, retitle, reconfigure or hide a widget; omitted fields stay as they are.
+
+`hidden` is a widget that stays in the layout without drawing — deleting and re-adding it would lose its position and its configuration, which is why hiding is its own state rather than an absence.
+
+404 when the widget is not yours.
 
 In the path:
 
@@ -3693,7 +3775,11 @@ The JSON body carries:
 
 #### `GET /api/v1/dashboard-widgets/{widget_id}/data`
 
-Get Dashboard Widget Data. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The numbers this widget draws, scoped by its dashboard's filter context.
+
+Looked up across **all** of your dashboards rather than only the default one — widgets on a non-default dashboard used to get no data at all, which looked like a broken widget rather than a lookup that never reached it.
+
+The data is computed per request; nothing is cached here. What it means depends on the widget type, and the dashboard's `context` (host, site, group) narrows it — so the same widget on two dashboards with different contexts legitimately answers differently.
 
 In the path:
 
@@ -3701,11 +3787,17 @@ In the path:
 
 #### `GET /api/v1/dashboards`
 
-List Dashboards Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+This operator's dashboards. **Everything here is per-user, not shared.**
+
+A new user always has one: the default dashboard is created on the way out of this call rather than by a migration or a first-login hook, so an empty list can only mean "someone deleted them all" and never "the account was set up wrong".
+
+Another operator's dashboard is invisible rather than forbidden — see the 404s below.
 
 #### `POST /api/v1/dashboards`
 
-Create Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a dashboard for this operator.
+
+`source` records where it came from — a person arranging widgets or the chat generating a layout — and `prompt` keeps the request a generated one was built from. That is the difference between a layout someone can explain and one that merely exists: the generated dashboards live in the same table and must stay distinguishable from hand-built ones.
 
 The JSON body carries:
 
@@ -3715,7 +3807,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/dashboards/{dashboard_id}`
 
-Delete Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete one of your dashboards and its widgets. 404 when it is not yours.
 
 In the path:
 
@@ -3723,7 +3815,11 @@ In the path:
 
 #### `PATCH /api/v1/dashboards/{dashboard_id}`
 
-Update Dashboard Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename a dashboard or change its filter context; omitted fields stay as they are.
+
+The `context` is what the whole dashboard's widgets are scoped by — set a host or a site here and every widget on it answers for that scope, rather than each widget carrying its own copy of the same filter.
+
+404 for a dashboard that is not yours: the answer to "does someone else's id exist" is not this caller's business.
 
 In the path:
 
@@ -3737,7 +3833,7 @@ The JSON body carries:
 
 #### `GET /api/v1/dashboards/{dashboard_id}/widgets`
 
-List Widgets Of Dashboard. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One dashboard's widgets. The same answer as `GET /api/v1/dashboard-widgets?dashboard_id=…`, addressed by path — one implementation serves both, so they cannot drift apart.
 
 In the path:
 
@@ -3906,7 +4002,9 @@ The JSON body carries:
 
 #### `GET /api/v1/agents/{agent_id}/helm/repos`
 
-Helm Repos. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Chart repositories configured on this host's Helm client.
+
+Read through the agent, so it is this host's view — not a fleet-wide list. Two hosts can legitimately have different repositories, which is exactly the kind of drift worth seeing.
 
 In the path:
 
@@ -3914,7 +4012,9 @@ In the path:
 
 #### `POST /api/v1/agents/{agent_id}/helm/repos`
 
-Helm Add Repo. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Add a chart repository to this host's Helm client and update its index.
+
+Adding one that is already there is not an error — the end state is what was asked for. The credentials, if any, are used by the host's own Helm client and are not stored by Bossman.
 
 In the path:
 
@@ -3927,7 +4027,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/helm/rollback`
 
-Helm Rollback. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Roll a release back to an earlier **Helm** revision.
+
+Note whose numbering this is: Helm's own revision history on the host, not the resource generations Bossman records for a `helm` resource. The two count separately, and mixing them up rolls back to the wrong thing — `GET .../resources/helm/{name}/generations` is Bossman's list.
 
 In the path:
 
@@ -3941,7 +4043,9 @@ The JSON body carries:
 
 #### `POST /api/v1/agents/{agent_id}/helm/uninstall`
 
-Helm Uninstall. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Uninstall a release from this host.
+
+Removes what the chart created; **persistent volumes usually survive**, because Helm does not delete them by default and this passes that behaviour through rather than inventing a policy about someone's data.
 
 In the path:
 
@@ -3975,7 +4079,9 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/systems`
 
-List Systems. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Systems — the unit above a host: applications plus the wiring between them.
+
+**Read-only for now, and proposed rather than stored**: a system is derived from a seed host's live state so its shape can be validated before persistence exists. So this listing describes what *would* be a system, which is why nothing here creates one.
 
 #### `POST /api/v1/systems`
 
@@ -4000,7 +4106,7 @@ Query parameters:
 
 #### `DELETE /api/v1/systems/{system_id}`
 
-Delete System. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Discard a proposed system. Nothing on any host is affected — a proposal is a description, and deleting it deletes the description.
 
 In the path:
 
@@ -4008,7 +4114,7 @@ In the path:
 
 #### `GET /api/v1/systems/{system_id}`
 
-Get System. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One proposed system: its members and how they were inferred from the seed host's live state. 404 when there is no such id.
 
 In the path:
 
@@ -4064,11 +4170,19 @@ Software compliance: which hosts hold a version they should not.
 
 #### `GET /api/v1/compliance-rules`
 
-List Rules. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Software-compliance rules: which packages must be present, which must not.
+
+A rule names `required` and `forbidden` package specs for a scope (global, host, group, ou), with a severity. A spec may carry a **version constraint** — `openssl>=3.0`, `log4j<2.17` — parsed and compared by version, not by string, so `2.9` is correctly older than `2.17`.
+
+These are the rules; `.../results` is what hosts actually hold.
 
 #### `POST /api/v1/compliance-rules`
 
-Create Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a compliance rule.
+
+`required` and `forbidden` are lists of package specs, each `name` or `name<op>version` with op one of `<`, `<=`, `=`/`==`, `>=`, `>`. A spec without an operator means "any version" for required, and "at all" for forbidden.
+
+Evaluation is what the `compliance_loop` does on a cycle against each host's reported installed packages — creating a rule does not itself check anything. Use `.../evaluate` when you want the answer now.
 
 The JSON body carries:
 
@@ -4084,7 +4198,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/compliance-rules/{rule_id}`
 
-Delete Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a compliance rule.
+
+Its results go with it — a drift report for a rule nobody can read is not evidence of anything. Disable the rule instead if the findings still matter.
 
 In the path:
 
@@ -4092,7 +4208,9 @@ In the path:
 
 #### `PUT /api/v1/compliance-rules/{rule_id}`
 
-Update Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a compliance rule. An omitted field is cleared, not kept.
+
+Existing results are not rewritten: they record what a host held when it was evaluated against the rule as it was then. The next evaluation replaces them. 404 for an unknown id.
 
 In the path:
 
@@ -4112,7 +4230,11 @@ The JSON body carries:
 
 #### `POST /api/v1/compliance-rules/{rule_id}/evaluate`
 
-Evaluate Now. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Evaluate this rule immediately and return the result.
+
+Reads each in-scope host's **reported** installed packages rather than asking the hosts now, so the answer is as fresh as the last inventory poll — a host that has not checked in since an install still looks the way it did then. That is why the response carries the evaluation time.
+
+404 for an unknown rule. This is the same evaluation the periodic loop performs; running it by hand does not change the schedule.
 
 In the path:
 
@@ -4120,7 +4242,9 @@ In the path:
 
 #### `GET /api/v1/compliance-rules/{rule_id}/results`
 
-Rule Results. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Per-host drift for this rule: who violates it, and with what.
+
+One entry per evaluated host, each listing the specs that failed — a missing required package, a version below the constraint, or a forbidden one found. A host with no entry is not silently compliant: it may simply not have been evaluated, which the evaluation time tells you.
 
 In the path:
 
@@ -4134,11 +4258,15 @@ Metric series for plotting: what exists, and the points in a time range.
 
 #### `GET /api/v1/graphs`
 
-List Graphs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Saved multi-host graphs: a named chart combining metrics from several hosts.
+
+Unlike a dashboard widget — which is ad-hoc, per-user and lives in a layout — a graph is a reusable object with its own identity, editable in one place and referable from several.
 
 #### `POST /api/v1/graphs`
 
-Create Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a graph from a list of (host, metric) items.
+
+The items are resolved when the graph is *drawn* (`GET .../data`), not now, so a graph may legitimately name a metric a host has not reported yet. At draw time **every item returns a series**, and one with nothing behind it returns an empty one rather than being omitted — so a host that stopped reporting shows as a flat gap in the legend instead of quietly disappearing from the chart.
 
 The JSON body carries:
 
@@ -4151,7 +4279,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/graphs/{graph_id}`
 
-Delete Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a graph. The metric series it drew are untouched — a graph is a view, and deleting it loses the arrangement, not the measurements.
 
 In the path:
 
@@ -4159,7 +4287,7 @@ In the path:
 
 #### `GET /api/v1/graphs/{graph_id}`
 
-Get Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One graph's definition — its items and axis settings, not its data. 404 for an unknown id.
 
 In the path:
 
@@ -4167,7 +4295,7 @@ In the path:
 
 #### `PUT /api/v1/graphs/{graph_id}`
 
-Update Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a graph's definition wholesale; an omitted field is cleared, not kept.
 
 In the path:
 
@@ -4202,11 +4330,15 @@ Named sets of hosts, used wherever a policy or a rollout needs a target.
 
 #### `GET /api/v1/host-groups`
 
-List Host Groups. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Host groups — a first-class, many-to-many set of hosts, and **placeless** on purpose.
+
+A group has no position in the OU tree: a host has one *location* (its OU) and many *properties*, and a group is a property. That is what lets a group cut across the tree, and it is why the former `ou_id` on this object was removed rather than kept "for convenience".
+
+Distinct from the legacy flat `Agent.groups` string list, which is a **projection** this API maintains — see `replace_host_group_members` for why that matters.
 
 #### `POST /api/v1/host-groups`
 
-Create Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a host group. Empty until members are set; an empty group matches no rule.
 
 The JSON body carries:
 
@@ -4215,7 +4347,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/host-groups/{group_id}`
 
-Delete Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a group, and take its name out of every former member's projection.
+
+The membership rows cascade, but that is not enough: rule matching reads the projected `agents.groups` array, so a former member would keep matching a group that no longer exists. The members are collected **before** the delete and re-projected after — and their *other* groups are adopted first, while this one still exists, because adopting afterwards would see this group's name in the arrays with no row behind it and re-create the very group being deleted.
+
+Rules scoped to this group stop matching anything. They are not deleted: a policy whose scope vanished is still a policy someone wrote.
 
 In the path:
 
@@ -4223,7 +4359,9 @@ In the path:
 
 #### `PUT /api/v1/host-groups/{group_id}`
 
-Update Host Group. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename or re-describe a group.
+
+A rename also re-derives the projected `agents.groups` array of every member, because rule matching reads that array rather than the membership rows. Renaming the row alone would leave every member matching the old name.
 
 In the path:
 
@@ -4236,7 +4374,11 @@ The JSON body carries:
 
 #### `PUT /api/v1/host-groups/{group_id}/members`
 
-Replace Host Group Members. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace the group's membership wholesale — hosts not in the list are removed from it.
+
+422 naming any agent id that does not exist, checked before anything is written, so a typo cannot half-apply a membership change.
+
+**Two things are written, not one.** The membership rows AND the projected `agents.groups` array that rule matching actually reads. Writing only the rows — which this endpoint used to do — left a host displayed as a member that the group's own rules did not match. That is the kind of defect that looks like a monitoring gap for weeks.
 
 In the path:
 
@@ -4262,11 +4404,21 @@ Channels and escalation: who is told, how, and after how long.
 
 #### `GET /api/v1/notification-rules`
 
-List Notification Rules. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every notification rule: who gets told about what, and after how long.
+
+A rule binds a scope (global, OU, group, host) and an optional check filter to a **channel** and a target, with the escalation chain that follows if nobody acknowledges. Like check rules, these are the *intension* — a rule can exist while nothing has ever matched it.
 
 #### `POST /api/v1/notification-rules`
 
-Create Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a notification rule.
+
+What is checked, each with its reason in the message: the `channel` is one of the known senders, `min_state` is a real state, `target` is not empty, a referenced OU or time period exists, and a scope carries its required companion field (an `ou` scope needs an `ou_id`). References are resolved **now** rather than when an alarm fires, which is the worst moment to learn that an OU was renamed away.
+
+What is NOT checked: whether `target` suits `channel`. They are validated separately, so an email address in a webhook rule is accepted here and fails at dispatch — visible in the notification log rather than at the moment of the mistake.
+
+`escalate_after_minutes` puts the chain on the rule itself, so "who is told next, and when" reads out of one row instead of a second object.
+
+Nothing is sent by creating a rule: the dispatcher acts on state changes, and a rule that matches nothing today may match tomorrow.
 
 The JSON body carries:
 
@@ -4293,7 +4445,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/notification-rules/{rule_id}`
 
-Delete Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a notification rule.
+
+Notifications it already sent stay in the log: `notifications.rule_id` is `ON DELETE SET NULL` (verified against the live schema), so each message keeps its channel, target and outcome and **loses the pointer to the rule that caused it**. The record of who was told what must survive the rule; the explanation of *why* does not survive this call. To keep both, disable the rule instead of deleting it.
 
 In the path:
 
@@ -4301,7 +4455,9 @@ In the path:
 
 #### `PATCH /api/v1/notification-rules/{rule_id}`
 
-Patch Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change individual fields of a notification rule; anything you omit stays as it is.
+
+`If-Match` is honoured here as on PUT — a stale `version` is refused with **412**, and omitting the header skips the check. It was enforced on PUT and not here, and a partial edit is precisely where two people changing different fields both assume they are safe.
 
 In the path:
 
@@ -4316,7 +4472,9 @@ The JSON body carries:
 
 #### `PUT /api/v1/notification-rules/{rule_id}`
 
-Update Notification Rule. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a notification rule wholesale — an omitted field is cleared, not kept.
+
+Honours `If-Match` with the `version` from a previous read (**412** when stale). Use PATCH for a partial edit.
 
 In the path:
 
@@ -4347,7 +4505,9 @@ The JSON body carries:
 
 #### `GET /api/v1/notifications`
 
-List Notifications. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What was actually sent: the notification log.
+
+The *extension* to the rules above — one entry per dispatched message, with its channel, target and outcome. This is where "did anyone get told" is answered, and it is deliberately separate from the rules: a rule that exists proves nothing about a message that arrived.
 
 Query parameters:
 
@@ -4364,11 +4524,17 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/rollouts`
 
-List Rollouts. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Every staged rollout, with its wave plan and its live per-wave progress.
+
+A rollout is one runbook applied to many hosts **in waves** — a canary first, then rings — with a health gate between them. `progress` grows one entry per completed wave and carries that wave's health verdict, so this is also the answer to "why did it stop".
 
 #### `POST /api/v1/rollouts`
 
-Create Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Plan the waves. **Nothing runs until `/start`.**
+
+The scope (host, group, ou, global) is expanded to hosts now and frozen into a wave plan, so a host added to the group afterwards is not silently pulled into a running rollout. `by_ou` builds one wave per OU subtree instead of by ring, and requires `scope_type=ou` with an `ou_id` (422).
+
+Two refusals worth expecting: **422 when the scope matched no hosts**, and 422 when an OU subtree has no placed, reachable hosts. A rollout over an empty set would report success having done nothing.
 
 The JSON body carries:
 
@@ -4390,7 +4556,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/rollouts/{rollout_id}`
 
-Delete Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a rollout and its recorded progress.
+
+**204 whether or not it existed.** Note what this does not do: it does not stop a running one — abort it first, or the executor keeps working through the waves of a plan nobody can watch any more.
 
 In the path:
 
@@ -4398,7 +4566,7 @@ In the path:
 
 #### `GET /api/v1/rollouts/{rollout_id}`
 
-Get Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One rollout: its waves, which wave is current, and each finished wave's health verdict. 404 when there is no such id.
 
 In the path:
 
@@ -4406,7 +4574,11 @@ In the path:
 
 #### `POST /api/v1/rollouts/{rollout_id}/abort`
 
-Abort Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Ask the rollout to stop. **It stops at the next wave boundary, not instantly.**
+
+This sets the status to `aborted`; the executor reads that status before each wave and returns when it sees it. A wave already in flight therefore **finishes** — its hosts are mid-runbook and killing that would leave them half-applied, which is worse than one more wave.
+
+Accepted while `running`, `pending` or `paused`, and a no-op otherwise: aborting a finished rollout changes nothing and is not an error worth raising.
 
 In the path:
 
@@ -4414,7 +4586,11 @@ In the path:
 
 #### `POST /api/v1/rollouts/{rollout_id}/start`
 
-Start Rollout. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Start the rollout. Returns immediately; the waves run server-side.
+
+**409 when it is already running** — starting twice would run two wave sequences over the same hosts. Follow it with `GET` on this rollout rather than expecting a result here.
+
+What happens per wave: run the runbook on the wave's hosts, wait `health_gate.wait_seconds` for state to settle, optionally run a functional test runbook, then gate. The gate compares against a **pre-wave baseline of CRIT hosts**, so only NEW damage counts — a host that was already broken does not block the rollout, and a wave that breaks something does. A failed gate sets the rollout `aborted` and the remaining waves do not run.
 
 In the path:
 
@@ -4428,11 +4604,15 @@ Subnet-scoped policy: a site is a set of CIDRs, and a host belongs to one by its
 
 #### `GET /api/v1/policy-sites`
 
-List Sites. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Policy sites — a scope defined by **subnets**, not by membership.
+
+A host belongs to a site when its primary IP falls inside one of the site's CIDRs, so membership is derived and needs no per-host bookkeeping: move a machine to another network and its site follows. Sites sit in the precedence chain **global < group < OU < site < host**, and each lives inside an OU for tree placement.
 
 #### `POST /api/v1/policy-sites`
 
-Create Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a site. 422 for an empty name, 409 when the name is taken.
+
+Its subnets decide which hosts it covers — a site with none covers nothing, which is a valid intermediate state rather than an error.
 
 The JSON body carries:
 
@@ -4443,7 +4623,11 @@ The JSON body carries:
 
 #### `DELETE /api/v1/policy-sites/{site_id}`
 
-Delete Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a site.
+
+Policies and links scoped to it go with it (`ON DELETE CASCADE`), so hosts inside its subnets lose whatever that site contributed. They keep everything from the other scopes — global, group, OU and their own — which is why a delete here usually changes less than it looks.
+
+Not immediate on the hosts: see `replace_site_subnets` for when a membership change lands.
 
 In the path:
 
@@ -4451,7 +4635,9 @@ In the path:
 
 #### `PATCH /api/v1/policy-sites/{site_id}`
 
-Patch Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change individual fields of a site; anything omitted stays as it is.
+
+Re-placing it in another OU is checked here (422 for an OU that does not exist), because a site hanging off nothing would drop out of the tree the precedence chain walks.
 
 In the path:
 
@@ -4463,7 +4649,7 @@ The JSON body carries:
 
 #### `PUT /api/v1/policy-sites/{site_id}`
 
-Update Site. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a site's fields wholesale — an omitted field is cleared. Use PATCH for one field.
 
 In the path:
 
@@ -4478,7 +4664,11 @@ The JSON body carries:
 
 #### `PUT /api/v1/policy-sites/{site_id}/subnets`
 
-Replace Site Subnets. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace the site's CIDRs — which silently changes **which hosts it covers**.
+
+Every CIDR is validated (422 naming the bad one) so a typo cannot create a site that matches nothing while looking configured.
+
+**When it takes effect:** not at once. Unlike an orchestration link — which recompiles the affected hosts before returning — a subnet change alters *derived* membership, and no host is named at the moment of the write. The convergence sweep (`converge_once`, and `POST /api/v1/config-sync/run` to force it) recompiles every host and pushes what changed, which is exactly the case its own docstring calls "mutations whose endpoint never enqueued a policy event". So this is eventually consistent by design; if you need it now, run the sweep.
 
 In the path:
 
@@ -4496,11 +4686,19 @@ Aggregation: many technical states rolled into one service that a non-operator u
 
 #### `GET /api/v1/business-services`
 
-List Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Business services: one state rolled up from many technical ones.
+
+A member is a **scope selector** (host, group, OU, global, optionally filtered by service name) rather than a fixed list, so a host joining a group joins the aggregate too. `logic` is `all` (worst-of — every member matters) or `any` (redundancy — one healthy member is enough).
+
+The rolled-up status and the per-member breakdown are recomputed on a cycle; the breakdown is what makes the rollup explainable rather than a colour nobody can trace.
 
 #### `POST /api/v1/business-services`
 
-Create Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create an aggregate — and it is evaluated immediately, in the same transaction.
+
+So the response already carries a real state rather than a placeholder that resolves on the next cycle. `logic: all` means the aggregate is as bad as its worst member; `logic: any` means it is healthy while at least one member is.
+
+Choosing between them is a statement about the *system*, not a display preference: `any` on a non-redundant service reports healthy while half of it is down.
 
 The JSON body carries:
 
@@ -4512,7 +4710,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/business-services/{bs_id}`
 
-Delete Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete an aggregate. Its member services are untouched: an aggregate is a view over them, not a container of them.
 
 In the path:
 
@@ -4520,7 +4718,9 @@ In the path:
 
 #### `PUT /api/v1/business-services/{bs_id}`
 
-Update Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace an aggregate's members or logic. Omitted fields are cleared.
+
+The state is recomputed on the next cycle rather than here — use `.../evaluate` if you need the new definition's verdict now.
 
 In the path:
 
@@ -4536,7 +4736,9 @@ The JSON body carries:
 
 #### `POST /api/v1/business-services/{bs_id}/evaluate`
 
-Evaluate Bs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Recompute this aggregate now and return the result.
+
+Reads the member services' **current stored states** — it does not re-run any check, so the answer is as fresh as the last monitoring cycle. 404 for an unknown id. Running this by hand does not change the periodic schedule.
 
 In the path:
 
@@ -4613,11 +4815,15 @@ Recurring work: what runs when, and whether the last run succeeded.
 
 #### `GET /api/v1/scheduled-jobs`
 
-List Jobs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Recurring runbook runs: what fires when, where, and how the last run went.
+
+A job is a runbook plus a cron schedule plus a scope (host, group, OU). The scheduler loop fires them; this is the management surface, so an entry here is a *declaration* and its last outcome is the evidence that it works.
 
 #### `POST /api/v1/scheduled-jobs`
 
-Create Job. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Schedule a runbook. Nothing runs on creation.
+
+The scope is resolved **at fire time**, not now — a host that joins the group later is included, which is usually the point of a recurring job and occasionally a surprise. Use `.../run` to fire it once by hand without touching the schedule.
 
 The JSON body carries:
 
@@ -4634,7 +4840,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/scheduled-jobs/{job_id}`
 
-Delete Job. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a scheduled job.
+
+Its run history stays: what ran must remain explainable after the schedule that caused it is gone. If you only want it to stop, disable it instead and keep the link intact.
 
 In the path:
 
@@ -4642,7 +4850,7 @@ In the path:
 
 #### `PUT /api/v1/scheduled-jobs/{job_id}`
 
-Update Job. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a scheduled job. A run already in flight is unaffected; the next firing uses the new definition. 404 for an unknown id.
 
 In the path:
 
@@ -4743,11 +4951,17 @@ The JSON body carries:
 
 #### `GET /api/v1/system/yolo-mode`
 
-Get Yolo Mode. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Is the global approval gate open? Read this before trusting any "pending approval" claim.
+
+With YOLO mode **off** (the default) a new policy or orchestration link starts `pending_approval` and does nothing until a human approves it. With it **on**, links become `active` immediately — the gate is bypassed fleet-wide, not per object.
 
 #### `PUT /api/v1/system/yolo-mode`
 
-Set Yolo Mode. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Open or close the global approval gate. **This is the widest-reaching switch in the API.**
+
+`enabled: true` means every subsequently created policy link applies at once, everywhere, with no human step. It does not retroactively approve what is already pending, and it does not lower any of the remediation guardrails — those have their own kill-switch.
+
+Deliberately **human-only**: no MCP tool exposes a write here, so a model cannot open its own gate. Who flipped it is recorded on the row.
 
 The JSON body carries:
 
@@ -4761,11 +4975,17 @@ Named windows — business hours, maintenance — that other rules refer to.
 
 #### `GET /api/v1/time-periods`
 
-List Time Periods. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Reusable "when" objects — the named windows notification rules refer to.
+
+A period is weekday ranges plus date exceptions plus excluded periods. Naming it once and referring to it beats repeating "Mon-Fri 08:00-18:00" in every rule, which is how two rules end up disagreeing about business hours.
 
 #### `POST /api/v1/time-periods`
 
-Create Time Period. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a time period. **The definition is validated on write, not on use.**
+
+A `tuseday` typo or a malformed span is refused here with the reason. The alternative is a stored period that silently never matches — and a notification that never fires is the hardest failure to notice, because nothing appears.
+
+A span crossing midnight (22:00-02:00) is accepted and understood as crossing; it is not a mistake.
 
 The JSON body carries:
 
@@ -4777,7 +4997,9 @@ The JSON body carries:
 
 #### `DELETE /api/v1/time-periods/{period_id}`
 
-Delete Time Period. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a time period.
+
+A notification rule pointing at a period that no longer exists loses its window — check what refers to it first, since this call cannot see those references.
 
 In the path:
 
@@ -4785,7 +5007,9 @@ In the path:
 
 #### `PUT /api/v1/time-periods/{period_id}`
 
-Update Time Period. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a period's definition, validated as on create.
+
+Rules referring to it change behaviour immediately — that is the point of a shared object, and the reason to check who refers to it before widening a window.
 
 In the path:
 
@@ -4840,7 +5064,9 @@ In the path:
 
 #### `POST /api/v1/change-proposals/{proposal_id}/reject`
 
-Reject Proposal. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Reject a change proposal: it stays as a rejected row and applies to nothing.
+
+Rejected rather than deleted, on purpose — "someone decided against this" is a fact worth keeping, and a proposal that vanished would leave the next person to propose the same fix with no idea it had already been refused. The reasoning that produced it stays attached.
 
 In the path:
 
@@ -4854,11 +5080,15 @@ Hosts that belong together as one failure domain.
 
 #### `GET /api/v1/clusters`
 
-List Clusters. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Cluster hosts — a cluster appears in the fleet as a host, on purpose.
+
+A cluster is an `agents` row with `mode="cluster"` and no address, so it carries services, problems, acknowledgements, downtime and notifications exactly like a real host. That is why it is here and not in a parallel object model: an operator should not need a second set of screens to acknowledge a cluster's problem.
 
 #### `POST /api/v1/clusters`
 
-Create Cluster. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a cluster — the agent row and its cluster config, together in one act.
+
+Deliberately not two calls: half a cluster (an agent with no config, or config with no agent) would appear in the host list as something nobody can explain or clean up.
 
 The JSON body carries:
 
@@ -4878,7 +5108,7 @@ In the path:
 
 #### `PUT /api/v1/clusters/{cluster_id}`
 
-Update Cluster. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change a cluster's members or quorum settings. Honours `If-Match` (412 when stale).
 
 In the path:
 
@@ -4900,11 +5130,13 @@ Turning a raw number into the word a human reads.
 
 #### `GET /api/v1/value-maps`
 
-List Value Maps. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Named value→label maps: how a raw number becomes the word an operator reads.
+
+Attached to a check rule, a map turns `0`/`1` into `Down`/`Up` **alongside** the raw value, never instead of it — the number stays visible, because a label that hides its own source cannot be checked against a threshold.
 
 #### `POST /api/v1/value-maps`
 
-Create Value Map. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Create a value map. A value with no mapping keeps showing as itself rather than as "unknown" — an unmapped number is still true.
 
 The JSON body carries:
 
@@ -4913,7 +5145,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/value-maps/{value_map_id}`
 
-Delete Value Map. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Delete a value map. Check rules referring to it fall back to showing raw values — they keep working, they just stop being readable.
 
 In the path:
 
@@ -4921,7 +5153,7 @@ In the path:
 
 #### `PUT /api/v1/value-maps/{value_map_id}`
 
-Update Value Map. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Replace a value map's entries. Services using it show the new labels on their next evaluation; stored history keeps the raw values, so relabelling never rewrites the past.
 
 In the path:
 
@@ -4943,11 +5175,13 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/vm`
 
-Vm List. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Lab VMs and their state. 503 when the lab is not configured.
 
 #### `POST /api/v1/vm/install`
 
-Vm Install. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Install a disk template from an ISO in the nested-virt lab.
+
+Drives QEMU inside the pxe container; the UI attaches a noVNC console to watch it. **503 when the lab is not configured** (`BOSSMAN_PXE_CONTAINER` empty) rather than 500 — a deployment without the pxe profile degrades cleanly instead of looking broken.
 
 The JSON body carries:
 
@@ -4958,7 +5192,9 @@ The JSON body carries:
 
 #### `POST /api/v1/vm/pxe-test`
 
-Vm Pxe Test. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Boot a lab VM against the real PXE path, end to end.
+
+This is the rehearsal for bare-metal provisioning: same boot chain, same profile lookup, same imaging steps, on a machine nobody minds. 503 when the lab is not configured.
 
 The JSON body carries:
 
@@ -4969,7 +5205,7 @@ The JSON body carries:
 
 #### `POST /api/v1/vm/{name}/stop`
 
-Vm Stop. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Stop a lab VM. Stopping one that is already stopped is not an error — the end state is what was asked for. 503 when the lab is not configured.
 
 In the path:
 
@@ -4986,15 +5222,21 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `GET /api/v1/admin/diagnostics`
 
-Get Diagnostics. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+A snapshot of this server's own health: versions, loop timings, queue depths, database state.
+
+About Bossman, not about the fleet — the place to look when the fleet's numbers are stale and you need to know whether the poller, the reconciler or the database is the reason.
 
 #### `POST /api/v1/admin/housekeeping/run`
 
-Run Housekeeping Now. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Run the retention sweeps now and report what each one deleted.
+
+The same sweeps the periodic job performs — notifications, plan runs, host edges, stale per-process series, orphaned metric series, and the run/audit windows when a retention period is configured. The reply is a count per sweep, so "nothing was deleted" is visible as zeros rather than as silence.
 
 #### `POST /api/v1/admin/log-level`
 
-Set Log Level. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Change this process's log level at runtime, without a restart.
+
+422 for anything outside the standard levels. **It does not persist**: a restart returns to the configured level, which is the safe direction — a DEBUG left on by accident would otherwise outlive the debugging session and fill a disk.
 
 The JSON body carries:
 
@@ -5044,7 +5286,11 @@ The JSON body carries:
 
 #### `GET /api/v1/audit`
 
-List Audit. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Who did what in **this server** — the request-side trail.
+
+One entry per authenticated mutating call: the actor from the bearer, the target from the path, the outcome from the status, plus login successes and failures. Filterable by actor, category, status, free text and time.
+
+Not the same as the **result log** (`/api/v1/operations`), and the difference matters: this records what was *asked of Bossman*, that records what *hosts did*. A request that was accepted and an action that worked are two facts, and only the second answers "did that install succeed".
 
 Query parameters:
 
@@ -5057,7 +5303,7 @@ Query parameters:
 
 #### `GET /api/v1/audit/stats`
 
-Audit Stats. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Counts over the audit trail — per actor, category and outcome — for the period asked for. The overview above the list, so "unusually many refusals today" is visible without paging.
 
 ---
 
@@ -5105,7 +5351,9 @@ What a host can provide and what it requires — the matcher behind the lego mod
 
 #### `GET /api/v1/agents/{agent_id}/capabilities`
 
-Host Capabilities. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What this host **provides** and what it **requires** — the lego model's two halves.
+
+Derived from what is installed and configured rather than declared by hand, so it answers "what could use this host" without anyone maintaining a list — and it goes stale exactly as fast as the host's inventory does, which the timestamp tells you.
 
 In the path:
 
@@ -5113,7 +5361,9 @@ In the path:
 
 #### `GET /api/v1/capabilities/match`
 
-Match. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Match requirements against providers and say **why** each candidate fits or does not.
+
+The reason is the point: a matcher that returned only winners could not be argued with, and a placement decision has to be explainable to whoever is paged about it later.
 
 Query parameters:
 
@@ -5121,7 +5371,9 @@ Query parameters:
 
 #### `GET /api/v1/capabilities/providers`
 
-Providers. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Who provides a capability, fleet-wide: one row per host that can satisfy it.
+
+The answer to "where can this run" before anything is placed. An empty result is a real answer, not an error.
 
 Query parameters:
 
@@ -5161,7 +5413,9 @@ Query parameters:
 
 #### `GET /api/v1/config-templates/{name}`
 
-Get Config Template. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One template's body, schema and sample values, by name.
+
+Separate from the listing on purpose: the listing used to return **every** body — about 36 MB — while each of its seven callers wanted one. The list now carries names and target paths, and this returns the ~8 KB a caller actually opens.
 
 In the path:
 
@@ -5204,7 +5458,7 @@ The JSON body carries:
 
 #### `GET /api/v1/deployments/{deployment_id}`
 
-Get Deployment. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One rollout-to-a-host record: which generation went there and what came back. 404 for an unknown id.
 
 In the path:
 
@@ -5218,11 +5472,15 @@ Things that are not hosts: switches, PDUs, anything polled off-host.
 
 #### `GET /api/v1/devices`
 
-List Devices. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Agent-less devices: switches, printers, PDUs and SSH-only hosts.
+
+Each is polled **on its behalf** by the co-located poller agent — `snmp` (target plus community or v3 credentials) or `ssh` (target plus user and secret). They appear as hosts with services, so a switch's problem is acknowledged the same way a server's is; what differs is who does the measuring.
 
 #### `POST /api/v1/devices`
 
-Create Device. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Register an agent-less device to be polled by the poller agent.
+
+Secrets are stored with the device and **never returned** — a read reports only whether one is set. 409 when a host or device of that name already exists: two things answering to one name is how a check ends up polling the wrong box.
 
 The JSON body carries:
 
@@ -5244,7 +5502,7 @@ The JSON body carries:
 
 #### `DELETE /api/v1/devices/{device_id}`
 
-Delete Device. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Forget a device. Nothing is touched on the device itself — this stops the polling and removes its services, and the switch keeps switching.
 
 In the path:
 
@@ -5258,7 +5516,13 @@ How a host joins the fleet — the token it presents and the certificate it gets
 
 #### `POST /api/v1/enroll`
 
-Handle Enroll. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+An agent registers itself. **Enrolment is OPEN: there is no shared secret.**
+
+The agent sends its name, token and address and receives Bossman's public key, which it **pins** — from then on Bossman authenticates itself with the matching private key over mTLS. An `enroll_secret` in the body is accepted for wire-compatibility with the generic client and **ignored**.
+
+So the trust model is plainly: whoever can reach this endpoint can add a host, and it is mounted unconditionally. The authenticated way to add one is the server-driven SSH deploy (`POST /api/v1/enroll/deploy`), where Bossman dials out; this is the manual convenience, and the reason this path is worth firewalling.
+
+Note the direction of every later call: the agent never dials in again — Bossman connects to the agent, which is why one firewall rule (Bossman → agent) is enough.
 
 The JSON body carries:
 
@@ -5269,7 +5533,11 @@ The JSON body carries:
 
 #### `POST /api/v1/enroll/deploy`
 
-Handle Deploy. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Install and enrol an agent over SSH — the authenticated way to add a host.
+
+Bossman connects out, installs the package and registers the agent, so the target never has to reach the open enrolment endpoint. The SSH credentials are used for this session and not stored.
+
+Reports its own "not configured" state as a **400** rather than a 404, so a caller can tell "this server cannot do SSH deploys" from "no such endpoint".
 
 The JSON body carries:
 
@@ -5279,7 +5547,9 @@ The JSON body carries:
 
 #### `GET /api/v1/enroll/info`
 
-Enroll Info. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Whether enrolment is usable, and the exact command to run.
+
+Returns the `agentic-mcpd register` line for *this* instance, so adding a host does not require knowing the CLI. Always answers — a "not configured" state is a real answer, and a 404 would look like a broken server.
 
 ---
 
@@ -5289,7 +5559,9 @@ The event console: raw events before they are anything else.
 
 #### `GET /api/v1/events`
 
-List Events. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Passively received events: syslog messages and SNMP traps, as they arrived.
+
+Raw, before they are anything else — an event is not a problem, has no host ACL applied to its origin, and may name a device this fleet does not know. Turning one into a service state or an action is what event *rules* do.
 
 Query parameters:
 
@@ -5305,7 +5577,9 @@ Counts for the console header: total, unacked, and unacked at severity <= warnin
 
 #### `POST /api/v1/events/{event_id}/ack`
 
-Ack Event. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Acknowledge an event: someone has seen it.
+
+It stays in the console with the acknowledgement recorded, rather than disappearing — an event that vanishes when noticed cannot be counted afterwards.
 
 In the path:
 
@@ -5355,7 +5629,9 @@ Query parameters:
 
 #### `GET /api/v1/agents/{agent_id}/processes`
 
-Get Agent Processes. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What is running on this host, top-N by CPU.
+
+Measured now, through the agent, rather than read from a store — the answer to "what is eating the CPU *right now*" instead of "what was". That is also why it needs a reachable host.
 
 In the path:
 
@@ -5404,7 +5680,9 @@ The indexed pieces of that memory.
 
 #### `POST /api/v1/chunks/index`
 
-Index Chunk Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Index a piece of text into the retrieval memory the chat and the remediation reasoning read.
+
+An embedding is computed through the configured endpoint and stored with the text, so the same passage indexed twice with a different model is two different rows — the model is part of what makes an embedding comparable.
 
 The JSON body carries:
 
@@ -5417,7 +5695,9 @@ The JSON body carries:
 
 #### `POST /api/v1/chunks/similar`
 
-Similar Chunks Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The nearest indexed passages to a query, by embedding distance.
+
+Similarity is not relevance: this returns what is close in the embedding space, which is why the distance comes back with each row instead of a ranking presented as an answer. Nothing here is filtered by who may see it.
 
 The JSON body carries:
 
@@ -5460,11 +5740,15 @@ involved, `dry_run: true` returns the plan instead of applying it — use it fir
 
 #### `POST /api/v1/config-sync/run`
 
-Run Now. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Force the convergence sweep now instead of waiting for the cycle.
+
+Recompiles every host's desired state and pushes to any whose generation is ahead of its ack — which is also how a change made through an endpoint that enqueues no event reaches the hosts (a policy site's subnets, for instance). Idempotent: an up-to-date, acked host is skipped.
 
 #### `GET /api/v1/config-sync/status`
 
-Status. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Which hosts are behind on their desired state, and by how much.
+
+Compares each host's compiled generation against what it last **acked**. A host ahead of its ack has a change waiting; one that never acked has never received anything. Two different states, both named rather than shown as an empty row.
 
 ---
 
@@ -5474,7 +5758,7 @@ Where a series is heading, for capacity questions.
 
 #### `GET /api/v1/agents/{agent_id}/forecast`
 
-Agent Forecast. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+The same projection for one host's series. Empty where a series has too few points to fit — an absent forecast rather than a confident line through two dots.
 
 In the path:
 
@@ -5488,7 +5772,9 @@ Query parameters:
 
 #### `GET /api/v1/forecast/capacity`
 
-Capacity. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Where filesystems are heading: soonest-to-fill first, fleet-wide.
+
+A least-squares fit over each series' own history, projected to the threshold — "disk full in N days". A trend is an extrapolation, not a promise: it assumes the recent past continues, which is exactly what a step change breaks (a new database, a log rotation that stopped). The growth per day is returned beside the date so a reader can judge that.
 
 Query parameters:
 
@@ -5571,7 +5857,9 @@ One execution of something, whatever started it.
 
 #### `GET /api/v1/runs`
 
-List Runs. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Executions, newest first, whatever started them — a plan, a runbook, a schedule, a rollout.
+
+One place to answer "what has this system been doing", which is why the kind of thing that started a run is a field rather than a separate endpoint per source.
 
 Query parameters:
 
@@ -5582,7 +5870,7 @@ Query parameters:
 
 #### `GET /api/v1/runs/{run_id}`
 
-Get Run. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+One execution with its per-step results and per-host outcomes. 404 for an unknown id.
 
 In the path:
 
@@ -5596,11 +5884,15 @@ The names this installation gives to severities.
 
 #### `GET /api/v1/severity-labels`
 
-List Severity Labels. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+What this installation calls each severity — the words an operator reads.
+
+Renaming a severity changes the label, never the state: `CRIT` stays `CRIT` in the data, in the API and in every rule. A label that changed the meaning would make two installations incomparable.
 
 #### `PUT /api/v1/severity-labels/{state}`
 
-Update Severity Label. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Rename one severity's label. The state name itself is not editable.
+
+`CRIT` stays `CRIT` in the data, the API and every rule — only the word an operator reads changes. A rename that altered the meaning would make two installations incomparable.
 
 In the path:
 
@@ -5674,7 +5966,7 @@ Is this server alive. No token needed.
 
 #### `GET /healthz`
 
-Healthz. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Is this server alive. **No token needed** — the only endpoint besides login that answers unauthenticated, because a liveness probe cannot hold a credential.
 
 ---
 
@@ -5712,7 +6004,9 @@ Guided setup for one package's configuration.
 
 #### `GET /api/v1/agents/{agent_id}/package-wizard/context`
 
-Wizard Context. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Everything the package wizard needs for one host in a single call.
+
+The catalogue entries that apply, what the host already has, and which templates bind to it — so the wizard opens with one round trip instead of fanning out. Read-only: it computes what *could* be configured and changes nothing.
 
 In the path:
 
@@ -5730,7 +6024,9 @@ Dependencies between objects, used to explain an outage by its cause.
 
 #### `GET /api/v1/relationships`
 
-List Relationships. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Declared dependencies between objects — what explains an outage by its cause.
+
+Distinct from the topology graph: that is measured traffic, this is stated intent. Keeping them apart is deliberate, because "these two talk" and "this one needs that one" are different claims.
 
 Query parameters:
 
@@ -5746,7 +6042,9 @@ How hosts are connected, as measured rather than as drawn.
 
 #### `GET /api/v1/topology/graph`
 
-Topology Graph. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+How hosts talk to each other, as **measured** rather than as drawn.
+
+Edges come from observed connections, and non-enrolled destinations are synthesised as their own nodes with a service hint from the port — otherwise a real host's traffic, which is mostly to things outside the fleet, produced a graph with zero edges. The busiest are kept and the number dropped is logged rather than silently truncated.
 
 Query parameters:
 
@@ -5760,7 +6058,9 @@ Turning a catalogue specification into something an agent can execute.
 
 #### `POST /api/v1/translate`
 
-Translate Route. _(No further description in the source — the handler has no docstring, so this is all the server itself says about it.)_
+Turn a catalogue specification into something an agent can execute.
+
+The result is validated the way a hand-written module would be, so a specification that cannot become an executable module fails **here** rather than on a host. Uses the configured AI endpoint; thinking is disabled and no token cap is set — a cap is what truncates an answer, and the model bounds itself by its context.
 
 The JSON body carries:
 

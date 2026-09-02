@@ -136,6 +136,13 @@ async def list_clusters(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> list[ClusterOut]:
+    """Cluster hosts — a cluster appears in the fleet as a host, on purpose.
+
+    A cluster is an `agents` row with `mode="cluster"` and no address, so it carries services,
+    problems, acknowledgements, downtime and notifications exactly like a real host. That is why it
+    is here and not in a parallel object model: an operator should not need a second set of screens
+    to acknowledge a cluster's problem.
+    """
     configs = (await session.scalars(select(HostCluster))).all()
     out = []
     for config in configs:
@@ -151,6 +158,11 @@ async def create_cluster(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ClusterOut:
+    """Create a cluster — the agent row and its cluster config, together in one act.
+
+    Deliberately not two calls: half a cluster (an agent with no config, or config with no agent)
+    would appear in the host list as something nobody can explain or clean up.
+    """
     await _validate(body, session)
     name = body.name.strip()
     if await session.scalar(select(Agent).where(Agent.name == name)) is not None:
@@ -183,6 +195,7 @@ async def update_cluster(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ClusterOut:
+    """Change a cluster's members or quorum settings. Honours `If-Match` (412 when stale)."""
     agent, config = await _load(session, cluster_id)
     check_if_match(request, (await _out(session, agent, config)).version)
     await _validate(body, session, cluster_id=cluster_id)

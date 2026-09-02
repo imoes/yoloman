@@ -40,6 +40,11 @@ async def get_agent_processes(
     _identity=Depends(get_current_identity),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """What is running on this host, top-N by CPU.
+
+    Measured now, through the agent, rather than read from a store — the answer to "what is eating the
+    CPU *right now*" instead of "what was". That is also why it needs a reachable host.
+    """
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail=f"no such agent {agent_id}")

@@ -276,7 +276,22 @@ Every one of these was found by running against a real host, and every one had a
   the past) and the query returns 0 rows; `pg_stat_activity` shows the listener and a second backend `idle
   in transaction`. The concurrent compile of the same fresh agent is also why a `compiled_host_state`
   generation-1 unique violation appears in the same file. Do not "fix" these tests by weakening the
-  assertions.
+  assertions — they ask first and skip with that reason, so a run reports three named skips rather than
+  three failures that point at the wrong component.
+
+  **To run them anyway**, stop the one process that competes, then start it again:
+
+  ```bash
+  docker compose -p agentic-mcp stop bossman          # the listener goes with it
+  cd bossman && env BOSSMAN_DATABASE_URL="postgresql+asyncpg://bossman:bossman@127.0.0.1:55433/bossman" \
+      .venv-host/bin/python -m pytest tests/test_reconciler.py -q
+  docker compose -p agentic-mcp start bossman
+  ```
+
+  There is deliberately **no second database**: this whole installation *is* the test system, and a second
+  Postgres would be a second truth to keep migrated, seeded and in step — the thing this project avoids
+  everywhere else. The cost is that these three tests need the stack quiet for twenty seconds, which is a
+  price paid once per change to the reconciler rather than continuously.
 - **Adding a parent row and a child row in one session inserts them in the wrong order.** This codebase
   declares foreign keys **without** `relationship()` on purpose — async lazy loads raise `MissingGreenlet`,
   so ORM traversal is avoided throughout — which means SQLAlchemy's unit of work has *no dependency edge*

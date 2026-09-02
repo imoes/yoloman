@@ -70,6 +70,12 @@ def _validate(body: ScheduledJobIn) -> None:
 
 @router.get("/api/v1/scheduled-jobs", response_model=list[ScheduledJobOut])
 async def list_jobs(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
+    """Recurring runbook runs: what fires when, where, and how the last run went.
+
+    A job is a runbook plus a cron schedule plus a scope (host, group, OU). The scheduler loop fires
+    them; this is the management surface, so an entry here is a *declaration* and its last outcome is
+    the evidence that it works.
+    """
     rows = (await session.scalars(select(ScheduledJob).order_by(ScheduledJob.name))).all()
     return [ScheduledJobOut.of(j) for j in rows]
 
@@ -77,6 +83,12 @@ async def list_jobs(session: AsyncSession = Depends(get_session), _i: Identity =
 @router.post("/api/v1/scheduled-jobs", response_model=ScheduledJobOut)
 async def create_job(body: ScheduledJobIn, session: AsyncSession = Depends(get_session),
                      identity: Identity = Depends(get_current_identity)):
+    """Schedule a runbook. Nothing runs on creation.
+
+    The scope is resolved **at fire time**, not now — a host that joins the group later is included,
+    which is usually the point of a recurring job and occasionally a surprise. Use `.../run` to fire
+    it once by hand without touching the schedule.
+    """
     _validate(body)
     job = ScheduledJob(tenant_id=DEFAULT_TENANT_ID, created_by=identity.name, **body.model_dump())
     session.add(job)
@@ -88,6 +100,8 @@ async def create_job(body: ScheduledJobIn, session: AsyncSession = Depends(get_s
 @router.put("/api/v1/scheduled-jobs/{job_id}", response_model=ScheduledJobOut)
 async def update_job(job_id: UUID, body: ScheduledJobIn, session: AsyncSession = Depends(get_session),
                      _i: Identity = Depends(get_current_identity)):
+    """Replace a scheduled job. A run already in flight is unaffected; the next firing uses the new
+    definition. 404 for an unknown id."""
     _validate(body)
     job = await session.get(ScheduledJob, job_id)
     if job is None:
@@ -102,6 +116,11 @@ async def update_job(job_id: UUID, body: ScheduledJobIn, session: AsyncSession =
 @router.delete("/api/v1/scheduled-jobs/{job_id}", status_code=204)
 async def delete_job(job_id: UUID, session: AsyncSession = Depends(get_session),
                      _i: Identity = Depends(get_current_identity)):
+    """Delete a scheduled job.
+
+    Its run history stays: what ran must remain explainable after the schedule that caused it is
+    gone. If you only want it to stop, disable it instead and keep the link intact.
+    """
     job = await session.get(ScheduledJob, job_id)
     if job is not None:
         await session.delete(job)

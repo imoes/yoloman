@@ -113,6 +113,12 @@ async def create_system(
 async def list_systems(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """Systems — the unit above a host: applications plus the wiring between them.
+
+    **Read-only for now, and proposed rather than stored**: a system is derived from a seed host's
+    live state so its shape can be validated before persistence exists. So this listing describes
+    what *would* be a system, which is why nothing here creates one.
+    """
     rows = (await session.scalars(select(System).order_by(System.created_at.desc()))).all()
     return {"systems": [_system_dict(s, full=False) for s in rows], "count": len(rows)}
 
@@ -122,6 +128,8 @@ async def get_system(
     system_id: UUID,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """One proposed system: its members and how they were inferred from the seed host's live state.
+    404 when there is no such id."""
     s = await session.get(System, system_id)
     if s is None:
         raise HTTPException(status_code=404, detail="no such system")
@@ -187,6 +195,8 @@ async def delete_system(
     system_id: UUID,
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
+    """Discard a proposed system. Nothing on any host is affected — a proposal is a description,
+    and deleting it deletes the description."""
     s = await session.get(System, system_id)
     if s is None:
         raise HTTPException(status_code=404, detail="no such system")

@@ -121,6 +121,66 @@ and drift from it. Machine-readable, here, means **prose that is generated**.
 
 ### Changed
 
+**Resource generations are capped at 30, and a pruned rollback target says it was pruned.** Nothing ever
+removed a row from `resource_generation`: every resource apply added one and none were deleted, so a resource
+applied on a cycle grew the table without bound. Honestly measured before the change: **one row, one
+resource** — this prevents a problem rather than cleaning one up, and the rows being small is exactly why it
+would have gone unnoticed until it did not. The cap is the same 30 the docker desired-state model uses, and
+pruning happens **in the same transaction as the insert**, so a crash cannot lose the new generation or
+delete history for one that was never written. Numbering keeps climbing (1…35 with 30 rows kept) because a
+reused generation number would point a stored rollback reference at a different spec. And a rollback to a
+dropped generation answers *"generation 3 has been pruned — only the newest 30 are kept and the oldest still
+held is 7"* instead of "no such generation": a trimmed history and a typo are different problems, and this
+project's rule is that nothing vanishes silently.
+
+**`If-Match` now guards the PARTIAL edits too — and a claim in this changelog was wrong.** The previous
+entry said "a check rule's `version` is not enforced". It was: `PUT /api/v1/check-rules/{id}` had honoured
+`If-Match` all along, and the grep behind that claim looked for a 409 while the code answers **412**. What
+was actually missing is narrower and worse placed: **both `PATCH` routes** — check rules and notification
+rules — took a partial edit with no version check while every `PUT` in the API had one. That is the wrong way
+round, because a partial edit is where a lost update is most likely: two people changing *different* fields
+of one rule each believe they are safe, and neither was warned. Both now call the same
+`api/etag.py:check_if_match` the PUTs use — a stale version is refused with 412 and told to re-read, no
+header still writes (the guarantee is for clients that send one, not a new requirement). Both tests were
+checked by removing each guard in turn and watching the matching test fail.
+
+**Every one of the 481 API operations is now described.** The reference counted its own gap — 234 handlers
+without a docstring when it was first generated — and that number is what closed it: 143 descriptions written
+in this pass, in batches, each claim checked against the code or the database before it went in. The page
+still counts, so the next endpoint added without a docstring shows up in it.
+
+Nine claims of my own fell over while being checked, and each correction is in the endpoint's own
+documentation: a check rule's `version` **was** enforced on PUT all along (the grep behind "not enforced"
+looked for a 409 while the code answers 412) — what was missing is both **PATCH** routes, now fixed; a
+runbook's lint validates the document's *shape* and not module existence; `channel` and `target` on a
+notification rule are validated **separately**, so an email address in a webhook rule is accepted and fails
+at dispatch; a graph whose host disappears returns an **empty series** rather than dropping the line; and
+saved searches are tenant-shared rather than per-user. Also corrected in passing: a comment claiming
+`POST /api/v1/enroll` is "only mounted when enroll_secret is configured" — enrolment is open and it is mounted
+unconditionally, which a live 422 confirms.
+
+**The flaky monitoring test is fixed, and it was competing with real policy.** One arbitrary test in
+`test_monitoring.py` failed per full-suite run — a different one each time, each passing in isolation. Cause:
+its helper created a **global** check rule for `CPU load`/`cpu_pct`, and the shared database also holds real
+non-default global and site rules for exactly that pair (measured: 80/95 global, 70/90 site, grading ten live
+hosts). Whichever won depended on resolution order. The test rules are now scoped to each test's own host, so
+they win by precedence without touching the live policy — which stays, because it is somebody's monitoring
+and not test residue.
+
+**An event rule's `mode` now does what its name says.** `mode: auto|propose` was validated strictly,
+stored, and read by **nothing** — the engine gates on `autonomy: propose|auto_verify` alone, so a rule set
+to `mode: "auto"` only ever proposed. It is now an alias, and the direction of its fallback is the whole
+safety of it: `mode` defaults to `"auto"` in the payload while `autonomy` defaults to `"propose"`, so
+deriving from a *defaulted* `mode` would have promoted **every** rule that sends neither field from "suggest
+a fix" to "apply it unattended". `model_fields_set` distinguishes sent from defaulted; `autonomy` wins when
+both are sent (the UI's own create form sends `mode: "auto"` beside `autonomy: "propose"`, and refusing that
+pair would break a screen for a contradiction it never intended); and the response **derives** `mode` from
+`autonomy`, so a row written before the alias cannot report two answers to one question. Verified live in
+five cases: neither field → propose, `mode: auto` alone → auto_verify, contradictory pair → propose, and a
+`PUT` without either field does **not** escalate. The regression tests fail if the naive alias returns —
+checked by reintroducing it. The UI stops sending `mode` (it never had a control for it, only a help string
+that was never rendered).
+
 **`GET /api/v1/me` no longer claims rights the server refuses.** It selected an API token's access
 grants by **name** while the host ACL selected them by the token's **UID** — so a token sharing a name
 with a granted one was told `scope: all` and then refused with 403 by every route that acts. Measured on
@@ -195,27 +255,15 @@ Each of these was invisible until a real host was in front of it:
 - **The MSI build needs a Windows host.** `wix` on Linux declares its own behaviour undefined and proved it —
   three inconsistent path-validation failures. The build now runs on the test host; a Windows CI runner is the
   durable answer.
-- **Three tests in `test_reconciler.py` cannot pass while the dev stack is running.** Not a product defect
-  and not a flaky test: there is one database, and the live `bossman` container attaches a reconciler that
-  `LISTEN`s on `bossman_outbox`. `enqueue_policy_event` sends a `pg_notify` on commit deliberately, so the
-  live worker wakes first, takes the outbox row `FOR UPDATE`, and the test's `process_outbox_once` (`SKIP
-  LOCKED`) gets nothing. Measured: the row is `pending` with `available_at` 21 ms in the past, both
-  predicates hold, the query returns 0 rows, and `pg_stat_activity` shows the listener plus a second
-  backend `idle in transaction`. The `compiled_host_state` generation-1 unique violation in the same file
-  is the same race, compiling the same fresh agent twice. The fix is a database without a live reconciler
-  attached — a decision about the single-database setup, not something to paper over in the assertions.
-- **An event rule's `mode` field is inert, and the API does not say so.** `mode: auto|propose` is validated
-  strictly on write, stored, and returned — and **nothing in the engine reads it** (verified: zero reads of
-  `policy.mode` anywhere in `bossman/`). The real gate is `autonomy: propose|auto_verify`, which
-  docs/closed-loop-remediation.md already recorded as its replacement. A rule set to `mode: "auto"` with
-  `autonomy: "propose"` will only ever propose, and the strict validation is the strongest possible signal
-  that the field matters. Documented at both endpoints for now; **removing it or making it an alias of
-  `autonomy` is an API change and an operator's decision**, not a tidy-up.
-- **A check rule's `version` is not enforced.** It is a content hash for change detection and no route
-  verifies it, so two editors saving the same rule do not collide — the second write wins silently. Event
-  handlers do it properly with `If-Match`; the inconsistency is real and now stated in both docstrings.
-- **Nothing prunes `resource_generations`.** Every resource apply adds a row and none are ever removed. The
-  30-generation cap that exists belongs to the docker desired-state model and does not apply here.
+- **Three tests in `test_reconciler.py` need the stack quiet, and say so.** There is one database — this
+  installation *is* the test system — and the live `bossman` container attaches a reconciler that `LISTEN`s
+  on `bossman_outbox`. `enqueue_policy_event` sends a `pg_notify` on commit deliberately, so the live worker
+  wakes first, takes the outbox row `FOR UPDATE`, and the test's `process_outbox_once` (`SKIP LOCKED`) gets
+  nothing. The tests now ask `pg_stat_activity` whether a listener exists and **skip with that reason plus
+  the way around it**, instead of failing with `assert 0 >= 1` — which reads like a broken reconciler and is
+  not one. Verified: with `docker compose -p agentic-mcp stop bossman` all three pass, and the stack is
+  healthy again afterwards. **No second database**, deliberately: a second Postgres would be a second truth
+  to keep migrated and seeded, and the cost here is twenty quiet seconds per change to the reconciler.
 - Snap-ins for what has no module yet: printers, certificates, local security policy, Windows Update.
 
 ---

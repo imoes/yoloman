@@ -78,6 +78,11 @@ async def helm_repos(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Chart repositories configured on this host's Helm client.
+
+    Read through the agent, so it is this host's view — not a fleet-wide list. Two hosts can
+    legitimately have different repositories, which is exactly the kind of drift worth seeing.
+    """
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.list_repos(agent, client_factory, settings)
 
@@ -88,6 +93,11 @@ async def helm_add_repo(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Add a chart repository to this host's Helm client and update its index.
+
+    Adding one that is already there is not an error — the end state is what was asked for. The
+    credentials, if any, are used by the host's own Helm client and are not stored by Bossman.
+    """
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.add_repo(agent, client_factory, settings, name=body.name, url=body.url)
 
@@ -150,6 +160,12 @@ async def helm_rollback(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Roll a release back to an earlier **Helm** revision.
+
+    Note whose numbering this is: Helm's own revision history on the host, not the resource
+    generations Bossman records for a `helm` resource. The two count separately, and mixing them up
+    rolls back to the wrong thing — `GET .../resources/helm/{name}/generations` is Bossman's list.
+    """
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.rollback_release(
         agent, client_factory, settings, name=body.name, revision=body.revision, namespace=body.namespace)
@@ -161,5 +177,11 @@ async def helm_uninstall(
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
+    """Uninstall a release from this host.
+
+    Removes what the chart created; **persistent volumes usually survive**, because Helm does not
+    delete them by default and this passes that behaviour through rather than inventing a policy
+    about someone's data.
+    """
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.uninstall_release(agent, client_factory, settings, name=body.name, namespace=body.namespace)

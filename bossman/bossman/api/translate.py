@@ -54,6 +54,13 @@ async def translate_route(
     settings: Settings = Depends(get_settings),
     _identity=Depends(get_current_identity),
 ) -> TranslateResponse:
+    """Turn a catalogue specification into something an agent can execute.
+
+    The result is validated the way a hand-written module would be, so a specification that cannot
+    become an executable module fails **here** rather than on a host. Uses the configured AI endpoint;
+    thinking is disabled and no token cap is set — a cap is what truncates an answer, and the model
+    bounds itself by its context.
+    """
     threshold = body.threshold if body.threshold is not None else settings.chunk_similarity_threshold
     try:
         result = await translate_chunk(

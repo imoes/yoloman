@@ -48,6 +48,12 @@ def _validate(body: ValueMapIn) -> None:
 async def list_value_maps(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[ValueMapOut]:
+    """Named value→label maps: how a raw number becomes the word an operator reads.
+
+    Attached to a check rule, a map turns `0`/`1` into `Down`/`Up` **alongside** the raw value, never
+    instead of it — the number stays visible, because a label that hides its own source cannot be
+    checked against a threshold.
+    """
     rows = (await session.scalars(select(ValueMap).order_by(ValueMap.name))).all()
     return [ValueMapOut.from_model(r) for r in rows]
 
@@ -58,6 +64,8 @@ async def create_value_map(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ValueMapOut:
+    """Create a value map. A value with no mapping keeps showing as itself rather than as
+    "unknown" — an unmapped number is still true."""
     _validate(body)
     vm = ValueMap(name=body.name, mappings=body.mappings)
     session.add(vm)
@@ -83,6 +91,8 @@ async def update_value_map(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ValueMapOut:
+    """Replace a value map's entries. Services using it show the new labels on their next
+    evaluation; stored history keeps the raw values, so relabelling never rewrites the past."""
     _validate(body)
     vm = await _get_value_map_or_404(session, value_map_id)
     vm.name = body.name
@@ -101,6 +111,8 @@ async def delete_value_map(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> None:
+    """Delete a value map. Check rules referring to it fall back to showing raw values — they keep
+    working, they just stop being readable."""
     vm = await _get_value_map_or_404(session, value_map_id)
     # check_rules.value_map_id is ON DELETE SET NULL at the DB level (see
     # the migration) — any rule referencing this map is detached, not

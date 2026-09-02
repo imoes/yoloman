@@ -67,6 +67,15 @@ async def _get_group_or_404(session: AsyncSession, group_id: UUID) -> HostGroup:
 async def list_host_groups(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[HostGroupOut]:
+    """Host groups — a first-class, many-to-many set of hosts, and **placeless** on purpose.
+
+    A group has no position in the OU tree: a host has one *location* (its OU) and many
+    *properties*, and a group is a property. That is what lets a group cut across the tree, and it is
+    why the former `ou_id` on this object was removed rather than kept "for convenience".
+
+    Distinct from the legacy flat `Agent.groups` string list, which is a **projection** this API
+    maintains — see `replace_host_group_members` for why that matters.
+    """
     rows = (
         await session.scalars(
             select(HostGroup).where(HostGroup.tenant_id == DEFAULT_TENANT_ID, HostGroup.deleted_at.is_(None)).order_by(HostGroup.name)
@@ -79,6 +88,7 @@ async def list_host_groups(
 async def create_host_group(
     body: HostGroupIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> HostGroupOut:
+    """Create a host group. Empty until members are set; an empty group matches no rule."""
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     group = HostGroup(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, name=body.name, description=body.description)
@@ -95,6 +105,12 @@ async def create_host_group(
 async def update_host_group(
     group_id: UUID, body: HostGroupIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> HostGroupOut:
+    """Rename or re-describe a group.
+
+    A rename also re-derives the projected `agents.groups` array of every member, because rule
+    matching reads that array rather than the membership rows. Renaming the row alone would leave
+    every member matching the old name.
+    """
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     group = await _get_group_or_404(session, group_id)
@@ -129,6 +145,17 @@ async def update_host_group(
 async def delete_host_group(
     group_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
+    """Delete a group, and take its name out of every former member's projection.
+
+    The membership rows cascade, but that is not enough: rule matching reads the projected
+    `agents.groups` array, so a former member would keep matching a group that no longer exists. The
+    members are collected **before** the delete and re-projected after — and their *other* groups are
+    adopted first, while this one still exists, because adopting afterwards would see this group's
+    name in the arrays with no row behind it and re-create the very group being deleted.
+
+    Rules scoped to this group stop matching anything. They are not deleted: a policy whose scope
+    vanished is still a policy someone wrote.
+    """
     group = await _get_group_or_404(session, group_id)
     # Remember the members BEFORE the cascade removes the rows, then rebuild their projected
     # `agents.groups` after the delete — otherwise every former member keeps the group's name
@@ -215,6 +242,16 @@ class MembershipIn(BaseModel):
 async def replace_host_group_members(
     group_id: UUID, body: MembershipIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> HostGroupOut:
+    """Replace the group's membership wholesale — hosts not in the list are removed from it.
+
+    422 naming any agent id that does not exist, checked before anything is written, so a typo cannot
+    half-apply a membership change.
+
+    **Two things are written, not one.** The membership rows AND the projected `agents.groups` array
+    that rule matching actually reads. Writing only the rows — which this endpoint used to do — left
+    a host displayed as a member that the group's own rules did not match. That is the kind of defect
+    that looks like a monitoring gap for weeks.
+    """
     group = await _get_group_or_404(session, group_id)
     for agent_id in body.agent_ids:
         if await session.get(Agent, agent_id) is None:
