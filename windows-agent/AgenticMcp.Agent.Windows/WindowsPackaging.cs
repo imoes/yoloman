@@ -121,9 +121,17 @@ public static class WindowsPackaging
 
     public sealed record Run(string Command, int ExitCode, string Output);
 
-    /// <summary>Runs the provider's install or remove command and returns its exit code and output.</summary>
+    /// <summary>Runs the provider's install or remove command and returns its exit code and output.
+    ///
+    /// <para><b>Install and uninstall arguments are two different things</b>, and this took one measurement
+    /// to learn: a recipe carrying the silent-install switch <c>/S</c> made the removal run
+    /// <c>reg delete HKLM\SOFTWARE\Acme\Widget /f /S</c>, and Windows answered "FEHLER: Ungültige Syntax"
+    /// — the install switch appended to the vendor's own uninstall command. The same call with no arguments
+    /// removed the package cleanly. So <paramref name="arguments"/> is used for the install direction only and
+    /// <paramref name="uninstallArguments"/> for the other; passing one for both is how a working recipe
+    /// breaks the half nobody tested.</para></summary>
     public static async Task<Run> Execute(string provider, bool install, string name, string? path,
-        string arguments, int[] successCodes, CancellationToken ct)
+        string arguments, int[] successCodes, CancellationToken ct, string uninstallArguments = "")
     {
         switch (provider)
         {
@@ -133,8 +141,9 @@ public static class WindowsPackaging
                 // awaiting-restart and the operator decides when. Without it msiexec may restart the host
                 // under a converge run, which is the least acceptable surprise in this whole system.
                 var verb = install ? "/i" : "/x";
+                var extra = install ? arguments : uninstallArguments;
                 var args = $"{verb} \"{path ?? name}\" /qn /norestart"
-                           + (string.IsNullOrWhiteSpace(arguments) ? "" : " " + arguments);
+                           + (string.IsNullOrWhiteSpace(extra) ? "" : " " + extra);
                 return await Process("msiexec.exe", args, ct);
             }
 
@@ -148,7 +157,8 @@ public static class WindowsPackaging
                                     ?? throw new InvalidOperationException(
                                         $"no UninstallString recorded for \"{name}\" — nothing to run. Give an "
                                         + "explicit path plus arguments if the product does not register one.");
-                    return await Shell(uninstall + " " + arguments, ct);
+                    // uninstallArguments, NOT arguments: see the summary above.
+                    return await Shell((uninstall + " " + uninstallArguments).TrimEnd(), ct);
                 }
 
                 var file = path ?? throw new ArgumentException("provider installer needs path or source_url");

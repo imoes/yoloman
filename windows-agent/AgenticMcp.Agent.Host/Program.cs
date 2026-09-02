@@ -535,11 +535,20 @@ app.MapPost("/api/v1/tools/{name}", async (string name, HttpRequest req, Cancell
     }
     catch (Exception ex)
     {
-        // The unexpected one, recorded and re-thrown so the 500 still happens: a crash that leaves no trace
-        // in the log is the one case where the log's absence is most likely to be read as "nothing happened".
+        // The unexpected one: OUR failure, not the host's. Recorded as `error` — the outcome reserved for this
+        // agent breaking — and returned as a 500 THAT CARRIES THE REASON.
+        //
+        // It used to re-throw, which produced a 500 with an EMPTY body. Measured 2026-09-02: a `package`
+        // install failed because the installer download hit the corporate proxy, and Bossman reported
+        // `tool 'package' returned 500: ` — nothing else. The reason ("HttpRequestException: … 503 Service
+        // Unavailable") was in the operation log the whole time, so the diagnosis needed a second query
+        // against a log the caller may not even be able to read. This file's own rule for a refusal is that
+        // the reason must reach whoever asked; an internal error deserves the same courtesy, because the
+        // caller is the one who has to decide whether to retry.
         OperationLog.Record(name, "error", dryRun, parameters, identity, startedAt,
             clock.Elapsed.TotalMilliseconds, error: $"{ex.GetType().Name}: {ex.Message}");
-        throw;
+        return Results.Json(new { error = $"{ex.GetType().Name}: {ex.Message}" },
+            statusCode: StatusCodes.Status500InternalServerError);
     }
 });
 

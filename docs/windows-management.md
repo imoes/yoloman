@@ -307,16 +307,74 @@ was noch fehlt — und ein Meilenstein, dessen Zustand man erst herleiten muss, 
 |---|---|---|
 | 1 | `windows_feature` (observe/plan/apply/drift) | **fertig** — 265 Features, Windows' sieben eigene Install-States; je Modul am Host geprüft (anlegen → gleicher Aufruf → entfernen) |
 | 2 | `families.windows` im Paketkatalog | **fertig** 2026-08-27 |
-| 3 | `package` mit Provider-Modell + `msi` + Installer-Rezept | **teilweise** — Modul, Provider-Zwang und `configs/windows_packages/acme-widget.json` existieren und das Modul ist am Host geprüft; der **Rezept-Durchlauf von Ende zu Ende fehlt** (HTTP-Bezug + Prüfsumme + Erkennungsregel + zweiter Lauf `changed: false`). Die Artefakte dafür (`acme-widget-setup.bat`, der HTTP-Dienst auf 8099) sind nicht mehr vorhanden |
+| 3 | `package` mit Provider-Modell + `msi` + Installer-Rezept | **fertig** 2026-09-02 — der ganze Rezept-Zyklus am Host bewiesen: Trockenlauf, dann `installed` (`checksum_verified: true`), dann **`changed: false` / „already installed“**, dann `removed`, dann `already absent`. Eine falsche Prüfsumme wird **vor** der Ausführung verweigert, und der Installer läuft nachweislich nicht (Schlüssel vorher gelöscht, danach weiterhin weg). Die Fixture liegt jetzt **im Repo** (`configs/windows_packages/fixtures/`), damit der Nachweis wiederholbar ist. Drei Fehler kamen dabei heraus — siehe §8a |
 | 4 | `windows_capability` (DISM) | **fertig** 2026-08-27 |
 | 5 | Die Snapins (IIS → DHCP → DNS → SMB → Tasks → Firewall) | **fertig** 2026-08-28, als MMC-Konsole mit 19 Snapins — **außer** dem Anlegen eines *aktiven* DHCP-Scopes, das bewusst offen bleibt (Wirkung auf ein echtes Netzsegment) |
 | 6 | Die generierten Wrapper | **ersetzt** 2026-08-28 durch das gemeinsame Skelett `DeclarativeModule`; drei Module darauf. Die älteren Schreibmodule sind **noch nicht migriert** — je eines, jedes mit erneuter Host-Verifikation |
-| 7 | MSI-Paketierung + Dienst-Registrierung | **fertig** — 7a Dienst 2026-08-27, 7b MSI gebaut und mit allen sieben Prüfungen am Host verifiziert 2026-08-28. Offen ist nur ein **Windows-CI-Runner** |
+| 7 | MSI-Paketierung + Dienst-Registrierung | **fertig** — 7a Dienst 2026-08-27, 7b MSI 2026-08-28. Am 2026-09-02 zweimal als **Upgrade** bewiesen (0.2.0 → 0.2.1 → 0.2.2): je ein Produkt, ein Dienst, `/healthz` mit der neuen Version, Konfiguration und Statusverzeichnis erhalten. Der geteilte Build (Ernten dort, wo Python ist; `wix build` dort, wo die Dateien sind) ist jetzt ein **unterstützter Weg** statt Handarbeit: `build-msi.py --file-list … --wxs-only`. Offen: ein **Windows-CI-Runner** — und ein Upgrade bewahrt die Konfiguration nur, wenn der Aufrufer sie **wiederholt** (§8a) |
 | 8 | Deklarierte Registry-Ressource + GP-Konfliktbericht | **fertig** 2026-08-27 |
 | 9 | Das Ergebnisprotokoll (abrufbar + KI-analysierbar) | **fertig** 2026-08-27, alle drei Schichten |
 
 Der Ereignisprotokoll-Tab für den Menschen ist Teil des Logs-Screens (er liest auf Windows das Ereignisprotokoll
 und auf Linux journald, durch **einen** Endpunkt und **eine** Eintragsform) — siehe `CHANGELOG.md`.
+
+### 8a. Was der Ende-zu-Ende-Nachweis von Meilenstein 3 gefunden hat (2026-09-02)
+
+Vier Fehler, keiner davon aus dem Code ersichtlich — jeder erst beim echten Durchlauf gegen
+`bossman-wintest` sichtbar. Sie stehen hier, weil sie zusammen die Antwort auf „warum reicht ein
+Trockenlauf nicht" sind: der Trockenlauf war die ganze Zeit grün.
+
+1. **Der Installer-Abruf ging durch den Firmenproxy und bekam 503.** Der Host trägt
+   `HTTP_PROXY=http://proxy.ippen.media:80` **und** die passende Ausnahmeliste
+   `NO_PROXY=…,10.32.0.0/16`. Der Abruf von `http://10.32.28.130:8099/…` — mitten in genau diesem
+   Bereich — lief trotzdem über den Proxy. Ursache: **.NET liest keinen CIDR-Eintrag in `NO_PROXY`**,
+   es vergleicht Namenssuffixe; ein CIDR wird dabei als Zeichenkette gegen den Hostnamen geprüft,
+   passt nie, und die Anfrage wird proxiert. `curl.exe` auf demselben Host, dieselbe Umgebung,
+   dieselbe URL: **200** (curl versteht CIDR seit 7.86). Die Ausnahmeliste war richtig, der Client
+   konnte sie nicht lesen. Behoben in `AgenticMcp.Agent.Core/ProxyPolicy.cs` — sie ehrt `NO_PROXY`
+   **treu** (Suffixe wie bisher, CIDR für IP-Literale, Loopback) und erfindet **keine** eigene Regel:
+   wer einen Proxy für eine interne Adresse will, soll ihn bekommen. Fünf Unit-Tests, die genau den
+   gemessenen Fall festnageln.
+
+2. **Ein interner Fehler kam ohne Grund beim Aufrufer an.** Der Agent protokollierte
+   `HttpRequestException … 503` korrekt in seinem Ergebnisprotokoll und antwortete dem Aufrufer mit
+   einem **leeren 500** — Bossman meldete `tool 'package' returned 500: ` und nichts weiter. Die
+   Diagnose brauchte eine zweite Abfrage gegen ein Protokoll, das ein Aufrufer möglicherweise nicht
+   lesen darf. In derselben Datei stand die Regel längst, nur für Verweigerungen: *„a host that says
+   no must have its reason carried to whoever asked."* Sie gilt jetzt auch für unsere eigenen Fehler.
+
+3. **Installations- und Deinstallations-Schalter waren ein Feld.** Das Rezept trägt `/S` für die
+   stille Installation; beim Entfernen hängte das Modul dieselben `/S` an die **UninstallString des
+   Produkts** — `reg delete <key> /f /S` — und Windows antwortete „FEHLER: Ungültige Syntax". Derselbe
+   Aufruf ohne Argumente entfernte das Paket sauber. §5b hatte `install.args` und `uninstall.args`
+   von Anfang an getrennt; das Modul hatte sie zu einem Feld verflacht. Jetzt gibt es
+   `uninstall_arguments`, und `arguments` wirkt nur noch in die Installationsrichtung.
+
+4. **Ein MSI-Upgrade bewahrt die Konfiguration nur, wenn der Aufrufer sie wiederholt.** Die
+   Eigenschaften (`AGENT_NAME`, `AGENT_TOKEN`, `AGENT_LISTEN`, `AGENT_ADDRESS`, `BOSSMAN_URL`,
+   `AGENT_WRITE`) werden bei jeder Installation in die Dienst-Umgebung geschrieben. Ein Upgrade ohne
+   sie schreibt die Vorgabewerte — **Token weg, `AGENT_WRITE=false`, Port zurück auf 8051** — und der
+   Agent wäre still unkonfiguriert. Für dieses Upgrade wurden die Werte auf dem Host gelesen und
+   wieder mitgegeben (der Token verlässt den Host dabei nicht). **Das ist noch keine Lösung, sondern
+   ein benannter Fallstrick:** ein MSI, das die vorhandenen Werte selbst liest, braucht entweder eine
+   zweite Registry-Ablage (ein Geheimnis mehr am zweiten Ort) oder eine benutzerdefinierte Aktion, die
+   die Mehrfach-Zeichenkette **mischt** statt sie zu ersetzen. Welche der beiden es wird, ist eine
+   Entscheidung über den Aufbewahrungsort eines Geheimnisses — die gehört dem Betreiber, nicht diesem
+   Dokument. Bis dahin gilt: **jedes Upgrade wiederholt alle Eigenschaften**, und
+   `packaging/verify-msi.ps1` sollte das prüfen, damit das Paket seine eigene Abnahme nicht bestehen
+   kann, während es die Konfiguration verliert.
+
+**Wie der Nachweis wiederholt wird** (das war der eigentliche Grund, dass Meilenstein 3 offen blieb —
+die Artefakte waren weg):
+
+```bash
+cd configs/windows_packages/fixtures && python3 -m http.server 8099 --bind <diese-Maschine>
+# dann das Rezept Feld für Feld an das Modul geben (source_url/source_sha256/arguments/
+# success_codes/detect*/uninstall_arguments) und zweimal mit state=present aufrufen.
+```
+
+Die Fixture liegt im Repo, ihre Prüfsumme steht im Rezept, und das Rezept nennt beides — damit ist der
+Nachweis nicht mehr von einer Datei in `/tmp` abhängig, die es beim nächsten Nachfragen nicht mehr gibt.
 
 1. **`windows_feature`** — observe / plan (`-WhatIf`, all 15) / apply / drift, with `install_state` and
    `restart_needed` as the three- and three-valued states they are. Verifiable on `bossman-wintest`:
