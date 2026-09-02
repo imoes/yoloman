@@ -299,6 +299,25 @@ closed enumeration this project spent a week learning to recognise in prose.
 
 ## 8. Milestones
 
+**Stand am 2026-09-02.** Acht von neun sind erledigt und am echten Host bewiesen; einer ist offen, und einer
+hat eine Lücke im Nachweis. Diese Tabelle steht hier, weil man sonst neun Absätze lesen muss, um zu wissen,
+was noch fehlt — und ein Meilenstein, dessen Zustand man erst herleiten muss, gilt leicht als fertig.
+
+| # | Gegenstand | Stand |
+|---|---|---|
+| 1 | `windows_feature` (observe/plan/apply/drift) | **fertig** — 265 Features, Windows' sieben eigene Install-States; je Modul am Host geprüft (anlegen → gleicher Aufruf → entfernen) |
+| 2 | `families.windows` im Paketkatalog | **fertig** 2026-08-27 |
+| 3 | `package` mit Provider-Modell + `msi` + Installer-Rezept | **teilweise** — Modul, Provider-Zwang und `configs/windows_packages/acme-widget.json` existieren und das Modul ist am Host geprüft; der **Rezept-Durchlauf von Ende zu Ende fehlt** (HTTP-Bezug + Prüfsumme + Erkennungsregel + zweiter Lauf `changed: false`). Die Artefakte dafür (`acme-widget-setup.bat`, der HTTP-Dienst auf 8099) sind nicht mehr vorhanden |
+| 4 | `windows_capability` (DISM) | **fertig** 2026-08-27 |
+| 5 | Die Snapins (IIS → DHCP → DNS → SMB → Tasks → Firewall) | **fertig** 2026-08-28, als MMC-Konsole mit 19 Snapins — **außer** dem Anlegen eines *aktiven* DHCP-Scopes, das bewusst offen bleibt (Wirkung auf ein echtes Netzsegment) |
+| 6 | Die generierten Wrapper | **ersetzt** 2026-08-28 durch das gemeinsame Skelett `DeclarativeModule`; drei Module darauf. Die älteren Schreibmodule sind **noch nicht migriert** — je eines, jedes mit erneuter Host-Verifikation |
+| 7 | MSI-Paketierung + Dienst-Registrierung | **fertig** — 7a Dienst 2026-08-27, 7b MSI gebaut und mit allen sieben Prüfungen am Host verifiziert 2026-08-28. Offen ist nur ein **Windows-CI-Runner** |
+| 8 | Deklarierte Registry-Ressource + GP-Konfliktbericht | **fertig** 2026-08-27 |
+| 9 | Das Ergebnisprotokoll (abrufbar + KI-analysierbar) | **fertig** 2026-08-27, alle drei Schichten |
+
+Der Ereignisprotokoll-Tab für den Menschen ist Teil des Logs-Screens (er liest auf Windows das Ereignisprotokoll
+und auf Linux journald, durch **einen** Endpunkt und **eine** Eintragsform) — siehe `CHANGELOG.md`.
+
 1. **`windows_feature`** — observe / plan (`-WhatIf`, all 15) / apply / drift, with `install_state` and
    `restart_needed` as the three- and three-valued states they are. Verifiable on `bossman-wintest`:
    install IIS, read the plan first, see `awaiting-restart` if it says Maybe.
@@ -419,8 +438,18 @@ closed enumeration this project spent a week learning to recognise in prose.
    dashes (both scripts carry a BOM and say why), and `Invoke-RestMethod` under 5.1 could not reach the local
    agent at all while curl from another machine got 200 — so the installer's health probe uses curl.exe from
    system32 and, where that is absent, says "port only" instead of claiming a health check happened.
-   **7b, the MSI: authored, and blocked on a Windows build host — measured, not assumed.** `packaging/
-   agent.wxs` and `packaging/build-msi.py` are complete: the package installs the service with its
+   **7b, the MSI: DONE 2026-08-28 — built and verified on the host.** The paragraph that stood here said
+   "authored, and blocked on a Windows build host", and that was true when it was written. What unblocked it
+   was making the test host into a build host **through the agent itself**: the corporate proxy configured
+   with the `environment` module (machine-wide variables) plus `netsh winhttp` for services, then the .NET
+   SDK and WiX 5.0.2 installed over it. `packaging/verify-msi.ps1` then passed **all seven checks** on the
+   host — silent install; service Running **and** `/healthz` answering 0.2.0 (two different claims); the
+   entry in Programs and Features with the built version; a second install that upgrades in place with one
+   product and one service; an uninstall that removes service, binaries and entry; and a state directory that
+   survives it. The host now runs the MSI-installed agent. Evidence: `CHANGELOG.md`.
+
+   What remains is a **Windows CI runner** — not the package. `packaging/agent.wxs` and
+   `packaging/build-msi.py` are complete: the package installs the service with its
    configuration passed on the msiexec command line (into the SERVICE's own environment, never machine-wide),
    creates the state directory and LEAVES IT on uninstall (dropping it would turn "reinstall" into
    "re-enrol"), upgrades in place rather than beside, and refuses to install on anything older than Server
@@ -434,8 +463,8 @@ closed enumeration this project spent a week learning to recognise in prose.
    is read by a server and an AI, where a German exception inside an English record is harder to act on, not
    easier.
 
-   What is missing is a Windows build step. `wix` runs on Linux and says "all behavior after this point is
-   undefined", and it means it: three attempts failed on the tool's own path validation, each inconsistently —
+   Why a Windows host is needed at all, measured rather than assumed: `wix` runs on Linux and says "all
+   behavior after this point is undefined", and it means it: three attempts failed on the tool's own path validation, each inconsistently —
    File/@Source rejected the backslashes WiX exists for; Component/@Subdirectory rejected 20 of ~40 values
    while accepting others of identical shape; Directory/@Name rejected every name containing a dot
    (`Microsoft.PowerShell.Host`) while accepting `net9.0`. Shipping installers from a toolchain that declares
