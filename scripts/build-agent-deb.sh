@@ -47,10 +47,14 @@ python3 scripts/stage-agent-templates.py
 # nfpm resolves the config's relative src paths (../agentic-mcpd, ../configs/…)
 # against the CWD, so run it from packaging/. Output to absolute paths. We build
 # BOTH a .deb (Debian/Ubuntu) and a .rpm (RHEL/Fedora/SUSE) from the one config.
+# nfpm stamps the build machine's hostname into every RPM header (BUILDHOST). Measured 2026-10-19: every public
+# RPM up to 0.57.73 carried this machine's internal FQDN. RPMs are therefore built in an unprivileged UTS namespace
+# with a neutral name (no root needed); RPM_BUILDHOST overrides it.
+rpm_nfpm() { unshare --uts --map-root-user sh -c 'hostname "$0" && exec nfpm "$@"' "${RPM_BUILDHOST:-build.example.internal}" "$@"; }
 DEB="${ROOT}/deploy-artifacts/yoloman-agent_${VERSION}_amd64.deb"
 RPM="${ROOT}/deploy-artifacts/yoloman-agent_${VERSION}_amd64.rpm"
 ( cd packaging && nfpm package -f nfpm.yaml -p deb -t "${DEB}" )
-( cd packaging && nfpm package -f nfpm.yaml -p rpm -t "${RPM}" )
+( cd packaging && rpm_nfpm package -f nfpm.yaml -p rpm -t "${RPM}" )
 cp -f "${DEB}" "${ROOT}/deploy-artifacts/agent.deb"
 cp -f "${RPM}" "${ROOT}/deploy-artifacts/agent.rpm"
 

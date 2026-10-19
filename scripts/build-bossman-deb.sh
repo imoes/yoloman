@@ -117,6 +117,10 @@ RPM="$ROOT/deploy-artifacts/yoloman-bossman_${VERSION}_amd64.rpm"
 # The resolved config, written beside the staging tree. nfpm expands ${VERSION} itself but not the paths in
 # `contents.src`, so those are substituted here — with python rather than envsubst, which is not installed
 # everywhere and would silently eat every other $ in the file.
+# nfpm stamps the build machine's hostname into every RPM header (BUILDHOST). Measured 2026-10-19: every public
+# RPM up to 0.57.73 carried this machine's internal FQDN. RPMs are therefore built in an unprivileged UTS namespace
+# with a neutral name (no root needed); RPM_BUILDHOST overrides it.
+rpm_nfpm() { unshare --uts --map-root-user sh -c 'hostname "$0" && exec nfpm "$@"' "${RPM_BUILDHOST:-build.example.internal}" "$@"; }
 NFPM="$ROOT/deploy-artifacts/bossman-nfpm.yaml"
 STAGE="$STAGE" PKGDIR="$ROOT/packaging/bossman" python3 - "$ROOT/packaging/bossman/nfpm.yaml" "$NFPM" <<'PY'
 import os, sys
@@ -127,7 +131,7 @@ for key in ("STAGE", "PKGDIR"):
 open(dst, "w").write(text)
 PY
 nfpm package -f "$NFPM" -p deb -t "$DEB"
-nfpm package -f "$NFPM" -p rpm -t "$RPM"
+rpm_nfpm package -f "$NFPM" -p rpm -t "$RPM"
 cp "$DEB" "$ROOT/deploy-artifacts/bossman.deb"
 cp "$RPM" "$ROOT/deploy-artifacts/bossman.rpm"
 
