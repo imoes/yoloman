@@ -8,6 +8,7 @@ import {
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OuService } from '../../core/services/ou.service';
+import { downloadCsv } from '../../shared/csv';
 
 /** Software compliance (gap #9): declare required/forbidden packages per
  * host/group/OU/fleet; hosts that drift out of policy are flagged and alerted. */
@@ -22,7 +23,12 @@ import { OuService } from '../../core/services/ou.service';
           <h1>Software compliance</h1>
           <p class="bm-dim">Declare the packages that MUST and MUST NOT be installed on a scope. Hosts that drift out of policy are flagged and raise a notification. Version constraints: <code>openssl&gt;=3.0</code>, <code>log4j&lt;2.17</code>, <code>docker==24.0.7</code>.</p>
         </div>
-        <button mat-flat-button color="primary" (click)="startNew()"><mat-icon>add</mat-icon> New rule</button>
+        <div class="bm-head-btns">
+          <span class="bm-why" [attr.title]="hasResults() ? null : 'Evaluate a rule first — there is nothing to export yet'">
+            <button mat-stroked-button (click)="exportCsv()" [disabled]="!hasResults()"><mat-icon>download</mat-icon> Export CSV</button>
+          </span>
+          <button mat-flat-button color="primary" (click)="startNew()"><mat-icon>add</mat-icon> New rule</button>
+        </div>
       </div>
 
       @if (editing()) {
@@ -106,6 +112,7 @@ import { OuService } from '../../core/services/ou.service';
     .bm-page { padding: 24px; max-width: 1100px; margin: 0 auto; }
     .bm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
     .bm-head h1 { margin: 0; }
+    .bm-head-btns { display: flex; gap: 8px; }
     .bm-dim { opacity: 0.62; font-size: 13px; }
     .bm-card { border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px;
       background: var(--mat-sys-surface-container-low, rgba(127,127,127,0.04)); }
@@ -189,6 +196,22 @@ export class ComplianceComponent implements OnInit {
     return `${r.scope_type}: ${all.find((t) => t.id === id)?.name ?? id.slice(0, 8)}`;
   }
   violText(h: ComplianceResult): string { return h.violations.map((v) => v.detail).join('; '); }
+
+  /** Whether any rule has evaluated results to export. */
+  hasResults(): boolean { return Object.values(this.results()).some((rows) => rows.length > 0); }
+
+  /** Every rule's per-host drift, flattened to one CSV — the compliance report (gap #5 slice). */
+  exportCsv(): void {
+    const byId = new Map(this.rules().map((r) => [r.id, r]));
+    const rows = Object.entries(this.results()).flatMap(([ruleId, res]) =>
+      res.map((h) => {
+        const r = byId.get(ruleId);
+        return [r?.name ?? ruleId, r?.severity ?? '', r ? this.scopeLabel(r) : '', h.host_name, h.status,
+                h.status === 'OK' ? '' : this.violText(h), h.evaluated_at];
+      }));
+    downloadCsv('compliance.csv',
+      ['rule', 'severity', 'scope', 'host', 'status', 'violations', 'evaluated_at'], rows);
+  }
 
   startNew(): void { this.draft = this.blank(); this.requiredText = ''; this.forbiddenText = ''; this.formError.set(''); this.editing.set(true); }
   edit(r: ComplianceRule): void {

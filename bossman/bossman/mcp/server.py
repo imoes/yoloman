@@ -789,6 +789,53 @@ def build_mcp_server(
             return {"host": host, "items": [diag.row_dict(r, with_document=False) for r in rows]}
 
     @mcp.tool()
+    async def recent_diagnoses_fleet(status: str = "", contract_status: str = "", platform: str = "",
+                                     q: str = "", limit: int = 50) -> dict[str, Any]:
+        """Stored diagnoses across the WHOLE fleet, newest first, without the documents — the fleet-wide view, so a
+        diagnosis is findable without naming a host. Each item: host, when, service, status, leading rule + certainty,
+        summary, contract_status. Filters: status (running/failed/behind/…), contract_status (ok/violation — to find
+        documents that did not hold), platform, q (substring on host/service/rule). Use it to scan "what is wrong
+        across the fleet right now" or to find recurring problems; GET the id's document for one in full."""
+        from bossman.services import diagnosis as diag
+        async with session_factory() as session:
+            rows = await diag.recent_all(session, limit=max(1, min(limit, 500)), status=status,
+                                         contract_status=contract_status, platform=platform, q=q)
+            return {"items": [diag.row_dict(r, with_document=False) for r in rows]}
+
+    @mcp.tool()
+    async def recurring_failures(limit: int = 20, within_days: int = 0) -> dict[str, Any]:
+        """WHAT KEEPS BREAKING across the fleet? Stored diagnoses grouped by failure mode (leading rule), most frequent
+        first — each: rule, how many times diagnosed, on how many distinct hosts, how many documents did not hold, and
+        when last seen. The pattern a root cause hides behind: a rule high on both count AND hosts is a fleet-wide
+        cause worth fixing once. `within_days` limits to recent history (0 = all). Follow a rule into the detail with
+        recent_diagnoses_fleet(q=<rule>)."""
+        from datetime import datetime, timedelta, timezone
+        from bossman.services import diagnosis as diag
+        since = datetime.now(timezone.utc) - timedelta(days=within_days) if within_days > 0 else None
+        async with session_factory() as session:
+            return {"items": await diag.recurring(session, limit=max(1, min(limit, 200)), since=since)}
+
+    @mcp.tool()
+    async def recent_incidents(host: str, kind: str = "", image: str = "", within_minutes: int = 0,
+                               limit: int = 200) -> dict[str, Any]:
+        """WHAT CRASHED OR GOT OOM-KILLED ON A HOST, AND WHEN? A live read of the host's incident ring — the same
+        history a diagnosis cites as svc.recent_incident (Linux: eBPF OOM kills and fatal signals; Windows: the ETW
+        incident ring), newest first, for a timeline. Each incident: kind (oom-kill, fatal-signal, process-exit,
+        image-crash, exception), time, pid, image, detail, source and the stable evidence_id. Nothing is stored:
+        read `ring_state` (available | not_supported:<reason>), `capacity`, `persistent` and `since` — the ring is
+        bounded and (on Linux) in-memory, so an empty list after a restart is a named gap, NOT "no crashes".
+        Filters: kind, image, within_minutes (last N minutes, 0 = all the ring holds), limit (default 200)."""
+        from bossman.services import diagnosis as diag
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            client = client_factory(agent, settings)
+            try:
+                return await diag.recent_incidents(agent, client, kind=kind, image=image,
+                                                   within_minutes=within_minutes, limit=limit)
+            except diag.DiagnosisUnavailable as exc:
+                raise ValueError(str(exc)) from exc
+
+    @mcp.tool()
     async def export_diagnosis(id: str, format: str) -> dict[str, Any]:
         """A stored diagnosis (the `id` diagnose_service returned) in another tool's format: `checkmk`, `gelf`,
         `ansible`, `dsc` or `powershell`. The last three carry the remedies as `apply` and their `rollback`; what a
@@ -870,26 +917,21 @@ def build_mcp_server(
 
     @mcp.tool()
     async def create_patch_ring(name: str, scope_type: str, accept_list: list[str] | None = None,
-                                category_names: list[str] | None = None, reboot: str = "never",
-                                agent: str = "", host_group: str = "", dry_run: bool = True) -> dict[str, Any]:
+                                category_names: list[str] | None = None, reject_list: list[str] | None = None,
+                                state: str = "installed", reboot: str = "never", agent: str = "", host_group: str = "",
+                                ou: str = "", strategy: list | None = None, dry_run: bool = True) -> dict[str, Any]:
         """Plan a Windows patch ring: install updates across the fleet in ordered waves (canary → rings) with a health
-        gate, as a staged rollout whose action is windows_update. `scope_type` is host|group|global; `agent` names the
-        host for scope_type=host, `host_group` the group. `accept_list` picks exact KBs, else `category_names` (default
-        the security set). Only Windows hosts are kept; others come back in `skipped`. NOTHING installs until the
-        returned rollout is started (start_rollout / the Rollouts UI); dry_run=true (default) only reports what each
-        ring would install. reboot never|if_required."""
-        from bossman.db.models import Agent, HostGroup
+        gate, as a staged rollout whose action is windows_update. `scope_type` is host|group|ou|global; name the host
+        in `agent`, the group in `host_group`, the OU (name or /path) in `ou`. `state` searched|downloaded|installed;
+        `accept_list` picks exact KBs (else `category_names`, default the security set); `reject_list` excludes some;
+        `strategy` is the wave sizes (default [1,"25%","rest"]). Only Windows hosts are kept; others come back in
+        `skipped`. NOTHING installs until the returned rollout is started — call start_rollout(rollout_id); dry_run=true
+        (default) then reports what each ring would install, changing nothing. reboot never|if_required."""
+        from bossman.db.models import Agent, HostGroup, OUNode
         from bossman.services import patch_ring
-        from bossman.services.compiler import affected_agent_ids
-        from bossman.services.rollout import plan_waves
-        from bossman.db.models import DEFAULT_TENANT_ID, Rollout
-        from sqlalchemy import select as _select
-        if scope_type not in ("host", "group", "global"):
-            raise ValueError("scope_type must be host|group|global")
-        if reboot not in ("never", "if_required"):
-            raise ValueError("reboot must be never|if_required")
+        from sqlalchemy import or_, select as _select
         async with session_factory() as session:
-            agent_id = host_group_id = None
+            agent_id = host_group_id = ou_id = None
             if scope_type == "host":
                 a = await session.scalar(_select(Agent).where(Agent.name == agent))
                 if a is None:
@@ -900,25 +942,115 @@ def build_mcp_server(
                 if g is None:
                     raise ValueError(f"no such host group {host_group!r}")
                 host_group_id = g.id
-            candidates = [str(a) for a in await affected_agent_ids(session, scope_type, agent_id=agent_id,
-                                                                   host_group_id=host_group_id, tenant_id=DEFAULT_TENANT_ID)]
-            if not candidates:
-                raise ValueError("scope matched no hosts")
-            windows, skipped = await patch_ring.windows_only(session, candidates)
-            if not windows:
-                raise ValueError(f"scope matched no Windows hosts ({len(skipped)} non-Windows skipped)")
-            runbook_name = await patch_ring.ensure_patch_runbook(session, categories=category_names or [],
-                                                                 accept=accept_list or [], reboot=reboot)
-            r = Rollout(tenant_id=DEFAULT_TENANT_ID, name=name, runbook_name=runbook_name, variables={},
-                        dry_run=dry_run, waves=plan_waves(windows, [1, "25%", "rest"]),
-                        health_gate={"wait_seconds": 300, "max_fail_pct": 0.0}, status="pending",
-                        created_by="ai:" + (current_identity.get() or "mcp"))
-            session.add(r)
+            elif scope_type == "ou":
+                o = await session.scalar(_select(OUNode).where(or_(OUNode.name == ou, OUNode.path == ou)))
+                if o is None:
+                    raise ValueError(f"no such OU {ou!r} (give its name or /path)")
+                ou_id = o.id
+            try:
+                plan = await patch_ring.plan_patch_ring(
+                    session, name=name, state=state, category_names=category_names, accept_list=accept_list,
+                    reject_list=reject_list, reboot=reboot, scope_type=scope_type, agent_id=agent_id,
+                    host_group_id=host_group_id, ou_id=ou_id, strategy=strategy, dry_run=dry_run,
+                    created_by="ai:" + (current_identity.get() or "mcp"))
+            except patch_ring.PatchRingError as exc:
+                raise ValueError(str(exc)) from exc
+            return {"rollout_id": str(plan.rollout.id), "name": plan.rollout.name, "runbook": plan.runbook_name,
+                    "waves": plan.rollout.waves, "windows_hosts": plan.windows_hosts, "skipped": plan.skipped,
+                    "dry_run": dry_run, "next": "start it with start_rollout(rollout_id); nothing installs until then"}
+
+    @mcp.tool()
+    async def start_rollout(rollout_id: str) -> dict[str, Any]:
+        """Start a staged rollout (a patch ring is one) — it runs its waves server-side with the health gate between
+        them; returns immediately. Refused (already running) if it is already going. Poll rollout_status for progress.
+        For a patch ring with dry_run=true this walks the waves reporting what each would install, changing nothing."""
+        import asyncio
+        from bossman.db.models import Rollout
+        from bossman.services.rollout import execute_rollout
+        async with session_factory() as session:
+            try:
+                r = await session.get(Rollout, UUID(rollout_id))
+            except ValueError as exc:
+                raise ValueError(f"not a rollout id: {rollout_id!r}") from exc
+            if r is None:
+                raise ValueError(f"no such rollout {rollout_id!r}")
+            if r.status == "running":
+                raise ValueError("rollout is already running — poll rollout_status")
+            asyncio.create_task(execute_rollout(session_factory, settings, r.id, client_factory))
+            r.status = "running"
             await session.commit()
-            await session.refresh(r)
-            return {"rollout_id": str(r.id), "name": r.name, "runbook": runbook_name, "waves": r.waves,
-                    "windows_hosts": len(windows), "skipped": skipped, "dry_run": dry_run,
-                    "next": "start it with start_rollout or the Rollouts UI; nothing installs until then"}
+            return {"rollout_id": rollout_id, "status": "running", "waves": r.waves,
+                    "next": "poll rollout_status(rollout_id)"}
+
+    @mcp.tool()
+    async def rollout_status(rollout_id: str) -> dict[str, Any]:
+        """A rollout's current state: status (pending|running|paused|done|aborted), its waves, and `progress` — the
+        per-wave results so far (ok/failed counts, the health verdict). Read-only."""
+        from bossman.db.models import Rollout
+        async with session_factory() as session:
+            try:
+                r = await session.get(Rollout, UUID(rollout_id))
+            except ValueError as exc:
+                raise ValueError(f"not a rollout id: {rollout_id!r}") from exc
+            if r is None:
+                raise ValueError(f"no such rollout {rollout_id!r}")
+            return {"rollout_id": rollout_id, "name": r.name, "status": r.status, "dry_run": r.dry_run,
+                    "waves": r.waves, "progress": r.progress}
+
+    @mcp.tool()
+    async def abort_rollout(rollout_id: str) -> dict[str, Any]:
+        """Ask a rollout to stop. It stops at the next wave boundary, not instantly — a wave already in flight finishes
+        (killing it would leave hosts half-applied). Accepted while running/pending/paused; a no-op otherwise."""
+        from bossman.db.models import Rollout
+        async with session_factory() as session:
+            try:
+                r = await session.get(Rollout, UUID(rollout_id))
+            except ValueError as exc:
+                raise ValueError(f"not a rollout id: {rollout_id!r}") from exc
+            if r is None:
+                raise ValueError(f"no such rollout {rollout_id!r}")
+            if r.status in ("running", "pending", "paused"):
+                r.status = "aborted"
+                await session.commit()
+            return {"rollout_id": rollout_id, "status": r.status}
+
+    @mcp.tool()
+    async def pause_rollout(rollout_id: str) -> dict[str, Any]:
+        """Pause a running rollout at the next wave boundary (a wave in flight finishes), keeping its progress; resume
+        continues from the next wave. A no-op unless it is running. Use it to hold a patch ring between rings."""
+        from bossman.db.models import Rollout
+        async with session_factory() as session:
+            try:
+                r = await session.get(Rollout, UUID(rollout_id))
+            except ValueError as exc:
+                raise ValueError(f"not a rollout id: {rollout_id!r}") from exc
+            if r is None:
+                raise ValueError(f"no such rollout {rollout_id!r}")
+            if r.status == "running":
+                r.status = "paused"
+                await session.commit()
+            return {"rollout_id": rollout_id, "status": r.status}
+
+    @mcp.tool()
+    async def resume_rollout(rollout_id: str) -> dict[str, Any]:
+        """Resume a paused rollout from where it stopped — the next wave, earlier waves left untouched. Refused unless
+        it is paused. Returns immediately; the remaining waves run server-side. Poll rollout_status for progress."""
+        import asyncio
+        from bossman.db.models import Rollout
+        from bossman.services.rollout import execute_rollout
+        async with session_factory() as session:
+            try:
+                r = await session.get(Rollout, UUID(rollout_id))
+            except ValueError as exc:
+                raise ValueError(f"not a rollout id: {rollout_id!r}") from exc
+            if r is None:
+                raise ValueError(f"no such rollout {rollout_id!r}")
+            if r.status != "paused":
+                raise ValueError("only a paused rollout can be resumed")
+            asyncio.create_task(execute_rollout(session_factory, settings, r.id, client_factory, resume=True))
+            r.status = "running"
+            await session.commit()
+            return {"rollout_id": rollout_id, "status": "running", "next": "poll rollout_status(rollout_id)"}
 
     @mcp.tool()
     async def man_search(
@@ -1951,6 +2083,59 @@ def build_mcp_server(
             return {"proposed": True, "proposal_id": str(p.id), "status": "pending",
                     "message": "change filed as a proposal — awaiting human approval",
                     "diff": preview}
+
+    @mcp.tool()
+    async def set_config_policy(
+        path: str,
+        values: dict[str, Any],
+        ou: str = "",
+        group: str = "",
+        config_format: str = "keyvalue",
+        separator: str = "",
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
+        """Author a config policy at OU or GROUP scope (K4) — the wide-scope sibling of set_host_config: it converges
+        `path` toward `values` on EVERY host in the scope, like linking a GPO. Name the scope with `ou` (an OU path,
+        e.g. "/Munich") OR `group` (a host-group name) — exactly one. `values` is the desired key→value map (its codec
+        is `config_format`: keyvalue|ini|…; `separator` for keyvalue); a null value enforces a key's absence.
+
+        dry_run=true (default) PREVIEWS — each member host gets a check-mode apply and nothing is persisted; always
+        preview first. An apply (dry_run=false) changes many hosts at once, so it is GOVERNANCE-gated: it proceeds only
+        when the fleet is in YOLO mode; otherwise it is refused (with the preview) and you are told to author it in the
+        Policy console, where a human owns a fleet-wide change. Use the preview to show the blast radius first."""
+        from bossman.api.ou import ConfigPolicyError, author_config_policy
+
+        if bool(ou) == bool(group):
+            raise ValueError("name exactly one scope: `ou` (an OU path) or `group` (a host-group name)")
+        async with session_factory() as session:
+            scope_ou_id = scope_group_id = None
+            if ou:
+                row = await session.scalar(select(OUNode).where(OUNode.path == ou))
+                if row is None:
+                    raise ValueError(f"no OU at path {ou!r}")
+                scope_ou_id = row.id
+            else:
+                row = await session.scalar(select(HostGroup).where(HostGroup.name == group))
+                if row is None:
+                    raise ValueError(f"no host group named {group!r}")
+                scope_group_id = row.id
+
+            # An apply to many hosts is human-gated unless the fleet opted into autonomy (YOLO).
+            if not dry_run and not await is_yolo_mode(session):
+                try:
+                    preview = await author_config_policy(
+                        session, settings, client_factory, scope_ou_id=scope_ou_id, host_group_id=scope_group_id,
+                        path=path, format=config_format, separator=separator, values=values, dry_run=True)
+                except ConfigPolicyError as exc:
+                    raise ValueError(str(exc)) from exc
+                return {"applied": False, "reason": "a fleet-wide config policy is not applied via MCP outside YOLO "
+                        "mode — author it in the Policy console, where a human owns the change", "preview": preview}
+            try:
+                return await author_config_policy(
+                    session, settings, client_factory, scope_ou_id=scope_ou_id, host_group_id=scope_group_id,
+                    path=path, format=config_format, separator=separator, values=values, dry_run=dry_run)
+            except ConfigPolicyError as exc:
+                raise ValueError(str(exc)) from exc
 
     @mcp.tool()
     async def fleet_health() -> dict[str, Any]:

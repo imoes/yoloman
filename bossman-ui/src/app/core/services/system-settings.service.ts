@@ -37,4 +37,16 @@ export class SystemSettingsService {
   setRetention(runRetentionDays: number) {
     return this.http.put<SystemSettings>(`${this.base}/retention`, { run_retention_days: runRetentionDays });
   }
+
+  /** The GELF (Graylog) target the diagnosis export sends to — read-only (set in Bossman's environment). */
+  getGraylog() {
+    return this.http.get<GraylogSettings>(`${this.base}/graylog`);
+  }
+}
+
+export interface GraylogSettings {
+  configured: boolean;
+  host: string;
+  port: number;
+  protocol: string;
 }

@@ -160,6 +160,39 @@ exit code or exception type — never a payload, memory or dump, so it is privac
 the agent's state dir so it survives a reboot; on Linux it is **read-only on the metrics store** — the incidents live
 in the collector's in-memory ring and surface only on demand inside a diagnosis, adding no time-series.
 
+The same ring is also readable on its own, as a timeline rather than only the entries one diagnosis touched:
+`recent_incidents(host, kind, image, within_minutes, limit)` (MCP) and `GET /api/v1/agents/{id}/incidents` ask the
+host's ring **live** — nothing is stored in Bossman — and both agents answer under one contract (Go over the eBPF ring,
+C# over the ETW ring, the same output shape; each incident carries the stable `evidence_id` a diagnosis cites). The
+answer always states `ring_state` (`available` | `not_supported:<reason>`), `capacity`, `persistent` and `since`,
+because the ring is bounded: an empty list after a restart is a named gap, not "nothing ever crashed" — on Windows the
+ring is persistent and survives a reboot, on Linux it is in-memory and `since` is when the agent started capturing. An
+agent too old to have the module is a named refusal, never a silent empty answer.
+
+## Where a diagnosis is found and shared
+
+A diagnosis is reachable the same way from a person's screen and from the AI, because they are the same data behind
+one contract:
+
+- **In the management console (per host).** The Services snap-in answers "Why is it not running?" for a service
+  (the diagnosis panel: findings with their certainty, evidence on demand, the timeline, a remedy as a proposal, and
+  an explanation checked against the evidence). Beside it, **"Past diagnoses…"** lists what has been kept for that host,
+  and **"Recent incidents…"** shows the host's crash/OOM-kill ring (the same history a diagnosis cites). A host whose
+  agent lacks a module greys the action out with the reason, up front.
+- **Across the fleet.** The **Diagnoses board** (`/diagnoses`, admin) lists every host's stored diagnoses newest-first,
+  with a summary (how many not OK, how many in violation, the certainty mix) and filters for status, contract and free
+  text; each row opens the diagnosis at its own **permalink** (`/diagnoses/:id`) — a read-only link you can send or
+  paste into a ticket. The board and the per-host views export to CSV.
+- **Over MCP (so the AI can do the same).** `diagnose_service(host, name)` and `diagnose_updates(host)` ask for a fresh
+  diagnosis; `recent_diagnoses(host)` and `recent_diagnoses_fleet(status, contract_status, q)` read the stored ones
+  (per host, or across the whole fleet — the latter finds documents that did not hold with `contract_status=violation`);
+  `recent_incidents(host)` reads the incident ring; `export_diagnosis(id, format)` and `send_diagnosis_gelf(id)`
+  share one; `propose_remedy(id, finding)` files the fix for a person to approve. The AI never raises a certainty and
+  must cite the evidence — the same honesty the contract enforces.
+- **To other tools.** A diagnosis exports as a Checkmk `<<<local>>>` line, GELF (one message per finding and evidence,
+  sendable to the configured Graylog), Ansible, DSC or PowerShell — the remedies as `apply` + `rollback`, and what a
+  format cannot express named with the reason.
+
 ## Limits, said up front
 
 - Only documented interfaces: the service control manager, the event log, LSA, Authz, WinVerifyTrust on Windows;

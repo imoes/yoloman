@@ -63,6 +63,25 @@ async def _get_or_seed(session: AsyncSession) -> SystemSettings:
     return settings
 
 
+class GraylogOut(BaseModel):
+    """The GELF target the diagnosis export sends to. Read-only here: it is set in Bossman's environment
+    (BOSSMAN_GELF_HOST / _PORT / _PROTOCOL), not the DB — host/port/protocol are not secrets, so they are shown so an
+    operator can see where a "Send to Graylog" goes and whether a target is configured at all."""
+
+    configured: bool
+    host: str
+    port: int
+    protocol: str
+
+
+@router.get("/api/v1/system/graylog", response_model=GraylogOut)
+async def get_graylog(_identity=Depends(get_current_identity)) -> GraylogOut:
+    """Where the diagnosis GELF export is sent. `configured` is false when no BOSSMAN_GELF_HOST is set — then the
+    "Send to Graylog" action on a diagnosis is unavailable and says so, rather than failing silently."""
+    s = get_settings()
+    return GraylogOut(configured=bool(s.gelf_host), host=s.gelf_host or "", port=s.gelf_port, protocol=s.gelf_protocol)
+
+
 @router.get("/api/v1/system/yolo-mode", response_model=SystemSettingsOut)
 async def get_yolo_mode(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)

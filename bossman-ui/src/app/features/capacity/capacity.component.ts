@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ForecastService, CapacityRow } from '../../core/services/forecast.service';
+import { downloadCsv, csvSlug } from '../../shared/csv';
 
 /** Capacity planning / trending (gap #3): projects each host's metric (disk by
  * default) forward with a least-squares trend and shows "full in N days",
@@ -32,6 +33,9 @@ import { ForecastService, CapacityRow } from '../../core/services/forecast.servi
         <label>Threshold %<input type="number" [(ngModel)]="threshold" (change)="reload()" /></label>
         <label>Lookback (days)<input type="number" [(ngModel)]="lookback" (change)="reload()" /></label>
         <button mat-stroked-button (click)="reload()"><mat-icon>refresh</mat-icon> Recompute</button>
+        <span class="bm-why" [attr.title]="rows().length ? null : 'Nothing to export yet'">
+          <button mat-stroked-button (click)="exportCsv()" [disabled]="!rows().length"><mat-icon>download</mat-icon> Export CSV</button>
+        </span>
       </div>
 
       @if (summary(); as s) {
@@ -116,5 +120,13 @@ export class CapacityComponent implements OnInit {
   reload(): void {
     this.svc.capacity({ metric: this.metric, threshold: this.threshold, lookback_days: this.lookback })
       .subscribe((r) => this.rows.set(r));
+  }
+
+  /** The current forecast board as CSV — the capacity report (gap #5 slice). */
+  exportCsv(): void {
+    downloadCsv(`capacity-${csvSlug(this.metric)}.csv`,
+      ['host', 'resource', 'status', 'current_pct', 'threshold_pct', 'growth_per_day_pct', 'days_to_threshold', 'eta'],
+      this.rows().map((r) => [r.host, r.label, r.status, r.current, r.threshold, r.slope_per_day,
+                              r.days_to_threshold ?? '', r.eta ?? '']));
   }
 }

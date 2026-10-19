@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import get_current_identity, require_manage_agent
+from bossman.api.auth import get_current_identity, require_admin, require_manage_agent
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import (
@@ -204,6 +204,75 @@ async def list_diagnoses_route(
     return {"agent_id": str(agent.id), "items": [diag.row_dict(r, with_document=False) for r in rows]}
 
 
+@router.get("/api/v1/diagnoses")
+async def list_all_diagnoses_route(
+    status: str = "",
+    contract_status: str = "",
+    platform: str = "",
+    q: str = "",
+    limit: int = 100,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(require_admin),
+) -> dict[str, Any]:
+    """Every host's stored diagnoses, newest first — the fleet-wide board (without the documents; GET
+    /api/v1/diagnoses/{id} has one). Filters: status, contract_status (ok/violation), platform, q (host/service/rule
+    substring). Admin-only, like the fleet-wide audit list; per-host views stay ACL-scoped via the snap-in."""
+    from bossman.services import diagnosis as diag
+
+    rows = await diag.recent_all(session, limit=limit, status=status, contract_status=contract_status,
+                                 platform=platform, q=q)
+    return {"items": [diag.row_dict(r, with_document=False) for r in rows]}
+
+
+@router.get("/api/v1/diagnoses/recurring")
+async def recurring_failures_route(
+    limit: int = 20,
+    within_days: int = 0,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(require_admin),
+) -> dict[str, Any]:
+    """Which failure modes recur across the fleet — stored diagnoses grouped by leading rule, most frequent first:
+    rule, count, distinct hosts, how many did not hold (violations), last seen. "What keeps breaking?". `within_days`
+    limits to recent history (0 = all). Admin-only (fleet-wide), registered before /diagnoses/{id} so it is not read
+    as an id."""
+    from datetime import datetime, timedelta, timezone
+
+    from bossman.services import diagnosis as diag
+
+    since = datetime.now(timezone.utc) - timedelta(days=within_days) if within_days > 0 else None
+    return {"items": await diag.recurring(session, limit=limit, since=since)}
+
+
+@router.get("/api/v1/agents/{agent_id}/incidents")
+async def recent_incidents_route(
+    agent_id: UUID,
+    kind: str = "",
+    image: str = "",
+    within_minutes: int = 0,
+    limit: int = 200,
+    timeout_seconds: int = 0,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """What crashed or got OOM-killed on the host, and when — a LIVE read of the host's incident ring (Linux: eBPF
+    OOM kills and fatal signals; Windows: the ETW ring), the same history a diagnosis cites as svc.recent_incident.
+    Nothing is stored. Read `ring_state` and `since`: the ring is bounded and (on Linux) in-memory, so an empty list
+    after a restart is a named gap, not "no crashes". Read-only on the host."""
+    from bossman.services import diagnosis as diag
+
+    agent = await _agent_with_address(session, agent_id)
+    client = client_factory(agent, settings)
+    if timeout_seconds:
+        client._timeout = timeout_seconds  # noqa: SLF001 — same as call_agent_tool_route
+    try:
+        return await diag.recent_incidents(agent, client, kind=kind, image=image,
+                                           within_minutes=within_minutes, limit=max(1, min(limit, 1000)))
+    except diag.DiagnosisUnavailable as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+
+
 async def _diagnosis_row(session: AsyncSession, identity, row_id: UUID):
     """The stored diagnosis, under the same host ACL as its agent's routes (the agent id comes from the row here,
     not from the path — require_manage_agent reads it from the path)."""
@@ -227,6 +296,44 @@ async def get_diagnosis_route(
     from bossman.services import diagnosis as diag
 
     return diag.row_dict(await _diagnosis_row(session, identity, diagnosis_row_id))
+
+
+@router.get("/api/v1/diagnoses/{diagnosis_row_id}/related")
+async def related_diagnoses_route(
+    diagnosis_row_id: UUID,
+    limit: int = 20,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Other diagnoses of the same failure mode (same leading rule) across the fleet, newest first — the precedent for
+    this one: "is this happening elsewhere, or has it happened before?". Without the documents. A diagnosis with no
+    leading rule has no related set."""
+    from bossman.services import diagnosis as diag
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    rows = await diag.related(session, row, limit)
+    return {"id": str(row.id), "leading_rule": row.leading_rule,
+            "items": [diag.row_dict(r, with_document=False) for r in rows]}
+
+
+@router.get("/api/v1/diagnoses/{diagnosis_row_id}/proposals")
+async def diagnosis_proposals_route(
+    diagnosis_row_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """The remedy proposals filed for this diagnosis, newest first — was a fix proposed, and approved or still pending?
+    Closes the diagnosis→action loop. (Bossman never runs a remedy itself; this records that one was decided.)"""
+    from bossman.services import proposals as proposals_svc
+
+    row = await _diagnosis_row(session, identity, diagnosis_row_id)
+    props = await proposals_svc.for_diagnosis(session, row.id)
+    return {"id": str(row.id), "items": [
+        {"id": str(p.id), "title": p.title, "status": p.status, "requested_by": p.requested_by,
+         "decided_by": p.decided_by, "created_at": p.created_at.isoformat(),
+         "finding": (p.payload or {}).get("finding")}
+        for p in props
+    ]}
 
 
 @router.get("/api/v1/diagnoses/{diagnosis_row_id}/export/{fmt}")

@@ -51,9 +51,25 @@ Belegpflicht. Order-Bereich 2000+ (eindeutig neben den `svc.`-Regeln).
   gespeichert (upd.install_failed führend, target_kind updates), Agent ohne Modul → 501 benannt; 36 Tests grün.
   Live geht mit dem nächsten bossman-Rebuild (das laufende Image kennt das neue Tool noch nicht; der Agent 0.3.30 hat
   `update_diagnose`).
-- [ ] **U4 — Remedy/Export/Erklärung.** Remedy-Arten (Windows: KB installieren / Neustart / `windows_update`; Linux:
-  `apt`/`dnf`, `dpkg --configure -a`, hold lösen) als Vorschlag; Export/Erklärung reuse (funktioniert über jedem
-  Dokument). UI: später mit dem UX-Konzept der Peer-Session.
+- [x] **U4 — Remedy mit Snapshot-Rückweg — ERLEDIGT 2026-10-19** (beide Plattformen). Windows: kein Gast-Snapshot wie
+  LVM/ZFS und KB-Deinstallation nur teilweise umkehrbar → keine Remedy, benannte Lücke, die Fix (Patch-Ringe/
+  `windows_update`) und echten Rückweg (Hypervisor-/VM-Snapshot) nennt (C#-Test). Linux: U4a/b/c (unten).
+- **U4 — Remedy mit Snapshot-Rückweg (Nutzer-Entscheidung 2026-10-19).** Ein Update-Fix ist imperativ (installieren,
+  Neustart) und nicht per before/after umkehrbar — der Rückweg ist ein **Dateisystem-Snapshot** vor dem Update, der bei
+  Problemen zurückgespielt wird. Grundsatz: eine Remedy ist weiter nur ein **Vorschlag + exportiertes Playbook**
+  (Vier-Augen, keine Auto-Ausführung); eine *umkehrbare* Remedy entsteht nur, wenn ein snapshot-fähiges Volume
+  existiert, sonst **benannte Lücke** statt Fake-Rollback.
+  - [x] **U4a — Snapshot-Fähigkeit erkennen (read-only).** Der Linux-Update-Collector liest, ob `/` auf LVM (thin/
+    thick) oder ZFS liegt (findmnt/lsblk/zfs list) und füllt `SnapshotTarget {kind: lvm|zfs|none, id, reason}`. Keine
+    Änderung am Host. Go-Test.
+  - [x] **U4b — Remedy-Daten.** `upd.behind` (und ggf. `upd.install_failed`) tragen eine Remedy: before = Snapshot
+    anlegen (`lvcreate -s` / `zfs snapshot`), action = install, rollback = Snapshot zurückspielen (`lvconvert --merge`
+    + Neustart / `zfs rollback`), verify = Regel feuert nicht mehr. Nur wenn SnapshotTarget ≠ none; sonst keine Remedy
+    + Lücke. Windows: Rückweg = KB-Deinstallation, wo deinstallierbar (sonst keine Remedy + Grund). Schema-Aktionen
+    `install`/`restore` + `snapshot` ergänzen. Go + C#.
+  - [x] **U4c — Export.** Der Ansible/PowerShell/Shell-Export erzeugt das Playbook Snapshot→Update und das
+    Rollback-Playbook (Restore); DSC `not_expressible` mit Grund. Golden-Tests.
+  - Export/Erklärung (GELF/Checkmk/KI) funktionieren schon über jedem Dokument. UI: später mit dem UX-Konzept.
 
 ## Wiederverwendet
 

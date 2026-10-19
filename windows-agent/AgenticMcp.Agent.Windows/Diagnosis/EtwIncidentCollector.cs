@@ -16,12 +16,14 @@ namespace AgenticMcp.Agent.Windows.Diagnosis;
 /// <list type="bullet">
 /// <item>the kernel <b>Process</b> provider — a process that EXITS, with its exit code; an abnormal exit
 ///   (non-zero) is kept, an NTSTATUS failure code (0xC0000005 …) is recorded as an image crash;</item>
-/// <item>the CLR provider's <b>Exception</b> keyword — a managed exception, by type.</item>
+/// <item>the CLR provider's <b>Exception</b> keyword — a managed exception, by type, but ONLY when it is fatal (the
+///   process then dies); handled exceptions are routine noise and are discarded. The <see cref="IncidentCorrelator"/>
+///   makes that call.</item>
 /// </list>
 ///
 /// <para>ONLY metadata is read — pid, image file name, exit code, exception type — never any payload, so nothing of a
-/// process's memory is captured. Normal (zero) exits are dropped on the floor; only the abnormal are kept, and the
-/// ring is bounded, so an always-on session stays cheap.</para>
+/// process's memory is captured. Normal (zero) exits and handled exceptions are dropped on the floor; only abnormal
+/// exits and the exceptions that caused them are kept, and the ring is bounded, so an always-on session stays cheap.</para>
 ///
 /// <para>An ETW real-time session needs SYSTEM / an elevated token, which the agent's service has. If the session
 /// cannot be created (not elevated, on a non-Windows host, or the name is already taken), the collector logs the
@@ -36,6 +38,9 @@ public sealed class EtwIncidentCollector : IDisposable
     private readonly ILogger _log;
     private readonly string? _persistPath;
     private readonly ConcurrentDictionary<int, string> _imageByPid = new();   // pid → short image name, from ProcessStart
+    // Only FATAL exceptions become incidents (user 2026-10-19): an exception is recorded only if its process then dies
+    // abnormally. The correlator holds that cross-event state; it is pure and unit-tested on Linux.
+    private readonly IncidentCorrelator _correlator = new();
     private TraceEventSession? _session;
     private Thread? _thread;
     private Timer? _flush;
@@ -47,11 +52,20 @@ public sealed class EtwIncidentCollector : IDisposable
         _persistPath = persistPath;
     }
 
+    /// <summary>Whether the ETW session is up and consuming — the ring's <c>ring_state</c> for recent_incidents. False
+    /// before <see cref="Start"/>, or when the session could not be created (not elevated, non-Windows).</summary>
+    public bool Running => _session is not null;
+
+    /// <summary>When this collector began capturing (set in <see cref="Start"/>). The persisted ring can hold
+    /// incidents from before this, restored from disk; live capture starts here.</summary>
+    public DateTime StartedAt { get; private set; } = DateTime.UtcNow;
+
     /// <summary>Open the session and start consuming on a dedicated background thread. Safe to call once.</summary>
     public void Start()
     {
         if (!OperatingSystem.IsWindows())
             return;
+        StartedAt = DateTime.UtcNow;   // live capture begins now; the persisted ring may reach further back
         // Seed from the last flush BEFORE the session starts, so a host reboot does not erase the recent history (E2).
         if (_persistPath is not null)
         {
@@ -92,33 +106,30 @@ public sealed class EtwIncidentCollector : IDisposable
         _log.LogInformation("ETW incident ring started (providers: kernel Process, CLR Exception)");
     }
 
-    private void OnProcessStart(ProcessTraceData d) => _imageByPid[d.ProcessID] = ShortImage(d);
+    private void OnProcessStart(ProcessTraceData d)
+    {
+        _imageByPid[d.ProcessID] = ShortImage(d);
+        _correlator.OnProcessStart(d.ProcessID);   // a reused pid starts clean — drop any exception buffered against the old owner
+    }
 
     private void OnProcessStop(ProcessTraceData d)
     {
-        var exit = d.ExitStatus;
         _imageByPid.TryRemove(d.ProcessID, out var known);
-        if (exit == 0)
-            return;   // a clean exit is not an incident
         var image = known ?? ShortImage(d);
-        // An NTSTATUS failure (top two bits set, e.g. 0xC0000005 access violation) means the process was killed by
-        // an exception, not that it chose to exit with that code — record it as a crash.
-        var isCrash = (uint)exit >= 0xC0000000u;
-        var inc = isCrash
-            ? new Incident(IncidentKind.ImageCrash, d.TimeStamp.ToUniversalTime(), d.ProcessID, image,
-                Detail: $"exit status 0x{(uint)exit:X8}")
-            : new Incident(IncidentKind.ProcessExit, d.TimeStamp.ToUniversalTime(), d.ProcessID, image, ExitCode: exit);
-        _ring.Add(inc);
-        _log.LogInformation("incident: {Fact}", inc.Fact());
+        // The correlator decides: an abnormal exit is an incident; a .NET exception is one only if it killed this
+        // process; a clean exit is nothing (and discards any handled exception the process threw).
+        foreach (var inc in _correlator.OnProcessExit(d.ProcessID, d.TimeStamp.ToUniversalTime(), image, d.ExitStatus))
+        {
+            _ring.Add(inc);
+            _log.LogInformation("incident: {Fact}", inc.Fact());
+        }
     }
 
     private void OnException(ExceptionTraceData d)
     {
-        var image = _imageByPid.TryGetValue(d.ProcessID, out var n) ? n : $"pid {d.ProcessID}";
-        var inc = new Incident(IncidentKind.Exception, d.TimeStamp.ToUniversalTime(), d.ProcessID, image,
-            ExceptionType: d.ExceptionType);
-        _ring.Add(inc);
-        _log.LogInformation("incident: {Fact}", inc.Fact());
+        // Buffered, not recorded: the CLR provider fires on every THROW, almost all handled. It becomes an incident
+        // only if this process then dies abnormally (see IncidentCorrelator) — otherwise it is routine noise.
+        _correlator.OnException(d.ProcessID, d.TimeStamp.ToUniversalTime(), d.ExceptionType);
     }
 
     // The kernel event carries the executable's short name (e.g. "probe.exe"); the ring matches an image by its bare

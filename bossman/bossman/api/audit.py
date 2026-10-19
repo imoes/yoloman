@@ -8,7 +8,7 @@ from datetime import datetime
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +67,14 @@ async def list_audit(
     what was *asked of Bossman*, that records what *hosts did*. A request that was accepted and an
     action that worked are two facts, and only the second answers "did that install succeed".
     """
+    rows = (await session.scalars(_audit_query(actor, category, status, q, since).limit(limit))).all()
+    return [AuditOut.of(r) for r in rows]
+
+
+def _audit_query(actor: str | None, category: str | None, status: str | None,
+                 q: str | None, since: datetime | None):
+    """The audit filter, in one place — shared by the list and the CSV export so the two never drift (a row the UI
+    shows but the export omits, or the reverse, would be exactly the kind of disagreement the project's rules forbid)."""
     stmt = select(AuditLog).order_by(AuditLog.at.desc(), AuditLog.id.desc())
     if actor:
         stmt = stmt.where(AuditLog.actor == actor)
@@ -79,8 +87,37 @@ async def list_audit(
     if q:
         like = f"%{q}%"
         stmt = stmt.where(AuditLog.action.ilike(like) | AuditLog.path.ilike(like) | AuditLog.target.ilike(like))
-    rows = (await session.scalars(stmt.limit(limit))).all()
-    return [AuditOut.of(r) for r in rows]
+    return stmt
+
+
+@router.get("/api/v1/audit/export.csv")
+async def export_audit_csv(
+    actor: str | None = Query(None),
+    category: str | None = Query(None),
+    status: str | None = Query(None),
+    q: str | None = Query(None, description="substring match on action/path/target"),
+    since: datetime | None = Query(None),
+    limit: int = Query(100000, le=500000),
+    session: AsyncSession = Depends(get_session),
+    _admin: Identity = Depends(require_admin),
+):
+    """The audit trail as a CSV download — the SAME filters as `GET /api/v1/audit`, but the whole matching set (up to
+    `limit`), not a page, for a compliance export. One row per entry; `detail` is JSON in its cell. Admin-only."""
+    import csv
+    import io
+    import json
+
+    rows = (await session.scalars(_audit_query(actor, category, status, q, since).limit(limit))).all()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["at", "actor", "actor_kind", "action", "category", "method", "path", "target",
+                "status", "status_code", "source_ip", "detail"])
+    for r in rows:
+        w.writerow([r.at.isoformat(), r.actor, r.actor_kind or "", r.action, r.category, r.method or "",
+                    r.path or "", r.target or "", r.status, r.status_code if r.status_code is not None else "",
+                    r.source_ip or "", json.dumps(r.detail or {}, separators=(",", ":"))])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="audit.csv"'})
 
 
 class ExternalScanIn(BaseModel):

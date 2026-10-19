@@ -299,6 +299,55 @@ TOOL_DEFS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "recent_diagnoses_fleet",
+            "description": (
+                "Stored diagnoses across the WHOLE fleet, newest first (no host needed) — what is wrong anywhere "
+                "right now. Filter by status, contract_status (ok|violation — documents that did not hold), or q "
+                "(host/service/rule substring)."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string"},
+                    "contract_status": {"type": "string", "description": "ok or violation"},
+                    "q": {"type": "string", "description": "substring on host, service or rule"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recurring_failures",
+            "description": (
+                "What KEEPS breaking across the fleet — stored diagnoses grouped by failure mode (leading rule), "
+                "most frequent first: rule, count, distinct hosts, how many did not hold, last seen. A rule high on "
+                "both count and hosts is a fleet-wide cause worth fixing once."),
+            "parameters": {
+                "type": "object",
+                "properties": {"within_days": {"type": "integer", "description": "limit to recent history (0 = all)"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recent_incidents",
+            "description": (
+                "A host's recent PAST incidents (crashes, OOM kills, fatal signals) from the agent's incident ring, "
+                "newest first — the transient failures the current state no longer shows. Read-only."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string"},
+                    "within_minutes": {"type": "integer"},
+                },
+                "required": ["host"],
+            },
+        },
+    },
 ]
 
 TOOL_NAMES = {t["function"]["name"] for t in TOOL_DEFS}
@@ -367,6 +416,30 @@ async def execute_tool(
         except diag.DiagnosisUnavailable as exc:
             return {"error": str(exc)}
         return diag.row_dict(row)
+    if name == "recent_diagnoses_fleet":
+        from bossman.services import diagnosis as diag
+        rows = await diag.recent_all(session, limit=50, status=str(args.get("status") or ""),
+                                     contract_status=str(args.get("contract_status") or ""),
+                                     q=str(args.get("q") or ""))
+        return {"items": [diag.row_dict(r, with_document=False) for r in rows]}
+    if name == "recurring_failures":
+        from bossman.services import diagnosis as diag
+        since = None
+        if int(args.get("within_days") or 0) > 0:
+            since = datetime.now(timezone.utc) - timedelta(days=int(args["within_days"]))
+        return {"items": await diag.recurring(session, limit=20, since=since)}
+    if name == "recent_incidents":
+        from bossman.services import diagnosis as diag
+        if settings is None or client_factory is None:
+            return {"error": "host-reaching tools are not available in this chat context"}
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None or not agent.address:
+            return {"error": f"no reachable host {args.get('host')!r}"}
+        try:
+            return await diag.recent_incidents(agent, client_factory(agent, settings),
+                                               within_minutes=int(args.get("within_minutes") or 0))
+        except diag.DiagnosisUnavailable as exc:
+            return {"error": str(exc)}
     if name == "list_hosts":
         agents = (await session.scalars(select(Agent).order_by(Agent.name))).all()
         return {

@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../environments/environment';
-import { RolloutService, Rollout, RolloutInput } from '../../core/services/rollout.service';
+import { RolloutService, Rollout, RolloutInput, PatchRingInput, PatchRingResult } from '../../core/services/rollout.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroupService } from '../../core/services/host-group.service';
 import { OuService } from '../../core/services/ou.service';
@@ -22,7 +22,10 @@ import { OuService } from '../../core/services/ou.service';
           <h1>Rollouts</h1>
           <p class="bm-dim">Run a runbook across the fleet in waves — canary → rings — with a health gate that stops the rollout if a wave goes bad. For patch/reboot nights.</p>
         </div>
-        <button mat-flat-button color="primary" (click)="startNew()"><mat-icon>add</mat-icon> New rollout</button>
+        <div class="bm-head-btns">
+          <button mat-stroked-button (click)="startNewPatchRing()"><mat-icon>security_update_good</mat-icon> New patch ring</button>
+          <button mat-flat-button color="primary" (click)="startNew()"><mat-icon>add</mat-icon> New rollout</button>
+        </div>
       </div>
 
       @if (editing()) {
@@ -80,6 +83,89 @@ import { OuService } from '../../core/services/ou.service';
         </div>
       }
 
+      @if (patchEditing()) {
+        <div class="bm-card bm-form">
+          <h3 class="bm-form-title"><mat-icon>security_update_good</mat-icon> New patch ring (Windows updates)</h3>
+          <p class="bm-dim">A patch ring installs Windows updates across the fleet in ordered waves with a health gate.
+            Only Windows hosts are kept — every other host in the scope is listed as skipped, with the reason. Nothing
+            installs until you start it, and a dry-run shows what each ring would install without changing anything.</p>
+          <div class="bm-row">
+            <label>Name<input [(ngModel)]="pdraft.name" placeholder="October security ring" /></label>
+            <label>Install state
+              <select [(ngModel)]="pdraft.state">
+                <option value="installed">install</option>
+                <option value="downloaded">download only</option>
+                <option value="searched">search only</option>
+              </select>
+            </label>
+            <label>Reboot
+              <select [(ngModel)]="pdraft.reboot">
+                <option value="never">never</option>
+                <option value="if_required">if required</option>
+              </select>
+            </label>
+            <label class="bm-check"><input type="checkbox" [(ngModel)]="pdraft.one_at_a_time" /> One host at a time</label>
+          </div>
+          <div class="bm-row">
+            <label>Categories (comma; empty = Critical + Security + Rollups)
+              <input [(ngModel)]="pcategories" placeholder="SecurityUpdates, CriticalUpdates" /></label>
+            <label>Only these KBs/patterns (accept, comma)<input [(ngModel)]="paccept" placeholder="KB5062553, *Cumulative*" /></label>
+            <label>Exclude (reject, comma)<input [(ngModel)]="preject" placeholder="*Preview*, KB5000000" /></label>
+          </div>
+          <div class="bm-row">
+            <label>Scope
+              <select [(ngModel)]="pdraft.scope_type" (ngModelChange)="onPatchScope()">
+                <option value="global">All hosts</option><option value="group">Host group</option>
+                <option value="ou">OU</option><option value="host">Single host</option>
+              </select>
+            </label>
+            @if (pdraft.scope_type !== 'global') {
+              <label>Target
+                <select [ngModel]="patchTargetId()" (ngModelChange)="setPatchTarget($event)">
+                  <option value="" disabled>— pick —</option>
+                  @for (t of targetsFor(pdraft.scope_type); track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+                </select>
+              </label>
+            }
+            <label>Waves (strategy)<input [(ngModel)]="pstrategyText" placeholder="1, 25%, rest" class="bm-mono" /></label>
+            <label>Health-gate wait (s)<input type="number" [(ngModel)]="pdraft.wait_seconds" /></label>
+          </div>
+          <div class="bm-row">
+            <label class="bm-check"><input type="checkbox" [(ngModel)]="pdraft.dry_run" />
+              Dry-run (preview what each ring would install, change nothing)</label>
+          </div>
+          @if (patchFormError()) { <p class="bm-err">{{ patchFormError() }}</p> }
+          <div class="bm-actions">
+            <button mat-button (click)="patchEditing.set(false)">Cancel</button>
+            <button mat-flat-button color="primary" (click)="createPatchRing()" [disabled]="patchBusy()">
+              {{ patchBusy() ? 'Planning…' : (pdraft.dry_run ? 'Plan (dry-run)' : 'Create patch ring') }}</button>
+          </div>
+        </div>
+      }
+
+      @if (patchPreview(); as pv) {
+        <div class="bm-card bm-preview">
+          <div class="bm-rollout-head">
+            <strong><mat-icon class="bm-inline-ic">fact_check</mat-icon> Patch ring planned: {{ pv.rollout.name }}</strong>
+            <button mat-icon-button (click)="patchPreview.set(null)" title="Dismiss"><mat-icon>close</mat-icon></button>
+          </div>
+          <p class="bm-dim">{{ pv.windows_hosts }} Windows host(s) kept, {{ pv.rollout.waves.length }} wave(s){{ pv.rollout.dry_run ? ' · dry-run — nothing installs' : '' }}. It is <strong>{{ pv.rollout.status }}</strong>; it does nothing until you start it below.</p>
+          <div class="bm-waves">
+            @for (w of pv.rollout.waves; track w.name) {
+              <div class="bm-wave"><div class="bm-wave-name">{{ w.name }} <span class="bm-dim">({{ w.agent_ids.length }})</span></div></div>
+            }
+          </div>
+          @if (pv.skipped.length) {
+            <details class="bm-skipped">
+              <summary>{{ pv.skipped.length }} host(s) skipped (not Windows, or no address) — with the reason</summary>
+              <ul>@for (s of pv.skipped; track s.agent_id) { <li><strong>{{ s.host }}</strong>: {{ s.reason }}</li> }</ul>
+            </details>
+          } @else {
+            <p class="bm-dim">No host was skipped — every host in the scope is a Windows host.</p>
+          }
+        </div>
+      }
+
       @if (actionError()) { <p class="bm-err" role="alert">{{ actionError() }}</p> }
       @for (r of rollouts(); track r.id) {
         <div class="bm-card">
@@ -127,6 +213,13 @@ import { OuService } from '../../core/services/ou.service';
       background: var(--mat-sys-surface); color: inherit; font: inherit; font-size: 13px; }
     .bm-check { flex-direction: row !important; align-items: center; }
     .bm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .bm-head-btns { display: flex; gap: 8px; }
+    .bm-form-title { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 15px; }
+    .bm-preview { border-color: var(--mat-sys-primary); }
+    .bm-inline-ic { vertical-align: middle; font-size: 18px; width: 18px; height: 18px; }
+    .bm-skipped { margin-top: 8px; font-size: 13px; }
+    .bm-skipped summary { cursor: pointer; }
+    .bm-skipped ul { margin: 6px 0 0; }
     .bm-mono { font-family: ui-monospace, monospace; }
     .bm-rollout-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
     .bm-rollout-act { display: flex; align-items: center; gap: 8px; }
@@ -163,6 +256,18 @@ export class RolloutsComponent implements OnInit, OnDestroy {
   strategyText = '1, 25%, rest';
   maxFailPct = 0;
   draft: RolloutInput = this.blank();
+
+  // Patch ring (Windows updates) — a second create form; comma fields are split on submit.
+  patchEditing = signal(false);
+  patchBusy = signal(false);
+  patchFormError = signal('');
+  patchPreview = signal<PatchRingResult | null>(null);
+  pdraft: PatchRingInput = this.blankPatch();
+  pcategories = '';
+  paccept = '';
+  preject = '';
+  pstrategyText = '1, 25%, rest';
+
   private timer?: ReturnType<typeof setInterval>;
 
   ngOnInit(): void {
@@ -178,6 +283,12 @@ export class RolloutsComponent implements OnInit, OnDestroy {
       agent_id: null, host_group_id: null, ou_id: null,
       strategy: [1, '25%', 'rest'], by_ou: false, canary: true, dry_run: true, wait_seconds: 30, max_fail_pct: 0 };
   }
+  private blankPatch(): PatchRingInput {
+    return { name: '', state: 'installed', category_names: [], accept_list: [], reject_list: [], reboot: 'never',
+      scope_type: 'global', agent_id: null, host_group_id: null, ou_id: null,
+      strategy: [1, '25%', 'rest'], by_ou: false, canary: true, one_at_a_time: false, dry_run: true,
+      wait_seconds: 300, max_fail_pct: 0 };
+  }
   private reload(): void { this.svc.list().subscribe((r) => this.rollouts.set(r)); }
   private loadRefs(): void {
     this.monitoring.fleetHosts().subscribe((h) => this.hosts.set(h.map((x) => ({ id: x.id, name: x.name }))));
@@ -187,8 +298,9 @@ export class RolloutsComponent implements OnInit, OnDestroy {
       .subscribe((d) => this.runbooks.set((d.runbooks || []).map((x) => x.name).sort()));
   }
 
-  targets(): { id: string; name: string }[] {
-    return { host: this.hosts(), group: this.groupList(), ou: this.ouList(), global: [] }[this.draft.scope_type] || [];
+  targets(): { id: string; name: string }[] { return this.targetsFor(this.draft.scope_type); }
+  targetsFor(scope: string): { id: string; name: string }[] {
+    return { host: this.hosts(), group: this.groupList(), ou: this.ouList(), global: [] }[scope] || [];
   }
   targetId(): string { return this.draft.agent_id || this.draft.host_group_id || this.draft.ou_id || ''; }
   onScope(): void { this.draft.agent_id = this.draft.host_group_id = this.draft.ou_id = null; if (this.draft.scope_type !== 'ou') this.draft.by_ou = false; }
@@ -200,6 +312,40 @@ export class RolloutsComponent implements OnInit, OnDestroy {
   progressOf(r: Rollout, i: number) { return r.progress[i]; }
 
   startNew(): void { this.draft = this.blank(); this.strategyText = '1, 25%, rest'; this.maxFailPct = 0; this.formError.set(''); this.editing.set(true); }
+
+  // --- patch ring (Windows updates) ---
+  startNewPatchRing(): void {
+    this.pdraft = this.blankPatch(); this.pcategories = ''; this.paccept = ''; this.preject = '';
+    this.pstrategyText = '1, 25%, rest'; this.patchFormError.set(''); this.patchPreview.set(null); this.patchEditing.set(true);
+  }
+  onPatchScope(): void {
+    this.pdraft.agent_id = this.pdraft.host_group_id = this.pdraft.ou_id = null;
+  }
+  patchTargetId(): string { return this.pdraft.agent_id || this.pdraft.host_group_id || this.pdraft.ou_id || ''; }
+  setPatchTarget(id: string): void {
+    this.pdraft.agent_id = this.pdraft.scope_type === 'host' ? id : null;
+    this.pdraft.host_group_id = this.pdraft.scope_type === 'group' ? id : null;
+    this.pdraft.ou_id = this.pdraft.scope_type === 'ou' ? id : null;
+  }
+  private splitList(s: string): string[] { return s.split(',').map((x) => x.trim()).filter(Boolean); }
+
+  createPatchRing(): void {
+    const strat = this.pstrategyText.split(',').map((s) => s.trim()).filter(Boolean)
+      .map((s) => (/^\d+$/.test(s) ? Number(s) : s));
+    const body: PatchRingInput = {
+      ...this.pdraft, strategy: strat,
+      category_names: this.splitList(this.pcategories), accept_list: this.splitList(this.paccept),
+      reject_list: this.splitList(this.preject),
+    };
+    if (!body.name.trim() || (body.scope_type !== 'global' && !this.patchTargetId())) {
+      this.patchFormError.set('Name and a target (unless All hosts) are required.'); return;
+    }
+    this.patchBusy.set(true); this.patchFormError.set('');
+    this.svc.createPatchRing(body).subscribe({
+      next: (res) => { this.patchBusy.set(false); this.patchEditing.set(false); this.patchPreview.set(res); this.reload(); },
+      error: (e: { error?: { detail?: string } }) => { this.patchBusy.set(false); this.patchFormError.set(e?.error?.detail || 'planning failed'); },
+    });
+  }
 
   create(): void {
     const strat = this.strategyText.split(',').map((s) => s.trim()).filter(Boolean)

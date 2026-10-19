@@ -69,24 +69,27 @@ import { DeployVmWizardComponent } from './deploy-vm-wizard.component';
     .vd-page { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
     header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
     h1 { margin: 0 0 4px; }
-    header p { margin: 0; opacity: 0.72; max-width: 80ch; line-height: 1.5; }
+    header p { margin: 0; color: var(--mat-sys-on-surface-variant); max-width: 80ch; line-height: 1.5; }
     .vd-actions { display: flex; gap: 8px; }
     .vd-msg { padding: 8px 12px; border-radius: 6px; }
     .vd-msg--err { background: color-mix(in srgb, var(--bm-red, #d0021b) 14%, transparent); }
-    .vd-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 16px; opacity: 0.75; text-align: center; }
+    .vd-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 16px; color: var(--mat-sys-on-surface-variant); text-align: center; }
     .vd-empty mat-icon { font-size: 40px; width: 40px; height: 40px; }
     .vd-empty p { max-width: 60ch; }
     .vd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .vd-table th { text-align: left; font-weight: 600; opacity: 0.6; padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+    .vd-table th { text-align: left; font-weight: 600; color: var(--mat-sys-on-surface-variant); padding: 6px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .vd-table td { padding: 8px 10px; border-bottom: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
-    .vd-dim { opacity: 0.55; font-size: 12px; margin-top: 2px; }
+    /* Secondary text by a theme token, not opacity: 55 % opacity fell below WCAG 4.5:1 (axe color-contrast). */
+    .vd-dim { color: var(--mat-sys-on-surface-variant); font-size: 12px; margin-top: 2px; }
     .vd-err { color: var(--bm-red, #d0021b); font-size: 12px; margin-top: 2px; max-width: 40ch; }
     .vd-pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
       background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
     .vd-pill[data-s='ok'] { background: color-mix(in srgb, var(--bm-green, #2e7d32) 22%, transparent); }
     .vd-pill[data-s='run'] { background: color-mix(in srgb, var(--mat-sys-primary) 20%, transparent); }
-    .vd-pill[data-s='gone'] { background: none; border: 1px dashed var(--mat-sys-outline-variant); opacity: 0.7; }
-    tr:has(.vd-pill[data-s='gone']) td { opacity: 0.6; }
+    /* A deleted VM's row is marked by the dashed pill and an italic host name — never by fading the text, which
+       broke the contrast of the whole row. */
+    .vd-pill[data-s='gone'] { background: none; border: 1px dashed var(--mat-sys-outline); color: var(--mat-sys-on-surface-variant); }
+    tr:has(.vd-pill[data-s='gone']) td strong { font-style: italic; font-weight: 500; }
     .vd-pill[data-s='bad'] { background: color-mix(in srgb, var(--bm-red, #d0021b) 22%, transparent); }
   `],
 })

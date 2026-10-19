@@ -162,6 +162,14 @@ func run(args []string) error {
 				sd.Incidents = func() []diagnosis.Incident { return server.RecentIncidents(collector, 200) }
 			}
 		}
+		// recent_incidents lists the whole ring for a timeline (peer UX concept #2); same source as the diagnosis.
+		if m, ok := comps.modReg.Get("recent_incidents"); ok {
+			if ri, ok := m.(*modules.RecentIncidents); ok {
+				ri.Source = func() []diagnosis.Incident { return server.RecentIncidents(collector, collector.MaxEvents()) }
+				ri.Available = func() bool { return true }
+				ri.Capacity = collector.MaxEvents()
+			}
+		}
 	}
 
 	acl, err := authz.OpenACL(cfg.ACLPath)

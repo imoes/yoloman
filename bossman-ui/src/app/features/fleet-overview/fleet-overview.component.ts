@@ -16,6 +16,7 @@ import { FleetSummary, ServiceState } from '../../core/models/monitoring.model';
 import { HostResult, MassAssignFacets, ServiceResult } from '../../core/models/search.model';
 import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../shared/components/acknowledge-dialog/acknowledge-dialog.component';
 import { agentHealthStatus } from '../../shared/status.util';
+import { csvSlug, downloadCsv } from '../../shared/csv';
 import { DashboardGridComponent } from './dashboard-grid.component';
 import { FleetSearchComponent } from './fleet-search.component';
 import { StatusPillComponent } from '../../shared/status-pill/status-pill.component';
@@ -722,43 +723,19 @@ export class FleetOverviewComponent implements OnInit {
     return { OK: 'var(--bm-green)', WARN: 'var(--bm-gold)', CRIT: 'var(--bm-red)' }[state] ?? 'var(--bm-unknown)';
   }
 
-  // ── export (CSV download + browser print→PDF) ──
-  private toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
-    const esc = (v: unknown) => {
-      const s = v == null ? '' : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    return [headers, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
-  }
-
-  private download(name: string, text: string): void {
-    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  private slug(): string {
-    return (this.activeQuery() || 'all').replace(/[^a-z0-9]+/gi, '-').slice(0, 40);
-  }
+  // ── export (CSV download + browser print→PDF) ── toCsv/download live in shared/csv.ts (one place).
+  private slug(): string { return csvSlug(this.activeQuery()); }
 
   exportHostsCsv(): void {
-    const csv = this.toCsv(
+    downloadCsv(`hosts-${this.slug()}.csv`,
       ['host', 'state', 'criticality', 'site', 'groups', 'address', 'enrollment', 'last_seen'],
-      this.hostResults().map((h) => [h.name, h.state_rollup, h.criticality, h.site, h.groups.join(' '), h.address, h.enrollment_state, h.last_seen_at]),
-    );
-    this.download(`hosts-${this.slug()}.csv`, csv);
+      this.hostResults().map((h) => [h.name, h.state_rollup, h.criticality, h.site, h.groups.join(' '), h.address, h.enrollment_state, h.last_seen_at]));
   }
 
   exportServicesCsv(): void {
-    const csv = this.toCsv(
+    downloadCsv(`services-${this.slug()}.csv`,
       ['host', 'service', 'state', 'metric', 'criticality', 'site', 'output'],
-      this.serviceResults().map((s) => [s.host, s.name, s.state, s.metric, s.criticality, s.site, s.output]),
-    );
-    this.download(`services-${this.slug()}.csv`, csv);
+      this.serviceResults().map((s) => [s.host, s.name, s.state, s.metric, s.criticality, s.site, s.output]));
   }
 
   /** PDF export via the browser's print dialog (Save as PDF) — a print

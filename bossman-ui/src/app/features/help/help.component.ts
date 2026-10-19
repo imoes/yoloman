@@ -18,12 +18,18 @@ import { environment } from '../../../environments/environment';
         The yolo-man documentation. The AI assistant searches these same docs
         (<code>search_help</code>) to answer questions — ask it in the chat dock too.
       </p>
-      @if (loading()) {
-        <p class="bm-dim">Loading…</p>
-      } @else if (html()) {
-        <article class="bm-md" [innerHTML]="html()"></article>
+      <div class="bm-tabs" role="tablist">
+        <button role="tab" [attr.aria-selected]="tab() === 'help'" [class.bm-tab--on]="tab() === 'help'" (click)="tab.set('help')">Documentation</button>
+        <button role="tab" [attr.aria-selected]="tab() === 'changelog'" [class.bm-tab--on]="tab() === 'changelog'" (click)="showChangelog()">Changelog</button>
+      </div>
+      @if (tab() === 'help') {
+        @if (loading()) { <p class="bm-dim">Loading…</p> }
+        @else if (html()) { <article class="bm-md" [innerHTML]="html()"></article> }
+        @else { <p class="bm-dim">No help content available.</p> }
       } @else {
-        <p class="bm-dim">No help content available.</p>
+        @if (changelogLoading()) { <p class="bm-dim">Loading…</p> }
+        @else if (changelogHtml()) { <article class="bm-md" [innerHTML]="changelogHtml()"></article> }
+        @else { <p class="bm-dim">No changelog available.</p> }
       }
     </div>
   `,
@@ -45,6 +51,10 @@ import { environment } from '../../../environments/environment';
          column. Aspect ratio preserved (no explicit width/height). */
       .bm-md img { max-width: 260px; max-height: 120px; width: auto; height: auto; }
       .bm-md a { color: var(--bm-green); }
+      .bm-tabs { display: flex; gap: 4px; margin: 14px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); }
+      .bm-tabs button { background: none; border: none; color: inherit; font: inherit; padding: 8px 14px; cursor: pointer;
+        border-bottom: 2px solid transparent; opacity: 0.7; }
+      .bm-tabs .bm-tab--on { opacity: 1; font-weight: 600; border-bottom-color: var(--bm-green); }
     `,
   ],
 })
@@ -53,6 +63,10 @@ export class HelpComponent implements OnInit {
   private sanitizer = inject(DomSanitizer);
   html = signal<SafeHtml | null>(null);
   loading = signal(true);
+  tab = signal<'help' | 'changelog'>('help');
+  changelogHtml = signal<SafeHtml | null>(null);
+  changelogLoading = signal(false);
+  private changelogLoaded = false;
 
   ngOnInit(): void {
     this.http.get<{ markdown: string }>(`${environment.apiUrl}/help`).subscribe({
@@ -65,6 +79,22 @@ export class HelpComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  /** The CHANGELOG, fetched once on first view of the tab (what is new/changed/fixed + what is still missing). */
+  showChangelog(): void {
+    this.tab.set('changelog');
+    if (this.changelogLoaded) return;
+    this.changelogLoaded = true;
+    this.changelogLoading.set(true);
+    this.http.get<{ markdown: string }>(`${environment.apiUrl}/help/changelog`).subscribe({
+      next: (r) => {
+        const md = (r.markdown || '').replace(/docs\/assets\//g, 'assets/');
+        this.changelogHtml.set(md ? this.sanitizer.bypassSecurityTrustHtml(marked.parse(md) as string) : null);
+        this.changelogLoading.set(false);
+      },
+      error: () => this.changelogLoading.set(false),
     });
   }
 }

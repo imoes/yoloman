@@ -11,7 +11,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { PlanService } from '../../core/services/plan.service';
 import { EnrollService } from '../../core/services/enroll.service';
 import { ChatService } from '../../core/services/chat.service';
-import { SystemSettingsService } from '../../core/services/system-settings.service';
+import { GraylogSettings, SystemSettingsService } from '../../core/services/system-settings.service';
 import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } from '../../core/models/chat.model';
 import { EnrollInfo } from '../../core/models/enroll.model';
 import { AgentUpdatesComponent } from './agent-updates.component';
@@ -348,6 +348,37 @@ import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reas
         </mat-card-content>
       </mat-card>
 
+      <mat-card class="bm-helm-card">
+        <mat-card-header>
+          <mat-card-title>Graylog (GELF) target</mat-card-title>
+          <mat-card-subtitle>where a diagnosis's "Send to Graylog" goes</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>
+            A diagnosis can be forwarded to Graylog as GELF messages (one per finding and per evidence), each tagged
+            with the diagnosis id as <code>_correlation_id</code>. The target is set in Bossman's environment
+            (<code>BOSSMAN_GELF_HOST</code> / <code>_PORT</code> / <code>_PROTOCOL</code>) and shown here read-only — it
+            is not a secret. When no host is set, the "Send to Graylog" action on a diagnosis is unavailable and says so.
+          </p>
+          @if (graylog(); as g) {
+            @if (g.configured) {
+              <p class="bm-success">
+                <mat-icon class="bm-au-ic">cloud_done</mat-icon>
+                Configured: <strong>{{ g.host }}:{{ g.port }}</strong> over {{ g.protocol.toUpperCase() }}.
+              </p>
+            } @else {
+              <p class="bm-dim">
+                <mat-icon class="bm-au-ic">cloud_off</mat-icon>
+                No GELF target configured — set <code>BOSSMAN_GELF_HOST</code> to enable sending. (The dev stack's
+                <code>graylog</code> compose profile listens on <code>graylog:12201</code>.)
+              </p>
+            }
+          } @else {
+            <p class="bm-dim">Loading…</p>
+          }
+        </mat-card-content>
+      </mat-card>
+
       <!-- Check rules and Host groups live in the OU / Policy view (scoped to
            OUs there); they were removed from Settings to avoid a second,
            unscoped home for the same objects. -->
@@ -532,6 +563,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   netbootSecret = '';
   netbootSet = signal(false);
 
+  // Graylog (GELF) target — read-only, env-based (where a diagnosis's "Send to Graylog" goes).
+  graylog = signal<GraylogSettings | null>(null);
+
   // Event/run history retention (DB-backed SystemSettings.run_retention_days).
   retentionDays = 90;
   retentionBusy = signal(false);
@@ -567,6 +601,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.netbootSet.set(s.netboot_secret_set ?? false);
       this.retentionDays = s.run_retention_days ?? 90;
     });
+    this.systemSettings.getGraylog().subscribe((g) => this.graylog.set(g));
     this.refreshAuth();
   }
 

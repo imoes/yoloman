@@ -613,87 +613,82 @@ class ConfigPolicyIn(BaseModel):
     dry_run: bool = False
 
 
-@router.post("/api/v1/config-policies")
-async def create_config_policy(
-    body: ConfigPolicyIn,
-    session: AsyncSession = Depends(get_session),
-    settings=Depends(get_settings),
-    _identity=Depends(get_current_identity),
-    client_factory=Depends(get_client_factory),
+class ConfigPolicyError(ValueError):
+    """A config policy could not be authored (bad scope/set reference). The REST route maps it to 422; the MCP tool
+    surfaces its message. Raised instead of HTTPException so author_config_policy has no web dependency."""
+
+
+async def author_config_policy(
+    session: AsyncSession, settings, client_factory, *,
+    scope_ou_id: UUID | None = None, host_group_id: UUID | None = None, site_id: UUID | None = None,
+    set_id: UUID | None = None, path: str, type: str = "config", format: str | None = "keyvalue",
+    separator: str | None = None, values: dict | None = None, template: str | None = None,
+    conditions: dict | None = None, dry_run: bool = False,
 ) -> dict:
-    """Create/update a config policy at OU/group scope and converge members
-    (Block K4, authored from the Policy console). No agent context needed — you
-    can define a policy for an OU that has no reachable host yet; it applies
-    when hosts appear/re-sync."""
-    # An entry added to a named Policy (set) inherits the SET's scope, so linking
-    # the set links every entry at once. Resolve the set first and override scope.
-    policy_set = None
-    if body.set_id is not None:
-        policy_set = await session.get(ConfigPolicySet, body.set_id)
+    """Create/update a config policy at OU/group/Site scope and converge its member hosts — the ONE place this
+    authoring happens (Block K4), shared by the REST route and the MCP tool so they cannot drift. Persisting the
+    policy is the authoring act; on a real (non-dry_run) save every reachable member host is converged so it takes
+    effect immediately, like linking a GPO. A dry_run previews (nothing persisted, each member gets a dry-run apply).
+    Raises ConfigPolicyError on a bad scope/set reference."""
+    values = values or {}
+    # An entry added to a named Policy (set) inherits the SET's scope, so linking the set links every entry at once.
+    if set_id is not None:
+        policy_set = await session.get(ConfigPolicySet, set_id)
         if policy_set is None:
-            raise HTTPException(status_code=422, detail=f"no such policy set {body.set_id}")
-        body.scope_ou_id, body.host_group_id, body.site_id = (
-            policy_set.scope_ou_id, policy_set.host_group_id, policy_set.site_id)
-    # Unlinked authoring (GPMC "create a GPO, link it later"): with NO scope the
-    # policy is created inert — it applies to nothing until it is linked (dragged
-    # onto an OU/Site, which rescopes it). This is what "New config policy" does
-    # when no scope is selected, so authoring never demands a target up front.
-    have_scope = any(v is not None for v in (body.scope_ou_id, body.host_group_id, body.site_id))
+            raise ConfigPolicyError(f"no such policy set {set_id}")
+        scope_ou_id, host_group_id, site_id = policy_set.scope_ou_id, policy_set.host_group_id, policy_set.site_id
+    # Unlinked authoring (GPMC "create a GPO, link it later"): with NO scope the policy is created inert — it applies
+    # to nothing until it is linked (dragged onto an OU/Site, which rescopes it).
+    have_scope = any(v is not None for v in (scope_ou_id, host_group_id, site_id))
     if have_scope:
-        scope_kind, scope_id = _resolve_policy_scope(body.scope_ou_id, body.host_group_id, body.site_id)
+        scope_kind, scope_id = _resolve_policy_scope(scope_ou_id, host_group_id, site_id)
         if scope_kind == "ou" and await session.get(OUNode, scope_id) is None:
-            raise HTTPException(status_code=422, detail=f"no such OU {scope_id}")
+            raise ConfigPolicyError(f"no such OU {scope_id}")
         if scope_kind == "group" and await session.get(HostGroup, scope_id) is None:
-            raise HTTPException(status_code=422, detail=f"no such host group {scope_id}")
+            raise ConfigPolicyError(f"no such host group {scope_id}")
         if scope_kind == "site" and await session.get(Site, scope_id) is None:
-            raise HTTPException(status_code=422, detail=f"no such site {scope_id}")
+            raise ConfigPolicyError(f"no such site {scope_id}")
     else:
         scope_kind, scope_id = None, None
 
-    if not body.dry_run:
-        if body.set_id is not None:
+    if not dry_run:
+        if set_id is not None:
             # An entry is unique by (set, path) — an unlinked set has null scope,
             # so scope+path wouldn't disambiguate two sets' /etc/motd entries.
-            q = select(ConfigPolicy).where(ConfigPolicy.set_id == body.set_id, ConfigPolicy.path == body.path)
+            q = select(ConfigPolicy).where(ConfigPolicy.set_id == set_id, ConfigPolicy.path == path)
         elif scope_kind is None:
             # Match an existing unlinked policy for this path (all scope cols null).
             q = select(ConfigPolicy).where(
                 ConfigPolicy.scope_ou_id.is_(None), ConfigPolicy.host_group_id.is_(None),
-                ConfigPolicy.site_id.is_(None), ConfigPolicy.set_id.is_(None), ConfigPolicy.path == body.path)
+                ConfigPolicy.site_id.is_(None), ConfigPolicy.set_id.is_(None), ConfigPolicy.path == path)
         else:
             scope_col = {"ou": ConfigPolicy.scope_ou_id, "group": ConfigPolicy.host_group_id, "site": ConfigPolicy.site_id}[scope_kind]
-            q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == body.path)
+            q = select(ConfigPolicy).where(scope_col == scope_id, ConfigPolicy.path == path)
         pol = await session.scalar(q)
         if pol is None:
-            # DEFAULT_TENANT_ID may be a str or already a UUID depending on
-            # import order (some modules coerce the module attribute) — str()
-            # first so UUID() accepts it either way.
+            # DEFAULT_TENANT_ID may be a str or already a UUID depending on import order — str() first so UUID accepts it.
             pol = ConfigPolicy(
-                tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=body.path, set_id=body.set_id,
+                tenant_id=UUID(str(DEFAULT_TENANT_ID)), path=path, set_id=set_id,
                 scope_ou_id=scope_id if scope_kind == "ou" else None,
                 host_group_id=scope_id if scope_kind == "group" else None,
                 site_id=scope_id if scope_kind == "site" else None,
             )
             session.add(pol)
-        pol.type = body.type
-        pol.config_format = body.format
-        pol.separator = body.separator
-        if body.type == "template_render":
-            pol.values = body.values  # template = whole-file, replace
+        pol.type = type
+        pol.config_format = format
+        pol.separator = separator
+        if type == "template_render":
+            pol.values = values  # template = whole-file, replace
         else:
-            pol.values = _merge_values(pol.values, body.values, body.format)
-        pol.template = body.template
-        # Conditions are whole-object (not per-key merged like values): the caller
-        # sends the file's full condition set. gpedit resends the file's current
-        # conditions on every save, so a value-only edit never drops them.
-        pol.conditions = body.conditions or {}
+            pol.values = _merge_values(pol.values, values, format)
+        pol.template = template
+        # Conditions are whole-object (not per-key merged like values): the caller sends the file's full condition set.
+        pol.conditions = conditions or {}
         pol.updated_at = datetime.now(timezone.utc)
         await session.commit()
 
-    resource = {
-        "type": body.type, "path": body.path, "format": body.format,
-        "separator": body.separator, "values": body.values, "template": body.template,
-    }
+    resource = {"type": type, "path": path, "format": format, "separator": separator,
+                "values": values, "template": template}
     # An unlinked policy has no members to converge — it is inert until linked.
     member_ids = [] if scope_kind is None else await affected_agent_ids(
         session, scope_kind,
@@ -708,16 +703,15 @@ async def create_config_policy(
         if m is None or not m.address:
             skipped.append(str(mid))
             continue
-        # Apply the GPO-RESOLVED resource for this path (host > OU > group,
-        # per key), NOT the raw OU policy — so a host's own setting keeps
-        # overriding the OU policy. On dry_run the policy isn't persisted yet,
-        # so effective_resources can't see it; fall back to the raw preview.
+        # Apply the GPO-RESOLVED resource for this path (host > OU > group, per key), NOT the raw OU policy — so a
+        # host's own setting keeps overriding the OU policy. On dry_run the policy isn't persisted yet, so
+        # effective_resources can't see it; fall back to the raw preview.
         push = resource
-        if not body.dry_run:
+        if not dry_run:
             eff = await effective_resources(session, m)
-            push = next((e["resource"] for e in eff if e["path"] == body.path), resource)
+            push = next((e["resource"] for e in eff if e["path"] == path), resource)
         try:
-            await client_factory(m, settings).state_apply({"resources": [push]}, body.dry_run)
+            await client_factory(m, settings).state_apply({"resources": [push]}, dry_run)
             applied.append(m.name)
         except AgentClientError:
             skipped.append(m.name)
@@ -726,8 +720,30 @@ async def create_config_policy(
         "scope_ou_id": str(scope_id) if scope_kind == "ou" else None,
         "host_group_id": str(scope_id) if scope_kind == "group" else None,
         "site_id": str(scope_id) if scope_kind == "site" else None,
-        "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": body.dry_run,
+        "applied_hosts": applied, "skipped_hosts": skipped, "dry_run": dry_run,
     }
+
+
+@router.post("/api/v1/config-policies")
+async def create_config_policy(
+    body: ConfigPolicyIn,
+    session: AsyncSession = Depends(get_session),
+    settings=Depends(get_settings),
+    _identity=Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict:
+    """Create/update a config policy at OU/group scope and converge members
+    (Block K4, authored from the Policy console). No agent context needed — you
+    can define a policy for an OU that has no reachable host yet; it applies
+    when hosts appear/re-sync."""
+    try:
+        return await author_config_policy(
+            session, settings, client_factory,
+            scope_ou_id=body.scope_ou_id, host_group_id=body.host_group_id, site_id=body.site_id,
+            set_id=body.set_id, path=body.path, type=body.type, format=body.format, separator=body.separator,
+            values=body.values, template=body.template, conditions=body.conditions, dry_run=body.dry_run)
+    except ConfigPolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/api/v1/ou/{ou_id}/members")

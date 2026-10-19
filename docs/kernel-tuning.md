@@ -421,7 +421,9 @@ one of three named states:
 - `off`: no active job, netboot disabled, or the wildcard window has ended.
 
 In full DHCP mode a network install's MAC is bound to the static address its deployment was checked for, so the
-installer gets exactly that address. `GET /api/v1/netboot/config` carries `dhcp_mode`, `dhcp_macs`, `dhcp_hosts`
+installer gets exactly that address. In `off` no dnsmasq runs at all, so nothing listens on the segment (no DHCP 67, no TFTP 69). While a job is
+armed it runs without DNS (`port=0`); clients get `PXE_DNS_SERVER` as their DNS server.
+`GET /api/v1/netboot/config` carries `dhcp_mode`, `dhcp_macs`, `dhcp_hosts`
 (MAC and address) and `dhcp_reason`, and the container logs the reason
 with every change. A MAC that is not exactly `xx:xx:xx:xx:xx:xx` is dropped, which fails closed: nobody is served.
 `set_netboot(enabled)` switches netboot over MCP. It is the same implementation as the WebUI toggle and needs an

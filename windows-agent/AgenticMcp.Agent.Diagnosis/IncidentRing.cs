@@ -21,6 +21,12 @@ public sealed class IncidentRing(int capacity = 1024, TimeSpan? maxAge = null)
 
     public int Count { get { lock (_gate) { Evict(); return _items.Count; } } }
 
+    /// <summary>The ring's bounded capacity — how many incidents it keeps at most before the oldest drops.</summary>
+    public int Capacity => _capacity;
+
+    /// <summary>Nothing older than this is kept, regardless of capacity — the ring's retention horizon.</summary>
+    public TimeSpan MaxAge => _maxAge;
+
     /// <summary>Record one incident. The newest is kept at the back; the oldest drops when over capacity.</summary>
     public void Add(Incident incident)
     {

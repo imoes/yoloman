@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { DiagnosisPanelComponent } from '../diagnosis/diagnosis-panel.component';
+import { IncidentTimelineComponent } from '../diagnosis/incident-timeline.component';
+import { DiagnosisHistoryComponent } from '../diagnosis/diagnosis-history.component';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   MmcService, ConsoleTree, NodeAction, NodeResult, Snapin, SnapinAction, SnapinColumn, ToolSchema,
@@ -25,7 +27,8 @@ import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reas
 @Component({
   selector: 'app-mmc-console',
   standalone: true,
-  imports: [BlockedReasonDirective, DatePipe, FormsModule, MatButtonModule, MatIconModule, DiagnosisPanelComponent],
+  imports: [BlockedReasonDirective, DatePipe, FormsModule, MatButtonModule, MatIconModule, DiagnosisPanelComponent,
+            IncidentTimelineComponent, DiagnosisHistoryComponent],
   template: `
     <div class="bm-mmc">
       <!-- ── Scope pane ─────────────────────────────────────────────── -->
@@ -194,6 +197,16 @@ import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reas
             <app-diagnosis-panel [agentId]="agentId()" [service]="svcName" (closed)="diagnosing.set(null)" />
           }
 
+          @if (showingIncidents()) {
+            <app-incident-timeline [agentId]="agentId()" [host]="tree()?.host ?? 'this host'"
+                                   (closed)="showingIncidents.set(false)" />
+          }
+
+          @if (showingHistory()) {
+            <app-diagnosis-history [agentId]="agentId()" [host]="tree()?.host ?? 'this host'"
+                                   (closed)="showingHistory.set(false)" />
+          }
+
           <div class="bm-table-wrap">
             <table class="bm-table">
               <thead>
@@ -354,6 +367,10 @@ export class MmcConsoleComponent {
   running = signal<string | null>(null);
   /** The service whose diagnosis panel is open (a row action with view: 'diagnosis'), or null. */
   diagnosing = signal<string | null>(null);
+  /** Whether the host's incident timeline is open (a node action with view: 'incidents'). */
+  showingIncidents = signal(false);
+  /** Whether the host's past-diagnoses list is open (a node action with view: 'diagnosis-history'). */
+  showingHistory = signal(false);
   lastResult = signal<string>('');
   /** A SIGNAL, not a field: `visibleRows` is a computed, and a computed cannot see a plain property change —
    * the filter box typed happily and filtered nothing. Caught in the browser, not by the compiler. */
@@ -368,6 +385,8 @@ export class MmcConsoleComponent {
       this.node.set(null);
       this.selected.set(null);
       this.diagnosing.set(null);   // another host: the open diagnosis was about a service on the previous one
+      this.showingIncidents.set(false);   // and the open timeline was the previous host's ring
+      this.showingHistory.set(false);     // and the open history was the previous host's diagnoses
       this.svc.tree(id).subscribe((t) => {
         this.tree.set(t);
         // The first available snap-in opens, so the console is not an empty room on arrival.
@@ -521,6 +540,16 @@ export class MmcConsoleComponent {
   formResult = signal<string>('');
 
   openForm(action: NodeAction): void {
+    if (action.view === 'incidents') {
+      // a read: the timeline asks Bossman's live incident-ring endpoint — nothing is changed, nothing is stored
+      this.showingIncidents.set(true);
+      return;
+    }
+    if (action.view === 'diagnosis-history') {
+      // a read: the list comes from Bossman's stored diagnoses for this host — no host call, nothing changed
+      this.showingHistory.set(true);
+      return;
+    }
     const schema = this.tree()?.schemas?.[action.tool] ?? null;
     const properties = schema?.input_schema?.properties ?? {};
     const required = new Set(schema?.input_schema?.required ?? []);

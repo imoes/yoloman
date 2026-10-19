@@ -13,6 +13,7 @@ import { BulkUpdateResult, CveFilters, CveHost, CveSummary, FeedStatus, FleetCve
 interface PkgCve { cve: string; severity: string; description: string; }
 interface PkgGroup { package: string; severity: string; cves: PkgCve[]; hosts: CveHost[]; }
 import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/components/filter-bar/filter-bar.component';
+import { downloadCsv } from '../../shared/csv';
 
 /** Block 4-D — fleet-wide Security page: which pending package upgrades close
  * which CVEs across the fleet. Summary cards + a filterable table (severity,
@@ -31,6 +32,9 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
           <mat-icon>cloud_download</mat-icon> {{ refreshing() ? 'Refreshing feed…' : 'Refresh CVE feed' }}
         </button>
         <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
+        <span class="bm-why" [attr.title]="cves().length ? null : 'No CVEs to export'">
+          <button mat-stroked-button (click)="exportCsv()" [disabled]="!cves().length"><mat-icon>download</mat-icon> Export CSV</button>
+        </span>
       </header>
 
       @if (feed(); as f) {
@@ -151,7 +155,9 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-cards { display: flex; gap: 12px; flex-wrap: wrap; }
       .bm-scard { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 12px 18px; min-width: 96px; text-align: center; background: var(--mat-sys-surface); }
       .bm-num { font-size: 24px; font-weight: 700; }
-      .bm-lbl { font-size: 11.5px; opacity: 0.65; text-transform: capitalize; }
+      /* The label is muted by colour, not opacity: 65 % opacity compounded with the severity colour of the card
+         ("important" = red/gold mix) and fell below 4.5:1 (axe color-contrast). The number keeps the colour. */
+      .bm-lbl { font-size: 11.5px; color: var(--mat-sys-on-surface-variant); text-transform: capitalize; }
       .bm-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
       .bm-filters select, .bm-filters input { padding: 6px 9px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; background: var(--mat-sys-surface); color: inherit; }
       .bm-filters input { flex: 1; min-width: 180px; }
@@ -289,6 +295,15 @@ export class SecurityComponent {
       next: (r) => { this.cves.set(r.cves); this.loading.set(false); },
       error: (e) => { this.loading.set(false); this.err.set(e?.error?.detail ?? 'failed to load CVEs'); },
     });
+  }
+
+  /** The CVE findings as CSV — one row per (CVE, affected host): the vulnerability report (gap #5 slice). */
+  exportCsv(): void {
+    const rows = this.cves().flatMap((c) =>
+      c.hosts.map((h) => [c.cve, c.severity, c.distro, h.host, h.package, h.current_version, h.fixed_version,
+                          (c.description || '').replace(/\s+/g, ' ').trim()]));
+    downloadCsv('cves.csv',
+      ['cve', 'severity', 'distro', 'host', 'package', 'current_version', 'fixed_version', 'description'], rows);
   }
 
   onFilters(values: FilterValues): void {

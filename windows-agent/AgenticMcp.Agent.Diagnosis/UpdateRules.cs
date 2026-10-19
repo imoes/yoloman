@@ -140,6 +140,13 @@ public static class UpdateRules
                 RuleId = "upd.behind", Certainty = Certainty.Proven, EvidenceIds = [pid, searchId],
                 Claim = $"{s.Host} is behind on updates: {s.Pending.Count} pending" + (security > 0 ? $", {security} of them Critical/Important." : "."),
             }) is null) findings++;
+            // No reversible remedy on Windows: there is no guest snapshot of the system volume like LVM/ZFS, and a KB
+            // uninstall only reverses updates that are uninstallable (a combined SSU+LCU usually is not), so it is not a
+            // complete rollback. Rather than offer a partial/fake rollback, the way back is named as a gap.
+            b.Gap("a complete rollback for the update",
+                "Windows has no guest snapshot of the system volume (unlike LVM/ZFS on Linux) and a KB uninstall reverses "
+                + "only uninstallable updates — install via a patch ring or windows_update; for a real rollback take a "
+                + "hypervisor/VM snapshot of the host first");
         }
         else if (s.SearchComplete && failed is null && !s.RebootRequired)
         {

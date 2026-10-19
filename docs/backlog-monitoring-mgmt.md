@@ -56,7 +56,11 @@ security, topology, MMC console, MCP lifecycle) — build only what's missing.
       `/api/v1/config-sync/status` + `/run` (admin) and a Config-distribution UI.
 
 ## Deferred (remembered)
-- #5 Scheduled/exportable fleet reports (PDF/CSV, emailed SLA/inventory).
+- #5 Scheduled/exportable fleet reports (PDF/CSV, emailed SLA/inventory). **CSV export done**
+  (2026-10-19): one shared `shared/csv.ts` helper; the Fleet Overview, Compliance, Capacity and Security
+  boards download their current table as CSV, and the Audit log exports server-side
+  (`/api/v1/audit/export.csv`, same filters, the whole matching trail). Still deferred: PDF, a schedule,
+  and emailed delivery.
 - #6 Full log analytics (Graylog/Loki index + pattern alerting) — likely its own
   product; today AI reads logs + grep covers the basics.
 - #11 Backup orchestration (fs/DB dump jobs + verify).

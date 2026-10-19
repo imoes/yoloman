@@ -65,6 +65,9 @@ export interface NodeAction {
   prefill?: Record<string, unknown>;
   /** Open the form with the module's own dry-run switched on, so the first click previews. */
   dry_run_first?: boolean;
+  /** Open a view instead of a form — 'incidents': the host's recent crashes/OOM-kills as a live timeline;
+   *  'diagnosis-history': the host's past diagnoses (stored), each linking to its permalink. */
+  view?: 'incidents' | 'diagnosis-history';
 }
 
 /** What a module says it accepts, straight from the agent: the authority on its own parameters. */

@@ -15,11 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import Identity, get_current_identity
 from bossman.api.rollouts import RolloutOut
-from bossman.db.models import DEFAULT_TENANT_ID, Rollout
 from bossman.db.session import get_session
 from bossman.services import patch_ring
-from bossman.services.compiler import affected_agent_ids
-from bossman.services.rollout import plan_waves, plan_waves_by_ou
 
 router = APIRouter()
 
@@ -61,50 +58,15 @@ async def create_patch_ring(body: PatchRingIn, session: AsyncSession = Depends(g
     The scope is expanded now and frozen into waves (a host added to a group later is not pulled into a running ring).
     Only Windows hosts are kept; every other host in the scope is returned in `skipped` with its reason, never silently
     dropped. 422 when no Windows host matched."""
-    if body.state not in ("searched", "downloaded", "installed"):
-        raise HTTPException(422, "state must be searched|downloaded|installed")
-    if body.reboot not in ("never", "if_required"):
-        raise HTTPException(422, "reboot must be never|if_required")
-    if body.scope_type not in ("host", "group", "ou", "global"):
-        raise HTTPException(422, "scope_type must be host|group|ou|global")
-
-    if body.by_ou:
-        if body.scope_type != "ou" or body.ou_id is None:
-            raise HTTPException(422, "by_ou requires scope_type=ou and ou_id")
-        planned = await plan_waves_by_ou(session, body.ou_id, canary=body.canary)
-        candidates = [aid for w in planned for aid in w["agent_ids"]]
-    else:
-        candidates = [str(a) for a in await affected_agent_ids(
-            session, body.scope_type, ou_id=body.ou_id, agent_id=body.agent_id,
-            host_group_id=body.host_group_id, tenant_id=DEFAULT_TENANT_ID)]
-    if not candidates:
-        raise HTTPException(422, "scope matched no hosts")
-
-    windows, skipped = await patch_ring.windows_only(session, candidates)
-    if not windows:
-        raise HTTPException(422, "scope matched no Windows hosts; patch rings install Windows updates "
-                                 f"({len(skipped)} non-Windows host(s) skipped)")
-
-    # Re-plan the waves over the WINDOWS hosts only, so a ring's slices are not thinned by hosts that were dropped.
-    if body.by_ou:
-        waves = [{"name": w["name"], "agent_ids": [a for a in w["agent_ids"] if a in set(windows)]} for w in planned]
-        waves = [w for w in waves if w["agent_ids"]]
-    else:
-        waves = plan_waves(windows, body.strategy)
-    if body.one_at_a_time:
-        waves = [{"name": f"{w['name']} · {aid[:8]}", "agent_ids": [aid]} for w in waves for aid in w["agent_ids"]] or waves
-
-    runbook_name = await patch_ring.ensure_patch_runbook(
-        session, state=body.state, categories=body.category_names, accept=body.accept_list,
-        reject=body.reject_list, reboot=body.reboot)
-
-    r = Rollout(
-        tenant_id=DEFAULT_TENANT_ID, name=body.name, runbook_name=runbook_name, test_runbook_name=None,
-        variables={}, dry_run=body.dry_run, waves=waves,
-        health_gate={"wait_seconds": body.wait_seconds, "max_fail_pct": body.max_fail_pct},
-        status="pending", created_by=identity.name,
-    )
-    session.add(r)
-    await session.commit()
-    await session.refresh(r)
-    return PatchRingOut(rollout=RolloutOut.of(r), runbook_name=runbook_name, windows_hosts=len(windows), skipped=skipped)
+    try:
+        plan = await patch_ring.plan_patch_ring(
+            session, name=body.name, state=body.state, category_names=body.category_names,
+            accept_list=body.accept_list, reject_list=body.reject_list, reboot=body.reboot,
+            scope_type=body.scope_type, agent_id=body.agent_id, host_group_id=body.host_group_id, ou_id=body.ou_id,
+            strategy=body.strategy, by_ou=body.by_ou, canary=body.canary, one_at_a_time=body.one_at_a_time,
+            dry_run=body.dry_run, wait_seconds=body.wait_seconds, max_fail_pct=body.max_fail_pct,
+            created_by=identity.name)
+    except patch_ring.PatchRingError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return PatchRingOut(rollout=RolloutOut.of(plan.rollout), runbook_name=plan.runbook_name,
+                        windows_hosts=plan.windows_hosts, skipped=plan.skipped)

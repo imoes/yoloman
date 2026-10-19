@@ -40,8 +40,11 @@ test('a remedy is proposed by one admin, greyed for them with the reason, approv
   await page.locator('.pr-segbtn', { hasText: /^Pending$/ }).click();
   await page.locator('.pr-row').filter({ hasText: filed.title }).first().click();
   const mine = page.locator('.pr-detail').getByRole('button', { name: /Approve \(does not run it\)/ });
-  await expect(mine).toBeDisabled();
-  await expect(page.locator('.pr-detail .bm-why').first()).toHaveAttribute('title', /four-eyes/);
+  // The bmBlocked directive (tip mode) keeps the button focusable via aria-disabled and puts the reason on the
+  // button's own title (and a .bm-blocked-why--tip span linked by aria-describedby), not on a parent span.
+  await expect(mine).toBeDisabled();                               // Playwright counts aria-disabled
+  await expect(mine).toHaveAttribute('aria-disabled', 'true');
+  await expect(mine).toHaveAttribute('title', /four-eyes/i);
   await expect(page.locator('.pr-detail')).toContainText(`sc.exe config '${SVC}' start= demand`);
 
   // A second admin approves; the result says it was not executed.
@@ -52,7 +55,8 @@ test('a remedy is proposed by one admin, greyed for them with the reason, approv
     await other.locator('.pr-row').filter({ hasText: filed.title }).first().click();
     other.once('dialog', (d) => d.accept());
     await other.locator('.pr-detail').getByRole('button', { name: /Approve \(does not run it\)/ }).click();
-    await expect(other.locator('.pr-detail .pr-badge').first()).toHaveText(/approved/i);
+    // The proposal status is a bm-status-pill now (the .pr-badge is the finding's certainty — "Proven" — in the preview).
+    await expect(other.locator('.pr-detail bm-status-pill').first()).toContainText(/approved/i);
     await expect(other.locator('.pr-detail')).toContainText('"executed": false');
   } finally {
     await ctx.close();
@@ -93,9 +97,16 @@ test('the services snap-in answers "why is it not running?" with evidence, an ex
   await expect(finding.locator('.dg-evrow').first()).toContainText(`scm:config:${SVC}`);
 
   await panel.getByRole('button', { name: 'Explain' }).click();
-  await expect(panel.locator('.dg-xhead').first()).toContainText('Proven: ');
+  await expect(panel.locator('.dg-xhead').first()).toContainText('Proven: ');   // the header is code-written, deterministic
   await expect(panel.locator('.dg-sent').first()).toBeVisible();
-  await expect(panel.locator('.dg-unbacked')).toHaveCount(0);
+  // B11's guarantee is that an unbacked sentence is MARKED with its reason — NOT that the live model never produces
+  // one (that is nondeterministic; asserting zero made this test flaky). So verify the marking mechanism: every
+  // sentence the citation check could not back carries a visible "not backed: …" flag, none is unbacked-but-silent.
+  const unbacked = panel.locator('.dg-sent.dg-unbacked');
+  const n = await unbacked.count();
+  for (let i = 0; i < n; i++) {
+    await expect(unbacked.nth(i).locator('.dg-flag')).toContainText(/not backed/i);
+  }
 
   await finding.getByRole('button', { name: 'powershell' }).click();
   await expect(panel.locator('.dg-export')).toContainText(`sc.exe config '${SVC}' start= demand`);
@@ -103,15 +114,21 @@ test('the services snap-in answers "why is it not running?" with evidence, an ex
   await expect(panel.locator('.dg-ok')).toContainText('approving runs nothing');
 });
 
-test('on an agent without service_diagnose the action is greyed with the reason, before any click', async ({ page }) => {
-  const old = (await ok<any>(api.get('/api/v1/agents'), 'agents'));
-  const list: any[] = Array.isArray(old) ? old : old.agents ?? [];
-  const legacy = list.find((a) => a.name === 'pve1.example.internal');
-  test.skip(!legacy, 'the old Proxmox agent is not enrolled here');
-  const row = (await servicesNode(page, 'pve1.example.internal', 'pveproxy')).first();
-  const button = row.getByRole('button', { name: 'Why is it not running?' });
-  await expect(button).toBeDisabled();
-  await expect(button.locator('xpath=..')).toHaveAttribute('title', /no service_diagnose module/);
+test('an action whose module the host lacks is greyed with the reason, before any click', async ({ page }) => {
+  // pve1 (0.57.93) HAS service_diagnose but NOT the newer recent_incidents module — so the Services snap-in's
+  // "Recent incidents…" node action is the live example of the excluded-middle rule: an impossible action is greyed
+  // UP FRONT with the host's own reason, not offered and then refused with a 501 after the click. (The whole fleet
+  // now ships service_diagnose, so that older gap no longer has a fixture; recent_incidents is the current one.)
+  const all = (await ok<any>(api.get('/api/v1/agents'), 'agents'));
+  const list: any[] = Array.isArray(all) ? all : all.agents ?? [];
+  test.skip(!list.find((a) => a.name === 'pve1.example.internal'), 'the Proxmox agent pve1 is not enrolled here');
+  // Load the Services node (any existing service satisfies the helper; the node action lives in the node header).
+  await servicesNode(page, 'pve1.example.internal', 'pveproxy');
+  const action = page.getByRole('button', { name: /Recent incidents/ });
+  await expect(action).toBeDisabled();                             // Material aria-disabled, kept focusable
+  await expect(action).toHaveAttribute('aria-disabled', 'true');
+  // A stroked node action is inline mode: the reason is rendered in a sibling .bm-blocked-why span, naming the module.
+  await expect(page.locator('.bm-blocked-why').filter({ hasText: /recent_incidents/ }).first()).toBeVisible();
 });
 
 test('the same action answers for a systemd unit on a Linux host', async ({ page }) => {

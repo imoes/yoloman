@@ -43,6 +43,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewJournal(),
 		modules.NewServiceDiagnose(),
 		modules.NewUpdateDiagnose(),
+		modules.NewRecentIncidents(),
 		modules.NewLogFiles(),
 		modules.NewStorageFacts(),
 		modules.NewVirtFacts(),

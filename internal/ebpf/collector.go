@@ -716,6 +716,9 @@ func (c *Collector) appendSignal(e SignalEvent) {
 	}
 }
 
+// MaxEvents is the bounded in-memory history size per signal (the ring capacity).
+func (c *Collector) MaxEvents() int { return c.maxEvents }
+
 // RecentOOMKills returns up to limit recent OOM-kill victims (newest last).
 func (c *Collector) RecentOOMKills(limit int) []OOMKillEvent {
 	c.mu.Lock()

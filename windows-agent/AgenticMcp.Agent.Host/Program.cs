@@ -220,6 +220,10 @@ var modules = new ModuleRegistry(writeEnabled)
     // service_diagnose: why a service does not start — the explainable diagnosis (docs/diagnosis.md), read-only,
     // the same contract as the Linux agent's module of the same name.
     .Add(new AgenticMcp.Agent.Windows.Diagnosis.ServiceDiagnoseModule(incidentRing))
+    // recent_incidents: the whole ETW incident ring as a timeline (the same ring service_diagnose looks back on),
+    // read-only; the same contract as the Linux agent's recent_incidents (plan: the peer UX concept #2).
+    .Add(new AgenticMcp.Agent.Modules.RecentIncidentsModule(incidentRing, () => etwIncidents.Running,
+        etwIncidents.StartedAt, persistent: true))
     .Add(new AgenticMcp.Agent.Windows.WindowsUpdateFactsModule())
     .Add(new AgenticMcp.Agent.Windows.WindowsUpdateModule())
     // update_diagnose: why is the host behind / why did an update fail — the explainable diagnosis for the updates
@@ -254,6 +258,9 @@ var modules = new ModuleRegistry(writeEnabled)
     .Add(new UnsupportedModule("service_diagnose",
         "this build reads the service control manager and the event log; on Linux the Go agent's "
         + "`service_diagnose` explains systemd units under the same contract"))
+    .Add(new UnsupportedModule("recent_incidents",
+        "this build has no ETW incident session; on Linux the Go agent's eBPF collector fills the "
+        + "recent_incidents ring under the same contract"))
     .Add(new UnsupportedModule("windows_update_facts",
         "there is no Windows Update Agent on this platform; the package manager's facts are the counterpart"))
     .Add(new UnsupportedModule("windows_update",

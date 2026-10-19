@@ -164,9 +164,28 @@ async def _wave_healthy(session: AsyncSession, wave: dict, baseline: set[str], m
 
 async def execute_rollout(
     session_factory: async_sessionmaker[AsyncSession], settings: Settings, rollout_id, client_factory=None,
+    resume: bool = False,
 ) -> None:
-    """Drive a rollout wave by wave with a health gate. Runs as a background
-    task; persists status/progress as it goes. Aborts (leaving later waves
+    """Drive a rollout to completion as a background task; on an unhandled error set it `failed` (so an executor crash
+    lands as a terminal state, not a rollout stuck `running` forever). `resume` continues a paused rollout from its
+    current wave instead of restarting from the first."""
+    try:
+        await _drive_rollout(session_factory, settings, rollout_id, client_factory, resume)
+    except Exception:  # noqa: BLE001 — any executor error must become a terminal 'failed', never a silent stuck 'running'
+        logger.exception("rollout %s executor failed", rollout_id)
+        async with session_factory() as session:
+            rollout = await session.get(Rollout, rollout_id)
+            if rollout is not None and rollout.status == "running":
+                rollout.status = "failed"
+                rollout.finished_at = datetime.now(timezone.utc)
+                await session.commit()
+
+
+async def _drive_rollout(
+    session_factory: async_sessionmaker[AsyncSession], settings: Settings, rollout_id, client_factory=None,
+    resume: bool = False,
+) -> None:
+    """Drive a rollout wave by wave with a health gate. Aborts (leaving later waves
     untouched) the moment a wave breaches the health gate."""
     if client_factory is None:
         from bossman.services.agent_client import client_for
@@ -181,9 +200,11 @@ async def execute_rollout(
         if rollout is None:
             return
         rollout.status = "running"
-        rollout.started_at = datetime.now(timezone.utc)
-        rollout.progress = []
-        rollout.current_wave = 0
+        if not resume:
+            rollout.started_at = datetime.now(timezone.utc)
+            rollout.progress = []
+            rollout.current_wave = 0
+        resume_from = int(rollout.current_wave or 0) if resume else 0
         waves = list(rollout.waves or [])
         gate = rollout.health_gate or {}
         gate_wait = int(gate.get("wait_seconds", 30))
@@ -192,6 +213,8 @@ async def execute_rollout(
 
     aborted = False
     for i, wave in enumerate(waves):
+        if i < resume_from:
+            continue   # already applied before the pause — do not re-run it
         async with session_factory() as session:
             rollout = await session.get(Rollout, rollout_id)
             if rollout is None or rollout.status in ("aborted", "paused"):

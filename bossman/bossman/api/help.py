@@ -22,6 +22,15 @@ async def get_help(
     return {"markdown": help_svc.read_readme(settings.help_root)}
 
 
+@router.get("/api/v1/help/changelog")
+async def get_changelog(
+    settings: Settings = Depends(get_settings), _identity=Depends(get_current_identity)
+) -> dict[str, Any]:
+    """The CHANGELOG markdown, rendered by the UI's Help page (its "Changelog" tab) — so what is new/changed/fixed
+    and what is still missing is reachable from the web UI, not only the README."""
+    return {"markdown": help_svc.read_changelog(settings.help_root)}
+
+
 @router.get("/api/v1/help/search")
 async def search_help(
     q: str, limit: int = 5, settings: Settings = Depends(get_settings), _identity=Depends(get_current_identity)

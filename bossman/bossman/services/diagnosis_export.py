@@ -137,10 +137,36 @@ def gelf(doc: dict) -> dict[str, Any]:
 
 # --- Ansible -------------------------------------------------------------------------------------------------------
 
+def _cmd_task(name: str, cmd: str) -> dict:
+    """One imperative step as an Ansible task: shell only when the command actually needs a shell (a pipe, `&&`, a
+    redirect), command otherwise — ansible-lint's command-vs-shell rule. changed_when is explicit because these are
+    one-shot operations (snapshot, upgrade, restore), not idempotent state the module can judge."""
+    module = "ansible.builtin.shell" if any(c in cmd for c in "&|;<>") else "ansible.builtin.command"
+    return {"name": name, module: {"cmd": cmd}, "changed_when": True}
+
+
 def _ansible_tasks(doc: dict, f: dict, r: dict, rollback: bool) -> tuple[list[dict], str | None]:
     kind, tid, attr, plat = r["target"]["kind"], r["target"]["id"], r["target"].get("attribute"), doc["platform"]
     rb = r["rollback"]
     tag = f"{f['rule_id']}: {tid}"
+    if kind == "package":
+        # The update remedy (plan U4): snapshot the root volume, then install; the rollback restores the snapshot. The
+        # agent put the exact commands in the remedy (the snapshot, install and restore vary by LVM/ZFS and apt/dnf).
+        rv = rb.get("value") if isinstance(rb.get("value"), dict) else {}
+        if rollback:
+            cmd = (rv or {}).get("command")
+            if not cmd:
+                return [], f"{tag}: the update rollback carries no restore command"
+            return [_cmd_task(f"Roll back the update by restoring the snapshot ({f['rule_id']})", cmd)], None
+        before, after = r.get("before") or {}, r.get("after") or {}
+        tasks: list[dict] = []
+        if before.get("snapshot_command"):
+            tasks.append(_cmd_task(f"Snapshot {before.get('volume')} before updating ({f['rule_id']})", before["snapshot_command"]))
+        if after.get("install_command"):
+            tasks.append(_cmd_task(f"Install the pending updates ({f['rule_id']})", after["install_command"]))
+        if not tasks:
+            return [], f"{tag}: the update remedy carries no commands"
+        return tasks, None
     if kind == "service_start_type" and plat == "windows":
         val = rb["value"] if rollback else r["after"]
         return [{"name": f"Set the start type of {tid} to {val} ({tag})",

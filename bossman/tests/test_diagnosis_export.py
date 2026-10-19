@@ -83,10 +83,10 @@ def test_powershell_removes_the_deny_entry_before_allowing_and_rolls_back_to_the
 
 def test_a_remedy_kind_without_an_exporter_is_named_not_dropped():
     d = golden("windows-dependency")
-    d["findings"][0]["remedy"]["target"]["kind"] = "package"
+    d["findings"][0]["remedy"]["target"]["kind"] = "account_state"   # a kind no exporter maps yet
     for fmt in ("ansible", "powershell", "dsc"):
         out = X.export(d, fmt)
-        assert out["apply"] is None and any("package" in m for m in out["not_expressible"]), fmt
+        assert out["apply"] is None and any("account_state" in m for m in out["not_expressible"]), fmt
 
 
 def test_a_diagnosis_without_remedies_says_so():
@@ -106,3 +106,46 @@ def test_the_ansible_export_passes_ansible_lint(doc, tmp_path):
         r = subprocess.run(["ansible-lint", "--offline", "--nocolor", str(f)], capture_output=True, text=True,
                            cwd=tmp_path, timeout=300)
         assert r.returncode == 0, r.stdout + r.stderr
+
+
+def update_doc_with_snapshot_remedy() -> dict:
+    """A Linux update diagnosis whose upd.behind carries a snapshot-rollback remedy (plan U4)."""
+    return {
+        "schema": "yoloman.diagnosis/v1", "diagnosis_id": "u1", "host": "deb01", "platform": "linux",
+        "target": {"kind": "updates", "name": "deb01", "display_name": None},
+        "collected_at": "2026-10-19T10:00:00Z", "status": "behind",
+        "summary": "deb01 is behind on updates: 3 upgradable.",
+        "evidence": [{"id": "upd:state:deb01", "source": "apt", "observed": None, "fact": "apt reports 3 upgradable.", "raw": {}}],
+        "findings": [{
+            "rule_id": "upd.behind", "claim": "deb01 is behind on updates: 3 upgradable.", "certainty": "Proven",
+            "evidence_ids": ["upd:state:deb01"], "precedent": None, "gap": None,
+            "remedy": {
+                "action": "install", "target": {"kind": "package", "id": "pending updates", "attribute": None},
+                "before": {"snapshot_command": "lvcreate --snapshot --name root-preupdate vg0/root", "volume": "vg0/root", "kind": "lvm"},
+                "after": {"installed": "the pending updates", "install_command": "apt-get -y dist-upgrade"},
+                "rollback": {"action": "restore", "value": {"snapshot": "root-preupdate", "command": "lvconvert --merge vg0/root-preupdate && reboot"}},
+                "verify": {"rule_absent": "upd.behind", "expect": {"status": "up-to-date"}},
+            }}],
+        "timeline": [], "gaps": [],
+    }
+
+
+def test_update_remedy_ansible_snapshot_install_and_restore():
+    out = X.ansible(update_doc_with_snapshot_remedy())
+    assert out["not_expressible"] == []
+    apply = yaml.safe_load(out["apply"])[0]["tasks"]
+    assert len(apply) == 2
+    # the snapshot (no shell metachars → command) then the install
+    assert "ansible.builtin.command" in apply[0] and "lvcreate --snapshot" in apply[0]["ansible.builtin.command"]["cmd"]
+    assert "apt-get -y dist-upgrade" in apply[1]["ansible.builtin.command"]["cmd"]
+    assert all(t.get("changed_when") is True for t in apply)
+    back = yaml.safe_load(out["rollback"])[0]["tasks"]
+    assert len(back) == 1
+    # the restore uses && → shell
+    assert "ansible.builtin.shell" in back[0] and "lvconvert --merge" in back[0]["ansible.builtin.shell"]["cmd"]
+
+
+def test_update_remedy_not_expressible_in_dsc_and_powershell():
+    doc = update_doc_with_snapshot_remedy()
+    assert X.dsc(doc)["apply"] is None and X.dsc(doc)["not_expressible"]
+    assert X.powershell(doc)["apply"] is None and X.powershell(doc)["not_expressible"]

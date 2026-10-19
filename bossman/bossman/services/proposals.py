@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings
@@ -237,3 +238,15 @@ async def reject(session: AsyncSession, proposal_id: UUID, decided_by: str) -> C
     )
     await session.refresh(p)
     return p
+
+
+async def for_diagnosis(session: AsyncSession, diagnosis_row_id) -> list[ChangeProposal]:
+    """The remedy proposals filed FOR a given diagnosis (create_remedy_proposal stamps the diagnosis row id into the
+    payload), newest first — the governance action taken on it: was a fix proposed, and approved or still pending? It
+    closes the diagnosis→action loop; note Bossman never executes a remedy itself (approval attaches the artifacts),
+    so this records that a fix was decided, not that it ran."""
+    stmt = (select(ChangeProposal)
+            .where(ChangeProposal.kind == "remedy",
+                   ChangeProposal.payload["diagnosis_row_id"].astext == str(diagnosis_row_id))
+            .order_by(ChangeProposal.created_at.desc()))
+    return list((await session.scalars(stmt)).all())

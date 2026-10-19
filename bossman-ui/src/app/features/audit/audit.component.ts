@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { AuditService, AuditEntry, AuditStats } from '../../core/services/audit.service';
+import { downloadText } from '../../shared/csv';
 
 /** Audit log (gap #13): a searchable who-did-what-when trail. Rows come from the
  * audit middleware (every authenticated mutation) plus explicit login events. */
@@ -39,6 +40,9 @@ import { AuditService, AuditEntry, AuditStats } from '../../core/services/audit.
         </select>
         <input placeholder="actor" aria-label="Actor" [(ngModel)]="fActor" (keyup.enter)="reload()" />
         <button mat-stroked-button (click)="reload()"><mat-icon>search</mat-icon> Search</button>
+        <span class="bm-why" [attr.title]="exporting() ? 'Exporting…' : null">
+          <button mat-stroked-button (click)="exportCsv()" [disabled]="exporting()"><mat-icon>download</mat-icon> Export CSV</button>
+        </span>
       </div>
 
       <!-- Focusable so a keyboard user can scroll the wide table (WCAG scrollable-region-focusable). -->
@@ -101,12 +105,23 @@ export class AuditComponent implements OnInit {
   fCategory = '';
   fStatus = '';
   fActor = '';
+  exporting = signal(false);
 
   ngOnInit(): void { this.reload(); this.svc.stats().subscribe((s) => this.stats.set(s)); }
 
   reload(): void {
     this.svc.list({ q: this.fq, category: this.fCategory, status: this.fStatus, actor: this.fActor, limit: 200 })
       .subscribe((e) => this.entries.set(e));
+  }
+
+  /** The full filtered trail as CSV — server-generated (the whole matching set, not the 200 shown here), so a
+   *  compliance export is complete. Fetched with the bearer header, then handed to the browser. */
+  exportCsv(): void {
+    this.exporting.set(true);
+    this.svc.exportCsv({ q: this.fq, category: this.fCategory, status: this.fStatus, actor: this.fActor }).subscribe({
+      next: (csv) => { this.exporting.set(false); downloadText('audit.csv', csv); },
+      error: () => this.exporting.set(false),
+    });
   }
   categories(s: AuditStats): [string, number][] {
     return Object.entries(s.by_category).sort((a, b) => b[1] - a[1]);

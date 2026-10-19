@@ -151,6 +151,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/proposals/proposals.component').then((m) => m.ProposalsComponent),
   },
   {
+    // The fleet-wide diagnoses board — every host's stored diagnoses, newest first (admin).
+    path: 'diagnoses',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/diagnosis/diagnoses-board.component').then((m) => m.DiagnosesBoardComponent),
+  },
+  {
+    // A saved diagnosis at its own link (UX concept #3) — sendable, pasteable into a ticket, read-only history.
+    path: 'diagnoses/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/diagnosis/diagnosis-page.component').then((m) => m.DiagnosisPageComponent),
+  },
+  {
     path: 'scheduler',
     canActivate: [authGuard],
     loadComponent: () => import('./features/scheduler/scheduler.component').then((m) => m.SchedulerComponent),

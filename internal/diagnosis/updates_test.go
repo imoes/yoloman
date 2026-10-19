@@ -1,11 +1,83 @@
 package diagnosis
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 )
+
+func fakeRun(byCmd map[string]string) Runner {
+	return func(_ context.Context, name string, _ ...string) ([]byte, error) {
+		if out, ok := byCmd[name]; ok {
+			return []byte(out), nil
+		}
+		return nil, nil
+	}
+}
+
+func TestUpdateRemedyUsesASnapshotRollbackWhenPossible(t *testing.T) {
+	// LVM root → upd.behind carries a remedy whose rollback restores an LVM snapshot.
+	d := diagnoseUpdates(t, updSnap(func(s *UpdateSnapshot) {
+		s.Upgradable = []UpgradablePkg{{Name: "bash"}}
+		s.SnapshotTarget = SnapshotTarget{Kind: "lvm", ID: "vg0/root", Layout: "thick"}
+	}))
+	f := hasRule(d, "upd.behind")
+	if f == nil || f.Remedy == nil {
+		t.Fatalf("behind should carry a remedy on LVM: %+v", f)
+	}
+	if f.Remedy.Action != "install" || f.Remedy.Rollback.Action != "restore" {
+		t.Fatalf("remedy actions: %+v", f.Remedy)
+	}
+	rb, _ := json.Marshal(f.Remedy.Rollback.Value)
+	if !strings.Contains(string(rb), "lvconvert --merge vg0/root-preupdate") {
+		t.Fatalf("rollback should merge the snapshot: %s", rb)
+	}
+
+	// ZFS root → zfs rollback.
+	d = diagnoseUpdates(t, updSnap(func(s *UpdateSnapshot) {
+		s.Upgradable = []UpgradablePkg{{Name: "bash"}}
+		s.SnapshotTarget = SnapshotTarget{Kind: "zfs", ID: "rpool/ROOT/deb"}
+	}))
+	rb, _ = json.Marshal(hasRule(d, "upd.behind").Remedy.Rollback.Value)
+	if !strings.Contains(string(rb), "zfs rollback rpool/ROOT/deb@preupdate") {
+		t.Fatalf("zfs rollback: %s", rb)
+	}
+
+	// No snapshot-capable volume → no remedy, and a named gap instead of a fake rollback.
+	d = diagnoseUpdates(t, updSnap(func(s *UpdateSnapshot) {
+		s.Upgradable = []UpgradablePkg{{Name: "bash"}}
+		s.SnapshotTarget = SnapshotTarget{Kind: "none", Reason: "/ is on /dev/sda1 (ext4), not a snapshot-capable volume"}
+	}))
+	if f := hasRule(d, "upd.behind"); f == nil || f.Remedy != nil {
+		t.Fatalf("no remedy without a snapshot volume: %+v", f)
+	}
+	if len(d.Gaps) == 0 {
+		t.Fatalf("a missing rollback point should be a named gap")
+	}
+}
+
+func TestDetectSnapshotTarget(t *testing.T) {
+	zfs := detectSnapshotTarget(context.Background(), fakeRun(map[string]string{"findmnt": "rpool/ROOT/deb zfs\n"}))
+	if zfs.Kind != "zfs" || zfs.ID != "rpool/ROOT/deb" {
+		t.Fatalf("zfs: %+v", zfs)
+	}
+	thick := detectSnapshotTarget(context.Background(), fakeRun(map[string]string{
+		"findmnt": "/dev/mapper/vg0-root ext4\n", "lvs": "  vg0 root linear\n"}))
+	if thick.Kind != "lvm" || thick.ID != "vg0/root" || thick.Layout != "thick" {
+		t.Fatalf("lvm thick: %+v", thick)
+	}
+	thin := detectSnapshotTarget(context.Background(), fakeRun(map[string]string{
+		"findmnt": "/dev/mapper/vg0-root ext4\n", "lvs": "  vg0 root thin,sparse\n"}))
+	if thin.Layout != "thin" {
+		t.Fatalf("lvm thin: %+v", thin)
+	}
+	plain := detectSnapshotTarget(context.Background(), fakeRun(map[string]string{"findmnt": "/dev/sda1 ext4\n"}))
+	if plain.Kind != "none" || !strings.Contains(plain.Reason, "not a snapshot-capable volume") {
+		t.Fatalf("plain: %+v", plain)
+	}
+}
 
 var u0 = time.Date(2026, 10, 18, 16, 0, 0, 0, time.UTC)
 

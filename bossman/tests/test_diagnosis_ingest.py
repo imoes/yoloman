@@ -215,3 +215,175 @@ async def test_diagnose_updates_names_an_agent_without_the_module(db_session, se
         await _call(mcp, "diagnose_updates", {"host": agent.name})
     await db_session.delete(agent)
     await db_session.commit()
+
+
+class IncidentRingAgent:
+    """Answers recent_incidents with a fixed ring (or refuses as an agent without the module does)."""
+
+    def __init__(self, ring: dict | None = None, missing: bool = False):
+        self.ring, self.missing, self.calls = ring, missing, []
+
+    async def call_tool(self, name, body):
+        self.calls.append((name, body))
+        if self.missing:
+            raise AgentClientError(f"10.0.0.7:8010: tool {name!r} returned 404: unknown tool", status=404)
+        return {"changed": False, "data": self.ring}
+
+
+async def test_recent_incidents_is_a_live_read_passed_through_with_the_host(db_session, session_factory, tmp_path):  # noqa: F811
+    """recent_incidents asks the host's ring live (nothing stored) and returns it with host + agent_version added."""
+    agent = await _make_agent(db_session)
+    ring = {"source": "ebpf-incident-ring", "persistent": False, "since": "2026-10-19T10:00:00Z",
+            "capacity": 1000, "ring_state": "available", "count": 1,
+            "incidents": [{"kind": "oom-kill", "at": "2026-10-19T11:30:00Z", "pid": 42, "image": "/usr/bin/svc-a",
+                           "source": "ebpf", "evidence_id": "incident:oom:42:1760871000"}]}
+    client = IncidentRingAgent(ring)
+    mcp = _mcp(tmp_path, session_factory, client)
+
+    out = await _call(mcp, "recent_incidents", {"host": agent.name, "kind": "oom-kill", "within_minutes": 60})
+    assert client.calls[0] == ("recent_incidents", {"kind": "oom-kill", "within_minutes": 60, "limit": 200})
+    assert out["host"] == agent.name and out["agent_version"] == agent.agent_version
+    assert out["ring_state"] == "available" and out["count"] == 1
+    assert out["incidents"][0]["evidence_id"] == "incident:oom:42:1760871000"
+
+    rows = (await db_session.scalars(select(Diagnosis).where(Diagnosis.agent_id == agent.id))).all()
+    assert rows == []                                         # a live read keeps nothing
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_recent_incidents_names_an_agent_without_the_module(db_session, session_factory, tmp_path):  # noqa: F811
+    agent = await _make_agent(db_session)
+    client = IncidentRingAgent(missing=True)
+    mcp = _mcp(tmp_path, session_factory, client)
+    with pytest.raises(ToolError, match="no recent_incidents module"):
+        await _call(mcp, "recent_incidents", {"host": agent.name})
+    await db_session.delete(agent)
+    await db_session.commit()
+
+
+async def test_recent_diagnoses_fleet_lists_across_hosts_and_filters(db_session, session_factory, tmp_path):  # noqa: F811
+    """recent_diagnoses_fleet scans stored diagnoses across the WHOLE fleet, newest first, and filters by
+    contract_status (to surface documents that did not hold)."""
+    a1 = await _make_agent(db_session)
+    a2 = await _make_agent(db_session)
+    # A clean Linux doc on a1 and a (violating) doc on a2, both stored through the real path.
+    good = golden("linux-203-exec")
+    await _call(_mcp(tmp_path, session_factory, DiagnosingAgent(good)), "diagnose_service",
+                {"host": a1.name, "name": good["target"]["name"]})
+    bad = copy.deepcopy(golden("unknown-gap"))
+    bad["diagnosis_id"] = "fleet-violating-run"
+    bad["findings"][0]["certainty"] = "Proven"                 # svc.unexplained may never be Proven -> violation
+    await _call(_mcp(tmp_path, session_factory, DiagnosingAgent(bad)), "diagnose_service",
+                {"host": a2.name, "name": bad["target"]["name"]})
+
+    mcp = _mcp(tmp_path, session_factory, DiagnosingAgent())
+    # Scope by the unique host name (q matches host/service/rule) so the assertion is robust on the shared DB, which
+    # holds the real fleet's diagnoses too. Both hosts are findable fleet-wide, and the list carries no documents.
+    r1 = await _call(mcp, "recent_diagnoses_fleet", {"q": a1.name})
+    r2 = await _call(mcp, "recent_diagnoses_fleet", {"q": a2.name})
+    assert r1["items"] and all(i["host"] == a1.name for i in r1["items"])
+    assert r2["items"] and all(i["host"] == a2.name for i in r2["items"])
+    assert "diagnosis" not in r1["items"][0]                   # no documents in the list
+
+    # The violating doc on a2 is surfaced by the contract_status filter (scoped to a2 to stay robust on the shared DB).
+    violations = await _call(mcp, "recent_diagnoses_fleet", {"contract_status": "violation", "q": a2.name})
+    assert violations["items"] and all(i["contract_status"] == "violation" for i in violations["items"])
+    assert a2.name in {i["host"] for i in violations["items"]}
+
+    for a in (a1, a2):
+        await db_session.delete(a)
+    await db_session.commit()
+
+
+async def test_related_finds_the_same_failure_mode_across_hosts(db_session, session_factory, tmp_path):  # noqa: F811
+    """diag.related returns other diagnoses with the SAME leading rule (the precedent lens), across hosts, excluding
+    self. A unique rule id keeps the assertion robust on the shared DB."""
+    from sqlalchemy import select as _select
+
+    from bossman.db.models import Diagnosis
+    from bossman.services import diagnosis as diag
+
+    a1 = await _make_agent(db_session)
+    a2 = await _make_agent(db_session)
+    import uuid as _uuid
+    uniq = f"svc.rel-{_uuid.uuid4().hex[:8]}"
+    for a, run in ((a1, "rel-run-1"), (a2, "rel-run-2")):
+        doc = copy.deepcopy(golden("linux-203-exec"))
+        doc["diagnosis_id"] = f"{run}-{uniq}"
+        doc["findings"][0]["rule_id"] = uniq
+        await _call(_mcp(tmp_path, session_factory, DiagnosingAgent(doc)), "diagnose_service",
+                    {"host": a.name, "name": doc["target"]["name"]})
+
+    row1 = await db_session.scalar(_select(Diagnosis).where(Diagnosis.agent_id == a1.id, Diagnosis.leading_rule == uniq))
+    rel = await diag.related(db_session, row1)
+    assert {r.host for r in rel} == {a2.name}                      # the other host's same-failure diagnosis, not self
+    assert all(r.leading_rule == uniq for r in rel)
+
+    # A diagnosis with no leading rule has no failure mode to match.
+    row1.leading_rule = None
+    assert await diag.related(db_session, row1) == []
+
+    for a in (a1, a2):
+        await db_session.delete(a)
+    await db_session.commit()
+
+
+async def test_recurring_groups_by_failure_mode(db_session, session_factory, tmp_path):  # noqa: F811
+    """diag.recurring groups stored diagnoses by leading rule with count + distinct-host + violation counts. A unique
+    rule across two hosts keeps the assertion robust on the shared DB."""
+    import uuid as _uuid
+
+    from bossman.services import diagnosis as diag
+
+    a1 = await _make_agent(db_session)
+    a2 = await _make_agent(db_session)
+    uniq = f"svc.recur-{_uuid.uuid4().hex[:8]}"
+    for a, run in ((a1, "r1"), (a2, "r2")):
+        doc = copy.deepcopy(golden("linux-203-exec"))
+        doc["diagnosis_id"] = f"{run}-{uniq}"
+        doc["findings"][0]["rule_id"] = uniq
+        await _call(_mcp(tmp_path, session_factory, DiagnosingAgent(doc)), "diagnose_service",
+                    {"host": a.name, "name": doc["target"]["name"]})
+
+    rows = await diag.recurring(db_session, limit=200)
+    mine = [r for r in rows if r["rule"] == uniq]
+    assert len(mine) == 1
+    assert mine[0]["count"] == 2 and mine[0]["hosts"] == 2       # two occurrences across two distinct hosts
+    # No leading rule is not a failure mode — such diagnoses never appear here.
+    assert all(r["rule"] is not None for r in rows)
+
+    for a in (a1, a2):
+        await db_session.delete(a)
+    await db_session.commit()
+
+
+async def test_for_diagnosis_links_remedy_proposals(db_session, session_factory, tmp_path):  # noqa: F811
+    """proposals.for_diagnosis finds the remedy proposals stamped with a diagnosis's row id — the diagnosis→action
+    loop. A proposal for a different diagnosis is not returned."""
+    from bossman.db.models import DEFAULT_TENANT_ID, ChangeProposal
+    from bossman.services import proposals as proposals_svc
+
+    agent = await _make_agent(db_session)
+    doc = golden("windows-logon-right")
+    stored = await _call(_mcp(tmp_path, session_factory, DiagnosingAgent(doc)), "diagnose_service",
+                         {"host": agent.name, "name": doc["target"]["name"]})
+    rid = stored["id"]
+
+    p = ChangeProposal(tenant_id=DEFAULT_TENANT_ID, kind="remedy", agent_id=agent.id, host=agent.name,
+                       title="fix it", status="pending", requested_by="ai:test",
+                       payload={"diagnosis_row_id": rid, "finding": 0})
+    other = ChangeProposal(tenant_id=DEFAULT_TENANT_ID, kind="remedy", agent_id=agent.id, host=agent.name,
+                           title="unrelated", status="pending", requested_by="ai:test",
+                           payload={"diagnosis_row_id": "00000000-0000-0000-0000-000000000000", "finding": 0})
+    db_session.add_all([p, other])
+    await db_session.commit()
+
+    import uuid as _uuid
+    found = await proposals_svc.for_diagnosis(db_session, _uuid.UUID(rid))
+    assert [str(x.id) for x in found] == [str(p.id)]            # exactly the one stamped with this diagnosis
+
+    await db_session.delete(p)
+    await db_session.delete(other)
+    await db_session.delete(agent)
+    await db_session.commit()

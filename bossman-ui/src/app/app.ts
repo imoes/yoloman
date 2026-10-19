@@ -99,6 +99,7 @@ const WORKSPACES: Workspace[] = [
     items: [
       { path: '/hosts', label: 'Hosts', icon: 'dns' },
       { path: '/mmc', label: 'Management console', icon: 'account_tree' },
+      { path: '/diagnoses', label: 'Diagnoses', icon: 'troubleshoot', adminOnly: true },
       { path: '/clusters', label: 'Host clusters', icon: 'device_hub' },
       { path: '/kubernetes', label: 'Kubernetes clusters', icon: 'hub' },
       { path: '/fleet-search', label: 'Fleet search', icon: 'search' },

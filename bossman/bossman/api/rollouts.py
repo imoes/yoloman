@@ -200,6 +200,41 @@ async def abort_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_se
     return RolloutOut.of(r)
 
 
+@router.post("/api/v1/rollouts/{rollout_id}/pause", response_model=RolloutOut)
+async def pause_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
+                        _i: Identity = Depends(get_current_identity)):
+    """Pause a running rollout. **It stops at the next wave boundary, not instantly** — a wave in flight finishes — and
+    its progress is kept, so `resume` continues from the next wave rather than re-applying what is done. A no-op unless
+    it is running."""
+    r = await session.get(Rollout, rollout_id)
+    if r is None:
+        raise HTTPException(404, "no such rollout")
+    if r.status == "running":
+        r.status = "paused"
+        await session.commit()
+        await session.refresh(r)
+    return RolloutOut.of(r)
+
+
+@router.post("/api/v1/rollouts/{rollout_id}/resume", response_model=RolloutOut)
+async def resume_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
+                         settings: Settings = Depends(get_settings),
+                         session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
+                         client_factory=Depends(get_client_factory), _i: Identity = Depends(get_current_identity)):
+    """Resume a paused rollout from where it stopped — the next wave, with its earlier waves left untouched. **409
+    unless it is paused.** Returns immediately; the remaining waves run server-side as on start."""
+    r = await session.get(Rollout, rollout_id)
+    if r is None:
+        raise HTTPException(404, "no such rollout")
+    if r.status != "paused":
+        raise HTTPException(409, "only a paused rollout can be resumed")
+    asyncio.create_task(execute_rollout(session_factory, settings, rollout_id, client_factory, resume=True))
+    r.status = "running"
+    await session.commit()
+    await session.refresh(r)
+    return RolloutOut.of(r)
+
+
 @router.delete("/api/v1/rollouts/{rollout_id}", status_code=204)
 async def delete_rollout(rollout_id: UUID, session: AsyncSession = Depends(get_session),
                          _i: Identity = Depends(get_current_identity)):

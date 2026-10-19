@@ -156,8 +156,14 @@ over the MCP protocol against docker-test:
 
 The AI can now diagnose (diagnose_host + get_host_logs) AND correct (set_threshold
 for monitoring policy, set_host_config for config) across signals — the vision's
-core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
-(the REST `/config-policies` exists; only host-scope is wired via MCP so far).
+core loop. ✅ Follow-up DONE (2026-10-19): **`set_config_policy`** authors an
+OU/group-scoped config policy over MCP — the REST route's logic was extracted
+into one shared `author_config_policy` (so REST + MCP cannot drift), and the MCP
+apply is governance-gated (dry-run previews on every member; a real apply, which
+changes many hosts at once, proceeds only under YOLO mode, else is refused with
+the preview and points at the Policy console). Characterization tests for the
+REST route written first as the extraction's safety net; MCP tests cover the
+preview/refuse/bad-scope paths.
 
 ## Kernel tuning (plan in docs/kernel-tuning.md, branch feat/kernel-tuning)
 

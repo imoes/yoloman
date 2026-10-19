@@ -23,7 +23,18 @@ type UpdateSnapshot struct {
 	DpkgInterrupted bool            `json:"dpkg_interrupted"`
 	RepoErrors      []string        `json:"repo_errors"`
 	ManagerError    string          `json:"manager_error"`
-	CollectedAt     time.Time       `json:"collected_at"`
+	// SnapshotTarget is whether / sits on a snapshot-capable volume — the rollback point for an update remedy
+	// (plan U4). When kind is "none" an update install has no way back, so no reversible remedy is offered.
+	SnapshotTarget SnapshotTarget `json:"snapshot_target"`
+	CollectedAt    time.Time      `json:"collected_at"`
+}
+
+// SnapshotTarget is the volume a pre-update snapshot would be taken of, the rollback point for an update remedy.
+type SnapshotTarget struct {
+	Kind   string `json:"kind"`             // lvm | zfs | none
+	ID     string `json:"id,omitempty"`     // vg/lv (lvm) or dataset (zfs)
+	Layout string `json:"layout,omitempty"` // lvm only: thin | thick
+	Reason string `json:"reason,omitempty"` // why none
 }
 
 // UpgradablePkg is one package with an available newer version.
@@ -99,8 +110,17 @@ func DiagnoseUpdates(snap UpdateSnapshot, id, host string) (*Diagnosis, error) {
 		if snap.SecurityCount > 0 {
 			claim += fmt.Sprintf(", %d from the security suite", snap.SecurityCount)
 		}
-		if b.Find(Finding{RuleID: "upd.behind", Certainty: Proven, EvidenceIDs: []string{stateID},
-			Claim: claim + "."}) == nil {
+		f := Finding{RuleID: "upd.behind", Certainty: Proven, EvidenceIDs: []string{stateID}, Claim: claim + "."}
+		// A remedy only when there is a real rollback point — a snapshot of the root volume. Otherwise the fix is
+		// irreversible, so no reversible remedy is offered; the gap names why and points at the usual tooling.
+		if snap.SnapshotTarget.Kind == "lvm" || snap.SnapshotTarget.Kind == "zfs" {
+			f.Remedy = updateRemedy(snap.SnapshotTarget, snap.Manager)
+		} else {
+			b.Gap("a rollback point for the update",
+				orText(snap.SnapshotTarget.Reason, "/ is not on a snapshot-capable volume")+
+					" — install via a patch ring or apt/dnf after taking your own backup")
+		}
+		if b.Find(f) == nil {
 			findings++
 		}
 	} else if snap.ManagerError == "" && len(snap.Held) == 0 {
@@ -134,6 +154,46 @@ func DiagnoseUpdates(snap UpdateSnapshot, id, host string) (*Diagnosis, error) {
 	return b.Build(status)
 }
 
+// updateRemedy proposes installing the pending updates with a snapshot of the root volume as the rollback point (plan
+// U4). It is a PROPOSAL and an exported playbook for a person — the snapshot is taken first, the updates installed, and
+// the rollback restores the snapshot; never auto-run. Only called when the volume is LVM or ZFS.
+func updateRemedy(st SnapshotTarget, manager string) *Remedy {
+	const tag = "preupdate"
+	var snapCmd, restoreCmd, snapName string
+	switch st.Kind {
+	case "lvm":
+		vg, lv := splitVGLV(st.ID)
+		snapName = lv + "-" + tag
+		snapCmd = fmt.Sprintf("lvcreate --snapshot --name %s %s/%s", snapName, vg, lv)
+		restoreCmd = fmt.Sprintf("lvconvert --merge %s/%s && reboot", vg, snapName)
+	case "zfs":
+		snapName = st.ID + "@" + tag
+		snapCmd = fmt.Sprintf("zfs snapshot %s", snapName)
+		restoreCmd = fmt.Sprintf("zfs rollback %s", snapName)
+	}
+	installCmd := "apt-get -y dist-upgrade"
+	if manager == "dnf" {
+		installCmd = "dnf -y upgrade"
+	}
+	return &Remedy{
+		Action: "install",
+		Target: RemedyTarget{Kind: "package", ID: "pending updates"},
+		Before: map[string]any{"snapshot_command": snapCmd, "volume": st.ID, "kind": st.Kind,
+			"note": "take the snapshot before installing, so it can be rolled back to"},
+		After:    map[string]any{"installed": "the pending updates", "install_command": installCmd},
+		Rollback: Rollback{Action: "restore", Value: map[string]any{"snapshot": snapName, "command": restoreCmd}},
+		Verify:   Verify{RuleAbsent: "upd.behind", Expect: map[string]any{"status": "up-to-date"}},
+	}
+}
+
+// splitVGLV splits "vg/lv" into its parts.
+func splitVGLV(id string) (string, string) {
+	if i := strings.IndexByte(id, '/'); i >= 0 {
+		return id[:i], id[i+1:]
+	}
+	return id, id
+}
+
 func orText(s, fallback string) string {
 	if strings.TrimSpace(s) == "" {
 		return fallback
@@ -158,7 +218,41 @@ func CollectUpdates(ctx context.Context, run Runner, stat func(string) (os.FileI
 		snap.RebootRequired = true
 		snap.RebootReason = "/run/reboot-required exists"
 	}
+	if snap.Family != "" {
+		snap.SnapshotTarget = detectSnapshotTarget(ctx, run)
+	}
 	return snap
+}
+
+// detectSnapshotTarget reads (read-only) whether / is on an LVM logical volume or a ZFS dataset — the volume a
+// pre-update snapshot would be taken of, so the update remedy has a real rollback point (plan U4a). Neither → "none"
+// with the reason, and the remedy layer offers no reversible fix rather than a fake rollback.
+func detectSnapshotTarget(ctx context.Context, run Runner) SnapshotTarget {
+	out, err := run(ctx, "findmnt", "-n", "-o", "SOURCE,FSTYPE", "/")
+	fields := strings.Fields(string(out))
+	if len(fields) < 2 {
+		reason := "could not read the root mount (findmnt)"
+		if err != nil {
+			reason += ": " + clip(err.Error(), 120)
+		}
+		return SnapshotTarget{Kind: "none", Reason: reason}
+	}
+	source, fstype := fields[0], fields[1]
+	if fstype == "zfs" {
+		return SnapshotTarget{Kind: "zfs", ID: source} // findmnt gives the dataset as the source
+	}
+	if lv, _ := run(ctx, "lvs", "--noheadings", "-o", "vg_name,lv_name,lv_layout", source); len(strings.TrimSpace(string(lv))) > 0 {
+		f := strings.Fields(string(lv))
+		if len(f) >= 2 {
+			layout := "thick"
+			if len(f) >= 3 && strings.Contains(f[2], "thin") {
+				layout = "thin"
+			}
+			return SnapshotTarget{Kind: "lvm", ID: f[0] + "/" + f[1], Layout: layout}
+		}
+	}
+	return SnapshotTarget{Kind: "none",
+		Reason: fmt.Sprintf("/ is on %s (%s), not a snapshot-capable volume (LVM or ZFS)", source, fstype)}
 }
 
 func collectApt(ctx context.Context, run Runner, stat func(string) (os.FileInfo, error), snap *UpdateSnapshot) {

@@ -15,8 +15,8 @@ public class IncidentRingTests
     [Fact]
     public void Evicts_the_oldest_once_over_capacity()
     {
-        var ring = new IncidentRing(capacity: 3);
         var t = new DateTime(2026, 10, 18, 3, 0, 0, DateTimeKind.Utc);
+        var ring = new IncidentRing(capacity: 3) { Now = () => t.AddMinutes(1) };   // pin the clock: age eviction must not depend on today's date
         for (var i = 0; i < 5; i++) ring.Add(Exit(100 + i, t.AddSeconds(i)));
         var recent = ring.Recent();
         Assert.Equal(3, recent.Count);
@@ -133,8 +133,8 @@ public class IncidentRingTests
     [Fact]
     public void Concurrent_adds_stay_bounded_and_do_not_throw()
     {
-        var ring = new IncidentRing(capacity: 50);
         var t = new DateTime(2026, 10, 18, 3, 0, 0, DateTimeKind.Utc);
+        var ring = new IncidentRing(capacity: 50) { Now = () => t.AddMinutes(1) };   // pin the clock (age eviction must not depend on today's date)
         Parallel.For(0, 1000, i => ring.Add(Exit(i, t.AddMilliseconds(i))));
         Assert.True(ring.Count <= 50);
         Assert.Equal(50, ring.Recent().Count);

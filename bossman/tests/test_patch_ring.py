@@ -15,6 +15,7 @@ from bossman.main import create_app
 from bossman.services import nt_runbook, patch_ring
 from tests.naming import owned_name
 from tests.test_management_api import _headers, _make_agent, _make_api_token
+from tests.test_mcp_server import session_factory  # noqa: F401 — a fixture used by the executor test
 
 
 def owned_group():
@@ -93,3 +94,27 @@ async def test_a_scope_without_windows_hosts_is_refused(db_session):
     for a in (lin, token):
         await db_session.delete(a)
     await db_session.commit()
+
+
+async def test_executor_marks_a_crashed_rollout_failed_not_stuck_running(db_session, session_factory, monkeypatch):
+    """An unhandled error in the rollout driver must leave the rollout `failed`, not stuck `running` forever."""
+    import bossman.services.rollout as R
+    from bossman.db.models import DEFAULT_TENANT_ID
+    from tests.test_mcp_server import _settings
+
+    r = Rollout(tenant_id=DEFAULT_TENANT_ID, name=owned_name("pr-fail"), runbook_name="x", variables={},
+                dry_run=True, waves=[{"name": "canary", "agent_ids": []}], health_gate={}, status="running",
+                created_by="t")
+    db_session.add(r)
+    await db_session.commit()
+    rid = r.id
+
+    async def boom(*a, **k):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(R, "_drive_rollout", boom)
+    await R.execute_rollout(session_factory, _settings("/tmp"), rid, None)
+
+    async with session_factory() as s:
+        again = await s.get(Rollout, rid)
+        assert again.status == "failed" and again.finished_at is not None

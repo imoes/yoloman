@@ -142,6 +142,10 @@ write_dnsmasq_conf() {   # $1 = off|open|restricted, $2 = space-separated MAC[=I
     {
         echo "interface=${PXE_INTERFACE}"
         echo "bind-interfaces"
+        # No DNS: dnsmasq answers DNS by default, which made this an open recursive resolver on the lab segment
+        # (measured 2026-10-19: 192.0.2.130:53 resolved example.org for anyone). Installers get their DNS from
+        # their own configuration, and the PE works with addresses only.
+        echo "port=0"
         echo "enable-tftp"
         echo "tftp-root=${TFTP_ROOT}"
         if [ "$1" = "restricted" ]; then
@@ -179,8 +183,20 @@ write_dnsmasq_conf() {   # $1 = off|open|restricted, $2 = space-separated MAC[=I
             echo "dhcp-match=set:efi64,option:client-arch,9"     # EFI x86-64 (some firmwares send 9)
             echo "dhcp-boot=tag:efi64,grub/x86_64-efi/core.efi"
             echo "pxe-service=x86PC,\"Bossman PXE install\",pxelinux"
+            # With DNS off dnsmasq no longer offers itself as the DNS server; hand out the real one when set.
+            if [ -n "${PXE_DNS_SERVER:-}" ]; then echo "dhcp-option=option:dns-server,${PXE_DNS_SERVER}"; fi
         fi
     } > "$DNSMASQ_CONF"
+}
+# off → no dnsmasq at all: without an armed job nothing listens (no DHCP 67, no TFTP 69, no DNS 53). It used
+# to keep running with TFTP on and DHCP off, which nobody could reach but which still held port 69 on the host.
+stop_dnsmasq() {
+    pkill -x dnsmasq 2>/dev/null || true
+    i=0; while pgrep -x dnsmasq >/dev/null 2>&1 && [ "$i" -lt 25 ]; do sleep 0.2; i=$((i + 1)); done
+}
+apply_dnsmasq() {   # $1 = off|open|restricted, $2 = MAC[=IP] list
+    write_dnsmasq_conf "$1" "$2"
+    if [ "$1" = "off" ]; then stop_dnsmasq; else restart_dnsmasq; fi
 }
 restart_dnsmasq() {
     pkill -x dnsmasq 2>/dev/null || true
@@ -280,9 +296,8 @@ sync_netinstall() {   # $1 = the /netboot/config JSON
 agent_token() { sed -n 's/^token:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' /etc/agentic-mcp/config.yaml 2>/dev/null | head -1; }
 state="off|"
 last_secret="__unset__"
-write_dnsmasq_conf off ""
-restart_dnsmasq
-echo "pxe: TFTP on ${PXE_INTERFACE}/${PXE_LISTEN_IP}, HTTP root ${HTTP_ROOT}; DHCP + secret gated via ${BOSSMAN_URL}/netboot/config"
+apply_dnsmasq off ""
+echo "pxe: dnsmasq (DHCP + TFTP) on ${PXE_INTERFACE}/${PXE_LISTEN_IP} only while a job is armed; HTTP root ${HTTP_ROOT}; gated via ${BOSSMAN_URL}/netboot/config"
 while true; do
     tok="$(agent_token)"
     resp=""
@@ -307,9 +322,8 @@ while true; do
         want="$state"   # Bossman/token not ready → hold current state rather than flap
     fi
     if [ "$want" != "$state" ]; then
-        echo "pxe: DHCP ${want%%|*}${macs:+ for ${macs}}${reason:+ — ${reason}}"
-        write_dnsmasq_conf "${want%%|*}" "${want#*|}"
-        restart_dnsmasq
+        echo "pxe: DHCP ${want%%|*}${macs:+ for ${macs}}${reason:+ — ${reason}}$( [ "${want%%|*}" = off ] && echo ' — dnsmasq stopped, ports 67/69 free')"
+        apply_dnsmasq "${want%%|*}" "${want#*|}"
         state="$want"
     fi
     sleep "${DHCP_POLL_SECONDS:-10}"

@@ -23,6 +23,16 @@ def read_readme(help_root: str | Path) -> str:
         return ""
 
 
+def read_changelog(help_root: str | Path) -> str:
+    """The CHANGELOG markdown — what is new/changed/fixed and what is still missing. Served so the changelog is
+    reachable from the web UI, not only the README (CLAUDE.md: link it from both). '' if not mounted."""
+    p = Path(help_root) / "CHANGELOG.md"
+    try:
+        return p.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
 def _doc_files(help_root: str | Path) -> list[Path]:
     root = Path(help_root)
     files: list[Path] = []

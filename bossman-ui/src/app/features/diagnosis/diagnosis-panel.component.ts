@@ -2,7 +2,10 @@ import { Component, effect, inject, input, output, signal } from '@angular/core'
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { BlockedReasonDirective } from '../../shared/blocked-reason/blocked-reason.directive';
+import { GraylogSettings, SystemSettingsService } from '../../core/services/system-settings.service';
 
 interface Evidence { id: string; source: string; observed: string | null; fact: string; raw: unknown }
 interface Finding {
@@ -20,6 +23,10 @@ interface DiagnosisDoc {
 interface StoredDiagnosis { id: string; contract_status: 'ok' | 'violation'; contract_violations: string[]; diagnosis: DiagnosisDoc }
 interface Explanation { source: string; note: string | null; header: string[]; unbacked: number;
                         sentences: { text: string; evidence_ids: string[]; backed: boolean; why: string | null }[] }
+interface RelatedItem { id: string; host: string; target: { name: string } | null; collected_at: string;
+                        contract_status: 'ok' | 'violation' }
+interface ProposalRef { id: string; title: string; status: string; requested_by: string | null;
+                        decided_by: string | null; created_at: string }
 
 /**
  * "Why is it not running?" — one diagnosis, rendered (docs/diagnosis.md).
@@ -32,17 +39,21 @@ interface Explanation { source: string; note: string | null; header: string[]; u
 @Component({
   selector: 'app-diagnosis-panel',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, BlockedReasonDirective, RouterLink],
   template: `
     <section class="dg" [attr.data-service]="service()">
       <header class="dg-head">
-        <h3><mat-icon>troubleshoot</mat-icon> Why is {{ service() }} not running?</h3>
+        <h3><mat-icon>troubleshoot</mat-icon> Why is {{ subject() }} not running?</h3>
         <span class="dg-sp"></span>
-        <button mat-stroked-button (click)="load()" [disabled]="busy()"><mat-icon>refresh</mat-icon> Diagnose again</button>
+        @if (storedId()) {
+          <span class="dg-dim" title="A saved diagnosis, shown as it was recorded">kept {{ collectedAt() }}</span>
+        } @else {
+          <button mat-stroked-button (click)="load()" [disabled]="busy()"><mat-icon>refresh</mat-icon> Diagnose again</button>
+        }
         <button mat-icon-button aria-label="Close" (click)="closed.emit()"><mat-icon>close</mat-icon></button>
       </header>
 
-      @if (busy()) { <p class="dg-dim">Asking {{ service() }}'s host…</p> }
+      @if (busy()) { <p class="dg-dim">{{ storedId() ? 'Loading the saved diagnosis…' : "Asking " + service() + "'s host…" }}</p> }
       @if (error()) { <p class="dg-err">{{ error() }}</p> }
 
       @if (stored(); as s) {
@@ -52,6 +63,41 @@ interface Explanation { source: string; note: string | null; header: string[]; u
             {{ s.contract_violations.join('; ') }}</div>
         }
         <p class="dg-summary"><span class="dg-status">{{ d.status }}</span> {{ d.summary }}</p>
+
+        <div class="dg-actions dg-top-actions">
+          <span class="bm-why">
+            <button mat-stroked-button (click)="sendGelf()" [disabled]="sending()"
+                    [bmBlocked]="gelfBlocked()">
+              <mat-icon>send</mat-icon> {{ sending() ? 'Sending…' : 'Send to Graylog' }}</button>
+          </span>
+          @if (sentGelf(); as msg) { <span class="dg-dim" [class.dg-err]="sendFailed()">{{ msg }}</span> }
+        </div>
+
+        @if (related().length) {
+          <details class="dg-related">
+            <summary><mat-icon>history</mat-icon> Seen before — same failure elsewhere or earlier ({{ related().length }})</summary>
+            @for (r of related(); track r.id) {
+              <a class="dg-relrow" [routerLink]="['/diagnoses', r.id]">
+                <code class="dg-dim">{{ r.collected_at }}</code>
+                <span class="dg-relhost">{{ r.host }}</span>
+                <span class="dg-dim">{{ r.target?.name }}</span>
+                @if (r.contract_status === 'violation') { <span class="dg-relviol">violation</span> }
+              </a>
+            }
+          </details>
+        }
+
+        @if (proposals().length) {
+          <div class="dg-proposals">
+            <mat-icon>gavel</mat-icon> Remedy proposed for this diagnosis:
+            @for (p of proposals(); track p.id) {
+              <a class="dg-proprow" routerLink="/change-proposals" [title]="p.title">
+                <span class="dg-propstat dg-propstat--{{ p.status }}">{{ p.status }}</span>
+                <span class="dg-dim">{{ p.decided_by ? 'by ' + p.decided_by : (p.requested_by || '') }}</span>
+              </a>
+            }
+          </div>
+        }
 
         @for (f of d.findings; track $index; let i = $index) {
           <article class="dg-finding" [attr.data-rule]="f.rule_id">
@@ -158,7 +204,22 @@ interface Explanation { source: string; note: string | null; header: string[]; u
     .dg-ev summary, .dg-timeline summary { cursor: pointer; font-size: 13px; }
     .dg-evrow, .dg-trow { font-size: 12px; margin: 4px 0 4px 12px; }
     .dg-remedy { background: color-mix(in srgb, var(--bm-accent, #1565c0) 6%, transparent); padding: 6px 8px; border-radius: 6px; font-size: 13px; }
-    .dg-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .dg-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+    .dg-top-actions { margin: 8px 0; gap: 10px; }
+    .dg-related { margin: 8px 0; font-size: 13px; }
+    .dg-related > summary { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .dg-related > summary mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .dg-relrow { display: flex; align-items: baseline; gap: 10px; padding: 4px 0 4px 18px; text-decoration: none; color: inherit; }
+    .dg-relrow:hover { background: color-mix(in srgb, var(--bm-accent, #1565c0) 6%, transparent); }
+    .dg-relhost { font-weight: 500; }
+    .dg-relviol { font-size: 11px; font-weight: 600; color: var(--bm-red, #c62828); }
+    .dg-proposals { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; font-size: 13px; }
+    .dg-proposals > mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .dg-proprow { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; color: inherit; }
+    .dg-propstat { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); }
+    .dg-propstat--approved, .dg-propstat--applied { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
+    .dg-propstat--rejected, .dg-propstat--failed { background: color-mix(in srgb, var(--bm-red, #c62828) 22%, transparent); }
     .dg-export pre, .dg-xbody pre { max-height: 260px; overflow: auto; font-size: 12px; }
     .dg-xhead { font-weight: 600; font-size: 13px; margin: 4px 0; }
     .dg-sent { margin: 4px 0; }
@@ -169,8 +230,12 @@ interface Explanation { source: string; note: string | null; header: string[]; u
 })
 export class DiagnosisPanelComponent {
   private http = inject(HttpClient);
-  agentId = input.required<string>();
-  service = input.required<string>();
+  private systemSettings = inject(SystemSettingsService);
+  // Fresh mode: agentId + service → ask the host now (POST /diagnose). Stored mode: storedId → load a kept
+  // diagnosis by its id (GET /diagnoses/:id), the permalink view (UX concept #3). Exactly one mode is in play.
+  agentId = input<string>('');
+  service = input<string>('');
+  storedId = input<string>('');
   closed = output<void>();
 
   readonly exportFormats = ['powershell', 'ansible', 'dsc', 'checkmk', 'gelf'];
@@ -186,18 +251,81 @@ export class DiagnosisPanelComponent {
   exported = signal<any>(null);
   explanation = signal<Explanation | null>(null);
   explaining = signal(false);
+  // "Send to Graylog": the GELF target is env-based and read-only; we fetch it so the button is greyed UP FRONT with
+  // the reason when no target is set, rather than offered and then refused with a 422 after the click.
+  graylog = signal<GraylogSettings | null>(null);
+  sending = signal(false);
+  sentGelf = signal('');
+  sendFailed = signal(false);
+  related = signal<RelatedItem[]>([]);
+  proposals = signal<ProposalRef[]>([]);
 
   constructor() {
-    // A new service (or host) is a new question: ask again, drop the previous answer.
-    effect(() => { if (this.agentId() && this.service()) this.load(); });
+    // A new question is a new answer: a saved id loads that diagnosis; otherwise a new service (or host) asks again.
+    effect(() => {
+      if (this.storedId()) this.loadStored();
+      else if (this.agentId() && this.service()) this.load();
+    });
+    this.systemSettings.getGraylog().subscribe({ next: (g) => this.graylog.set(g), error: () => this.graylog.set(null) });
+  }
+
+  /** Why "Send to Graylog" cannot run, or '' when it can — greyed up front, the reason shown. */
+  gelfBlocked(): string {
+    if (!this.stored()) return 'Load a diagnosis first';
+    const g = this.graylog();
+    if (g && !g.configured) return 'No Graylog target is configured (set BOSSMAN_GELF_HOST in Bossman) — see Settings';
+    return '';
+  }
+
+  sendGelf(): void {
+    const s = this.stored();
+    if (!s || this.gelfBlocked()) return;
+    this.sending.set(true); this.sentGelf.set(''); this.sendFailed.set(false);
+    this.http.post<{ sent: number; transport: string }>(`${environment.apiUrl}/diagnoses/${s.id}/export/gelf/send`, {}).subscribe({
+      next: (r) => { this.sending.set(false); this.sentGelf.set(`Sent ${r.sent} GELF message${r.sent === 1 ? '' : 's'} to ${r.transport}.`); },
+      error: (e) => { this.sending.set(false); this.sendFailed.set(true); this.sentGelf.set(`Not sent: ${e?.error?.detail ?? e.message}`); },
+    });
+  }
+
+  /** The service this diagnosis is about — the input in fresh mode, the kept document's target in stored mode. */
+  subject(): string {
+    return this.service() || this.stored()?.diagnosis?.target?.display_name || this.stored()?.diagnosis?.target?.name || 'the service';
+  }
+  collectedAt(): string { const d = this.stored()?.diagnosis as any; return d?.collected_at ?? ''; }
+
+  private reset(): void {
+    this.busy.set(true); this.error.set(''); this.proposed.set(''); this.exported.set(null); this.explanation.set(null);
+    this.related.set([]);
+    this.proposals.set([]);
   }
 
   load(): void {
-    this.busy.set(true); this.error.set(''); this.proposed.set(''); this.exported.set(null); this.explanation.set(null);
+    this.reset();
     this.http.post<StoredDiagnosis>(`${environment.apiUrl}/agents/${this.agentId()}/diagnose`,
       { name: this.service(), timeout_seconds: 120 }).subscribe({
-      next: (s) => { this.busy.set(false); this.stored.set(s); },
+      next: (s) => { this.busy.set(false); this.stored.set(s); this.loadRelated(s.id); },
       error: (e) => { this.busy.set(false); this.stored.set(null); this.error.set(e?.error?.detail ?? e.message); },
+    });
+  }
+
+  loadStored(): void {
+    this.reset();
+    this.http.get<StoredDiagnosis>(`${environment.apiUrl}/diagnoses/${this.storedId()}`).subscribe({
+      next: (s) => { this.busy.set(false); this.stored.set(s); this.loadRelated(s.id); },
+      error: (e) => { this.busy.set(false); this.stored.set(null); this.error.set(e?.error?.detail ?? e.message); },
+    });
+  }
+
+  /** Precedent: other diagnoses of the same failure mode across the fleet (best-effort — a failure to load it must not
+   *  disturb the diagnosis itself). */
+  private loadRelated(id: string): void {
+    this.http.get<{ items: RelatedItem[] }>(`${environment.apiUrl}/diagnoses/${id}/related`).subscribe({
+      next: (r) => this.related.set(r.items ?? []),
+      error: () => this.related.set([]),
+    });
+    this.http.get<{ items: ProposalRef[] }>(`${environment.apiUrl}/diagnoses/${id}/proposals`).subscribe({
+      next: (r) => this.proposals.set(r.items ?? []),
+      error: () => this.proposals.set([]),
     });
   }
 

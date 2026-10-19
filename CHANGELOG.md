@@ -11,6 +11,132 @@ a gap that is written down is not a surprise.
 
 ---
 
+## 0.57.98 (2026-10-19) — explainable diagnosis, end to end: update-domain, incident timeline, and the fleet picture
+
+The diagnosis grew from one service on one host into a loop across the whole fleet, reachable the same way from a
+person and from an AI (REST · MCP · the in-app chat · the console): a second domain (updates), a live incident
+timeline, permalinks and a fleet-wide board, precedent ("seen before") and recurrence ("what keeps breaking"), the
+remedy proposals filed against a diagnosis, CSV/GELF export, and — beyond diagnosis — authoring an OU/group config
+policy over MCP and the changelog served in the UI. Plans: docs/diagnosis-plan.md, docs/update-diagnosis-plan.md,
+docs/etw-ringbuffer-plan.md.
+
+### New
+- **The in-app chat assistant can read the fleet diagnosis picture** — besides `diagnose_service`, the chat dock now has `recent_diagnoses_fleet`, `recurring_failures` and `recent_incidents`, so asking "was bricht gerade ständig?" in the UI gets an answer (read-only; same surface as the MCP tools).
+- **A diagnosis shows the remedy proposals filed for it** — traceability from a diagnosis to the governance action taken on it (was a fix proposed, approved or still pending). `GET /api/v1/diagnoses/{id}/proposals`; a line on the diagnosis panel links to the Change-proposals queue. (Bossman never runs a remedy itself, so this records a fix was decided, not that it ran.)
+- **"What keeps breaking" — recurring failure modes across the fleet.** Stored diagnoses are grouped by failure mode
+  (leading rule), most frequent first: count, distinct hosts, how many did not hold, last seen — so a fleet-wide cause
+  stands out (high count *and* many hosts = fix it once). On the Diagnoses board as a "What keeps breaking" section you
+  click to drill into a mode; `GET /api/v1/diagnoses/recurring` and the MCP tool `recurring_failures(within_days)`.
+- **A diagnosis shows where the same failure was "seen before"** — its precedent across the fleet (the roadmap's
+  RAG-cause lens, concretely). The panel lists other diagnoses with the same leading rule (same failure mode), elsewhere
+  or earlier, each linking to its own permalink — the recurrence a root cause hides behind. `GET
+  /api/v1/diagnoses/{id}/related`; the AI gets the same via `recent_diagnoses_fleet(q=<rule>)`. Read-only.
+- **The AI can author a fleet-wide config policy over MCP** (`set_config_policy`), not only a single host. It converges
+  a file toward a desired key→value map for a whole OU or host-group, like linking a GPO. Preview-first (dry-run shows
+  the blast radius on every member, persists nothing); an apply is governance-gated the way `set_host_config` is —
+  it proceeds only under YOLO mode, otherwise it is refused with the preview and points at the Policy console, where a
+  human owns a fleet-wide change. The REST route's authoring logic was extracted into one shared `author_config_policy`
+  so REST and MCP cannot drift (characterization tests written first as the net; MCP tests cover preview/refuse/scope).
+- **A fleet-wide Diagnoses board** — stored diagnoses were only reachable host by host (the Services snap-in's "Past
+  diagnoses"); now `/diagnoses` lists every host's diagnoses newest-first, each opening at its permalink, with contract
+  violations flagged and filters for status / contract / free text (+ CSV export). `GET /api/v1/diagnoses` (admin, like
+  the fleet-wide audit list) and the MCP tool `recent_diagnoses_fleet(status, contract_status, q)` so the AI can scan
+  "what is wrong anywhere right now" and find documents that did not hold. Reached from the Fleet workspace and linked
+  from the per-host history and the permalink page.
+- **The changelog is reachable from the web UI, not only the README.** The Help page gains a "Changelog" tab that
+  renders `CHANGELOG.md` (served by `GET /api/v1/help/changelog`, the same way the README backs the Documentation tab),
+  so "what is new, what changed, what is still missing" is one click away in the app — the global rule that a project's
+  changelog is linked from both the README and the web page.
+- **Fleet boards export to CSV** (monitoring gap #5, the practical slice). The Fleet Overview, Software Compliance and
+  Capacity-forecast and Security boards each have an "Export CSV" button that downloads their current table — compliance flattens
+  every rule's per-host drift into one report, capacity writes the growth/ETA forecast, and Security exports the CVE findings (one row per CVE+host). The **Audit log** exports too,
+  but **server-side** (`GET /api/v1/audit/export.csv`, same filters as the list) so the file is the whole matching
+  trail, not just the page shown — what a compliance auditor needs; the filter is one shared query, so the export and
+  the on-screen list can't disagree. One shared `shared/csv.ts` helper does the RFC-4180 serialising and the download
+  (the Fleet Overview's own copy was folded into it), so there is one implementation, not one per board. PDF, scheduling
+  and emailed SLA/inventory reports stay deferred. Playwright captures the Capacity and Audit downloads and checks they
+  are real CSV.
+- **Create a Windows patch ring from a form, with a dry-run check page** (peer UX concept #5). The Rollouts page gains
+  a "New patch ring" form (install state, reboot, update categories, accept/reject KBs, scope, waves, dry-run on by
+  default). Submitting plans it and shows a check page — how many Windows hosts were kept, the waves, and every host
+  that was skipped *with the reason* (not a Windows host / no address) — before anything is started; the ring then lives
+  in the rollouts list and installs nothing until Start. *Verified live:* a dry-run ring on bossman-wintest (1 host,
+  canary wave) and a global dry-run (1 kept, 16 skipped with reasons); Playwright drives the form → check page → list.
+- **Send a diagnosis to Graylog from the console, and see the GELF target in Settings** (peer UX concept #4). A
+  diagnosis panel now has a "Send to Graylog" button that forwards its GELF messages (one per finding and per evidence,
+  tagged with the diagnosis id) to the configured target and reports how many went over which transport — greyed up
+  front with the reason when no target is set, not offered then refused. Settings gains a read-only "Graylog (GELF)
+  target" card (new `GET /api/v1/system/graylog`) showing host/port/protocol (env-based, not secret) or that none is
+  configured. *Verified live* (dev stack `BOSSMAN_GELF_HOST=graylog`): a send delivered 8 GELF messages to
+  udp://graylog:12201; Playwright covers the Settings card and the send-from-permalink flow.
+- **A saved diagnosis has its own link, and a host's past diagnoses are listable** (peer UX concept #3). A diagnosis
+  kept by Bossman is now reachable at `/diagnoses/:id` — a permalink you can send to a colleague or paste into a ticket,
+  shown read-only exactly as it was recorded (export / explain / propose still work on it; "diagnose again" does not,
+  because a saved diagnosis is what was true then, not a live re-run). The management console's Services snap-in gains a
+  "Past diagnoses…" action that lists a host's kept diagnoses newest-first (`GET /agents/:id/diagnoses`), each row a link
+  to its permalink, with contract violations flagged — so "is this new or recurring?" is answerable before asking for a
+  fresh diagnosis. The diagnosis panel learned a second, stored mode for this without changing its fresh-diagnose DOM.
+  *Verified live:* `GET /diagnoses/:id` returns the full document; Playwright drives the list → permalink flow and a cold
+  permalink load, and the existing fresh-diagnose panel test still passes.
+- **A host's recent crashes and OOM kills, as a timeline you can pull** (peer UX concept #2). The incident ring the
+  diagnosis already looks back on (an abnormal exit, a crash, a .NET exception, or on Linux an OOM kill / fatal signal —
+  what a diagnosis cites as `svc.recent_incident`) is now a standalone, read-only tool so the UI and the AI can show the
+  whole timeline for a host, not only the entries one diagnosis happened to touch. `recent_incidents(host, kind, image,
+  within_minutes, limit)` (MCP) / `GET /api/v1/agents/{id}/incidents` ask the host's own ring live — **nothing is
+  stored in Bossman**. Both agents answer under one contract: the Linux agent (Go) serves the eBPF collector's ring, the
+  Windows agent (C#) serves the ETW ring, with a byte-identical output shape (newest first; each incident carries the
+  same stable `evidence_id` a diagnosis cites). The honesty is in the envelope: every answer states `ring_state`
+  (`available` | `not_supported:<reason>`), `capacity`, `persistent` and `since`, because the ring is bounded — an empty
+  list after a restart is a named gap, **not** "nothing ever crashed" (on Windows the ring is persistent and survives a
+  reboot; on Linux it is in-memory, so `since` is when the agent started capturing). A host whose agent is too old gets a
+  named refusal ("no recent_incidents module — update the agent"), never a silent empty answer. **The Windows incident
+  ring now records only FATAL exceptions**, not every handled throw: live verification found the ETW ring was 99.5%
+  noise (199 of 200 entries were handled .NET exceptions from gpresult/SIHClient/PowerShell and the agent itself, which
+  the CLR provider fires on for every throw), burying the one real process-exit. A .NET exception is kept only when its
+  process then dies abnormally within the window — the exception that actually killed it; a handled exception whose
+  process keeps running is discarded (new `IncidentCorrelator`, agent 0.3.32). *Verified live:* driving
+  `windows_update_facts` (PowerShell-heavy, throws many handled exceptions) added **zero** new incidents. This also
+  resolves the evidence_id collisions seen live (one exception per process death, one exit per pid → unique ids).
+  Tests: Go module (no-ring
+  → named `not_supported`, filters + newest-first sort); Bossman proxy (a live read is passed through with the host and
+  keeps no row; a missing module is a named refusal); C# module (184 dotnet tests pass). Windows agent 0.3.31.
+  *Verified live (2026-10-19, rebuilt bossman + bossman-ui + dev agent):* `GET /agents/{id}/incidents` returned **501**
+  with the host name and agent version on an old Linux agent (pve1, 0.57.93) and an old Windows agent (bossman-wintest,
+  0.3.30); on hal (agent carrying the module, eBPF off) it returned **200** with `ring_state: "not_supported: the eBPF
+  collector is not running…"` — a named gap, not an empty "no crashes". Playwright drove the UI: the "Recent incidents…"
+  action opens the timeline and shows that ring state plainly.
+- **Patch rings and rollouts are fully drivable over MCP, and their state machine has no dead ends** (from the peer
+  session's UX review). The AI can now run a rollout end to end: `start_rollout`, `rollout_status`, `abort_rollout`,
+  `pause_rollout`, `resume_rollout` as MCP tools (they existed only as REST before, yet `create_patch_ring`'s own text
+  told the model to "start it"). `create_patch_ring` gained the knobs the REST endpoint already had — `state`,
+  `reject_list`, `ou` scope, `strategy` — by sharing one `plan_patch_ring` service between REST and MCP instead of a
+  second, thinner copy. And the two states the model listed but never reached are now real: **pause/resume** (a rollout
+  stops at the next wave boundary keeping its progress, and resume continues from that wave without re-applying the
+  done ones — the driver is resumable), and **failed** (an unhandled error in the driver now lands the rollout as
+  `failed` with a finish time, instead of leaving it stuck `running` forever). Tests: the executor marks a crashed
+  rollout failed; 63 patch-ring/rollout/MCP/management tests pass.
+- **A second diagnosis domain: updates.** The same explainable-diagnosis contract now answers "why is this host behind
+  on updates, or why did an update fail?" — a new target kind `updates` alongside services. `diagnose_updates(host)`
+  (MCP) / `POST /api/v1/agents/{id}/diagnose-updates` asks the host's own `update_diagnose` module and keeps the
+  document: findings `upd.install_failed` (with the HRESULT in Windows' words), `upd.reboot_pending`,
+  `upd.wsus_unreachable`, `upd.held`, `upd.dpkg_interrupted`, `upd.repo_unreachable`, `upd.behind`, `upd.up_to_date`,
+  each with a certainty and cited evidence. Windows reads the Windows Update Agent (via the existing read-only
+  `windows_update_facts`, no new measurement); Linux reads apt/dnf (`apt-get -s upgrade`, `apt-mark showhold`,
+  `dpkg --audit`, `dnf list --upgrades`, `/run/reboot-required`). *Verified live:* on bossman-wintest (status behind,
+  `upd.behind`) and in a Debian pod (`upd.reboot_pending` + `upd.held` + `upd.behind` from real apt data). (U0–U3 shipped
+  in 0.57.97; the catalogue, both agents and the Bossman tool.)
+- **An update fix proposes a snapshot as its rollback.** Installing updates is not reversible by itself, so the remedy's
+  way back is a filesystem snapshot: on Linux the diagnosis detects (read-only) whether `/` is on LVM or ZFS and, only
+  then, `upd.behind` carries a remedy whose `before` takes the snapshot (`lvcreate --snapshot` / `zfs snapshot`) and
+  whose rollback restores it (`lvconvert --merge` + reboot / `zfs rollback`); the Ansible export emits the
+  snapshot→install playbook and the restore playbook. When `/` is not on a snapshot-capable volume — and on Windows,
+  which has no guest snapshot and where a KB uninstall only reverses uninstallable updates — **no remedy is offered**,
+  only a named gap pointing at a patch ring / `windows_update` and, for a real rollback, a hypervisor/VM snapshot. The
+  "every remedy has a rollback" contract stays honest. The remedy is a four-eyes proposal + exported playbook, never
+  auto-run. Tests across all three languages; schema actions `install`/`restore` added.
+
+---
+
 ## 0.57.97 (2026-10-18) — kernel tuning: what can this kernel be tuned with?
 
 Plan and description: docs/kernel-tuning.md.
@@ -150,6 +276,17 @@ Plan and description: docs/kernel-tuning.md.
   (with the kernel's error), `disabled` (with the config switch) or `not_started`.
 
 ### Fixed
+- **dnsmasq runs only while a deployment job is armed, and never as a DNS server.** It ran all the time: with no
+  job it served TFTP on port 69 and an open recursive DNS resolver on the lab segment's address (port 53;
+  measured: it resolved example.org for anyone). Now no job means no dnsmasq (ports 67/69 free); an armed job
+  starts it with `port=0` and hands out `PXE_DNS_SERVER` as the DNS server. Verified with a dummy job: listening
+  on 67, 4011 and 69 only while armed, stopped after the cancel.
+- **Public RPMs no longer carry the build machine's hostname.** nfpm writes it into the RPM header (`BUILDHOST`);
+  every public RPM since 0.57.70 carried it. The 0.57.97 RPMs were rebuilt in a UTS namespace named
+  `build.example.internal` (the first upload was replaced), and both package scripts now always do so. The
+  Bossman RPM is xz-compressed: with gzip it was 100.06 MB, over GitHub's file limit for the package repository.
+- **The release carries its manifest again** (`yoloman-agent-<version>.manifest.json`): with 0.57.73 Bossman saw
+  the release but no checksums (`sha256: ""`). Verified: the running Bossman reports 0.57.97 with both checksums.
 - **A preview no longer predicts an install that would fail**: apt/dnf/yum/dnf5 check mode asks the repositories,
   so a package nobody ships fails the dry run (measured: Ubuntu's non-existent "scx" was "changed: true").
 - **MCP no longer drops an unknown argument silently**: every tool refuses it and names the closest declared one

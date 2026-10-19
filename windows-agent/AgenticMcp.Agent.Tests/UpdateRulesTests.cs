@@ -58,6 +58,16 @@ public class UpdateRulesTests
     }
 
     [Fact]
+    public void BehindOnWindowsCarriesNoReversibleRemedyButNamesTheRollbackGap()
+    {
+        var d = Run(Snap(s => s.Pending = [new PendingUpdate { Kb = "KB5126655", MsrcSeverity = "Critical" }]));
+        var f = ByRule(d, "upd.behind");
+        Assert.NotNull(f);
+        Assert.Null(f!.Remedy);   // no guest snapshot on Windows → no fake/partial rollback
+        Assert.Contains(d.Gaps, g => g.What.Contains("rollback") && g.Why.Contains("hypervisor/VM snapshot"));
+    }
+
+    [Fact]
     public void AFailedInstallLeadsOverBehindAndReboot()
     {
         var d = Run(Snap(s =>

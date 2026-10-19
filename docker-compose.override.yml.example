@@ -196,12 +196,18 @@ services:
       BOSSMAN_URL: http://192.0.2.10:8123
       ENROLL_URL: http://192.0.2.10:8123
       # FULL DHCP: hand out addresses on the isolated ens19 lab segment (proxy mode hands out none,
-      # so the PE hangs at "Configuring network"). Tiny pool; only served while a job is armed.
+      # so the PE hangs at "Configuring network"). Only served while a job is armed and only to its MAC; a network
+      # install's MAC gets its checked address, so this pool is the fallback for image restores.
       DHCP_MODE: full
       DHCP_RANGE: 192.0.2.10,192.0.2.10,12h
       DHCP_ROUTER: 192.0.2.10
       PXE_HTTP_PORT: 8080
-      PXE_INTERFACE: br-ens19
+      # The UP interface that carries PXE_LISTEN_IP (the entrypoint also finds it by itself and says so). A
+      # member-less bridge in state DOWN receives no DHCP request at all.
+      PXE_INTERFACE: ens19
+      PXE_LISTEN_IP: 192.0.2.10
+      # dnsmasq runs only while a job is armed and without DNS (port=0); DHCP clients get this DNS server.
+      PXE_DNS_SERVER: 192.0.2.53
       PXE_AGENT_ADDRESS: 192.0.2.10:8051
       # Netboot secret is NOT set here — it is entered + enabled in the WebUI (Settings → PXE netboot);
       # the container fetches it from GET /netboot/config with its agent token.
